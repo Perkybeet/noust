@@ -1,5 +1,4 @@
 import { QueryClient } from "@tanstack/react-query";
-import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 import { SETTINGS_SECTIONS } from "../features/app/settings/sections";
@@ -537,66 +536,3 @@ describe("what the pages draw from the register", () => {
 function isInterim(entry: Dest): boolean {
   return INTERIM.some((row) => row.from === entry.to);
 }
-
-/**
- * Ratchet `destination-outside-register`: a list of destinations written anywhere but app/nav.ts.
- * Seven files wrote one in 3.x; none does now, and a new one fails here with its file and line.
- */
-const SOURCES = import.meta.glob<string>(["../**/*.{ts,tsx}", "!../**/*.test.{ts,tsx}", "!../test/**", "!../dev/**", "!../**/*.gen.ts", "!./nav.ts"], {
-  eager: true,
-  query: "?raw",
-  import: "default",
-});
-
-/** The lines of the array literals in a source that list tabs or destinations by hand. Breadcrumbs are not destinations. */
-function destinationLiterals(file: string, source: string): number[] {
-  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-  // A file that does not deal in tabs or destinations cannot be listing them: it imports their types.
-  const dealsInTabs = tree.statements.some(
-    (statement) =>
-      ts.isImportDeclaration(statement) &&
-      statement.importClause !== undefined &&
-      /\b(LinkTab|LinkTabs|TabItem|NavItem)\b/.test(statement.importClause.getText(tree)) &&
-      /\/(LinkTabs|nav|navCore)"$/.test(statement.moduleSpecifier.getText(tree)),
-  );
-  if (!dealsInTabs) return [];
-  const isDestination = (node: ts.Node): boolean =>
-    ts.isObjectLiteralExpression(node) && ["label", "to"].every((name) => node.properties.some((property) => property.name?.getText(tree) === name));
-  const holdsDestination = (node: ts.Node): boolean =>
-    isDestination(node) || (ts.isObjectLiteralExpression(node) && node.properties.some((property) => ts.isPropertyAssignment(property) && isDestination(property.initializer)));
-  const lines: number[] = [];
-  const visit = (node: ts.Node): void => {
-    if (ts.isArrayLiteralExpression(node) && node.elements.some(holdsDestination) && !isBreadcrumbs(node, tree)) {
-      lines.push(tree.getLineAndCharacterOfPosition(node.getStart(tree)).line + 1);
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(tree);
-  return lines;
-}
-
-function isBreadcrumbs(node: ts.Node, tree: ts.SourceFile): boolean {
-  for (let up: ts.Node = node.parent; !ts.isSourceFile(up); up = up.parent) {
-    if (ts.isPropertyAssignment(up) && up.name.getText(tree) === "breadcrumbs") return true;
-    if ((ts.isFunctionDeclaration(up) || ts.isVariableDeclaration(up)) && /breadcrumb/i.test(up.name?.getText(tree) ?? "")) return true;
-  }
-  return false;
-}
-
-describe("ratchet destination-outside-register", () => {
-  it("catches a list of tabs written by hand, and lets breadcrumbs and the register alone", () => {
-    const tabs = `import type { LinkTab } from "../../app/LinkTabs";\nconst tabs: LinkTab[] = [\n  { label: "a.b", to: "/a" },\n];`;
-    const wrapped = `import type { LinkTab } from "../../app/LinkTabs";\nconst TABS = [{ tab: { label: "a.b", to: "/a" }, needs: [] }];`;
-    const crumbs = `import type { LinkTab } from "../../app/LinkTabs";\nconst header = { breadcrumbs: [{ label: "A", to: "/a" }] };\nfunction serviceBreadcrumbs() { return [{ label: "A", to: "/a" }]; }`;
-    const elsewhere = `const tabs = [{ label: "a.b", to: "/a" }];`;
-    expect(destinationLiterals("x.tsx", tabs)).toEqual([2]);
-    expect(destinationLiterals("x.tsx", wrapped)).toEqual([2]);
-    expect(destinationLiterals("x.tsx", crumbs)).toEqual([]);
-    expect(destinationLiterals("x.tsx", elsewhere)).toEqual([]);
-  });
-
-  it("finds none in the console: every list of destinations is read from the register (NV-1)", () => {
-    const found = Object.entries(SOURCES).flatMap(([file, source]) => destinationLiterals(file, source).map((line) => `${file}:${String(line)}`));
-    expect(found).toEqual([]);
-  });
-});

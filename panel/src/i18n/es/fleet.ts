@@ -40,6 +40,8 @@ export const fleet: Catalog<typeof en> = {
   },
   shell: {
     noticeLabel: "Sobre {node}",
+    ceilingTitle: "Acceso limitado en {node}",
+    versionTitle: "{node} ejecuta otro Noust",
     olderNode:
       "{node} ejecuta Noust {nodeVersion}, anterior a la {version} de este servidor. Una página que necesite algo que {node} no tiene lo indica.",
     newerNode: "{node} ejecuta Noust {nodeVersion}, posterior a la {version} de este servidor. Actualiza este servidor para usar todo lo que ofrece {node}.",

@@ -11,14 +11,14 @@ export const inbox: Catalog<typeof en> = {
   },
   needs: {
     checking: "Comprobando qué requiere tu atención",
-    emptyTitle: "Nada requiere tu atención.",
+    emptyTitle: "Nada requiere tu atención",
     emptyDescription:
       "Una aplicación caída, un certificado a punto de caducar, una alerta que salta o una solicitud que espera tu decisión aparece aquí hasta que se resuelve.",
     count: { one: "{count} elemento requiere tu atención", other: "{count} elementos requieren tu atención" },
     couldNotLoad: "No se pudo leer qué requiere tu atención",
   },
   recent: {
-    emptyTitle: "Aún no hay avisos.",
+    emptyTitle: "Aún no hay avisos",
     emptyDescription: "Lo que el servidor te cuenta mientras esta pestaña está abierta, como un despliegue que terminó o una copia que falló, se guarda aquí.",
     footer: "Desde que abriste la consola",
     busy: "En curso",
@@ -26,7 +26,7 @@ export const inbox: Catalog<typeof en> = {
     failed: "Fallido",
     idle: "Aviso",
   },
-  history: "Abrir Actividad",
+  history: "Abrir actividad",
   reasons: {
     alertFiring: "Esta alerta ha saltado.",
     alertTaken: "Esta alerta ha saltado. La atiende {by}.",

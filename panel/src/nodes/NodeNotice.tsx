@@ -56,7 +56,9 @@ export function NodeNotice() {
   if (text === null) return null;
   return (
     <section aria-label={t("fleet.shell.noticeLabel", { node })} className="mb-6">
-      <Notice variant="banner">{text}</Notice>
+      <Notice variant="banner" title={ceiling !== null ? t("fleet.shell.ceilingTitle", { node }) : t("fleet.shell.versionTitle", { node })}>
+        {text}
+      </Notice>
     </section>
   );
 }

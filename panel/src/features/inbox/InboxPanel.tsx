@@ -37,7 +37,7 @@ function NeedsRow({ t, item, onNavigate }: { t: T; item: OverviewAttentionItem; 
   const body = (
     <>
       <span className="flex min-w-0 items-baseline gap-2">
-        <span className="min-w-0 truncate text-13 font-medium text-fg group-hover:underline group-hover:underline-offset-2">{kind === "alert" || kind === "probe" || kind === "recipe" || kind === "unit" ? <Mono tone="default">{item.title}</Mono> : <span translate="no">{item.title}</span>}</span>
+        <span className="min-w-0 truncate text-13 font-medium text-fg group-hover:underline">{kind === "alert" || kind === "probe" || kind === "recipe" || kind === "unit" ? <Mono tone="default">{item.title}</Mono> : <span translate="no">{item.title}</span>}</span>
         {when ? <RelativeTime value={when} className="shrink-0 text-12 text-fg-faint" /> : null}
       </span>
       {item.reasons.slice(0, 2).map((each, index) => (

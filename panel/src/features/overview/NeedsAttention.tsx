@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { OverviewAttentionItem, OverviewAttentionReason } from "../../api/queries/overview";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { useAnnounceChange } from "../../components/page/useAnnounceChange";
 import { Badge } from "../../components/ui/Badge";
@@ -11,6 +12,7 @@ import { Card } from "../../components/ui/Card";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph } from "../../components/ui/StatusPill";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
@@ -99,8 +101,6 @@ export function reasonText(t: T, reason: OverviewAttentionReason): string {
   }
 }
 
-const SUBJECT_LINK = "min-w-0 truncate rounded-chip text-13 font-medium text-fg hover:underline hover:underline-offset-2";
-
 /** The item's title, linking to the page that owns what it is about. */
 function Subject({ t, item }: { t: T; item: OverviewAttentionItem }) {
   const kind = item.subject["kind"];
@@ -108,24 +108,24 @@ function Subject({ t, item }: { t: T; item: OverviewAttentionItem }) {
   const name = text(item.subject["name"]);
   if (kind === "app" && domain !== null) {
     return (
-      <Link to="/apps/$domain" params={{ domain }} className={SUBJECT_LINK}>
+      <TextLink variant="row" size="ui" className="min-w-0 truncate" to="/apps/$domain" params={{ domain }}>
         <span translate="no">{item.title}</span>
-      </Link>
+      </TextLink>
     );
   }
   if (kind === "certificate") {
     // The certificates page filtered to this one, not the whole list to search through.
     return (
-      <Link to="/domains" search={domain !== null ? { q: domain } : {}} className={SUBJECT_LINK}>
+      <TextLink variant="row" size="ui" className="min-w-0 truncate" to="/domains" search={domain !== null ? { q: domain } : {}}>
         <span translate="no">{item.title}</span>
-      </Link>
+      </TextLink>
     );
   }
   if (kind === "unit" && name !== null) {
     return (
-      <Link to="/services/$name" params={{ name }} className={SUBJECT_LINK}>
+      <TextLink variant="row" size="ui" className="min-w-0 truncate" to="/services/$name" params={{ name }}>
         <Mono>{item.title}</Mono>
-      </Link>
+      </TextLink>
     );
   }
   if (kind === "alert" || kind === "probe" || kind === "approval" || kind === "noust" || kind === "recipe") {
@@ -135,21 +135,21 @@ function Subject({ t, item }: { t: T; item: OverviewAttentionItem }) {
     return target === null ? (
       label
     ) : (
-      <Link to={target.to as never} className={SUBJECT_LINK}>
+      <TextLink variant="row" size="ui" className="min-w-0 truncate" to={target.to as never}>
         {label}
-      </Link>
+      </TextLink>
     );
   }
   const pid = item.subject["pid"];
   return (
-    <Link to="/server" className={SUBJECT_LINK}>
+    <TextLink variant="row" size="ui" className="min-w-0 truncate" to="/server">
       <span translate="no">{item.title}</span>
       {typeof pid === "number" ? (
         <Mono tone="faint" className="ml-1.5 font-normal">
           {t("overview.attention.pid", { pid: String(pid) })}
         </Mono>
       ) : null}
-    </Link>
+    </TextLink>
   );
 }
 
@@ -298,8 +298,7 @@ export function NeedsAttention({ items: listed, total: listedTotal }: NeedsAtten
   let body: ReactNode;
   if (items === undefined) {
     body = (
-      <div aria-busy="true" className="divide-y divide-border">
-        <span className="sr-only">{t("overview.attention.checking")}</span>
+      <LoadingRegion label={t("overview.attention.checking")} className="divide-y divide-border">
         {[0, 1].map((row) => (
           <div key={row} aria-hidden="true" className="flex gap-3 px-4 py-3.5">
             <Skeleton className="mt-0.5 size-3.5 rounded-pill" />
@@ -309,7 +308,7 @@ export function NeedsAttention({ items: listed, total: listedTotal }: NeedsAtten
             </div>
           </div>
         ))}
-      </div>
+      </LoadingRegion>
     );
   } else if (items.length === 0) {
     body = (
@@ -344,10 +343,13 @@ export function NeedsAttention({ items: listed, total: listedTotal }: NeedsAtten
           <span className="flex items-center gap-2">
             {t("overview.attention.title")}
             {count !== null && count > 0 ? (
-              <Badge tone={worst === "fail" ? "fail" : "warn"}>
-                <span className="sr-only">{t("overview.attention.itemsSr")}</span>
-                {count}
-              </Badge>
+              <span className="inline-flex items-center gap-1.5">
+                <StatusGlyph state={worst === "fail" ? "failed" : "warning"} size={12} />
+                <Badge>
+                  <span className="sr-only">{t("overview.attention.itemsSr")}</span>
+                  {count}
+                </Badge>
+              </span>
             ) : null}
           </span>
         }

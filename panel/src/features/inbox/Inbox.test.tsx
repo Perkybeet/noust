@@ -109,7 +109,7 @@ describe("the inbox", () => {
     expect(within(at(rows, 0)).getByRole("link", { name: "Open probes, blog" })).toHaveAttribute("href", "/settings/probes");
     expect(within(at(rows, 1)).getByRole("link", { name: "Diagnose worker.example.dev" })).toHaveAttribute("href", "/apps/worker.example.dev/diagnose");
     expect(within(at(rows, 3)).getByRole("link", { name: "Certificate of example.com" })).toHaveAttribute("href", "/domains?q=example.com");
-    expect(within(panel).getByRole("link", { name: "Open Activity" })).toHaveAttribute("href", "/activity");
+    expect(within(panel).getByRole("link", { name: "Open activity" })).toHaveAttribute("href", "/activity");
     await expectNoAxeViolations(panel);
     await user.keyboard("{Escape}");
   });
@@ -147,8 +147,8 @@ describe("the inbox", () => {
     fakeBackend(inboxRoutes({ "GET /api/overview": () => json(200, overviewFixture()), "GET /api/alerts/rules": () => json(200, { items: [], metrics: [], firing: 0 }), "GET /api/probes": () => json(200, { items: [], down: 0, status_page: {} }) }));
     await openBell("Inbox, nothing needs you");
     const panel = await screen.findByRole("dialog", { name: "Inbox" });
-    expect(await within(panel).findByText("Nothing needs you.")).toBeInTheDocument();
-    expect(within(panel).getByRole("link", { name: "Open Activity" })).toBeInTheDocument();
+    expect(await within(panel).findByText("Nothing needs you")).toBeInTheDocument();
+    expect(within(panel).getByRole("link", { name: "Open activity" })).toBeInTheDocument();
   });
 
   it("keeps what the server said while the tab was open, under Recent, with its own words", async () => {
@@ -191,6 +191,6 @@ describe("the inbox", () => {
     await openBell("Bandeja, 4 cosas requieren tu atención");
     const panel = await screen.findByRole("dialog", { name: "Bandeja" });
     expect(await within(panel).findByRole("radio", { name: "Requiere tu atención 4" })).toBeInTheDocument();
-    expect(within(panel).getByRole("link", { name: "Abrir Actividad" })).toBeInTheDocument();
+    expect(within(panel).getByRole("link", { name: "Abrir actividad" })).toBeInTheDocument();
   });
 });

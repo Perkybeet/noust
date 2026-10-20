@@ -21,7 +21,7 @@ import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { SystemOutput } from "../../components/ui/SystemOutput";
-import { toast } from "../../components/ui/toast";
+import { announce } from "../../app/Announcer";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { BackupCodesDialog } from "./BackupCodes";
@@ -88,7 +88,8 @@ function AddDialog({ onClose }: { onClose: () => void }) {
         setCodes(result.backup_codes);
         return;
       }
-      toast.success(t("auth.passkeys.addedToast", { name: result.passkey.name }));
+      // The dialog closes and the passkey is in the list: said for those who do not see it.
+      announce(t("auth.passkeys.addedToast", { name: result.passkey.name }));
       onClose();
     },
   });

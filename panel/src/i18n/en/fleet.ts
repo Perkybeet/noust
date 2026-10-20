@@ -45,6 +45,8 @@ export const fleet = {
   },
   shell: {
     noticeLabel: "About {node}",
+    ceilingTitle: "Limited access on {node}",
+    versionTitle: "{node} runs another Noust",
     olderNode:
       "{node} runs Noust {nodeVersion}, older than this server's {version}. A page that needs something {node} does not have says so.",
     newerNode: "{node} runs Noust {nodeVersion}, newer than this server's {version}. Update this server to use everything {node} offers.",

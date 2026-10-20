@@ -16,13 +16,13 @@ export const inbox = {
   },
   needs: {
     checking: "Checking what needs you",
-    emptyTitle: "Nothing needs you.",
+    emptyTitle: "Nothing needs you",
     emptyDescription: "A failed application, a certificate about to expire, an alert that fires or a request waiting for your decision shows here until it is dealt with.",
     count: { one: "{count} item needs you", other: "{count} items need you" },
     couldNotLoad: "Could not read what needs you",
   },
   recent: {
-    emptyTitle: "No notices yet.",
+    emptyTitle: "No notices yet",
     emptyDescription: "What the server tells you while this tab is open - a deploy that finished, a backup that failed - is kept here.",
     footer: "Since you opened the console",
     busy: "In progress",
@@ -30,7 +30,7 @@ export const inbox = {
     failed: "Failed",
     idle: "Notice",
   },
-  history: "Open Activity",
+  history: "Open activity",
   reasons: {
     alertFiring: "This alert is firing.",
     alertTaken: "This alert is firing. {by} took it.",

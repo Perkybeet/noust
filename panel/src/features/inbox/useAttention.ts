@@ -99,7 +99,7 @@ export function useAttention(deep = false): Attention {
       total: overview.data === undefined ? items.length : attentionTotal(overview.data, base) + extras.length,
       counters: attentionCounters(items),
       loading: readsServer && overview.isPending,
-      failed: overview.isError && overview.data === undefined,
+      failed: overview.status === "error" && overview.data === undefined,
     };
-  }, [overview.data, overview.isPending, overview.isError, apps.data, extras, readsServer]);
+  }, [overview.data, overview.isPending, overview.status, apps.data, extras, readsServer]);
 }

@@ -1,5 +1,5 @@
 import { useQueries, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { PanelTop, Users, X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useState } from "react";
@@ -21,6 +21,7 @@ import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
@@ -90,9 +91,9 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
       sortValue: (team) => team.name,
       cell: (team) => (
         <span className="flex min-w-0 flex-col">
-          <Link to="/teams/$team" params={{ team: team.slug }} title={team.name} className="-mx-1 block max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2">
+          <TextLink to="/teams/$team" params={{ team: team.slug }} title={team.name} variant="row" className="-mx-1 block max-w-full truncate px-1 py-0.5">
             {team.name}
-          </Link>
+          </TextLink>
           <Mono tone="faint" truncate>
             {team.slug}
           </Mono>

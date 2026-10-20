@@ -44,7 +44,7 @@ export const teams = {
     description: "A team groups people and what they run, and decides who sees what and who may act.",
     boundaryTitle: "A team is not a separate machine",
     boundary:
-      "A team decides who sees and who may act. The applications of two teams still run on this server's one kernel, under accounts of their own. A team that must not share a machine with another needs a server of its own.",
+      "A team decides who sees and who may act. Its applications still share this server's kernel: a team that must not share a machine needs a server of its own.",
     count: { one: "{count} team", other: "{count} teams" },
     countFiltered: "{shown} of {total} teams",
     caption: "Teams on this server",
@@ -73,7 +73,7 @@ export const teams = {
     noMatch: "No team matches",
   },
   team: {
-    loading: "Reading {name}",
+    loading: "Loading {name}",
     notFoundTitle: "Team not found",
     notFoundDescription: "There is no team {team}, or you do not see it.",
     allTeams: "All teams",
@@ -98,7 +98,7 @@ export const teams = {
     allProjects: "See them in the projects list",
   },
   members: {
-    loading: "Reading the members",
+    loading: "Loading the members",
     summary: { one: "{count} member", other: "{count} members" },
     add: "Add member",
     invite: "Invite a person",
@@ -132,7 +132,7 @@ export const teams = {
     left: "Left {team}",
     emptyTitle: "No one is in this team yet",
     emptyDescription: "Add an account that exists, or invite a person.",
-    couldNotLoad: "Could not load the members",
+    queryLabel: "the members",
     caption: "Members of {name}",
     readOnlyTitle: "You can read this list",
     readOnly: "Only an owner of the team changes who is in it and what each person may do.",
@@ -232,8 +232,9 @@ export const teams = {
     notFoundTitle: "Project not found",
     notFoundDescription: "There is no project {project} in the team {team}, or you do not see it.",
     allProjects: "All projects",
-    loading: "Reading {name}",
-    loadingResources: "Reading what is in {name}",
+    loading: "Loading {name}",
+    loadingTabs: "Loading the sections of {name}",
+    loadingResources: "Loading what is in {name}",
   },
   environments: {
     new: "New environment",

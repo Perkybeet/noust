@@ -31,7 +31,6 @@
       "features/domains/SiteHistoryDialog.tsx": 2,
       "features/domains/SitesPage.tsx": 2,
       "features/freeze/FreezeCard.tsx": 1,
-      "features/overview/NeedsAttention.tsx": 1,
       "features/server/security/SshView.tsx": 1,
       "features/server/storage/CleanupHistory.tsx": 3,
       "features/server/storage/CleanupScheduleCard.tsx": 1,
@@ -100,8 +99,7 @@
       "features/settings/compliance/ChangeDialog.tsx": 1,
       "features/settings/probes/StatusPageSection.tsx": 1,
       "features/settings/sso/LocalSignInSection.tsx": 1,
-      "features/settings/TwoFactorSection.tsx": 1,
-      "features/teams/TeamSettings.tsx": 1
+      "features/settings/TwoFactorSection.tsx": 1
     },
     "destination-outside-register": {},
     "empty-means-off": {
@@ -167,8 +165,7 @@
       "features/settings/CreateTokenDialog.tsx": 1,
       "features/settings/EmailChannel.tsx": 1,
       "features/settings/NotificationSettings.tsx": 1,
-      "features/settings/probes/ProbeList.tsx": 1,
-      "features/teams/AddMemberDialog.tsx": 1
+      "features/settings/probes/ProbeList.tsx": 1
     },
     "hand-aria-busy": {
       "features/activity/JobLogDrawer.tsx": 1,
@@ -255,7 +252,6 @@
       "features/new-app/AddressFields.tsx": 1,
       "features/new-app/GitHubSource.tsx": 1,
       "features/new-app/GitLabSource.tsx": 1,
-      "features/overview/NeedsAttention.tsx": 1,
       "features/overview/RecentActivity.tsx": 1,
       "features/promotion/PromoteDialog.tsx": 1,
       "features/server/overview/OverviewTab.tsx": 2,
@@ -283,11 +279,7 @@
       "features/settings/mcp/McpSettings.tsx": 1,
       "features/settings/sso/SsoSettings.tsx": 1,
       "features/settings/TwoFactorSection.tsx": 1,
-      "features/teams/ProjectPage.tsx": 1,
-      "features/teams/TeamLayout.tsx": 1,
-      "features/teams/TeamNotifications.tsx": 1,
-      "features/terminal/TerminalPanel.tsx": 1,
-      "nodes/capability.tsx": 1
+      "features/terminal/TerminalPanel.tsx": 1
     },
     "hand-error-ternary": {
       "features/activity/ActivityPage.tsx": 2,
@@ -368,8 +360,6 @@
       "features/settings/InstallCheck.tsx": 1,
       "features/settings/MoreChannels.tsx": 1,
       "features/settings/WhatsNew.tsx": 1,
-      "features/teams/TeamMembers.tsx": 1,
-      "features/teams/TeamNotifications.tsx": 1,
       "features/terminal/TerminalPanel.tsx": 1
     },
     "help-starts-with-state": {
@@ -445,7 +435,6 @@
       "features/fleet/NodeToolsDialogs.tsx": 1,
       "features/fleet/placements/UpstreamsDialog.tsx": 1,
       "features/logs/LogSearchPage.tsx": 2,
-      "features/map/MapPage.tsx": 1,
       "features/server/security/BansView.tsx": 1,
       "features/server/security/FirewallView.tsx": 4,
       "features/server/updates/ApplyDialog.tsx": 1,
@@ -459,8 +448,7 @@
       "features/settings/SupportReport.tsx": 1,
       "features/settings/TokenReachFields.tsx": 1,
       "features/terminal/TerminalPanel.tsx": 2,
-      "features/timeline/TimelineDrawer.tsx": 3,
-      "nodes/NodeNotice.tsx": 2
+      "features/timeline/TimelineDrawer.tsx": 3
     },
     "notice-long": {
       "features/app/settings/Declaration.tsx": 1,
@@ -472,9 +460,7 @@
       "features/databases/wizard/DatabaseStep.tsx": 1,
       "features/domains/InternalAuthorityDialog.tsx": 1,
       "features/server/storage/CleanupScheduleCard.tsx": 1,
-      "features/settings/sso/SamlSection.tsx": 1,
-      "features/teams/TeamOverview.tsx": 1,
-      "features/teams/TeamsPage.tsx": 1
+      "features/settings/sso/SamlSection.tsx": 1
     },
     "notice-stack": {
       "features/app/AppBanner.tsx": 1,
@@ -515,8 +501,7 @@
       "features/settings/servers/LinkServerDialog.tsx": 1,
       "features/settings/sso/ScimDrawer.tsx": 1,
       "features/terminal/TerminalPanel.tsx": 1,
-      "features/timeline/TimelineDrawer.tsx": 1,
-      "nodes/NodeNotice.tsx": 1
+      "features/timeline/TimelineDrawer.tsx": 1
     },
     "notice-success": {
       "features/app/database/SqliteSection.tsx": 1,
@@ -574,11 +559,7 @@
       "features/fleet/placements/PlacementsTab.tsx": 1,
       "features/fleet/SummaryTab.tsx": 2,
       "features/overview/FleetSummary.tsx": 1,
-      "features/overview/NeedsAttention.tsx": 1,
-      "features/services/ServicesTable.tsx": 1,
-      "features/teams/ProjectPage.tsx": 2,
-      "features/teams/ProjectsTable.tsx": 1,
-      "features/teams/TeamsPage.tsx": 1
+      "features/services/ServicesTable.tsx": 1
     },
     "submit-disabled-invalid": {
       "features/app/environment/ReviewDialog.tsx": 1,
@@ -666,18 +647,14 @@
       "features/app/settings/SecuritySettings.tsx": 1,
       "features/app/settings/TuningFields.tsx": 1,
       "features/app/settings/WafCard.tsx": 1,
-      "features/approvals/ApprovalsPage.tsx": 2,
       "features/apps/RestartTaggedApps.tsx": 1,
       "features/apps/UpdateTaggedApps.tsx": 1,
       "features/apps/useAppActions.ts": 3,
       "features/audit/AuditPage.tsx": 1,
-      "features/auth/PasskeysSection.tsx": 1,
-      "features/auth/PasswordDialog.tsx": 1,
       "features/backups/BackupsTable.tsx": 1,
       "features/backups/DestinationsPage.tsx": 1,
       "features/backups/useBackupActions.ts": 5,
       "features/backups/useDestinationActions.ts": 4,
-      "features/central/UnlockForm.tsx": 1,
       "features/cloud/useCloudActions.ts": 9,
       "features/cron/useCronActions.ts": 5,
       "features/databases/DatabaseLayout.tsx": 1,
@@ -756,11 +733,8 @@
       "features/settings/TokenNetworksDialog.tsx": 1,
       "features/settings/TokensSettings.tsx": 1,
       "features/settings/TwoFactorSection.tsx": 3,
-      "features/teams/MoveAppDialog.tsx": 1,
-      "features/teams/TeamNotifications.tsx": 2,
       "features/terminal/TerminalPanel.tsx": 1,
-      "features/variables/SecretManagers.tsx": 1,
-      "realtime/events.ts": 1
+      "features/variables/SecretManagers.tsx": 1
     }
   }
 }

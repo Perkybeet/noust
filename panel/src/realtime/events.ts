@@ -248,6 +248,7 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       // The toast is gone in seconds; the inbox keeps the last thirty (NV-17).
       recordNotice(text, data["state"] === "failed" || data["state"] === "active" || data["state"] === "busy" ? data["state"] : "idle", activeNode());
       if (data["state"] === "failed") toast.error(text);
+      // design-exception: toast-success a notice the server sends is, by definition, something that is not on this screen
       else if (data["state"] === "active") toast.success(text);
       else toast.info(text);
       return;

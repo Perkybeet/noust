@@ -22,7 +22,6 @@ import { QueryState } from "../../components/page/QueryState";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Mono } from "../../components/ui/Mono";
 import { FlowDiagram } from "../../components/ui/FlowDiagram";
-import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { TextLink } from "../../components/ui/TextLink";
 import { buttonClassName } from "../../components/ui/Button";
@@ -118,7 +117,7 @@ export function MapPage() {
             const counts = countsOf(data);
             return (
               <div className="flex min-w-0 flex-col gap-4">
-                {data.truncated ? <Notice tone="info">{t("map.truncated")}</Notice> : null}
+                {data.truncated ? <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("map.truncated")}</p> : null}
                 <FlowDiagram
                   layers={diagram.layers}
                   edges={diagram.edges}

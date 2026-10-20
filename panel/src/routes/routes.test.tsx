@@ -44,7 +44,7 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/server/services", "Server", "Services"],
   ["/server/services/wasm-shop", "wasm-shop", "How it runs"],
   ["/settings", "Settings", "This server"],
-  ["/account", "Account", "Your account"],
+  ["/account", "Account", "API tokens"],
   ["/account/security", "Account", "Two-factor authentication"],
   ["/settings/controls", "Settings", "Security profile"],
   ["/settings/notifications", "Settings", "Channels"],

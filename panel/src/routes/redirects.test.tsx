@@ -76,7 +76,8 @@ describe("an old address that is live", () => {
 
   it("shows the page of the new place", async () => {
     open("/teams");
-    expect(await screen.findByRole("heading", { level: 1, name: "Teams" })).toBeInTheDocument();
+    // Teams are the second tab of Projects: the same title, the tab marked.
+    expect(await screen.findByRole("heading", { level: 1, name: "Projects" })).toBeInTheDocument();
   });
 });
 
