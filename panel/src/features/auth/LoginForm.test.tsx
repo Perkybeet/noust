@@ -7,6 +7,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { ANONYMOUS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RecordedCall } from "../../test/fakes";
+import { takeAccessToken } from "./accessProof";
 import { toBase64url } from "./webauthn";
 
 const TOKEN = "noust_secret_token";
@@ -280,6 +281,24 @@ describe("sign-in with an account", () => {
     await user.click(screen.getByRole("button", { name: "Sign in" }));
     await screen.findByRole("heading", { level: 1, name: "Create the administrator" });
     expect(location().pathname).toBe("/setup");
+    // The token that signed in is kept, for that page to confirm it's the person with it, once.
+    expect(takeAccessToken()).toBe(TOKEN);
+  });
+
+  it("keeps the token for nothing else: a sign-in that does not lead to the first administrator forgets it", async () => {
+    const backend = tokenBackend();
+    const { user } = renderConsole("/login");
+    await useAccessToken(user);
+    await user.type(screen.getByLabelText("Access token"), TOKEN);
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.type(await screen.findByLabelText("Two-factor code"), CODE);
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/auth/login")).toHaveLength(2);
+    });
+    await waitFor(() => {
+      expect(takeAccessToken()).toBeNull();
+    });
   });
 
   it("has no accessibility violations on either step, and speaks Spanish", async () => {

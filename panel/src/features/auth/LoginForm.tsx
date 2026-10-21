@@ -21,6 +21,7 @@ import { Select } from "../../components/ui/Select";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { forgetAccessToken, holdAccessToken } from "./accessProof";
 import { signInWithPasskey } from "./passkeys";
 import { rememberSignIn } from "./signInFacts";
 import type { SignInFacts } from "./signInFacts";
@@ -220,6 +221,8 @@ export function LoginForm({ next, expired, mode, onModeChange, recoveryHelp = fa
       await navigate({ to: "/setup", search: { next: destination }, replace: true });
       return;
     }
+    // Not the first administrator: the token has nothing to be kept for.
+    forgetAccessToken();
     // `destination` may name a node the address-bar way (`/n/web-2/apps`), which `navigate({ href })`
     // would land on stripped of its node (see nodeOfConsolePath): built as `{ to, search }`
     // instead whenever it does, so a link to a node's page still opens there once its owner
@@ -458,6 +461,8 @@ export function LoginForm({ next, expired, mode, onModeChange, recoveryHelp = fa
     try {
       // bearer: false - the browser keeps the session in an HttpOnly cookie and never sees it.
       const answer = await login(tokenStep === "token" ? { token, bearer: false } : { token, bearer: false, totp_code: code.trim() });
+      // Kept for one use: if this sign-in leads to the first administrator, it spares typing it again.
+      holdAccessToken(token);
       await finish(answer);
     } catch (error: unknown) {
       if (!isApiError(error)) {

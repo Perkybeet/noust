@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
-import { authKeys, login, sessionQuery } from "../../api/queries/auth";
+import { authKeys, elevateSession, login, sessionQuery } from "../../api/queries/auth";
 import { complianceQuery } from "../../api/queries/compliance";
 import type { ComplianceState } from "../../api/queries/compliance";
 import { useDocumentTitle } from "../../app/documentTitle";
@@ -20,6 +20,7 @@ import { useT } from "../../i18n";
 import { splitErrors } from "../settings/formErrors";
 import { accountKeys, createAccount } from "../settings/accounts/api";
 import type { Account } from "../settings/accounts/api";
+import { takeAccessToken } from "./accessProof";
 import { AuthFrame } from "./AuthFrame";
 import { SecondFactor } from "./GatePage";
 import { pendingChecks } from "./SessionGate";
@@ -63,14 +64,25 @@ function AccountForm({ accountRole, submitLabel, onCreated }: AccountFormProps) 
   const passwordRef = useRef<HTMLInputElement>(null);
 
   const create = useMutation({
-    mutationFn: () =>
-      createAccount({
+    mutationFn: async () => {
+      // Creating an account asks to "Confirm it's you" with the token that signed in a moment ago:
+      // it is given once, unasked, and if that does not work the ordinary dialog asks.
+      const proof = takeAccessToken();
+      if (proof !== null) {
+        try {
+          await elevateSession({ token: proof });
+        } catch {
+          // A server whose token has a second factor, or a refusal: the dialog is the way.
+        }
+      }
+      return createAccount({
         username: username.trim(),
         role: accountRole,
         password,
         ...(displayName.trim() !== "" ? { display_name: displayName.trim() } : {}),
         ...(person.trim() !== "" ? { person_ref: person.trim() } : {}),
-      }),
+      });
+    },
     onSuccess: async (account) => {
       void queryClient.invalidateQueries({ queryKey: accountKeys.list });
       await onCreated(account, { username: username.trim(), password });

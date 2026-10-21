@@ -5,6 +5,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { ANONYMOUS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RecordedCall } from "../../test/fakes";
+import { holdAccessToken, takeAccessToken } from "./accessProof";
 
 const ENROLLMENT = {
   secret: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
@@ -86,6 +87,37 @@ function newServer({ split = false, mfaRequired = false, loginFails = false, acc
 }
 
 describe("the first account", () => {
+  it("confirms it's the person with the token that signed in, once and unasked, before the account is made", { timeout: 30_000 }, async () => {
+    const backend = newServer();
+    backend.on("POST /api/auth/elevate", () => json(200, { elevated_until: Date.now() / 1000 + 900 }));
+    holdAccessToken("noust_tok_just_typed");
+    const { user } = renderConsole("/setup");
+    await screen.findByRole("heading", { level: 1, name: "Create the administrator" });
+    await user.type(screen.getByLabelText(/^Username/), "ana");
+    await user.type(screen.getByLabelText(/^Password/), "a long passphrase here");
+    await user.click(screen.getByRole("button", { name: "Create administrator" }));
+    await screen.findByRole("heading", { level: 1, name: "Protect your account" });
+
+    // The confirmation came first, with the token, and no dialog asked for it.
+    expect(backend.callsTo("POST /api/auth/elevate").map((call) => call.body)).toEqual([{ token: "noust_tok_just_typed" }]);
+    expect(screen.queryByRole("dialog", { name: "Confirm it's you" })).toBeNull();
+    // It was spent: a second use finds nothing.
+    expect(takeAccessToken()).toBeNull();
+  });
+
+  it("makes the account anyway when the token cannot confirm (a second factor on it), leaving the dialog to ask", { timeout: 30_000 }, async () => {
+    const backend = newServer();
+    backend.on("POST /api/auth/elevate", () => problem(401, "invalid_totp", "Invalid two-factor code."));
+    holdAccessToken("noust_tok_just_typed");
+    const { user } = renderConsole("/setup");
+    await screen.findByRole("heading", { level: 1, name: "Create the administrator" });
+    await user.type(screen.getByLabelText(/^Username/), "ana");
+    await user.type(screen.getByLabelText(/^Password/), "a long passphrase here");
+    await user.click(screen.getByRole("button", { name: "Create administrator" }));
+    await screen.findByRole("heading", { level: 1, name: "Protect your account" });
+    expect(backend.callsTo("POST /api/auth/accounts")).toHaveLength(1);
+  });
+
   it("asks for a name and a password, signs in with them and offers to protect the account, which can wait", { timeout: 30_000 }, async () => {
     const backend = newServer();
     const { user, container, location } = renderConsole("/setup?next=%2Fbackups");
