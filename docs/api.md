@@ -638,7 +638,7 @@ nothing, which is what the console shows before asking:
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"domain": "proggest.es", "path": "/opt/proggest", "preview": true}' \
+  -d '{"domain": "shop.example.com", "path": "/opt/shop", "preview": true}' \
   https://panel.example.com/api/apps/adopt
 # {"domain", "app_name", "app_path", "compose_file", "project", "project_from", "containers",
 #  "running", "source", "branch", "commit", "site", "site_name", "ssl", "port", "headless",
@@ -682,26 +682,26 @@ saves it through `PUT /api/sites/{domain}/config`, the one way a site is written
 # The model of the saved file: servers, locations in the order the web server tries them,
 # upstreams, includes (resolved when they are Noust's own or under /etc/nginx), comments, and
 # every directive it has no field for, as raw text
-curl -s -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/sites/proggest.es/structure
+curl -s -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/sites/shop.example.com/structure
 # {"site", "webserver", "path", "structure": {"kind": "nginx", "servers": [...], "upstreams": [...],
 #  "includes": [...], "directives": [...], "notes": [...]}, "error": null}
 
 # The same for a draft; text that does not parse is an answer, not a failure
 curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"config": "server { listen 80;"}' https://panel.example.com/api/sites/proggest.es/structure
+  -d '{"config": "server { listen 80;"}' https://panel.example.com/api/sites/shop.example.com/structure
 # {"site", "webserver", "path", "structure": null, "error": {"line", "column", "message"}}
 
 # Apply edit operations to a text, in order; the result is text, and only the bytes of the
 # element each operation names change
 curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"config": "...", "ops": [{"op": "set_directive", "parent": "s0/l3", "name": "proxy_read_timeout", "args": ["120s"]}]}' \
-  https://panel.example.com/api/sites/proggest.es/config/edit
+  https://panel.example.com/api/sites/shop.example.com/config/edit
 # {"config": "...", "structure": {...}, "changed_lines": 1}
 
 # Which server and location answer a request, and why (a draft in "config", or the saved file)
 curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"host": "proggest.es", "path": "/api/v1/auth/login", "scheme": "https"}' \
-  https://panel.example.com/api/sites/proggest.es/route
+  -d '{"host": "shop.example.com", "path": "/api/v1/auth/login", "scheme": "https"}' \
+  https://panel.example.com/api/sites/shop.example.com/route
 # {"server_id", "location_id", "steps": ["one sentence per step"], "trace": [{"code", "params", "text"}],
 #  "highlight": [ids along the path, the upstream last as "u:<name>"], "redirect": null}
 ```

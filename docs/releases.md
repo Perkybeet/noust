@@ -38,7 +38,7 @@ the releases API work on them as described here, and going back recreates the co
 the image that is already on the host. See [containers.md](containers.md#releases-every-deployment-is-an-image).
 
 A Docker Compose stack that already ran before Noust (`noust app adopt`) is registered in
-place at the directory it runs from, which can be outside the apps directory (`/opt/proggest`,
+place at the directory it runs from, which can be outside the apps directory (`/opt/shop`,
 say). Noust never converts, cleans or deletes such a directory on its own; see
 [Adopting a running stack](compose.md#adopting-a-running-stack).
 

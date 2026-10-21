@@ -257,11 +257,11 @@ first, through one helper, and for an operator's site the answer is to leave it 
   application deployed before 2.0 (see above), so changing one name never drops another.
 
 **The file's name.** Noust names a site after its domain, and an operator's site often is not:
-`proggest` serves `proggest.es`. Adopting a stack records the file's name (`site_name`, which `noust
+`shop` serves `shop.example.com`. Adopting a stack records the file's name (`site_name`, which `noust
 app adopt --site` can name when the file is not found by its `server_name`), and from then on Noust
 resolves the domain to that file wherever it reads one: the one place a domain becomes a file name
-is the web server manager's `config_path`. `noust site show proggest.es` and the console's site
-page open `proggest`, and `GET /api/sites` reports it as `site_name`.
+is the web server manager's `config_path`. `noust site show shop.example.com` and the console's site
+page open `shop`, and `GET /api/sites` reports it as `site_name`.
 
 [compose.md](compose.md#your-own-site) has the same rules from a Compose stack's side.
 
@@ -273,7 +273,7 @@ in place of its `server` line, keeping its own names:
 
 ```nginx
 upstream nestjs_upstream {
-    include /etc/nginx/noust-upstreams/proggest-es/backend.servers;
+    include /etc/nginx/noust-upstreams/shop-example-com/backend.servers;
     keepalive 64;
 }
 ```

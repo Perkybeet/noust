@@ -77,7 +77,7 @@ def _show(logger: Logger, plan: AdoptionPlan) -> None:
     "path",
     required=True,
     type=click.Path(path_type=Path),
-    help="The directory the stack runs from, such as /opt/proggest.",
+    help="The directory the stack runs from, such as /opt/shop.",
 )
 @click.option(
     "--compose-file",

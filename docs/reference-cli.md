@@ -419,7 +419,7 @@ Arguments: `domain`
 
 | Option | What it does | Default |
 |---|---|---|
-| `--path` | The directory the stack runs from, such as /opt/proggest. |  |
+| `--path` | The directory the stack runs from, such as /opt/shop. |  |
 | `--compose-file` | Its compose file, relative to --path (found among the usual names otherwise). |  |
 | `--source` | Where updates fetch from (default: origin). |  |
 | `--branch` | The branch updates follow (default: the current). |  |

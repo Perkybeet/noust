@@ -557,7 +557,7 @@ def checked_directory(path: Path) -> Path:
         raise DeploymentError(
             f"{path} is not an absolute path",
             details="Name the directory the stack runs from as an absolute path, such as "
-            "/opt/proggest.",
+            "/opt/shop.",
         )
     if not path.exists():
         raise DeploymentError(

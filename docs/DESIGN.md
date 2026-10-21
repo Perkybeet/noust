@@ -1037,7 +1037,7 @@ locations, destinations, backends), never a free graph. Rules:
   is kept; `group` keeps elements together under a caption (locations per server block,
   destinations per upstream). The same data is always drawn at the same coordinates. Columns
   fill the width they are given, 160 to 240px per node; a tall column scrolls inside the box
-  (Proggest's 25 locations).
+  (a production site's 25 locations).
 - Every element has an outline and an icon of its kind (listener, server, location, upstream,
   upstream-server, static, redirect, other) and its value in mono; colour only says whether it
   answers, with the glyph and word of `StatusGlyph` (`ok` responds, `fail` does not, `unknown`
