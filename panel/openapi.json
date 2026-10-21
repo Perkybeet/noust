@@ -15354,7 +15354,7 @@
         "type": "object"
       },
       "DeploymentOut": {
-        "description": "One deployment attempt, as the console lists and inspects it.\n\nAttributes:\n    job_id: The background job that started this deployment, when the\n        panel queued it. None for a CLI or webhook deploy.\n    release_id: The release this deployment built, on the releases\n        layout. None for an in-place deployment.\n    commit_message: Subject line of the deployed commit, for a git\n        source. None for a source that is not git.\n    snapshot_backup: In place, the backup that holds exactly what this\n        deployment produced, taken by the update that followed it.\n    rollback_available: Whether going back to this deployment is\n        possible now: its release is on disk and not live, or its\n        snapshot backup still exists.\n    rollback_unavailable_reason: Why not, when it is not.\n    rollback_method: How going back is done, when it can be: ``instant``\n        (a release, a container's image or the images a stack kept are put\n        back, nothing is built), ``rebuild`` (its commit is built again where\n        the application runs) or ``snapshot`` (the backup is restored).\n    schema_changed: A hook marked ``migrates`` or Prisma's migration\n        changed the database's schema.\n    schema_changed_between: Later deployments of the application that\n        changed the schema: going back to this one passes them, and asks\n        first.\n    hooks: What the deploy hooks ran, in order.\n    warnings: Why a successful deployment carries warnings (deployed with\n        warnings: a ``post_deploy`` hook failed once it served).\n    cancelled: An operator cancelled it while it was building. Its status is\n        ``failed`` (the column cannot say anything else on a store from\n        before 3.4) but nothing went wrong and nothing that served was touched.\n    cancelled_at: When it was cancelled.\n    cancelled_by: Who cancelled it.",
+        "description": "One deployment attempt, as the console lists and inspects it.\n\nAttributes:\n    job_id: The background job that started this deployment, when the\n        panel queued it. None for a CLI or webhook deploy.\n    release_id: The release this deployment built, on the releases\n        layout. None for an in-place deployment.\n    commit_message: Subject line of the deployed commit, for a git\n        source. None for a source that is not git.\n    snapshot_backup: In place, the backup that holds exactly what this\n        deployment produced, taken by the update that followed it.\n    rollback_available: Whether going back to this deployment is\n        possible now: its release is on disk and not live, or its\n        snapshot backup still exists.\n    rollback_unavailable_reason: Why not, when it is not.\n    rollback_method: How going back is done, when it can be: ``instant``\n        (a release, a container's image or the images a stack kept are put\n        back, nothing is built), ``rebuild`` (its commit is built again where\n        the application runs) or ``snapshot`` (the backup is restored).\n    schema_changed: A hook marked ``migrates`` or Prisma's migration\n        changed the database's schema.\n    schema_changed_between: Later deployments of the application that\n        changed the schema: going back to this one passes them, and asks\n        first.\n    hooks: What the deploy hooks ran, in order.\n    warnings: Why a successful deployment carries warnings (deployed with\n        warnings: a ``post_deploy`` hook failed once it served).\n    cancelled: An operator cancelled it while it was building. Its status is\n        ``failed`` (the column cannot say anything else on a store from\n        before 3.4) but nothing went wrong and nothing that served was touched.\n    cancelled_at: When it was cancelled.\n    cancelled_by: Who cancelled it.\n    certificate_state: How the certificate ordered for it ended: ``issued`` or ``failed``.\n        None when none was asked for. A certificate that is refused does not fail a\n        deployment: the application serves over HTTP.\n    certificate_output: What the certificate authority said when it refused, word for word.",
         "properties": {
           "cancelled": {
             "default": false,
@@ -15382,6 +15382,28 @@
               }
             ],
             "title": "Cancelled By"
+          },
+          "certificate_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Output"
+          },
+          "certificate_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate State"
           },
           "commit_message": {
             "anyOf": [
@@ -92291,8 +92313,67 @@
     },
     "/api/domains/temporary": {
       "get": {
-        "description": "Work out a temporary name for this server, to add to an application like any other.\n\nIt is made of the server's public address (``203-0-113-10.sslip.io``), which sslip.io\nanswers with that address, so the name resolves here and a certificate can be ordered.\nNothing is added: the caller adds it with ``POST /api/apps/{domain}/domains``.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The name and the address it is made of.\n\nRaises:\n    DomainError: This server has no public address (400, saying how to declare one).",
+        "description": "Work out a temporary name for this server, to add to an application like any other.\n\nIt is made of the server's public address (``203-0-113-10.sslip.io``), which sslip.io\nanswers with that address, so the name resolves here and a certificate can be ordered.\nWith a prefix it is the name of one application (``shop.203-0-113-10.sslip.io``), free\namong the names and the application names of the server. Nothing is added: the caller\nadds it with ``POST /api/apps/{domain}/domains``, or deploys an application under it.\n\nArgs:\n    session: Authenticated session, injected.\n    prefix: What the application is called.\n    source: What it is deployed from, read for its name when no prefix is given.\n    image: The registry image it is deployed from, read the same way.\n\nReturns:\n    The name and the address it is made of.\n\nRaises:\n    DomainError: This server has no public address (400, saying how to declare one).",
         "operationId": "get_temporary_name_api_domains_temporary_get",
+        "parameters": [
+          {
+            "description": "What the application is called, for a name of its own (shop.203-0-113-10.sslip.io). Numbered when another application has it.",
+            "in": "query",
+            "name": "prefix",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "What the application is called, for a name of its own (shop.203-0-113-10.sslip.io). Numbered when another application has it.",
+              "title": "Prefix"
+            }
+          },
+          {
+            "description": "What it is deployed from, when it has no name yet: the name is read out of the repository, archive or directory. A prefix wins over it.",
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2048,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "What it is deployed from, when it has no name yet: the name is read out of the repository, archive or directory. A prefix wins over it.",
+              "title": "Source"
+            }
+          },
+          {
+            "description": "The registry image it is deployed from; read like a source.",
+            "in": "query",
+            "name": "image",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The registry image it is deployed from; read like a source.",
+              "title": "Image"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -92303,6 +92384,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Get Temporary Name",

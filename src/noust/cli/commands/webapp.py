@@ -83,7 +83,7 @@ from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.native_adopt import adoption_of
 from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import available_types
-from noust.deployers.temporary_domain import prefix_of_image, prefix_of_source, suggest
+from noust.deployers.temporary_domain import application_name, suggest
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.app_processes import ProcessManager
 from noust.managers.app_replicas import ReplicaManager
@@ -507,8 +507,7 @@ def _temporary_domain(
     Raises:
         DomainError: This server has no public address.
     """
-    what = recipe or (prefix_of_image(image) if image else prefix_of_source(source))
-    found = suggest(what or "app")
+    found = suggest(application_name(prefix=recipe, source=source, image=image) or "app")
     logger.info(
         f"Using {found.domain}, made of {found.address} ({found.service}): a name to try "
         "things out. Add your own later with: noust domain add"

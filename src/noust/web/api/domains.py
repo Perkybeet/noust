@@ -47,7 +47,7 @@ from noust.deployers.domains import (
     set_domain_port,
 )
 from noust.deployers.name_certificates import NameBinding, bindings, set_certificate
-from noust.deployers.temporary_domain import is_temporary, suggest
+from noust.deployers.temporary_domain import application_name, is_temporary, suggest
 from noust.managers.site_policy import SitePolicyManager
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain, strict_server_name
@@ -812,6 +812,21 @@ def get_temporary_name(
             "(shop.203-0-113-10.sslip.io). Numbered when another application has it.",
         ),
     ] = None,
+    source: Annotated[
+        str | None,
+        Query(
+            max_length=2048,
+            description="What it is deployed from, when it has no name yet: the name is read "
+            "out of the repository, archive or directory. A prefix wins over it.",
+        ),
+    ] = None,
+    image: Annotated[
+        str | None,
+        Query(
+            max_length=512,
+            description="The registry image it is deployed from; read like a source.",
+        ),
+    ] = None,
 ) -> TemporaryNameResponse:
     """
     Work out a temporary name for this server, to add to an application like any other.
@@ -825,6 +840,8 @@ def get_temporary_name(
     Args:
         session: Authenticated session, injected.
         prefix: What the application is called.
+        source: What it is deployed from, read for its name when no prefix is given.
+        image: The registry image it is deployed from, read the same way.
 
     Returns:
         The name and the address it is made of.
@@ -832,7 +849,7 @@ def get_temporary_name(
     Raises:
         DomainError: This server has no public address (400, saying how to declare one).
     """
-    found = suggest(prefix or None)
+    found = suggest(application_name(prefix=prefix, source=source, image=image))
     return TemporaryNameResponse(
         address=found.address, domain=found.domain, service=found.service, declared=found.declared
     )

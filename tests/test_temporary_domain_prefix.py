@@ -174,6 +174,38 @@ def test_the_api_numbers_a_prefix_that_is_taken(
     assert response.json()["domain"] == "shop-2.8-8-4-4.sslip.io"
 
 
+def test_the_api_names_the_application_after_what_it_is_deployed_from(
+    declared: None, client: TestClient
+) -> None:
+    # The console passes what was typed; one implementation reads the name out of it.
+    from_repository = client.get(
+        "/api/domains/temporary", params={"source": "https://github.com/acme/shop.git"}
+    )
+    from_image = client.get("/api/domains/temporary", params={"image": "ghcr.io/acme/blog:1.2"})
+    from_local = client.get("/api/domains/temporary", params={"source": "/srv/src/my-site"})
+
+    assert from_repository.json()["domain"] == "shop.8-8-4-4.sslip.io"
+    assert from_image.json()["domain"] == "blog.8-8-4-4.sslip.io"
+    assert from_local.json()["domain"] == "my-site.8-8-4-4.sslip.io"
+
+
+def test_a_prefix_wins_over_what_it_is_deployed_from(declared: None, client: TestClient) -> None:
+    response = client.get(
+        "/api/domains/temporary",
+        params={"prefix": "demo", "source": "https://github.com/acme/shop.git"},
+    )
+
+    assert response.json()["domain"] == "demo.8-8-4-4.sslip.io"
+
+
+def test_a_source_with_no_name_in_it_is_an_application_called_app(
+    declared: None, client: TestClient
+) -> None:
+    response = client.get("/api/domains/temporary", params={"source": "."})
+
+    assert response.json()["domain"] == "app.8-8-4-4.sslip.io"
+
+
 def test_the_api_without_a_prefix_is_what_it_always_was(declared: None, client: TestClient) -> None:
     response = client.get("/api/domains/temporary")
 

@@ -5513,6 +5513,7 @@ noust create [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `-d`, `--domain` | Domain the application is served on. |  |
+| `--temporary` | Instead of a domain, a temporary address made of this server's address and the application's name (shop.203-0-113-10.sslip.io), to try it before a domain points here. A certificate is tried for it and the application stays on HTTP if it is refused. |  |
 | `-s`, `--source` | Git URL, archive URL or directory to deploy from. Not with --recipe. |  |
 | `--recipe` | Deploy a known application from its recipe (see 'noust recipe list'): its source, type, database and settings come from the recipe. |  |
 | `--env` | Set a variable of the application environment, over --env-file and a recipe's own. Repeat for several. |  |
@@ -8304,6 +8305,7 @@ Arguments: `app_domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--show` | Only say the name, without adding it to anything. |  |
+| `--prefix` | Make the name of one application (shop.203-0-113-10.sslip.io) instead of the server's own, numbered when another application has it. |  |
 | `--no-cert` | Do not extend the certificate now. Run the same command again to extend it. |  |
 | `--json` | Print the name as JSON (with --show). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |

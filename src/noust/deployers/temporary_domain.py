@@ -124,6 +124,33 @@ def prefix_of_image(image: str | None) -> str | None:
     return last.split(":", 1)[0] or None
 
 
+def application_name(
+    *, prefix: str | None = None, source: str | None = None, image: str | None = None
+) -> str | None:
+    """
+    Say what an application is called, from whatever was said about it.
+
+    The one place the order is decided, for the API the console asks and for ``noust create``:
+    a name given outright, else the image, else the source.
+
+    Args:
+        prefix: A name given outright (a recipe's, or the demo's).
+        source: The repository, archive or directory it is deployed from.
+        image: The registry image it is deployed from.
+
+    Returns:
+        The name, ``app`` when a source or an image was given and has no name in it, or None when
+        nothing was said (the name of the server alone is wanted then).
+    """
+    if prefix:
+        return prefix
+    if image:
+        return prefix_of_image(image) or "app"
+    if source:
+        return prefix_of_source(source) or "app"
+    return None
+
+
 def name_for(address: str, prefix: str | None = None) -> str:
     """
     Make the name that resolves to an address.

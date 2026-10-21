@@ -17032,10 +17032,15 @@ export interface paths {
          *
          *     It is made of the server's public address (``203-0-113-10.sslip.io``), which sslip.io
          *     answers with that address, so the name resolves here and a certificate can be ordered.
-         *     Nothing is added: the caller adds it with ``POST /api/apps/{domain}/domains``.
+         *     With a prefix it is the name of one application (``shop.203-0-113-10.sslip.io``), free
+         *     among the names and the application names of the server. Nothing is added: the caller
+         *     adds it with ``POST /api/apps/{domain}/domains``, or deploys an application under it.
          *
          *     Args:
          *         session: Authenticated session, injected.
+         *         prefix: What the application is called.
+         *         source: What it is deployed from, read for its name when no prefix is given.
+         *         image: The registry image it is deployed from, read the same way.
          *
          *     Returns:
          *         The name and the address it is made of.
@@ -37397,6 +37402,10 @@ export interface components {
          *             before 3.4) but nothing went wrong and nothing that served was touched.
          *         cancelled_at: When it was cancelled.
          *         cancelled_by: Who cancelled it.
+         *         certificate_state: How the certificate ordered for it ended: ``issued`` or ``failed``.
+         *             None when none was asked for. A certificate that is refused does not fail a
+         *             deployment: the application serves over HTTP.
+         *         certificate_output: What the certificate authority said when it refused, word for word.
          */
         DeploymentOut: {
             /**
@@ -37408,6 +37417,10 @@ export interface components {
             cancelled_at?: string | null;
             /** Cancelled By */
             cancelled_by?: string | null;
+            /** Certificate Output */
+            certificate_output?: string | null;
+            /** Certificate State */
+            certificate_state?: string | null;
             /** Commit Message */
             commit_message?: string | null;
             /** Domain */
@@ -81693,7 +81706,14 @@ export interface operations {
     };
     get_temporary_name_api_domains_temporary_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description What the application is called, for a name of its own (shop.203-0-113-10.sslip.io). Numbered when another application has it. */
+                prefix?: string | null;
+                /** @description What it is deployed from, when it has no name yet: the name is read out of the repository, archive or directory. A prefix wins over it. */
+                source?: string | null;
+                /** @description The registry image it is deployed from; read like a source. */
+                image?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -81707,6 +81727,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TemporaryNameResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -187,6 +187,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `security.profile` | `"standard"` |
 | `security.restricted_tokens` | `false` |
 | `security.roles_split` | `false` |
+| `security.second_factor` | `false` |
 | `security.separation_of_duties` | `false` |
 | `security.server_terminal` | `"allowed"` |
 | `security.single_role_per_account` | `false` |

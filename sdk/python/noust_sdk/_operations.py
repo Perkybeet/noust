@@ -5632,13 +5632,13 @@ class Domains:
         Needs: permission `apps.read`."""
         return self._call("GET", "/api/domains/dns", query={"name": name}, body=None)
 
-    def get_temporary_name(self) -> "TemporaryNameResponse":
+    def get_temporary_name(self, *, prefix: Union[str, None] = None, source: Union[str, None] = None, image: Union[str, None] = None) -> "TemporaryNameResponse":
         """GET /api/domains/temporary
 
         Get Temporary Name
 
         Needs: permission `apps.read`."""
-        return self._call("GET", "/api/domains/temporary", query=None, body=None)
+        return self._call("GET", "/api/domains/temporary", query={"prefix": prefix, "source": source, "image": image}, body=None)
 
     def get_cloudflare_ranges(self) -> "RangesResponse":
         """GET /api/policy/cloudflare-ranges
