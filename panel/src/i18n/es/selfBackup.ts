@@ -9,8 +9,9 @@ export const selfBackup: Catalog<typeof en> = {
   holds:
     "Un paquete es un solo fichero, sellado con una frase de paso, con el almacén, la configuración, los secretos y las claves (flota, SSH, sellado), los certificados y los ficheros de unidad que Noust generó. No incluye tus aplicaciones, sus bases de datos ni las métricas: esas tienen sus propias copias.",
   state: {
-    on: "Con copia programada",
-    off: "Sin copia programada",
+    title: "Programación",
+    on: "Activada",
+    off: "Sin programar",
     paused: "En pausa",
     problem: "Activada, con un problema",
     offBody:
@@ -54,7 +55,6 @@ export const selfBackup: Catalog<typeof en> = {
     onlyHere: "Solo este servidor",
     kinds: { scheduled: "Programado", manual: "A mano", "pre-restore": "Antes de una restauración" },
     macInvalid: "Su registro no coincide",
-    actionsFor: "Acciones de {name}",
     verify: "Comprobarlo",
     push: "Enviar a…",
     restore: "Cómo restaurar…",

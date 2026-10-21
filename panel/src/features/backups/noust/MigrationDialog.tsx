@@ -17,6 +17,7 @@ import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { Accepted } from "../../databases/jobs";
+import { LoadingRegion } from "../../../components/page";
 
 export interface MigrationDialogProps {
   open: boolean;
@@ -38,6 +39,7 @@ export function MigrationDialog({ open, onOpenChange, onQueued }: MigrationDialo
   const destinations = useQuery({ ...backupDestinationsQuery(), enabled: open });
   const [destination, setDestination] = useState("");
   const [passphrase, setPassphrase] = useState("");
+  const [pressed, setPressed] = useState(false);
   const plan = useQuery({ ...migrationPlanQuery(destination), enabled: open && destination !== "" });
   const options = (destinations.data?.destinations ?? []).map((entry) => ({ value: entry.name, label: entry.name }));
   const stored = plan.data?.passphrase_stored === true;
@@ -59,6 +61,7 @@ export function MigrationDialog({ open, onOpenChange, onQueued }: MigrationDialo
     if (!next) {
       setDestination("");
       setPassphrase("");
+      setPressed(false);
       start.reset();
     }
   };
@@ -66,6 +69,7 @@ export function MigrationDialog({ open, onOpenChange, onQueued }: MigrationDialo
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (ready) start.mutate();
+    else setPressed(true);
   };
 
   return (
@@ -80,14 +84,19 @@ export function MigrationDialog({ open, onOpenChange, onQueued }: MigrationDialo
           <Button disabled={start.isPending} onClick={() => close(false)}>
             {t("selfBackup.schedule.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={start.isPending} disabled={!ready}>
+          <Button type="submit" form={formId} variant="primary" loading={start.isPending} disabled={blockers.length > 0}>
             {t("selfBackup.migrate.start")}
           </Button>
         </>
       }
     >
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
-        <Field label={t("selfBackup.migrate.destination")} nativeLabel={false} description={t("selfBackup.migrate.destinationHelp")}>
+        <Field
+          label={t("selfBackup.migrate.destination")}
+          nativeLabel={false}
+          description={t("selfBackup.migrate.destinationHelp")}
+          error={pressed && destination === "" ? t("selfBackup.migrate.choose") : undefined}
+        >
           <Select
             aria-label={t("selfBackup.migrate.destination")}
             value={destination}
@@ -99,10 +108,9 @@ export function MigrationDialog({ open, onOpenChange, onQueued }: MigrationDialo
         </Field>
         {!destinations.isPending && options.length === 0 ? <p className="text-13 text-fg-muted">{t("selfBackup.migrate.noDestinations")}</p> : null}
         {destination !== "" && plan.isPending ? (
-          <div aria-busy="true">
-            <span className="sr-only">{t("selfBackup.migrate.planning")}</span>
+          <LoadingRegion label={t("selfBackup.migrate.planning")}>
             <Skeleton className="h-28 w-full rounded-control" />
-          </div>
+          </LoadingRegion>
         ) : null}
         {plan.isError ? <ErrorBlock compact error={plan.error} title={t("selfBackup.migrate.planFailed")} /> : null}
         {plan.data !== undefined ? (
@@ -155,6 +163,7 @@ export function MigrationDialog({ open, onOpenChange, onQueued }: MigrationDialo
               label={t("selfBackup.migrate.passphrase")}
               optional={stored}
               description={stored ? t("selfBackup.migrate.passphraseStored") : t("selfBackup.migrate.passphraseHelp")}
+              error={pressed && blockers.length === 0 && !stored && passphrase === "" ? t("backups.fields.required") : undefined}
             >
               <Input mono type="password" value={passphrase} onValueChange={(value: string) => setPassphrase(value)} autoComplete="new-password" autoCapitalize="off" spellCheck={false} />
             </Field>

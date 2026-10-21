@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, CloudUpload, ShieldQuestion, Trash2 } from "lucide-react";
+import { BookOpen, CalendarClock, CloudUpload, Play, ShieldQuestion, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { ElevationCancelledError, request } from "../../../api/client";
@@ -9,18 +9,18 @@ import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
+import { RowMenu } from "../../../components/page/RowMenu";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
+import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { FeatureState } from "../../../components/ui/FeatureState";
-import { IconButton } from "../../../components/ui/IconButton";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { ICONS } from "../../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -126,68 +126,39 @@ export function SelfBackupPage() {
     else setAsking({ kind: "create" });
   };
 
-  const title = reading === null ? "" : reading.health === "ok" ? t("selfBackup.state.on") : reading.health === "paused" ? t("selfBackup.state.paused") : reading.health === "problem" ? t("selfBackup.state.problem") : t("selfBackup.state.off");
+  const stateWord = reading === null ? "" : reading.health === "ok" ? t("selfBackup.state.on") : reading.health === "paused" ? t("selfBackup.state.paused") : reading.health === "problem" ? t("selfBackup.state.problem") : t("selfBackup.state.off");
 
-  const stateNotice =
-    schedule === undefined || reading === null ? undefined : (
-      <FeatureState
-        state={reading.health === "ok" ? "on" : reading.health === "problem" ? "problem" : "off"}
-        title={title}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
+  // The schedule is a card: its state is the pill after the title, its actions are the card's, and its
+  // facts and problems are the body, so nothing is said once above the table and again in it.
+  const stateCard =
+    schedule === undefined || reading === null ? null : (
+      <Card
+        level={2}
+        title={t("selfBackup.state.title")}
+        status={<StatusPill size="sm" state={reading.health === "ok" ? "running" : reading.health === "problem" ? "warning" : "stopped"} label={stateWord} />}
+        description={reading.health === "off" ? t("selfBackup.state.offBody") : reading.health === "paused" ? t("selfBackup.state.pausedBody") : undefined}
+        actions={
+          <>
             {reading.health === "ok" || reading.health === "problem" ? (
-              <Button size="sm" disabled={job.busy} onClick={() => attempt(run)}>
+              <Button size="sm" icon={<Play aria-hidden="true" />} disabled={job.busy} onClick={() => attempt(run)}>
                 {t("selfBackup.state.runNow")}
               </Button>
             ) : null}
-            <Button size="sm" variant={schedule.configured ? "secondary" : "primary"} onClick={() => setScheduling(true)}>
+            <Button size="sm" variant={schedule.configured ? "secondary" : "primary"} icon={<CalendarClock aria-hidden="true" />} onClick={() => setScheduling(true)}>
               {schedule.configured ? t("selfBackup.state.edit") : t("selfBackup.state.set")}
             </Button>
-          </div>
+          </>
         }
       >
-        {reading.health === "off" ? (
-          t("selfBackup.state.offBody")
-        ) : reading.health === "paused" ? (
-          t("selfBackup.state.pausedBody")
-        ) : (
-          <span className="flex flex-col gap-1">
-            <span>{scheduleWords(schedule.schedule, t.locale)}</span>
+        {schedule.configured || reading.problems.length > 0 ? (
+          <div className="flex min-w-0 flex-col gap-3">
             {reading.problems.map((problem) => (
-              <span key={problem}>{problemWords(t, problem)}</span>
+              <InlineMessage key={problem} tone={problem === "lastFailed" ? "error" : "warning"}>
+                {problemWords(t, problem)}
+              </InlineMessage>
             ))}
-          </span>
-        )}
-      </FeatureState>
-    );
-
-  const migration = job.job !== null && job.job.id === migrationJob && job.job.state === "succeeded" ? readMigrationReport(job.job.result) : null;
-
-  return (
-    <BackupsListPage
-      secondaryActions={
-        <Button disabled={job.busy} onClick={() => setMigrating(true)}>
-          {t("selfBackup.migrate.open")}
-        </Button>
-      }
-      primaryAction={
-        <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} disabled={job.busy} onClick={backUpNow}>
-          {t("selfBackup.backUpNow")}
-        </Button>
-      }
-      {...(stateNotice !== undefined ? { notice: stateNotice } : {})}
-      footer={<CommandHint command="noust self-backup schedule set --schedule daily --keep 7" label={t("backups.common.fromTerminal")} />}
-    >
-      <div className="flex min-w-0 flex-col gap-6">
-        {job.notice}
-        {migration !== null ? <MigrationReport report={migration} /> : null}
-        {failure !== null ? <ErrorBlock live compact error={failure} title={t("selfBackup.passphrase.failed")} /> : null}
-        {overview.isError && data === undefined ? (
-          <ErrorBlock error={overview.error} title={t("selfBackup.loadFailed")} onRetry={() => void overview.refetch()} retrying={overview.isRefetching} />
-        ) : (
-          <>
-            {schedule?.configured === true ? (
-              <div className="flex min-w-0 flex-col gap-3">
+            {schedule.configured ? (
+              <>
                 <KeyValueList
                   items={[
                     {
@@ -242,9 +213,39 @@ export function SelfBackupPage() {
                     {schedule.last_error}
                   </SystemOutput>
                 ) : null}
-              </div>
+              </>
             ) : null}
-            <Notice>{t("selfBackup.holds")}</Notice>
+          </div>
+        ) : undefined}
+      </Card>
+    );
+
+  const migration = job.job !== null && job.job.id === migrationJob && job.job.state === "succeeded" ? readMigrationReport(job.job.result) : null;
+
+  return (
+    <BackupsListPage
+      secondaryActions={
+        <Button disabled={job.busy} onClick={() => setMigrating(true)}>
+          {t("selfBackup.migrate.open")}
+        </Button>
+      }
+      primaryAction={
+        <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} disabled={job.busy} onClick={backUpNow}>
+          {t("selfBackup.backUpNow")}
+        </Button>
+      }
+      footer={<CommandHint command="noust self-backup schedule set --schedule daily --keep 7" label={t("backups.common.fromTerminal")} />}
+    >
+      <div className="flex min-w-0 flex-col gap-6">
+        {job.notice}
+        {migration !== null ? <MigrationReport report={migration} /> : null}
+        {failure !== null ? <ErrorBlock live compact error={failure} title={t("selfBackup.passphrase.failed")} /> : null}
+        {overview.isError && data === undefined ? (
+          <ErrorBlock error={overview.error} title={t("selfBackup.loadFailed")} onRetry={() => void overview.refetch()} retrying={overview.isRefetching} />
+        ) : (
+          <>
+            {stateCard}
+            <p className="max-w-measure text-13 text-fg-muted">{t("selfBackup.holds")}</p>
             <DataTable<Bundle>
               caption={t("selfBackup.caption")}
               rows={bundles}
@@ -311,7 +312,7 @@ export function SelfBackupPage() {
                 },
               ]}
               rowActions={(bundle) => (
-                <Menu align="end" trigger={<IconButton size="sm" label={t("selfBackup.table.actionsFor", { name: bundle.name })} icon={<ICONS.more />} tooltip={false} />}>
+                <RowMenu name={bundle.name}>
                   <MenuItem icon={<ShieldQuestion />} disabled={job.busy} onClick={() => (known ? attempt(() => verify(bundle, null)) : setAsking({ kind: "verify", bundle }))}>
                     {t("selfBackup.table.verify")}
                   </MenuItem>
@@ -325,7 +326,7 @@ export function SelfBackupPage() {
                   <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleting(bundle)}>
                     {t("selfBackup.table.delete")}
                   </MenuItem>
-                </Menu>
+                </RowMenu>
               )}
             />
             {schedule?.configured === true ? (

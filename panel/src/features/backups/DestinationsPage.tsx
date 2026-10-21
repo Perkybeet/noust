@@ -8,14 +8,14 @@ import { backupDestinationsQuery } from "../../api/queries/backupDestinations";
 import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { RowMenu } from "../../components/page/RowMenu";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Notice } from "../../components/ui/Notice";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
@@ -115,7 +115,7 @@ function DestinationActions({
 
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={t("backups.destinations.actionsFor", { name: destination.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <RowMenu name={destination.name}>
         <MenuItem icon={<Wifi />} disabled={testState?.checking === true} onClick={onTest}>
           {t("backups.destinations.test.label")}
         </MenuItem>
@@ -134,7 +134,7 @@ function DestinationActions({
         <MenuItem icon={<ICONS.delete />} destructive onClick={() => (keyed ? setRemoveKeyOpen(true) : setRemoveOpen(true))}>
           {t("backups.destinations.remove")}
         </MenuItem>
-      </Menu>
+      </RowMenu>
       {editOpen ? <DestinationDialog existing={destination} open onOpenChange={setEditOpen} /> : null}
       <RemoveDestinationDialog destination={destination} open={removeOpen} onOpenChange={setRemoveOpen} keySaved={keyed} />
       {keyOpen ? <ShowKeyDialog name={destination.name} open onOpenChange={setKeyOpen} /> : null}
@@ -264,6 +264,7 @@ export function DestinationsPage() {
   );
 
   let content;
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (destinations.isError && destinations.data === undefined) {
     content = (
       <ErrorBlock error={destinations.error} title={t("backups.destinations.loadError")} onRetry={() => void destinations.refetch()} retrying={destinations.isRefetching} />

@@ -257,7 +257,7 @@ test("a schedule copies to both destinations, each with its own retention", asyn
   await expect(row.getByText("Every day at 02:00", { exact: true })).toBeVisible();
   await expect(row.getByText("*-*-* 02:00:00", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Actions for the schedule on shop.example.net" }).click();
+  await page.getByRole("button", { name: "Actions for shop.example.net" }).click();
   await page.getByRole("menuitem", { name: "Edit" }).click();
   const dialog = page.getByRole("dialog", { name: "Edit the schedule for shop.example.net" });
   await expect(dialog).toBeVisible();

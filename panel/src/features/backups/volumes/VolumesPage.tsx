@@ -8,15 +8,15 @@ import type { VolumePolicy } from "../../../api/queries/volumeBackups";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
+import { RowMenu } from "../../../components/page/RowMenu";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { IconButton } from "../../../components/ui/IconButton";
 import { ICONS } from "../../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
@@ -137,6 +137,7 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
   ];
 
   let content;
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (policies.isError && policies.data === undefined) {
     content = <ErrorBlock error={policies.error} title={t("volumeBackups.loadFailed")} onRetry={() => void policies.refetch()} retrying={policies.isRefetching} />;
   } else if (!loading && rows.length === 0) {
@@ -166,7 +167,7 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
         onRowActivate={openRow}
         mobile="cards"
         rowActions={(row) => (
-          <Menu align="end" trigger={<IconButton size="sm" label={t("volumeBackups.actions.for", { domain: row.domain })} icon={<ICONS.more />} tooltip={false} />}>
+          <RowMenu name={row.domain}>
             <MenuItem disabled={job.busy || run.isPending} onClick={() => run.mutate(row)}>
               {t("volumeBackups.actions.runNow")}
             </MenuItem>
@@ -180,7 +181,7 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
                 </MenuItem>
               </>
             ) : null}
-          </Menu>
+          </RowMenu>
         )}
       />
     );

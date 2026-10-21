@@ -43,6 +43,7 @@ export function StorageSummary() {
   const t = useT();
   const storage = useQuery(backupStorageQuery());
 
+  // design-exception: hand-error-ternary one line in the page header, drawn at the loaded line's height: a block would move the page
   if (storage.isError && storage.data === undefined) {
     return <span className="text-fg-faint">{t("backups.storage.loadError")}</span>;
   }

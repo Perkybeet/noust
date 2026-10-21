@@ -61,8 +61,8 @@ describe("the Volumes tab", () => {
     const { user, backend } = await volumesAt("/backups/volumes", {
       [`PUT /api/volume-backups/policies/${SHOP}`]: (call) => json(200, { ...policy(SHOP), ...(call.body as object) }),
     }, { policies: [], backups: [] });
-    await user.click(await screen.findByRole("button", { name: "New data policy" }));
-    const drawer = await screen.findByRole("dialog", { name: "New data policy" });
+    await user.click(await screen.findByRole("button", { name: "New data schedule" }));
+    const drawer = await screen.findByRole("dialog", { name: "New data schedule" });
     await user.click(within(drawer).getByRole("combobox", { name: "Application" }));
     await user.click(await screen.findByRole("option", { name: SHOP }));
     // Everything it declares is the default; choosing pieces lists what it does declare.
@@ -75,7 +75,7 @@ describe("the Volumes tab", () => {
     await user.click(within(drawer).getByRole("radio", { name: /^Pause it/ }));
     await user.click(within(drawer).getByRole("checkbox", { name: "nas" }));
     await expectNoAxeViolations(drawer);
-    await user.click(within(drawer).getByRole("button", { name: "Save policy" }));
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
     await waitFor(() => expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)).toHaveLength(1));
     expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)[0]?.body).toEqual({
       schedule: "*-*-* 02:00:00",
@@ -93,17 +93,17 @@ describe("the Volumes tab", () => {
 
   it("asks for a piece when only some are to be backed up, and for a folder that stays inside the data", async () => {
     const { user, backend } = await volumesAt("/backups/volumes", {}, { policies: [], backups: [] });
-    await user.click(await screen.findByRole("button", { name: "New data policy" }));
-    const drawer = await screen.findByRole("dialog", { name: "New data policy" });
-    await user.click(within(drawer).getByRole("button", { name: "Save policy" }));
+    await user.click(await screen.findByRole("button", { name: "New data schedule" }));
+    const drawer = await screen.findByRole("dialog", { name: "New data schedule" });
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
     expect(await within(drawer).findByText("Choose the application whose data is backed up.")).toBeInTheDocument();
     await user.click(within(drawer).getByRole("combobox", { name: "Application" }));
     await user.click(await screen.findByRole("option", { name: SHOP }));
     await user.click(within(drawer).getByRole("radio", { name: /^Only the pieces I choose/ }));
-    await user.click(within(drawer).getByRole("button", { name: "Save policy" }));
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
     expect(await within(drawer).findByText("Choose at least one piece, or back up everything it declares.")).toBeInTheDocument();
     await user.type(within(drawer).getByLabelText(/^More folders/), "../etc");
-    await user.click(within(drawer).getByRole("button", { name: "Save policy" }));
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
     expect(await within(drawer).findByText(/A folder is a relative path inside the application's data/)).toBeInTheDocument();
     expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)).toHaveLength(0);
   });
@@ -190,10 +190,10 @@ describe("the Volumes tab", () => {
     const stored = policy(SHOP, { remote_only: true });
     const { user, backend } = await volumesAt("/backups/volumes", { [`PUT /api/volume-backups/policies/${SHOP}`]: (call) => json(200, { ...stored, ...(call.body as object) }) }, { policies: [stored] });
     await user.click(await screen.findByRole("button", { name: `Actions for ${SHOP}` }));
-    await user.click(await screen.findByRole("menuitem", { name: "Edit the policy" }));
-    const drawer = await screen.findByRole("dialog", { name: `Edit the data policy of ${SHOP}` });
+    await user.click(await screen.findByRole("menuitem", { name: "Edit the schedule" }));
+    const drawer = await screen.findByRole("dialog", { name: `Edit the data schedule of ${SHOP}` });
     expect(within(drawer).getByRole("checkbox", { name: "Keep nothing on this server" })).toBeChecked();
-    await user.click(within(drawer).getByRole("button", { name: "Save policy" }));
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
     await waitFor(() => expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)).toHaveLength(1));
     expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)[0]?.body).toMatchObject({ remote_only: true, destinations: [{ name: "nas" }] });
   });
@@ -201,13 +201,13 @@ describe("the Volumes tab", () => {
   it("sends true once the box of a policy that keeps its backups here is ticked", async () => {
     const { user, backend } = await volumesAt("/backups/volumes", { [`PUT /api/volume-backups/policies/${SHOP}`]: (call) => json(200, { ...policy(SHOP), ...(call.body as object) }) });
     await user.click(await screen.findByRole("button", { name: `Actions for ${SHOP}` }));
-    await user.click(await screen.findByRole("menuitem", { name: "Edit the policy" }));
-    const drawer = await screen.findByRole("dialog", { name: `Edit the data policy of ${SHOP}` });
+    await user.click(await screen.findByRole("menuitem", { name: "Edit the schedule" }));
+    const drawer = await screen.findByRole("dialog", { name: `Edit the data schedule of ${SHOP}` });
     const box = within(drawer).getByRole("checkbox", { name: "Keep nothing on this server" });
     expect(box).not.toBeChecked();
     await user.click(box);
     await expectNoAxeViolations(drawer);
-    await user.click(within(drawer).getByRole("button", { name: "Save policy" }));
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
     await waitFor(() => expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)).toHaveLength(1));
     expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)[0]?.body).toMatchObject({ remote_only: true });
   });
@@ -216,8 +216,8 @@ describe("the Volumes tab", () => {
     const stored = policy(SHOP, { remote_only: true });
     const { user, backend } = await volumesAt("/backups/volumes", { [`PUT /api/volume-backups/policies/${SHOP}`]: (call) => json(200, { ...stored, ...(call.body as object) }) }, { policies: [stored] });
     await user.click(await screen.findByRole("button", { name: `Actions for ${SHOP}` }));
-    await user.click(await screen.findByRole("menuitem", { name: "Edit the policy" }));
-    const drawer = await screen.findByRole("dialog", { name: `Edit the data policy of ${SHOP}` });
+    await user.click(await screen.findByRole("menuitem", { name: "Edit the schedule" }));
+    const drawer = await screen.findByRole("dialog", { name: `Edit the data schedule of ${SHOP}` });
     const box = within(drawer).getByRole("checkbox", { name: "Keep nothing on this server" });
     expect(box).toBeChecked();
     await user.click(within(drawer).getByRole("checkbox", { name: "nas" }));
@@ -225,7 +225,7 @@ describe("the Volumes tab", () => {
     expect(box).toHaveAttribute("aria-disabled", "true");
     expect(within(drawer).getByText("Add at least one destination to turn this on; with none, the backups stay on this server.")).toBeInTheDocument();
     await expectNoAxeViolations(drawer);
-    await user.click(within(drawer).getByRole("button", { name: "Save policy" }));
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
     await waitFor(() => expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)).toHaveLength(1));
     expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)[0]?.body).toMatchObject({ remote_only: false, destinations: [] });
   });
@@ -235,9 +235,9 @@ describe("the Volumes tab", () => {
       [`PUT /api/volume-backups/policies/${SHOP}`]: () => problem(422, "validation_error", "bad", { fields: { schedule: "Invalid calendar expression 'whenever'" } }),
     });
     await user.click(await screen.findByRole("button", { name: `Actions for ${SHOP}` }));
-    await user.click(await screen.findByRole("menuitem", { name: "Edit the policy" }));
-    const drawer = await screen.findByRole("dialog", { name: `Edit the data policy of ${SHOP}` });
-    await user.click(within(drawer).getByRole("button", { name: "Save policy" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit the schedule" }));
+    const drawer = await screen.findByRole("dialog", { name: `Edit the data schedule of ${SHOP}` });
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
     expect(await within(drawer).findByText("Invalid calendar expression 'whenever'")).toBeInTheDocument();
   });
 

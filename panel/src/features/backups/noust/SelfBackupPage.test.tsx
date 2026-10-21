@@ -74,7 +74,9 @@ async function pageAt(schedule: SelfSchedule, bundles: Bundle[] = [bundle(NAME)]
 describe("the Noust tab", () => {
   it("says Noust's own state is not backed up when there is no schedule, and what that costs", async () => {
     await pageAt(OFF, []);
-    expect(await screen.findByText("Not backed up on a schedule")).toBeInTheDocument();
+    const card = (await screen.findByRole("heading", { name: "Schedule" })).closest("section");
+    if (card === null) throw new Error("no schedule card");
+    expect(within(card).getByText("Off")).toBeInTheDocument();
     expect(screen.getByText(/a lost server loses its accounts/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Set a schedule" })).toBeInTheDocument();
     expect(screen.getByText("No bundles yet")).toBeInTheDocument();
@@ -83,7 +85,9 @@ describe("the Noust tab", () => {
 
   it("shows a working schedule: when, what it keeps, where it sends, whether the passphrase is kept, and when it was last checked", async () => {
     await pageAt(ON);
-    expect(await screen.findByText("Backed up on a schedule")).toBeInTheDocument();
+    const card = (await screen.findByRole("heading", { name: "Schedule" })).closest("section");
+    if (card === null) throw new Error("no schedule card");
+    expect(within(card).getByText("On")).toBeInTheDocument();
     expect(screen.getByText("Kept on this server, for the timer")).toBeInTheDocument();
     expect(screen.getByText("The last 7 backups, for up to 30 days")).toBeInTheDocument();
     expect(screen.getAllByText("Every day at 03:00").length).toBeGreaterThan(0);
@@ -282,7 +286,7 @@ describe("the Noust tab", () => {
   it("is read in Spanish", async () => {
     await pageAt(ON);
     await act(() => setLocale("es"));
-    expect(await screen.findByText("Con copia programada")).toBeInTheDocument();
+    expect(await screen.findByText("Activada")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Paquetes del estado propio de Noust" })).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
@@ -335,7 +339,10 @@ describe("moving to another server", () => {
     const { user, dialog, backend } = await openDialog(MOVE_PLAN, { "POST /api/server/migration/prepare": () => json(202, MOVE_ACCEPTED), [`GET /api/jobs/${MOVE_JOB.id}`]: () => json(200, MOVE_JOB) });
     await within(dialog).findByText("shop.example.com");
 
-    expect(within(dialog).getByRole("button", { name: "Copy everything now" })).toBeDisabled();
+    // Pressing without a passphrase says so under its field and queues nothing.
+    await user.click(within(dialog).getByRole("button", { name: "Copy everything now" }));
+    expect(await within(dialog).findByText("This field is required.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/server/migration/prepare")).toHaveLength(0);
     await user.type(within(dialog).getByLabelText("Passphrase for Noust's state"), PASSPHRASE);
     await user.click(within(dialog).getByRole("button", { name: "Copy everything now" }));
 

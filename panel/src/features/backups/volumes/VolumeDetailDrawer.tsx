@@ -8,6 +8,7 @@ import type { VolumeBackup } from "../../../api/queries/volumeBackups";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
+import { RowMenu } from "../../../components/page/RowMenu";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -16,9 +17,8 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import { Drawer } from "../../../components/ui/Drawer";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { IconButton } from "../../../components/ui/IconButton";
-import { ICONS } from "../../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
@@ -55,7 +55,7 @@ export function coversWords(t: T, targets: readonly string[], extraPaths: readon
 function BackupActions({ backup, busy, onRestore, onVerify, onPush, onDelete }: { backup: VolumeBackup; busy: boolean; onRestore: () => void; onVerify: () => void; onPush: () => void; onDelete: () => void }) {
   const t = useT();
   return (
-    <Menu align="end" trigger={<IconButton size="sm" label={t("volumeBackups.table.actionsFor", { id: backup.id })} icon={<ICONS.more />} tooltip={false} />}>
+    <RowMenu name={backup.id}>
       <MenuItem icon={<ArchiveRestore />} disabled={busy} onClick={onRestore}>
         {t("volumeBackups.table.restore")}
       </MenuItem>
@@ -69,7 +69,7 @@ function BackupActions({ backup, busy, onRestore, onVerify, onPush, onDelete }: 
       <MenuItem icon={<Trash2 />} destructive onClick={onDelete}>
         {t("volumeBackups.table.delete")}
       </MenuItem>
-    </Menu>
+    </RowMenu>
   );
 }
 
@@ -121,11 +121,11 @@ export function VolumeDetailDrawer({ row, open, onOpenChange, onEdit, onRun, onR
                 <Button size="sm" onClick={onEdit}>
                   {t("volumeBackups.actions.edit")}
                 </Button>
-                <Menu align="end" trigger={<IconButton size="sm" label={t("volumeBackups.actions.for", { domain: row.domain })} icon={<ICONS.more />} />}>
+                <RowMenu name={row.domain}>
                   <MenuItem icon={<Trash2 />} destructive onClick={onRemove}>
                     {t("volumeBackups.actions.remove")}
                   </MenuItem>
-                </Menu>
+                </RowMenu>
               </>
             ) : undefined
           }
@@ -181,7 +181,7 @@ export function VolumeDetailDrawer({ row, open, onOpenChange, onEdit, onRun, onR
                   {policy.last_error}
                 </SystemOutput>
               ) : null}
-              {policy.enabled && !isTrue(policy.timer, "installed") ?<p className="text-12 text-fail">{t("volumeBackups.detail.timerMissing")}</p> : null}
+              {policy.enabled && !isTrue(policy.timer, "installed") ?<InlineMessage tone="error">{t("volumeBackups.detail.timerMissing")}</InlineMessage> : null}
             </div>
           )}
         </Section>

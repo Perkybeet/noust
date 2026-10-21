@@ -20,6 +20,7 @@ export const backups = {
     password2: "Password 2 (salt)",
     loadingApplications: "Loading applications…",
     chooseApplication: "Choose an application",
+    required: "This field is required.",
     loadingDestinations: "Loading destinations…",
     chooseDestination: "Choose a destination",
     chooseOne: "Choose one",
@@ -67,7 +68,6 @@ export const backups = {
     // into "1 of 1 applications".
     countFiltered: "{shown} of {total} applications",
     noMatch: "No application matches these filters.",
-    actionsFor: "Actions for {domain}",
     removed: "No longer deployed",
     notScheduled: "Not scheduled",
     copiedTo: "Also copied to {names}",
@@ -91,11 +91,6 @@ export const backups = {
       restoreLatest: "Restore the latest…",
       schedule: "Schedule backups…",
       editSchedule: "Edit schedule…",
-    },
-    noneBackedUp: {
-      title: "None of your applications has a backup yet",
-      description: "A schedule backs each one up by itself, every night, and keeps the last week.",
-      action: "Schedule backups",
     },
     empty: {
       title: "Nothing to back up yet",
@@ -136,7 +131,6 @@ export const backups = {
     caption: "Backups of {domain}",
     empty: "No backups of {domain} yet.",
     backUpNow: "Back up now",
-    actionsFor: "Actions for {id}",
     columns: {
       created: "Created",
       size: "Size",
@@ -179,13 +173,12 @@ export const backups = {
       one: "{count} backup is outside the backup directory",
       other: "{count} backups are outside the backup directory",
     },
-    intro: "This page lists only the backups in {path}, so these cannot be restored from here until they are imported. Importing moves them into it.",
+    intro: "This page lists only the backups in {path}; import these to restore them from here.",
     foundIn: {
       one: "{count} backup in {directory}",
       other: "{count} backups in {directory}",
     },
-    importLabel: "Import them",
-    dryRunHint: "Add {flag} to the command to see what would move first, without moving anything.",
+    importLabel: "Import them (--dry-run shows what would move)",
   },
 
   createDialog: {
@@ -254,7 +247,6 @@ export const backups = {
     newSchedule: "New schedule",
     loadError: "Could not load the schedules",
     caption: "Backup schedules",
-    actionsFor: "Actions for the schedule on {domain}",
     removeAction: "Remove schedule",
     pending: "Pending",
     serverDefault: "Server default: the newest {count}",
@@ -290,17 +282,6 @@ export const backups = {
     description: "Backs the application up by itself and deletes the old copies it made.",
     create: "Create schedule",
     everyApp: "Every application without a schedule ({count})",
-    scheduleLabel: "When",
-    presets: {
-      hourly: "Every hour",
-      daily: "Every day at 02:00",
-      weekly: "Every Monday at 02:00",
-      monthly: "On the 1st of every month at 02:00",
-      custom: "At a time you write",
-    },
-    calendarLabel: "Calendar expression",
-    calendarDescription:
-      "In systemd's calendar syntax, on the server's clock: *-*-* 03:30:00 is every day at 03:30; Mon..Fri *-*-* 09:00:00 is weekdays at 09:00.",
     retention: {
       label: "How many to keep",
       newDescription:
@@ -316,20 +297,16 @@ export const backups = {
     keepGbLabel: "Keep at most",
     keepGbDescription: "The most its backups may weigh together, in gigabytes. Blank means no limit by size.",
     keepGbInvalid: "A number above zero, up to 100000.",
-    keepGbShort: "GB",
     keepGbOn: "Gigabytes to keep on {name}",
     keepOn: "Keep on {name}",
     maxAgeLabel: "Delete after (days)",
-    maxAgeShort: "Days",
     maxAgeDescription: "Blank keeps them however old they are.",
     maxAgeOn: "Delete after (days) on {name}",
-    removeDestination: "Remove {name}",
     dumpDatabases: "Include its databases",
     destinationsLegend: "Also copy to",
-    destinationsHint: "Each backup is also sent to these destinations. Their limits are optional: blank keeps every copy sent there.",
-    noDestinations: "No destinations yet. Add one in the Destinations tab to copy backups off this server.",
-    addDestinationAria: "Add a destination",
-    chooseDestinationToAdd: "Choose a destination to add",
+    noDestinations: "No destinations yet",
+    noDestinationsHint: "Add one in the Destinations tab to copy backups off this server.",
+    backupsSuffix: "backups",
     remoteOnly: "Keep nothing on this server",
     remoteOnlyHelp: "Each backup this schedule makes is deleted here once every destination holds it and its upload was checked, and one that could not be sent stays.",
     remoteOnlyNeedsDestination: "Add at least one destination to turn this on; with none, the backups stay on this server.",
@@ -342,7 +319,6 @@ export const backups = {
     add: "Add destination",
     loadError: "Could not load the destinations",
     caption: "Backup destinations",
-    actionsFor: "Actions for {name}",
     encrypted: "Encrypted",
     notEncrypted: "Not encrypted",
     credentials: {
@@ -446,6 +422,7 @@ export const backups = {
     readError: "Could not read that destination",
     resultsCaption: "Backups on {name} for {app}",
     appsFoundHint: "Applications found at this destination. Choose one to see its backups.",
+    appsFoundLabel: "Applications found",
     noBackupsFound: { title: "No backups found.", description: "Nothing was found at that path." },
     nothingFound: { title: "Nothing found there.", description: "No application folders were found at this destination's path." },
     columns: {

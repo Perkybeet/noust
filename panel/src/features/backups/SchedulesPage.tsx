@@ -9,14 +9,14 @@ import { backupSchedulesQuery } from "../../api/queries/backups";
 import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { RowMenu } from "../../components/page/RowMenu";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
@@ -52,7 +52,7 @@ function Keeps({ schedule, serverDefault, t }: { schedule: BackupSchedule; serve
 function ScheduleActions({ schedule, onEdit, onRemove }: { schedule: BackupSchedule; onEdit: () => void; onRemove: () => void }) {
   const t = useT();
   return (
-    <Menu align="end" trigger={<IconButton label={t("backups.schedules.actionsFor", { domain: schedule.domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+    <RowMenu name={schedule.domain}>
       <MenuItem icon={<CalendarClock />} onClick={onEdit}>
         {t("backups.common.edit")}
       </MenuItem>
@@ -60,7 +60,7 @@ function ScheduleActions({ schedule, onEdit, onRemove }: { schedule: BackupSched
       <MenuItem icon={<ICONS.delete />} destructive onClick={onRemove}>
         {t("backups.schedules.removeAction")}
       </MenuItem>
-    </Menu>
+    </RowMenu>
   );
 }
 
@@ -152,6 +152,7 @@ export function SchedulesPage() {
   );
 
   let content;
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (schedules.isError && schedules.data === undefined) {
     content = <ErrorBlock error={schedules.error} title={t("backups.schedules.loadError")} onRetry={() => void schedules.refetch()} retrying={schedules.isRefetching} />;
   } else if (empty) {

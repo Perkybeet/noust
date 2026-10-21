@@ -60,9 +60,7 @@ describe("ScheduleDialog", () => {
     await user.click(within(dialog).getByRole("combobox", { name: "Application" }));
     await user.click(await screen.findByRole("option", { name: "shop.example.com" }));
 
-    await user.click(within(dialog).getByRole("combobox", { name: "Add a destination" }));
-    await user.click(await screen.findByRole("option", { name: "offsite" }));
-    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    await user.click(await within(dialog).findByRole("checkbox", { name: "offsite" }));
 
     await user.type(within(dialog).getByLabelText("Keep on offsite"), "3");
     await expectNoAxeViolations(container);
@@ -92,9 +90,7 @@ describe("ScheduleDialog", () => {
     const dialog = await screen.findByRole("dialog", { name: "New backup schedule" });
     await user.click(within(dialog).getByRole("combobox", { name: "Application" }));
     await user.click(await screen.findByRole("option", { name: "shop.example.com" }));
-    await user.click(within(dialog).getByRole("combobox", { name: "Add a destination" }));
-    await user.click(await screen.findByRole("option", { name: "offsite" }));
-    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    await user.click(await within(dialog).findByRole("checkbox", { name: "offsite" }));
 
     await user.type(within(dialog).getByLabelText(/^Keep at most/), "2,5");
     await user.type(within(dialog).getByLabelText("Gigabytes to keep on offsite"), "40");
@@ -147,11 +143,11 @@ describe("ScheduleDialog", () => {
     await within(table).findByText("shop.example.com");
     expect(within(table).getByText("offsite")).toBeInTheDocument();
 
-    await user.click(within(table).getByRole("button", { name: /^Actions for the schedule on/ }));
+    await user.click(within(table).getByRole("button", { name: /^Actions for shop.example.com/ }));
     await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Edit the schedule for shop.example.com" });
-    expect(within(dialog).getByText("offsite")).toBeInTheDocument();
+    expect(await within(dialog).findByRole("checkbox", { name: "offsite" })).toBeChecked();
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -204,7 +200,7 @@ describe("ScheduleDialog", () => {
     const { user, container } = renderConsole("/backups/schedules");
     const table = await screen.findByRole("region", { name: "Backup schedules" });
     await within(table).findByText("shop.example.com");
-    await user.click(within(table).getByRole("button", { name: /^Actions for the schedule on/ }));
+    await user.click(within(table).getByRole("button", { name: /^Actions for shop.example.com/ }));
     await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Edit the schedule for shop.example.com" });
@@ -212,10 +208,8 @@ describe("ScheduleDialog", () => {
     expect(within(dialog).queryByLabelText("Keep")).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
 
-    // Adding a destination is exactly what used to prune 23 of 30 local backups.
-    await user.click(within(dialog).getByRole("combobox", { name: "Add a destination" }));
-    await user.click(await screen.findByRole("option", { name: "offsite" }));
-    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    // Sending to a destination is exactly what used to prune 23 of 30 local backups.
+    await user.click(await within(dialog).findByRole("checkbox", { name: "offsite" }));
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -254,7 +248,7 @@ describe("a schedule that keeps nothing on this server", () => {
     const { user } = renderConsole("/backups/schedules");
     const table = await screen.findByRole("region", { name: "Backup schedules" });
     await within(table).findByText("shop.example.com");
-    await user.click(within(table).getByRole("button", { name: /^Actions for the schedule on/ }));
+    await user.click(within(table).getByRole("button", { name: /^Actions for shop.example.com/ }));
     await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
     const dialog = await screen.findByRole("dialog", { name: "Edit the schedule for shop.example.com" });
     return { user, backend, dialog };
@@ -298,15 +292,13 @@ describe("a schedule that keeps nothing on this server", () => {
   it("is off and disabled, with the reason, until a destination is added; the tick comes back with it", async () => {
     const { user, backend, dialog } = await editing(STORED);
     const box = within(dialog).getByRole("checkbox", { name: "Keep nothing on this server" });
-    await user.click(within(dialog).getByRole("button", { name: "Remove offsite" }));
+    await user.click(await within(dialog).findByRole("checkbox", { name: "offsite" }));
     expect(box).not.toBeChecked();
     expect(box).toHaveAttribute("aria-disabled", "true");
     expect(within(dialog).getByText("Add at least one destination to turn this on; with none, the backups stay on this server.")).toBeInTheDocument();
     await expectNoAxeViolations(dialog);
 
-    await user.click(within(dialog).getByRole("combobox", { name: "Add a destination" }));
-    await user.click(await screen.findByRole("option", { name: "offsite" }));
-    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    await user.click(await within(dialog).findByRole("checkbox", { name: "offsite" }));
     expect(box).not.toHaveAttribute("aria-disabled", "true");
     expect(box).toBeChecked();
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
@@ -316,7 +308,7 @@ describe("a schedule that keeps nothing on this server", () => {
 
   it("is sent as off when the last destination is taken off and the schedule is saved", async () => {
     const { user, backend, dialog } = await editing(STORED);
-    await user.click(within(dialog).getByRole("button", { name: "Remove offsite" }));
+    await user.click(await within(dialog).findByRole("checkbox", { name: "offsite" }));
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(backend.callsTo(PUT)).toHaveLength(1));
     expect(backend.callsTo(PUT)[0]?.body).toMatchObject({ remote_only: false, destinations: [] });
@@ -343,9 +335,7 @@ describe("a schedule that keeps nothing on this server", () => {
     const box = within(dialog).getByRole("checkbox", { name: "Keep nothing on this server" });
     expect(box).toHaveAttribute("aria-disabled", "true");
 
-    await user.click(within(dialog).getByRole("combobox", { name: "Add a destination" }));
-    await user.click(await screen.findByRole("option", { name: "offsite" }));
-    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    await user.click(await within(dialog).findByRole("checkbox", { name: "offsite" }));
     expect(box).not.toHaveAttribute("aria-disabled", "true");
     expect(box).not.toBeChecked();
     await user.click(box);
