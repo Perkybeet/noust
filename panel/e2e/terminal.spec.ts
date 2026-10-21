@@ -117,7 +117,7 @@ test("a terminal opens as the application, draws a shell and ends when the shell
   await terminal(page).focus();
   await page.keyboard.type("exit");
   await page.keyboard.press("Enter");
-  await expect(page.getByText("The shell exited.")).toBeVisible();
+  await expect(page.getByText("The shell exited.").first()).toBeVisible();
   await expect(page.getByText("Ended", { exact: true })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a terminal after its shell ended");
@@ -125,7 +125,7 @@ test("a terminal opens as the application, draws a shell and ends when the shell
   await page.getByRole("button", { name: "Open a new terminal" }).click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "End session" }).click();
-  await expect(page.getByText("The session was ended.")).toBeVisible();
+  await expect(page.getByText("The session was ended.").first()).toBeVisible();
 });
 
 test("the grid follows the window, and the keyboard can leave the terminal", async ({ page, consoleServer, problems }) => {

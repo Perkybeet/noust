@@ -209,11 +209,14 @@ serial("passwords are turned off for single sign-on, keeping the way back, and o
 serial("the MCP endpoint is turned on, a group of tools switched off, and the tools listed by what they do", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/settings/mcp");
   await elevate(page, consoleServer);
-  await expect(page.getByText("The MCP endpoint is off").first()).toBeVisible();
+  const endpoint = page.getByRole("switch", { name: "Answer MCP clients" });
+  await expect(page.locator("[data-state]").getByText("Off", { exact: true }).first()).toBeVisible();
+  await expect(endpoint).not.toBeChecked();
   await settle(page);
   await expectNoA11yViolations(page, "Settings, MCP, off");
-  await page.getByRole("button", { name: "Turn on" }).click();
-  await expect(page.getByText("The MCP endpoint answers", { exact: true })).toBeVisible();
+  await endpoint.click();
+  await expect(page.getByText("The MCP endpoint answers now")).toBeVisible();
+  await expect(page.locator("[data-state]").getByText("On", { exact: true }).first()).toBeVisible();
   await page.getByRole("switch", { name: "Control" }).click();
   const tools = page.getByRole("region", { name: "MCP tools" });
   await expect(tools.getByText("list_applications")).toBeVisible();
@@ -221,8 +224,8 @@ serial("the MCP endpoint is turned on, a group of tools switched off, and the to
   await expect(tools.getByText("Asks twice").first()).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "Settings, MCP, on");
-  await page.getByRole("button", { name: "Turn off" }).click();
-  await expect(page.getByText("The MCP endpoint is off").first()).toBeVisible();
+  await endpoint.click();
+  await expect(page.getByText("The MCP endpoint is off")).toBeVisible();
   await page.getByRole("switch", { name: "Control" }).click();
 });
 
