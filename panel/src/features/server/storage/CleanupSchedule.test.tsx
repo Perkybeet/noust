@@ -18,10 +18,13 @@ function storage(extra: Record<string, RouteHandler> = {}) {
 
 /** The card under a heading: a section with no name is not a region, so it is found by its title. */
 async function cardTitled(name: string): Promise<HTMLElement> {
-  const heading = await screen.findByRole("heading", { name });
-  const card = heading.closest("section");
-  if (card === null) throw new Error(`no card titled ${name}`);
-  return card;
+  // The card that is loading and the card that loaded are two elements with the same title.
+  return waitFor(() => {
+    const card = screen.getByRole("heading", { name }).closest("section");
+    if (card === null) throw new Error(`no card titled ${name}`);
+    expect(card.matches("[aria-busy='true']")).toBe(false);
+    return card;
+  });
 }
 
 const ON = {
@@ -117,7 +120,7 @@ describe("the automatic cleanup card", () => {
       "POST /api/server/storage/schedule/run": () => json(202, { job_id: "j9", message: "Cleanup queued", status: "pending" }),
     });
     await user.click(await screen.findByRole("button", { name: "Run now" }));
-    const dialog = await screen.findByRole("dialog", { name: "Run the cleanup policy now?" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Run the cleanup policy now?" });
     expect(within(within(dialog).getByRole("list", { name: "What the policy cleans" })).getAllByRole("listitem")).toHaveLength(2);
     await user.click(within(dialog).getByRole("button", { name: "Run the policy" }));
     await waitFor(() => {

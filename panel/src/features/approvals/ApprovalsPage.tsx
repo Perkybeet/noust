@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Inbox } from "lucide-react";
+import { Inbox, Play, UserCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { sendApproved } from "../../api/client";
@@ -9,7 +9,7 @@ import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section, Sections } from "../../components/page/Section";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
@@ -22,8 +22,8 @@ import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
 import { Mono } from "../../components/ui/Mono";
-import { FeatureState } from "../../components/ui/FeatureState";
 import { Notice } from "../../components/ui/Notice";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
 import { toast } from "../../components/ui/toast";
@@ -137,17 +137,17 @@ function ApprovalDrawer({ approval, onClose }: { approval: Approval; onClose: ()
       footer={
         deciding || withdrawing ? (
           <>
-            <Button variant="danger" loading={decide.isPending && decide.variables === "reject"} disabled={decide.isPending} onClick={() => decide.mutate("reject")}>
+            <Button variant="secondary" loading={decide.isPending && decide.variables === "reject"} disabled={decide.isPending} onClick={() => decide.mutate("reject")}>
               {withdrawing ? t("approvals.drawer.withdraw") : t("approvals.drawer.reject")}
             </Button>
             {deciding ? (
-              <Button variant="primary" loading={decide.isPending && decide.variables === "approve"} disabled={decide.isPending} onClick={() => decide.mutate("approve")}>
+              <Button icon={<UserCheck aria-hidden="true" />} variant="primary" loading={decide.isPending && decide.variables === "approve"} disabled={decide.isPending} onClick={() => decide.mutate("approve")}>
                 {t("approvals.drawer.approve")}
               </Button>
             ) : null}
           </>
         ) : canRun && call !== null ? (
-          <Button variant="primary" loading={run.isPending} onClick={() => run.mutate()}>
+          <Button icon={<Play aria-hidden="true" />} variant="primary" loading={run.isPending} onClick={() => run.mutate()}>
             {t("approvals.drawer.runNow")}
           </Button>
         ) : undefined
@@ -174,7 +174,7 @@ function ApprovalDrawer({ approval, onClose }: { approval: Approval; onClose: ()
             />
           </Field>
         ) : null}
-        {approval.mine && approval.state === "requested" ? <Notice>{t("approvals.drawer.yours")}</Notice> : null}
+        {approval.mine && approval.state === "requested" ? <p className="text-13 text-fg-muted">{t("approvals.drawer.yours")}</p> : null}
         {canRun && call === null ? <Notice tone="warning">{t("approvals.drawer.cannotReplay")}</Notice> : null}
         {decide.isError ? <ErrorBlock live compact error={decide.error} title={t("approvals.drawer.decideFailed")} /> : null}
         {run.isError ? <ErrorBlock live compact error={run.error} title={t("approvals.drawer.runFailed")} /> : null}
@@ -215,15 +215,17 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
 
   return (
     <Sections>
-      {policy.data !== undefined && !policy.data.enabled ? (
-        <FeatureState state="off" title={t("approvals.page.offTitle")}>
-          {t("approvals.page.off")}
-        </FeatureState>
-      ) : null}
       <Section
         title={t("approvals.page.title")}
+        {...(policy.data !== undefined
+          ? { badge: <StatusPill state={policy.data.enabled ? "running" : "stopped"} label={policy.data.enabled ? t("approvals.page.on") : t("approvals.page.offLabel")} size="sm" /> }
+          : {})}
         description={
-          policy.data === undefined ? t("approvals.page.description") : t("approvals.page.descriptionWho", { approvers: deciders })
+          policy.data === undefined
+            ? t("approvals.page.description")
+            : policy.data.enabled
+              ? t("approvals.page.descriptionWho", { approvers: deciders })
+              : t("approvals.page.off")
         }
       >
         <div className="flex min-w-0 flex-col gap-4">
@@ -254,32 +256,34 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
             }
             {...(query.data !== undefined ? { count: t("approvals.page.count", { count: shown.length }) } : {})}
           />
-          {query.isError && query.data === undefined ? (
-            <ErrorBlock error={query.error} title={t("approvals.page.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
-          ) : (
-            <DataTable
-              caption={t("approvals.page.caption")}
-              columns={columns}
-              rows={shown}
-              getRowId={(item) => String(item.id)}
-              mobile="cards"
-              loading={query.isPending}
-              skeletonRows={2}
-              onRowActivate={(item) => setOpen(item.id)}
-              rowActions={(item) => (
-                <Button size="sm" variant="ghost" aria-label={t("approvals.table.openLabel", { id: item.id })} onClick={() => setOpen(item.id)}>
-                  <span className="max-sm:sr-only">{item.can_decide && item.state === "requested" ? t("approvals.table.review") : t("approvals.table.open")}</span>
-                </Button>
-              )}
-              empty={
-                <EmptyState
-                  variant="inline"
-                  title={view === "waiting" ? t("approvals.page.noneWaiting") : t("approvals.page.none")}
-                  icon={<Inbox />}
-                />
-              }
-            />
-          )}
+          <QueryState
+            query={query}
+            label={t("approvals.page.what")}
+            skeleton={<DataTable caption={t("approvals.page.caption")} columns={columns} rows={[]} getRowId={(item) => String(item.id)} mobile="cards" loading skeletonRows={2} />}
+          >
+            {() => (
+              <DataTable
+                caption={t("approvals.page.caption")}
+                columns={columns}
+                rows={shown}
+                getRowId={(item) => String(item.id)}
+                mobile="cards"
+                onRowActivate={(item) => setOpen(item.id)}
+                rowActions={(item) => (
+                  <Button size="sm" variant="ghost" aria-label={t("approvals.table.openLabel", { id: item.id })} onClick={() => setOpen(item.id)}>
+                    <span className="max-sm:sr-only">{item.can_decide && item.state === "requested" ? t("approvals.table.review") : t("approvals.table.open")}</span>
+                  </Button>
+                )}
+                empty={
+                  <EmptyState
+                    variant="inline"
+                    title={view === "waiting" ? t("approvals.page.noneWaiting") : t("approvals.page.none")}
+                    icon={<Inbox />}
+                  />
+                }
+              />
+            )}
+          </QueryState>
         </div>
       </Section>
       <CommandHint label={t("approvals.page.fromTerminal")} command="noust approval list" />

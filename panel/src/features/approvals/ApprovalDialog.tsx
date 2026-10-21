@@ -7,7 +7,6 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { Mono } from "../../components/ui/Mono";
-import { Notice } from "../../components/ui/Notice";
 import { Textarea } from "../../components/ui/Textarea";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -161,7 +160,10 @@ function RequestedStep({ prompt }: { prompt: Extract<ApprovalPrompt, { kind: "re
           ]}
         />
         {approval?.decision_comment ? (
-          <Notice title={t("approvals.dialog.comment", { name: approval.decider?.name ?? "" })}>{approval.decision_comment}</Notice>
+          <div className="flex flex-col gap-0.5 text-13">
+            <p className="font-medium text-fg">{t("approvals.dialog.comment", { name: approval.decider?.name ?? "" })}</p>
+            <p className="text-pretty whitespace-pre-wrap text-fg-muted">{approval.decision_comment}</p>
+          </div>
         ) : null}
         {state === "requested" ? <p className="text-13 text-fg-muted">{t("approvals.dialog.leaveNote")}</p> : null}
         {query.isError ? <ErrorBlock compact error={query.error} title={t("approvals.dialog.loadFailed")} onRetry={() => void query.refetch()} /> : null}

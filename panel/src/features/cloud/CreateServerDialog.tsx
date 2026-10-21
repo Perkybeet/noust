@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ElevationCancelledError, request } from "../../api/client";
 import { isJobFinished, jobKeys, useFollowedJob } from "../../api/queries/jobs";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { Stepper } from "../../components/page/Stepper";
@@ -267,11 +268,11 @@ export function CreateServerDialog({ open, onClose, account: initialAccount, onA
         {catalog.isError ? (
           <ErrorBlock error={catalog.error} title={t("cloud.create.catalogFailed")} onRetry={() => void catalog.refetch()} retrying={catalog.isRefetching} />
         ) : data === undefined ? (
-          <div className="flex flex-col gap-4" aria-busy="true" role="status" aria-label={t("cloud.create.catalogLoading")}>
+          <LoadingRegion label={t("cloud.create.catalogLoading")} className="flex flex-col gap-4">
             <Skeleton className="h-9 w-full" />
             <Skeleton className="h-9 w-full" />
             <Skeleton className="h-9 w-full" />
-          </div>
+          </LoadingRegion>
         ) : (
           <>
             <Field label={t("cloud.create.location")} nativeLabel={false} error={problem === "location" ? words("location") : undefined}>

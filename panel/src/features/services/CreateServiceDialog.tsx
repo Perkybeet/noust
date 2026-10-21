@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { request } from "../../api/client";
 import { serviceKeys } from "../../api/queries/services";
@@ -15,6 +15,7 @@ import { Select } from "../../components/ui/Select";
 import { Textarea } from "../../components/ui/Textarea";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
+import { focusFirstInvalid } from "../settings/formErrors";
 
 type Mode = "simple" | "advanced";
 
@@ -69,6 +70,8 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
   const [restart, setRestart] = useState<(typeof RESTART_OPTIONS)[number]>("always");
   const [env, setEnv] = useState<EnvRow[]>([]);
   const [raw, setRaw] = useState(RAW_TEMPLATE);
+  const [tried, setTried] = useState(false);
+  const formId = useId();
 
   const create = useMutation({
     mutationFn: () =>
@@ -123,6 +126,16 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
   };
 
   const valid = name.trim() !== "" && (mode === "advanced" ? raw.trim() !== "" : command.trim() !== "");
+  // The button is never off for a missing value: it says what is missing, where, and goes there.
+  const required = t("settings.shared.required");
+  const submit = (): void => {
+    if (!valid) {
+      setTried(true);
+      focusFirstInvalid(formId);
+      return;
+    }
+    create.mutate();
+  };
 
   return (
     <Dialog
@@ -136,15 +149,15 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
           <Button disabled={create.isPending} onClick={() => close(false)}>
             {t("services.cancel")}
           </Button>
-          <Button variant="primary" disabled={!valid} loading={create.isPending} onClick={() => create.mutate()}>
+          <Button variant="primary" loading={create.isPending} onClick={submit}>
             {t("services.createDialog.create")}
           </Button>
         </>
       }
     >
-      <div className="flex flex-col gap-4">
+      <div id={formId} className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
-          <Field label={t("services.createDialog.nameLabel")} name="name" className="max-w-64 flex-1">
+          <Field label={t("services.createDialog.nameLabel")} name="name" className="max-w-64 flex-1" error={tried && name.trim() === "" ? required : undefined}>
             <Input value={name} onValueChange={setName} mono placeholder="my-worker" autoComplete="off" spellCheck={false} />
           </Field>
           <SegmentedControl
@@ -160,7 +173,7 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
 
         {mode === "simple" ? (
           <>
-            <Field label={t("services.createDialog.commandLabel")} name="command" description={t("services.createDialog.commandDescription")}>
+            <Field label={t("services.createDialog.commandLabel")} name="command" description={t("services.createDialog.commandDescription")} error={tried && command.trim() === "" ? required : undefined}>
               <Input
                 value={command}
                 onValueChange={setCommand}
@@ -241,7 +254,7 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
             </div>
           </>
         ) : (
-          <Field label={t("services.createDialog.unitFileLabel")} name="raw" description={t("services.createDialog.unitFileDescription")}>
+          <Field label={t("services.createDialog.unitFileLabel")} name="raw" description={t("services.createDialog.unitFileDescription")} error={tried && raw.trim() === "" ? required : undefined}>
             <Textarea mono rows={14} value={raw} onChange={(event) => setRaw(event.target.value)} spellCheck={false} />
           </Field>
         )}

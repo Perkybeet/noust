@@ -13,9 +13,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { isApiError, request } from "../../../api/client";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
@@ -27,8 +29,8 @@ import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { useReasonRequired } from "../../settings/compliance/useReasonRequired";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock } from "../errors";
+import { ServerErrorBlock, useServerConfirm } from "../errors";
+import { typedHost } from "../friction";
 import { identityQuery, serverKeys, sshFixQuery } from "../queries";
 import type { FixPlan, SecurityCheck } from "../queries";
 import { useServerJob } from "../serverJob";
@@ -39,6 +41,7 @@ export function DirectiveChanges({ plan }: { plan: FixPlan }) {
   const t = useT();
   if (plan.changes.length === 0) return null;
   return (
+    // design-exception: bordered-list one line per directive is a diff in sshd's words, 12px and dense, not a list of things a row is 44px for
     <ul aria-label={t("server.fix.changesLabel")} className="flex flex-col divide-y divide-border rounded-control border border-border bg-bg-sunken">
       {plan.changes.map((change) => (
         <li key={change.directive} className="flex min-w-0 flex-wrap items-baseline gap-x-2 px-3 py-1.5 text-12">
@@ -84,10 +87,9 @@ function SshPlan({ fix }: { fix: string }) {
   if (plan.isError) return <ServerErrorBlock compact error={plan.error} title={t("server.fix.planFailed")} />;
   if (plan.data === undefined) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-2">
-        <span className="sr-only">{t("server.fix.planLoading")}</span>
+      <LoadingRegion label={t("server.fix.planLoading")} className="flex flex-col gap-2">
         <Skeleton className="h-12 w-full rounded-control" />
-      </div>
+      </LoadingRegion>
     );
   }
   return (
@@ -113,6 +115,7 @@ export interface FixDialogProps {
 /** Applies a check's automatic fix, as a job, after showing what it changes. */
 export function FixDialog({ check, onClose }: FixDialogProps) {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const identity = useQuery(identityQuery());
   const [epel, setEpel] = useState(false);
@@ -135,19 +138,25 @@ export function FixDialog({ check, onClose }: FixDialogProps) {
   // Typing needs the name to type: until the identity answers, the question waits for it.
   if (typedFriction(action) && hostname === "" && !identity.isError) return null;
   return (
-    <ActionDialog
+    <ConfirmDialog
+      {...confirmation}
+      {...typedHost(hostname, typedFriction(action))}
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      destructive={false}
+      size="md"
       title={t("server.fix.title", { check: checkTitle(t, check) })}
       description={fix?.summary !== undefined && fix.summary !== "" ? fix.summary : t("server.fix.description")}
       actionLabel={t("server.fix.apply")}
-      confirmText={typedFriction(action) ? hostname : undefined}
       onConfirm={run}
-      onClose={onClose}
     >
       {sshFix !== null ? <SshPlan fix={sshFix} /> : null}
-      {fix?.reverts ? <Notice title={t("server.fix.revertsTitle")}>{t("server.fix.reverts")}</Notice> : null}
+      {fix?.reverts ? <p className="text-13 text-fg-muted">{t("server.fix.reverts")}</p> : null}
       {needsEpel ? <Checkbox label={t("server.fix.epelLabel")} description={t("server.fix.epelDescription")} checked={epel} onCheckedChange={setEpel} /> : null}
       {fix?.cli ? <CommandHint command={fix.cli} label={t("server.fromTerminal")} /> : null}
-    </ActionDialog>
+    </ConfirmDialog>
   );
 }
 

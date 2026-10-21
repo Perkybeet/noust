@@ -95,7 +95,8 @@ export const approvals: Catalog<typeof en> = {
     title: "Solicitudes",
     description: "Las llamadas que esperan a una segunda persona, y las ya decididas.",
     descriptionWho: "Las llamadas que esperan a una segunda persona. Quién decide: {approvers}. Nadie decide las suyas.",
-    offTitle: "Las aprobaciones están desactivadas en este servidor",
+    on: "Activadas",
+    offLabel: "Desactivadas",
     off: "Aquí nada espera a una segunda persona. Se activan con approval.enabled en la configuración, o cuando un marco de cumplimiento como el ENS las pide.",
     filterLabel: "Filtrar solicitudes",
     viewLabel: "Mostrar",
@@ -107,7 +108,7 @@ export const approvals: Catalog<typeof en> = {
     caption: "Solicitudes de aprobación",
     noneWaiting: "Nada espera aprobación.",
     none: "No hay solicitudes aquí.",
-    loadFailed: "No se pudieron cargar las solicitudes",
+    what: "las solicitudes",
     fromTerminal: "Desde una terminal",
   },
   table: {

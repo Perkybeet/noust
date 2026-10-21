@@ -17,36 +17,12 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { OperationDrawer, OperationFlags } from "./OperationDrawer";
+import { METHODS, validateApiReferenceSearch } from "./search";
+import type { ApiReferenceSearch } from "./search";
 import { filterOperations, readDocument } from "./openapiModel";
 import type { ApiOperation } from "./openapiModel";
 
-/** The filters, which live in the address so a view of the API can be shared. */
-export interface ApiReferenceSearch {
-  q?: string;
-  tag?: string;
-  method?: string;
-}
-
 const ALL = "__all";
-const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
-
-function text(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed === "" ? undefined : trimmed.slice(0, 120);
-}
-
-/** Reads the search params, dropping anything malformed: a hand-edited link still opens the list. */
-export function validateApiReferenceSearch(search: Record<string, unknown>): ApiReferenceSearch {
-  const q = text(search["q"]);
-  const tag = text(search["tag"]);
-  const method = text(search["method"]);
-  return {
-    ...(q !== undefined ? { q } : {}),
-    ...(tag !== undefined ? { tag } : {}),
-    ...(method !== undefined && (METHODS as readonly string[]).includes(method) ? { method } : {}),
-  };
-}
 
 /** A change to the filters; undefined takes one off. */
 type SearchPatch = { [K in keyof ApiReferenceSearch]?: string | undefined };
@@ -121,7 +97,7 @@ export function ApiReference({ search, onSearchChange }: ApiReferenceProps) {
         query={query}
         label={t("apiReference.loadingLabel")}
         skeleton={
-          <div aria-busy="true" className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
             <Skeleton className="h-10 w-full rounded-control" />
             <Skeleton className="h-64 w-full rounded-card" />
           </div>

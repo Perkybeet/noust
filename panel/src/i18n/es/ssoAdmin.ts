@@ -14,14 +14,9 @@ export const ssoAdmin: Catalog<typeof en> = {
   local: {
     title: "Contraseñas y llaves de acceso",
     description: "Si las cuentas también pueden iniciar sesión con su propia contraseña o llave de acceso, además del proveedor de identidad.",
-    on: "Las contraseñas y las llaves de acceso inician sesión",
-    onBody:
-      "Las personas pueden usar el proveedor de identidad o sus propias credenciales. Desactívalo cuando todo el mundo entre por el proveedor.",
-    off: "Solo el proveedor de identidad inicia sesión",
-    offBody:
-      "Las contraseñas y las llaves de acceso se rechazan, salvo en las cuentas de abajo. El token de acceso y la línea de comandos, las vías de vuelta, no se tocan.",
-    turnOff: "Desactivar…",
-    turnOn: "Activar",
+    label: "Iniciar sesión con contraseñas y llaves de acceso",
+    help: "Las cuentas pueden usar sus propias credenciales además del proveedor de identidad.",
+    pill: { on: "Activado", off: "Desactivado" },
     change: "Cambiar quién la conserva…",
     needsProvider: "Añade un proveedor y pruébalo antes: sin ninguno, desactivarlo dejaría a todo el mundo sin poder entrar.",
     keepers: "Cuentas que conservan su contraseña",
@@ -46,36 +41,34 @@ export const ssoAdmin: Catalog<typeof en> = {
       failed: "No se pudo cambiar el inicio de sesión",
     },
   },
+  connections: {
+    title: "Conexiones",
+    description: "Todas las formas de entrar con la palabra de otro. El proveedor responde de quién es la persona; el segundo factor de la propia cuenta sigue.",
+    tableCaption: "Conexiones de inicio de sesión",
+    what: "las conexiones de inicio de sesión",
+    add: "Añadir una conexión",
+    addOidc: "Proveedor OpenID Connect",
+    addOidcHelp: "Keycloak, Entra, Okta, Google o GitHub.",
+    addSaml: "Proveedor SAML",
+    addSamlHelp: "Un proveedor de identidad que firma respuestas SAML 2.0.",
+    addDirectory: "Directorio",
+    addDirectoryHelp: "Un servidor LDAP o Active Directory.",
+    emptyTitle: "Aún no hay ninguna conexión de inicio de sesión",
+    certificateUntil: "Certificado hasta",
+    kind: { oidc: "OpenID Connect", saml: "SAML", directory: "Directorio" },
+    column: { connection: "Conexión", type: "Tipo", state: "Estado", details: "Apunta a", signUp: "Primer acceso" },
+  },
   providers: {
-    title: "Proveedores de identidad",
-    description:
-      "Cada uno es un botón en la página de acceso. El proveedor responde de quién es una persona; el segundo factor de la cuenta se pide después.",
-    addProvider: "Añadir un proveedor",
     kind: { github: "GitHub" },
-    tableCaption: "Proveedores configurados",
-    emptyTitle: "Aún no hay ningún proveedor de identidad",
-    emptyDescription:
-      "Añade el que ya usa tu organización, como Keycloak, Okta, Microsoft Entra o Google Workspace, y las personas entran con él.",
-    column: {
-      provider: "Proveedor",
-      issuer: "Emisor",
-      state: "Estado",
-      signUp: "Primer acceso",
-      secret: "Secreto",
-    },
     state: { enabled: "Activado", disabled: "Desactivado" },
     signUp: {
       off: "Se rechaza hasta vincular",
       invite: "Activa una cuenta invitada",
       auto: "Crea una cuenta",
     },
-    secret: { kept: "Guardado", none: "Ninguno (cliente público)" },
     test: "Probar",
-    testLabel: "Probar {name}",
     edit: "Editar",
-    editLabel: "Editar {name}",
     remove: "Quitar",
-    removeLabel: "Quitar {name}",
     redirect: {
       title: "Dirección que registrar en el proveedor",
       description:
@@ -89,7 +82,6 @@ export const ssoAdmin: Catalog<typeof en> = {
         "Su botón sale de la página de acceso y las personas vinculadas a él ya no pueden entrar por él. Sus cuentas siguen, con la contraseña y el segundo factor que tengan.",
       action: "Quitar proveedor",
     },
-    removedToast: "Se quitó {name}",
     savedToast: "Se guardó {name}",
     testResult: {
       title: "Prueba de {name}",
@@ -101,7 +93,6 @@ export const ssoAdmin: Catalog<typeof en> = {
       checkFailed: "Fallida",
       checkOutput: "Lo que respondió el proveedor a {check}",
     },
-    testing: "Probando {name}",
   },
   form: {
     createTitle: "Añadir un proveedor de identidad",

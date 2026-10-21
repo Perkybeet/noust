@@ -7,15 +7,18 @@
  * here with its pre-checks in view.
  */
 
+import { Download, RotateCw, Wrench } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { RelativeTime } from "../../../components/page/RelativeTime";
+import { SettingsGroup } from "../../../components/page/SettingsGroup";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { Drawer } from "../../../components/ui/Drawer";
@@ -23,19 +26,17 @@ import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { Setting } from "../../../components/ui/Setting";
+import { Skeleton, SkeletonCard, SkeletonText } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
-import { FeatureState } from "../../../components/ui/FeatureState";
-import { Switch } from "../../../components/ui/Switch";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { NodeCapabilityGate } from "../../../nodes/capability";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock, explainServerError } from "../errors";
+import { ServerErrorBlock, explainServerError, useServerConfirm, ServerQueryState } from "../errors";
 import { usePowerDialog } from "../PowerDialog";
 import { SERVER_CAPABILITY, restartPlanQuery, updateRunsQuery, updatesQuery } from "../queries";
 import type { UpdatePackage, UpdateRun, UpdateScope, Updates } from "../queries";
@@ -72,7 +73,7 @@ function packageColumns(t: T): Column<UpdatePackage>[] {
       cell: (row) => (
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <Mono>{row.name}</Mono>
-          {row.security ? <Badge tone="warn">{t("server.updates.table.security")}</Badge> : null}
+          {row.security ? <StatusPill state="warning" label={t("server.updates.table.security")} appearance="inline" size="sm" /> : null}
           {row.kernel ? <Badge>{t("server.updates.table.kernel")}</Badge> : null}
         </span>
       ),
@@ -199,74 +200,75 @@ function AutoUpdates({ updates }: { updates: Updates }) {
     onSuccess: (accepted) => jobs.track(accepted.job_id, "auto"),
     onError: (error) => reportActionError(t("server.job.auto.failed"), explainServerError(t, error, node)),
   });
+  // A change already running on the server is not this switch's own: it waits, and says so.
+  const reason = !auto.supported ? t("server.updates.auto.unsupported") : jobs.busy && !change.isPending ? t("server.updates.auto.busy") : null;
   return (
-    <FeatureState
-      state={auto.enabled ? "on" : "off"}
-      title={auto.enabled ? t("server.updates.auto.onTitle") : t("server.updates.auto.offTitle")}
-      action={
-        <Switch
-          label={t("server.updates.auto.label")}
-          checked={auto.enabled}
-          disabled={!auto.supported || change.isPending || jobs.busy}
-          onCheckedChange={(checked) => change.mutate(checked)}
-        />
-      }
+    <SettingsGroup
+      level={2}
+      title={t("server.updates.auto.title")}
+      status={<StatusPill state={auto.enabled ? "running" : "stopped"} label={auto.enabled ? t("server.updates.auto.on") : t("server.updates.auto.off")} size="sm" />}
     >
-      <div className="flex min-w-0 flex-col gap-2">
-        <p>
-          {auto.supported
-            ? auto.reboots
-              ? t("server.updates.auto.descriptionReboots")
-              : t("server.updates.auto.description")
-            : t("server.updates.auto.unsupported")}
-        </p>
-        <p className="text-12 text-fg-muted">
-          {t.rich("server.updates.auto.mechanism", { mechanism: <Mono>{auto.mechanism}</Mono> })}
-          {auto.enabled && auto.security_only === false ? ` ${t("server.updates.auto.allUpdates")}` : ""}
-          {auto.last_run ? (
-            <>
-              {" "}
-              {t.rich("server.updates.auto.lastRun", { when: <RelativeTime value={auto.last_run} /> })}
-            </>
-          ) : null}
-        </p>
-        {!auto.supported && auto.detail !== "" ? <p className="text-12 text-fg-muted">{auto.detail}</p> : null}
-      </div>
-    </FeatureState>
+      <Setting
+        label={t("server.updates.auto.label")}
+        help={auto.reboots ? t("server.updates.auto.descriptionReboots") : t("server.updates.auto.description")}
+        checked={auto.enabled}
+        busy={change.isPending}
+        onCheckedChange={(checked) => change.mutate(checked)}
+        {...(reason !== null ? { disabled: true as const, reason } : {})}
+      />
+      <p className="px-5 py-3 text-12 text-fg-muted">
+        {t.rich("server.updates.auto.mechanism", { mechanism: <Mono>{auto.mechanism}</Mono> })}
+        {auto.enabled && auto.security_only === false ? ` ${t("server.updates.auto.allUpdates")}` : ""}
+        {auto.last_run ? (
+          <>
+            {" "}
+            {t.rich("server.updates.auto.lastRun", { when: <RelativeTime value={auto.last_run} /> })}
+          </>
+        ) : null}
+        {!auto.supported && auto.detail !== "" ? ` ${auto.detail}` : ""}
+      </p>
+    </SettingsGroup>
   );
 }
 
 function Reboot({ updates }: { updates: Updates }) {
   const t = useT();
   const power = usePowerDialog();
+  const [why, setWhy] = useState(false);
   const reboot = updates.reboot;
   if (!reboot.required) return null;
+  const packages = reboot.packages ?? [];
+  const reasons = reboot.reasons ?? [];
   return (
-    <Notice
-      tone="warning"
-      title={
-        reboot.since
-          ? t.rich("server.updates.reboot.titleSince", { when: <RelativeTime value={reboot.since} /> })
-          : t("server.updates.reboot.title")
-      }
-    >
-      <div className="flex flex-col gap-1.5">
-        <p>{t("server.updates.reboot.description")}</p>
-        {(reboot.packages ?? []).length > 0 ? <p>{t.rich("server.updates.reboot.packages", { packages: <Mono>{(reboot.packages ?? []).join(", ")}</Mono> })}</p> : null}
-        {/* What the detector said, verbatim. */}
-        {(reboot.reasons ?? []).map((reason) => (
-          <p key={reason} className="text-12 text-fg-muted">
-            {reason}
-          </p>
-        ))}
-        {/* Under the reasons, not beside them: a long notice keeps its width on a phone. */}
-        <div className="pt-1.5">
-          <Button size="sm" onClick={() => power.open("reboot")}>
+    <>
+      <Notice
+        variant="banner"
+        tone="warning"
+        title={reboot.since ? t.rich("server.updates.reboot.titleSince", { when: <RelativeTime value={reboot.since} /> }) : t("server.updates.reboot.title")}
+      >
+        {/* The action sits under the text on a phone and beside it from `sm`, so a long sentence keeps its line; the reasons are a button in the sentence. */}
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <span>
+            {t("server.updates.reboot.description")}{" "}
+            {packages.length > 0 || reasons.length > 0 ? (
+              <Button size="sm" variant="ghost" className="align-baseline" onClick={() => setWhy(true)}>
+                {t("server.updates.reboot.why")}
+              </Button>
+            ) : null}
+          </span>
+          <Button icon={<RotateCw aria-hidden="true" />} size="sm" className="self-start sm:shrink-0 sm:self-auto" onClick={() => power.open("reboot")}>
             {t("server.updates.reboot.schedule")}
           </Button>
         </div>
-      </div>
-    </Notice>
+      </Notice>
+      <Drawer open={why} onOpenChange={setWhy} size="md" title={t("server.updates.reboot.whyTitle")} description={t("server.updates.reboot.whyDescription")}>
+        <div className="flex flex-col gap-4">
+          {packages.length > 0 ? <Names names={packages} label={t("server.updates.reboot.packagesLabel")} /> : null}
+          {/* What the detector said, verbatim. */}
+          {reasons.length > 0 ? <SystemOutput label={t("server.updates.reboot.reasonsLabel")}>{reasons.join("\n")}</SystemOutput> : null}
+        </div>
+      </Drawer>
+    </>
   );
 }
 
@@ -278,66 +280,68 @@ function Reboot({ updates }: { updates: Updates }) {
  */
 function RestartDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const plan = useQuery(restartPlanQuery());
   const restart = plan.data?.restart ?? [];
   const refused = plan.data?.refused ?? [];
   const none = plan.data !== undefined && restart.length === 0;
   return (
-    <ActionDialog
+    <ConfirmDialog
+      {...confirmation}
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      friction="simple"
+      destructive={false}
+      size="md"
       title={t("server.updates.stale.dialogTitle")}
       description={t("server.updates.stale.dialogDescription")}
       actionLabel={restart.length > 0 ? t("server.updates.stale.action", { count: restart.length }) : t("server.updates.stale.actionNone")}
-      disabled={plan.data === undefined || none}
-      // A refusal (409, with each unit and why) stays in the dialog, explained by ServerErrorBlock.
+      ready={plan.data !== undefined && !none}
+      // A refusal (409, with each unit and why) stays in the dialog, explained by the server area.
       onConfirm={async () => {
         const accepted = await request("post", "/api/server/updates/restarts", { body: {} });
         jobs.track(accepted.job_id, "restarts");
       }}
-      onClose={onClose}
     >
-      {plan.isError && plan.data === undefined ? (
-        <ServerErrorBlock compact error={plan.error} title={t("server.updates.stale.planFailed")} onRetry={() => void plan.refetch()} />
-      ) : plan.data === undefined ? (
-        <div aria-busy="true" className="flex flex-col gap-2">
-          <span className="sr-only">{t("server.updates.stale.loading")}</span>
-          <Skeleton className="h-4 w-40" />
-          <Skeleton className="h-16 w-full rounded-control" />
-        </div>
-      ) : (
-        <>
-          {none ? (
-            <Notice tone="warning">{t("server.updates.stale.noneCanRestart")}</Notice>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              <p className="text-13 font-medium text-fg">{t("server.updates.stale.order")}</p>
-              <ol aria-label={t("server.updates.stale.order")} className="flex flex-col gap-1 rounded-control border border-border bg-bg-sunken p-2.5">
-                {restart.map((unit) => (
-                  <li key={unit} className="text-12">
-                    <Mono>{unit}</Mono>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-          {refused.length > 0 ? (
-            <div className="flex flex-col gap-1.5">
-              <p className="text-13 font-medium text-fg">{t("server.updates.stale.refusedTitle")}</p>
-              <ul aria-label={t("server.updates.stale.refusedLabel")} className="flex flex-col gap-1.5">
-                {refused.map((item) => (
-                  <li key={item.unit} className="flex flex-col text-13">
-                    <Mono>{item.unit}</Mono>
-                    {/* The backend's reason, verbatim. */}
-                    <span className="text-12 text-fg-muted">{item.reason}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {plan.data.restarts_console && !none ? <Notice>{t("server.updates.stale.consoleLast")}</Notice> : null}
-        </>
-      )}
-    </ActionDialog>
+      <ServerQueryState query={plan} label={t("server.updates.stale.planWhat")} skeleton={<SkeletonText lines={3} />}>
+        {(data) => (
+          <>
+            {none ? (
+              <p className="text-13 text-fg-muted">{t("server.updates.stale.noneCanRestart")}</p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-13 font-medium text-fg">{t("server.updates.stale.order")}</p>
+                <ol aria-label={t("server.updates.stale.order")} className="flex flex-col gap-1 rounded-control border border-border bg-bg-sunken p-2.5">
+                  {restart.map((unit) => (
+                    <li key={unit} className="text-12">
+                      <Mono>{unit}</Mono>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            {refused.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-13 font-medium text-fg">{t("server.updates.stale.refusedTitle")}</p>
+                <ul aria-label={t("server.updates.stale.refusedLabel")} className="flex flex-col gap-1.5">
+                  {refused.map((item) => (
+                    <li key={item.unit} className="flex flex-col text-13">
+                      <Mono>{item.unit}</Mono>
+                      {/* The backend's reason, verbatim. */}
+                      <span className="text-12 text-fg-muted">{item.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {data.restarts_console && !none ? <p className="text-13 text-fg-muted">{t("server.updates.stale.consoleLast")}</p> : null}
+          </>
+        )}
+      </ServerQueryState>
+    </ConfirmDialog>
   );
 }
 
@@ -356,7 +360,7 @@ function StaleServices({ updates }: { updates: Updates }) {
       <div className="flex flex-col gap-3">
         <Names names={updates.stale_services} label={t("server.updates.stale.label")} />
         <div>
-          <Button size="sm" disabled={jobs.busy} onClick={() => setRestarting(true)}>
+          <Button icon={<RotateCw aria-hidden="true" />} size="sm" disabled={jobs.busy} onClick={() => setRestarting(true)}>
             {t("server.updates.stale.restart")}
           </Button>
         </div>
@@ -409,9 +413,31 @@ function Packages({ updates }: { updates: Updates }) {
 
 function UpdatesView() {
   const t = useT();
+  const updates = useQuery(updatesQuery());
+  return (
+    <ServerQueryState
+      query={updates}
+      label={t("server.updates.label")}
+      skeleton={
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-4">
+            <Skeleton className="h-5 w-72" />
+            <Skeleton className="h-control-md w-56 rounded-control" />
+          </div>
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={6} />
+        </div>
+      }
+    >
+      {(data) => <UpdatesBody data={data} />}
+    </ServerQueryState>
+  );
+}
+
+function UpdatesBody({ data }: { data: Updates }) {
+  const t = useT();
   const { node } = useNode();
   const jobs = useServerJob();
-  const updates = useQuery(updatesQuery());
   const [applying, setApplying] = useState<UpdateScope | null>(null);
 
   const refresh = useMutation({
@@ -425,26 +451,9 @@ function UpdatesView() {
     onError: (error) => reportActionError(t("server.job.repair.failed"), explainServerError(t, error, node)),
   });
 
-  if (updates.isError && updates.data === undefined) {
-    return <ServerErrorBlock error={updates.error} title={t("server.updates.loadFailed")} onRetry={() => void updates.refetch()} retrying={updates.isRefetching} />;
-  }
-  if (updates.data === undefined) {
-    return (
-      <div aria-busy="true" className="flex flex-col gap-4">
-        <span className="sr-only">{t("server.updates.loading")}</span>
-        <div className="flex items-center justify-between gap-4">
-          <Skeleton className="h-5 w-72" />
-          <Skeleton className="h-control-md w-56 rounded-control" />
-        </div>
-        <Skeleton className="h-20 w-full rounded-card" />
-        <Skeleton className="h-72 w-full rounded-card" />
-      </div>
-    );
-  }
-  const data = updates.data;
   const busy = jobs.busy;
   const checkNow = (
-    <Button disabled={busy} loading={refresh.isPending} onClick={() => refresh.mutate()}>
+    <Button icon={<RotateCw aria-hidden="true" />} disabled={busy} loading={refresh.isPending} onClick={() => refresh.mutate()}>
       {t("server.updates.checkNow")}
     </Button>
   );
@@ -453,15 +462,15 @@ function UpdatesView() {
       {checkNow}
       {data.pending > 0 && data.security > 0 ? (
         <>
-          <Button disabled={busy} onClick={() => setApplying("all")}>
+          <Button icon={<Download aria-hidden="true" />} disabled={busy} onClick={() => setApplying("all")}>
             {t("server.updates.installAll", { count: data.pending })}
           </Button>
-          <Button variant="primary" disabled={busy} onClick={() => setApplying("security")}>
+          <Button icon={<Download aria-hidden="true" />} variant="primary" disabled={busy} onClick={() => setApplying("security")}>
             {t("server.updates.installSecurity", { count: data.security })}
           </Button>
         </>
       ) : data.pending > 0 ? (
-        <Button variant="primary" disabled={busy} onClick={() => setApplying("all")}>
+        <Button icon={<Download aria-hidden="true" />} variant="primary" disabled={busy} onClick={() => setApplying("all")}>
           {t("server.updates.installAll", { count: data.pending })}
         </Button>
       ) : null}
@@ -471,16 +480,14 @@ function UpdatesView() {
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <TabToolbar summary={data.supported ? <Summary updates={data} /> : t("server.updates.unmanaged")} actions={actions} />
-      {!data.supported ? (
-        <Notice title={t("server.updates.unsupportedTitle")}>{data.reason ?? t("server.updates.unsupportedNoReason")}</Notice>
-      ) : null}
+      {!data.supported ? <p className="max-w-measure text-13 text-pretty text-fg-muted">{data.reason ?? t("server.updates.unsupportedNoReason")}</p> : null}
       {data.error ? <ServerErrorBlock compact error={{ detail: data.error }} title={t("server.updates.listFailed")} /> : null}
       {data.broken ? (
         <Notice
           tone="error"
           title={t("server.updates.brokenTitle")}
           action={
-            <Button size="sm" disabled={busy} loading={repair.isPending} onClick={() => repair.mutate()}>
+            <Button icon={<Wrench aria-hidden="true" />} size="sm" disabled={busy} loading={repair.isPending} onClick={() => repair.mutate()}>
               {t("server.updates.repair")}
             </Button>
           }

@@ -12,7 +12,7 @@
     },
     "settings-variables": { "path": "/settings/variables", "height": 342 },
     "settings-secret-managers": { "path": "/settings/secret-managers", "height": 441 },
-    "settings-console": { "path": "/settings/console", "height": 462 },
+    "settings-console": { "path": "/settings/console", "height": 460 },
     "settings-integrations": {
       "path": "/settings/integrations",
       "height": 2749,
@@ -20,8 +20,8 @@
     },
     "settings-about": {
       "path": "/settings/about",
-      "height": 1795,
-      "reason": "Seven sections (version, this installation, the project, automatic updates, the check, the support report, what is new) that are three subjects: version and updates, this installation and support, news."
+      "height": 1697,
+      "reason": "Three sections (version and updates, this installation and support, what is new): the automatic update card, the installation check, the support report, the project links and the licence notices. The check and the support report can leave for a subsection of their own."
     },
     "settings-notifications": {
       "path": "/settings/notifications",
@@ -40,25 +40,17 @@
     "settings-manifest": { "path": "/settings/manifest", "height": 568 },
     "settings-mcp": {
       "path": "/settings/mcp",
-      "height": 2115,
-      "reason": "The connection, the groups of tools and the tools on one page, under a block of colour that says whether the server is on; it becomes setting rows."
+      "height": 2068,
+      "reason": "The endpoint, how to connect, the three groups of tools and the table of 27 tools on one page; the table of tools is a list of its own and can leave for its own subsection."
     },
     "settings-accounts": { "path": "/settings/accounts", "height": 480 },
     "settings-access": { "path": "/settings/access", "height": 763 },
-    "settings-sso": {
-      "path": "/settings/sso",
-      "height": 2244,
-      "reason": "Providers, SAML, directories, local sign-in, identities and SCIM in six sections of one page; they become one list of connections with drawers, or two sections of the same group."
-    },
-    "settings-approvals": { "path": "/settings/approvals", "height": 431 },
-    "settings-audit": {
-      "path": "/settings/audit",
-      "height": 1401,
-      "reason": "A page of the audit trail's rows: its length is the size of the list's page, which the operator chooses, and not a layout."
-    },
+    "settings-sso": { "path": "/settings/sso", "height": 767 },
+    "settings-approvals": { "path": "/settings/approvals", "height": 305 },
+    "settings-audit": { "path": "/settings/audit", "height": 1345 },
     "settings-compliance": {
       "path": "/settings/compliance",
-      "height": 4842,
+      "height": 4802,
       "reason": "The frameworks, their controls and the ENS report in one page; the frameworks and the security profile move to Controls and the report stays."
     },
     "settings-servers": { "path": "/settings/servers", "height": 428 },
@@ -66,7 +58,7 @@
     "settings-central": { "path": "/settings/central", "height": 468 },
     "settings-security": {
       "path": "/settings/security",
-      "height": 5886,
+      "height": 5866,
       "reason": "The account, its second factors, passkeys and sessions, the compliance frameworks and the security profile in one page; the account moves to Account and the rest to Controls."
     },
     "app-settings-general": { "path": "/apps/shop.example.net/settings", "height": 907 },

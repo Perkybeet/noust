@@ -7,7 +7,7 @@ import { sessionQuery } from "../../../api/queries/auth";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { FilterBar } from "../../../components/page/FilterBar";
-import { ErrorBlock } from "../../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section, Sections } from "../../../components/page/Section";
 import { Badge } from "../../../components/ui/Badge";
@@ -16,9 +16,9 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { IconButton } from "../../../components/ui/IconButton";
+import { RowMenu } from "../../../components/page/RowMenu";
 import { ICONS } from "../../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
@@ -36,6 +36,7 @@ import { accountStatus, factorLabel, filterAccounts, isFiltered, stateView } fro
 import type { AccountStatus, AccountsSearch } from "./data";
 import { InviteDialog } from "./InviteDialog";
 import { ROLES, roleLabel } from "./roles";
+import { Skeleton } from "../../../components/ui/Skeleton";
 
 const ALL = "all";
 const STATE_FILTERS: readonly AccountStatus[] = ["active", "locked", "disabled", "invited"];
@@ -96,7 +97,7 @@ type Pending =
   | { kind: "exception"; person: string }
   | null;
 
-function RowActions({ t, account, self, onOpen }: { t: T; account: Account; self: boolean; onOpen: (pending: Pending) => void }) {
+function AccountActions({ t, account, self, onOpen }: { t: T; account: Account; self: boolean; onOpen: (pending: Pending) => void }) {
   const queryClient = useQueryClient();
   const status = accountStatus(account);
   const refresh = (): void => {
@@ -117,7 +118,7 @@ function RowActions({ t, account, self, onOpen }: { t: T; account: Account; self
     },
   });
   return (
-    <Menu align="end" trigger={<IconButton label={t("accounts.table.actionsFor", { name: account.username })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+    <RowMenu name={account.username}>
       {status === "locked" ? (
         <MenuItem icon={<LockOpen />} disabled={unlock.isPending} onClick={() => unlock.mutate()}>
           {t("accounts.actions.unlock")}
@@ -150,7 +151,7 @@ function RowActions({ t, account, self, onOpen }: { t: T; account: Account; self
       <MenuItem icon={<ICONS.delete />} destructive disabled={self} onClick={() => onOpen({ kind: "remove", account })}>
         {t("accounts.actions.remove")}
       </MenuItem>
-    </Menu>
+    </RowMenu>
   );
 }
 
@@ -211,7 +212,7 @@ function ExceptionsSection({ t, canManage, onAdd }: { t: T; canManage: boolean; 
       {...(canManage
         ? {
             actions: (
-              <Button size="sm" onClick={onAdd}>
+              <Button icon={<ICONS.add aria-hidden="true" />} size="sm" onClick={onAdd}>
                 {t("accounts.exceptions.add")}
               </Button>
             ),
@@ -309,105 +310,105 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
       </Button>
     ) : undefined;
 
-  let content;
-  if (query.isError && query.data === undefined) {
-    content = <ErrorBlock error={query.error} title={t("accounts.page.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
-  } else if (empty) {
-    content = (
-      <EmptyState
-        variant="firstUse"
-        icon={<Users />}
-        title={t("accounts.page.emptyTitle")}
-        description={t("accounts.page.emptyDescription")}
-        action={
-          session?.grant === "compat" ? (
-            <Link to="/setup" search={{ next: "/settings/accounts" }} className={buttonClassName("secondary", "md")}>
-              {t("accounts.page.createFirst")}
-            </Link>
-          ) : (
-            inviteButton("secondary")
-          )
-        }
-        command="noust user create NAME --role admin"
-        level={3}
-      />
-    );
-  } else {
-    content = (
-      <div className="flex min-w-0 flex-col gap-4">
-        <FilterBar
-          label={t("accounts.page.filterLabel")}
-          search={{
-            value: search.q ?? "",
-            onChange: (value) => set({ q: value }, true),
-            label: t("accounts.page.searchLabel"),
-            placeholder: t("accounts.page.searchPlaceholder"),
-          }}
-          filters={
-            <>
-              <Select
-                aria-label={t("accounts.page.roleFilter")}
-                value={search.role ?? ALL}
-                onValueChange={(value) => set({ role: ROLES.find((role) => role === value) })}
-                options={[{ value: ALL, label: t("accounts.page.everyRole") }, ...ROLES.map((role) => ({ value: role, label: roleLabel(t, role) }))]}
-                className="min-w-36"
-              />
-              <Select
-                aria-label={t("accounts.page.stateFilter")}
-                value={search.state ?? ALL}
-                onValueChange={(value) => set({ state: STATE_FILTERS.find((state) => state === value) })}
-                options={[
-                  { value: ALL, label: t("accounts.page.everyState") },
-                  { value: "active", label: t("accounts.state.active") },
-                  { value: "locked", label: t("accounts.state.locked") },
-                  { value: "disabled", label: t("accounts.state.disabled") },
-                  { value: "invited", label: t("accounts.state.invited") },
-                ]}
-                className="min-w-36"
-              />
-            </>
+  const content = (
+    <QueryState
+      query={query}
+      label={t("accounts.page.what")}
+      skeleton={
+        <div className="flex min-w-0 flex-col gap-4">
+          <Skeleton className="h-control-md w-full max-w-md rounded-control" />
+          <DataTable caption={t("accounts.page.caption")} columns={columns} rows={[]} getRowId={(account) => account.username} mobile="cards" loading skeletonRows={3} />
+        </div>
+      }
+      isEmpty={() => all.length === 0}
+      empty={
+        <EmptyState
+          variant="firstUse"
+          icon={<Users />}
+          title={t("accounts.page.emptyTitle")}
+          description={t("accounts.page.emptyDescription")}
+          action={
+            session?.grant === "compat" ? (
+              <Link to="/setup" search={{ next: "/settings/accounts" }} className={buttonClassName("secondary", "md")}>
+                {t("accounts.page.createFirst")}
+              </Link>
+            ) : (
+              inviteButton("secondary")
+            )
           }
-          {...(filtered
-            ? {
-                actions: (
-                  <Button variant="ghost" onClick={() => onSearchChange({})}>
+          command="noust user create NAME --role admin"
+          level={3}
+        />
+      }
+    >
+      {() => (
+        <div className="flex min-w-0 flex-col gap-4">
+          <FilterBar
+            label={t("accounts.page.filterLabel")}
+            search={{
+              value: search.q ?? "",
+              onChange: (value) => set({ q: value }, true),
+              label: t("accounts.page.searchLabel"),
+              placeholder: t("accounts.page.searchPlaceholder"),
+            }}
+            filters={
+              <>
+                <Select
+                  aria-label={t("accounts.page.roleFilter")}
+                  value={search.role ?? ALL}
+                  onValueChange={(value) => set({ role: ROLES.find((role) => role === value) })}
+                  options={[{ value: ALL, label: t("accounts.page.everyRole") }, ...ROLES.map((role) => ({ value: role, label: roleLabel(t, role) }))]}
+                  className="min-w-36"
+                />
+                <Select
+                  aria-label={t("accounts.page.stateFilter")}
+                  value={search.state ?? ALL}
+                  onValueChange={(value) => set({ state: STATE_FILTERS.find((state) => state === value) })}
+                  options={[
+                    { value: ALL, label: t("accounts.page.everyState") },
+                    { value: "active", label: t("accounts.state.active") },
+                    { value: "locked", label: t("accounts.state.locked") },
+                    { value: "disabled", label: t("accounts.state.disabled") },
+                    { value: "invited", label: t("accounts.state.invited") },
+                  ]}
+                  className="min-w-36"
+                />
+              </>
+            }
+            {...(filtered
+              ? {
+                  actions: (
+                    <Button variant="ghost" onClick={() => onSearchChange({})}>
+                      {t("accounts.page.clearFilters")}
+                    </Button>
+                  ),
+                }
+              : {})}
+            count={filtered ? t("accounts.page.countFiltered", { shown: shown.length, total: all.length }) : t("accounts.page.count", { count: all.length })}
+          />
+          <DataTable
+            caption={t("accounts.page.caption")}
+            columns={columns}
+            rows={shown}
+            getRowId={(account) => account.username}
+            mobile="cards"
+            {...(canManage ? { rowActions: (account: Account) => <AccountActions t={t} account={account} self={account.username === me} onOpen={setPending} /> } : {})}
+            empty={
+              <EmptyState
+                variant="inline"
+                title={t("accounts.page.noMatch")}
+                action={
+                  <Button size="sm" variant="ghost" onClick={() => onSearchChange({})}>
                     {t("accounts.page.clearFilters")}
                   </Button>
-                ),
-              }
-            : {})}
-          {...(query.data !== undefined
-            ? {
-                count: filtered
-                  ? t("accounts.page.countFiltered", { shown: shown.length, total: all.length })
-                  : t("accounts.page.count", { count: all.length }),
-              }
-            : {})}
-        />
-        <DataTable
-          caption={t("accounts.page.caption")}
-          columns={columns}
-          rows={shown}
-          getRowId={(account) => account.username}
-          mobile="cards"
-          loading={query.isPending}
-          skeletonRows={3}
-          {...(canManage ? { rowActions: (account: Account) => <RowActions t={t} account={account} self={account.username === me} onOpen={setPending} /> } : {})}
-          empty={
-            <EmptyState
-              variant="inline"
-              title={t("accounts.page.noMatch")}
-              action={
-                <Button size="sm" variant="ghost" onClick={() => onSearchChange({})}>
-                  {t("accounts.page.clearFilters")}
-                </Button>
-              }
-            />
-          }
-        />
-      </div>
-    );
-  }
+                }
+              />
+            }
+          />
+        </div>
+      )}
+    </QueryState>
+  );
 
   return (
     <Sections>

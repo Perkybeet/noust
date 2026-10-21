@@ -9,7 +9,7 @@ import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section, Sections } from "../../components/page/Section";
 import { Button, buttonClassName } from "../../components/ui/Button";
@@ -24,7 +24,7 @@ import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
-import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
+import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
 import { toast } from "../../components/ui/toast";
@@ -137,7 +137,7 @@ function EntryDrawer({ entry, onClose, onCorrelate }: { entry: AuditEntry; onClo
         : {})}
     >
       <div className="flex flex-col gap-5">
-        {entry.sensitive ? <Notice>{t("audit.drawer.sensitive")}</Notice> : null}
+        {entry.sensitive ? <p className="text-13 text-fg-muted">{t("audit.drawer.sensitive")}</p> : null}
         <KeyValueList items={items} />
         {entry.detail ? (
           <div className="flex flex-col gap-1.5">
@@ -164,6 +164,7 @@ function EntryDrawer({ entry, onClose, onCorrelate }: { entry: AuditEntry; onClo
  * Whether the log can be trusted, said once above it: the chain verified end to end (or the
  * first broken link, where it is), and whether events are being written and shipped.
  */
+// design-exception: notice-stack the trail draws one notice for its worst state and the correlation chip is a filter, so the page shows two at most
 function TrailNotice({ t }: { t: T }) {
   const verify = useQuery(verifyQuery());
   const status = useQuery(statusQuery());
@@ -198,18 +199,31 @@ function TrailNotice({ t }: { t: T }) {
       </Notice>
     );
   }
-  if (verify.data !== undefined) {
-    return (
-      <Notice tone="success" title={t("audit.trail.intactTitle")}>
+  return null;
+}
+
+/**
+ * That the chain verified, said as a state and not as a message: a pill and one line above the
+ * log. The banner above is for when it did not.
+ */
+function TrailLine({ t }: { t: T }) {
+  const verify = useQuery(verifyQuery());
+  const status = useQuery(statusQuery());
+  const problems = status.data?.problems ?? [];
+  const degraded = (status.data?.sinks ?? []).filter((sink) => sink.degraded || sink.error);
+  if (verify.data === undefined || !verify.data.ok || problems.length > 0 || degraded.length > 0 || status.data?.failing === true) return null;
+  return (
+    <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-13 text-fg-muted">
+      <StatusPill state="running" label={t("audit.trail.intactTitle")} />
+      <span>
         {t("audit.trail.intact", {
           count: verify.data.checked,
           checked: formatCount(verify.data.checked, t.locale),
           sinks: formatCount(status.data?.sinks?.length ?? 0, t.locale),
         })}
-      </Notice>
-    );
-  }
-  return null;
+      </span>
+    </p>
+  );
 }
 
 /** Recording that the log was reviewed for a period: the evidence the review happened. */
@@ -382,6 +396,7 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
         }
       >
         <div className="flex min-w-0 flex-col gap-4">
+          <TrailLine t={t} />
           <FilterBar
             label={t("audit.page.filterLabel")}
             search={{
@@ -431,23 +446,37 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
               {t.rich("audit.page.correlation", { id: <Mono key="id">{search.correlation}</Mono> })}
             </Notice>
           ) : null}
-          {query.isError && query.data === undefined ? (
-            <ErrorBlock error={query.error} title={t("audit.page.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
-          ) : (
-            <DataTable
-              caption={t("audit.page.caption")}
-              columns={columns}
-              rows={shown}
-              getRowId={(entry) => entry.id ?? `${entry.timestamp}-${entry.action}-${entry.actor}`}
-              density="compact"
-              layout="fixed"
-              mobile="cards"
-              loading={query.isPending}
-              skeletonRows={8}
-              onRowActivate={setOpen}
-              empty={<EmptyState variant="inline" title={isFiltered(search) ? t("audit.page.noMatch") : t("audit.page.none")} />}
-            />
-          )}
+          <QueryState
+            query={query}
+            label={t("audit.page.what")}
+            skeleton={
+              <DataTable
+                caption={t("audit.page.caption")}
+                columns={columns}
+                rows={[]}
+                getRowId={(entry) => entry.id ?? `${entry.timestamp}-${entry.action}-${entry.actor}`}
+                density="compact"
+                layout="fixed"
+                mobile="cards"
+                loading
+                skeletonRows={8}
+              />
+            }
+          >
+            {() => (
+              <DataTable
+                caption={t("audit.page.caption")}
+                columns={columns}
+                rows={shown}
+                getRowId={(entry) => entry.id ?? `${entry.timestamp}-${entry.action}-${entry.actor}`}
+                density="compact"
+                layout="fixed"
+                mobile="cards"
+                onRowActivate={setOpen}
+                empty={<EmptyState variant="inline" title={isFiltered(search) ? t("audit.page.noMatch") : t("audit.page.none")} />}
+              />
+            )}
+          </QueryState>
           {query.hasNextPage ? (
             <Button className="self-center" loading={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
               {t("audit.page.loadMore")}

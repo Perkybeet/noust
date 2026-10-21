@@ -10,6 +10,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { machineQuery } from "../../../api/queries/system";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
@@ -27,7 +28,7 @@ import { formatBytes, formatBytesPair, formatDate, formatDuration, formatPercent
 import { NodeCapabilityGate } from "../../../nodes/capability";
 import { attentionItems } from "../attention";
 import type { AttentionItem } from "../attention";
-import { ServerErrorBlock } from "../errors";
+import { ServerQueryState } from "../errors";
 import { usePowerDialog } from "../PowerDialog";
 import { SERVER_CAPABILITY, dayOf, securityOverviewQuery, summaryQuery } from "../queries";
 import type { SecurityOverview, ServerSummary } from "../queries";
@@ -160,12 +161,11 @@ function NeedsAttention({ items, loading }: { items: readonly AttentionItem[]; l
       }
     >
       {loading ? (
-        <div aria-busy="true" className="flex flex-col gap-3 px-5 pb-4">
-          <span className="sr-only">{t("server.attention.loading")}</span>
+        <LoadingRegion label={t("server.attention.loading")} className="flex flex-col gap-3 px-5 pb-4">
           {Array.from({ length: 3 }, (_, index) => (
             <Skeleton key={index} className="h-8 w-full" />
           ))}
-        </div>
+        </LoadingRegion>
       ) : items.length === 0 ? (
         <p className="flex items-center gap-2 px-5 pb-4 text-13 text-fg-muted">
           <ICONS.success aria-hidden="true" className="size-icon-sm text-ok" />
@@ -214,10 +214,9 @@ function Facts({ summary }: { summary: ServerSummary | undefined }) {
   if (summary === undefined) {
     return (
       <Card level={2} title={t("server.overview.factsTitle")} padding="sm">
-        <div aria-busy="true">
-          <span className="sr-only">{t("server.overview.loading")}</span>
+        <LoadingRegion label={t("server.overview.loading")}>
           <KeyValueListSkeleton rows={6} />
-        </div>
+        </LoadingRegion>
       </Card>
     );
   }
@@ -361,23 +360,30 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
   );
 }
 
+/** The tab's layout; without a summary every tile draws the shape of what it will say. */
+function OverviewLayout({ summary, security }: { summary: ServerSummary | undefined; security: SecurityOverview | undefined }) {
+  const t = useT();
+  const items = attentionItems(summary, security);
+  return (
+    <div className="flex min-w-0 flex-col gap-6">
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-3">
+        <NeedsAttention items={items} loading={summary === undefined} />
+        <Facts summary={summary} />
+      </div>
+      <Readings summary={summary} security={security} />
+      <CommandHint command="noust server status" label={t("server.fromTerminal")} />
+    </div>
+  );
+}
+
 function Overview() {
   const t = useT();
   const summary = useQuery(summaryQuery());
   const security = useQuery(securityOverviewQuery());
-  const items = attentionItems(summary.data, security.data);
   return (
-    <div className="flex min-w-0 flex-col gap-6">
-      {summary.isError && summary.data === undefined ? (
-        <ServerErrorBlock error={summary.error} title={t("server.overview.loadFailed")} onRetry={() => void summary.refetch()} retrying={summary.isRefetching} />
-      ) : null}
-      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-3">
-        <NeedsAttention items={items} loading={summary.data === undefined && !summary.isError} />
-        <Facts summary={summary.data} />
-      </div>
-      <Readings summary={summary.data} security={security.data} />
-      <CommandHint command="noust server status" label={t("server.fromTerminal")} />
-    </div>
+    <ServerQueryState query={summary} label={t("server.overview.label")} skeleton={<OverviewLayout summary={undefined} security={undefined} />}>
+      {(data) => <OverviewLayout summary={data} security={security.data} />}
+    </ServerQueryState>
   );
 }
 

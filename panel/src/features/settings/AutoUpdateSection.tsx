@@ -6,6 +6,7 @@
  * same preflight, the same transient unit.
  */
 
+import { Settings2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
@@ -15,20 +16,19 @@ import type { AutoUpdate } from "../../api/queries/autoUpdate";
 import { announce } from "../../app/Announcer";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
-import { Section } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Drawer } from "../../components/ui/Drawer";
-import { FeatureState } from "../../components/ui/FeatureState";
-import type { FeatureStateValue } from "../../components/ui/FeatureState";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { StatusPill } from "../../components/ui/StatusPill";
+import type { Status } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -158,43 +158,43 @@ function lastRunItem(t: T, last: NonNullable<AutoUpdate["last_run"]>): KeyValueI
   };
 }
 
-function stateOf(state: AutoUpdate): FeatureStateValue {
+/** On and working, on and not doing anything, or off: a pill of the card's header says it. */
+function stateOf(state: AutoUpdate): "on" | "problem" | "off" {
   const { settings } = state;
   if (!settings.enabled) return "off";
   return state.supported && state.check_enabled && state.timer.installed ? "on" : "problem";
 }
 
-/** The Automatic updates section of Settings > About. */
+const PILL: Record<"on" | "problem" | "off", Status> = { on: "running", problem: "warning", off: "stopped" };
+
+/** The Automatic updates card of Settings > About: its state is a pill in its header. */
 export function AutoUpdateSection() {
   const t = useT();
   const query = useQuery(autoUpdateQuery());
-  const [editing, setEditing] = useState(false);
-
-  if (query.isError && query.data === undefined) {
-    return (
-      <Section title={t("autoUpdate.title")} description={t("autoUpdate.description")}>
-        <ErrorBlock compact error={query.error} title={t("autoUpdate.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
-      </Section>
-    );
-  }
-  if (query.data === undefined) {
-    return (
-      <Section title={t("autoUpdate.title")} description={t("autoUpdate.description")} loading>
-        <Card>
-          <div aria-busy="true" className="flex flex-col gap-3">
-            <span className="sr-only">{t("autoUpdate.title")}</span>
+  return (
+    <QueryState
+      query={query}
+      label={t("autoUpdate.what")}
+      skeleton={
+        <Card loading level={3} title={t("autoUpdate.title")} description={t("autoUpdate.description")}>
+          <div className="flex flex-col gap-3">
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-24 w-full" />
           </div>
         </Card>
-      </Section>
-    );
-  }
-  const state = query.data;
+      }
+    >
+      {(state) => <AutoUpdateCard state={state} />}
+    </QueryState>
+  );
+}
+
+function AutoUpdateCard({ state }: { state: AutoUpdate }) {
+  const t = useT();
+  const [editing, setEditing] = useState(false);
   const { settings } = state;
   const featureState = stateOf(state);
   const acrossMidnight = crossesMidnight(...(settings.window.split("-") as [string, string]));
-  const [from = "", to = ""] = settings.window.split("-");
   const days = daysWords(settings.days, t.locale, t("autoUpdate.facts.everyDay"));
 
   const items: KeyValueItem[] = settings.enabled
@@ -224,39 +224,36 @@ export function AutoUpdateSection() {
   if (state.last_run) items.push(lastRunItem(t, state.last_run));
 
   return (
-    <Section title={t("autoUpdate.title")} description={t("autoUpdate.description")}>
-      <Card>
-        <div className="flex min-w-0 flex-col gap-4">
-          <FeatureState
-            state={featureState}
-            title={
-              featureState === "off"
-                ? t("autoUpdate.stateOff")
-                : featureState === "problem"
-                  ? t("autoUpdate.stateProblem")
-                  : t("autoUpdate.stateOn", { channel: t(`autoUpdate.channelWords.${settings.channel as Channel}`) })
-            }
-            action={
-              <Button size="sm" onClick={() => setEditing(true)}>
-                {settings.enabled || state.timer.installed ? t("autoUpdate.edit") : t("autoUpdate.set")}
-              </Button>
-            }
-          >
-            {!settings.enabled
-              ? t("autoUpdate.offBody")
-              : !state.supported
-                ? `${state.reason ?? t("autoUpdate.notSupported")} ${state.hint ?? ""}`.trim()
-                : !state.check_enabled
-                  ? t("autoUpdate.checkOffBody")
-                  : acrossMidnight
-                    ? t("autoUpdate.onBodyAcrossMidnight", { from, to, days })
-                    : t("autoUpdate.onBody", { window: settings.window, days })}
-          </FeatureState>
-          {items.length > 0 ? <KeyValueList items={items} /> : null}
-        </div>
+    <>
+      <Card
+        level={3}
+        title={t("autoUpdate.title")}
+        status={
+          <StatusPill
+            state={PILL[featureState]}
+            label={featureState === "off" ? t("autoUpdate.pill.off") : featureState === "problem" ? t("autoUpdate.pill.problem") : t("autoUpdate.pill.on")}
+            size="sm"
+          />
+        }
+        description={
+          !settings.enabled
+            ? t("autoUpdate.offBody")
+            : !state.supported
+              ? `${state.reason ?? t("autoUpdate.notSupported")} ${state.hint ?? ""}`.trim()
+              : !state.check_enabled
+                ? t("autoUpdate.checkOffBody")
+                : t("autoUpdate.onBody", { channel: t(`autoUpdate.channelWords.${settings.channel as Channel}`) })
+        }
+        actions={
+          <Button icon={<Settings2 aria-hidden="true" />} size="sm" onClick={() => setEditing(true)}>
+            {settings.enabled || state.timer.installed ? t("autoUpdate.edit") : t("autoUpdate.set")}
+          </Button>
+        }
+      >
+        {items.length > 0 ? <KeyValueList items={items} /> : undefined}
       </Card>
       {/* Re-mounted on each open so the form starts from what is stored now. */}
       {editing ? <Editor state={state} onClose={() => setEditing(false)} /> : null}
-    </Section>
+    </>
   );
 }

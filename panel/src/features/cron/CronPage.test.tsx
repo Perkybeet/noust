@@ -6,6 +6,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RecordedCall, RouteHandler } from "../../test/fakes";
+import { findLoadedRegion } from "../../test/regions";
 
 /** A screen as wide as a desktop's: tables are tables, not the phone's card rows. */
 beforeEach(() => {
@@ -91,7 +92,7 @@ async function cronAt(path = "/cron", extra: Record<string, RouteHandler> = {}) 
   });
   const harness = renderConsole(path);
   await screen.findByRole("heading", { level: 1, name: "Cron" });
-  const table = await screen.findByRole("region", { name: /Cron jobs/ });
+  const table = await findLoadedRegion(/Cron jobs/);
   return { ...harness, backend, table };
 }
 
@@ -426,7 +427,7 @@ describe("the cron jobs list in Spanish", () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/cron": () => json(200, { jobs: JOBS, total: JOBS.length }), "POST /api/cron/preview": previewRoute });
     const { user, container } = renderConsole("/cron");
     await screen.findByRole("heading", { level: 1, name: "Cron" });
-    const table = await screen.findByRole("region", { name: /Tareas programadas/ });
+    const table = await findLoadedRegion(/Tareas programadas/);
     const enabledRow = (await within(table).findByText("nightly-backup")).closest("tr");
     if (!enabledRow) throw new Error("no row");
     expect(within(enabledRow).getByText("Correcta")).toBeInTheDocument();

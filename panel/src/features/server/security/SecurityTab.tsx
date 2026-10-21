@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
 import { request } from "../../../api/client";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
 import { Button } from "../../../components/ui/Button";
@@ -51,9 +52,9 @@ function Summary() {
     return overview.isError ? (
       <span>{t("server.security.summaryFailed")}</span>
     ) : (
-      <span aria-busy="true" className="block">
+      <LoadingRegion label={t("server.security.summaryLoading")}>
         <Skeleton className="h-5 w-72" />
-      </span>
+      </LoadingRegion>
     );
   }
   const counts = overview.data.counts;

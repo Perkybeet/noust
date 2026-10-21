@@ -11,9 +11,9 @@ import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
-import { IconButton } from "../../components/ui/IconButton";
+import { RowMenu } from "../../components/page/RowMenu";
 import { ICONS } from "../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -21,6 +21,7 @@ import { cloudScriptsQuery } from "./data";
 import type { CloudScript } from "./data";
 import { ScriptDialog } from "./ScriptDialog";
 import { useCloudActions } from "./useCloudActions";
+import { EmptyState } from "../../components/ui/EmptyState";
 
 function columnsFor(t: T): readonly Column<CloudScript>[] {
   return [
@@ -46,14 +47,14 @@ function columnsFor(t: T): readonly Column<CloudScript>[] {
   ];
 }
 
-function RowActions({ script }: { script: CloudScript }) {
+function ScriptActions({ script }: { script: CloudScript }) {
   const t = useT();
   const { deleteScript } = useCloudActions();
   const [opened, setOpened] = useState<"view" | "edit" | "copy" | null>(null);
   const [deleting, setDeleting] = useState(false);
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={t("cloud.scripts.actionsFor", { name: script.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <RowMenu name={script.name}>
         {script.builtin ? (
           <MenuItem icon={<Eye />} onClick={() => setOpened("view")}>
             {t("cloud.scripts.view")}
@@ -74,7 +75,7 @@ function RowActions({ script }: { script: CloudScript }) {
             </MenuItem>
           </>
         )}
-      </Menu>
+      </RowMenu>
       {opened === "view" || opened === "edit" ? <ScriptDialog name={script.name} open onOpenChange={() => setOpened(null)} /> : null}
       {opened === "copy" ? <ScriptDialog copyOf={script.name} open onOpenChange={() => setOpened(null)} /> : null}
       <ConfirmDialog
@@ -114,9 +115,9 @@ export function ScriptsSection() {
         label={t("cloud.scripts.loadingLabel")}
         skeleton={<DataTable caption={t("cloud.scripts.caption")} columns={columns} rows={[]} getRowId={(script) => script.name} loading skeletonRows={3} />}
         isEmpty={(data) => data.length === 0}
-        empty={<p className="text-13 text-fg-muted">{t("cloud.scripts.empty")}</p>}
+        empty={<EmptyState variant="inline" title={t("cloud.scripts.empty")} />}
       >
-        {(scripts) => <DataTable caption={t("cloud.scripts.caption")} columns={columns} rows={scripts} getRowId={(script) => script.name} rowActions={(script) => <RowActions script={script} />} />}
+        {(scripts) => <DataTable caption={t("cloud.scripts.caption")} columns={columns} rows={scripts} getRowId={(script) => script.name} rowActions={(script) => <ScriptActions script={script} />} />}
       </QueryState>
       <p className="max-w-measure text-13 text-pretty text-fg-muted">
         <FileCode aria-hidden="true" className="mr-1 inline size-icon-sm align-text-bottom" />

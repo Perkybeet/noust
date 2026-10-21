@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { complianceQuery } from "../../../api/queries/compliance";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section } from "../../../components/page/Section";
-import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { useCan } from "../../variables/useCan";
@@ -24,16 +24,15 @@ export function ComplianceSection() {
   const state = query.data;
   return (
     <Section title={t("complianceSetup.title")} description={t("complianceSetup.description")} loading={state === undefined && !query.isError}>
-      <Notice>{t("complianceSetup.honest")}</Notice>
+      <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("complianceSetup.honest")}</p>
       {query.isError && state === undefined ? (
         <ErrorBlock error={query.error} title={t("complianceSetup.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
       ) : state === undefined ? (
-        <div aria-busy="true" className="flex flex-col gap-3">
-          <span className="sr-only">{t("complianceSetup.loading")}</span>
+        <LoadingRegion label={t("complianceSetup.loading")} className="flex flex-col gap-3">
           <Skeleton className="h-28 w-full rounded-card" />
           <Skeleton className="h-28 w-full rounded-card" />
           <Skeleton className="h-28 w-full rounded-card" />
-        </div>
+        </LoadingRegion>
       ) : (
         <div className="flex flex-col gap-8">
           <FrameworksSection state={state} canManage={canManage} />

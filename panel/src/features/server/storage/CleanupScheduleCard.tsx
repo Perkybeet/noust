@@ -5,6 +5,7 @@
  * runs them says so once, in a box the form will not let you skip.
  */
 
+import { Pencil, Play } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
@@ -14,22 +15,22 @@ import { ErrorBlock } from "../../../components/page/QueryState";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { RelativeTime } from "../../../components/page/RelativeTime";
-import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { calendarWords } from "../../cron/data";
 import { ScheduleFields } from "../../backups/policy/ScheduleFields";
 import { scheduleExpression } from "../../databases/backups/schedule";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock } from "../errors";
+import { useServerConfirm, ServerQueryState } from "../errors";
 import { cleanupScheduleQuery, serverKeys } from "../queries";
 import type { CleanupPolicy, CleanupSchedule } from "../queries";
 import { useServerJob } from "../serverJob";
@@ -173,13 +174,13 @@ function PolicyEditor({ schedule, open, onOpenChange }: EditorProps) {
           </Field>
         ) : null}
         {docker ? (
-          <Notice tone="warning" title={t("server.storage.schedule.dockerTitle")}>
-            <div className="flex flex-col gap-3">
-              <p>{t("server.storage.schedule.dockerBody")}</p>
-              <Checkbox checked={draft.allowDocker} onCheckedChange={(allowDocker) => setDraft((previous) => ({ ...previous, allowDocker }))} label={t("server.storage.schedule.dockerAccept")} />
-              {tried && !draft.allowDocker ? <p className="text-12 text-fail">{t("server.storage.schedule.dockerRequired")}</p> : null}
-            </div>
-          </Notice>
+          <div className="flex flex-col gap-3">
+            <Notice tone="warning" title={t("server.storage.schedule.dockerTitle")}>
+              {t("server.storage.schedule.dockerBody")}
+            </Notice>
+            <Checkbox checked={draft.allowDocker} onCheckedChange={(allowDocker) => setDraft((previous) => ({ ...previous, allowDocker }))} label={t("server.storage.schedule.dockerAccept")} />
+            {tried && !draft.allowDocker ? <p className="text-12 text-fail">{t("server.storage.schedule.dockerRequired")}</p> : null}
+          </div>
         ) : null}
         {save.isError ? <ErrorBlock live compact error={save.error} title={t("server.storage.schedule.saveFailed")} /> : null}
       </form>
@@ -190,32 +191,34 @@ function PolicyEditor({ schedule, open, onOpenChange }: EditorProps) {
 /** Automatic cleanup: the policy, its timer, Edit and Run now. */
 export function CleanupScheduleCard() {
   const t = useT();
-  const jobs = useServerJob();
   const query = useQuery(cleanupScheduleQuery());
+  return (
+    <ServerQueryState
+      query={query}
+      label={t("server.storage.schedule.label")}
+      skeleton={
+        <Card loading level={2} title={t("server.storage.schedule.title")} padding="sm" actions={<Skeleton className="h-control-sm w-24 rounded-control" />}>
+          <Skeleton className="h-32 w-full" />
+        </Card>
+      }
+    >
+      {(schedule) => <CleanupSchedulePanel schedule={schedule} />}
+    </ServerQueryState>
+  );
+}
+
+function CleanupSchedulePanel({ schedule }: { schedule: CleanupSchedule }) {
+  const t = useT();
+  const confirmation = useServerConfirm();
+  const jobs = useServerJob();
   const [editing, setEditing] = useState(false);
   const [running, setRunning] = useState(false);
-
-  if (query.isError && query.data === undefined) {
-    return (
-      <Card level={2} title={t("server.storage.schedule.title")} padding="sm">
-        <ServerErrorBlock compact error={query.error} title={t("server.storage.schedule.loadFailed")} onRetry={() => void query.refetch()} />
-      </Card>
-    );
-  }
-  if (query.data === undefined) {
-    return (
-      <Card loading level={2} title={t("server.storage.schedule.title")} padding="sm" actions={<Skeleton className="h-control-sm w-24 rounded-control" />}>
-        <Skeleton className="h-32 w-full" />
-      </Card>
-    );
-  }
-  const schedule = query.data;
   const policy = schedule.policy;
   const on = policy.enabled && schedule.timer.installed;
   const items: KeyValueItem[] = [
     {
       label: t("server.storage.schedule.state"),
-      value: on ? <Badge tone="ok">{t("server.storage.schedule.on")}</Badge> : <Badge>{t("server.storage.schedule.off")}</Badge>,
+      value: <StatusPill state={on ? "running" : "stopped"} label={on ? t("server.storage.schedule.on") : t("server.storage.schedule.off")} size="sm" />,
       mono: false,
       copy: false,
     },
@@ -253,11 +256,11 @@ export function CleanupScheduleCard() {
       actions={
         <div className="flex items-center gap-2">
           {policy.enabled ? (
-            <Button size="sm" variant="ghost" disabled={jobs.busy} onClick={() => setRunning(true)}>
+            <Button icon={<Play aria-hidden="true" />} size="sm" variant="ghost" disabled={jobs.busy} onClick={() => setRunning(true)}>
               {t("server.storage.schedule.runNow")}
             </Button>
           ) : null}
-          <Button size="sm" onClick={() => setEditing(true)}>
+          <Button icon={<Pencil aria-hidden="true" />} size="sm" onClick={() => setEditing(true)}>
             {policy.enabled ? t("server.storage.schedule.edit") : t("server.storage.schedule.set")}
           </Button>
         </div>
@@ -275,12 +278,18 @@ export function CleanupScheduleCard() {
       {/* Re-mounted on each open so the form starts from what is stored now. */}
       {editing ? <PolicyEditor schedule={schedule} open onOpenChange={setEditing} /> : null}
       {running ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setRunning(false);
+          }}
+          friction="simple"
+          size="md"
           title={t("server.storage.schedule.runTitle")}
           description={t("server.storage.schedule.runDescription")}
           actionLabel={t("server.storage.schedule.runAction")}
           destructive={policy.allow_docker && (policy.actions ?? []).some((action) => schedule.docker_actions.includes(action))}
-          onClose={() => setRunning(false)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/storage/schedule/run");
             jobs.track(accepted.job_id, "cleanup");
@@ -291,7 +300,7 @@ export function CleanupScheduleCard() {
               <li key={action}>{cleanupActionLabel(t, action)}</li>
             ))}
           </ul>
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
     </Card>
   );

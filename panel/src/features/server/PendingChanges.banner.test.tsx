@@ -38,42 +38,52 @@ function banner(current: () => PendingChange, extra: Record<string, RouteHandler
 
 /** The banner itself, once it has loaded. */
 async function pendingBanner(): Promise<HTMLElement> {
-  const title = await screen.findByText(/change is waiting for you: it undoes itself in \d+:\d\d/);
+  const title = await screen.findByText(/change undoes itself in \d+:\d\d/);
   const found = title.closest("[data-tone]");
   if (!(found instanceof HTMLElement)) throw new Error("the title is not inside a notice");
   return found;
 }
 
+/** The drawer behind "Details", which holds what the banner leaves out. */
+async function openDetails(user: ReturnType<typeof renderConsole>["user"], notice: HTMLElement): Promise<HTMLElement> {
+  await user.click(within(notice).getByRole("button", { name: "Details" }));
+  return screen.findByRole("dialog", { name: "Keeping this change" });
+}
+
 describe("the pending change banner, before a new login", () => {
-  it("says what to do first, shows the step waiting and keeps Keep off with its reason beside it", async () => {
-    banner(() => pendingChange());
+  it("is one sentence: the change and where the proof stands, with Keep off and its reason described", async () => {
+    const { user } = banner(() => pendingChange());
     const notice = await pendingBanner();
 
-    const text = notice.textContent;
-    const instruction = text.indexOf("Open a new SSH session to this server from another terminal");
-    const step = text.indexOf("Waiting for a new SSH login");
-    expect(instruction).toBeGreaterThanOrEqual(0);
-    expect(step).toBeGreaterThan(instruction);
-    expect(within(notice).getByText(/A session that was already open proves nothing/)).toBeInTheDocument();
+    expect(notice).toHaveTextContent("Turn off password logins. Waiting for a new SSH login");
+    // The instruction is not in the banner: it is one press away.
+    expect(within(notice).queryByText(/Open a new SSH session to this server from another terminal/)).not.toBeInTheDocument();
 
     const keep = within(notice).getByRole("button", { name: "Keep the change" });
     expect(keep).toBeDisabled();
     // Not only disabled: the reason is what a screen reader reads with the button.
-    expect(keep).toHaveAccessibleDescription(/Waiting for a new SSH login.*Keep the change turns on as soon as one is seen/);
+    expect(keep).toHaveAccessibleDescription(/Waiting for a new SSH login/);
     // Undoing never needs a login.
     expect(within(notice).getByRole("button", { name: "Undo now" })).toBeEnabled();
-    // The terminal's way is still there.
-    expect(within(notice).getByText("noust server security confirm c1a2b3")).toBeInTheDocument();
     await expectNoAxeViolations(notice);
+
+    const details = await openDetails(user, notice);
+    expect(within(details).getByText(/Open a new SSH session to this server from another terminal/)).toBeInTheDocument();
+    expect(within(details).getByText(/A session that was already open proves nothing/)).toBeInTheDocument();
+    expect(within(details).getByText(/Keep the change turns on as soon as one is seen/)).toBeInTheDocument();
+    // The terminal's way is there too.
+    expect(within(details).getByText("noust server security confirm c1a2b3")).toBeInTheDocument();
+    await expectNoAxeViolations(details);
   });
 
   it("says that any new login counts for a firewall change", async () => {
-    banner(() => pendingChange(Date.now(), { kind: "firewall", title: "Turn the firewall on", proof: "any" }));
+    const { user } = banner(() => pendingChange(Date.now(), { kind: "firewall", title: "Turn the firewall on", proof: "any" }));
     const notice = await pendingBanner();
 
-    expect(within(notice).getByText(/A firewall change is waiting for you/)).toBeInTheDocument();
-    expect(within(notice).getByText(/Any new login counts/)).toBeInTheDocument();
+    expect(within(notice).getByText(/A firewall change undoes itself/)).toBeInTheDocument();
     expect(within(notice).getByRole("button", { name: "Keep the change" })).toBeDisabled();
+    const details = await openDetails(user, notice);
+    expect(within(details).getByText(/Any new login counts/)).toBeInTheDocument();
   });
 
   it("turns Keep on, and says who logged in, when the next reading finds the login", async () => {
@@ -96,11 +106,16 @@ describe("the pending change banner, before a new login", () => {
     });
     expect(notice).toHaveTextContent(`New login: alex from 203.0.113.5 at ${when}`);
     // Said politely, once, to whoever is in the other terminal.
-    expect(within(notice).getByText("The way in still works, so the change is safe to keep.").closest("[role=status]")).not.toBeNull();
-    // What to do is done: the instruction goes, and Keep no longer has a reason to be described.
-    expect(within(notice).queryByText(/Open a new SSH session to this server/)).not.toBeInTheDocument();
+    expect(within(notice).getByRole("status")).toHaveTextContent("New login: alex");
+    // Keep no longer has a reason to be described.
     expect(within(notice).getByRole("button", { name: "Keep the change" })).not.toHaveAttribute("aria-describedby");
     await expectNoAxeViolations(notice);
+
+    // What to do is done: the drawer no longer asks for a session, and says the way in works.
+    const details = await openDetails(user, notice);
+    expect(within(details).queryByText(/Open a new SSH session to this server/)).not.toBeInTheDocument();
+    expect(within(details).getByText("The way in still works, so the change is safe to keep.")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
 
     await user.click(within(notice).getByRole("button", { name: "Keep the change" }));
     await waitFor(() => {
@@ -110,32 +125,37 @@ describe("the pending change banner, before a new login", () => {
 
   it("shows why the history cannot be read, verbatim, keeps Keep off and keeps the terminal's command", async () => {
     const error = "No journal files were found.; and neither /var/log/auth.log nor /var/log/secure can be read";
-    banner(() => pendingChange(Date.now(), { proof_readable: false, proof_error: error }));
+    const { user } = banner(() => pendingChange(Date.now(), { proof_readable: false, proof_error: error }));
     const notice = await pendingBanner();
 
-    expect(within(notice).getByText("Noust cannot see new SSH logins from the console")).toBeInTheDocument();
-    expect(within(notice).getByText(error)).toBeInTheDocument();
+    expect(within(notice).getByText(/Noust cannot see new SSH logins from the console/)).toBeInTheDocument();
     expect(within(notice).getByRole("button", { name: "Keep the change" })).toBeDisabled();
     expect(within(notice).getByRole("button", { name: "Keep the change" })).toHaveAccessibleDescription(/cannot see new SSH logins/);
-    expect(within(notice).getByText("noust server security confirm c1a2b3")).toBeInTheDocument();
     await expectNoAxeViolations(notice);
+
+    const details = await openDetails(user, notice);
+    expect(within(details).getByText(error)).toBeInTheDocument();
+    expect(within(details).getByText("noust server security confirm c1a2b3")).toBeInTheDocument();
   });
 });
 
 describe("a pending change from a server that does not report the proof", () => {
-  it("shows the instruction, no proof step and no error block, and leaves Keep on", async () => {
-    banner(() => pendingChangeFromOlderNode());
+  it("shows the instruction, no proof claim and no error block, and leaves Keep on", async () => {
+    const { user } = banner(() => pendingChangeFromOlderNode());
     const notice = await pendingBanner();
 
-    expect(within(notice).getByText(/Open a new SSH session to this server from another terminal/)).toBeInTheDocument();
+    expect(within(notice).getByText(/Open a new SSH session from another terminal to keep it/)).toBeInTheDocument();
     expect(within(notice).queryByText("Waiting for a new SSH login")).not.toBeInTheDocument();
-    expect(within(notice).queryByText("Noust cannot see new SSH logins from the console")).not.toBeInTheDocument();
-    expect(within(notice).queryByText("Why the logins cannot be read")).not.toBeInTheDocument();
+    expect(within(notice).queryByText(/Noust cannot see new SSH logins from the console/)).not.toBeInTheDocument();
     const keep = within(notice).getByRole("button", { name: "Keep the change" });
     expect(keep).toBeEnabled();
     expect(keep).not.toHaveAttribute("aria-describedby");
-    expect(within(notice).getByText("noust server security confirm c1a2b3")).toBeInTheDocument();
     await expectNoAxeViolations(notice);
+
+    const details = await openDetails(user, notice);
+    expect(within(details).getByText(/Open a new SSH session to this server from another terminal/)).toBeInTheDocument();
+    expect(within(details).queryByText("Why the logins cannot be read")).not.toBeInTheDocument();
+    expect(within(details).getByText("noust server security confirm c1a2b3")).toBeInTheDocument();
   });
 
   it("says that any login counts for a firewall change, and lets the server's confirm answer", async () => {
@@ -145,7 +165,9 @@ describe("a pending change from a server that does not report the proof", () => 
     );
     const notice = await pendingBanner();
 
-    expect(within(notice).getByText(/Any new login counts/)).toBeInTheDocument();
+    const details = await openDetails(user, notice);
+    expect(within(details).getByText(/Any new login counts/)).toBeInTheDocument();
+    await user.keyboard("{Escape}");
     await user.click(within(notice).getByRole("button", { name: "Keep the change" }));
     // The refusal is the server's own, not a guess the console made before asking.
     expect(await screen.findByText("No new SSH login since the change")).toBeInTheDocument();
@@ -153,12 +175,13 @@ describe("a pending change from a server that does not report the proof", () => 
   });
 
   it("does not call a readable history unreadable when only the error text is missing", async () => {
-    banner(() => pendingChange(Date.now(), { proof_readable: false, proof_error: undefined as unknown as string }));
+    const { user } = banner(() => pendingChange(Date.now(), { proof_readable: false, proof_error: undefined as unknown as string }));
     const notice = await pendingBanner();
 
-    expect(within(notice).getByText("Noust cannot see new SSH logins from the console")).toBeInTheDocument();
-    expect(within(notice).queryByText("Why the logins cannot be read")).not.toBeInTheDocument();
+    expect(within(notice).getByText(/Noust cannot see new SSH logins from the console/)).toBeInTheDocument();
     expect(within(notice).getByRole("button", { name: "Keep the change" })).toBeDisabled();
+    const details = await openDetails(user, notice);
+    expect(within(details).queryByText("Why the logins cannot be read")).not.toBeInTheDocument();
   });
 });
 
@@ -244,22 +267,25 @@ describe("how often a pending change is read", () => {
 });
 
 describe("the pending change banner in Spanish", () => {
-  it("says the same, with the instruction first and Keep off until the login is seen", async () => {
+  it("says the same, with Keep off until the login is seen and the instruction one press away", async () => {
     await act(async () => {
       await setLocale("es");
     });
-    banner(() => pendingChange());
+    const { user } = banner(() => pendingChange());
 
-    const title = await screen.findByText(/Un cambio de SSH espera tu confirmación: se deshace solo en \d+:\d\d/);
+    const title = await screen.findByText(/Un cambio de SSH se deshace solo en \d+:\d\d/);
     const notice = title.closest("[data-tone]");
     if (!(notice instanceof HTMLElement)) throw new Error("the title is not inside a notice");
 
-    expect(within(notice).getByText(/Abre una sesión SSH nueva a este servidor desde otra terminal/)).toBeInTheDocument();
-    expect(within(notice).getByText("Esperando un acceso SSH nuevo")).toBeInTheDocument();
+    expect(within(notice).getByText(/Esperando un acceso SSH nuevo/)).toBeInTheDocument();
     const keep = within(notice).getByRole("button", { name: "Conservar el cambio" });
     expect(keep).toBeDisabled();
     expect(keep).toHaveAccessibleDescription(/Esperando un acceso SSH nuevo/);
     await expectNoAxeViolations(notice);
+
+    await user.click(within(notice).getByRole("button", { name: "Detalles" }));
+    const details = await screen.findByRole("dialog", { name: "Conservar este cambio" });
+    expect(within(details).getByText(/Abre una sesión SSH nueva a este servidor desde otra terminal/)).toBeInTheDocument();
   });
 
   it("names who logged in and when once the login is on record", async () => {
@@ -269,7 +295,7 @@ describe("the pending change banner in Spanish", () => {
     banner(() => pendingChange(Date.now(), SEEN));
 
     const when = formatClock(new Date(LOGIN_AT * 1000), "es");
-    const title = await screen.findByText(/Un cambio de SSH espera tu confirmación/);
+    const title = await screen.findByText(/Un cambio de SSH se deshace solo en/);
     const notice = title.closest("[data-tone]");
     if (!(notice instanceof HTMLElement)) throw new Error("the title is not inside a notice");
 

@@ -78,13 +78,19 @@ async function openIt(harness: Awaited<ReturnType<typeof appPage>>): Promise<Fak
 
 describe("an application's terminal page", () => {
   describe("before it opens", () => {
-    it("says what the shell is, what is kept of it, and offers to open it", async () => {
-      await appPage();
+    it("says in a line what the shell is, keeps the rest behind one button, and offers to open it", async () => {
+      const harness = await appPage();
       expect(await screen.findByRole("heading", { name: `A shell as ${TAB_DOMAIN}` })).toBeInTheDocument();
-      expect(screen.getByText(/the same files and the same secrets it has/)).toBeInTheDocument();
+      expect(screen.getByText("As the account the application runs as, in its sandbox.")).toBeInTheDocument();
+      expect(screen.getByText("Not open", { selector: "[data-state]" })).toBeInTheDocument();
+      // Three paragraphs were above the button; now they are one press away.
+      expect(screen.queryByText(/the same files and the same secrets it has/)).not.toBeInTheDocument();
+      await harness.user.click(screen.getByRole("button", { name: "How this session works" }));
+      expect(await screen.findByText(/the same files and the same secrets it has/)).toBeInTheDocument();
       // The limits are the server's own, in minutes.
       expect(screen.getByText(/ends after 10 min without typing and after 120 min in all/)).toBeInTheDocument();
       expect(screen.getByText("Opening it asks you to confirm it's you.")).toBeInTheDocument();
+      await harness.user.keyboard("{Escape}");
       await waitFor(() => {
         expect(screen.getByRole("button", { name: "Open terminal" })).toBeEnabled();
       });
@@ -107,7 +113,7 @@ describe("an application's terminal page", () => {
     it("lets the shell and the service be chosen", async () => {
       const harness = await appPage();
       await harness.user.click(await screen.findByRole("button", { name: "Options" }));
-      expect(await screen.findByText("The server's default")).toBeInTheDocument();
+      expect((await screen.findAllByText("The server's default")).length).toBeGreaterThan(0);
       await harness.user.type(screen.getByRole("textbox", { name: /Service/ }), "web");
       await openIt(harness);
       expect(harness.backend.callsTo(`POST /api/apps/${TAB_DOMAIN}/terminal`)[0]?.body).toMatchObject({ service: "web" });
@@ -132,7 +138,9 @@ describe("an application's terminal page", () => {
     it("draws what the shell prints and sends what is typed", async () => {
       const harness = await appPage();
       const socket = await openIt(harness);
-      await harness.user.click(screen.getByRole("switch", { name: /Text view/ }));
+      await harness.user.click(screen.getByRole("button", { name: "Display" }));
+      await harness.user.click(await screen.findByRole("checkbox", { name: /Text view/ }));
+      await harness.user.keyboard("{Escape}");
       act(() => {
         socket.frame({ type: "output", data: "deploy@web-01:~$ " });
       });
@@ -246,16 +254,20 @@ describe("an application's terminal page", () => {
       const harness = await appPage();
       await typeCommand(harness, "echo 'unfinished");
       expect(await screen.findByText("A quote is open: the command ends inside it.")).toBeInTheDocument();
-      await waitFor(() => {
-        expect(screen.getByRole("button", { name: "Run command" })).toBeDisabled();
-      });
+      // The button is never off for a wrong value: pressing it sends nothing and goes to the field.
+      await harness.user.click(screen.getByRole("button", { name: "Run command" }));
+      expect(harness.backend.callsTo(`POST /api/apps/${TAB_DOMAIN}/exec`)).toHaveLength(0);
+      expect(screen.getByLabelText("Command")).toHaveFocus();
     });
 
-    it("will not run nothing", async () => {
-      await appPage();
-      await waitFor(() => {
-        expect(screen.getByRole("button", { name: "Run command" })).toBeDisabled();
-      });
+    it("says what is missing instead of running nothing", async () => {
+      const harness = await appPage();
+      const run = await screen.findByRole("button", { name: "Run command" });
+      expect(run).toBeEnabled();
+      await harness.user.click(run);
+      expect(await screen.findByText("Type the command to run.")).toBeInTheDocument();
+      expect(screen.getByLabelText("Command")).toHaveFocus();
+      expect(harness.backend.callsTo(`POST /api/apps/${TAB_DOMAIN}/exec`)).toHaveLength(0);
     });
 
     it("rejects a time limit that is not a number in range", async () => {
@@ -267,7 +279,9 @@ describe("an application's terminal page", () => {
       if (timeout === undefined) throw new Error("no time limit field");
       await harness.user.type(timeout, "5000");
       expect(await screen.findByText("Whole seconds, from 1 to 1800.")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Run command" })).toBeDisabled();
+      await harness.user.click(screen.getByRole("button", { name: "Run command" }));
+      expect(await screen.findByText("The time limit is not valid: whole seconds, within the limit.")).toBeInTheDocument();
+      expect(harness.backend.callsTo(`POST /api/apps/${TAB_DOMAIN}/exec`)).toHaveLength(0);
     });
 
     it("runs it as a job and shows its output as the program printed it", async () => {

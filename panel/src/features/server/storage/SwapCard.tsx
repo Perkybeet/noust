@@ -13,17 +13,18 @@ import { KeyValueList } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { ICONS } from "../../../components/ui/icons";
 import { useT } from "../../../i18n";
 import { formatBytes, formatBytesPair } from "../../../lib/format";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock } from "../errors";
+import { useServerConfirm, ServerQueryState } from "../errors";
 import { serverKeys, swapQuery } from "../queries";
 import { useServerJob } from "../serverJob";
+import type { Swap } from "../queries";
 
 const MIB = 1024 ** 2;
 
@@ -31,29 +32,31 @@ type Opened = "create" | "remove" | "swappiness" | null;
 
 export function SwapCard() {
   const t = useT();
+  const swap = useQuery(swapQuery());
+  return (
+    <ServerQueryState
+      query={swap}
+      label={t("server.swap.label")}
+      skeleton={
+        // The header keeps the room of its action, so the card's body does not drop when it lands.
+        <Card loading level={2} title={t("server.swap.title")} padding="sm" actions={<Skeleton className="h-control-sm w-32 rounded-control" />}>
+          <Skeleton className="h-32 w-full" />
+        </Card>
+      }
+    >
+      {(data) => <SwapPanel data={data} />}
+    </ServerQueryState>
+  );
+}
+
+function SwapPanel({ data }: { data: Swap }) {
+  const t = useT();
   const jobs = useServerJob();
   const queryClient = useQueryClient();
-  const swap = useQuery(swapQuery());
+  const confirmation = useServerConfirm();
   const [opened, setOpened] = useState<Opened>(null);
   const [size, setSize] = useState("");
   const [swappiness, setSwappiness] = useState("");
-
-  if (swap.isError && swap.data === undefined) {
-    return (
-      <Card level={2} title={t("server.swap.title")} padding="sm">
-        <ServerErrorBlock compact error={swap.error} title={t("server.swap.loadFailed")} onRetry={() => void swap.refetch()} />
-      </Card>
-    );
-  }
-  if (swap.data === undefined) {
-    return (
-      // The header keeps the room of its action, so the card's body does not drop when it lands.
-      <Card loading level={2} title={t("server.swap.title")} padding="sm" actions={<Skeleton className="h-control-sm w-32 rounded-control" />}>
-        <Skeleton className="h-32 w-full" />
-      </Card>
-    );
-  }
-  const data = swap.data;
   const none = data.total_bytes === 0;
   const suggestedMb = Math.max(256, Math.round(data.suggested_bytes / MIB));
   const items: KeyValueItem[] = [
@@ -97,9 +100,9 @@ export function SwapCard() {
         <KeyValueList items={items} />
         {!data.supported ? <p className="text-13 text-fg-muted">{data.reason}</p> : null}
         {data.supported && none && data.recommended ? (
-          <Notice tone="warning" title={t("server.swap.recommendedTitle")}>
-            {t("server.swap.recommended", { memory: formatBytes(data.memory_bytes, t.locale) })}
-          </Notice>
+          <p className="text-13 text-pretty text-fg-muted">
+            <span className="font-medium text-fg">{t("server.swap.recommendedTitle")}.</span> {t("server.swap.recommended", { memory: formatBytes(data.memory_bytes, t.locale) })}
+          </p>
         ) : null}
         {data.supported && none ? (
           <div>
@@ -117,7 +120,7 @@ export function SwapCard() {
         ) : null}
         {data.noust_swapfile ? (
           <div>
-            <Button size="sm" variant="ghost" disabled={jobs.busy} onClick={() => setOpened("remove")}>
+            <Button icon={<ICONS.delete aria-hidden="true" />} size="sm" variant="ghost" disabled={jobs.busy} onClick={() => setOpened("remove")}>
               {t("server.swap.remove")}
             </Button>
           </div>
@@ -129,11 +132,18 @@ export function SwapCard() {
         ))}
       </div>
       {opened === "create" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          friction="simple"
+          destructive={false}
+          size="md"
           title={t("server.swap.createTitle")}
           description={t("server.swap.createDescription")}
           actionLabel={t("server.swap.createAction")}
-          onClose={() => setOpened(null)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/swap", { body: { size_mb: Number(size) } });
             jobs.track(accepted.job_id, "swap");
@@ -142,15 +152,20 @@ export function SwapCard() {
           <Field label={t("server.swap.sizeLabel")} description={t("server.swap.sizeHelp", { suggested: String(suggestedMb) })}>
             <Input mono inputMode="numeric" value={size} onValueChange={(value: string) => setSize(value)} suffix={<span className="px-2 text-12 text-fg-faint">MiB</span>} className="w-40" />
           </Field>
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
       {opened === "remove" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          friction="simple"
+          size="md"
           title={t("server.swap.removeTitle")}
           description={t("server.swap.removeDescription")}
           actionLabel={t("server.swap.removeAction")}
-          destructive
-          onClose={() => setOpened(null)}
           onConfirm={async () => {
             const accepted = await request("delete", "/api/server/swap");
             jobs.track(accepted.job_id, "swap");
@@ -158,12 +173,17 @@ export function SwapCard() {
         />
       ) : null}
       {opened === "swappiness" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          friction="simple"
+          destructive={false}
           title={t("server.swap.swappinessTitle")}
           description={t("server.swap.swappinessDescription")}
           actionLabel={t("server.swap.swappinessAction")}
-          size="sm"
-          onClose={() => setOpened(null)}
           onConfirm={async () => {
             await request("put", "/api/server/swap/swappiness", { body: { value: Number(swappiness) } });
             void queryClient.invalidateQueries({ queryKey: serverKeys.swap });
@@ -172,7 +192,7 @@ export function SwapCard() {
           <Field label={t("server.swap.swappiness")} description={t("server.swap.swappinessHelp")}>
             <Input mono inputMode="numeric" value={swappiness} onValueChange={(value: string) => setSwappiness(value)} className="w-24" />
           </Field>
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
     </Card>
   );

@@ -10,6 +10,17 @@
 
 import { isApiError } from "../../api/client";
 
+/**
+ * Takes the first field that says it is invalid to the keyboard: what pressing a button that could
+ * not go on shows (docs/DESIGN.md 6.7). The button is never off for a missing value; it says what is
+ * missing, where. Called with the form's id once the message is on screen.
+ */
+export function focusFirstInvalid(formId: string): void {
+  window.setTimeout(() => {
+    document.getElementById(formId)?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+  }, 0);
+}
+
 export interface SplitErrors<K extends string> {
   /** A message per field of this form, as the server worded it. */
   fields: Partial<Record<K, string>>;

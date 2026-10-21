@@ -2,14 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 
 import { localSignInQuery, ssoConfigQuery, ssoIdentitiesQuery } from "../../../api/queries/ssoAdmin";
 import { useDocumentTitle } from "../../../app/documentTitle";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Sections } from "../../../components/page/Section";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonCard, SkeletonSection } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
-import { DirectoriesSection } from "./DirectoriesSection";
+import { ConnectionsSection } from "./ConnectionsSection";
 import { IdentitiesSection } from "./IdentitiesSection";
 import { LocalSignInSection } from "./LocalSignInSection";
-import { ProvidersSection } from "./ProvidersSection";
-import { SamlSection } from "./SamlSection";
 import { ScimSection } from "./ScimSection";
 
 /**
@@ -33,22 +32,19 @@ export function SsoSettings() {
 
   if (waiting) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-8">
-        <span className="sr-only">{t("ssoAdmin.loading")}</span>
-        <Skeleton className="h-56 w-full rounded-card" />
-        <Skeleton className="h-48 w-full rounded-card" />
-        <Skeleton className="h-40 w-full rounded-card" />
-      </div>
+      <LoadingRegion label={t("ssoAdmin.loading")} className="flex flex-col gap-8">
+        <SkeletonSection rows={3} />
+        <SkeletonCard lines={2} />
+        <SkeletonSection rows={2} />
+      </LoadingRegion>
     );
   }
   return (
     <Sections>
-      <ProvidersSection />
-      <SamlSection />
-      <DirectoriesSection />
+      <ConnectionsSection />
       <LocalSignInSection />
-      <IdentitiesSection />
       <ScimSection />
+      <IdentitiesSection />
     </Sections>
   );
 }

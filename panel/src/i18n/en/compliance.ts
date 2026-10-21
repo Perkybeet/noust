@@ -1,9 +1,9 @@
 /** Strings of Settings > Compliance: the ENS category MEDIUM check and its report. */
 export const compliance = {
   nav: {
-    label: "Compliance",
+    label: "ENS report",
     keywords: "ens esquema nacional seguridad compliance check report audit evidence",
-    command: "Compliance with the ENS",
+    command: "ENS report",
   },
   status: {
     fail: "Not met",
@@ -27,7 +27,7 @@ export const compliance = {
     mpS: "Services",
   },
   page: {
-    documentTitle: "Compliance",
+    documentTitle: "ENS report",
     title: "ENS category MEDIUM",
     description: "This server against the profile, check by check, grouped by the measure each answers.",
     checkAgain: "Check again",

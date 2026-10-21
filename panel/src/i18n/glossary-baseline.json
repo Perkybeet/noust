@@ -4,7 +4,6 @@
     "divergence": {
       "{count} failed": 4,
       "{count} running": 2,
-      "{name} was removed": 2,
       "Actions for {domain}": 2,
       "Actions for {name}": 2,
       "Added": 2,
@@ -26,7 +25,6 @@
       "Clear filters": 3,
       "Command": 2,
       "Compose file": 3,
-      "Copy": 2,
       "Created": 3,
       "Custom": 3,
       "Days to keep": 2,
@@ -43,7 +41,7 @@
       "Done": 3,
       "Email": 2,
       "Enable": 2,
-      "Enabled": 3,
+      "Enabled": 2,
       "Environment": 2,
       "Expired": 2,
       "Failed": 6,
@@ -153,10 +151,8 @@
       "server": 1
     },
     "en:old-names": {
-      "access": 2,
       "appPages": 1,
       "appSettings": 1,
-      "consoleAccess": 2,
       "nav": 1,
       "runtime": 2
     },
@@ -166,7 +162,6 @@
       "consoleAccess": 1
     },
     "en:reading": {
-      "access": 1,
       "appPages": 2,
       "appSettings": 2,
       "appTraffic": 1,
@@ -193,7 +188,7 @@
       "promotion": 1,
       "rollout": 4,
       "runtime": 12,
-      "server": 12,
+      "server": 5,
       "settings": 2,
       "ssoAdmin": 1,
       "teams": 4
@@ -282,7 +277,6 @@
       "settings": 1
     },
     "es:leyendo": {
-      "access": 1,
       "appPages": 2,
       "appSettings": 2,
       "appTraffic": 1,
@@ -309,7 +303,7 @@
       "promotion": 1,
       "rollout": 4,
       "runtime": 12,
-      "server": 12,
+      "server": 5,
       "settings": 2,
       "ssoAdmin": 1,
       "teams": 4
@@ -324,10 +318,8 @@
       "settings": 1
     },
     "es:old-names": {
-      "access": 2,
       "appPages": 1,
       "appSettings": 1,
-      "consoleAccess": 2,
       "nav": 1,
       "runtime": 2
     },

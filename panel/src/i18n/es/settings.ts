@@ -8,6 +8,7 @@ export const settings: Catalog<typeof en> = {
     description: "Cómo funciona Noust en esta máquina y quién puede acceder a la consola.",
   },
   shared: {
+    required: "Obligatorio",
     cancel: "Cancelar",
     done: "Hecho",
     save: "Guardar",
@@ -22,8 +23,7 @@ export const settings: Catalog<typeof en> = {
 
   general: {
     documentTitle: "Ajustes generales",
-    loading: "Cargando los ajustes generales",
-    loadFailed: "No se pudieron cargar los ajustes generales",
+    what: "los ajustes generales",
     notSaved: "No se guardaron los ajustes generales",
     fromTerminal: "Todos los ajustes, desde un terminal",
     notWritableTitle: "Guardar fallará",
@@ -209,20 +209,15 @@ export const settings: Catalog<typeof en> = {
       revoked: "Revocado",
     },
     columnName: "Nombre",
-    columnScope: "Alcance",
     columnState: "Estado",
-    columnCreated: "Creado",
     columnExpires: "Caduca",
     columnLastUsed: "Último uso",
     revokedNotApplicable: "No aplica a un token revocado",
     never: "Nunca",
     createToken: "Crear token",
-    sectionTitle: "Tokens para automatización",
-    sectionDescription: "Tokens con nombre para CI y scripts, cada uno con un alcance y una caducidad opcional. Un token se muestra una vez, al crearlo; después solo quedan su nombre y su alcance.",
     loadingLabel: "los tokens de API",
     tableCaption: "Tokens de API",
     emptyTitle: "Aún no hay tokens de API",
-    emptyDescription: "Crea uno para una canalización de CI o un script. Actúa con el alcance que elijas, y puedes revocarlo en cualquier momento.",
     revokeLabel: "Revocar {name}",
     revokeText: "Revocar",
     usingTitle: "Usar un token",
@@ -233,8 +228,8 @@ export const settings: Catalog<typeof en> = {
     revokedToast: "Se revocó el token {name}",
     scopes: {
       read: { label: "Lectura", description: "Solo consulta, nunca cambia nada: aplicaciones, despliegues, registros, métricas y el estado de la máquina." },
-      deploy: { label: "Despliegue", description: "Lectura, además de crear y actualizar aplicaciones y revertirlas. El indicado para CI." },
-      admin: { label: "Administración", description: "Todo lo que puede hacer la consola, incluido eliminar, editar la configuración y gestionar tokens." },
+      deploy: { label: "Despliegue" },
+      admin: { label: "Administración" },
     },
     expiry: {
       "7": "7 días",
@@ -249,6 +244,7 @@ export const settings: Catalog<typeof en> = {
       title: "Crear un token de API",
       description: "Para CI y scripts: enviado como token Bearer, actúa con su alcance y nada más.",
       errorTitle: "No se pudo crear el token",
+      reachRequired: "Elige el equipo, el proyecto o el entorno al que llega el token.",
       nameLabel: "Nombre",
       nameDescription: "Según lo que lo vaya a usar, como ci-deploy. Los nombres nunca se reutilizan.",
       scopeLegend: "Alcance",
@@ -703,9 +699,12 @@ export const settings: Catalog<typeof en> = {
       source: "una copia del código fuente",
       unknown: "el origen de los paquetes",
     },
+    groups: {
+      updates: { title: "Versión y actualizaciones", description: "Qué Noust corre aquí, si hay uno más nuevo que se pueda instalar y si este servidor lo instala por su cuenta." },
+      support: { title: "Esta instalación y soporte", description: "Qué corre este servidor, si está listo para desplegar y qué enviar cuando algo falla." },
+    },
     version: {
       title: "Versión",
-      description: "El Noust instalado, y si se puede instalar uno más nuevo en este servidor.",
       checkAgain: "Comprobar de nuevo",
       installedLabel: "Instalada",
       checkingLabel: "Buscando actualizaciones",
@@ -740,7 +739,6 @@ export const settings: Catalog<typeof en> = {
       releasedOn: "Publicada el {date}",
       current: "Instalada",
       actionRequired: "Requiere acción",
-      actionRequiredNote: "Hazlo al actualizar a esta versión.",
       show: "Mostrar qué cambió",
       showEarlier: "Mostrar versiones anteriores",
       showFewer: "Mostrar menos versiones",
@@ -754,7 +752,6 @@ export const settings: Catalog<typeof en> = {
     },
     installCheck: {
       title: "Comprobación de la instalación",
-      description: "De qué depende un despliegue en este servidor, y el comando que arregla lo que falta.",
       show: "Mostrar las comprobaciones",
       recheck: "Repetir la comprobación",
       loadFailed: "No se pudo hacer la comprobación de la instalación",
@@ -793,19 +790,23 @@ export const settings: Catalog<typeof en> = {
       title: "Proyecto",
     },
     rename: {
-      title: "Noust se llamaba WASM",
       body: "Noust es el nuevo nombre de WASM desde la versión 3.0. El comando {wasm} sigue funcionando como {noust} durante toda la serie 3.x, y un servidor que usaba WASM conserva sus aplicaciones, ajustes e historial.",
     },
-    license: {
-      label: "Licencia",
-      description: "Libre para usar, estudiar y modificar, también con fines comerciales. Una versión modificada que se ofrezca a otros como servicio debe publicar su código.",
+    legal: {
+      title: "Licencia y garantía",
+      copyright: "© 2024-2026 Yago López Prado",
+      license:
+        "Noust es software libre bajo la {license} ({id}). Puedes usarlo, estudiarlo, modificarlo y compartirlo, también con fines comerciales; una versión modificada que se ofrezca a otros como servicio debe publicar su código.",
+      licenseName: "Licencia Pública General Affero de GNU, versión 3 o posterior",
+      warranty: "No hay ninguna garantía sobre Noust, en la medida que permita la ley.",
+      source: "El código fuente completo está en {repository}.",
+      repositoryName: "github.com/Perkybeet/noust",
     },
     links: {
       documentation: { label: "Documentación", description: "Instalación, despliegue y todos los comandos." },
       releaseNotes: { label: "Notas de versión", description: "Qué cambió en cada versión." },
       reportProblem: { label: "Informar de un problema", description: "Incluye la salida de noust support report." },
       getHelp: { label: "Obtener ayuda", description: "Dónde preguntar y qué incluir." },
-      source: { label: "Código fuente", description: "En GitHub." },
     },
     terminal: {
       title: "Comandos del propio Noust",

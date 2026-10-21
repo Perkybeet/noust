@@ -13,22 +13,23 @@ import { CommandHint } from "../../../components/page/CommandHint";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { Checkbox } from "../../../components/ui/Checkbox";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column, SortState } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
 import { StatusPill } from "../../../components/ui/StatusPill";
-import { Switch } from "../../../components/ui/Switch";
 import { useT } from "../../../i18n";
 import { formatBytes, formatPercent } from "../../../lib/format";
 import { NodeCapabilityGate } from "../../../nodes/capability";
-import { ServerErrorBlock } from "../errors";
+import { ServerQueryState } from "../errors";
 import { MonitorCard } from "../MonitorCard";
 import { SERVER_CAPABILITY, processesQuery } from "../queries";
 import type { ProcessSort, Processes } from "../queries";
 import { ClockCard, HostnameCard, PowerCard, SystemCard } from "./SystemCards";
 import type { SystemView } from "./data";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 
 /** Processes listed at first, and after "Show more". */
 const FEW = 10;
@@ -84,68 +85,66 @@ function ProcessesView() {
   const sortBy = (next: SortState): void => {
     if (isProcessSort(next.column)) setSort(next.column);
   };
-  const total = processes.data?.total ?? 0;
-  const shown = byUnit ? (processes.data?.units.length ?? 0) : (processes.data?.processes.length ?? 0);
   return (
-    <Card level={2}
-      title={t("server.processes.title")}
-      description={t("server.processes.description")}
-      padding="none"
-      actions={
-        <Switch
-          label={t("server.processes.byUnit")}
-          checked={byUnit}
-          onCheckedChange={(next) => {
-            setByUnit(next);
-            // A service has no PID nor a name of its own to sort by.
-            if (next && (sort === "pid" || sort === "name")) setSort("cpu");
-          }}
-        />
-      }
-    >
-      {processes.isError && processes.data === undefined ? (
-        <div className="px-5 pb-4">
-          <ServerErrorBlock compact error={processes.error} title={t("server.processes.loadFailed")} onRetry={() => void processes.refetch()} />
-        </div>
-      ) : byUnit ? (
-        <DataTable
-          columns={unitColumns}
-          rows={processes.data?.units ?? []}
-          getRowId={(row) => row.unit}
-          caption={t("server.processes.unitsCaption")}
-          sort={tableSort}
-          onSortChange={sortBy}
-          loading={processes.isPending}
-          skeletonRows={limit}
-          density="compact"
-          mobile="cards"
-          empty={<EmptyState variant="inline" title={t("server.processes.none")} />}
-        />
-      ) : (
-        <DataTable
-          columns={processColumns}
-          rows={processes.data?.processes ?? []}
-          getRowId={(row) => String(row.pid)}
-          caption={t("server.processes.caption")}
-          sort={tableSort}
-          onSortChange={sortBy}
-          loading={processes.isPending}
-          skeletonRows={limit}
-          density="compact"
-          mobile="cards"
-          empty={<EmptyState variant="inline" title={t("server.processes.none")} />}
-        />
-      )}
-      {processes.data !== undefined && limit === FEW && (byUnit ? shown >= FEW : total > FEW) ? (
-        <div className="border-t border-border px-5 py-2">
-          <Button size="sm" variant="ghost" onClick={() => setLimit(MANY)}>
-            {byUnit
-              ? t("server.processes.showMore", { count: MANY })
-              : t("server.processes.showFirst", { count: MANY, total })}
-          </Button>
-        </div>
-      ) : null}
-    </Card>
+    <ServerQueryState query={processes} label={t("server.processes.label")} skeleton={<SkeletonCard lines={limit} />}>
+      {(data) => {
+        const total = data.total;
+        const shown = byUnit ? data.units.length : data.processes.length;
+        return (
+          <Card level={2}
+            title={t("server.processes.title")}
+            description={t("server.processes.description")}
+            padding="none"
+            actions={
+              <Checkbox
+                label={t("server.processes.byUnit")}
+                checked={byUnit}
+                onCheckedChange={(next) => {
+                  setByUnit(next);
+                  // A service has no PID nor a name of its own to sort by.
+                  if (next && (sort === "pid" || sort === "name")) setSort("cpu");
+                }}
+              />
+            }
+          >
+            {byUnit ? (
+              <DataTable
+                columns={unitColumns}
+                rows={data.units}
+                getRowId={(row) => row.unit}
+                caption={t("server.processes.unitsCaption")}
+                sort={tableSort}
+                onSortChange={sortBy}
+                density="compact"
+                mobile="cards"
+                empty={<EmptyState variant="inline" title={t("server.processes.none")} />}
+              />
+            ) : (
+              <DataTable
+                columns={processColumns}
+                rows={data.processes}
+                getRowId={(row) => String(row.pid)}
+                caption={t("server.processes.caption")}
+                sort={tableSort}
+                onSortChange={sortBy}
+                density="compact"
+                mobile="cards"
+                empty={<EmptyState variant="inline" title={t("server.processes.none")} />}
+              />
+            )}
+            {limit === FEW && (byUnit ? shown >= FEW : total > FEW) ? (
+              <div className="border-t border-border px-5 py-2">
+                <Button size="sm" variant="ghost" onClick={() => setLimit(MANY)}>
+                  {byUnit
+                    ? t("server.processes.showMore", { count: MANY })
+                    : t("server.processes.showFirst", { count: MANY, total })}
+                </Button>
+              </div>
+            ) : null}
+          </Card>
+        );
+      }}
+    </ServerQueryState>
   );
 }
 
@@ -183,25 +182,21 @@ function NetworkView() {
     { id: "received", header: t("server.network.received"), align: "end", hideBelow: "md", mono: true, cell: (row) => formatBytes(row.bytes_recv, t.locale) },
   ];
   return (
-    <Card level={2} title={t("server.network.title")} padding="none">
-      {network.isError && network.data === undefined ? (
-        <div className="px-5 pb-4">
-          <ServerErrorBlock compact error={network.error} title={t("server.network.loadFailed")} onRetry={() => void network.refetch()} />
-        </div>
-      ) : (
-        <DataTable
-          columns={columns}
-          rows={network.data?.interfaces ?? []}
-          getRowId={(row) => row.name}
-          caption={t("server.network.caption")}
-          loading={network.isPending}
-          skeletonRows={2}
-          density="compact"
-          mobile="cards"
-          empty={<EmptyState variant="inline" title={t("server.network.none")} />}
-        />
+    <ServerQueryState query={network} label={t("server.network.label")} skeleton={<SkeletonCard lines={2} />}>
+      {(data) => (
+        <Card level={2} title={t("server.network.title")} padding="none">
+          <DataTable
+            columns={columns}
+            rows={data.interfaces}
+            getRowId={(row) => row.name}
+            caption={t("server.network.caption")}
+            density="compact"
+            mobile="cards"
+            empty={<EmptyState variant="inline" title={t("server.network.none")} />}
+          />
+        </Card>
       )}
-    </Card>
+    </ServerQueryState>
   );
 }
 

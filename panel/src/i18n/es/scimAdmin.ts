@@ -5,13 +5,10 @@ export const scimAdmin: Catalog<typeof en> = {
   title: "Aprovisionamiento (SCIM)",
   description:
     "Un proveedor de identidad que lleva la lista: crea la cuenta de una persona nueva, la apaga cuando se va y da roles por grupo a medida que los envía. No inicia sesión a nadie; eso lo hacen los proveedores de inicio de sesión de arriba.",
-  loadFailed: "No se pudieron leer las fuentes de aprovisionamiento",
   loadingLabel: "fuentes de aprovisionamiento",
   tableCaption: "Fuentes de aprovisionamiento",
   add: "Añadir una fuente",
   emptyTitle: "Ninguna fuente de aprovisionamiento",
-  emptyDescription:
-    "Añade una para que Microsoft Entra ID, Okta u otro proveedor cree cuentas y las apague cuando una persona se va.",
   endpoint: "Dirección SCIM",
   endpointHelp: "Dale al proveedor esta dirección y el token de la fuente.",
   column: {
@@ -26,9 +23,7 @@ export const scimAdmin: Catalog<typeof en> = {
     disabled: "Desactivada",
   },
   neverUsed: "Nunca",
-  editLabel: "Editar {name}",
   editText: "Editar",
-  removeLabel: "Quitar {name}",
   removeText: "Quitar",
   form: {
     createTitle: "Añadir una fuente de aprovisionamiento",
