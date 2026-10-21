@@ -119,6 +119,7 @@ export function DeliveryLog() {
   const deliveries = useQuery(notificationDeliveriesQuery());
 
   // A server whose Noust predates the record has nothing to show here.
+  // design-exception: hand-error-ternary an older server has no such record: that is not a failure to load
   if (deliveries.isError && deliveries.data === undefined) return null;
   const items = deliveries.data?.items ?? [];
 

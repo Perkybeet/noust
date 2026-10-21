@@ -17,6 +17,7 @@ import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { ICONS } from "../../components/ui/icons";
 import { LogViewer } from "../../components/ui/LogViewer";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
@@ -233,6 +234,7 @@ export function AppsLogs({ search, onSearchChange }: AppsLogsProps) {
                   <Button
                     size="sm"
                     variant="ghost"
+                    icon={<ICONS.close aria-hidden="true" />}
                     onClick={() => {
                       onSearchChange({});
                     }}

@@ -9,6 +9,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { History } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { QueryState } from "../../../components/page/QueryState";
@@ -177,6 +178,7 @@ function Logs({ search, onSearchChange }: SystemLogsProps) {
                 <Button
                   size="sm"
                   variant="ghost"
+                  icon={<History aria-hidden="true" />}
                   onClick={() => {
                     setInvestigating(stretchOf(search, Math.floor(Date.now() / 1000)));
                   }}

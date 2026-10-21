@@ -138,6 +138,7 @@ export const notifyRouting = {
     add: "Add a channel",
     addTitle: "Add a channel",
     addDescription: "Name it and choose what it sends through. You set up its destination next.",
+    nameBad: "A name starts with a lowercase letter and has up to 32 of them, digits, - and _.",
     nameLabel: "Name",
     nameDescription: "Lowercase letters, digits, - and _, starting with a letter. The command line refers to it by this name.",
     typeLabel: "Sends through",

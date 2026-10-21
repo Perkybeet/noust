@@ -44,7 +44,8 @@ test("the logs of every application are searched from one page, and the question
   await expect(page.getByText("No line matches this search.")).toBeVisible();
   await expect(page.getByText("noust log search zzz-nothing-says-this --since 1h")).toBeVisible();
 
-  await page.getByRole("radio", { name: "24 hours" }).click();
+  await page.getByRole("combobox", { name: "How far back" }).click();
+  await page.getByRole("option", { name: "24 hours" }).click();
   await expect(page).toHaveURL(/since=24h/);
   await page.getByRole("button", { name: "Clear the search" }).click();
   await expect(page).not.toHaveURL(/q=/);
@@ -130,7 +131,8 @@ test("a probe is added, its page is kept up to date, and it goes when it is remo
   // Everything back as it was.
   await page_.getByRole("switch", { name: "Keep the page's files up to date" }).click();
   await expect(page_.getByRole("switch", { name: "Keep the page's files up to date" })).not.toBeChecked();
-  await row.getByRole("button", { name: "Remove shop" }).click();
+  await row.getByRole("button", { name: "Actions for shop" }).click();
+  await page.getByRole("menuitem", { name: "Remove" }).click();
   await page.getByRole("alertdialog", { name: "Remove shop?" }).getByRole("button", { name: "Remove" }).click();
   await expect(page.getByText("No probes yet")).toBeVisible();
 });
