@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
+import { chooseWay } from "../../test/ways";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 
@@ -58,7 +59,7 @@ type User = ReturnType<typeof renderConsole>["user"];
 
 async function openComposeMode(user: User) {
   await screen.findByRole("heading", { level: 1, name: "New application" });
-  await user.click(await screen.findByRole("radio", { name: "Compose" }));
+  await chooseWay(user, "Compose");
   return screen.findByRole("textbox", { name: /Compose file/ });
 }
 

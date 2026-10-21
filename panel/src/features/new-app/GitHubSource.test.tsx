@@ -145,7 +145,7 @@ describe("the new-app wizard, from GitHub", () => {
     expect(branch).toHaveTextContent("staging");
     await expectNoAxeViolations(document.body);
 
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     expect(backend.callsTo("POST /api/apps/inspect").at(-1)?.body).toEqual({
       source: "github:acme/storefront",
@@ -174,7 +174,7 @@ describe("the new-app wizard, from GitHub", () => {
   it("asks for a repository before inspecting", async () => {
     const { backend, harness } = wizard(STATUS);
     await screen.findByRole("combobox", { name: "Repository" });
-    await harness.user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await harness.user.click(screen.getByRole("button", { name: "Continue" }));
     // Said by Continue, and on the picker it points at.
     expect(await screen.findAllByText("Choose a repository.")).toHaveLength(2);
     expect(backend.callsTo("POST /api/apps/inspect")).toHaveLength(0);
@@ -200,7 +200,7 @@ describe("the new-app wizard, from GitHub", () => {
     // Switching starts clean: what was chosen on GitHub does not linger as a typed source.
     expect(field).toHaveValue("");
     await user.type(field, "https://gitlab.com/acme/api.git");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     expect(backend.callsTo("POST /api/apps/inspect").at(-1)?.body).toEqual({ source: "https://gitlab.com/acme/api.git" });
   });

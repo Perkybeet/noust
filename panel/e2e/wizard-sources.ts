@@ -58,7 +58,7 @@ export async function typedSource(page: Page) {
 export async function inspectSource(page: Page, server: ConsoleServer, problems: PageProblems, source: string): Promise<void> {
   problems.expect(INSPECT_NEEDS_SUDO);
   await (await typedSource(page)).fill(source);
-  await page.getByRole("button", { name: "Inspect source" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   const address = page.getByRole("heading", { level: 2, name: "Address" });
   await expect(confirm.or(address)).toBeVisible();

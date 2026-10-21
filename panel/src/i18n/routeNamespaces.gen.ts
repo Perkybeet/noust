@@ -135,7 +135,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/invite": ["accounts", "auth", "settings"],
   "/login": ["auth", "ssoAdmin"],
   "/reset-password": ["accounts", "auth", "settings"],
-  "/setup": ["accounts", "auth"],
+  "/setup": ["auth", "settings"],
   "/welcome": ["auth", "settings"],
   "__root__": [],
 };

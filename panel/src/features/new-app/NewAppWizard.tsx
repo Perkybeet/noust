@@ -7,6 +7,8 @@ import { request } from "../../api/client";
 import { importApp } from "../../api/queries/appImport";
 import type { ImportAppBody } from "../../api/queries/appImport";
 import { appKeys, appsQuery, appTypesQuery } from "../../api/queries/apps";
+import { temporaryNameQuery } from "../../api/queries/domains";
+import type { TemporaryNameOf } from "../../api/queries/domains";
 import { githubStatusQuery } from "../../api/queries/github";
 import { gitlabStatusQuery } from "../../api/queries/gitlab";
 import { webserverQuery } from "../../api/queries/config";
@@ -33,7 +35,9 @@ import { imageProblem } from "../container/model";
 import { AddressFields } from "./AddressFields";
 import { ConfigureStep } from "./ConfigureStep";
 import { DeployStep, deploySummary } from "./DeployStep";
+import type { OpenSteps } from "./DeployStep";
 import type { DeployKind } from "./DeployStep";
+import { DetectedLine } from "./DetectedLine";
 import { EnvironmentFields } from "./EnvironmentFields";
 import { exportFileProblem, importBody, importProblems, importRefusalOf, initialImportForm, readExport } from "./exportFile";
 import type { ImportForm } from "./exportFile";
@@ -62,7 +66,9 @@ import {
   WIZARD_STEPS,
   composeInspection,
   createAppBody,
+  dnsQuestion,
   errorsOf,
+  hasOwnDomain,
   imageInspection,
   initialReview,
   inspectBody,
@@ -73,6 +79,7 @@ import {
   reviewProblems,
   sameSource,
   shortSource,
+  sourceKind,
   sourceProblems,
   stepAsks,
   stepOfField,
@@ -181,6 +188,12 @@ function missingOf(t: T, errors: [string, string][]): string | undefined {
   return name === null ? t("newApp.page.missingMany", { count }) : t("newApp.page.missingManyNamed", { count, name });
 }
 
+/** What is asked of the inspection: the source, and whether to move on once it is read (Continue) or only to read it (a paste). */
+interface InspectRequest {
+  form: SourceForm;
+  advance: boolean;
+}
+
 /** What a step shows and what its Continue does. */
 interface StepView {
   title: string;
@@ -285,10 +298,13 @@ export function NewAppWizard() {
   const cores = system.data?.cpu.cores ?? null;
   const context = useMemo(() => {
     const list = apps.data?.apps ?? [];
+    const domains = new Set(list.map((app) => app.domain));
     return {
-      domains: new Set(list.map((app) => app.domain)),
+      domains,
       ports: new Map(list.filter((app) => app.port !== null && app.port !== undefined).map((app) => [Number(app.port), app.domain])),
       cores,
+      // A server with a domain of the operator's own in use is asked for one; one without is not.
+      ownDomains: hasOwnDomain(domains),
     };
   }, [apps.data, cores]);
 
@@ -298,9 +314,13 @@ export function NewAppWizard() {
   const allSteps = withDatabaseStep(WIZARD_STEPS[kind], databaseAvailable && kind === "code" && !NO_DATABASE_STEP_TYPES.has(review?.appType ?? ""));
   // The steps Continue and Back walk: the ones with something to ask (`stepAsks`), and the one on
   // screen, which the operator opened and may leave from. The server step is reached on its own.
-  const order = allSteps.filter((id) => id === step || stepAsks(id, kind, { inspection: inspected?.inspection ?? null, review, context }));
+  const askContext = { ...context, temporaryAvailable: (review?.temporaryDomain ?? "") !== "" };
+  const order = allSteps.filter((id) => id === step || stepAsks(id, kind, { inspection: inspected?.inspection ?? null, review, context: askContext }));
   const passedOver = allSteps.filter((id) => !order.includes(id));
-  const steps = withServerStep(allSteps, serverStep.enabled);
+  // The stepper lists the steps that ask, and the one on screen: a source that needed nothing from
+  // the operator is not announced as a process of six steps. What was passed over is in the
+  // summary of the last, with the way to open it.
+  const steps = withServerStep(order, serverStep.enabled);
 
   const go = (next: Step): void => {
     setMoved(true);
@@ -316,31 +336,99 @@ export function NewAppWizard() {
 
   const defaultWebserver: WebServer = webserver.data?.webserver === "apache" ? "apache" : "nginx";
 
+  /** The temporary address this application would get, or empty where the server cannot make one. */
+  const temporaryFor = async (of: TemporaryNameOf): Promise<string> => {
+    try {
+      return (await queryClient.query(temporaryNameQuery(of))).domain;
+    } catch {
+      // Behind NAT with no declared address: there is no temporary address, and that is no error to show.
+      return "";
+    }
+  };
+
+  /** The review a source proposes, with where it answers: the temporary address where there is no domain of the operator's yet. */
+  const reviewFor = (inspection: Inspection, temporary: string, previous: ReviewForm | null, image?: string): ReviewForm =>
+    initialReview(inspection, { webserver: defaultWebserver, taken: context.ports, temporary, ownDomains: context.ownDomains, ...(image !== undefined ? { image } : {}) }, previous);
+
+  /**
+   * The first step after the source that has something to ask, in the order of the start: where it
+   * answers, then what is not as detected, then the deploy. Continue goes straight there, so a
+   * source that needs nothing from the operator is two presses from the build.
+   */
+  const stepAfterSource = (inspection: Inspection, proposed: ReviewForm): Step => {
+    const ask = { inspection, review: proposed, context: { ...context, temporaryAvailable: proposed.temporaryDomain !== "" } };
+    const steps = withDatabaseStep(WIZARD_STEPS.code, databaseAvailable && !NO_DATABASE_STEP_TYPES.has(proposed.appType));
+    return steps.slice(1).find((id) => stepAsks(id, "code", ask)) ?? "deploy";
+  };
+
+  const pressedWhileReading = useRef(false);
   const inspect = useMutation({
-    mutationFn: async (form: SourceForm) => {
+    mutationFn: async ({ form }: InspectRequest) => {
       abort.current?.abort();
       const controller = new AbortController();
       abort.current = controller;
       const inspection = await request("post", "/api/apps/inspect", { body: inspectBody(form), signal: controller.signal });
-      return { inspection, form };
+      const temporary = await temporaryFor({ source: form.source.trim() });
+      return { inspection, form, temporary };
     },
-    onSuccess: ({ inspection, form }) => {
+    onSuccess: ({ inspection, form, temporary }, { advance }) => {
+      const proposed = reviewFor(inspection, temporary, review);
       setInspected({ inspection, for: form });
-      setReview((previous) => initialReview(inspection, { webserver: defaultWebserver, taken: context.ports }, previous));
+      setReview(proposed);
       setReviewErrors({});
-      go("address");
+      // Continue pressed while a paste was still being read goes on as soon as it is read.
+      const pressed = pressedWhileReading.current;
+      pressedWhileReading.current = false;
+      if (advance || pressed) go(stepAfterSource(inspection, proposed));
     },
     onError: (error) => {
+      pressedWhileReading.current = false;
       const refusal = refusalOf(error);
       if (refusal?.step === "source" && Object.keys(refusal.fields).length > 0) setSourceErrors(refusal.fields);
     },
   });
 
+  // A source that is complete is read without being asked: pasted, chosen from a list or left, so
+  // what was found is on screen before Continue is pressed. A directory on this server is read by
+  // Continue alone.
+  const [settleAsk, setSettleAsk] = useState(0);
+  const [settled, setSettled] = useState(0);
+  const settleSource = (): void => {
+    setSettleAsk((count) => count + 1);
+  };
+  useEffect(() => {
+    if (settleAsk === 0) return;
+    // After the event that completed it: a paste is announced before its text is in the field.
+    const timer = window.setTimeout(() => {
+      setSettled((count) => count + 1);
+    }, 80);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [settleAsk]);
+  useEffect(() => {
+    if (settled === 0) return;
+    if (sourceMode !== "manual" && sourceMode !== "github" && sourceMode !== "gitlab") return;
+    const problems = sourceProblems(source);
+    if (problems.source !== undefined || problems.branch !== undefined) return;
+    if (sourceKind(source.source) === "local") return;
+    if (inspect.isPending) return;
+    if (inspected !== null && sameSource(inspected.for, source) && review !== null) return;
+    inspect.mutate({ form: source, advance: false });
+    // Only a source that was settled reads it; every other value is read as it is when that happens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settled]);
+
   const openRecipe = useMutation({
-    mutationFn: (summary: Pick<RecipeSummary, "name" | "title">) => queryClient.query(recipeQuery(summary.name)),
-    onSuccess: (full) => {
+    mutationFn: async (summary: Pick<RecipeSummary, "name" | "title">) => {
+      const full = await queryClient.query(recipeQuery(summary.name));
+      // A recipe is named for itself: uptime-kuma.203-0-113-10.sslip.io.
+      const temporary = await temporaryFor({ prefix: summary.name });
+      return { full, temporary };
+    },
+    onSuccess: ({ full, temporary }) => {
       setRecipe(full);
-      setRecipeForm((previous) => initialRecipeForm(full, previous));
+      setRecipeForm((previous) => initialRecipeForm(full, previous, { temporary, ownDomains: context.ownDomains }));
       setRecipeErrors({});
       go("setup");
     },
@@ -427,7 +515,9 @@ export function NewAppWizard() {
     inspect.reset();
   };
 
-  const addressDomain = kind === "recipe" ? (recipeForm?.domain ?? "") : kind === "import" ? (importForm?.domain ?? "") : (review?.domain ?? "");
+  // A temporary address is no DNS question: the service that answers it is the one that made it.
+  const addressDomain =
+    kind === "recipe" ? (recipeForm === null ? "" : dnsQuestion(recipeForm)) : kind === "import" ? (importForm?.domain ?? "") : review === null ? "" : dnsQuestion(review);
   const dns = useDomainDnsCheck(addressDomain);
 
   // An export, from a file or from another platform's server: checked the same way, then reviewed.
@@ -550,9 +640,13 @@ export function NewAppWizard() {
             const inspection = composeInspection(found, composeDoc.made);
             inspect.reset();
             setInspected({ inspection, for: { source: "", branch: "" }, document: composeDoc.document });
-            setReview((previous) => initialReview(inspection, { webserver: defaultWebserver, taken: context.ports }, previous));
-            setReviewErrors({});
-            go("address");
+            void (async () => {
+              // A stack is named for nothing in particular: the temporary address is an application's.
+              const proposed = reviewFor(inspection, await temporaryFor({ prefix: "stack" }), review);
+              setReview(proposed);
+              setReviewErrors({});
+              go(stepAfterSource(inspection, proposed));
+            })();
           },
         },
       };
@@ -570,9 +664,12 @@ export function NewAppWizard() {
             const reference = imageRef.trim();
             inspect.reset();
             setInspected({ inspection, for: { source: reference, branch: "" } });
-            setReview((previous) => initialReview(inspection, { webserver: defaultWebserver, taken: context.ports, image: reference }, previous));
-            setReviewErrors({});
-            go("address");
+            void (async () => {
+              const proposed = reviewFor(inspection, await temporaryFor({ image: reference }), review, reference);
+              setReview(proposed);
+              setReviewErrors({});
+              go(stepAfterSource(inspection, proposed));
+            })();
           },
         },
         ...(problem !== null
@@ -618,12 +715,15 @@ export function NewAppWizard() {
     const ready = inspected !== null && sameSource(inspected.for, source) && review !== null;
     return {
       next: {
-        label: ready ? t("newApp.source.continue") : t("newApp.source.inspect"),
+        label: t("newApp.source.continue"),
         loading: inspect.isPending,
         onClick: () => {
           setSourceErrors({});
-          if (ready) go("address");
-          else inspect.mutate(source);
+          // A source read already (on paste) goes straight on; one being read goes on when it is
+          // read; one that was not is read now, and then goes on.
+          if (ready) go(stepAfterSource(inspected.inspection, review));
+          else if (inspect.isPending) pressedWhileReading.current = true;
+          else inspect.mutate({ form: source, advance: true });
         },
       },
       ...(missing !== undefined
@@ -637,6 +737,17 @@ export function NewAppWizard() {
         : {}),
     };
   };
+
+  // What was found in the source that is on screen, once it is read: the line under its fields.
+  const detectedLine: ReactNode =
+    kind === "code" &&
+    (sourceMode === "manual" || sourceMode === "github" || sourceMode === "gitlab") &&
+    inspected !== null &&
+    inspected.document === undefined &&
+    sameSource(inspected.for, source) &&
+    review !== null ? (
+      <DetectedLine inspection={inspected.inspection} types={typeList} onChange={() => go("configure")} />
+    ) : null;
 
   const stepView = (shown: Step): StepView | null => {
     switch (shown) {
@@ -669,7 +780,11 @@ export function NewAppWizard() {
                 setSource(next);
                 setSourceErrors({});
                 if (inspect.isError) inspect.reset();
+                // A repository chosen from a list is complete the moment it is chosen.
+                if ((sourceMode === "github" || sourceMode === "gitlab") && next.source.trim() !== "" && next.source !== source.source) settleSource();
               }}
+              onSettle={settleSource}
+              detected={detectedLine}
               onSubmit={() => {
                 const actions = sourceActions();
                 if (actions.missing !== undefined) actions.onMissing?.();
@@ -706,9 +821,12 @@ export function NewAppWizard() {
                 const inspection = manualInspection(source);
                 inspect.reset();
                 setInspected({ inspection, for: source });
-                setReview((previous) => initialReview(inspection, { webserver: defaultWebserver, taken: context.ports }, previous));
-                setReviewErrors({});
-                go("address");
+                void (async () => {
+                  const proposed = reviewFor(inspection, await temporaryFor({ source: source.source.trim() }), review);
+                  setReview(proposed);
+                  setReviewErrors({});
+                  go(stepAfterSource(inspection, proposed));
+                })();
               }}
               recipes={
                 <RecipeGallery
@@ -937,15 +1055,25 @@ export function NewAppWizard() {
 
       case "deploy": {
         let summary: readonly KeyValueItem[] | null = null;
+        let details: readonly KeyValueItem[] = [];
         let domain = "";
         if (kind === "code" && inspected !== null && review !== null) {
-          summary = deploySummary(t, inspected.for, inspected.inspection, typeList, review);
+          // A step that had nothing to ask was passed over: the summary says so and offers to open it.
+          const open: OpenSteps = {
+            ...(passedOver.includes("address") ? { address: () => go("address") } : {}),
+            ...(passedOver.includes("configure") ? { configure: () => go("configure") } : {}),
+            ...(passedOver.includes("variables") ? { variables: () => go("variables") } : {}),
+          };
+          const made = deploySummary(t, inspected.for, inspected.inspection, typeList, review, open);
+          summary = made.items;
+          details = made.details;
           if (allSteps.includes("database")) summary = [...summary, databaseSummary(t, database, undefined)];
           if (destination.needed) summary = [...summary, placeSummary(t, destination)];
           domain = review.domain;
         } else if (kind === "recipe" && recipe !== null && recipeForm !== null) {
-          summary = recipeSummary(t, recipe, recipeForm);
-          if (destination.needed) summary = [...summary, placeSummary(t, destination)];
+          const made = recipeSummary(t, recipe, recipeForm);
+          summary = destination.needed ? [...made.items, placeSummary(t, destination)] : made.items;
+          details = made.details;
           domain = recipeForm.domain;
         } else if (kind === "import" && loaded !== null && importForm !== null) {
           summary = importSummary(t, loaded.document, importForm, typeList);
@@ -993,6 +1121,7 @@ export function NewAppWizard() {
               kind={deployKind}
               domain={domain}
               summary={summary}
+              details={details}
               failure={kind === "import" ? importFailure : createFailure}
               target={target}
               followedJob={followedJob}

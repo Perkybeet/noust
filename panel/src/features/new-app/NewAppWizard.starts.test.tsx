@@ -5,6 +5,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { chooseWay } from "../../test/ways";
 import { EXPORT, RECIPES, WORDPRESS } from "./testFixtures";
 import type { Inspection } from "./wizard";
 
@@ -75,7 +76,7 @@ function wizard(domain: string, finished: Record<string, unknown>, extra: Record
 
 async function choose(user: ReturnType<typeof renderConsole>["user"], mode: string) {
   await screen.findByRole("heading", { level: 1, name: "New application" });
-  await user.click(await screen.findByRole("radio", { name: mode }));
+  await chooseWay(user, mode);
 }
 
 describe("starting from a recipe", () => {
@@ -113,6 +114,8 @@ describe("starting from a recipe", () => {
     const steps = screen.getByRole("list", { name: "Steps" });
     expect(within(steps).getAllByRole("listitem")).toHaveLength(3);
     expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+    // Where its code comes from and its type are one press away, not in the way of the address.
+    expect(screen.getByRole("button", { name: "Details" })).toHaveAttribute("aria-expanded", "false");
 
     // A domain already deployed here is refused before anything is sent.
     await user.type(screen.getByLabelText("Domain"), "shop.example.com");
@@ -358,7 +361,7 @@ describe("another platform's configuration", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "/srv/api");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "api.example.com");
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -386,7 +389,7 @@ describe("another platform's configuration", () => {
     // What the platform generates is generated here, with a value already: nothing to ask, so
     // Deploy follows, and the Variables step is one click away on the stepper.
     await screen.findByRole("heading", { level: 2, name: "Deploy" });
-    await user.click(screen.getByRole("button", { name: "Variables: done" }));
+    await user.click(screen.getByRole("button", { name: "Change variables" }));
     await screen.findByRole("heading", { level: 2, name: "Variables" });
     expect(screen.getByLabelText(/^SESSION_SECRET/)).toHaveAttribute("type", "password");
     expect(screen.getByLabelText<HTMLInputElement>(/^SESSION_SECRET/).value).toMatch(/^[A-Za-z0-9_-]{43}$/);
@@ -413,7 +416,7 @@ describe("another platform's configuration", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "/srv/api");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "api.example.com");
     await user.click(screen.getByRole("button", { name: "Continue" }));

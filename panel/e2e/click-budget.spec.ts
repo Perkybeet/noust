@@ -123,7 +123,7 @@ test("a public repository goes from the Applications list to its first build wit
   await startCounting(page);
   await page.getByRole("link", { name: "New application", exact: true }).click();
   await page.getByLabel("Repository or directory").fill(await wizardSource(page, "landing"));
-  await page.getByRole("button", { name: "Inspect source" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(stepTitle(page)).toHaveText("Address");
   await page.getByLabel("Domain", { exact: true }).fill(domain);
   await continueToDeploy(page);
@@ -274,7 +274,7 @@ test.describe("on a phone, the incident verbs", () => {
     await startCounting(page);
     await page.getByRole("link", { name: "New application", exact: true }).click();
     await page.getByLabel("Repository or directory").fill(await wizardSource(page, "landing"));
-    await page.getByRole("button", { name: "Inspect source" }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
     await expect(stepTitle(page)).toHaveText("Address");
     await page.getByLabel("Domain", { exact: true }).fill(domain);
     await continueToDeploy(page);

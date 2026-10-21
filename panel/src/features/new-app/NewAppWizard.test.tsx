@@ -97,7 +97,7 @@ function wizard(extra: Record<string, RouteHandler> = {}) {
 async function inspect(user: ReturnType<typeof renderConsole>["user"], source = "/var/www/src/storefront") {
   await screen.findByRole("heading", { level: 1, name: "New application" });
   await user.type(screen.getByLabelText("Repository or directory"), source);
-  await user.click(screen.getByRole("button", { name: "Inspect source" }));
+  await user.click(screen.getByRole("button", { name: "Continue" }));
   return screen.findByRole("heading", { level: 2, name: "Address" });
 }
 
@@ -197,7 +197,7 @@ describe("the new-app wizard", () => {
     const { harness } = wizard();
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    const next = screen.getByRole("button", { name: "Inspect source" });
+    const next = screen.getByRole("button", { name: "Continue" });
     expect(next).toBeEnabled();
     await user.click(next);
     expect(await screen.findAllByText("Enter a Git URL or a path on this server.")).toHaveLength(2);
@@ -206,7 +206,7 @@ describe("the new-app wizard", () => {
     });
 
     await user.type(screen.getByLabelText("Repository or directory"), "/var/www/src/storefront");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "shop.example.com");
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -257,7 +257,7 @@ describe("the new-app wizard", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "/srv/odd");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     const detail = await screen.findByText("Could not identify the application type at /srv/odd");
     expect(detail.closest("[role=alert]")).not.toBeNull();
     expect(screen.getByText("Nothing under the fetched source matches a registered application type.")).toBeInTheDocument();
@@ -327,7 +327,7 @@ describe("the new-app wizard", () => {
     const { user, container } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "https://github.com/acme/api.git");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     const detail = await screen.findByText("The repository has a Dockerfile but no Compose file.");
     expect(detail.closest("[role=status]")).not.toBeNull();
     expect(screen.getByText("Noust cannot deploy https://github.com/acme/api.git as it is")).toBeInTheDocument();
@@ -360,7 +360,7 @@ describe("the new-app wizard", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "https://github.com/acme/shop.git");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     const reading = await screen.findByText("Reading the repository…");
     expect(reading.closest("[role=status]")).not.toBeNull();
     expect(screen.getByText(/Cancel stops it on the server too/)).toBeInTheDocument();
@@ -370,13 +370,13 @@ describe("the new-app wizard", () => {
     expect(screen.queryByText(/Cloning|Detecting|Installing/)).not.toBeInTheDocument();
 
     // The wizard's own Continue is busy while it reads; Cancel stops it.
-    expect(screen.getByRole("button", { name: "Inspect source" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveAttribute("aria-busy", "true");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(aborted).toBe(true);
     await waitFor(() => {
       expect(screen.queryByText("Reading the repository…")).not.toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "Inspect source" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
     // Cancelling is not a failure.
     expect(screen.queryByText(/Could not inspect/)).not.toBeInTheDocument();
   });
@@ -389,7 +389,7 @@ describe("the new-app wizard", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "https://example.com/app.tar.gz");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText("Download failed: https://example.com/app.tar.gz")).toBeInTheDocument();
     expect(screen.getByLabelText("Repository or directory")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByText("Name or service not known")).toBeInTheDocument();
@@ -406,7 +406,7 @@ describe("the new-app wizard", () => {
     const { user, container } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "git@github.com:acme/storefront.git");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     // The short sentence is on the field, where the operator is already looking.
     expect(await screen.findByText("Could not access git@github.com:acme/storefront.git")).toBeInTheDocument();
     // The block below carries git's own report and the backend's actionable fix, verbatim.

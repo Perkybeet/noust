@@ -114,7 +114,7 @@ test("a directory that does not exist is refused on its field, in the server's w
   await signIn(page, consoleServer, "/apps/new");
   await (await typedSource(page)).fill("/var/www/src/does-not-exist");
   const inspected = page.waitForResponse((response) => response.url().endsWith("/api/apps/inspect") && response.status() !== 403);
-  await page.getByRole("button", { name: "Inspect source" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   const refusal = page.getByText("Source path does not exist: /var/www/src/does-not-exist");
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   await expect(confirm.or(refusal)).toBeVisible();
@@ -228,7 +228,7 @@ test("a source Noust cannot deploy as it is gets the inspection's verdict and ho
   // machine has no Railpack.
   const source = await wizardSource(page, "rust-service");
   await (await typedSource(page)).fill(source);
-  await page.getByRole("button", { name: "Inspect source" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   const verdict = page.getByRole("status").filter({ hasText: `Noust cannot deploy ${source} as it is` });
   await expect(confirm.or(verdict)).toBeVisible();

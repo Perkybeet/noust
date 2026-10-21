@@ -1,4 +1,4 @@
-import { Archive, Container, FolderGit2, FolderOpen, GitBranch, Upload, X } from "lucide-react";
+import { Archive, ChevronDown, Container, FileUp, FolderGit2, FolderOpen, GitBranch, Layers, LibraryBig, Link2, Upload, X } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
@@ -14,6 +14,7 @@ import { useNow } from "../../components/page/clock";
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
+import { Menu, MenuItem } from "../../components/ui/Menu";
 import { Notice } from "../../components/ui/Notice";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { TextLink } from "../../components/ui/TextLink";
@@ -154,15 +155,20 @@ function InspectFailure({ failure, source, onManual }: { failure: unknown; sourc
 /** Where the application comes from: code (GitHub, or a typed source), a recipe, or an export. */
 export type SourceMode = "github" | "gitlab" | "manual" | "image" | "compose" | "recipe" | "import" | "adopt";
 
+/** The ways in a person starting from code or an image reaches for first: always on screen. */
 const MODES: readonly { value: SourceMode; label: PlainKey }[] = [
   { value: "github", label: "newApp.modes.github" },
   { value: "gitlab", label: "gitlab.picker.mode" },
   { value: "manual", label: "newApp.modes.manual" },
   { value: "image", label: "newApp.modes.image" },
-  { value: "compose", label: "newApp.modes.compose" },
-  { value: "recipe", label: "newApp.modes.recipe" },
-  { value: "import", label: "newApp.modes.import" },
-  { value: "adopt", label: "newApp.modes.adopt" },
+];
+
+/** The rest, behind one button: each is a different idea, and four of them on the first screen read as eight choices. */
+const MORE_MODES: readonly { value: SourceMode; label: PlainKey; icon: ReactNode }[] = [
+  { value: "compose", label: "newApp.modes.compose", icon: <Layers /> },
+  { value: "recipe", label: "newApp.modes.recipe", icon: <LibraryBig /> },
+  { value: "import", label: "newApp.modes.import", icon: <FileUp /> },
+  { value: "adopt", label: "newApp.modes.adopt", icon: <Link2 /> },
 ];
 
 export interface SourceStepProps {
@@ -185,6 +191,13 @@ export interface SourceStepProps {
   /** Where the source comes from: a repository the GitHub App reaches, or typed. */
   mode: SourceMode;
   onModeChange: (mode: SourceMode) => void;
+  /**
+   * The typed source is complete: it was pasted, or the field was left. The wizard reads it then,
+   * so what it found is on screen before Continue is pressed.
+   */
+  onSettle?: () => void;
+  /** What was found in the source, said in a line under its fields, with the way to change it. */
+  detected?: ReactNode;
   /** The image of a container application that is pulled from a registry, and what is wrong with it. */
   image: { value: string; error: string | undefined; onChange: (value: string) => void };
   /** What stands in the step's place when the application starts from a recipe. */
@@ -215,6 +228,8 @@ export function SourceStep({
   gitlab,
   mode,
   onModeChange,
+  onSettle,
+  detected,
   image,
   recipes,
   importer,
@@ -239,10 +254,29 @@ export function SourceStep({
     value: option.value,
     label: t(option.label),
   }));
+  // The way chosen is one of the rest: the button that holds them says which, instead of a row
+  // with nothing checked.
+  const chosenMore = MORE_MODES.find((option) => option.value === mode);
 
   return (
     <div className="flex flex-col gap-6">
-      <SegmentedControl label={t("newApp.modes.label")} options={modes} value={mode} onValueChange={onModeChange} className="max-w-full flex-wrap self-start" />
+      <div className="flex flex-wrap items-center gap-2">
+        {/* When the way chosen is one of the rest, nothing here is checked and the button beside it says which. */}
+        <SegmentedControl label={t("newApp.modes.label")} options={modes} value={mode} onValueChange={onModeChange} className="max-w-full flex-wrap" />
+        <Menu
+          trigger={
+            <Button size="sm" variant={chosenMore === undefined ? "ghost" : "secondary"} trailingIcon={<ChevronDown aria-hidden="true" />} {...(chosenMore !== undefined ? { "aria-current": "true" as const } : {})}>
+              {chosenMore === undefined ? t("newApp.modes.more") : t(chosenMore.label)}
+            </Button>
+          }
+        >
+          {MORE_MODES.map((option) => (
+            <MenuItem key={option.value} icon={option.icon} onClick={() => onModeChange(option.value)}>
+              {t(option.label)}
+            </MenuItem>
+          ))}
+        </Menu>
+      </div>
 
       {mode === "recipe" ? (
         recipes
@@ -302,6 +336,11 @@ export function SourceStep({
                   icon={KIND_ICON[kind]}
                   value={form.source}
                   onValueChange={(value: string) => onChange({ source: value, branch: form.branch })}
+                  // A pasted address is complete: it is read at once, and what was found is on screen
+                  // before Continue is pressed. A typed one is read when the field is left. A directory
+                  // on this server is read by Continue alone: reading it asks the server for more.
+                  onPaste={() => onSettle?.()}
+                  onBlur={() => onSettle?.()}
                   placeholder="https://github.com/you/app.git"
                   autoComplete="off"
                   autoCapitalize="off"
@@ -373,7 +412,9 @@ export function SourceStep({
             <Inspecting source={shown} branch={form.branch.trim()} since={inspecting.since} onCancel={onCancel} />
           ) : failure !== null && failure !== undefined ? (
             <InspectFailure failure={failure} source={shown} onManual={onManual} />
-          ) : null}
+          ) : (
+            (detected ?? null)
+          )}
 
           <CommandHint command={`noust create --domain example.com --source ${shown === "" ? "https://github.com/you/app.git" : shown}`} label={t("newApp.source.terminal")} />
         </form>

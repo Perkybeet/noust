@@ -109,7 +109,7 @@ describe("the new-app wizard, from GitLab", () => {
     await user.click(await screen.findByRole("option", { name: /staging/ }));
     expect(branch).toHaveTextContent("staging");
 
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     expect(backend.callsTo("POST /api/apps/inspect").at(-1)?.body).toEqual({ source: "https://gitlab.com/acme/shop/storefront.git", branch: "staging" });
   });
@@ -139,7 +139,7 @@ describe("the new-app wizard, from GitLab", () => {
     const { backend, harness } = wizard(STATUS);
     await harness.user.click(await screen.findByRole("radio", { name: "From GitLab" }));
     await screen.findByRole("list", { name: "Projects" });
-    await harness.user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await harness.user.click(screen.getByRole("button", { name: "Continue" }));
 
     expect((await screen.findAllByText("Choose a project.")).length).toBeGreaterThan(0);
     expect(backend.callsTo("POST /api/apps/inspect")).toHaveLength(0);

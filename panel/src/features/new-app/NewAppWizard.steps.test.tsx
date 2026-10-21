@@ -76,7 +76,7 @@ type User = ReturnType<typeof renderConsole>["user"];
 async function inspectPlain(user: User): Promise<void> {
   await screen.findByRole("heading", { level: 1, name: "New application" });
   await user.type(screen.getByLabelText("Repository or directory"), "https://github.com/acme/api.git");
-  await user.click(screen.getByRole("button", { name: "Inspect source" }));
+  await user.click(screen.getByRole("button", { name: "Continue" }));
   await screen.findByRole("heading", { level: 2, name: "Address" });
 }
 
@@ -91,14 +91,14 @@ describe("a public repository to its first build", () => {
     // The step after the address is the deploy itself.
     expect(await screen.findByRole("heading", { level: 2, name: "Deploy" })).toHaveFocus();
     expect(screen.queryByRole("heading", { level: 2, name: "Configuration" })).not.toBeInTheDocument();
-    // What was passed over is said, and is where it was: on the stepper, done, one click away.
+    // What was passed over is said, and is where the facts are: the stepper lists what asked, and
+    // each line of the summary opens the step it came from.
     expect(screen.getByText(/Everything below was detected from the source/)).toBeInTheDocument();
     const steps = screen.getByRole("list", { name: "Steps" });
-    expect(within(steps).getByRole("button", { name: "Configuration: done" })).toBeInTheDocument();
-    expect(within(steps).getByRole("button", { name: "Variables: done" })).toBeInTheDocument();
-    // The facts are in the summary, as they would be after the steps that were not asked.
-    expect(screen.getByText("Node.js")).toBeInTheDocument();
-    expect(screen.getByText("As detected")).toBeInTheDocument();
+    expect(within(steps).queryByRole("button", { name: /^Configuration/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Change detected" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Change variables" })).toBeInTheDocument();
+    expect(screen.getByText("Node.js with npm")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
 
     await user.click(screen.getByRole("button", { name: "Deploy blog.example.com" }));
@@ -124,13 +124,14 @@ describe("a public repository to its first build", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Deploy" });
 
-    await user.click(screen.getByRole("button", { name: "Configuration: done" }));
+    await user.click(screen.getByRole("button", { name: "Change detected" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Configuration" })).toBeInTheDocument();
     await user.clear(screen.getByLabelText("Port"));
     await user.type(screen.getByLabelText("Port"), "3050");
     // It was opened by the operator, so Continue goes on from it: to the deploy, not back to the address.
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Deploy" });
+    await user.click(screen.getByRole("button", { name: "Details" }));
     expect(screen.getByText("3050")).toBeInTheDocument();
   });
 
@@ -197,14 +198,14 @@ describe("the ways in the wizard opens on", () => {
   it("opens on the recipes for ?start=recipe, without a click to choose them", { timeout: 30_000 }, async () => {
     wizard("/apps/new?start=recipe");
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    expect(await screen.findByRole("radio", { name: "From a recipe" })).toBeChecked();
+    expect(await screen.findByRole("button", { name: "From a recipe" })).toHaveAttribute("aria-current", "true");
     expect(await screen.findByRole("button", { name: "Use WordPress" })).toBeInTheDocument();
   });
 
   it("opens on an export for ?start=import", { timeout: 30_000 }, async () => {
     wizard("/apps/new?start=import");
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    expect(await screen.findByRole("radio", { name: "Import an application" })).toBeChecked();
+    expect(await screen.findByRole("button", { name: "Import an application" })).toHaveAttribute("aria-current", "true");
   });
 
   it("opens on the default for a start it does not know", { timeout: 30_000 }, async () => {
