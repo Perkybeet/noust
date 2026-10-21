@@ -4,7 +4,7 @@
 # sits behind nginx, so it reads the client's address from the forwarded headers),
 # ENCRYPTION_KEY (encrypts what it stores, required since version 1.x), and the data under
 # /app/data (SQLite, keys, uploads). The first administrator is created in the browser at
-# /setup, which the first note says to do at once. /healthz answers without a sign-in.
+# /setup, which the first note says to do at once. /healthz answers 204 without a sign-in.
 #
 # Derived in part from Coolify's template "pocket-id" (Apache-2.0,
 # https://github.com/coollabsio/coolify/blob/next/templates/compose/pocket-id.yaml). Pinned to
@@ -38,7 +38,7 @@ variables:
     description: Encrypts what Pocket ID stores. Do not change it once the instance has users.
 health:
   path: /healthz
-  expect: "200"
+  expect: "200-299"
   timeout: 90
 files: {noust.nginx.yaml: noust.nginx.yaml}
 compose: |
