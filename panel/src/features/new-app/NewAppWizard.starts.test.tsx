@@ -84,7 +84,10 @@ describe("starting from a recipe", () => {
     const { harness } = wizard("blog.example.com", {});
     await choose(harness.user, "From a recipe");
     const wordpress = (await screen.findByRole("heading", { level: 3, name: "WordPress" })).closest("li") as HTMLElement;
-    expect(within(wordpress).getByText("A MySQL database")).toBeInTheDocument();
+    // A tile is a line and Use; what it needs and its site are under Details.
+    expect(within(wordpress).queryByText("A MySQL database")).not.toBeVisible();
+    await harness.user.click(within(wordpress).getByRole("button", { name: "Details" }));
+    expect(within(wordpress).getByText("A MySQL database")).toBeVisible();
     expect(within(wordpress).getByText("PHP-FPM 7.4 or newer")).toBeInTheDocument();
     const site = within(wordpress).getByRole("link", { name: /wordpress\.org/ });
     expect(site).toHaveAttribute("href", "https://wordpress.org");
@@ -94,7 +97,7 @@ describe("starting from a recipe", () => {
     const ghost = screen.getByRole("heading", { level: 3, name: "Ghost" }).closest("li") as HTMLElement;
     expect(within(ghost).getByText("Not available in this release")).toBeInTheDocument();
     expect(within(ghost).getByText(/supports only MySQL 8 in production/)).toBeInTheDocument();
-    expect(within(ghost).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(ghost).queryByRole("button", { name: /^Use/ })).not.toBeInTheDocument();
     await expectNoAxeViolations(harness.container);
   });
 

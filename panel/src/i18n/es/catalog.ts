@@ -109,6 +109,8 @@ export const catalog: Catalog<typeof en> = {
     mongodb: "Una base de datos MongoDB",
     s3: "Almacenamiento compatible con S3",
   },
+  popular: { title: "Populares" },
+  all: { title: "Todas las recetas" },
   card: {
     docker: "Se ejecuta en Docker",
     tags: "Etiquetas",

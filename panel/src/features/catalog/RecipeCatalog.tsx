@@ -169,7 +169,7 @@ function CatalogSkeleton({ count }: { count: number }) {
     <div aria-busy="true" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       <span className="sr-only">{t("newApp.recipes.loading")}</span>
       {Array.from({ length: count }, (_, index) => (
-        <Skeleton key={index} className="h-52" />
+        <Skeleton key={index} className="h-28" />
       ))}
     </div>
   );

@@ -8,7 +8,6 @@ import { backupDestinationsQuery } from "../../api/queries/backupDestinations";
 import { configQuery } from "../../api/queries/config";
 import type { Overview } from "../../api/queries/overview";
 import { recipesQuery } from "../../api/queries/recipes";
-import type { RecipeSummary } from "../../api/queries/recipes";
 import { installCheckQuery } from "../../api/queries/system";
 import { buttonClassName } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -19,20 +18,8 @@ import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
 import { cx } from "../../lib/cx";
+import { popularRecipes } from "../catalog/model";
 import { readNotificationSettings } from "../settings/notifications";
-
-/** The services a first visit is shown, in this order, when the catalogue has them. */
-const POPULAR = ["uptime-kuma", "ghost", "wordpress", "n8n"] as const;
-const POPULAR_SHOWN = 4;
-
-/** Up to four recipes a person may install now: the popular ones first, then whatever else is available. */
-export function popularRecipes(items: readonly RecipeSummary[] | undefined): RecipeSummary[] {
-  if (items === undefined) return [];
-  const available = items.filter((recipe) => recipe.available && recipe.name !== "hello");
-  const chosen = POPULAR.flatMap((name) => available.filter((recipe) => recipe.name === name));
-  const rest = available.filter((recipe) => !chosen.includes(recipe));
-  return [...chosen, ...rest].slice(0, POPULAR_SHOWN);
-}
 
 /** One row of a card: what it is, in a sentence, and the one thing that does it. */
 function Row({ icon, title, description, children }: { icon: ReactNode; title: string; description: string; children: ReactNode }) {

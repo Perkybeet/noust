@@ -131,10 +131,13 @@ describe("the new-app wizard in Spanish", () => {
     await screen.findByRole("heading", { level: 1, name: "Nueva aplicación" });
     await chooseWay(user, "Desde una receta");
     expect(await screen.findByRole("button", { name: "Usar WordPress" })).toBeInTheDocument();
-    expect(screen.getByText("Una base de datos MySQL")).toBeInTheDocument();
+    // A tile says what it is; what it needs and its site are under Detalles.
+    const wordpress = screen.getByRole("heading", { level: 3, name: "WordPress" }).closest("li") as HTMLElement;
+    await user.click(within(wordpress).getByRole("button", { name: "Detalles" }));
+    expect(within(wordpress).getByText("Una base de datos MySQL")).toBeInTheDocument();
     expect(screen.getByText("No disponible en esta versión")).toBeInTheDocument();
     expect(screen.getByText(/supports only MySQL 8 in production/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /wordpress\.org/ })).toHaveTextContent("wordpress.org (se abre en una pestaña nueva)");
+    expect(within(wordpress).getByRole("link", { name: /wordpress\.org/ })).toHaveTextContent("wordpress.org (se abre en una pestaña nueva)");
     await expectNoAxeViolations(screen.getByRole("main"));
 
     await user.click(screen.getByRole("button", { name: "Usar WordPress" }));
