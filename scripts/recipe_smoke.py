@@ -197,6 +197,9 @@ class SmokeReport:
         log_tail: The end of the stack's log, kept when the gate was not answered, so that the
             report says why.
         problems: What stops the recipe from being accepted; empty when it passes.
+        notes: What was seen and is not held against the recipe: a container that restarted once
+            and left with status 0 (an application that applies its first-run configuration and
+            stops itself, as Hoppscotch's backend does after filling its settings table).
     """
 
     recipe: str
@@ -211,6 +214,7 @@ class SmokeReport:
     error_lines: dict[str, Any] = field(default_factory=dict)
     log_tail: str = ""
     problems: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
 
 def gate_accepts(expect: str | None, status: int) -> bool:
@@ -480,7 +484,11 @@ def smoke(
         for container in report.containers:
             if container["state"] != "running" and container["state"] != "exited":
                 report.problems.append(f"{container['name']} is {container['state']}")
-            if container["restarts"]:
+            if container["restarts"] == 1 and not container.get("exit_code"):
+                # One clean restart is the application's own doing, not a crash: more of them, or
+                # a status other than 0, are what a crash loop and a failed migration look like.
+                report.notes.append(f"{container['name']} restarted once, leaving with status 0")
+            elif container["restarts"]:
                 report.problems.append(
                     f"{container['name']} restarted {container['restarts']} times"
                 )
@@ -567,6 +575,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         for problem in report.problems:
             print(f"  {problem}")
+        for note in report.notes:
+            print(f"  note: {note}")
         if report.problems and report.log_tail:
             tail = report.log_tail.splitlines()[-25:]
             print("  log tail:\n" + "\n".join(f"    {line}" for line in tail))

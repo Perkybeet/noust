@@ -276,6 +276,45 @@ def test_a_restart_loop_and_an_out_of_memory_kill_are_problems(
     ]
 
 
+def test_one_clean_restart_is_a_note_and_a_crash_is_still_a_problem(
+    smoke: ModuleType, fake_docker: type[FakeProject], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hoppscotch's backend stops itself once after filling its settings table: the policy restarts
+    it and it serves. The same single restart with a status is a crash, and two restarts are a loop."""
+    monkeypatch.setattr(smoke, "ask", lambda url, *, follow, headers=None: (200, ""))
+    fake_docker.containers = [
+        {
+            "name": "app-1",
+            "state": "running",
+            "restarts": 1,
+            "oom_killed": False,
+            "exit_code": 0,
+            "health": None,
+        },
+        {
+            "name": "worker-1",
+            "state": "running",
+            "restarts": 1,
+            "oom_killed": False,
+            "exit_code": 2,
+            "health": None,
+        },
+        {
+            "name": "cron-1",
+            "state": "running",
+            "restarts": 2,
+            "oom_killed": False,
+            "exit_code": 0,
+            "health": None,
+        },
+    ]
+
+    report = run_smoke(smoke)
+
+    assert report.notes == ["app-1 restarted once, leaving with status 0"]
+    assert report.problems == ["worker-1 restarted 1 times", "cron-1 restarted 2 times"]
+
+
 def test_the_extra_lines_reach_the_env_file_as_an_operator_editing_it_would(
     smoke: ModuleType,
     fake_docker: type[FakeProject],
