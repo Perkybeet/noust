@@ -21,7 +21,7 @@ export async function useSpanish(page: Page): Promise<void> {
 
 /** Signs in through the sign-in page as it reads in Spanish. */
 export async function signInSpanish(page: Page, server: ConsoleServer, next?: string): Promise<void> {
-  // The access token is emergency access since accounts (3.1): `with=token` opens on it.
+  // The access token is the first way in, and the installer prints its link: `with=token` opens on it.
   await page.goto(next === undefined ? "/login?with=token" : `/login?with=token&next=${encodeURIComponent(next)}`);
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   await page.getByLabel(spanish.auth.accessToken).fill(server.token);

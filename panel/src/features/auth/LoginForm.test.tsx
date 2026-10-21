@@ -98,9 +98,9 @@ async function passwordStep(user: ReturnType<typeof renderConsole>["user"], name
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 }
 
-async function useEmergencyAccess(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
-  await user.click(await screen.findByRole("button", { name: "Emergency access" }));
-  await screen.findByRole("heading", { level: 1, name: "Emergency access" });
+async function useAccessToken(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
+  await user.click(await screen.findByRole("button", { name: "Access token" }));
+  await screen.findByRole("heading", { level: 1, name: "Sign in with the access token" });
 }
 
 afterEach(() => {
@@ -275,10 +275,10 @@ describe("sign-in with an account", () => {
       },
     });
     const { user, location } = renderConsole("/login");
-    await useEmergencyAccess(user);
+    await useAccessToken(user);
     await user.type(screen.getByLabelText("Access token"), TOKEN);
     await user.click(screen.getByRole("button", { name: "Sign in" }));
-    await screen.findByRole("heading", { level: 1, name: "Create the first account" });
+    await screen.findByRole("heading", { level: 1, name: "Create the administrator" });
     expect(location().pathname).toBe("/setup");
   });
 
@@ -298,7 +298,7 @@ describe("sign-in with an account", () => {
     expect(screen.getByLabelText("Código de verificación en dos pasos")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Usar otra cuenta" }));
     expect(await screen.findByLabelText("Usuario o correo")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Acceso de emergencia" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Token de acceso" })).toBeInTheDocument();
     await expectNoAxeViolations(document.body, { page: true });
   });
 });
@@ -405,12 +405,22 @@ describe("sign-in with a passkey", () => {
   });
 });
 
-describe("emergency access with the access token", () => {
-  it("says what the token is before it is typed, then asks for the second factor", async () => {
+describe("the access token", () => {
+  it("is offered under the account form to whoever has no account yet, and says what it is for once chosen", async () => {
+    tokenBackend();
+    const { user } = renderConsole("/login");
+    // Said to everyone and always: this page cannot know whether there are accounts.
+    expect(await screen.findByText("First time here? Sign in with the access token the installer printed.")).toBeInTheDocument();
+    await useAccessToken(user);
+    expect(screen.getByLabelText("Access token")).toHaveFocus();
+    expect(screen.getByText(/The access token is the key of whoever is root on this machine\./)).toBeInTheDocument();
+    expect(screen.queryByText("For recovery only")).toBeNull();
+  });
+
+  it("asks for the second factor after the token", async () => {
     const backend = tokenBackend();
     const { user, location } = renderConsole("/login?next=%2Fapps%2Fshop.example.com%2Flogs");
-    await useEmergencyAccess(user);
-    expect(screen.getByText("For recovery only")).toBeInTheDocument();
+    await useAccessToken(user);
     await user.type(screen.getByLabelText("Access token"), TOKEN);
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
@@ -430,11 +440,26 @@ describe("emergency access with the access token", () => {
     ]);
   });
 
-  it("opens on the token from a runbook's link", async () => {
+  it("opens on the token, with the field ready, from the link the installer prints, and warns of nothing", async () => {
     tokenBackend();
     renderConsole("/login?with=token");
-    expect(await screen.findByRole("heading", { level: 1, name: "Emergency access" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Access token")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Sign in with the access token" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText("Access token")).toHaveFocus();
+    });
+    expect(screen.getByText("The installer printed it once, in a box. Paste it here.")).toBeInTheDocument();
+    // Whoever follows the installer's link needs no talk of recovery.
+    expect(screen.queryByText(/The access token is the key of whoever is root/)).toBeNull();
+    expect(screen.queryByText("For recovery only")).toBeNull();
+  });
+
+  it("closes every screen before the console with who holds the copyright and the licence", async () => {
+    tokenBackend();
+    renderConsole("/login?with=token");
+    const legal = (await screen.findByText(/© 2024-2026 Yago López Prado/)).closest("p");
+    expect(legal).not.toBeNull();
+    const licence = within(legal as HTMLElement).getByRole("link", { name: /AGPL-3\.0-or-later/ });
+    expect(licence).toHaveAttribute("href", "https://github.com/Perkybeet/noust/blob/main/LICENSE");
   });
 
   it("shows the server's words when the token or the code is wrong, and goes back to the token", async () => {
@@ -506,7 +531,7 @@ describe("emergency access with the access token", () => {
     await act(async () => {
       await setLocale("es");
     });
-    expect(screen.getByRole("heading", { level: 1, name: "Acceso de emergencia" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Inicia sesión con el token de acceso" })).toBeInTheDocument();
     expect(screen.getByLabelText("Código de verificación en dos pasos")).toBeInTheDocument();
     expect(screen.getByText("aceptado")).toBeInTheDocument();
     await expectNoAxeViolations(document.body, { page: true });

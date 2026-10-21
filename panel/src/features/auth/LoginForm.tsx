@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, KeyRound, LifeBuoy } from "lucide-react";
+import { ArrowLeft, KeyRound, Ticket } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
@@ -29,7 +29,7 @@ import type { SsoError } from "./sso";
 import { safeNext } from "./session";
 import { CeremonyError, browserLimit, conditionalMediationAvailable } from "./webauthn";
 
-/** Which way in: a person's account (the default), or the access token (emergency access). */
+/** Which way in: a person's account (the default), or the access token the installer printed. */
 export type LoginMode = "account" | "token";
 
 type TokenStep = "token" | "code";
@@ -79,6 +79,11 @@ export interface LoginFormProps {
   expired: boolean;
   mode: LoginMode;
   onModeChange: (mode: LoginMode) => void;
+  /**
+   * Say what the access token is for, under its field: shown when the person came to it from the
+   * account form, not when a link (`?with=token`) opened the page on it, as the installer's does.
+   */
+  recoveryHelp?: boolean;
   /** The ticket an identity provider's answer left (`?sso=`): collected once, on arrival. */
   sso?: string;
   /** Why a sign-in through an identity provider did not finish (`?sso_error=`). */
@@ -122,15 +127,15 @@ function Or({ t }: { t: T }) {
  * account has: a code, or its passkey - or a passkey on its own, which the username field also
  * offers in the browser's autofill. An account without a second factor is let in on its
  * password and sent to set one up. Every refusal of the first step reads the same, whatever
- * was wrong. The access token is emergency access: kept, one link away, with what it means
- * said before it is typed.
+ * was wrong. The access token is how the first administrator gets in and the way back in when
+ * nothing else works: one button away, and the link the installer prints opens on it.
  *
  * An identity provider the operator configured is one more way in, a button above the form. Its
  * answer is only the first factor: the server sends the browser back here with a ticket, which
  * is collected on arrival, and an account with a second factor owes it exactly as after a
  * password.
  */
-export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: LoginFormProps) {
+export function LoginForm({ next, expired, mode, onModeChange, recoveryHelp = false, sso, ssoError }: LoginFormProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -176,6 +181,18 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
   useEffect(() => {
     if (expired) announce(t("auth.sessionExpired"));
   }, [expired, t]);
+
+  // The access token is what the installer's link opens on: its field is where typing starts. After
+  // the frame has put focus on the title (its effect runs after this one), so the field keeps it.
+  useEffect(() => {
+    if (mode !== "token" || tokenStep !== "token") return;
+    const timer = window.setTimeout(() => {
+      tokenRef.current?.focus();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [mode, tokenStep]);
 
   // The code step (of the access token, or of an account) moves focus to its field: the one
   // thing left to type. An account with only a passkey is offered it instead.
@@ -457,7 +474,7 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
         case "passkey_required":
           // The token alone no longer signs in: its passkey does, on its own.
           setMasterPasskey(true);
-          setFailure({ title: t("auth.emergency.passkeyRequiredTitle"), error });
+          setFailure({ title: t("auth.token.passkeyRequiredTitle"), error });
           return;
         case "invalid_token":
           setTokenStep("token");
@@ -516,9 +533,6 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
   if (mode === "token") {
     return (
       <div className="flex flex-col gap-5">
-        <Notice tone="warning" title={t("auth.emergency.warningTitle")}>
-          {t("auth.emergency.warning")}
-        </Notice>
         <form onSubmit={(event) => void submitToken(event)} noValidate className="flex flex-col gap-5">
           {notices}
           {/* Password managers file a secret under a user name; the token has none of its own. */}
@@ -581,10 +595,11 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
           <Button type="submit" variant="primary" size="lg" loading={pending} disabled={locked} className="w-full">
             {tokenStep === "token" ? t("auth.signIn") : t("auth.verify")}
           </Button>
+          {recoveryHelp && tokenStep === "token" ? <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.token.recoveryHelp")}</p> : null}
         </form>
         {masterPasskey && passkeysHere ? passkeyButton : null}
         <Button variant="ghost" size="sm" className="self-start" icon={<ArrowLeft aria-hidden="true" />} onClick={() => switchTo("account")}>
-          {t("auth.emergency.back")}
+          {t("auth.token.back")}
         </Button>
       </div>
     );
@@ -674,6 +689,18 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
     );
   }
 
+  // The way in for a person who has no account yet: what the installer printed. Said to everyone
+  // and always, because before sign-in this page cannot know whether there are accounts, and must
+  // not tell a stranger (ENS op.acc.6.7).
+  const tokenWay = (
+    <div className="flex flex-col items-start gap-1">
+      <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.token.firstTime")}</p>
+      <Button variant="ghost" size="sm" className="-ml-2.5" icon={<Ticket aria-hidden="true" />} onClick={() => switchTo("token")}>
+        {t("auth.token.link")}
+      </Button>
+    </div>
+  );
+
   const accountForm = (showNotices: boolean) => (
     <form onSubmit={(event) => void submitAccount(event)} noValidate className="flex flex-col gap-5">
       {showNotices ? notices : null}
@@ -751,9 +778,7 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
             {accountForm(false)}
           </div>
         </Disclosure>
-        <Button variant="ghost" size="sm" className="self-start" icon={<LifeBuoy aria-hidden="true" />} onClick={() => switchTo("token")}>
-          {t("auth.emergency.link")}
-        </Button>
+        {tokenWay}
       </div>
     );
   }
@@ -770,9 +795,7 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
         </>
       ) : null}
       {accountForm(true)}
-      <Button variant="ghost" size="sm" className="self-start" icon={<LifeBuoy aria-hidden="true" />} onClick={() => switchTo("token")}>
-        {t("auth.emergency.link")}
-      </Button>
+      {tokenWay}
     </div>
   );
 }

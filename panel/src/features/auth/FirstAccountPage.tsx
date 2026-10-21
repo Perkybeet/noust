@@ -1,38 +1,56 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
+import { authKeys, login, sessionQuery } from "../../api/queries/auth";
+import { complianceQuery } from "../../api/queries/compliance";
+import type { ComplianceState } from "../../api/queries/compliance";
 import { useDocumentTitle } from "../../app/documentTitle";
+import { nodeOfConsolePath } from "../../app/nodeRoute";
 import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Stepper } from "../../components/page/Stepper";
 import { Button } from "../../components/ui/Button";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
-import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import { splitErrors } from "../settings/formErrors";
 import { accountKeys, createAccount } from "../settings/accounts/api";
 import type { Account } from "../settings/accounts/api";
-import { roleLabel } from "../settings/accounts/roles";
-import { authKeys } from "../../api/queries/auth";
 import { AuthFrame } from "./AuthFrame";
+import { SecondFactor } from "./GatePage";
+import { pendingChecks } from "./SessionGate";
 import { useSignOut } from "./useSignOut";
 
-type Step = "admin" | "security" | "done";
+type Step = "admin" | "security" | "protect";
 
 const FIELDS = ["username", "display_name", "person_ref", "password"] as const;
 
-interface AccountFormProps {
-  accountRole: "admin" | "security";
-  /** The person of the account made before, to say the two should differ. */
-  submitLabel: string;
-  onCreated: (account: Account) => void;
+/** What the administrator typed, kept for the one moment it signs in with it. */
+interface Credentials {
+  username: string;
+  password: string;
 }
 
-/** One account: its name, who it belongs to, and a password the person changes later. */
+/** Whether a framework splits an administrator's duties, so the first accounts are two. */
+function splitsDuties(state: ComplianceState | undefined): boolean {
+  return state?.controls.some((control) => control.id === "roles_split" && Boolean(control.value)) === true;
+}
+
+interface AccountFormProps {
+  accountRole: "admin" | "security";
+  submitLabel: string;
+  /** Called with the account made and what was typed to make it. */
+  onCreated: (account: Account, credentials: Credentials) => void | Promise<void>;
+}
+
+/**
+ * One account: its name and a password, which are all it needs. Who it belongs to and what they
+ * are called are one disclosure away, because nobody needs them to get in.
+ */
 function AccountForm({ accountRole, submitLabel, onCreated }: AccountFormProps) {
   const t = useT();
   const queryClient = useQueryClient();
@@ -42,6 +60,7 @@ function AccountForm({ accountRole, submitLabel, onCreated }: AccountFormProps) 
   const [password, setPassword] = useState("");
   const [missing, setMissing] = useState<Partial<Record<"username" | "password", string>>>({});
   const usernameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   const create = useMutation({
     mutationFn: () =>
@@ -52,13 +71,14 @@ function AccountForm({ accountRole, submitLabel, onCreated }: AccountFormProps) 
         ...(displayName.trim() !== "" ? { display_name: displayName.trim() } : {}),
         ...(person.trim() !== "" ? { person_ref: person.trim() } : {}),
       }),
-    onSuccess: (account) => {
+    onSuccess: async (account) => {
       void queryClient.invalidateQueries({ queryKey: accountKeys.list });
-      void queryClient.invalidateQueries({ queryKey: authKeys.session });
-      onCreated(account);
+      await onCreated(account, { username: username.trim(), password });
     },
   });
   const errors = splitErrors(create.error, FIELDS);
+  // The names the server refused sit in the disclosure: open it, or its message would be hidden.
+  const refusedMore = errors.fields.display_name !== undefined || errors.fields.person_ref !== undefined;
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
@@ -67,7 +87,7 @@ function AccountForm({ accountRole, submitLabel, onCreated }: AccountFormProps) 
     if (password === "") found.password = t("auth.firstAccount.enterPassword");
     setMissing(found);
     if (found.username !== undefined || found.password !== undefined) {
-      usernameRef.current?.focus();
+      (found.username !== undefined ? usernameRef : passwordRef).current?.focus();
       return;
     }
     if (!create.isPending) create.mutate();
@@ -91,29 +111,9 @@ function AccountForm({ accountRole, submitLabel, onCreated }: AccountFormProps) 
           }}
         />
       </Field>
-      <Field label={t("auth.firstAccount.displayName")} optional error={errors.fields.display_name}>
-        <Input
-          autoComplete="off"
-          maxLength={128}
-          value={displayName}
-          onValueChange={(value: string) => {
-            setDisplayName(value);
-          }}
-        />
-      </Field>
-      <Field label={t("auth.firstAccount.person")} optional description={t("auth.firstAccount.personHint")} error={errors.fields.person_ref}>
-        <Input
-          type="email"
-          autoComplete="off"
-          maxLength={254}
-          value={person}
-          onValueChange={(value: string) => {
-            setPerson(value);
-          }}
-        />
-      </Field>
       <Field label={t("auth.firstAccount.password")} description={t("auth.firstAccount.passwordHint")} error={missing.password ?? errors.fields.password}>
         <Input
+          ref={passwordRef}
           type="password"
           autoComplete="new-password"
           value={password}
@@ -122,6 +122,32 @@ function AccountForm({ accountRole, submitLabel, onCreated }: AccountFormProps) 
           }}
         />
       </Field>
+      {/* Keyed by the refusal: a disclosure is opened from the start, so a late refusal remounts it open. */}
+      <Disclosure key={refusedMore ? "open" : "closed"} label={t("auth.firstAccount.moreAbout")} defaultOpen={refusedMore}>
+        <div className="flex flex-col gap-5">
+          <Field label={t("auth.firstAccount.displayName")} optional error={errors.fields.display_name}>
+            <Input
+              autoComplete="off"
+              maxLength={128}
+              value={displayName}
+              onValueChange={(value: string) => {
+                setDisplayName(value);
+              }}
+            />
+          </Field>
+          <Field label={t("auth.firstAccount.person")} optional description={t("auth.firstAccount.personHint")} error={errors.fields.person_ref}>
+            <Input
+              type="email"
+              autoComplete="off"
+              maxLength={254}
+              value={person}
+              onValueChange={(value: string) => {
+                setPerson(value);
+              }}
+            />
+          </Field>
+        </div>
+      </Disclosure>
       <Button type="submit" variant="primary" size="lg" className="w-full" loading={create.isPending}>
         {submitLabel}
       </Button>
@@ -130,63 +156,120 @@ function AccountForm({ accountRole, submitLabel, onCreated }: AccountFormProps) 
 }
 
 export interface FirstAccountPageProps {
-  /** Where "Not now" and "Keep using emergency access" go. */
+  /** Where "Not now" and "Set up later" go. */
   next: string;
 }
 
 /**
- * The first accounts of a server that has none (T7), for whoever signed in with the access
- * token: an administrator, then - recommended - a separate security officer, who manages
- * accounts and reads the audit log, which an administrator cannot. Then the operator signs
- * in as a person, and the token goes back to being emergency access.
+ * The first account of a server that has none (T7), for whoever signed in with the access token:
+ * an administrator, with a name and a password and nothing else. Making it signs in with it, so
+ * there is no screen that asks the person to sign in again with what they just typed. A framework
+ * that separates duties asks for a security officer next, in the same sequence. Then the account is
+ * offered its second factor, which it may leave for later unless something requires it (and then
+ * the console's own gate has it enrol before anything else).
  */
 export function FirstAccountPage({ next }: FirstAccountPageProps) {
   const t = useT();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { signOut, pending: signingOut } = useSignOut();
   const [step, setStep] = useState<Step>("admin");
-  const [created, setCreated] = useState<Account[]>([]);
+  const [admin, setAdmin] = useState<Credentials | null>(null);
+  const [failedAccount, setFailedAccount] = useState<{ name: string; error: unknown } | null>(null);
   useDocumentTitle(t("auth.firstAccount.documentTitle"));
+
+  // A framework that splits an administrator's duties needs the other account too; asked once,
+  // here, and not at all where nothing asks for it.
+  const compliance = useQuery({ ...complianceQuery(), retry: false });
+  const separateDuties = splitsDuties(compliance.data);
+  const session = useQuery(sessionQuery()).data;
+
+  const leave = async (): Promise<void> => {
+    const { node, pathname } = nodeOfConsolePath(next);
+    await navigate(node === null ? { href: next, replace: true } : { to: pathname, search: { node }, replace: true });
+  };
+
+  // The account just made signs in, with what was typed to make it, and the token's session goes.
+  const signIn = useMutation({
+    mutationFn: async (credentials: Credentials) => {
+      await login({ username: credentials.username, password: credentials.password, bearer: false });
+      return queryClient.query({ ...sessionQuery(), staleTime: 0 });
+    },
+    onSuccess: async (fresh) => {
+      setAdmin(null);
+      void queryClient.invalidateQueries({ queryKey: authKeys.all });
+      // Where a framework asks for a second factor, the console's own gate has it enrol first.
+      if (pendingChecks(fresh)) {
+        await navigate({ to: "/welcome", search: { next }, replace: true });
+        return;
+      }
+      setStep("protect");
+    },
+  });
+
+  const finish = (credentials: Credentials, name: string): void => {
+    setFailedAccount(null);
+    signIn.mutate(credentials, {
+      onError: (error) => {
+        setFailedAccount({ name, error });
+      },
+    });
+  };
 
   const steps = [
     { id: "admin", label: t("auth.firstAccount.stepAdmin") },
-    { id: "security", label: t("auth.firstAccount.stepSecurity") },
-    { id: "done", label: t("auth.firstAccount.stepDone") },
+    ...(separateDuties ? [{ id: "security", label: t("auth.firstAccount.stepSecurity") }] : []),
+    { id: "protect", label: t("auth.firstAccount.stepProtect") },
   ];
-  const later = (
-    <Button variant="ghost" size="sm" onClick={() => void navigate({ href: next, replace: true })}>
-      {step === "done" ? t("auth.firstAccount.keepEmergency") : t("auth.firstAccount.notNow")}
-    </Button>
-  );
-  const first = created[0];
+  const title =
+    step === "admin" ? t("auth.firstAccount.adminTitle") : step === "security" ? t("auth.firstAccount.securityTitle") : t("auth.firstAccount.protectTitle");
+  const description =
+    step === "admin"
+      ? t("auth.firstAccount.adminDescription")
+      : step === "security"
+        ? t("auth.firstAccount.securityDescription")
+        : t("auth.firstAccount.protectDescription");
 
   return (
     <AuthFrame
-      title={step === "admin" ? t("auth.firstAccount.adminTitle") : step === "security" ? t("auth.firstAccount.securityTitle") : t("auth.firstAccount.doneTitle")}
-      description={
-        step === "admin"
-          ? t("auth.firstAccount.adminDescription")
-          : step === "security"
-            ? t("auth.firstAccount.securityDescription")
-            : t("auth.firstAccount.doneDescription")
-      }
+      title={title}
+      description={description}
       footer={
         <div className="flex flex-col items-start gap-4">
-          {later}
+          {step === "admin" ? (
+            <Button variant="ghost" size="sm" onClick={() => void leave()}>
+              {t("auth.firstAccount.notNow")}
+            </Button>
+          ) : null}
           <CommandHint label={t("auth.firstAccount.fromTerminal")} command={step === "security" ? "noust user create NAME --role security" : "noust user create NAME --role admin"} />
         </div>
       }
     >
       <div className="flex flex-col gap-6">
         <Stepper orientation="horizontal" steps={steps} current={step} />
-        {step === "admin" ? (
+        {failedAccount !== null ? (
+          <div className="flex flex-col gap-3">
+            <ErrorBlock live compact error={failedAccount.error} title={t("auth.firstAccount.signInFailed", { name: failedAccount.name })} />
+            {/* The access token's session is still the one open: it ends first, or the sign-in page would send it on. */}
+            <Button variant="primary" size="lg" className="w-full" loading={signingOut} onClick={() => void signOut()}>
+              {t("auth.firstAccount.signInAs", { name: failedAccount.name })}
+            </Button>
+          </div>
+        ) : step === "admin" ? (
           <AccountForm
             key="admin"
             accountRole="admin"
             submitLabel={t("auth.firstAccount.createAdmin")}
-            onCreated={(account) => {
-              setCreated([account]);
-              setStep("security");
+            onCreated={async (account, credentials) => {
+              // Known by now almost always; waited for when the account was made faster than
+              // the answer, so the next step never depends on which came first.
+              const state = compliance.data ?? (await queryClient.query(complianceQuery()).catch(() => undefined));
+              if (splitsDuties(state)) {
+                setAdmin(credentials);
+                setStep("security");
+              } else {
+                finish(credentials, account.username);
+              }
             }}
           />
         ) : step === "security" ? (
@@ -196,31 +279,25 @@ export function FirstAccountPage({ next }: FirstAccountPageProps) {
               key="security"
               accountRole="security"
               submitLabel={t("auth.firstAccount.createSecurity")}
-              onCreated={(account) => {
-                setCreated((previous) => [...previous, account]);
-                setStep("done");
+              onCreated={() => {
+                if (admin !== null) finish(admin, admin.username);
               }}
             />
-            <Button variant="ghost" size="sm" className="self-start" onClick={() => setStep("done")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="self-start"
+              loading={signIn.isPending}
+              onClick={() => {
+                if (admin !== null) finish(admin, admin.username);
+              }}
+            >
               {t("auth.firstAccount.skipSecurity")}
             </Button>
           </div>
-        ) : (
-          <div className="flex flex-col gap-5">
-            <ul className="flex flex-col gap-1 text-14 text-fg">
-              {created.map((account) => (
-                <li key={account.username}>
-                  {t.rich("auth.firstAccount.createdLine", { name: <Mono key="name">{account.username}</Mono>, role: roleLabel(t, account.role) })}
-                </li>
-              ))}
-            </ul>
-            {first !== undefined ? (
-              <Button variant="primary" size="lg" className="w-full" loading={signingOut} onClick={() => void signOut()}>
-                {t("auth.firstAccount.signInAs", { name: first.username })}
-              </Button>
-            ) : null}
-          </div>
-        )}
+        ) : session?.authenticated === true ? (
+          <SecondFactor session={session} onDone={leave} optional={{ onSkip: () => void leave() }} />
+        ) : null}
       </div>
     </AuthFrame>
   );

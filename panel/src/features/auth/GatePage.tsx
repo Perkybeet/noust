@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { KeyRound, LogOut, Smartphone } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { request } from "../../api/client";
@@ -9,6 +9,7 @@ import { authKeys, confirmTwoFactor, enrollTwoFactor, sessionQuery } from "../..
 import type { SessionInfo, TwoFactorEnrollment } from "../../api/queries/auth";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { nodeOfConsolePath } from "../../app/nodeRoute";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Stepper } from "../../components/page/Stepper";
 import { Button } from "../../components/ui/Button";
@@ -17,6 +18,7 @@ import { Checkbox } from "../../components/ui/Checkbox";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import { splitErrors } from "../settings/formErrors";
 import { BackupCodesPanel } from "./BackupCodes";
@@ -41,7 +43,20 @@ export function checksOf(session: SessionInfo | undefined): Step[] {
 
 type FactorStage = { stage: "choose" } | { stage: "app"; enrollment: TwoFactorEnrollment } | { stage: "passkey" } | { stage: "codes"; codes: readonly string[] };
 
-function SecondFactor({ session, onDone }: { session: SessionInfo; onDone: () => Promise<void> }) {
+export interface SecondFactorProps {
+  session: SessionInfo;
+  onDone: () => Promise<void>;
+  /**
+   * The factor is a step the person may leave for later (the first administrator, while nothing
+   * asks for it): the authenticator's code is shown at once, without choosing, and "Set up later"
+   * leaves. Where it is required (a framework, a published console) this is absent, and the
+   * person chooses a way and finishes it.
+   */
+  optional?: { onSkip: () => void };
+}
+
+/** Choosing and setting up a second factor: an authenticator app (QR and code) or a passkey, then the backup codes. */
+export function SecondFactor({ session, onDone, optional }: SecondFactorProps) {
   const t = useT();
   const [state, setState] = useState<FactorStage>({ stage: "choose" });
   const [code, setCode] = useState("");
@@ -77,6 +92,17 @@ function SecondFactor({ session, onDone }: { session: SessionInfo; onDone: () =>
     },
   });
   const codeError = splitErrors(confirm.error, ["code"], "code");
+
+  // An optional factor opens on the authenticator's code: one press fewer between the person and
+  // the QR. Once, whatever strict mode does to the effect.
+  const started = useRef(false);
+  const startNow = start.mutate;
+  const autoStart = optional !== undefined;
+  useEffect(() => {
+    if (!autoStart || started.current) return;
+    started.current = true;
+    startNow();
+  }, [autoStart, startNow]);
 
   if (state.stage === "codes") {
     return (
@@ -144,9 +170,16 @@ function SecondFactor({ session, onDone }: { session: SessionInfo; onDone: () =>
             </Button>
           </form>
         </TotpSetup>
-        <Button variant="ghost" size="sm" className="self-start" onClick={() => setState({ stage: "choose" })}>
-          {t("auth.gate.otherWay")}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setState({ stage: "choose" })}>
+            {t("auth.gate.otherWay")}
+          </Button>
+          {optional !== undefined ? (
+            <Button variant="ghost" size="sm" onClick={optional.onSkip}>
+              {t("auth.firstAccount.later")}
+            </Button>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -183,6 +216,19 @@ function SecondFactor({ session, onDone }: { session: SessionInfo; onDone: () =>
     );
   }
 
+  if (autoStart && start.isPending) {
+    // The authenticator's code is on its way: the shape of the screen it becomes, not two buttons
+    // that would move out from under the pointer.
+    return (
+      <LoadingRegion label={t("auth.gate.preparing")}>
+        <div className="flex flex-col gap-3">
+          <Skeleton className="size-36" />
+          <Skeleton className="h-control-lg w-full" />
+        </div>
+      </LoadingRegion>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {start.isError ? <ErrorBlock live compact error={start.error} title={t("settings.security.twoFactor.startFailed")} /> : null}
@@ -196,6 +242,11 @@ function SecondFactor({ session, onDone }: { session: SessionInfo; onDone: () =>
       ) : (
         <p className="text-12 text-fg-muted">{t("auth.gate.passkeyUnavailable")}</p>
       )}
+      {optional !== undefined ? (
+        <Button variant="ghost" size="sm" className="self-start" onClick={optional.onSkip}>
+          {t("auth.firstAccount.later")}
+        </Button>
+      ) : null}
     </div>
   );
 }

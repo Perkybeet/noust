@@ -126,9 +126,6 @@
     "en:deploy-again": {
       "newApp": 1
     },
-    "en:emergency-access": {
-      "auth": 2
-    },
     "en:health-check": {
       "common": 1,
       "declaration": 3,
@@ -368,7 +365,7 @@
       "Delete|Borrar": 7,
       "Deploy|Despliegue": 5,
       "Dismiss|Descartar": 3,
-      "Done|Listo": 2,
+      "Done|Listo": 1,
       "Failed|Con fallo": 1,
       "Failed|Falló": 7,
       "Live|En vivo": 3,
