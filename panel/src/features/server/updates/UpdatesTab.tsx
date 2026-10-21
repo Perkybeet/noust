@@ -245,19 +245,21 @@ function Reboot({ updates }: { updates: Updates }) {
         variant="banner"
         tone="warning"
         title={reboot.since ? t.rich("server.updates.reboot.titleSince", { when: <RelativeTime value={reboot.since} /> }) : t("server.updates.reboot.title")}
-        action={
-          <Button icon={<RotateCw aria-hidden="true" />} size="sm" onClick={() => power.open("reboot")}>
+      >
+        {/* The action sits under the text on a phone and beside it from `sm`, so a long sentence keeps its line; the reasons are a button in the sentence. */}
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <span>
+            {t("server.updates.reboot.description")}{" "}
+            {packages.length > 0 || reasons.length > 0 ? (
+              <Button size="sm" variant="ghost" className="align-baseline" onClick={() => setWhy(true)}>
+                {t("server.updates.reboot.why")}
+              </Button>
+            ) : null}
+          </span>
+          <Button icon={<RotateCw aria-hidden="true" />} size="sm" className="self-start sm:shrink-0 sm:self-auto" onClick={() => power.open("reboot")}>
             {t("server.updates.reboot.schedule")}
           </Button>
-        }
-      >
-        {/* One action beside the text, so a phone keeps a readable line; the reasons are a button in the sentence. */}
-        {t("server.updates.reboot.description")}{" "}
-        {packages.length > 0 || reasons.length > 0 ? (
-          <Button size="sm" variant="ghost" className="align-baseline" onClick={() => setWhy(true)}>
-            {t("server.updates.reboot.why")}
-          </Button>
-        ) : null}
+        </div>
       </Notice>
       <Drawer open={why} onOpenChange={setWhy} size="md" title={t("server.updates.reboot.whyTitle")} description={t("server.updates.reboot.whyDescription")}>
         <div className="flex flex-col gap-4">
