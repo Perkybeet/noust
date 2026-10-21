@@ -5,8 +5,8 @@ export const network: Catalog<typeof en> = {
   access: {
     nav: "Acceso",
     title: "Acceso",
-    description: "Quién puede llegar a {domain}, y qué pide el sitio a un visitante y qué devuelve. Se guarda, el servidor web lo comprueba y se recarga todo junto.",
-    loading: "Leyendo los ajustes de acceso",
+    description: "Quién puede llegar a {domain}: una contraseña, direcciones, una red privada y qué pasa en los prefijos del sitio. Se guarda, el servidor web lo comprueba y se recarga todo junto.",
+    loading: "Cargando los ajustes de acceso",
     readFailed: "No se pudieron leer los ajustes de acceso de {domain}",
     notSaved: "No se guardaron los ajustes de acceso de {domain}",
     notApplicable: "Esta política no llega al sitio",
@@ -65,7 +65,6 @@ export const network: Catalog<typeof en> = {
       removeLast: "Es la única cuenta y el sitio pide contraseña: desactiva antes la contraseña, o nadie podría entrar.",
       removed: "Se quitó a {name}",
       addFailed: "No se pudo guardar la cuenta {name}",
-      removeFailed: "No se pudo quitar a {name}",
     },
     addresses: {
       title: "Direcciones",
@@ -120,6 +119,7 @@ export const network: Catalog<typeof en> = {
       hiddenHelp: "Un nombre por línea.",
       sentNow: "El sitio envía ahora",
       sentNone: "Ninguna cabecera adicional.",
+      more: "Cabeceras propias y ocultas",
     },
     waf: {
       title: "Cortafuegos de aplicaciones web",
@@ -175,7 +175,7 @@ export const network: Catalog<typeof en> = {
       enable: "Pedir un certificado a cada visitante",
       enableHelp: "Haz al menos un certificado antes; sin uno válido nadie podría abrir el sitio.",
       enableNone: "Todavía no hay ningún certificado válido, así que guardar esto dejaría fuera a todo el mundo.",
-      issue: "Hacer un certificado",
+      issue: "Crear un certificado",
       readFailed: "No se pudieron leer los certificados de cliente",
       empty: "Todavía no hay certificados.",
       listLabel: "Certificados de cliente de {domain}",
@@ -188,7 +188,7 @@ export const network: Catalog<typeof en> = {
       revokeDescription: "{domain} rechaza a {name} desde ahora. Quien lo tenga conserva el archivo, pero ya no abre el sitio.",
       revokeLast: "Es el último certificado válido: después nadie podría abrir el sitio.",
       revokedToast: "{name} está revocado",
-      issueTitle: "Hacer un certificado",
+      issueTitle: "Crear un certificado",
       issueDescription: "Identifica a una persona o a un dispositivo ante {domain}. Su clave privada se muestra una vez y Noust no guarda ninguna.",
       name: "Nombre",
       nameHelp: "Para quién o para qué es. Solo letras, dígitos y . _ @ -, hasta 64.",
@@ -228,6 +228,7 @@ export const network: Catalog<typeof en> = {
       signInHelp: "Una dirección o una ruta de este sitio como /oauth2/start?rd= ; se le añade la página que pidió. Vacío responde 401.",
       headers: "Cabeceras que se pasan a la aplicación",
       headersHelp: "Cabeceras de la respuesta del servicio que se reenvían, una por línea. Sustituyen a las que un visitante envíe con el mismo nombre.",
+      none: "Sin definir",
     },
     routes: {
       title: "Rutas",
@@ -298,7 +299,7 @@ export const network: Catalog<typeof en> = {
   unknownHosts: {
     title: "Nombres que ningún sitio sirve",
     description: "Lo que responde el servidor web cuando una petición nombra algo que ninguno de los sitios de aquí sirve: un nombre que otra persona apunta a esta dirección, o la dirección sin más.",
-    loading: "Leyendo qué responde a los nombres desconocidos",
+    loading: "Cargando qué responde a los nombres desconocidos",
     readFailed: "No se pudo leer qué responde a los nombres desconocidos",
     firstSite: "No hay nada fijado: responde el primer sitio que cargó el servidor web, así que se muestra una aplicación en nombres que no son suyos.",
     closes: "La conexión se cierra sin respuesta.",
@@ -388,7 +389,7 @@ export const network: Catalog<typeof en> = {
   appDns: {
     title: "Registros DNS",
     description: "A qué apunta cada nombre de {domain} en la cuenta que tiene su zona, y los registros que Noust hizo para ellos.",
-    loading: "Leyendo el DNS de sus nombres",
+    loading: "Cargando el DNS de sus nombres",
     readFailed: "No se pudo leer el DNS de {domain}",
     noAccount: "Ninguna cuenta DNS tiene la zona de estos nombres.",
     addAccount: "Añadir una cuenta DNS",
@@ -635,7 +636,7 @@ export const network: Catalog<typeof en> = {
     menu: "Autoridad de certificación",
     title: "Autoridad de certificación",
     description: "A qué autoridad se piden los certificados, y como quién. Se aplica a todos los pedidos y renovaciones desde ahora.",
-    loading: "Leyendo la autoridad",
+    loading: "Cargando la autoridad",
     readFailed: "No se pudo leer la autoridad de certificación",
     caLabel: "Autoridad",
     untrusted: "Una autoridad de pruebas emite certificados en los que los navegadores no confían, y sus límites son generosos: el lugar para probar DNS, puertos y hooks antes de gastar los de verdad.",
@@ -657,5 +658,13 @@ export const network: Catalog<typeof en> = {
     registerRunning: "Registrando la cuenta",
     registerDone: "La cuenta está registrada",
     registerFailed: "No se registró la cuenta",
+  },
+  protection: {
+    nav: "Protección",
+    title: "Protección",
+    description: "Qué limita {domain} y qué devuelve: tasas, cabeceras de respuesta, HTTP/3, el cortafuegos y los certificados de cliente. Se guarda, el servidor web lo comprueba y se recarga todo junto.",
+    loading: "Cargando los ajustes de protección",
+    readFailed: "No se pudieron leer los ajustes de protección de {domain}",
+    notSaved: "No se guardaron los ajustes de protección de {domain}",
   },
 };

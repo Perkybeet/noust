@@ -4,6 +4,7 @@
  * until when; the checks that passed folded into one line.
  */
 
+import { BookOpen, RotateCcw, RotateCw, ShieldQuestion, Wrench } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
@@ -13,20 +14,20 @@ import { Button, buttonClassName } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { LoadingRegion } from "../../../components/page/LoadingRegion";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatDate, parseTimestamp } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
-import { ServerErrorBlock, explainServerError } from "../errors";
+import { explainServerError, ServerQueryState } from "../errors";
 import { usePowerDialog } from "../PowerDialog";
 import { checksQuery, serverKeys } from "../queries";
-import type { SecurityCheck } from "../queries";
+import type { SecurityCheck, Checks } from "../queries";
 import { AcceptRiskDialog, FixDialog, GuidedDrawer } from "./FixDialogs";
 import { actionTarget, checkState, checkTitle, isOpen, sortChecks } from "./data";
+import { Disclosure } from "../../../components/ui/Disclosure";
 
 type Opened = { kind: "fix" | "guided" | "accept"; check: SecurityCheck } | null;
 
@@ -34,12 +35,11 @@ function Evidence({ check }: { check: SecurityCheck }) {
   const t = useT();
   if (check.evidence.length === 0) return null;
   return (
-    <details className="group text-12">
-      <summary className="w-fit cursor-pointer rounded-chip text-fg-muted hover:text-fg">{t("server.checks.evidence")}</summary>
-      <SystemOutput label={t("server.checks.evidenceLabel", { check: checkTitle(t, check) })} maxHeight="max-h-40" className="mt-1.5 rounded-control bg-bg-sunken p-2.5">
+    <Disclosure label={t("server.checks.evidence")}>
+      <SystemOutput label={t("server.checks.evidenceLabel", { check: checkTitle(t, check) })} maxHeight="max-h-40" className="rounded-control bg-bg-sunken p-2.5">
         {check.evidence.join("\n")}
       </SystemOutput>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -48,7 +48,7 @@ function FindingActions({ check, open }: { check: SecurityCheck; open: (opened: 
   const power = usePowerDialog();
   const fix = check.fix;
   const accept = (
-    <Button size="sm" variant="ghost" onClick={() => open({ kind: "accept", check })}>
+    <Button icon={<ShieldQuestion aria-hidden="true" />} size="sm" variant="ghost" onClick={() => open({ kind: "accept", check })}>
       {t("server.checks.acceptRisk")}
     </Button>
   );
@@ -57,7 +57,7 @@ function FindingActions({ check, open }: { check: SecurityCheck; open: (opened: 
     return (
       <>
         {accept}
-        <Button size="sm" onClick={() => open({ kind: "fix", check })}>
+        <Button icon={<Wrench aria-hidden="true" />} size="sm" onClick={() => open({ kind: "fix", check })}>
           {t("server.checks.fix")}
         </Button>
       </>
@@ -69,7 +69,7 @@ function FindingActions({ check, open }: { check: SecurityCheck; open: (opened: 
       <>
         {accept}
         {target === "reboot" ? (
-          <Button size="sm" onClick={() => power.open("reboot")}>
+          <Button icon={<RotateCw aria-hidden="true" />} size="sm" onClick={() => power.open("reboot")}>
             {t("server.checks.scheduleReboot")}
           </Button>
         ) : target === "/server/services" ? (
@@ -81,7 +81,7 @@ function FindingActions({ check, open }: { check: SecurityCheck; open: (opened: 
             {t("server.checks.open")}
           </Link>
         ) : (
-          <Button size="sm" onClick={() => open({ kind: "guided", check })}>
+          <Button icon={<BookOpen aria-hidden="true" />} size="sm" onClick={() => open({ kind: "guided", check })}>
             {t("server.checks.howToFix")}
           </Button>
         )}
@@ -91,7 +91,7 @@ function FindingActions({ check, open }: { check: SecurityCheck; open: (opened: 
   return (
     <>
       {accept}
-      <Button size="sm" onClick={() => open({ kind: "guided", check })}>
+      <Button icon={<BookOpen aria-hidden="true" />} size="sm" onClick={() => open({ kind: "guided", check })}>
         {t("server.checks.howToFix")}
       </Button>
     </>
@@ -152,7 +152,7 @@ function AcceptedRow({ check }: { check: SecurityCheck }) {
         {/* The reason as the person who accepted it wrote it. */}
         {check.accepted?.reason ? <span className="text-13 text-pretty text-fg">{check.accepted.reason}</span> : null}
       </div>
-      <Button size="sm" variant="ghost" className="shrink-0" onClick={() => setConfirm(true)}>
+      <Button icon={<RotateCcw aria-hidden="true" />} size="sm" variant="ghost" className="shrink-0" onClick={() => setConfirm(true)}>
         {t("server.checks.withdraw")}
       </Button>
       <ConfirmDialog
@@ -206,18 +206,17 @@ function PassedList({ checks }: { checks: readonly SecurityCheck[] }) {
 export function ChecksView() {
   const t = useT();
   const checks = useQuery(checksQuery());
+  return (
+    <ServerQueryState query={checks} label={t("server.checks.label")} skeleton={<SkeletonCard lines={6} />}>
+      {(data) => <Findings data={data} />}
+    </ServerQueryState>
+  );
+}
+
+function Findings({ data }: { data: Checks }) {
+  const t = useT();
   const [opened, setOpened] = useState<Opened>(null);
-  if (checks.isError && checks.data === undefined) {
-    return <ServerErrorBlock error={checks.error} title={t("server.checks.loadFailed")} onRetry={() => void checks.refetch()} retrying={checks.isRefetching} />;
-  }
-  if (checks.data === undefined) {
-    return (
-      <LoadingRegion label={t("server.checks.loading")} className="flex flex-col gap-3">
-        <Skeleton className="h-64 w-full rounded-card" />
-      </LoadingRegion>
-    );
-  }
-  const sorted = sortChecks(checks.data.checks);
+  const sorted = sortChecks(data.checks);
   const open = sorted.filter(isOpen);
   const accepted = sorted.filter((check) => check.status === "accepted");
   const rest = sorted.filter((check) => check.status === "pass" || check.status === "n/a");

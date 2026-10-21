@@ -101,7 +101,7 @@ function UsageDialog({ scope, name, onClose }: { scope: VariableScope; name: str
         label={t("variables.shared.queryLabel")}
         skeleton={<div className="h-10" />}
         isEmpty={(data) => data.applications.length === 0}
-        empty={<p className="text-13 text-fg-muted">{t("variables.shared.usageDialog.none")}</p>}
+        empty={<EmptyState variant="inline" title={t("variables.shared.usageDialog.none")} />}
       >
         {(data) => (
           <ul aria-label={t("variables.shared.usageDialog.list", { name: name ?? "" })} className="flex flex-col gap-1.5">

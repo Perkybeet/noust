@@ -7,16 +7,15 @@ import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { Section, Sections } from "../../../components/page/Section";
+import { SettingsGroup } from "../../../components/page/SettingsGroup";
 import { Badge } from "../../../components/ui/Badge";
-import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { CopyValue } from "../../../components/ui/CopyValue";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
-import { FeatureState } from "../../../components/ui/FeatureState";
 import { Mono } from "../../../components/ui/Mono";
-import { Skeleton } from "../../../components/ui/Skeleton";
-import { Switch } from "../../../components/ui/Switch";
+import { Setting } from "../../../components/ui/Setting";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { TextLink } from "../../../components/ui/TextLink";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
@@ -33,9 +32,9 @@ function groupName(t: T, name: string): string {
   return isKnownGroup(name) ? t(`mcpSettings.groups.${name}.name`) : name;
 }
 
-function effectOf(t: T, tool: McpTool): { label: string; tone: "neutral" | "warn" } {
-  if (tool.destructive) return { label: t("mcpSettings.tools.asksTwice"), tone: "warn" };
-  return { label: tool.read_only ? t("mcpSettings.tools.reads") : t("mcpSettings.tools.changes"), tone: "neutral" };
+function effectOf(t: T, tool: McpTool): { label: string; asksTwice: boolean } {
+  if (tool.destructive) return { label: t("mcpSettings.tools.asksTwice"), asksTwice: true };
+  return { label: tool.read_only ? t("mcpSettings.tools.reads") : t("mcpSettings.tools.changes"), asksTwice: false };
 }
 
 function columnsFor(t: T): Column<McpTool>[] {
@@ -60,7 +59,8 @@ function columnsFor(t: T): Column<McpTool>[] {
       width: "w-36",
       cell: (tool) => {
         const effect = effectOf(t, tool);
-        return <Badge tone={effect.tone}>{effect.label}</Badge>;
+        // A tool that asks twice is one to look at: a state's shape and word, never an amber chip.
+        return effect.asksTwice ? <StatusPill state="warning" label={effect.label} appearance="inline" size="sm" /> : <Badge>{effect.label}</Badge>;
       },
     },
     {
@@ -110,32 +110,31 @@ export function McpSettings() {
         query={query}
         label={t("mcpSettings.loadingLabel")}
         skeleton={
-          <div aria-busy="true" className="flex flex-col gap-8">
-            <Skeleton className="h-24 w-full rounded-card" />
-            <Skeleton className="h-40 w-full rounded-card" />
+          <div className="flex flex-col gap-8">
+            <SkeletonCard lines={2} />
+            <SkeletonCard lines={4} />
           </div>
         }
       >
         {(status) => (
           <>
-            <FeatureState
-              state={status.enabled ? "on" : "off"}
-              title={status.enabled ? t("mcpSettings.state.on") : t("mcpSettings.state.off")}
-              action={
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  loading={change.isPending && change.variables.enabled !== undefined}
-                  onClick={() => {
-                    change.mutate({ enabled: !status.enabled });
-                  }}
-                >
-                  {status.enabled ? t("mcpSettings.state.turnOff") : t("mcpSettings.state.turnOn")}
-                </Button>
-              }
+            <SettingsGroup
+              level={2}
+              title={t("mcpSettings.state.title")}
+              description={t("mcpSettings.state.description")}
+              status={<StatusPill state={status.enabled ? "running" : "stopped"} label={status.enabled ? t("mcpSettings.state.on") : t("mcpSettings.state.off")} size="sm" />}
+              command={t("mcpSettings.commandEnable")}
             >
-              {status.enabled ? t("mcpSettings.state.onBody") : t("mcpSettings.state.offBody")}
-            </FeatureState>
+              <Setting
+                label={t("mcpSettings.state.label")}
+                help={t("mcpSettings.state.help")}
+                checked={status.enabled}
+                busy={change.isPending && change.variables.enabled !== undefined}
+                onCheckedChange={(enabled) => {
+                  change.mutate({ enabled });
+                }}
+              />
+            </SettingsGroup>
             {change.isError ? <ErrorBlock live compact error={change.error} title={t("mcpSettings.state.failed")} /> : null}
 
             <Section title={t("mcpSettings.connection.title")} description={t("mcpSettings.connection.description")}>
@@ -155,30 +154,22 @@ export function McpSettings() {
               </div>
             </Section>
 
-            <Section title={t("mcpSettings.groups.title")} description={t("mcpSettings.groups.description")}>
-              <Card padding="sm">
-                <ul className="flex flex-col divide-y divide-border">
-                  {status.all_groups.map((group) => (
-                    <li key={group} className="flex min-w-0 items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
-                      <div className="min-w-0">
-                        <p className="text-13 font-medium text-fg">{groupName(t, group)}</p>
-                        <p className="max-w-measure text-13 text-fg-muted">{isKnownGroup(group) ? t(`mcpSettings.groups.${group}.description`) : ""}</p>
-                        <p className="text-12 text-fg-faint">{t("mcpSettings.groups.toolCount", { count: toolsIn(status, group) })}</p>
-                      </div>
-                      <Switch
-                        aria-label={groupName(t, group)}
-                        checked={status.groups.includes(group)}
-                        disabled={change.isPending}
-                        onCheckedChange={(on) => {
-                          const next = on ? [...status.groups, group] : status.groups.filter((item) => item !== group);
-                          change.mutate({ groups: status.all_groups.filter((item) => next.includes(item)) });
-                        }}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </Section>
+            <SettingsGroup level={2} title={t("mcpSettings.groups.title")} description={t("mcpSettings.groups.description")}>
+              {status.all_groups.map((group) => (
+                <Setting
+                  key={group}
+                  label={groupName(t, group)}
+                  help={isKnownGroup(group) ? t(`mcpSettings.groups.${group}.description`) : undefined}
+                  status={<Badge>{t("mcpSettings.groups.toolCount", { count: toolsIn(status, group) })}</Badge>}
+                  checked={status.groups.includes(group)}
+                  busy={change.isPending && change.variables.groups !== undefined}
+                  onCheckedChange={(on) => {
+                    const next = on ? [...status.groups, group] : status.groups.filter((item) => item !== group);
+                    change.mutate({ groups: status.all_groups.filter((item) => next.includes(item)) });
+                  }}
+                />
+              ))}
+            </SettingsGroup>
 
             <Section title={t("mcpSettings.tools.title")} description={t("mcpSettings.tools.description")}>
               <div className="flex flex-col gap-4">
@@ -192,10 +183,7 @@ export function McpSettings() {
               </div>
             </Section>
 
-            <div className="flex flex-col gap-2">
-              <CommandHint command={t("mcpSettings.commandEnable")} label={t("mcpSettings.command")} />
-              <CommandHint command={t("mcpSettings.commandToken")} />
-            </div>
+            <CommandHint command={t("mcpSettings.commandToken")} />
           </>
         )}
       </QueryState>

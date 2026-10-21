@@ -7,6 +7,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
+import { findLoadedRegion } from "../../../test/regions";
 import { filterDatabases, validateDatabasesSearch } from "../../databases/filters";
 import { DATABASES, databaseRoutes } from "../../databases/testFixtures";
 import { filterServices, validateServicesSearch } from "../../services/data";
@@ -150,7 +151,8 @@ describe("tags on services", () => {
     });
     const harness = renderConsole("/server/services");
     await screen.findByRole("heading", { level: 1, name: "Server" });
-    const table = await screen.findByRole("region", { name: /Services/ });
+    // A list replaces its skeleton: the region to look in is the loaded one.
+    const table = await findLoadedRegion(/Services/);
     return { ...harness, backend, table };
   }
 

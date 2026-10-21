@@ -19,7 +19,7 @@ import { ChoiceCards } from "../../../components/ui/ChoiceCards";
 import { TEAM_ROLES } from "../../../api/queries/teams";
 import type { TeamRole } from "../../../api/queries/teams";
 import { teamRoleDescription, teamRoleLabel } from "../../teams/roles";
-import { splitErrors } from "../formErrors";
+import { focusFirstInvalid, splitErrors } from "../formErrors";
 import { accountKeys, invite } from "./api";
 import type { Account, InvitationIssued } from "./api";
 import { ROLES, incompatible, roleDescription, roleLabel } from "./roles";
@@ -48,6 +48,7 @@ export function invitationLink(code: string, origin: string = window.location.or
   return `${origin}/invite#${encodeURIComponent(code)}`;
 }
 
+// design-exception: notice-stack the form shows the role clash and the result shows the delivery and the one-time warning; the dialog is one or the other
 /** The invitation, once: the link to send and the code, which cannot be shown again. */
 function IssuedOnce({ t, issued, expiresAt }: { t: T; issued: InvitationIssued; expiresAt: number }) {
   const link = invitationLink(issued.code);
@@ -134,6 +135,7 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
       void queryClient.invalidateQueries({ queryKey: accountKeys.list });
     },
   });
+  const [tried, setTried] = useState(false);
   const errors = splitErrors(create.error, FIELDS);
   const clashes = recover === null && team === null ? samePerson(accounts, { username: username.trim(), person_ref: person }).filter((other) => incompatible(other.role, role)) : [];
 
@@ -146,6 +148,12 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (create.isPending) return;
+    // The button is never off for a missing value: it says what is missing, where, and goes there.
+    if (username.trim() === "") {
+      setTried(true);
+      focusFirstInvalid(formId);
+      return;
+    }
     create.mutate();
   };
 
@@ -177,7 +185,7 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
           <Button disabled={create.isPending} onClick={() => onOpenChange(false)}>
             {t("settings.shared.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={username.trim() === ""}>
+          <Button type="submit" form={formId} variant="primary" loading={create.isPending}>
             {recover === null ? t("accounts.invite.submit") : t("accounts.invite.recoverSubmit")}
           </Button>
         </>
@@ -187,7 +195,7 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
         {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("accounts.invite.failed")} /> : null}
         {recover === null ? (
           <>
-            <Field label={t("accounts.fields.username")} description={t("accounts.fields.usernameHint")} error={errors.fields.username}>
+            <Field label={t("accounts.fields.username")} description={t("accounts.fields.usernameHint")} error={errors.fields.username ?? (tried && username.trim() === "" ? t("settings.shared.required") : undefined)}>
               <Input
                 ref={usernameRef}
                 mono

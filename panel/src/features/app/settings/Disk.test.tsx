@@ -5,7 +5,7 @@ import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { json, problem } from "../../../test/fakes";
 import { parseDiskLimit } from "./DiskSettings";
-import { DOMAIN, ELEVATED, NO_DISK, accepted, jobOf, renderSettings } from "./testKit";
+import { DOMAIN, ELEVATED, NO_DISK, accepted, jobOf, renderSettings, saveBar } from "./testKit";
 
 const MB = 1024 * 1024;
 
@@ -96,7 +96,7 @@ describe("the disk of an application", () => {
     expect(screen.getByText("/var/www/apps/shop/shared: could not be measured in time")).toBeInTheDocument();
   });
 
-  it("saves the limit as megabytes and removes it, with nothing about sudo mode", async () => {
+  it("saves the limit as megabytes from the save bar, and removes it by emptying the field, with nothing about sudo mode", async () => {
     let current: object = NO_DISK;
     const { user, backend } = await resources(NO_DISK, {
       [`GET /api/apps/${DOMAIN}/disk`]: () => json(200, current),
@@ -107,19 +107,25 @@ describe("the disk of an application", () => {
       },
     });
     const field = await screen.findByRole("textbox", { name: /Limit/ });
-    expect(screen.getByRole("button", { name: "Save limit" })).toBeDisabled();
+    expect(within(saveBar()).getByRole("button", { name: "Save" })).toBeDisabled();
 
     await user.type(field, "2048");
-    await user.click(screen.getByRole("button", { name: "Save limit" }));
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/disk`)[0]?.body).toEqual({ soft_mb: 2048 });
     });
-    await user.click(await screen.findByRole("button", { name: "Remove the limit" }));
+    await waitFor(() => {
+      expect(within(saveBar()).getByRole("button", { name: "Save" })).toBeDisabled();
+    });
+    await user.clear(screen.getByRole("textbox", { name: /Limit/ }));
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     await waitFor(() => {
       expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/disk`)[1]?.body).toEqual({ soft_mb: null });
     });
-    expect(screen.getByRole("textbox", { name: /Limit/ })).toHaveValue("");
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: /Limit/ })).toHaveValue("");
+    });
   });
 
   it("checks the floor before asking and shows the server's refusal under the field", async () => {
@@ -129,13 +135,13 @@ describe("the disk of an application", () => {
     const field = await screen.findByRole("textbox", { name: /Limit/ });
 
     await user.type(field, "10");
-    await user.click(screen.getByRole("button", { name: "Save limit" }));
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Give whole megabytes, 64 or more, or leave it empty.")).toBeInTheDocument();
     expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/disk`)).toHaveLength(0);
 
     await user.clear(field);
     await user.type(field, "99999999999");
-    await user.click(screen.getByRole("button", { name: "Save limit" }));
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Out of range")).toBeInTheDocument();
   });
 
@@ -226,6 +232,6 @@ describe("the disk of an application", () => {
 
     expect(await screen.findByRole("list", { name: "Lo que ocupa la app, por lugar" })).toBeInTheDocument();
     expect(screen.getByText("Ficheros compartidos (subidas, .env)")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Guardar límite" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /Límite/ })).toBeInTheDocument();
   });
 });

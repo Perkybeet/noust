@@ -210,7 +210,7 @@ export function PublishConsoleDialog({ open, onOpenChange, ensAllows }: PublishC
                 <li key={item}>{item}</li>
               ))}
             </ol>
-            <Notice>{t("consoleAccess.dialog.reviewNote")}</Notice>
+            <p className="text-13 text-fg-muted">{t("consoleAccess.dialog.reviewNote")}</p>
             {publish.isError && !(publish.error instanceof ElevationCancelledError) ? <ErrorBlock live compact error={publish.error} title={t("consoleAccess.dialog.publishFailed")} /> : null}
           </div>
         ) : (

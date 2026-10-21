@@ -1,8 +1,9 @@
 /**
- * What holds a deploy, against the real backend: an application's automatic deploys paused with a
- * reason and resumed, a freeze made, seen on the Deployments page and lifted, an update scheduled
- * and stopped, and the history and stop policy saved from the Deploys form. Each test leaves the
- * application as it found it, because both theme projects may run in the same worker.
+ * What holds a deploy, against the real backend, on the Automation page: an application's automatic
+ * deploys paused with a reason and resumed from the same switch, a freeze made, seen on the
+ * Deployments page and lifted, an update scheduled and stopped from the drawer, and the history and
+ * stop policy saved from the deploy limits drawer. Each test leaves the application as it found it,
+ * because both theme projects may run in the same worker.
  */
 
 import type { Page } from "@playwright/test";
@@ -12,24 +13,26 @@ import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures
 
 const APP = "tienda.example.org";
 
-/** A card of the subsection, by its title. */
-function card(page: Page, title: string) {
-  return page.locator("section").filter({ has: page.getByRole("heading", { name: title, exact: true }) }).last();
+/** One row of the page, by its label. */
+function row(page: Page, label: string) {
+  return page.locator('[data-slot="setting"]').filter({ has: page.getByText(label, { exact: true }) }).first();
 }
 
-test("automatic deploys are paused with a reason and resumed", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${APP}/settings/deploys`);
-  const auto = card(page, "Automatic deploys");
-  await expect(auto.getByText("Automatic deploys are running")).toBeVisible();
+test("automatic deploys are paused with a reason and resumed from the same switch", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, `/apps/${APP}/settings/automation`);
+  const toggle = page.getByRole("switch", { name: "Automatic deploys", exact: true });
+  await expect(toggle).toBeChecked();
+  await expect(page.getByText("Paused", { exact: true })).toHaveCount(0);
   await settle(page);
   await expectNoA11yViolations(page, "automatic deploys, running");
 
-  await auto.getByRole("button", { name: "Pause" }).click();
+  await toggle.click();
   const dialog = page.getByRole("dialog", { name: `Pause automatic deploys of ${APP}?` });
   await dialog.getByRole("textbox", { name: /Reason/ }).fill("Looking into the checkout bug");
   await dialog.getByRole("button", { name: "Pause" }).click();
-  await expect(auto.getByText("Automatic deploys are paused")).toBeVisible();
-  await expect(auto.getByText("Reason: Looking into the checkout bug")).toBeVisible();
+  await expect(toggle).not.toBeChecked();
+  await expect(page.getByText("Paused", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Reason: Looking into the checkout bug/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "automatic deploys, paused");
 
@@ -37,17 +40,18 @@ test("automatic deploys are paused with a reason and resumed", async ({ page, co
   await page.goto(`/apps/${APP}/deployments`);
   await expect(page.getByText("Reason: Looking into the checkout bug")).toBeVisible();
 
-  await page.goto(`/apps/${APP}/settings/deploys`);
-  await card(page, "Automatic deploys").getByRole("button", { name: "Resume" }).click();
-  await expect(card(page, "Automatic deploys").getByText("Automatic deploys are running")).toBeVisible();
+  await page.goto(`/apps/${APP}/settings/automation`);
+  await page.getByRole("switch", { name: "Automatic deploys", exact: true }).click();
+  await expect(page.getByRole("switch", { name: "Automatic deploys", exact: true })).toBeChecked();
+  await expect(page.getByText("Paused", { exact: true })).toHaveCount(0);
 });
 
 test("a freeze needs its reason, is seen on the Deployments page and is lifted", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${APP}/settings/deploys`);
-  const freezes = card(page, "Freeze deploys");
-  await expect(freezes.getByText("No freeze is set for this app.")).toBeVisible();
+  await signIn(page, consoleServer, `/apps/${APP}/settings/automation`);
+  const freezes = page.getByRole("list", { name: "Freeze deploys" });
+  await expect(freezes).toHaveCount(0);
 
-  await freezes.getByRole("button", { name: "Freeze deploys" }).click();
+  await page.getByRole("button", { name: "Freeze deploys…" }).click();
   const dialog = page.getByRole("dialog", { name: `Freeze deploys of ${APP}` });
   await dialog.getByRole("button", { name: "Freeze" }).click();
   await expect(dialog.getByText("Say why: a person who is refused is told.")).toBeVisible();
@@ -67,51 +71,58 @@ test("a freeze needs its reason, is seen on the Deployments page and is lifted",
   expect(response.status()).toBe(409);
   expect(((await response.json()) as { error: string }).error).toBe("deploys_frozen");
 
-  await page.goto(`/apps/${APP}/settings/deploys`);
-  await card(page, "Freeze deploys").getByRole("button", { name: /Lift the freeze/ }).click();
+  await page.goto(`/apps/${APP}/settings/automation`);
+  await page.getByRole("button", { name: /Lift the freeze/ }).click();
   await page.getByRole("alertdialog", { name: "Lift the freeze?" }).getByRole("button", { name: "Lift the freeze" }).click();
-  await expect(card(page, "Freeze deploys").getByText("No freeze is set for this app.")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Freeze deploys" })).toHaveCount(0);
 });
 
 test("an app is scheduled to update itself and stopped doing so", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${APP}/settings/deploys`);
-  const schedule = card(page, "Scheduled updates");
-  await expect(schedule.getByText("This app does not update itself")).toBeVisible();
+  await signIn(page, consoleServer, `/apps/${APP}/settings/automation`);
+  const schedule = row(page, "Scheduled updates");
+  await expect(schedule.getByText("On", { exact: true })).toHaveCount(0);
 
-  await schedule.getByRole("button", { name: "Schedule updates" }).click();
-  await expect(schedule.getByRole("combobox", { name: "When" })).toHaveText(/Every Sunday at 03:00/);
-  await schedule.getByRole("button", { name: "Save the schedule" }).click();
-  await expect(schedule.getByText("This app updates itself")).toBeVisible();
+  await schedule.getByRole("button", { name: "Set an update schedule…" }).click();
+  const drawer = page.getByRole("dialog", { name: `Update schedule of ${APP}` });
+  await expect(drawer.getByRole("combobox", { name: "When" })).toHaveText(/Every Sunday at 03:00/);
+  await drawer.getByRole("button", { name: "Save the schedule" }).click();
+  await expect(drawer).toBeHidden();
+  await expect(schedule.getByText("On", { exact: true })).toBeVisible();
   await expect(schedule.getByText("It has not run yet.")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a scheduled update");
 
-  await schedule.getByRole("button", { name: "Stop updating by itself" }).click();
+  await schedule.getByRole("button", { name: "Edit schedule…" }).click();
+  await page.getByRole("dialog", { name: `Update schedule of ${APP}` }).getByRole("button", { name: "Stop updating by itself" }).click();
   await page.getByRole("alertdialog", { name: `Stop ${APP} updating itself?` }).getByRole("button", { name: "Stop" }).click();
-  await expect(schedule.getByText("This app does not update itself")).toBeVisible();
+  await expect(schedule.getByRole("button", { name: "Set an update schedule…" })).toBeVisible();
+  await expect(schedule.getByText("On", { exact: true })).toHaveCount(0);
 });
 
-test("the history kept and the stop policy are saved from the Deploys form, and put back", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${APP}/settings/deploys`);
-  const limits = card(page, "History and stopping");
-  const history = limits.getByRole("textbox", { name: "Deploys kept in history" });
+test("the history kept and the stop policy are saved from the deploy limits drawer, and put back", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, `/apps/${APP}/settings/automation`);
+  await page.getByRole("button", { name: "Edit deploy limits…" }).click();
+  const drawer = page.getByRole("dialog", { name: "Deploy limits" });
+  const history = drawer.getByRole("textbox", { name: "Deploys kept in history" });
   await expect(history).toHaveValue("");
 
   await history.fill("0");
-  await page.getByRole("region", { name: "Unsaved changes" }).getByRole("button", { name: "Save" }).click();
-  await expect(limits.getByText("A number from 1 to 1000, or empty for the server's.")).toBeVisible();
+  await drawer.getByRole("button", { name: "Save the limits" }).click();
+  await expect(drawer.getByText("A number from 1 to 1000, or empty for the server's.")).toBeVisible();
 
   await history.fill("55");
-  await limits.getByRole("textbox", { name: "Time to stop" }).fill("120");
-  await page.getByRole("region", { name: "Unsaved changes" }).getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("region", { name: "Unsaved changes" }).getByText("No unsaved changes")).toBeVisible();
+  await drawer.getByRole("textbox", { name: "Time to stop" }).fill("120");
+  await drawer.getByRole("button", { name: "Save the limits" }).click();
+  await expect(drawer).toBeHidden();
   const saved = (await (await page.request.get(`/api/apps/${APP}/rollout`)).json()) as { history_keep: number | null; stop_timeout: number | null };
   expect(saved).toMatchObject({ history_keep: 55, stop_timeout: 120 });
 
-  await history.fill("");
-  await limits.getByRole("textbox", { name: "Time to stop" }).fill("");
-  await page.getByRole("region", { name: "Unsaved changes" }).getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("region", { name: "Unsaved changes" }).getByText("No unsaved changes")).toBeVisible();
+  await page.getByRole("button", { name: "Edit deploy limits…" }).click();
+  const again = page.getByRole("dialog", { name: "Deploy limits" });
+  await again.getByRole("textbox", { name: "Deploys kept in history" }).fill("");
+  await again.getByRole("textbox", { name: "Time to stop" }).fill("");
+  await again.getByRole("button", { name: "Save the limits" }).click();
+  await expect(again).toBeHidden();
   const back = (await (await page.request.get(`/api/apps/${APP}/rollout`)).json()) as { history_keep: number | null; stop_timeout: number | null };
   expect(back).toMatchObject({ history_keep: null, stop_timeout: null });
 });

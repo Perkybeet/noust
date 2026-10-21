@@ -109,7 +109,7 @@ describe("Settings > Roles and access", () => {
   it("is in the settings navigation, as the central's section", async () => {
     await pageAt();
     const nav = await screen.findByRole("navigation", { name: "Settings sections" });
-    expect(within(nav).getByRole("link", { name: "Roles and access" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Roles" })).toHaveAttribute("aria-current", "page");
   });
 
   it("gives a role on an environment, offering only the roles that can be held there", { timeout: 30_000 }, async () => {

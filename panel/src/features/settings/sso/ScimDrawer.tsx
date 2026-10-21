@@ -11,12 +11,13 @@ import { CopyTextButton } from "../../../components/ui/CopyTextButton";
 import { CopyValue } from "../../../components/ui/CopyValue";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
-import { splitErrors } from "../formErrors";
+import { focusFirstInvalid, splitErrors } from "../formErrors";
 import { ADMISSION_FOLDED, AdmissionFields } from "./AdmissionFields";
 import { NEW_SCIM_DRAFT, scimDraftOf, scimSettingsOf } from "./scimForm";
 import type { ScimDraft } from "./scimForm";
@@ -91,12 +92,22 @@ export function ScimDrawer({ source, onClose }: ScimDrawerProps) {
       onClose();
     },
   });
+  const [tried, setTried] = useState(false);
+  const required = t("settings.shared.required");
   const errors = splitErrors(save.error, FIELDS);
   const hiddenMessage = ADMISSION_FOLDED.map((name) => errors.fields[name as (typeof FIELDS)[number]]).find((message) => message !== undefined);
 
+  const ready = !creating || draft.name.trim() !== "";
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (!save.isPending) save.mutate();
+    if (save.isPending) return;
+    // The button is never off for a missing value: it says what is missing, where, and goes there.
+    if (!ready) {
+      setTried(true);
+      focusFirstInvalid(formId);
+      return;
+    }
+    save.mutate();
   };
 
   if (issued !== null) {
@@ -130,7 +141,7 @@ export function ScimDrawer({ source, onClose }: ScimDrawerProps) {
           <Button disabled={save.isPending} onClick={onClose}>
             {t("scimAdmin.form.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={creating && draft.name.trim() === ""}>
+          <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {creating ? t("scimAdmin.form.create") : t("scimAdmin.form.save")}
           </Button>
         </>
@@ -139,17 +150,17 @@ export function ScimDrawer({ source, onClose }: ScimDrawerProps) {
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
         {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("scimAdmin.form.errorTitle")} /> : null}
         {hiddenMessage !== undefined ? (
-          <Notice tone="error" live title={t("scimAdmin.form.errorTitle")}>
-            {hiddenMessage}
-          </Notice>
+          <InlineMessage tone="error" live>
+            <span className="font-medium">{t("scimAdmin.form.errorTitle")}</span> {hiddenMessage}
+          </InlineMessage>
         ) : null}
         {badLine !== null ? (
-          <Notice tone="error" live title={t("scimAdmin.form.errorTitle")}>
-            {t("scimAdmin.form.mappingsLine", { line: badLine })}
-          </Notice>
+          <InlineMessage tone="error" live>
+            <span className="font-medium">{t("scimAdmin.form.errorTitle")}</span> {t("scimAdmin.form.mappingsLine", { line: badLine })}
+          </InlineMessage>
         ) : null}
         {creating ? (
-          <Field label={t("scimAdmin.form.name")} description={t("scimAdmin.form.nameHelp")}>
+          <Field label={t("scimAdmin.form.name")} description={t("scimAdmin.form.nameHelp")} error={tried && draft.name.trim() === "" ? required : undefined}>
             <Input
               mono
               autoComplete="off"

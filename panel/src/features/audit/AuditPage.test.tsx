@@ -7,6 +7,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
 import type { RecordedCall, RouteHandler } from "../../test/fakes";
+import { findLoadedRegion } from "../../test/regions";
 import { familyOf, groupFindings } from "./CompliancePage";
 
 beforeEach(() => {
@@ -72,7 +73,7 @@ describe("Settings > Audit log", () => {
   it("lists the events with actor, role, target and outcome, says the chain is intact, and passes axe", { timeout: 20_000 }, async () => {
     auditBackend();
     const { container } = renderConsole("/settings/audit");
-    const table = await screen.findByRole("region", { name: "Audit events" });
+    const table = await findLoadedRegion("Audit events");
     // The event in words, not its id; what the server recorded about it is in the drawer.
     expect(await within(table).findByText("Account role changed")).toBeInTheDocument();
     expect(within(table).queryByText("user.role_change")).not.toBeInTheDocument();
@@ -93,7 +94,7 @@ describe("Settings > Audit log", () => {
   it("opens an event with every field, and follows its request", { timeout: 20_000 }, async () => {
     const backend = auditBackend();
     const { user, location } = renderConsole("/settings/audit");
-    const table = await screen.findByRole("region", { name: "Audit events" });
+    const table = await findLoadedRegion("Audit events");
     await user.click(await within(table).findByText("Account role changed"));
     const drawer = await screen.findByRole("dialog", { name: "Account role changed" });
     expect(within(drawer).getByText("user.role_change")).toBeInTheDocument();
@@ -141,7 +142,7 @@ describe("Settings > Audit log", () => {
     renderConsole("/settings/audit");
     expect(await screen.findByText("El registro de auditoría está íntegro")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Eventos" })).toBeInTheDocument();
-    const table = await screen.findByRole("region", { name: "Eventos de auditoría" });
+    const table = await findLoadedRegion("Eventos de auditoría");
     expect(await within(table).findByText("Rol de una cuenta cambiado")).toBeInTheDocument();
     expect(within(table).getByText("Inicio de sesión")).toBeInTheDocument();
   });

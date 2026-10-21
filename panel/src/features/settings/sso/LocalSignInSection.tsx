@@ -1,19 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId, useState } from "react";
-import type { SyntheticEvent } from "react";
+import { useState } from "react";
 
 import { localSignInQuery, setLocalSignIn, ssoAdminKeys } from "../../../api/queries/ssoAdmin";
 import type { LocalSignIn } from "../../../api/queries/ssoAdmin";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { Section } from "../../../components/page/Section";
-import { Subsection } from "../../../components/page/Subsection";
+import { SettingsGroup } from "../../../components/page/SettingsGroup";
 import { Button } from "../../../components/ui/Button";
+import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
-import { Dialog } from "../../../components/ui/Dialog";
-import { FeatureState } from "../../../components/ui/FeatureState";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { Setting } from "../../../components/ui/Setting";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { accountsQuery } from "../accounts/api";
@@ -56,7 +54,6 @@ interface KeepersDialogProps {
 function KeepersDialog({ current, turningOff, onClose }: KeepersDialogProps) {
   const t = useT();
   const queryClient = useQueryClient();
-  const formId = useId();
   const accounts = useQuery(accountsQuery());
   const [kept, setKept] = useState<ReadonlySet<string>>(new Set(current.exempt));
 
@@ -65,7 +62,6 @@ function KeepersDialog({ current, turningOff, onClose }: KeepersDialogProps) {
     onSuccess: () => {
       toast.success(turningOff ? t("ssoAdmin.local.turnedOff") : t("ssoAdmin.local.changed"));
       void queryClient.invalidateQueries({ queryKey: ssoAdminKeys.localSignIn });
-      onClose();
     },
   });
 
@@ -80,65 +76,50 @@ function KeepersDialog({ current, turningOff, onClose }: KeepersDialogProps) {
   const active = (accounts.data?.accounts ?? []).filter((account) => account.status === "active").sort(byAdministrator);
 
   return (
-    <Dialog
+    <ConfirmDialog
+      friction="simple"
       open
       onOpenChange={(next) => {
-        if (!next && !save.isPending) onClose();
+        if (!next) onClose();
       }}
-      size="md"
+      // Turning it off removes a way in: the question says who is left with one. Changing who keeps it is a save.
+      destructive={turningOff}
       title={turningOff ? t("ssoAdmin.local.dialog.title") : t("ssoAdmin.local.dialog.titleChange")}
       description={turningOff ? t("ssoAdmin.local.dialog.description") : t("ssoAdmin.local.dialog.descriptionChange")}
-      footer={
-        <>
-          <Button disabled={save.isPending} onClick={onClose}>
-            {t("settings.shared.cancel")}
-          </Button>
-          <Button type="submit" form={formId} variant={turningOff ? "danger" : "primary"} loading={save.isPending}>
-            {turningOff ? t("ssoAdmin.local.dialog.action") : t("ssoAdmin.local.dialog.save")}
-          </Button>
-        </>
-      }
+      actionLabel={turningOff ? t("ssoAdmin.local.dialog.action") : t("ssoAdmin.local.dialog.save")}
+      onConfirm={async () => {
+        await save.mutateAsync();
+      }}
     >
-      <form
-        id={formId}
-        noValidate
-        className="flex flex-col gap-4"
-        onSubmit={(event: SyntheticEvent<HTMLFormElement>) => {
-          event.preventDefault();
-          if (!save.isPending) save.mutate();
-        }}
-      >
-        {save.isError ? <ErrorBlock live compact error={save.error} title={t("ssoAdmin.local.dialog.failed")} /> : null}
-        <fieldset className="flex min-w-0 flex-col gap-2">
-          <legend className="mb-1 text-13 font-medium text-fg">{t("ssoAdmin.local.dialog.keepLegend")}</legend>
-          {accounts.isError ? (
-            <ErrorBlock compact error={accounts.error} title={t("ssoAdmin.loadFailed")} onRetry={() => void accounts.refetch()} />
-          ) : active.length === 0 ? (
-            <p className="text-13 text-fg-muted">{accounts.isPending ? t("ssoAdmin.loading") : t("ssoAdmin.local.dialog.noAccounts")}</p>
-          ) : (
-            active.map((account) => (
-              <Checkbox
-                key={account.username}
-                checked={kept.has(account.username)}
-                onCheckedChange={(on) => {
-                  toggle(account.username, on);
-                }}
-                label={<Mono tone="default">{account.username}</Mono>}
-                description={roleLabel(t, account.role)}
-              />
-            ))
-          )}
-          <p className="text-13 text-fg-muted">{t("ssoAdmin.local.dialog.keepHelp")}</p>
-        </fieldset>
-      </form>
-    </Dialog>
+      <fieldset className="flex min-w-0 flex-col gap-2">
+        <legend className="mb-1 text-13 font-medium text-fg">{t("ssoAdmin.local.dialog.keepLegend")}</legend>
+        {accounts.isError ? (
+          <ErrorBlock compact error={accounts.error} title={t("ssoAdmin.loadFailed")} onRetry={() => void accounts.refetch()} />
+        ) : active.length === 0 ? (
+          <p className="text-13 text-fg-muted">{accounts.isPending ? t("ssoAdmin.loading") : t("ssoAdmin.local.dialog.noAccounts")}</p>
+        ) : (
+          active.map((account) => (
+            <Checkbox
+              key={account.username}
+              checked={kept.has(account.username)}
+              onCheckedChange={(on) => {
+                toggle(account.username, on);
+              }}
+              label={<Mono tone="default">{account.username}</Mono>}
+              description={roleLabel(t, account.role)}
+            />
+          ))
+        )}
+        <p className="text-13 text-fg-muted">{t("ssoAdmin.local.dialog.keepHelp")}</p>
+      </fieldset>
+    </ConfirmDialog>
   );
 }
 
 /**
  * Whether passwords and passkeys still sign accounts in beside the identity provider, and which
  * accounts keep them as the way back. Turning it off is a decision with a recovery path, so the
- * dialog names who keeps a password; the access token and the command line are untouched.
+ * question names who keeps a password; the access token and the command line are untouched.
  */
 export function LocalSignInSection() {
   const t = useT();
@@ -154,81 +135,56 @@ export function LocalSignInSection() {
   });
   const current = query.data;
 
+  if (current === undefined) {
+    return (
+      <Card level={2} title={t("ssoAdmin.local.title")} description={t("ssoAdmin.local.description")}>
+        {query.isError ? <ErrorBlock error={query.error} title={t("ssoAdmin.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} /> : null}
+      </Card>
+    );
+  }
+  // With no provider, turning it off would leave nobody able to sign in: the switch says so.
+  const reason = current.enabled && current.providers === 0 ? t("ssoAdmin.local.needsProvider") : null;
+
   return (
-    <Section title={t("ssoAdmin.local.title")} description={t("ssoAdmin.local.description")} loading={current === undefined && !query.isError}>
-      {query.isError && current === undefined ? (
-        <ErrorBlock error={query.error} title={t("ssoAdmin.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
-      ) : current === undefined ? (
-        <Skeleton className="h-24 w-full rounded-card" />
-      ) : (
-        <>
-          <FeatureState
-            state={current.enabled ? "on" : "off"}
-            title={current.enabled ? t("ssoAdmin.local.on") : t("ssoAdmin.local.off")}
-            action={
-              current.enabled ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={current.providers === 0}
-                  onClick={() => {
-                    setDialog("off");
-                  }}
-                >
-                  {t("ssoAdmin.local.turnOff")}
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  loading={on.isPending}
-                  onClick={() => {
-                    on.mutate();
-                  }}
-                >
-                  {t("ssoAdmin.local.turnOn")}
-                </Button>
-              )
-            }
-          >
-            {current.enabled ? t("ssoAdmin.local.onBody") : t("ssoAdmin.local.offBody")}
-          </FeatureState>
-          {current.enabled && current.providers === 0 ? <Notice>{t("ssoAdmin.local.needsProvider")}</Notice> : null}
-          {on.isError ? <ErrorBlock live compact error={on.error} title={t("ssoAdmin.local.dialog.failed")} /> : null}
-          {!current.enabled ? (
-            <div className="flex flex-col gap-6">
-              <Subsection
-                title={t("ssoAdmin.local.keepers")}
-                actions={
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      setDialog("change");
-                    }}
-                  >
-                    {t("ssoAdmin.local.change")}
-                  </Button>
-                }
-              >
+    <>
+      <SettingsGroup
+        level={2}
+        title={t("ssoAdmin.local.title")}
+        description={t("ssoAdmin.local.description")}
+        status={<StatusPill state={current.enabled ? "running" : "stopped"} label={current.enabled ? t("ssoAdmin.local.pill.on") : t("ssoAdmin.local.pill.off")} size="sm" />}
+      >
+        <Setting
+          label={t("ssoAdmin.local.label")}
+          help={t("ssoAdmin.local.help")}
+          checked={current.enabled}
+          busy={on.isPending}
+          // Off is a decision with a way back: it asks who keeps a password, and the switch stays until it is answered.
+          onCheckedChange={(next) => {
+            if (next) on.mutate();
+            else setDialog("off");
+          }}
+          {...(reason !== null ? { disabled: true as const, reason } : {})}
+        />
+        {!current.enabled ? (
+          <>
+            <div className="flex items-start justify-between gap-4 px-5 py-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="text-13 font-medium text-fg">{t("ssoAdmin.local.keepers")}</span>
                 <Names names={current.exempt} empty={t("ssoAdmin.local.noKeepers")} />
-              </Subsection>
-              <Subsection title={t("ssoAdmin.local.survivors")}>
-                <Names names={current.survivors} empty={t("ssoAdmin.local.noSurvivors")} />
-              </Subsection>
+              </div>
+              <Button size="sm" onClick={() => setDialog("change")}>
+                {t("ssoAdmin.local.change")}
+              </Button>
             </div>
-          ) : null}
-          {dialog !== null ? (
-            <KeepersDialog
-              current={current}
-              turningOff={dialog === "off"}
-              onClose={() => {
-                setDialog(null);
-              }}
-            />
-          ) : null}
-        </>
-      )}
-    </Section>
+            <div className="flex min-w-0 flex-col gap-1 px-5 py-3">
+              <span className="text-13 font-medium text-fg">{t("ssoAdmin.local.survivors")}</span>
+              <Names names={current.survivors} empty={t("ssoAdmin.local.noSurvivors")} />
+            </div>
+          </>
+        ) : null}
+      </SettingsGroup>
+      {on.isError ? <ErrorBlock live compact error={on.error} title={t("ssoAdmin.local.dialog.failed")} /> : null}
+      {dialog !== null ? <KeepersDialog current={current} turningOff={dialog === "off"} onClose={() => setDialog(null)} /> : null}
+    </>
   );
 }

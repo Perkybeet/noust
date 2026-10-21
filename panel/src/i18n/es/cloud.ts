@@ -3,9 +3,9 @@ import type { Catalog } from "../types";
 
 export const cloud: Catalog<typeof en> = {
   nav: {
-    label: "Nube",
+    label: "Proveedores en la nube",
     keywords: "hetzner digitalocean vultr proveedor token cloud-init crear servidor vps droplet",
-    command: "Ajustes de nube",
+    command: "Ajustes de los proveedores en la nube",
   },
 
   page: {
@@ -80,7 +80,6 @@ export const cloud: Catalog<typeof en> = {
     },
     never: "Nunca",
     noNote: "Sin nota",
-    actionsFor: "Acciones de {name}",
     verify: "Comprobar el token ahora",
     replaceToken: "Cambiar el token",
     remove: "Quitar",
@@ -117,7 +116,6 @@ export const cloud: Catalog<typeof en> = {
       description: "Qué hace",
     },
     noDescription: "Sin descripción",
-    actionsFor: "Acciones de {name}",
     view: "Ver",
     edit: "Editar",
     copy: "Copiar como script nuevo",
@@ -174,7 +172,6 @@ export const cloud: Catalog<typeof en> = {
       deleted: "Borrado",
     },
     noAddress: "Aún sin dirección",
-    actionsFor: "Acciones de {name}",
     powerOn: "Encender",
     delete: "Borrar la máquina",
     deleteTitle: "¿Borrar la máquina de {name}?",

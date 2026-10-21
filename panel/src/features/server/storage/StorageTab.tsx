@@ -7,15 +7,18 @@
  * a job with a deadline per path, and the page says how old its answer is.
  */
 
+import { Eraser, RotateCw, Search } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { CommandHint } from "../../../components/page/CommandHint";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { Drawer } from "../../../components/ui/Drawer";
@@ -32,8 +35,7 @@ import { formatBytes, formatBytesPair, formatPercent } from "../../../lib/format
 import { NodeCapabilityGate } from "../../../nodes/capability";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock, explainServerError } from "../errors";
+import { ServerErrorBlock, explainServerError, useServerConfirm } from "../errors";
 import { SERVER_CAPABILITY, cleanupPlanQuery, dockerImagesQuery, serverKeys, storageQuery } from "../queries";
 import type { Candidate, Mount, Storage } from "../queries";
 import { useServerJob } from "../serverJob";
@@ -94,7 +96,8 @@ function Mounts({ mounts }: { mounts: readonly Mount[] | undefined }) {
   return (
     <Card level={2} title={t("server.storage.mountsTitle")} padding="none">
       {mounts === undefined ? (
-        <ul aria-busy="true" aria-label={t("server.storage.loading")} className="flex flex-col divide-y divide-border">
+        <LoadingRegion label={t("server.storage.loading")}>
+        <ul aria-hidden="true" className="flex flex-col divide-y divide-border">
           {Array.from({ length: TYPICAL_MOUNTS }, (_, index) => (
             // Each bar in a box of its line's height, so a row is as tall as the mount it stands for.
             <li key={index} className="grid min-w-0 gap-x-6 gap-y-2 px-5 py-3 md:grid-cols-2">
@@ -115,6 +118,7 @@ function Mounts({ mounts }: { mounts: readonly Mount[] | undefined }) {
             </li>
           ))}
         </ul>
+        </LoadingRegion>
       ) : mounts.length === 0 ? (
         <div className="px-5 pb-4">
           <EmptyState variant="inline" title={t("server.storage.noMounts")} />
@@ -154,18 +158,26 @@ type Opened = { kind: "clean"; candidate: Candidate } | { kind: "images" } | nul
 
 function CleanupDialog({ action, onClose }: { action: string; onClose: () => void }) {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const [size, setSize] = useState("200");
   const journal = action === "journal";
   const sizeMb = journal && /^\d+$/.test(size) ? Number(size) : null;
   const plan = useQuery(cleanupPlanQuery(action, sizeMb));
   return (
-    <ActionDialog
+    <ConfirmDialog
+      {...confirmation}
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      friction="simple"
+      size="md"
       title={t("server.storage.cleanTitle", { what: candidateLabel(t, action) })}
       description={t("server.storage.cleanDescription")}
       actionLabel={t("server.storage.cleanAction")}
       destructive={plan.data?.needs_confirmation === true}
-      onClose={onClose}
+      ready={plan.data !== undefined}
       onConfirm={async () => {
         const accepted = await request("post", "/api/server/storage/cleanup", {
           body: { action, confirm: plan.data?.needs_confirmation === true, ...(sizeMb !== null ? { size_mb: sizeMb } : {}) },
@@ -200,12 +212,13 @@ function CleanupDialog({ action, onClose }: { action: string; onClose: () => voi
           ))}
         </div>
       )}
-    </ActionDialog>
+    </ConfirmDialog>
   );
 }
 
 function ImagesDrawer({ onClose }: { onClose: () => void }) {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const images = useQuery(dockerImagesQuery());
   const [removing, setRemoving] = useState<string | null>(null);
@@ -253,12 +266,17 @@ function ImagesDrawer({ onClose }: { onClose: () => void }) {
         />
       )}
       {removing !== null ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setRemoving(null);
+          }}
+          friction="simple"
+          size="md"
           title={t("server.storage.removeImageTitle")}
           description={t("server.storage.removeImageDescription")}
           actionLabel={t("server.storage.removeImageAction")}
-          destructive
-          onClose={() => setRemoving(null)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/storage/cleanup", { body: { action: "docker-image", target: removing, confirm: true } });
             jobs.track(accepted.job_id, "cleanup");
@@ -267,7 +285,7 @@ function ImagesDrawer({ onClose }: { onClose: () => void }) {
           <p className="text-13">
             <Mono>{removing}</Mono>
           </p>
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
     </Drawer>
   );
@@ -325,11 +343,11 @@ function Candidates({ storage, open }: { storage: Storage | undefined; open: (op
         empty={<EmptyState variant="inline" title={t("server.storage.noCandidates")} />}
         rowActions={(row) =>
           row.id === "docker-images" ? (
-            <Button size="sm" variant="ghost" onClick={() => open({ kind: "images" })}>
+            <Button icon={<Search aria-hidden="true" />} size="sm" variant="ghost" onClick={() => open({ kind: "images" })}>
               {t("server.storage.review")}
             </Button>
           ) : row.action != null && row.reclaimable_bytes !== 0 ? (
-            <Button size="sm" variant="ghost" onClick={() => open({ kind: "clean", candidate: row })}>
+            <Button icon={<Eraser aria-hidden="true" />} size="sm" variant="ghost" onClick={() => open({ kind: "clean", candidate: row })}>
               {t("server.storage.clean")}
             </Button>
           ) : null
@@ -355,6 +373,7 @@ function StorageView() {
     onError: (error) => reportActionError(t("server.job.analyze.failed"), explainServerError(t, error, node)),
   });
 
+  // design-exception: hand-error-ternary the tab keeps its parts mounted while the measurement is read, each with its own loading shape and its own query, so a single skeleton would remount the cards beside it
   if (storage.isError && storage.data === undefined) {
     return <ServerErrorBlock error={storage.error} title={t("server.storage.loadFailed")} onRetry={() => void storage.refetch()} retrying={storage.isRefetching} />;
   }
@@ -387,7 +406,7 @@ function StorageView() {
               {t("server.storage.measureAgain")}
             </span>
           ) : (
-            <Button loading={analyze.isPending} disabled={jobs.busy} onClick={() => analyze.mutate()}>
+            <Button icon={<RotateCw aria-hidden="true" />} loading={analyze.isPending} disabled={jobs.busy} onClick={() => analyze.mutate()}>
               {data.analysis_at ? t("server.storage.measureAgain") : t("server.storage.measure")}
             </Button>
           )

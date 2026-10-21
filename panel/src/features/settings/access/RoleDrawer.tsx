@@ -12,11 +12,11 @@ import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Textarea } from "../../../components/ui/Textarea";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
-import { splitErrors } from "../formErrors";
+import { focusFirstInvalid, splitErrors } from "../formErrors";
 import { groupPermissions, roleScopes } from "./accessModel";
 
 const FIELDS = ["name", "label", "description", "permissions"] as const;
@@ -43,6 +43,7 @@ export function RoleDrawer({ role, catalog, onClose }: RoleDrawerProps) {
   const [name, setName] = useState(role?.name ?? "");
   const [label, setLabel] = useState(role?.label ?? "");
   const [about, setAbout] = useState(role?.description ?? "");
+  const [tried, setTried] = useState(false);
   const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set((role?.permissions ?? []).filter((permission) => permission !== "self")));
 
   const save = useMutation({
@@ -90,7 +91,7 @@ export function RoleDrawer({ role, catalog, onClose }: RoleDrawerProps) {
             <Button disabled={save.isPending} onClick={onClose}>
               {t("access.roles.drawer.cancel")}
             </Button>
-            <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={chosen.size === 0 || (creating && name.trim() === "")}>
+            <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
               {creating ? t("access.roles.drawer.create") : t("access.roles.drawer.save")}
             </Button>
           </>
@@ -103,14 +104,21 @@ export function RoleDrawer({ role, catalog, onClose }: RoleDrawerProps) {
         className="flex flex-col gap-5"
         onSubmit={(event: SyntheticEvent<HTMLFormElement>) => {
           event.preventDefault();
-          if (!readOnly && !save.isPending) save.mutate();
+          if (readOnly || save.isPending) return;
+          // The button is never off for a missing value: it says what is missing, where, and goes there.
+          if (chosen.size === 0 || (creating && name.trim() === "")) {
+            setTried(true);
+            focusFirstInvalid(formId);
+            return;
+          }
+          save.mutate();
         }}
       >
         {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("access.roles.drawer.errorTitle")} /> : null}
         {!readOnly ? (
           <>
             {creating ? (
-              <Field label={t("access.roles.drawer.name")} description={t("access.roles.drawer.nameHelp")} error={errors.fields.name}>
+              <Field label={t("access.roles.drawer.name")} description={t("access.roles.drawer.nameHelp")} error={errors.fields.name ?? (tried && name.trim() === "" ? t("settings.shared.required") : undefined)}>
                 <Input mono autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={32} value={name} onValueChange={setName} />
               </Field>
             ) : null}
@@ -133,10 +141,10 @@ export function RoleDrawer({ role, catalog, onClose }: RoleDrawerProps) {
             <p className="text-13 font-medium text-fg">{t("access.roles.drawer.permissions")}</p>
             {!readOnly ? <p className="mt-0.5 max-w-measure text-13 text-fg-muted">{t("access.roles.drawer.permissionsHelp")}</p> : null}
           </div>
-          {errors.fields.permissions !== undefined ? (
-            <Notice tone="error" live>
-              {errors.fields.permissions}
-            </Notice>
+          {errors.fields.permissions !== undefined || (tried && chosen.size === 0) ? (
+            <InlineMessage tone="error" live>
+              {errors.fields.permissions ?? t("access.roles.drawer.permissionsRequired")}
+            </InlineMessage>
           ) : null}
           {groups.map((group) => (
             <Subsection key={group.area} title={group.area}>

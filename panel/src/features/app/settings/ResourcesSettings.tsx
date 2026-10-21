@@ -19,6 +19,7 @@ import { Checkbox } from "../../../components/ui/Checkbox";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
@@ -27,8 +28,9 @@ import { useAppActions } from "../../apps/useAppActions";
 import { changedFields, useSaveBar } from "./formParts";
 import { directives, draftOf, parseLimits } from "./limits";
 import type { LimitsDraft, LimitsErrors, LimitsValues } from "./limits";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { AdvancedLimitsFields, useTuningPart } from "./TuningFields";
+import { LoadingRegion } from "../../../components/page";
 
 type LimitsResult = ResponseOf<"/api/apps/{domain}/limits", "patch">;
 
@@ -48,20 +50,22 @@ function Saved({ result, domain }: { result: LimitsResult; domain: string }) {
   const t = useT();
   const { restart } = useAppActions(domain);
   const units = result.units.join(", ") || t("appSettings.limits.theService");
-  return (
+  return result.restart_required && !result.restarted ? (
     <Notice
-      tone="success"
+      tone="info"
       live
       action={
-        result.restart_required ? (
-          <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()}>
-            {t("appSettings.limits.restartNow")}
-          </Button>
-        ) : undefined
+        <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()}>
+          {t("appSettings.limits.restartNow")}
+        </Button>
       }
     >
-      {result.restarted ? t("appSettings.limits.savedRestarted", { units }) : t("appSettings.limits.savedNotRestarted", { units })}
+      {t("appSettings.limits.savedNotRestarted", { units })}
     </Notice>
+  ) : (
+    <InlineMessage tone="success" live>
+      {t("appSettings.limits.savedRestarted", { units })}
+    </InlineMessage>
   );
 }
 
@@ -209,10 +213,9 @@ function LimitsForm({ app, tuning, reading }: { app: App; tuning: UnitTuning | u
             <AdvancedLimitsFields domain={domain} tuning={tuning} state={advanced} />
           ) : reading ? (
             // The place the folded section will take, so its arrival moves nothing.
-            <div aria-busy="true">
-              <span className="sr-only">{t("runtime.tuning.loading")}</span>
+            <LoadingRegion label={t("runtime.tuning.loading")}>
               <Skeleton className="h-control-sm w-32" />
-            </div>
+            </LoadingRegion>
           ) : null}
           <Checkbox label={t("appSettings.limits.restartLabel")} description={t("appSettings.limits.restartDescription")} checked={restart} onCheckedChange={setRestart} />
           {save.isError && Object.keys(serverFields).length === 0 ? <ErrorBlock live compact error={save.error} title={t("appSettings.limits.saveFailed")} /> : null}
@@ -233,9 +236,10 @@ export function ResourcesSettings() {
   const t = useT();
   const app = useSettingsApp();
   useSubsectionTitle("appSettings.nav.resources", app.domain);
+  const headerIcon = useSubsectionIcon("appSettings.nav.resources");
   const tuning = useQuery({ ...tuningQuery(app.domain), enabled: hasUnit(app) });
   return (
-    <Section title={t("appSettings.limits.title")} description={t("appSettings.limits.description")}>
+    <Section title={t("appSettings.limits.title")} {...headerIcon} description={t("appSettings.limits.description")}>
       {hasUnit(app) ? (
         <LimitsForm app={app} tuning={tuning.data} reading={tuning.isPending} />
       ) : (

@@ -25,7 +25,7 @@ import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { accountsQuery } from "../accounts/api";
-import { splitErrors } from "../formErrors";
+import { focusFirstInvalid, splitErrors } from "../formErrors";
 import { RowAction } from "../RowAction";
 
 function columnsFor(t: T): Column<SsoIdentity>[] {
@@ -76,6 +76,8 @@ function LinkDialog({ onClose }: { onClose: () => void }) {
   const [username, setUsername] = useState("");
   const [provider, setProvider] = useState("");
   const [subject, setSubject] = useState("");
+  const [tried, setTried] = useState(false);
+  const required = t("settings.shared.required");
   const link = useMutation({
     mutationFn: () => linkIdentity({ username, provider, subject: subject.trim() }),
     onSuccess: (linked) => {
@@ -107,7 +109,7 @@ function LinkDialog({ onClose }: { onClose: () => void }) {
           <Button disabled={link.isPending} onClick={onClose}>
             {t("settings.shared.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={link.isPending} disabled={username === "" || provider === "" || subject.trim() === ""}>
+          <Button type="submit" form={formId} variant="primary" loading={link.isPending}>
             {t("ssoAdmin.identities.linkDialog.action")}
           </Button>
         </>
@@ -119,11 +121,18 @@ function LinkDialog({ onClose }: { onClose: () => void }) {
         className="flex flex-col gap-5"
         onSubmit={(event: SyntheticEvent<HTMLFormElement>) => {
           event.preventDefault();
-          if (!link.isPending) link.mutate();
+          if (link.isPending) return;
+          // The button is never off for a missing value: it says what is missing, where, and goes there.
+          if (username === "" || provider === "" || subject.trim() === "") {
+            setTried(true);
+            focusFirstInvalid(formId);
+            return;
+          }
+          link.mutate();
         }}
       >
         {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("ssoAdmin.identities.linkDialog.failed")} /> : null}
-        <Field label={t("ssoAdmin.identities.linkDialog.account")} nativeLabel={false} error={errors.fields.username}>
+        <Field label={t("ssoAdmin.identities.linkDialog.account")} nativeLabel={false} error={errors.fields.username ?? (tried && username === "" ? required : undefined)}>
           <Select
             options={people.map((account) => ({ value: account.username, label: account.username }))}
             value={username === "" ? null : username}
@@ -131,14 +140,14 @@ function LinkDialog({ onClose }: { onClose: () => void }) {
             mono
           />
         </Field>
-        <Field label={t("ssoAdmin.identities.linkDialog.provider")} nativeLabel={false} error={errors.fields.provider}>
+        <Field label={t("ssoAdmin.identities.linkDialog.provider")} nativeLabel={false} error={errors.fields.provider ?? (tried && provider === "" ? required : undefined)}>
           <Select
             options={providers.map((item) => ({ value: item.name, label: item.label }))}
             value={provider === "" ? null : provider}
             onValueChange={setProvider}
           />
         </Field>
-        <Field label={t("ssoAdmin.identities.linkDialog.subject")} description={t("ssoAdmin.identities.linkDialog.subjectHelp")} error={errors.fields.subject}>
+        <Field label={t("ssoAdmin.identities.linkDialog.subject")} description={t("ssoAdmin.identities.linkDialog.subjectHelp")} error={errors.fields.subject ?? (tried && subject.trim() === "" ? required : undefined)}>
           <Input mono autoComplete="off" spellCheck={false} value={subject} onValueChange={setSubject} />
         </Field>
       </form>

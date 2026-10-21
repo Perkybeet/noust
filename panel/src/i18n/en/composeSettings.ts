@@ -28,7 +28,6 @@ export const composeSettings = {
     label: "Services",
     description: "Build and start only these (and what they depend on). Empty means every service.",
   },
-  save: "Save",
   saved: "The Compose settings of {domain} were saved. They apply to the next update.",
   notSaved: "The Compose settings of {domain} were not saved",
   reset: "Forget these choices",
@@ -39,7 +38,7 @@ export const composeSettings = {
   networks: {
     title: "Docker networks",
     description: "The networks the stack is on and who else is on them, as Docker reports it. Read only.",
-    loading: "Reading the stack's networks",
+    loading: "Loading the stack's networks",
     readFailed: "Could not read the stack's networks",
     none: "The stack is on no Docker network now. Its containers are not running.",
     isolated: "Isolated: every network is the stack's own and nothing else is on it.",
@@ -52,4 +51,8 @@ export const composeSettings = {
     other: "Other stack",
   },
   fromTerminal: "The same, from a terminal",
+  page: {
+    title: "Compose",
+    description: "What the stack is built and started with, the Docker networks it is on and the registry accounts it pulls with.",
+  },
 } as const;

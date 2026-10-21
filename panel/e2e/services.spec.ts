@@ -121,7 +121,7 @@ test("checks the unit with systemd-analyze before saving, and blocks a save it r
   await page.getByRole("button", { name: "Test", exact: true }).click();
   expect((await verified).status()).toBe(200);
 
-  await expect(page.getByText(/systemd-analyze rejected the unit/)).toBeVisible();
+  await expect(page.getByText(/systemd-analyze rejected the service file/)).toBeVisible();
   await expect(page.getByText(/Service has no ExecStart= setting\. Refusing\./)).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Confirm it's you" })).toHaveCount(0);
   await expectNoA11yViolations(page, "the unit file after a failed test");

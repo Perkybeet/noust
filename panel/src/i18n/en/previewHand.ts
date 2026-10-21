@@ -6,14 +6,8 @@
 export const previewHand = {
   statusStopped: "Stopped",
   exposure: {
-    unreviewedTitle: "A preview runs code nobody has reviewed",
-    unreviewedBody:
-      "A preview is given only what you choose here: the variables you name and an empty database of its own. Pull requests from forks, and on GitHub from anyone but owners, members and collaborators, get none unless you choose to approve them one by one below; bots only when allowed below.",
-    allTitle: "Previews get this app's variables",
-    allBody:
-      "Every variable of the app, except those never copied, reaches code written by anyone who can open a pull request. Choose the ones a preview needs instead.",
-    sharedTitle: "Previews write into this app's databases",
-    sharedBody: "A pull request's code connects to the databases the app uses, and can change them. Give each preview a database of its own instead.",
+    allRisk: "Every variable of the app, bar those never copied, reaches code written by pull request authors.",
+    sharedRisk: "A pull request's code connects to the app's databases and can change them.",
   },
   given: {
     title: "What a preview is given",
@@ -46,7 +40,7 @@ export const previewHand = {
     openAria: "Open the preview of {name}",
     actionsAria: "Actions for the preview of {name}",
     logs: "Logs",
-    redeploy: "Redeploy",
+    redeploy: "Update",
     stop: "Stop",
     start: "Start",
     remove: "Remove",
@@ -82,12 +76,12 @@ export const previewHand = {
   create: {
     title: "New preview",
     description: "Build a preview of a pull request, a branch or a tag now, without waiting for a webhook.",
-    sourceLegend: "Make it from",
+    sourceLegend: "Create it from",
     pr: "Pull request",
     branch: "Branch",
     tag: "Tag",
     prListLabel: "Open pull requests",
-    prLoading: "Reading the open pull requests",
+    prLoading: "Loading the open pull requests",
     prNone: "No pull request is open against the repository.",
     prFailedTitle: "Could not read the open pull requests",
     prFailedHint: "Reading them needs this server's GitHub App on the repository. Make the preview from a branch instead.",

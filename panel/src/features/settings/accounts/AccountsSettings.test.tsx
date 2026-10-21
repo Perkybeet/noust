@@ -6,6 +6,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
 import type { RecordedCall, RouteHandler } from "../../../test/fakes";
+import { findLoadedRegion } from "../../../test/regions";
 
 /** A screen as wide as a desktop's: tables are tables, not the phone's card rows. */
 beforeEach(() => {
@@ -90,7 +91,7 @@ describe("Settings > Accounts", () => {
   it("lists every account with its state, role and second factor, and passes axe", { timeout: 20_000 }, async () => {
     accountsBackend();
     const { container } = renderConsole("/settings/accounts");
-    const table = await screen.findByRole("region", { name: "Every account" });
+    const table = await findLoadedRegion("Every account");
     const row = (name: string) => {
       const found = within(table).getByText(name).closest("tr");
       if (found === null) throw new Error(`no row for ${name}`);

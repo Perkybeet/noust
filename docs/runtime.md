@@ -13,7 +13,7 @@ what may be a secret: the text of a file, of a mount, or a download.
 
 - [Processes](#processes)
 - [Copies of the web process](#copies-of-the-web-process)
-- [Unit security](#unit-security)
+- [Service security](#service-security)
 - [Tuning the unit](#tuning-the-unit)
 - [Disk: what an application takes, and a limit](#disk-what-an-application-takes-and-a-limit)
 - [Could it run on several servers?](#could-it-run-on-several-servers)
@@ -87,7 +87,7 @@ is two releases side by side. They exclude each other. What cannot run twice (a 
 Compose stack, a monorepo, a site with routes of its own, Apache) is refused with the reason.
 The ports are Noust's to pick and keep, so scaling down and up brings the same ones back.
 
-## Unit security
+## Service security
 
 An application's unit already had `NoNewPrivileges`, `PrivateTmp` and, since 3.2, an account of
 its own. From 3.4 it can also have the rest of what systemd takes away for free:
@@ -128,7 +128,7 @@ shared account, the server health card says so under **Application accounts**.
 See [releases.md](releases.md#the-account-an-application-runs-as).
 
 Over the API: `GET /api/apps/{domain}/hardening` (`apps.read`) and `PUT` (`apps.manage`). In the
-console it is **Unit security** in the application's settings.
+console it is **Service security** in the application's settings.
 
 ## Tuning the unit
 
@@ -185,7 +185,7 @@ noust app tuning clear shop.example.com
 Over the API: `GET /api/apps/{domain}/tuning` (`apps.read`) and `PUT` (`apps.manage`, sudo mode; a
 job). `PUT` carries the whole tuning, so a client changes one option by sending the rest as it read
 them. In the console the limits and ulimits are under **More limits** in the application's
-**Resources**, and the capabilities and devices in **Unit security**.
+**Resources**, and the capabilities and devices in **Service security**.
 
 ## Disk: what an application takes, and a limit
 

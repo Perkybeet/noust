@@ -8,6 +8,7 @@
  * the guard refuses any change that would close SSH or a public console.
  */
 
+import { Power } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -16,6 +17,7 @@ import { CommandHint } from "../../../components/page/CommandHint";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
@@ -28,17 +30,17 @@ import { Menu, MenuItem } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
-import { LoadingRegion } from "../../../components/page/LoadingRegion";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonSection } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock } from "../errors";
+import { ServerErrorBlock, useServerConfirm, ServerQueryState } from "../errors";
+import { typedHost } from "../friction";
 import { firewallQuery, identityQuery } from "../queries";
 import type { Firewall, FirewallRule, ListeningPort } from "../queries";
 import { useServerJob } from "../serverJob";
+import { SystemOutput } from "../../../components/ui/SystemOutput";
 
 /** A port that is open by accident: a database or internal service answering everyone, or Docker around the firewall. */
 export function isExposed(port: Pick<ListeningPort, "verdict" | "risky" | "reachable">): boolean {
@@ -202,25 +204,23 @@ function Protected({ firewall }: { firewall: Firewall }) {
 /** The firewall view of the Security tab. */
 export function FirewallView() {
   const t = useT();
-  const jobs = useServerJob();
   const query = useQuery(firewallQuery());
+  return (
+    <ServerQueryState query={query} label={t("server.firewall.label")} skeleton={<SkeletonSection rows={4} />}>
+      {(data) => <FirewallPanel data={data} />}
+    </ServerQueryState>
+  );
+}
+
+function FirewallPanel({ data }: { data: Firewall }) {
+  const t = useT();
+  const confirmation = useServerConfirm();
+  const jobs = useServerJob();
   const identity = useQuery(identityQuery());
   const hostname = identity.data?.hostname.hostname ?? "";
   const [opened, setOpened] = useState<Opened>(null);
   const [rule, setRule] = useState({ action: "allow", port: "", proto: "tcp", source: "any", comment: "" });
 
-  if (query.isError && query.data === undefined) {
-    return <ServerErrorBlock error={query.error} title={t("server.firewall.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
-  }
-  if (query.data === undefined) {
-    return (
-      <LoadingRegion label={t("server.firewall.loading")} className="flex flex-col gap-4">
-        <Skeleton className="h-5 w-72" />
-        <Skeleton className="h-64 w-full rounded-card" />
-      </LoadingRegion>
-    );
-  }
-  const data = query.data;
   const state = data.firewall;
   const bypass = data.ports.filter((port) => port.verdict === "docker_bypass");
   const exposed = data.ports.filter((port) => port.verdict !== "docker_bypass" && port.risky !== "" && port.reachable);
@@ -255,7 +255,7 @@ export function FirewallView() {
               </Button>
             </>
           ) : state.installed ? (
-            <Button variant="primary" onClick={() => setOpened({ kind: "enable" })}>
+            <Button icon={<Power aria-hidden="true" />} variant="primary" onClick={() => setOpened({ kind: "enable" })}>
               {t("server.firewall.enable")}
             </Button>
           ) : null}
@@ -282,63 +282,84 @@ export function FirewallView() {
           </div>
         </Notice>
       ) : null}
-      {[...state.warnings, ...state.others].map((warning) => (
-        <Notice key={warning} tone="warning">
-          {warning}
-        </Notice>
-      ))}
+      {state.warnings.length + state.others.length > 0 ? (
+        // What the firewall tool itself said is shown as it said it, not as a third banner.
+        <SystemOutput label={t("server.firewall.toolSaid")}>{[...state.warnings, ...state.others].join("\n")}</SystemOutput>
+      ) : null}
       <Ports firewall={data} />
       {state.backend !== "none" ? <Rules firewall={data} onDelete={(target) => setOpened({ kind: "delete", rule: target })} /> : null}
       <Protected firewall={data} />
       <CommandHint command="noust server security firewall status" label={t("server.fromTerminal")} />
 
       {opened?.kind === "enable" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          {...typedHost(hostname)}
+          destructive={false}
+          size="md"
           title={t("server.firewall.enableTitle")}
           description={t("server.firewall.enableDescription")}
           actionLabel={t("server.firewall.enableAction")}
-          confirmText={hostname !== "" ? hostname : undefined}
-          onClose={() => setOpened(null)}
           onConfirm={() => run(() => request("post", "/api/server/security/firewall/enable"))}
         >
           <Protected firewall={data} />
-          <Notice>{t("server.firewall.reverts")}</Notice>
-        </ActionDialog>
+          <p className="text-13 text-fg-muted">{t("server.firewall.reverts")}</p>
+        </ConfirmDialog>
       ) : null}
       {opened?.kind === "disable" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          {...typedHost(hostname)}
+          size="md"
           title={t("server.firewall.disableTitle")}
           description={t("server.firewall.disableDescription")}
           actionLabel={t("server.firewall.disableAction")}
-          destructive
-          confirmText={hostname !== "" ? hostname : undefined}
-          onClose={() => setOpened(null)}
           onConfirm={() => run(() => request("post", "/api/server/security/firewall/disable"))}
         >
-          <Notice>{t("server.firewall.revertsDisable")}</Notice>
-        </ActionDialog>
+          <p className="text-13 text-fg-muted">{t("server.firewall.revertsDisable")}</p>
+        </ConfirmDialog>
       ) : null}
       {opened?.kind === "delete" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          friction="simple"
+          size="md"
           title={t("server.firewall.deleteTitle", { rule: `${rulePorts(opened.rule)}/${opened.rule.proto}` })}
           description={t("server.firewall.deleteDescription")}
           actionLabel={t("server.firewall.deleteAction")}
-          destructive
-          onClose={() => setOpened(null)}
           onConfirm={() => run(() => request("delete", "/api/server/security/firewall/rules/{rule_id}", { params: { rule_id: opened.rule.id } }))}
         >
           <p className="text-13">
             <Mono>{opened.rule.spec}</Mono>
           </p>
-          <Notice>{t("server.firewall.reverts")}</Notice>
-        </ActionDialog>
+          <p className="text-13 text-fg-muted">{t("server.firewall.reverts")}</p>
+        </ConfirmDialog>
       ) : null}
       {opened?.kind === "add" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          friction="simple"
+          destructive={false}
+          size="md"
           title={t("server.firewall.addTitle")}
           description={t("server.firewall.addDescription")}
           actionLabel={t("server.firewall.addAction")}
-          onClose={() => setOpened(null)}
           onConfirm={() =>
             run(() =>
               request("post", "/api/server/security/firewall/rules", {
@@ -379,8 +400,8 @@ export function FirewallView() {
           <Field label={t("server.firewall.form.comment")} optional>
             <Input value={rule.comment} onValueChange={(comment: string) => setRule((current) => ({ ...current, comment }))} autoComplete="off" />
           </Field>
-          <Notice>{t("server.firewall.reverts")}</Notice>
-        </ActionDialog>
+          <p className="text-13 text-fg-muted">{t("server.firewall.reverts")}</p>
+        </ConfirmDialog>
       ) : null}
     </div>
   );

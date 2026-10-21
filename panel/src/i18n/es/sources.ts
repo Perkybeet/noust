@@ -98,6 +98,7 @@ export const sources: Catalog<typeof en> = {
       assigned: "{domain} usa ahora la clave {name}",
       notAssigned: "No se asignó la clave",
       optionLine: "{name}, {fingerprint}",
+      required: "Elige una clave.",
     },
     removeDialog: {
       title: "¿Quitar la clave de despliegue de {domain}?",

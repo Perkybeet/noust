@@ -728,7 +728,7 @@ noust app backup-before-update proggest.es off      # or on
 ```
 
 or `backup.databases: off` in `noust.yaml`, or `PATCH /api/apps/{domain}/backup-before-update`
-with `{"enabled": false}` (`apps.manage`, sudo mode), or the application's Settings > Deploys in
+with `{"enabled": false}` (`apps.manage`, sudo mode), or the application's Settings > Automation in
 the console. `GET /api/apps/{domain}` shows `backup_before_update`.
 
 **Restoring.** With the stack's service reachable through its compose file:

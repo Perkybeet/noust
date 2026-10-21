@@ -101,7 +101,6 @@ describe("git push, off", () => {
     expect(form.getByLabelText(/^Public key/)).toBeInTheDocument();
     expect(form.getByRole("button", { name: "Turn on git push" })).toBeEnabled();
     expect(form.queryByText("This server does not take git pushes yet")).not.toBeInTheDocument();
-    expect(form.getByText(`noust push enable ${DOMAIN} --key-file ~/.ssh/id_ed25519.pub --label laptop`)).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -203,7 +202,6 @@ describe("git push, on", () => {
     expect(within(keys).getByText("laptop")).toBeInTheDocument();
     expect(within(keys).getByText("SHA256:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG")).toBeInTheDocument();
     expect(form.getByText(/A key serves one application/)).toBeInTheDocument();
-    expect(form.getByText(`noust push show ${DOMAIN}`)).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -311,7 +309,8 @@ describe("an application a push cannot deploy", () => {
     const form = within(card());
 
     expect(form.getByText(/Git push needs the release layout, and this application builds in place/)).toBeInTheDocument();
-    expect(form.getByText(`noust app migrate ${DOMAIN}`)).toBeInTheDocument();
+    // The way forward is the page where instant rollback is turned on, not a command to type.
+    expect(form.getByRole("link", { name: "Releases and rollback" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/deploys`);
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/push`)).toHaveLength(0);
   });
 

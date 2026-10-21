@@ -37,7 +37,7 @@ function system(extra: Record<string, RouteHandler> = {}) {
 
 async function openZoneDialog(user: ReturnType<typeof renderConsole>["user"]) {
   await user.click(await screen.findByRole("button", { name: "Change time zone" }));
-  return screen.findByRole("dialog", { name: "Change the time zone" });
+  return screen.findByRole("alertdialog", { name: "Change the time zone" });
 }
 
 describe("timeInZone", () => {
@@ -108,7 +108,7 @@ describe("changing the server's time zone (item 54)", { timeout: 20_000 }, () =>
     await act(() => setLocale("es"));
     const { user } = system();
     await user.click(await screen.findByRole("button", { name: "Cambiar la zona horaria" }));
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("alertdialog");
     await user.click(await within(dialog).findByRole("combobox"));
     const options = within(await screen.findByRole("listbox")).getAllByRole("option");
     expect(options.some((option) => option.textContent.includes("En uso"))).toBe(true);

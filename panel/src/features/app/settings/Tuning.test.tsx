@@ -22,7 +22,7 @@ function resources(tuning: object = NO_TUNING, routes: Parameters<typeof renderS
 }
 
 function security(tuning: object = NO_TUNING, routes: Parameters<typeof renderSettings>[3] = {}) {
-  return renderSettings("/security", "Unit security", undefined, {
+  return renderSettings("/security", "Service security", undefined, {
     "GET /api/auth/session": () => json(200, ELEVATED),
     [`GET /api/apps/${DOMAIN}/hardening`]: () =>
       json(200, { domain: DOMAIN, profile: "default", configured: true, eligible: true, reason: null, writable_paths: [], directives: [], exposure: null, exposure_label: null, unit: null }),

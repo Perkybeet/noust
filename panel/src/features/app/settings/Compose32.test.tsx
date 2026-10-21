@@ -39,6 +39,25 @@ describe("deploy hooks in an app's settings", { timeout: 20_000 }, () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
+  it("says in one line that no hook runs, and keeps the two phases when one of them has a hook", async () => {
+    const none = await renderSettings("/hooks", "Deploy hooks", COMPOSE_APP, {
+      [`GET /api/apps/${DOMAIN}/hooks`]: () => json(200, { ...REPO_HOOKS, pre_deploy: [], post_deploy: [] }),
+    });
+    await screen.findByRole("heading", { name: "In use" });
+    const inUse = within(part("In use"));
+    expect(await inUse.findByText("No hook runs before or after the new version serves.")).toBeInTheDocument();
+    expect(inUse.queryByText("Before serving")).not.toBeInTheDocument();
+    none.unmount();
+
+    await renderSettings("/hooks", "Deploy hooks", COMPOSE_APP, {
+      [`GET /api/apps/${DOMAIN}/hooks`]: () => json(200, { ...REPO_HOOKS, pre_deploy: [] }),
+    });
+    await screen.findByRole("heading", { name: "In use" });
+    const phases = within(part("In use"));
+    expect(await phases.findByText("Before serving")).toBeInTheDocument();
+    expect(phases.getByText("Nothing runs here.")).toBeInTheDocument();
+  });
+
   it("shows why the repository's noust.yaml is not valid, verbatim", async () => {
     await renderSettings("/hooks", "Deploy hooks", COMPOSE_APP, {
       [`GET /api/apps/${DOMAIN}/hooks`]: () => json(200, { ...REPO_HOOKS, repository_error: "hooks.pre_deploy[0].user: unknown key" }),
@@ -79,7 +98,7 @@ describe("deploy hooks in an app's settings", { timeout: 20_000 }, () => {
 
   it("speaks Spanish", async () => {
     await act(() => setLocale("es"));
-    await renderSettings("/hooks", "Ganchos de despliegue", COMPOSE_APP, { [`GET /api/apps/${DOMAIN}/hooks`]: () => json(200, REPO_HOOKS) });
+    await renderSettings("/hooks", "Hooks de despliegue", COMPOSE_APP, { [`GET /api/apps/${DOMAIN}/hooks`]: () => json(200, REPO_HOOKS) });
     expect(await screen.findByText("Del repositorio")).toBeInTheDocument();
   });
 });
@@ -132,7 +151,7 @@ describe("tags and the account in General", { timeout: 20_000 }, () => {
 
 describe("zero-downtime deploys for a Compose stack", { timeout: 20_000 }, () => {
   it("lists what stands in the way, each a fix, instead of asking for instant rollback", async () => {
-    await renderSettings("/deploys", "Deploys", COMPOSE_APP, {
+    await renderSettings("/deploys", "Releases and rollback", COMPOSE_APP, {
       [`GET /api/apps/${DOMAIN}/zero-downtime`]: () =>
         json(200, {
           ...ZERO_DOWNTIME_OFF,
@@ -144,14 +163,14 @@ describe("zero-downtime deploys for a Compose stack", { timeout: 20_000 }, () =>
     await screen.findByRole("list", { name: "What to change first" });
     const card = part("Zero-downtime deploys");
     expect(within(card).queryByText(/They need instant rollback/)).not.toBeInTheDocument();
-    expect(card.querySelector("[data-feature-state]")).toHaveAttribute("data-state", "off");
+    expect(within(card).getByText("Off")).toBeInTheDocument();
     const problems = within(card).getByRole("list", { name: "What to change first" });
     expect(within(problems).getAllByRole("listitem")).toHaveLength(2);
     expect(within(problems).getByText(/add include \/etc\/nginx\/noust-upstreams\/shop-example-com\/backend\.servers; inside upstream nestjs_upstream/)).toBeInTheDocument();
   });
 
   it("offers turning the relay on when the stack can have it, in its own words", async () => {
-    await renderSettings("/deploys", "Deploys", COMPOSE_APP, {});
+    await renderSettings("/deploys", "Releases and rollback", COMPOSE_APP, {});
     await screen.findByRole("button", { name: "Turn on…" });
     const card = part("Zero-downtime deploys");
     expect(within(card).getByText(/Each web service's new container starts beside the running one/)).toBeInTheDocument();
@@ -160,9 +179,11 @@ describe("zero-downtime deploys for a Compose stack", { timeout: 20_000 }, () =>
 });
 
 describe("the copy of a stack's databases before an update", { timeout: 20_000 }, () => {
+  const LABEL = "Back up the databases before each update";
+
   it("is on, asks before switching it off, and switches it on again at once", async () => {
     let app: object = { ...COMPOSE_APP, backup_before_update: true };
-    const { user, backend } = await renderSettings("/deploys", "Deploys", app, {
+    const { user, backend } = await renderSettings("/automation", "Automation", app, {
       ...ELEVATED_SESSION,
       [`GET /api/apps/${DOMAIN}`]: () => json(200, app),
       [`PATCH /api/apps/${DOMAIN}/backup-before-update`]: (call) => {
@@ -171,8 +192,7 @@ describe("the copy of a stack's databases before an update", { timeout: 20_000 }
         return json(200, { domain: DOMAIN, backup_before_update: enabled, previous: !enabled });
       },
     });
-    const card = part("Copy of the databases before an update");
-    const toggle = within(card).getByRole("switch", { name: "Copy the databases before each update" });
+    const toggle = await screen.findByRole("switch", { name: LABEL });
     expect(toggle).toBeChecked();
     await user.click(toggle);
     const dialog = await screen.findByRole("alertdialog", { name: `Stop copying the databases of ${DOMAIN} before an update?` });
@@ -182,19 +202,20 @@ describe("the copy of a stack's databases before an update", { timeout: 20_000 }
     await waitFor(() => {
       expect(backend.callsTo(`PATCH /api/apps/${DOMAIN}/backup-before-update`).map((call) => call.body)).toEqual([{ enabled: false }]);
     });
-    expect(await within(card).findByText(/Off: an update takes no copy of the databases/)).toBeInTheDocument();
-    await user.click(within(card).getByRole("switch", { name: "Copy the databases before each update" }));
+    // While it is off the row says what that costs, in one line.
+    expect(await screen.findByText("An update takes no copy of the databases.")).toBeInTheDocument();
+    await user.click(screen.getByRole("switch", { name: LABEL }));
     await waitFor(() => {
       expect(backend.callsTo(`PATCH /api/apps/${DOMAIN}/backup-before-update`).map((call) => call.body)).toEqual([{ enabled: false }, { enabled: true }]);
     });
     await waitFor(() => {
-      expect(within(card).queryByText(/Off: an update takes no copy of the databases/)).not.toBeInTheDocument();
+      expect(screen.queryByText("An update takes no copy of the databases.")).not.toBeInTheDocument();
     });
   });
 
   it("is not offered for an app that is not a stack, nor by a server that does not report it", async () => {
-    await renderSettings("/deploys", "Deploys", { ...RELEASE_APP, backup_before_update: true });
-    expect(screen.queryByRole("heading", { name: "Copy of the databases before an update" })).not.toBeInTheDocument();
+    await renderSettings("/automation", "Automation", { ...RELEASE_APP, backup_before_update: true });
+    expect(screen.queryByRole("switch", { name: LABEL })).not.toBeInTheDocument();
   });
 });
 

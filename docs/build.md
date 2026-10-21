@@ -122,7 +122,7 @@ build:                             build:
 
 `--build-file` is refused for a monorepo or Docker Compose project, and with `--recipe`.
 
-In the console, **Settings > Build commands** is this block: the six keys for what the type can
+In the console, **Settings > Build** is this block: the six keys for what the type can
 honour, where the commands come from (this application's own settings, the repository's
 `noust.yaml` or the type), the rule that the operator's block wins whole, and what the service was
 last written from. Saving asks for sudo mode. Runtimes cannot be listed from the console (no
@@ -573,7 +573,7 @@ noust app packages remove shop.example.com ffmpeg               # stops declarin
 ```
 
 `PUT /api/apps/{domain}/packages` records the list, `POST .../packages/install` queues the job that
-installs it, and the **System packages** card of **Build commands** does both. The next update
+installs it, and the **System packages** card of **Build** does both. The next update
 installs whatever is missing before it installs dependencies or builds, so a rebuilt server brings
 them back by itself; if they cannot be installed the update stops and what serves keeps serving.
 

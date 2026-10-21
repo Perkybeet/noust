@@ -4,38 +4,12 @@
  * finds, is shown as it was written.
  */
 export const samlAdmin = {
-  title: "SAML providers",
-  description:
-    "A SAML 2.0 identity provider people sign in with, such as Entra ID, Okta, Keycloak or ADFS. Its response must be signed by a certificate you give here; the account's own second factor still follows.",
-  loadingLabel: "SAML providers",
-  tableCaption: "Configured SAML providers",
-  add: "Add a SAML provider",
-  emptyTitle: "No SAML provider yet",
-  emptyDescription: "Add one with the metadata your identity provider publishes, then register this server with it.",
-  column: {
-    provider: "Provider",
-    state: "State",
-    entity: "Identity provider",
-    certificate: "Signing certificate",
-    signUp: "A first sign-in",
-  },
-  state: {
-    enabled: "Enabled",
-    disabled: "Disabled",
-  },
   certificate: {
     expired: "Expired",
-    none: "None",
   },
-  testLabel: "Test {name}",
-  test: "Test",
-  editLabel: "Edit {name}",
-  edit: "Edit",
-  removeLabel: "Remove {name}",
-  remove: "Remove",
   plainHttpTitle: "This console is not served over HTTPS",
   plainHttp:
-    "This console is reached over plain HTTP. A SAML provider answers with a form posted from its own site, which a browser only sends the sign-in cookie with over HTTPS, so no SAML sign-in can finish until the console is served over TLS.",
+    "A SAML provider posts a form from its own site, and a browser sends the sign-in cookie with it only over HTTPS. Serve the console over TLS.",
   form: {
     createTitle: "Add a SAML provider",
     editTitle: "Edit {name}",
@@ -61,6 +35,7 @@ export const samlAdmin = {
     idp: {
       title: "The identity provider",
       metadata: "Its metadata",
+      needed: "Give the metadata, or the entity ID, the sign-on address and a certificate.",
       metadataHelp: "Paste the XML the provider publishes: it fills the three settings below, and what you type beside it wins.",
       entityId: "Entity ID",
       entityIdHelp: "What its assertions name as their issuer.",
@@ -92,7 +67,6 @@ export const samlAdmin = {
     title: "Remove {name}?",
     description: "People linked to it can no longer sign in with it. Their accounts stay as they are.",
     action: "Remove provider",
-    toast: "Removed the SAML provider {name}",
   },
   savedToast: "Saved the SAML provider {name}",
 } as const;

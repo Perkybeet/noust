@@ -104,9 +104,9 @@ describe("inside an application", () => {
     const { user } = renderConsole("/apps/shop.example.com");
     await screen.findByRole("heading", { level: 1 });
 
-    await search(user, "build commands");
+    await search(user, "build");
 
-    expect(await screen.findByRole("option", { name: /Settings, Build commands: shop.example.com/ })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /Settings, Build: shop.example.com/ })).toBeInTheDocument();
   });
 
   it("opens the section it finds", async () => {
@@ -135,8 +135,8 @@ describe("inside an application", () => {
     const { user } = renderConsole("/cron");
     await screen.findByRole("heading", { level: 1 });
 
-    await search(user, "build commands");
+    await search(user, "build");
 
-    await waitFor(() => expect(screen.queryByRole("option", { name: /Build commands: / })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("option", { name: /Build: / })).not.toBeInTheDocument());
   });
 });

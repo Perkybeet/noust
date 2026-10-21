@@ -12,12 +12,14 @@ import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { ChoiceCards } from "../../../components/ui/ChoiceCards";
 import { Dialog } from "../../../components/ui/Dialog";
-import { Field } from "../../../components/ui/Field";
+import { EmptyState } from "../../../components/ui/EmptyState";
+import { Field, GroupError } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { previewName } from "./previews";
+import { LoadingRegion } from "../../../components/page";
 
 type Source = "pr" | "branch" | "tag";
 
@@ -121,15 +123,14 @@ function CreatePreviewForm({ domain, onGithub, formId, onPending, onDone }: Form
       ) : null}
       {source === "pr" ? (
         pulls.isPending ? (
-          <div aria-busy="true" className="flex flex-col gap-2">
-            <span className="sr-only">{t("previewHand.create.prLoading")}</span>
+          <LoadingRegion label={t("previewHand.create.prLoading")} className="flex flex-col gap-2">
             <Skeleton className="h-14 w-full rounded-control" />
             <Skeleton className="h-14 w-full rounded-control" />
-          </div>
+          </LoadingRegion>
         ) : pulls.isError ? (
           <ErrorBlock compact error={pulls.error} title={t("previewHand.create.prFailedTitle")} hint={t("previewHand.create.prFailedHint")} onRetry={() => void pulls.refetch()} retrying={pulls.isRefetching} />
         ) : pulls.data.pull_requests.length === 0 ? (
-          <p className="text-13 text-fg-muted">{t("previewHand.create.prNone")}</p>
+          <EmptyState variant="inline" title={t("previewHand.create.prNone")} />
         ) : (
           <div className="flex flex-col gap-3">
             <div className="max-h-72 overflow-y-auto scroll-thin">
@@ -145,7 +146,7 @@ function CreatePreviewForm({ domain, onGithub, formId, onPending, onDone }: Form
                 }))}
               />
             </div>
-            {submitted && missing !== null ? <p className="text-13 text-fail">{missing}</p> : null}
+            {submitted && missing !== null ? <GroupError id="preview-pull-missing">{missing}</GroupError> : null}
             {chosen?.from_fork === true ? (
               <Checkbox label={t("previewHand.create.allowForkLabel")} description={t("previewHand.create.allowForkDescription")} checked={allowFork} onCheckedChange={setAllowFork} />
             ) : null}

@@ -6,12 +6,12 @@
  * login since the change, which proves the way in still works; a session that was already open
  * proves nothing, because reloading sshd or changing the firewall leaves open connections be.
  *
- * The banner says that calmly, on every tab, with the time left and the two ways out, and it
- * shows whether that login has happened yet: the server reports it with each change
- * (`proof_seen`, from the very check Keep makes), the changes are read again every few seconds
- * while one is pending, and Keep stays off, with its reason next to it, until the login is on
- * record. Asking the operator to press a button that is certain to be refused is what this
- * replaces.
+ * The banner is one sentence, the time left and the two ways out: the change, and where the proof
+ * stands. The server reports the proof with each change (`proof_seen`, from the very check Keep
+ * makes), the changes are read again every few seconds while one is pending, and Keep stays off,
+ * with its reason described, until the login is on record. Asking the operator to press a button
+ * that is certain to be refused is what this replaces. How to keep it, what the proof means and
+ * the terminal's way are behind "Details", in a drawer, so the banner never grows.
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,11 +22,13 @@ import { CommandHint } from "../../components/page/CommandHint";
 import { useNow } from "../../components/page/clock";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { Drawer } from "../../components/ui/Drawer";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
+import { textLinkClassName } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { formatClock } from "../../lib/format";
 import { useNode } from "../../nodes/useNode";
@@ -72,45 +74,58 @@ export function proofOf(change: PendingChange): Proof {
 }
 
 /**
- * The proof as a step: its state in a shape and a word (a waiting dashed ring, a green dot, a
- * warning triangle), and under it what that means for Keep. A polite status, because it changes
+ * Where the proof stands, in one line: a still dashed ring while it is awaited, a green dot once
+ * it is seen, a warning triangle when it cannot be read. A polite status, because it changes
  * once, when the login arrives: the operator who is in another terminal hears that Keep is on.
+ * The banner's one sentence, and the description of Keep while Keep is off.
  */
-function ProofStep({ id, proof }: { id: string; proof: Proof }) {
+function ProofLine({ id, change, proof }: { id: string; change: PendingChange; proof: Proof }) {
   const t = useT();
-  // Nothing to say about a proof the server did not report.
-  if (proof.kind === "unknown") return null;
-  const state: Status = proof.kind === "seen" ? "running" : proof.kind === "waiting" ? "queued" : "warning";
+  const state: Status = proof.kind === "seen" ? "running" : proof.kind === "unknown" ? "queued" : proof.kind === "waiting" ? "queued" : "warning";
   return (
-    <div id={id} role="status" className="flex min-w-0 items-start gap-2.5">
+    <span id={id} role="status" className="inline-flex min-w-0 items-start gap-1.5">
       <StatusGlyph state={state} size={12} className={`mt-1 shrink-0 ${stateTextClass(state)}`} />
-      <div className="flex min-w-0 flex-col gap-0.5">
-        {proof.kind === "seen" ? (
+      <span className="min-w-0">
+        {/* The change's own name, as Noust recorded it. */}
+        <span className="font-medium text-fg">{change.title}.</span>{" "}
+        {proof.kind === "seen"
+          ? t.rich("server.pending.proofSeen", {
+              user: <Mono>{proof.user}</Mono>,
+              source: <Mono>{proof.source}</Mono>,
+              time: formatClock(new Date(proof.at * 1000), t.locale),
+            })
+          : proof.kind === "waiting"
+            ? t("server.pending.proofWaiting")
+            : proof.kind === "unreadable"
+              ? t("server.pending.proofUnreadable")
+              : t("server.pending.proofUnknown")}
+      </span>
+    </span>
+  );
+}
+
+/** What the banner leaves out: how to keep the change, what the proof means, and the terminal's way. */
+function PendingDetails({ change, proof, open, onOpenChange }: { change: PendingChange; proof: Proof; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const t = useT();
+  const firewall = change.kind.startsWith("firewall");
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange} size="md" title={t("server.pending.detailsTitle")} description={change.title}>
+      <div className="flex flex-col gap-4 text-13 text-fg-muted">
+        {/* What to do comes before where it stands, and is gone once it is done. */}
+        {proof.kind !== "seen" ? <p>{firewall ? t("server.pending.howFirewall") : t("server.pending.howSsh")}</p> : null}
+        {proof.kind === "seen" ? <p>{t("server.pending.proofSeenDetail")}</p> : null}
+        {proof.kind === "waiting" ? <p>{t("server.pending.proofWaitingDetail")}</p> : null}
+        {proof.kind === "unreadable" ? (
           <>
-            <p className="font-medium text-fg">
-              {t.rich("server.pending.proofSeen", {
-                user: <Mono>{proof.user}</Mono>,
-                source: <Mono>{proof.source}</Mono>,
-                time: formatClock(new Date(proof.at * 1000), t.locale),
-              })}
-            </p>
-            <p>{t("server.pending.proofSeenDetail")}</p>
-          </>
-        ) : proof.kind === "waiting" ? (
-          <>
-            <p className="font-medium text-fg">{t("server.pending.proofWaiting")}</p>
-            <p>{t("server.pending.proofWaitingDetail")}</p>
-          </>
-        ) : (
-          <>
-            <p className="font-medium text-fg">{t("server.pending.proofUnreadable")}</p>
             <p>{t("server.pending.proofUnreadableDetail")}</p>
             {/* Why, in the system's own words. */}
             {proof.error !== "" ? <SystemOutput label={t("server.pending.proofUnreadableLabel")}>{proof.error}</SystemOutput> : null}
           </>
-        )}
+        ) : null}
+        <CommandHint command={`noust server security confirm ${change.id}`} label={t("server.pending.fromTerminal")} />
+        <p className="text-12">{t.rich("server.pending.id", { id: <Mono>{change.id}</Mono> })}</p>
       </div>
-    </div>
+    </Drawer>
   );
 }
 
@@ -121,6 +136,7 @@ function PendingChangeBanner({ change }: { change: PendingChange }) {
   const now = useNow(() => 1_000);
   const proofId = useId();
   const [revertOpen, setRevertOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const refresh = (): void => {
     void queryClient.invalidateQueries({ queryKey: serverKeys.changes });
     void queryClient.invalidateQueries({ queryKey: serverKeys.security });
@@ -177,7 +193,7 @@ function PendingChangeBanner({ change }: { change: PendingChange }) {
             size="sm"
             loading={confirm.isPending}
             disabled={!canKeep}
-            // A disabled button does not say why: the step beside it does.
+            // A disabled button does not say why: the line beside it does.
             aria-describedby={canKeep ? undefined : proofId}
             onClick={() => confirm.mutate()}
           >
@@ -187,17 +203,15 @@ function PendingChangeBanner({ change }: { change: PendingChange }) {
       }
     >
       <div className="flex min-w-0 flex-col gap-2">
-        {/* The change's own name, as Noust recorded it. */}
-        <p>{t.rich("server.pending.what", { change: <span className="font-medium">{change.title}</span> })}</p>
-        {/* What to do comes before where it stands, and is gone once it is done. */}
-        {proof.kind === "waiting" || proof.kind === "unknown" ? (
-          <p>{firewall ? t("server.pending.howFirewall") : t("server.pending.howSsh")}</p>
-        ) : null}
-        <ProofStep id={proofId} proof={proof} />
-        <CommandHint command={`noust server security confirm ${change.id}`} label={t("server.pending.fromTerminal")} />
+        <p>
+          <ProofLine id={proofId} change={change} proof={proof} />{" "}
+          <button type="button" className={textLinkClassName("inline")} onClick={() => setDetailsOpen(true)}>
+            {t("server.pending.details")}
+          </button>
+        </p>
         {confirm.isError ? <ServerErrorBlock live compact error={confirm.error} title={t("server.pending.confirmFailed")} /> : null}
-        <p className="text-12 text-fg-muted">{t.rich("server.pending.id", { id: <Mono>{change.id}</Mono> })}</p>
       </div>
+      <PendingDetails change={change} proof={proof} open={detailsOpen} onOpenChange={setDetailsOpen} />
       <ConfirmDialog
         open={revertOpen}
         onOpenChange={setRevertOpen}

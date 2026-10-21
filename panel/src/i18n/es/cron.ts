@@ -2,7 +2,6 @@ import type { cron as en } from "../en/cron";
 import type { Catalog } from "../types";
 
 export const cron: Catalog<typeof en> = {
-  area: "Tareas programadas",
 
   common: {
     cancel: "Cancelar",
@@ -40,7 +39,7 @@ export const cron: Catalog<typeof en> = {
     title: "Cron",
     description: "Comandos que el servidor ejecuta según un horario.",
     newJob: "Nueva tarea",
-    loadError: "No se pudieron cargar las tareas programadas",
+    what: "las tareas programadas",
     filterAria: "Filtrar tareas programadas",
     searchAria: "Buscar tareas programadas",
     searchPlaceholder: "Buscar por nombre o comando",
@@ -76,7 +75,7 @@ export const cron: Catalog<typeof en> = {
 
   deleteDialog: {
     title: "Eliminar {name}",
-    description: "Elimina el temporizador y su unidad de servicio. Esto no se puede deshacer.",
+    description: "Elimina el temporizador y su servicio. Esto no se puede deshacer.",
   },
 
   dialog: {
@@ -122,9 +121,8 @@ export const cron: Catalog<typeof en> = {
   runsDrawer: {
     titleFor: "Ejecuciones de {name}",
     titleDefault: "Ejecuciones",
-    description: "Las más recientes primero, leídas del journal de la unidad.",
-    loadError: "No se pudo cargar el historial de ejecuciones",
-    loading: "Cargando el historial de ejecuciones",
+    description: "Las más recientes primero, leídas del journal del servicio.",
+    what: "el historial de ejecuciones",
     empty: "Esta tarea aún no se ha ejecutado.",
     noExitCode: "Sin código de salida",
     exitCode: "Salida {code}",
@@ -134,7 +132,7 @@ export const cron: Catalog<typeof en> = {
 
   ledger: {
     title: "{missed} sin ejecutarse y {late} tarde en los últimos 7 días",
-    description: "Un temporizador recupera una ejecución del tiempo que el servidor estuvo apagado y no dice nada de las demás. Estos momentos tocaban y no se ejecutaron a tiempo.",
+    description: "Un temporizador recupera una ejecución del tiempo que el servidor estuvo apagado y no dice nada de las demás.",
     listLabel: "Ocurrencias que no se ejecutaron a tiempo",
     allRan: { one: "La única ocurrencia de los últimos 7 días se ejecutó a tiempo.", other: "Las {count} ocurrencias de los últimos 7 días se ejecutaron a tiempo." },
     late: "se ejecutó tarde: recuperada después",

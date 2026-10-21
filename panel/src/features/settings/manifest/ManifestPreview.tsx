@@ -1,3 +1,4 @@
+import { Eye } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
@@ -20,6 +21,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
+import { focusFirstInvalid } from "../formErrors";
 import type { T } from "../../../i18n";
 import { useJobInHand } from "../../jobs/useJobInHand";
 import { SettingsPrimaryAction } from "../SettingsShell";
@@ -77,7 +79,7 @@ function columnsFor(t: T): Column<ManifestAction>[] {
           {/* What will happen, as the planner wrote it: it names the application's own values. */}
           <span className="text-13 text-fg">{action.summary}</span>
           <span className="flex flex-wrap gap-1.5">
-            {action.elevated ? <Badge tone="warn">{t("manifestPreview.result.needsSudo")}</Badge> : null}
+            {action.elevated ? <Badge>{t("manifestPreview.result.needsSudo")}</Badge> : null}
             {action.unverified ? <Badge>{t("manifestPreview.result.unchecked")}</Badge> : null}
           </span>
         </span>
@@ -112,7 +114,9 @@ function Result({ plan, apply }: { plan: ManifestPlan; apply: ReactNode }) {
         </Notice>
       ) : null}
       {plan.unmanaged.length > 0 ? (
-        <Notice title={t("manifestPreview.result.unmanagedTitle")}>{t("manifestPreview.result.unmanagedBody", { names: plan.unmanaged.join(", ") })}</Notice>
+        <p className="text-13 text-fg-muted">
+          <span className="font-medium text-fg">{t("manifestPreview.result.unmanagedTitle")}.</span> {t("manifestPreview.result.unmanagedBody", { names: plan.unmanaged.join(", ") })}
+        </p>
       ) : null}
       <p className="text-13 text-fg-muted">{t("manifestPreview.result.applyHint")}</p>
       {apply}
@@ -133,6 +137,7 @@ export function ManifestPreview() {
   const formId = useId();
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
+  const [tried, setTried] = useState(false);
   // The text the plan on screen was made from: what is applied is exactly this, never what the
   // box holds now, and the digest of that plan travels with it so the server refuses a stale one.
   const [previewed, setPreviewed] = useState<string | null>(null);
@@ -150,7 +155,14 @@ export function ManifestPreview() {
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (!preview.isPending && text.trim() !== "") preview.mutate(text);
+    if (preview.isPending) return;
+    // The button is never off for a missing value: it says what is missing, where, and goes there.
+    if (text.trim() === "") {
+      setTried(true);
+      focusFirstInvalid(formId);
+      return;
+    }
+    preview.mutate(text);
   };
 
   const plan = preview.data;
@@ -168,14 +180,14 @@ export function ManifestPreview() {
   return (
     <Sections>
       <SettingsPrimaryAction>
-        <Button type="submit" form={formId} variant="primary" loading={preview.isPending} disabled={text.trim() === ""}>
+        <Button icon={<Eye aria-hidden="true" />} type="submit" form={formId} variant="primary" loading={preview.isPending}>
           {t("manifestPreview.form.preview")}
         </Button>
       </SettingsPrimaryAction>
       <Section title={t("manifestPreview.intro.title")} description={t("manifestPreview.intro.description")}>
         <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-4">
           {preview.isError ? <ErrorBlock live compact error={preview.error} title={t("manifestPreview.form.errorTitle")} /> : null}
-          <Field label={t("manifestPreview.form.label")} description={t("manifestPreview.form.help")}>
+          <Field label={t("manifestPreview.form.label")} description={t("manifestPreview.form.help")} error={tried && text.trim() === "" ? t("settings.shared.required") : undefined}>
             <Textarea
               mono
               rows={14}

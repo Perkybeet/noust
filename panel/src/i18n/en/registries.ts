@@ -77,9 +77,7 @@ export const registries = {
     readFailed: "Could not read the registry accounts",
     none: "There are no registry accounts yet.",
     manage: "Manage the accounts",
-    save: "Save",
     saved: "The accounts of {domain} were saved",
-    saveFailed: "The accounts could not be saved",
     fromTerminal: "The same, from a terminal",
   },
 } as const;

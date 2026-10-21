@@ -53,7 +53,7 @@ const ZERO_DOWNTIME_ON = {
 const ZD_JOB = jobOf("zd1", "zero_downtime");
 
 function deploys(app: object = RELEASE_APP, routes: Record<string, RouteHandler> = {}) {
-  return renderSettings("/deploys", "Deploys", app, {
+  return renderSettings("/deploys", "Releases and rollback", app, {
     [`GET /api/apps/${DOMAIN}/releases`]: () => json(200, RELEASES),
     ...routes,
   });
@@ -278,6 +278,26 @@ describe("turning on instant rollback", () => {
   });
 });
 
+describe("zero-downtime deploys, as a feature of the page", () => {
+  it("is off with its state in the header of the card and says what a deploy does until it is turned on", async () => {
+    await deploys(RELEASE_APP, { [`GET /api/apps/${DOMAIN}/zero-downtime`]: () => json(200, ZERO_DOWNTIME_OFF) });
+    await screen.findByRole("button", { name: "Turn on…" });
+    const card = part("Zero-downtime deploys");
+    expect(within(card).getByText("Off")).toBeInTheDocument();
+    expect(within(card).getByText("A deploy restarts the app, which drops connections for a moment.")).toBeInTheDocument();
+    // No tinted block says it: the state is a small pill and the risk is not spoken of until it matters.
+    expect(within(card).queryByText(/Two copies of the app run at once/)).not.toBeInTheDocument();
+  });
+
+  it("is on with the risk as one line, beside which copy serves", async () => {
+    await deploys(RELEASE_APP, { [`GET /api/apps/${DOMAIN}/zero-downtime`]: () => json(200, ZERO_DOWNTIME_ON) });
+    const card = await screen.findByRole("heading", { name: "Zero-downtime deploys" }).then(() => part("Zero-downtime deploys"));
+    expect(await within(card).findByText("Two copies of the app run at once for a few seconds.")).toBeInTheDocument();
+    expect(within(card).getByRole("list", { name: "Copies of the app" })).toBeInTheDocument();
+    expect(within(card).getByText("Live")).toBeInTheDocument();
+  });
+});
+
 describe("zero-downtime deploys, by default", () => {
   it("says a new application that can run twice starts with it on, and that this one restarts until it is turned on", async () => {
     await deploys(RELEASE_APP, { [`GET /api/apps/${DOMAIN}/zero-downtime`]: () => json(200, ZERO_DOWNTIME_OFF) });
@@ -317,7 +337,7 @@ describe("zero-downtime deploys", () => {
     await user.click(within(card).getByRole("button", { name: "Turn on…" }));
 
     const dialog = await screen.findByRole("dialog", { name: `Turn on zero-downtime deploys for ${DOMAIN}?` });
-    expect(within(dialog).getByText("Two copies of the app run at once for a few seconds")).toBeInTheDocument();
+    expect(within(dialog).getByText("Two copies of the app run at once for a few seconds.")).toBeInTheDocument();
     expect(within(dialog).getByText(/a SQLite database both copies write to/)).toBeInTheDocument();
     const drain = within(dialog).getByRole("textbox", { name: "Keep the old version for" });
     expect(drain).toHaveValue("10");
@@ -379,7 +399,7 @@ describe("zero-downtime deploys", () => {
       [`PUT /api/apps/${DOMAIN}/zero-downtime`]: () => json(202, accepted(ZD_JOB)),
       [`GET /api/jobs/${ZD_JOB.id}`]: () => json(200, { ...ZD_JOB, status: "completed", progress: 100 }),
     });
-    await user.click(await screen.findByRole("button", { name: "Turn off" }));
+    await user.click(await screen.findByRole("button", { name: "Turn off…" }));
     const dialog = await screen.findByRole("alertdialog", { name: `Turn off zero-downtime deploys for ${DOMAIN}?` });
     expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/zero-downtime`)).toHaveLength(0);
     await user.click(within(dialog).getByRole("button", { name: "Turn off" }));
@@ -450,7 +470,7 @@ describe("the Deploys subsection in Spanish", () => {
   it("speaks of the benefit, with no accessibility violations", async () => {
     await deploys(IN_PLACE_APP);
     await act(() => setLocale("es"));
-    expect(await screen.findByRole("heading", { level: 2, name: "Despliegues" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Versiones y vuelta atrás" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Vuelta atrás instantánea" })).toBeInTheDocument();
     expect(screen.getByText(/^Actualizaciones seguras/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Activar la vuelta atrás instantánea…" })).toBeInTheDocument();

@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { isApiError } from "../../api/client";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Button } from "../../components/ui/Button";
@@ -79,12 +80,11 @@ function SchedulePreview({ schedule }: { schedule: string }) {
 
   if (preview.data === undefined) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-1.5 rounded-control border border-border bg-bg-sunken p-3">
-        <span className="sr-only">{t("cron.dialog.checkingSchedule")}</span>
+      <LoadingRegion label={t("cron.dialog.checkingSchedule")} className="flex flex-col gap-1.5 rounded-control border border-border bg-bg-sunken p-3">
         <Skeleton className="h-3.5 w-48" />
         <Skeleton className="h-3.5 w-64" />
         <Skeleton className="h-3.5 w-56" />
-      </div>
+      </LoadingRegion>
     );
   }
 

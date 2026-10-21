@@ -46,6 +46,13 @@ const ELEVATION = {
   server: /status of 403 .*\/api\/server\/terminal$/,
 };
 
+/** The text view is a checkbox in the Display menu, which closes again so the terminal has the keyboard. */
+async function toggleTextView(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Display" }).click();
+  await page.getByRole("checkbox", { name: /Text view/ }).click();
+  await page.keyboard.press("Escape");
+}
+
 async function openTerminal(page: Page, consoleServer: Parameters<typeof confirmItsYou>[1]): Promise<void> {
   await page.getByRole("button", { name: "Open terminal" }).click();
   await confirmItsYou(page, consoleServer);
@@ -60,7 +67,11 @@ test("a terminal opens as the application, draws a shell and ends when the shell
 
   // Before it opens: what it is, what is kept of it, and one button.
   await expect(page.getByRole("heading", { name: `A shell as ${APP}` })).toBeVisible();
+  await expect(page.getByText("As the account the application runs as, in its sandbox.")).toBeVisible();
+  // The rest of what it is stays behind one button, which says what is kept of it.
+  await page.getByRole("button", { name: "How this session works" }).click();
   await expect(page.getByText(/Everything you type and everything it prints is kept in the audit trail/)).toBeVisible();
+  await page.keyboard.press("Escape");
   await settle(page);
   await expectNoA11yViolations(page, "the terminal before it opens");
 
@@ -74,9 +85,9 @@ test("a terminal opens as the application, draws a shell and ends when the shell
 
   // The keyboard is the terminal's without a click, and the screen is drawn on a canvas.
   await expect(terminal(page)).toBeFocused();
-  await page.getByRole("switch", { name: /Text view/ }).click();
+  await toggleTextView(page);
   await expect(textView(page)).toContainText("Fake terminal: nothing here runs on this machine.");
-  await page.getByRole("switch", { name: /Text view/ }).click();
+  await toggleTextView(page);
   await expect(textView(page)).toBeHidden();
   await expect.poll(() => coloursDrawn(page.locator("canvas").first())).toBeGreaterThan(1);
 
@@ -86,7 +97,7 @@ test("a terminal opens as the application, draws a shell and ends when the shell
   await page.keyboard.press("Enter");
   await page.keyboard.type("whoami");
   await page.keyboard.press("Enter");
-  await page.getByRole("switch", { name: /Text view/ }).click();
+  await toggleTextView(page);
   await expect(textView(page)).toContainText("hello from the shell");
   // The account the header names is the one the shell says it is.
   const account = (await header.locator("[translate='no']").nth(1).innerText()).trim();
@@ -106,7 +117,7 @@ test("a terminal opens as the application, draws a shell and ends when the shell
   await terminal(page).focus();
   await page.keyboard.type("exit");
   await page.keyboard.press("Enter");
-  await expect(page.getByText("The shell exited.")).toBeVisible();
+  await expect(page.getByText("The shell exited.").first()).toBeVisible();
   await expect(page.getByText("Ended", { exact: true })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a terminal after its shell ended");
@@ -114,7 +125,7 @@ test("a terminal opens as the application, draws a shell and ends when the shell
   await page.getByRole("button", { name: "Open a new terminal" }).click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "End session" }).click();
-  await expect(page.getByText("The session was ended.")).toBeVisible();
+  await expect(page.getByText("The session was ended.").first()).toBeVisible();
 });
 
 test("the grid follows the window, and the keyboard can leave the terminal", async ({ page, consoleServer, problems }) => {
@@ -200,7 +211,7 @@ test("the server's own terminal is a root shell, and says so", async ({ page, co
   await confirmItsYou(page, consoleServer);
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   await expect(page.getByRole("group", { name: "Terminal session" })).toContainText("root");
-  await page.getByRole("switch", { name: /Text view/ }).click();
+  await toggleTextView(page);
   await expect(page.getByRole("region", { name: "Terminal contents as text" })).toContainText("Fake terminal");
 });
 

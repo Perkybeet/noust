@@ -6,6 +6,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RecordedCall } from "../../test/fakes";
+import { findLoadedRegion } from "../../test/regions";
 import { callFromSnapshot, validateApprovalsSearch } from "./data";
 
 beforeEach(() => {
@@ -66,7 +67,7 @@ describe("the approvals inbox", () => {
         elevated ? json(200, request(7, { state: "approved", decision_comment: (call.body as { comment: string }).comment })) : problem(403, "elevation_required", "Confirm it's you"),
     });
     const { user, container } = renderConsole("/settings/approvals");
-    const table = await screen.findByRole("region", { name: "Approval requests" });
+    const table = await findLoadedRegion("Approval requests");
     // What it does in plain words, from the catalogs; the backend's own English stays out of it.
     expect(await within(table).findByText("A change with the power of root: a service, a scheduled command or a web server configuration")).toBeInTheDocument();
     expect(within(table).queryByText("Write a unit file: it runs as root")).not.toBeInTheDocument();
@@ -115,7 +116,8 @@ describe("the approvals inbox", () => {
       "GET /api/approvals": () => json(200, { approvals: [], pending: 0 }),
     });
     renderConsole("/settings/approvals");
-    expect(await screen.findByText("Approvals are off on this server")).toBeInTheDocument();
+    expect(await screen.findByText("Off", { selector: "[data-state]" })).toHaveAttribute("data-state", "stopped");
+    expect(screen.getByText(/Nothing waits for a second person here/)).toBeInTheDocument();
     expect(await screen.findByText("Nothing waits for approval.")).toBeInTheDocument();
   });
 });
