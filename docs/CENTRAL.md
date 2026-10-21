@@ -346,7 +346,8 @@ noust node add web-5 --ssh noust-tunnel@10.0.0.5 --join-code - \
 ```
 
 In the console it is **Fleet > Servers > the server's menu > Connection options**
-(`GET` and `PUT /api/nodes/{node}/ssh`).
+(`GET` and `PUT /api/nodes/{node}/ssh`; the line a new bastion needs is asked for first with
+`POST /api/nodes/{node}/ssh/authorization`, as `--show` does).
 
 - **The bastion's host key is given, never learnt.** A new bastion needs `--bastion-fingerprint`
   (`SHA256:...` as `ssh-keygen -lf` prints it, checked against what the bastion answers) or

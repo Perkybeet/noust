@@ -1323,6 +1323,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/nodes/{node}/key` | GET `fleet.manage` | The central's key for a new server and the command to run on it |
 | `/api/nodes/{node}/monitoring` | PUT `fleet.manage` | Pause a server's monitoring for maintenance, or resume it: a paused server is not asked, not counted as down and never announced |
 | `/api/nodes/{node}/ssh` | GET `fleet.read`; PUT `fleet.manage`, sudo | How the central connects to a server: the wait for the connection (1 to 300 seconds) and a bastion with its pinned host key; setting it is tried first and put back when the server does not answer. A bastion's host key is given (`fingerprint` or `host_key`), never learnt on first use |
+| `/api/nodes/{node}/ssh/authorization` | POST `fleet.manage` | The line the bastion's operator adds, asked for with the bastion that is about to be set (its address and key or fingerprint); changes nothing, so the bastion can let the central in before the change is tried |
 | `/api/nodes/{node}/test` | POST `fleet.read` |  |
 
 ### Configuration, integrations and recipes

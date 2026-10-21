@@ -77,6 +77,10 @@ Each release has up to four lists:
   `webhook_headers` setting of the generic webhook channel.
 - The log-shipping kind `newrelic` (and `region`).
 - The DNS check's `cdn` is also `fastly`, `bunnycdn` or `arvancloud`.
+- `POST /api/nodes/{node}/ssh/authorization` (`fleet.manage`): the line a bastion's operator adds,
+  asked for with the bastion the operator means to set, before setting it, as `noust node ssh NAME
+  --bastion ... --show` does. Setting a bastion opens the tunnel through it, which cannot work until
+  the bastion lets the central in; `GET .../ssh` gave the line only once the bastion was set.
 
 ## 3.4.0
 
