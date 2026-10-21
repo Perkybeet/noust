@@ -153,7 +153,6 @@ class TestAutomaticRun:
         monkeypatch.setattr(os, "geteuid", lambda: 0)
         monkeypatch.delenv("INVOCATION_ID", raising=False)
         monkeypatch.delenv("_NOUST_COMPLETE", raising=False)
-        monkeypatch.delenv("_WASM_COMPLETE", raising=False)
         monkeypatch.setattr(name_migration, "_MARKED_PLACES", ())
         return tmp_path / "state" / "name-migration.json"
 

@@ -218,7 +218,7 @@ def run_automatically(argv: list[str], announce: Callable[[str], None]) -> list[
     environ = os.environ
     if os.geteuid() != 0 or environ.get("INVOCATION_ID") or "--dry-run" in argv:
         return None
-    if any(key in environ for key in ("_NOUST_COMPLETE", "_WASM_COMPLETE")):
+    if "_NOUST_COMPLETE" in environ:
         return None
     record = _state_file()
     if record.is_file():

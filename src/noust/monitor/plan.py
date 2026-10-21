@@ -10,7 +10,7 @@ and "Compose" on its own, and a PHP application had no answer at all). A
 application                    where CPU and memory are  when there is nothing
 =============================  ========================  ==========================
 in place / releases            its unit's cgroup         stopped, unit missing,
-                               (``wasm-*`` legacy names  accounting off, no cgroup
+                               (legacy unit names        accounting off, no cgroup
                                included)
 blue/green                     both instances of the     as above
                                template unit, summed
@@ -43,6 +43,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from noust.core import legacy_names
 from noust.core.exceptions import DeploymentError, NoustError
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import is_compose_backed, runs_as_instances
@@ -511,7 +512,7 @@ class PlanBuilder:
             kind = KIND_BLUE_GREEN
         elif getattr(app, "app_type", None) == "monorepo":
             kind = KIND_MONOREPO
-        elif units and units[0].startswith("wasm-"):
+        elif units and units[0].startswith(legacy_names.UNIT_PREFIX):
             kind = KIND_LEGACY
         else:
             kind = KIND_UNIT

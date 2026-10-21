@@ -949,8 +949,8 @@ class EnvManager:
 
         The file records the variable inventory, defaults included, so it is
         written 0600 inside a 0700 directory. Nothing but Noust reads ``.noust``,
-        so tightening that directory costs the deployment nothing. A ``.wasm``
-        directory an earlier release left is renamed first, with what is in it.
+        so tightening that directory costs the deployment nothing. A directory
+        an earlier release left under the old name is renamed first, with what is in it.
 
         Args:
             app_path: Application root path.

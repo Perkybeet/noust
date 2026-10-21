@@ -1310,7 +1310,7 @@ class HardeningChecks:
 
     def _inline_secrets_check(self) -> Check:
         """
-        Find application units that still carry their variables inline (WASM 1.x).
+        Find application units that still carry their variables inline (1.x wrote them so).
 
         A unit is 0644 and ``systemctl show`` prints its environment to any
         local user; the variables belong in the application's 0600 ``.env``.

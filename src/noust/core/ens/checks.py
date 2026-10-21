@@ -430,6 +430,7 @@ def exposure_from_installation() -> ConsoleExposure | None:
 
     from noust.central import setup
     from noust.cli.commands.web import PANEL_TLS_CERT, options_from_argv, running_daemon
+    from noust.core import paths
     from noust.core.net import ALL_INTERFACES
     from noust.managers.service_manager import ServiceManager
 
@@ -445,7 +446,7 @@ def exposure_from_installation() -> ConsoleExposure | None:
         )
     options = None
     source = "none"
-    for unit in ("noust-web", "wasm-web"):
+    for unit in (paths.WEB_UNIT, paths.LEGACY_WEB_UNIT):
         unit_file = Path(ServiceManager.SYSTEMD_DIR) / f"{unit}.service"
         try:
             text = unit_file.read_text()

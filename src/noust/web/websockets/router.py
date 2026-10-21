@@ -396,14 +396,14 @@ async def websocket_logs(
     Stream application logs in real-time.
 
     Connect with the session cookie, with ``Sec-WebSocket-Protocol:
-    noust.auth, noust.token.<token>`` (the ``wasm.`` spelling of before 4.0 is answered in
+    noust.auth, noust.token.<token>`` (the spelling of before 4.0 is answered in
     kind), or with ``?ticket=<single-use ticket>``.
 
     Only a unit Noust manages is streamed. What the path names is resolved by
     :func:`_resolve_log_units`: an application's domain streams the unit(s)
     that application runs as, from the one mapping in
     :meth:`~noust.managers.service_manager.ServiceManager.app_units` (so a
-    legacy ``wasm-`` unit, a Compose unit and a monorepo's workspaces are all
+    unit with the legacy prefix, a Compose unit and a monorepo's workspaces are all
     found); anything else is taken as a unit name. Every unit is then judged by
     :meth:`~noust.managers.service_manager.ServiceManager.inspect_unit`, the
     ownership rule ``GET /api/services/{name}/logs`` and every other service
@@ -643,7 +643,7 @@ async def websocket_events(websocket: WebSocket, ticket: str | None = Query(defa
             "json",
             "-u",
             f"{paths.UNIT_PREFIX}*",
-            # WASM's own units, until the migration renames them.
+            # Units with the prefix of before 3.0 and 0.14.1.
             "-u",
             f"{paths.LEGACY_UNIT_PREFIX}*",
             stdout=asyncio.subprocess.PIPE,
