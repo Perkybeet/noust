@@ -144,8 +144,23 @@ export function SecondFactor({ session, onDone, optional }: SecondFactorProps) {
       if (value === "" || confirm.isPending) return;
       confirm.mutate(value);
     };
+    // The other ways out of this form: another factor, and (where it can wait) later. Where it can
+    // wait they come first, so "Set up later" is on screen with the QR code and not below it.
+    const ways = (
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={() => setState({ stage: "choose" })}>
+          {t("auth.gate.otherWay")}
+        </Button>
+        {optional !== undefined ? (
+          <Button variant="ghost" size="sm" onClick={optional.onSkip}>
+            {t("auth.firstAccount.later")}
+          </Button>
+        ) : null}
+      </div>
+    );
     return (
       <div className="flex flex-col gap-5">
+        {optional !== undefined ? ways : null}
         <TotpSetup layout="narrow" uri={state.enrollment.uri} secret={state.enrollment.secret}>
           <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-4">
             <Field label={t("settings.security.twoFactor.enroll.codeLabel")} error={codeError.fields.code}>
@@ -170,16 +185,7 @@ export function SecondFactor({ session, onDone, optional }: SecondFactorProps) {
             </Button>
           </form>
         </TotpSetup>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setState({ stage: "choose" })}>
-            {t("auth.gate.otherWay")}
-          </Button>
-          {optional !== undefined ? (
-            <Button variant="ghost" size="sm" onClick={optional.onSkip}>
-              {t("auth.firstAccount.later")}
-            </Button>
-          ) : null}
-        </div>
+        {optional === undefined ? ways : null}
       </div>
     );
   }

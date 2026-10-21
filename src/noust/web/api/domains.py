@@ -47,7 +47,12 @@ from noust.deployers.domains import (
     set_domain_port,
 )
 from noust.deployers.name_certificates import NameBinding, bindings, set_certificate
-from noust.deployers.temporary_domain import application_name, is_temporary, suggest
+from noust.deployers.temporary_domain import (
+    NoPublicAddressError,
+    application_name,
+    is_temporary,
+    suggest,
+)
 from noust.managers.site_policy import SitePolicyManager
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain, strict_server_name
@@ -793,15 +798,25 @@ class TemporaryNameResponse(BaseModel):
         service: The service that answers it.
         declared: Whether the address was declared (``dns.public_addresses``) rather than
             read from a network interface.
+        available: Only present, as false, when this server has no public address to make a name
+            of (it is behind NAT and none is declared): the name and the address are then empty.
+            An answer, not an error: the console asks on every new application.
+        reason: With ``available`` false, why not.
+        hint: With ``available`` false, how to declare the address.
     """
 
     address: str
     domain: str
-    service: str
+    service: str = "sslip.io"
     declared: bool = False
+    available: bool | None = None
+    reason: str | None = None
+    hint: str | None = None
 
 
-@dns_router.get("/temporary", response_model=TemporaryNameResponse)
+@dns_router.get(
+    "/temporary", response_model=TemporaryNameResponse, response_model_exclude_unset=True
+)
 def get_temporary_name(
     session: Annotated[dict[str, Any], Depends(get_current_session)],
     prefix: Annotated[
@@ -844,12 +859,22 @@ def get_temporary_name(
         image: The registry image it is deployed from, read the same way.
 
     Returns:
-        The name and the address it is made of.
+        The name and the address it is made of; for a server with no public address, an answer
+        that says ``available: false`` with why and how to declare one (200, not an error).
 
     Raises:
-        DomainError: This server has no public address (400, saying how to declare one).
+        DomainError: Ninety-nine applications already have the prefix (400).
     """
-    found = suggest(application_name(prefix=prefix, source=source, image=image))
+    try:
+        found = suggest(application_name(prefix=prefix, source=source, image=image))
+    except NoPublicAddressError as error:
+        return TemporaryNameResponse(
+            address="",
+            domain="",
+            available=False,
+            reason=error.message,
+            hint=error.details or None,
+        )
     return TemporaryNameResponse(
         address=found.address, domain=found.domain, service=found.service, declared=found.declared
     )

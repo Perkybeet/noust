@@ -178,7 +178,7 @@ def test_the_api_says_the_name_without_adding_it(
     }
 
 
-def test_the_api_refuses_with_the_way_to_declare_when_there_is_no_public_address(
+def test_the_api_answers_with_the_way_to_declare_when_there_is_no_public_address(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(temporary_domain, "Config", lambda: SimpleNamespace(get=lambda key: []))
@@ -186,8 +186,25 @@ def test_the_api_refuses_with_the_way_to_declare_when_there_is_no_public_address
 
     response = client.get("/api/domains/temporary")
 
-    assert response.status_code == 400
-    assert "dns.public_addresses" in response.text
+    # An answer about the server, not a failed request: the console asks on every new application,
+    # and a server behind NAT must not make every browser log an error for it.
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["available"] is False
+    assert body["address"] == ""
+    assert body["domain"] == ""
+    assert "no public address" in body["reason"]
+    assert "dns.public_addresses" in body["hint"]
+
+
+def test_the_command_still_refuses_when_there_is_no_public_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(temporary_domain, "Config", lambda: SimpleNamespace(get=lambda key: []))
+    monkeypatch.setattr(temporary_domain, "machine_addresses", lambda: ("10.0.0.2",))
+
+    with pytest.raises(temporary_domain.NoPublicAddressError, match="no public address"):
+        temporary_domain.suggest()
 
 
 def test_the_domains_of_an_application_mark_the_temporary_ones(

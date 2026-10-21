@@ -42,6 +42,16 @@ MAX_PREFIX = 40
 _MAX_NUMBER = 99
 
 
+class NoPublicAddressError(DomainError):
+    """
+    This server has no public address to make a name of.
+
+    Its own class because it is not a failure of a request but an answer about the server: the
+    console asks on every new application, and a server behind NAT says "not here" without an
+    error status for the browser to log.
+    """
+
+
 @dataclass(frozen=True)
 class TemporaryName:
     """
@@ -267,7 +277,7 @@ def _public_address() -> tuple[str, bool]:
         The address, and whether it was declared rather than read from an interface.
 
     Raises:
-        DomainError: This server has no public address.
+        NoPublicAddressError: This server has no public address.
     """
     declared = [str(address) for address in Config().get("dns.public_addresses") or []]
     for address in declared:
@@ -278,7 +288,7 @@ def _public_address() -> tuple[str, bool]:
         key=lambda address: (ipaddress.ip_address(address).version, address),
     )
     if not found:
-        raise DomainError(
+        raise NoPublicAddressError(
             "This server has no public address to make a name of",
             details="It is behind NAT, or its address is private. Declare the public one with: "
             "noust config set dns.public_addresses 203.0.113.10",

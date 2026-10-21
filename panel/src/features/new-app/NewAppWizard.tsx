@@ -343,9 +343,11 @@ export function NewAppWizard() {
   /** The temporary address this application would get, or empty where the server cannot make one. */
   const temporaryFor = async (of: TemporaryNameOf): Promise<string> => {
     try {
-      return (await queryClient.query(temporaryNameQuery(of))).domain;
+      const found = await queryClient.query(temporaryNameQuery(of));
+      // Behind NAT with no declared address the server says so: no temporary address, and no error to show.
+      return found.available === false ? "" : found.domain;
     } catch {
-      // Behind NAT with no declared address: there is no temporary address, and that is no error to show.
+      // Ninety-nine applications of one name, or a server too old to know: the same, nothing to offer.
       return "";
     }
   };

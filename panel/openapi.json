@@ -53638,11 +53638,22 @@
         "type": "object"
       },
       "TemporaryNameResponse": {
-        "description": "A name for a server that has none, made of its public address.\n\nAttributes:\n    address: The public address.\n    domain: The name that resolves to it.\n    service: The service that answers it.\n    declared: Whether the address was declared (``dns.public_addresses``) rather than\n        read from a network interface.",
+        "description": "A name for a server that has none, made of its public address.\n\nAttributes:\n    address: The public address.\n    domain: The name that resolves to it.\n    service: The service that answers it.\n    declared: Whether the address was declared (``dns.public_addresses``) rather than\n        read from a network interface.\n    available: Only present, as false, when this server has no public address to make a name\n        of (it is behind NAT and none is declared): the name and the address are then empty.\n        An answer, not an error: the console asks on every new application.\n    reason: With ``available`` false, why not.\n    hint: With ``available`` false, how to declare the address.",
         "properties": {
           "address": {
             "title": "Address",
             "type": "string"
+          },
+          "available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available"
           },
           "declared": {
             "default": false,
@@ -53653,15 +53664,37 @@
             "title": "Domain",
             "type": "string"
           },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
           "service": {
+            "default": "sslip.io",
             "title": "Service",
             "type": "string"
           }
         },
         "required": [
           "address",
-          "domain",
-          "service"
+          "domain"
         ],
         "title": "TemporaryNameResponse",
         "type": "object"
@@ -92410,7 +92443,7 @@
     },
     "/api/domains/temporary": {
       "get": {
-        "description": "Work out a temporary name for this server, to add to an application like any other.\n\nIt is made of the server's public address (``203-0-113-10.sslip.io``), which sslip.io\nanswers with that address, so the name resolves here and a certificate can be ordered.\nWith a prefix it is the name of one application (``shop.203-0-113-10.sslip.io``), free\namong the names and the application names of the server. Nothing is added: the caller\nadds it with ``POST /api/apps/{domain}/domains``, or deploys an application under it.\n\nArgs:\n    session: Authenticated session, injected.\n    prefix: What the application is called.\n    source: What it is deployed from, read for its name when no prefix is given.\n    image: The registry image it is deployed from, read the same way.\n\nReturns:\n    The name and the address it is made of.\n\nRaises:\n    DomainError: This server has no public address (400, saying how to declare one).",
+        "description": "Work out a temporary name for this server, to add to an application like any other.\n\nIt is made of the server's public address (``203-0-113-10.sslip.io``), which sslip.io\nanswers with that address, so the name resolves here and a certificate can be ordered.\nWith a prefix it is the name of one application (``shop.203-0-113-10.sslip.io``), free\namong the names and the application names of the server. Nothing is added: the caller\nadds it with ``POST /api/apps/{domain}/domains``, or deploys an application under it.\n\nArgs:\n    session: Authenticated session, injected.\n    prefix: What the application is called.\n    source: What it is deployed from, read for its name when no prefix is given.\n    image: The registry image it is deployed from, read the same way.\n\nReturns:\n    The name and the address it is made of; for a server with no public address, an answer\n    that says ``available: false`` with why and how to declare one (200, not an error).\n\nRaises:\n    DomainError: Ninety-nine applications already have the prefix (400).",
         "operationId": "get_temporary_name_api_domains_temporary_get",
         "parameters": [
           {

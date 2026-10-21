@@ -9211,9 +9211,12 @@ TelegramSettingsResponse = TypedDict("TelegramSettingsResponse", {
 
 TemporaryNameResponse = TypedDict("TemporaryNameResponse", {
     "address": Required[str],
+    "available": NotRequired[Union[bool, None]],
     "declared": NotRequired[bool],
     "domain": Required[str],
-    "service": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "reason": NotRequired[Union[str, None]],
+    "service": NotRequired[str],
 })
 
 TerminalRequest = TypedDict("TerminalRequest", {

@@ -177,7 +177,7 @@ describe("the first application of a server without a domain", () => {
     const { harness } = emptyServer(
       { ...NEXT, env_keys: [] },
       {
-        "GET /api/domains/temporary": () => json(409, { error: "no_public_address", message: "This server's public address is not known", hint: "Declare it" }),
+        "GET /api/domains/temporary": () => json(200, { address: "", domain: "", available: false, reason: "This server has no public address to make a name of", hint: "Declare it" }),
       },
     );
     const { user } = harness;
@@ -291,7 +291,7 @@ describe("Try a demo", () => {
 
   it("stays on the form when the server cannot make a temporary address", { timeout: 30_000 }, async () => {
     const { backend } = demoServer({
-      "GET /api/domains/temporary": () => json(409, { error: "no_public_address", message: "This server's public address is not known", hint: "Declare it" }),
+      "GET /api/domains/temporary": () => json(200, { address: "", domain: "", available: false, reason: "This server has no public address to make a name of", hint: "Declare it" }),
     });
     expect(await screen.findByRole("heading", { level: 2, name: "Address and variables" })).toBeInTheDocument();
     expect(backend.callsTo("POST /api/apps")).toHaveLength(0);

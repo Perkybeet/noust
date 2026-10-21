@@ -127,35 +127,31 @@ serial("the first accounts are made from the console, and the new administrator 
   await page.getByLabel("Two-factor code").fill(consoleServer.secondFactor());
   await page.getByRole("button", { name: "Verify" }).click();
 
-  await expect(page.getByRole("heading", { level: 1, name: "Create the first account" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Create the administrator" })).toBeVisible();
   await stillness(page);
-  await expectNoA11yViolations(page, "the first account");
-  // Which field signs in and which one names the person, said where each is typed.
+  await expectNoA11yViolations(page, "the first administrator");
+  // The person's name and email are one disclosure away; which field signs in is said where it is typed.
   await expect(page.getByLabel(/^Username/)).toHaveAccessibleDescription(/^What you type to sign in/);
+  await page.getByRole("button", { name: "Name and email (optional)" }).click();
   await expect(page.getByLabel(/^Email/)).toHaveAccessibleDescription(/^Identifies the person/);
   await page.getByLabel(/^Username/).fill("ana");
   await page.getByLabel(/^Email/).fill("ana@example.com");
   await page.getByLabel(/^Password/).fill("violet harbor lantern 91");
   await page.getByRole("button", { name: "Create administrator" }).click();
+  // This server's token has a second factor, so the token alone cannot confirm it's the person.
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   await confirm.getByLabel("Authentication code").fill(consoleServer.secondFactor());
   await confirm.getByRole("button", { name: "Confirm" }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: "Add a security officer" })).toBeVisible();
+  await page.getByRole("button", { name: "Name and email (optional)" }).click();
   await page.getByLabel(/^Username/).fill("sec");
   await page.getByLabel(/^Email/).fill("sec@example.com");
   await page.getByLabel(/^Password/).fill("amber quarry window 57");
   await page.getByRole("button", { name: "Create security officer" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Accounts created" })).toBeVisible();
-  await page.getByRole("button", { name: "Sign in as ana" }).click();
 
-  // The administrator's first sign-in, by the email of the person (it names one account): no
-  // code is asked for a factor the account does not have yet; setting one up comes first.
-  await expect(page).toHaveURL(/\/login/);
-  await expect(page.getByLabel(/Two-factor code/)).toHaveCount(0);
-  await page.getByLabel("Username or email").fill("ana@example.com");
-  await page.getByLabel("Password").fill("violet harbor lantern 91");
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  // The administrator is signed in with what was just typed, and the policy asks for a second factor
+  // before anything else: setting one up comes first.
   await expect(page.getByRole("heading", { level: 1, name: "Set up a second factor" })).toBeVisible();
   await expect(page).toHaveURL(/\/welcome/);
   await stillness(page);

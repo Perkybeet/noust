@@ -28,7 +28,12 @@ describe("the access token held for the first administrator", () => {
 
   it("is never written to storage", () => {
     holdAccessToken("noust_tok_abc");
-    expect(JSON.stringify({ ...window.localStorage, ...window.sessionStorage })).not.toContain("noust_tok_abc");
+    for (const storage of [window.localStorage, window.sessionStorage]) {
+      for (let index = 0; index < storage.length; index += 1) {
+        const key = storage.key(index) ?? "";
+        expect(`${key}=${storage.getItem(key) ?? ""}`).not.toContain("noust_tok_abc");
+      }
+    }
     expect(document.cookie).not.toContain("noust_tok_abc");
   });
 });

@@ -34,8 +34,8 @@ export interface TemporaryNameOf {
 /**
  * The temporary address an application would get (`shop.203-0-113-10.sslip.io`): read out of the
  * repository, the image or the recipe it is deployed from, numbered when another application has
- * it. Fails with the way to declare the address on a server behind NAT, which the wizard takes as
- * "not available" and not as an error to show. Short-lived: another application may take it.
+ * it. A server behind NAT answers `available: false` with how to declare its address (an answer,
+ * not an error: the wizard asks on every new application). Short-lived: another application may take it.
  */
 export const temporaryNameQuery = (of: TemporaryNameOf) => {
   const query = {

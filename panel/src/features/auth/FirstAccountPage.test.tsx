@@ -54,16 +54,18 @@ interface Options {
   mfaRequired?: boolean;
   loginFails?: boolean;
   accountsRefused?: boolean;
+  /** The access token has a second factor: it cannot confirm on its own. */
+  totp?: boolean;
 }
 
 /**
  * A server with no accounts, entered with the access token. Making the administrator signs in with
  * it, so from then on the session is the account's.
  */
-function newServer({ split = false, mfaRequired = false, loginFails = false, accountsRefused = false }: Options = {}) {
+function newServer({ split = false, mfaRequired = false, loginFails = false, accountsRefused = false, totp = false }: Options = {}) {
   let account: typeof ACCOUNT | null = null;
   let signedOut = false;
-  const compat = { ...SESSION, grant: "compat", accounts_exist: false };
+  const compat = { ...SESSION, grant: "compat", accounts_exist: false, totp_enabled: totp };
   const adminSession = () => ({ ...SESSION, grant: null, role: "admin", accounts_exist: true, account, mfa_required: mfaRequired });
   return fakeBackend({
     ...signedInRoutes(compat),
@@ -105,8 +107,8 @@ describe("the first account", () => {
     expect(takeAccessToken()).toBeNull();
   });
 
-  it("makes the account anyway when the token cannot confirm (a second factor on it), leaving the dialog to ask", { timeout: 30_000 }, async () => {
-    const backend = newServer();
+  it("does not try the token alone when it has a second factor: the dialog asks for the code, and nothing is refused first", { timeout: 30_000 }, async () => {
+    const backend = newServer({ totp: true });
     backend.on("POST /api/auth/elevate", () => problem(401, "invalid_totp", "Invalid two-factor code."));
     holdAccessToken("noust_tok_just_typed");
     const { user } = renderConsole("/setup");
@@ -115,6 +117,7 @@ describe("the first account", () => {
     await user.type(screen.getByLabelText(/^Password/), "a long passphrase here");
     await user.click(screen.getByRole("button", { name: "Create administrator" }));
     await screen.findByRole("heading", { level: 1, name: "Protect your account" });
+    expect(backend.callsTo("POST /api/auth/elevate")).toHaveLength(0);
     expect(backend.callsTo("POST /api/auth/accounts")).toHaveLength(1);
   });
 

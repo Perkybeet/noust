@@ -17077,10 +17077,11 @@ export interface paths {
          *         image: The registry image it is deployed from, read the same way.
          *
          *     Returns:
-         *         The name and the address it is made of.
+         *         The name and the address it is made of; for a server with no public address, an answer
+         *         that says ``available: false`` with why and how to declare one (200, not an error).
          *
          *     Raises:
-         *         DomainError: This server has no public address (400, saying how to declare one).
+         *         DomainError: Ninety-nine applications already have the prefix (400).
          */
         get: operations["get_temporary_name_api_domains_temporary_get"];
         put?: never;
@@ -57754,10 +57755,17 @@ export interface components {
          *         service: The service that answers it.
          *         declared: Whether the address was declared (``dns.public_addresses``) rather than
          *             read from a network interface.
+         *         available: Only present, as false, when this server has no public address to make a name
+         *             of (it is behind NAT and none is declared): the name and the address are then empty.
+         *             An answer, not an error: the console asks on every new application.
+         *         reason: With ``available`` false, why not.
+         *         hint: With ``available`` false, how to declare the address.
          */
         TemporaryNameResponse: {
             /** Address */
             address: string;
+            /** Available */
+            available?: boolean | null;
             /**
              * Declared
              * @default false
@@ -57765,7 +57773,14 @@ export interface components {
             declared: boolean;
             /** Domain */
             domain: string;
-            /** Service */
+            /** Hint */
+            hint?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Service
+             * @default sslip.io
+             */
             service: string;
         };
         /**
