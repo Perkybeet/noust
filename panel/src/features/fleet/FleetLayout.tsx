@@ -3,7 +3,8 @@ import { Cloud, Network } from "lucide-react";
 import { useState } from "react";
 
 import { LinkTabs } from "../../app/LinkTabs";
-import { FLEET_TABS } from "../nav/fleet";
+import { tabsOf } from "../../app/navCore";
+import { FLEET_APPS_SCREENS } from "../nav/fleet";
 import { DetailPage } from "../../components/page/DetailPage";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -45,6 +46,7 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
   const Add = ICONS.add;
   const empty = servers.loaded && servers.nodes.length === 0;
   const onApps = useRouterState({ select: (state) => state.location.pathname === "/fleet/apps" });
+  const onAppsViews = useRouterState({ select: (state) => state.location.pathname === "/fleet/apps" || state.location.pathname === "/fleet/placements" });
   const onServers = useRouterState({ select: (state) => state.location.pathname === "/fleet/servers" });
 
   const add = (
@@ -99,7 +101,7 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
               ),
             }
           : {})}
-        {...(empty ? {} : { tabs: <LinkTabs label={t("fleet.page.tabsLabel")} tabs={FLEET_TABS} /> })}
+        {...(empty || !onAppsViews ? {} : { tabs: <LinkTabs label={t("fleet.page.tabsLabel")} tabs={tabsOf(FLEET_APPS_SCREENS)} /> })}
       >
         {empty ? (
           <EmptyState

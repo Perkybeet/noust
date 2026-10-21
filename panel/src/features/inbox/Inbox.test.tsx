@@ -50,7 +50,7 @@ function inboxRoutes(over: Record<string, RouteHandler> = {}): Record<string, Ro
     "GET /api/alerts/rules": () => json(200, alertRules(false)),
     "GET /api/probes": () =>
       json(200, {
-        items: [{ name: "blog", status: { state: "down", since: SINCE, last_error: "HTTP 503 Service Unavailable", failures: 3 } }],
+        items: [{ name: "blog", enabled: true, address: "https://blog.example.com", status: { state: "down", since: SINCE, last_error: "HTTP 503 Service Unavailable", failures: 3 } }],
         down: 1,
         status_page: {},
       }),

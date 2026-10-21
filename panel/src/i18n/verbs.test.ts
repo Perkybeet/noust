@@ -53,10 +53,10 @@ describe("the verbs of the console", () => {
   });
 
   it("call the fleet's updates view what it holds: Noust and the system", () => {
-    expect(en.fleet.tabs.updates).toMatch(/Noust/);
-    expect(en.fleet.tabs.updates).toMatch(/system/i);
-    expect(es.fleet.tabs.updates).toMatch(/Noust/);
-    expect(es.fleet.tabs.updates).toMatch(/sistema/i);
+    expect(en.fleet.tabs.command.updates).toMatch(/Noust/);
+    expect(en.fleet.tabs.command.updates).toMatch(/system/i);
+    expect(es.fleet.tabs.command.updates).toMatch(/Noust/);
+    expect(es.fleet.tabs.command.updates).toMatch(/sistema/i);
   });
 
   it("keep 'Update Noust' for Noust itself, never for an application", () => {

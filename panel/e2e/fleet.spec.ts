@@ -134,8 +134,10 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
   await settle(page);
   await expectNoA11yViolations(page, "the Fleet's summary");
 
-  const tabs = page.getByRole("navigation", { name: "Fleet views" });
-  await tabs.getByRole("link", { name: "Applications" }).click();
+  // The sidebar of the fleet is the way between its views; the page draws no strip of them.
+  await expect(page.getByRole("navigation", { name: "Fleet views" })).toHaveCount(0);
+  const views = page.getByRole("navigation", { name: "Main" });
+  await views.getByRole("link", { name: "Applications" }).click();
   const apps = page.getByRole("region", { name: "Applications on every server" });
   await expect(apps.getByRole("link", { name: NODE_APP, exact: true })).toHaveAttribute("href", `/n/${NODE_NAME}/apps/${NODE_APP}`);
   await settle(page);
@@ -145,11 +147,10 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
     ["Servers", "Servers of this fleet"],
     ["Certificates", "Certificates on every server"],
     ["Backups", "Backups of every application"],
-    ["Noust and system updates", "Noust and system updates of every server"],
+    ["Updates", "Noust and system updates of every server"],
     ["Activity", "What happened lately on every server"],
   ] as const) {
-    // Exact: "On several servers" contains the name of "Servers".
-    await tabs.getByRole("link", { name: tab, exact: true }).click();
+    await views.getByRole("link", { name: tab, exact: true }).click();
     await expect(page.getByRole("region", { name: caption })).toBeVisible();
     await settle(page);
     await expectNoA11yViolations(page, `the Fleet's ${tab.toLowerCase()}`);
@@ -640,13 +641,13 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
   await settle(page);
   await expectNoA11yViolations(page, "a partial fleet's summary");
 
-  await page.getByRole("navigation", { name: "Fleet views" }).getByRole("link", { name: "Applications" }).click();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Applications" }).click();
   // web-2 answered: its application is there, even though db-1 did not. Four servers' worth
   // is more than one page of the list, so it is looked for as an operator would.
   await page.getByRole("searchbox", { name: "Search applications" }).fill(NODE_APP);
   await expect(page.getByRole("region", { name: "Applications on every server" }).getByRole("link", { name: NODE_APP, exact: true })).toBeVisible();
 
-  await page.getByRole("navigation", { name: "Fleet views" }).getByRole("link", { name: "Updates" }).click();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Updates" }).click();
   const updates = page.getByRole("region", { name: "Noust and system updates of every server" });
   await expect(updates.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
   await settle(page);

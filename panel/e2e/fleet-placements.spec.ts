@@ -80,7 +80,9 @@ withFleet("a recorded placement is compared on the page, and its servers are wri
   });
   expect(saved.ok(), await saved.text()).toBe(true);
 
-  await page.getByRole("navigation", { name: "Fleet views" }).getByRole("link", { name: "On several servers" }).click();
+  // On several servers is the second view of the fleet's applications: the sidebar opens the first.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Applications" }).click();
+  await page.getByRole("navigation", { name: "Fleet application views" }).getByRole("link", { name: "On several servers" }).click();
   await expect(page).toHaveURL(/\/fleet\/placements$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Fleet");
   await expect(page.getByRole("heading", { level: 3, name: NODE_APP })).toBeVisible();

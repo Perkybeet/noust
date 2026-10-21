@@ -16,6 +16,8 @@ import type { OverviewAttentionItem, OverviewAttentionReason } from "../../api/q
 import type { ProbeList } from "../../api/queries/probes";
 import { parseTimestamp } from "../../lib/format";
 import type { ApprovalList } from "../approvals/api";
+import { selectFiringAlerts } from "../settings/alerts/data";
+import { selectFailingProbes } from "../settings/probes/data";
 
 /** Days before expiry at which a certificate starts needing attention (spec, Task 3.11). */
 export const CERT_WARNING_DAYS = 21;
@@ -34,52 +36,45 @@ export type ExtraKind = "alert" | "probe" | "approval" | "noust" | "recipe";
 
 /** A firing alert, as the rules list says it: one item per rule and subject, taken or not. */
 export function alertItems(rules: AlertRuleList | undefined): OverviewAttentionItem[] {
-  return (rules?.items ?? []).flatMap((rule) =>
-    rule.enabled
-      ? (rule.states ?? [])
-          .filter((entry) => entry.state === "firing")
-          .map((entry): OverviewAttentionItem => {
-            const severity: Severity = rule.severity === "failed" ? "fail" : "warn";
-            const taken = entry.acknowledged_by !== null && entry.acknowledged_by !== undefined;
-            const reason: OverviewAttentionReason = {
-              kind: "alert",
-              severity,
-              code: taken ? "alert_taken" : "alert_firing",
-              params: { rule: rule.name, subject: entry.subject, since: entry.since, ...(taken ? { by: entry.acknowledged_by, at: entry.acknowledged_at } : {}) },
-              detail: null,
-              when: moment(entry.since),
-              deployment_id: null,
-              actions: [taken ? "reopen_alert" : "acknowledge_alert"],
-            };
-            return {
-              id: `alert:${rule.name}:${entry.subject}`,
-              subject: { kind: "alert", rule: rule.name, subject: entry.subject },
-              title: entry.subject === "" ? rule.name : `${rule.name} · ${entry.subject}`,
-              severity,
-              reasons: [reason],
-            };
-          })
-      : [],
-  );
+  // Which alerts fire is the settings page's definition, read here and on that page alike (AL-1).
+  return selectFiringAlerts(rules).map((alert): OverviewAttentionItem => {
+    const severity: Severity = alert.severity === "failed" ? "fail" : "warn";
+    const taken = alert.acknowledgement;
+    const reason: OverviewAttentionReason = {
+      kind: "alert",
+      severity,
+      code: taken === null ? "alert_firing" : "alert_taken",
+      params: { rule: alert.rule, subject: alert.subject, since: alert.since, ...(taken === null ? {} : { by: taken.by, at: taken.at }) },
+      detail: null,
+      when: moment(alert.since),
+      deployment_id: null,
+      actions: [taken === null ? "acknowledge_alert" : "reopen_alert"],
+    };
+    return {
+      id: `alert:${alert.rule}:${alert.subject}`,
+      subject: { kind: "alert", rule: alert.rule, subject: alert.subject },
+      title: alert.subject === "" ? alert.rule : `${alert.rule} · ${alert.subject}`,
+      severity,
+      reasons: [reason],
+    };
+  });
 }
 
 /** A probe that is down: what it asked and what it got, in the probe's own words. */
 export function probeItems(probes: ProbeList | undefined): OverviewAttentionItem[] {
-  return (probes?.items ?? [])
-    .filter((probe) => probe.status.state === "down")
-    .map((probe): OverviewAttentionItem => {
-      const reason: OverviewAttentionReason = {
-        kind: "probe",
-        severity: "fail",
-        code: "probe_down",
-        params: { probe: probe.name, since: probe.status.since },
-        detail: probe.status.last_error ?? null,
-        when: moment(probe.status.since),
-        deployment_id: null,
-        actions: ["open_probes"],
-      };
-      return { id: `probe:${probe.name}`, subject: { kind: "probe", name: probe.name }, title: probe.name, severity: "fail", reasons: [reason] };
-    });
+  return selectFailingProbes(probes).map((probe): OverviewAttentionItem => {
+    const reason: OverviewAttentionReason = {
+      kind: "probe",
+      severity: "fail",
+      code: "probe_down",
+      params: { probe: probe.name, since: probe.since },
+      detail: probe.lastError,
+      when: moment(probe.since),
+      deployment_id: null,
+      actions: ["open_probes"],
+    };
+    return { id: `probe:${probe.name}`, subject: { kind: "probe", name: probe.name }, title: probe.name, severity: "fail", reasons: [reason] };
+  });
 }
 
 /** The requests waiting for this person's decision: only those they may decide. */

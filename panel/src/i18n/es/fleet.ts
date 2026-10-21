@@ -64,13 +64,6 @@ export const fleet: Catalog<typeof en> = {
   },
 
   tabs: {
-    summary: "Resumen",
-    servers: "Servidores",
-    apps: "Aplicaciones",
-    certificates: "Certificados",
-    backups: "Copias",
-    updates: "Actualizaciones de Noust y del sistema",
-    activity: "Actividad",
     command: {
       summary: "Resumen de la flota",
       servers: "Servidores de la flota",
@@ -94,7 +87,7 @@ export const fleet: Catalog<typeof en> = {
     createAtProvider: "Crear en un proveedor",
     title: "Flota",
     description: "Todos los servidores que gestiona esta central, a la vez.",
-    tabsLabel: "Vistas de la flota",
+    tabsLabel: "Vistas de las aplicaciones de la flota",
     addServer: "Añadir un servidor",
     runAction: "Ejecutar una acción",
     fromTerminal: "Desde una terminal",
