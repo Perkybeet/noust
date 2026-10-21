@@ -6,7 +6,7 @@
  * `routes.ts`; this holds what is said and done on them.
  */
 
-import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test, toasts } from "./fixtures";
+import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
 const APP = "tienda.example.org";
 
@@ -36,7 +36,7 @@ test("log shipping adds a destination whose token is only written, lists it, and
   expect(body.has_secret).toBe(true);
   expect(JSON.stringify(body)).not.toContain("glc_e2e_secret_token");
 
-  await expect(toasts(page).getByText("Saved e2e-grafana")).toBeVisible();
+  // No toast: the destination is in the list now.
   const list = page.getByRole("list", { name: "Destinations of logs" });
   await expect(list.getByText("e2e-grafana", { exact: true })).toBeVisible();
   await settle(page);

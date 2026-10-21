@@ -248,7 +248,7 @@ withFleet("Add a server: a console token pasted as a join code is caught, and a 
 
   // A well-formed code made for another central's key: the central refuses it.
   await dialog.getByLabel("Join code").fill(foreignJoinCode());
-  await expect(dialog.getByText("Join code read")).toBeVisible();
+  await expect(dialog.getByText(/its tunnel account/)).toBeVisible();
   await dialog.getByRole("button", { name: "Add server" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   await confirm.waitFor({ state: "visible", timeout: 5_000 }).catch(() => undefined);

@@ -132,7 +132,8 @@ describe("Settings > Probes", () => {
   it("explains what a probe is when there is none", { timeout: 20_000 }, async () => {
     await pageAt([]);
     expect(await screen.findByText("No probes yet")).toBeInTheDocument();
-    expect(screen.getByText("Everything answers.")).toBeInTheDocument();
+    expect(screen.queryByText("Everything answers.")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "New probe" })).toHaveLength(1);
   });
 
   it("asks a probe now and says what it got, verbatim when it was bad", { timeout: 30_000 }, async () => {

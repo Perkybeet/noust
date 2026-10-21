@@ -36,7 +36,7 @@ test("a rule is two clicks from the list, says what it watches, and goes when it
   problems.expect(/status of 400 .* \/api\/alerts\/rules\/disk-full$/);
   await signIn(page, consoleServer, "/settings/alerts");
   await expect(page.getByText("No alert rules yet")).toBeVisible();
-  await expect(page.getByText("No alert is firing.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "New rule" })).toHaveCount(1);
 
   // The two clicks: New rule, Save rule. What is typed is not a click.
   await page.evaluate(() => {

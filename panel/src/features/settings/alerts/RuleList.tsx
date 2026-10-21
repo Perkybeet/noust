@@ -185,9 +185,11 @@ function Rules({ data, onCreate }: { data: AlertRuleList; onCreate: () => void }
   const t = useT();
   return (
     <>
-      <p role="status" className="text-13 text-fg-muted">
-        {data.firing === 0 ? t("alerts.rules.allClear") : t("alerts.rules.firingCount", { count: data.firing })}
-      </p>
+      {data.items.length === 0 ? null : (
+        <p role="status" className="text-13 text-fg-muted">
+          {data.firing === 0 ? t("alerts.rules.allClear") : t("alerts.rules.firingCount", { count: data.firing })}
+        </p>
+      )}
       {data.items.length === 0 ? (
         <EmptyState
           variant="firstUse"
@@ -195,9 +197,9 @@ function Rules({ data, onCreate }: { data: AlertRuleList; onCreate: () => void }
           icon={<BellPlus />}
           title={t("alerts.rules.emptyTitle")}
           description={t("alerts.rules.emptyDescription")}
-          // The header's button is the page's primary: the empty state offers the same, not louder.
+          // With no rule the header has no button: the empty state's is the one way to add the first.
           action={
-            <Button icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
+            <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
               {t("alerts.rules.new")}
             </Button>
           }
@@ -223,7 +225,7 @@ export function RuleList() {
       title={t("alerts.rules.title")}
       description={t("alerts.rules.description")}
       actions={
-        query.data === undefined ? undefined : (
+        query.data === undefined || query.data.items.length === 0 ? undefined : (
           <Button
             variant="primary"
             icon={<ICONS.add aria-hidden="true" />}

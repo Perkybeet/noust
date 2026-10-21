@@ -96,7 +96,9 @@ test("adding an SFTP destination lists it; one that cannot be reached says so in
   await page.getByRole("button", { name: "Add destination" }).click();
   const dialog = page.getByRole("dialog", { name: "Add backup destination" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Add destination" })).toBeDisabled();
+  // Pressing it empty says what is missing, under the field, and sends nothing.
+  await dialog.getByRole("button", { name: "Add destination" }).click();
+  await expect(dialog.getByText("This field is required.").first()).toBeVisible();
 
   await dialog.getByLabel("Name", { exact: true }).fill(name);
   await dialog.getByRole("combobox", { name: "Backend" }).click();
@@ -310,7 +312,9 @@ test("copying a local backup to a destination queues a job that finishes", async
   await page.getByRole("menuitem", { name: "Copy to destination…" }).click();
   const dialog = page.getByRole("dialog", { name: `Copy ${backup.backup_id}` });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Copy" })).toBeDisabled();
+  // Pressing it without a destination says so under the field and queues nothing.
+  await dialog.getByRole("button", { name: "Copy" }).click();
+  await expect(dialog.locator(".text-fail", { hasText: "Choose a destination" })).toBeVisible();
   await dialog.getByRole("combobox", { name: "Destination" }).click();
   await page.getByRole("option", { name: ENCRYPTED, exact: true }).click();
   await settle(page);

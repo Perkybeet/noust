@@ -64,7 +64,7 @@ test("the range is written in the address of every surface, so the link to a vie
 
 test("an application's live log and its errors are two clicks away", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${DOMAIN}`);
-  await page.getByRole("link", { name: "Logs" }).first().click();
+  await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Logs" }).click();
   await expect(page).toHaveURL(new RegExp(`/apps/${DOMAIN}/logs`));
   const journal = page.getByRole("region", { name: `Logs of ${DOMAIN}` });
   await expect(page.getByRole("combobox", { name: "How far back" })).toHaveText("Live");

@@ -244,9 +244,11 @@ function Probes({ data, onCreate }: { data: ProbeListData; onCreate: () => void 
   const t = useT();
   return (
     <>
-      <p role="status" className="text-13 text-fg-muted">
-        {data.down === 0 ? t("probes.allUp") : t("probes.downCount", { count: data.down })}
-      </p>
+      {data.items.length === 0 ? null : (
+        <p role="status" className="text-13 text-fg-muted">
+          {data.down === 0 ? t("probes.allUp") : t("probes.downCount", { count: data.down })}
+        </p>
+      )}
       {data.items.length === 0 ? (
         <EmptyState
           variant="firstUse"
@@ -254,9 +256,9 @@ function Probes({ data, onCreate }: { data: ProbeListData; onCreate: () => void 
           icon={<Activity />}
           title={t("probes.emptyTitle")}
           description={t("probes.emptyDescription")}
-          // The header's button is the page's primary: the empty state offers the same, not louder.
+          // With no probe the header has no button: the empty state's is the one way to add the first.
           action={
-            <Button icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
+            <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
               {t("probes.new")}
             </Button>
           }
@@ -282,7 +284,7 @@ export function ProbeList() {
       title={t("probes.title")}
       description={t("probes.description")}
       actions={
-        query.data === undefined ? undefined : (
+        query.data === undefined || query.data.items.length === 0 ? undefined : (
           <Button
             variant="primary"
             icon={<ICONS.add aria-hidden="true" />}

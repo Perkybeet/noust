@@ -92,7 +92,7 @@ test("a probe is added, its page is kept up to date, and it goes when it is remo
   problems.expect(/status of (400|422) .* \/api\/probes\/shop$/);
   await signIn(page, consoleServer, "/settings/probes");
   await expect(page.getByText("No probes yet")).toBeVisible();
-  await expect(page.getByText("Everything answers.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "New probe" })).toHaveCount(1);
 
   await page.getByRole("button", { name: "New probe" }).first().click();
   const drawer = page.getByRole("dialog", { name: "New probe" });

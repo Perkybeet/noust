@@ -121,7 +121,8 @@ test("public access: opened from one address with TLS, shown once, and made priv
   await shown.getByRole("button", { name: "Done" }).click();
   await expect(shown).toBeHidden();
 
-  await expect(section.getByText(/^Public on port \d+$/)).toBeVisible();
+  await expect(section.getByText("Public", { exact: true })).toBeVisible();
+  await expect(section.getByText("Address", { exact: true })).toBeVisible();
   await expect(section.getByText("Required: a connection without TLS is refused")).toBeVisible();
   await expect(section.getByText("203.0.113.7/32", { exact: true })).toBeVisible();
   await expect(section.getByText("Read only", { exact: true })).toBeVisible();

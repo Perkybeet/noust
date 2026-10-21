@@ -187,7 +187,9 @@ describe("Settings > Alerts", () => {
     alertsBackend([]);
     renderConsole("/settings/alerts");
     expect(await screen.findByText("No alert rules yet")).toBeInTheDocument();
-    expect(screen.getByText("No alert is firing.")).toBeInTheDocument();
+    // Nothing to say about what is firing while there is nothing to fire, and one button to write the first rule.
+    expect(screen.queryByText("No alert is firing.")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "New rule" })).toHaveLength(1);
   });
 
   it("creates a rule from the drawer, with the limit as typed and the time in minutes", { timeout: 30_000 }, async () => {
