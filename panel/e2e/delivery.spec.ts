@@ -20,7 +20,7 @@ function row(page: Page, label: string) {
 
 test("automatic deploys are paused with a reason and resumed from the same switch", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${APP}/settings/automation`);
-  const toggle = page.getByRole("switch", { name: "Automatic deploys" });
+  const toggle = page.getByRole("switch", { name: "Automatic deploys", exact: true });
   await expect(toggle).toBeChecked();
   await expect(page.getByText("Paused", { exact: true })).toHaveCount(0);
   await settle(page);
@@ -41,8 +41,8 @@ test("automatic deploys are paused with a reason and resumed from the same switc
   await expect(page.getByText("Reason: Looking into the checkout bug")).toBeVisible();
 
   await page.goto(`/apps/${APP}/settings/automation`);
-  await page.getByRole("switch", { name: "Automatic deploys" }).click();
-  await expect(page.getByRole("switch", { name: "Automatic deploys" })).toBeChecked();
+  await page.getByRole("switch", { name: "Automatic deploys", exact: true }).click();
+  await expect(page.getByRole("switch", { name: "Automatic deploys", exact: true })).toBeChecked();
   await expect(page.getByText("Paused", { exact: true })).toHaveCount(0);
 });
 
@@ -80,7 +80,7 @@ test("a freeze needs its reason, is seen on the Deployments page and is lifted",
 test("an app is scheduled to update itself and stopped doing so", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${APP}/settings/automation`);
   const schedule = row(page, "Scheduled updates");
-  await expect(schedule.getByText("Off", { exact: true })).toBeVisible();
+  await expect(schedule.getByText("On", { exact: true })).toHaveCount(0);
 
   await schedule.getByRole("button", { name: "Set an update schedule…" }).click();
   const drawer = page.getByRole("dialog", { name: `Update schedule of ${APP}` });
@@ -95,7 +95,8 @@ test("an app is scheduled to update itself and stopped doing so", async ({ page,
   await schedule.getByRole("button", { name: "Edit schedule…" }).click();
   await page.getByRole("dialog", { name: `Update schedule of ${APP}` }).getByRole("button", { name: "Stop updating by itself" }).click();
   await page.getByRole("alertdialog", { name: `Stop ${APP} updating itself?` }).getByRole("button", { name: "Stop" }).click();
-  await expect(schedule.getByText("Off", { exact: true })).toBeVisible();
+  await expect(schedule.getByRole("button", { name: "Set an update schedule…" })).toBeVisible();
+  await expect(schedule.getByText("On", { exact: true })).toHaveCount(0);
 });
 
 test("the history kept and the stop policy are saved from the deploy limits drawer, and put back", async ({ page, consoleServer }) => {

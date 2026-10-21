@@ -157,6 +157,8 @@ test("an in-place app turns on instant rollback through its dry run", async ({ p
 
   const rollback = card(page, "Instant rollback");
   await expect(rollback.getByText(/^Safe updates: if a new version fails/)).toBeVisible();
+  // What turning it on does is one fold away; the dry run says it again before anything changes.
+  await rollback.getByRole("button", { name: "What turning it on does" }).click();
   await expect(rollback.getByText("Turning it on restarts the app once, for a moment.")).toBeVisible();
   await rollback.getByRole("button", { name: "Turn on instant rollback…" }).click();
   const dialog = page.getByRole("dialog", { name: `Turn on instant rollback for ${domain}` });
@@ -209,12 +211,10 @@ test("deploy on push says where the setup stands, step by step, and shows the se
   await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings/deploy-on-push`);
   await expect(page.getByText(/When you push to the repository, GitHub, GitLab, Gitea or Bitbucket tells this server/)).toBeVisible();
   const setup = card(page, "Set it up");
-  // Only the step the setup is at is drawn: the seeded machine publishes no address, so it is the first.
-  await expect(setup.getByRole("heading", { name: "A public address for webhooks" })).toBeVisible();
-  await expect(setup.getByRole("list", { name: "Steps" }).getByRole("listitem")).toHaveCount(3);
-  await setup.getByRole("button", { name: "Use the console's own address" }).click();
-  // The app has its secret, so the way on lands where the values are pasted; the step before is one click back.
+  // Only the step the setup is at is drawn: the seeded machine publishes an address and the app has its
+  // secret, so it is the last, where the values are pasted; the two before are one click back.
   await expect(setup.getByRole("heading", { name: "Add the webhook in GitHub" })).toBeVisible();
+  await expect(setup.getByRole("list", { name: "Steps" }).getByRole("listitem")).toHaveCount(3);
   await setup.getByRole("button", { name: "Secret: done" }).click();
   await expect(setup.getByText(/^Done: every delivery must be signed with it/)).toBeVisible();
   await setup.getByRole("button", { name: "Continue" }).click();
