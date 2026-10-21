@@ -36,6 +36,7 @@ import {
   withCounts,
 } from "./nav";
 import type { Dest, NavContext, PaletteContext, Strip } from "./nav";
+import { ICON_IDS, iconOf } from "../features/nav/icons";
 import { CENTRAL_PATHS } from "./nodeRoute";
 import { buildRouter } from "./router";
 
@@ -213,6 +214,36 @@ describe("4. the names", () => {
 
   it("has no screen called Advanced (NV-12)", () => {
     for (const entry of DESTS) expect(label(entry).toLowerCase(), entry.id).not.toBe("advanced");
+  });
+
+  it("draws every section of a list on the side as the object it is, and no two of one list as the same one (NV-19, I-5)", () => {
+    // The areas carry their own; the table of features/nav/icons.ts has the sections, and nothing else.
+    // Plus General, the first entry of an application's settings: the tab they are under, drawn as the head of the list.
+    const sections = [...DESTS.filter((entry) => entry.kind === "section").map((entry) => entry.id), "app.settings"];
+    expect([...ICON_IDS].sort(), "the table has an icon for every section, and nothing more").toEqual([...sections].sort());
+    for (const entry of DESTS.filter((candidate) => candidate.kind === "area" || candidate.kind === "section")) expect(iconOf(entry).displayName, `${entry.id} has no icon of lucide's`).toBeDefined();
+    // A list is the sidebar of a scope, or the sections under one entry.
+    const lists = new Map<string, Dest[]>();
+    for (const entry of DESTS) {
+      const key = entry.kind === "area" ? `bar of ${entry.scope}` : entry.kind === "section" ? `under ${entry.parent ?? ""}` : "";
+      if (key !== "") lists.set(key, [...(lists.get(key) ?? []), entry]);
+    }
+    for (const [key, entries] of lists) {
+      // The first entry of a list on the side is the entry it is under (General, the account's profile): it is drawn too.
+      const parent = key.startsWith("under ") ? DESTS.find((entry) => entry.id === key.slice(6)) : undefined;
+      const drawn = [...(parent !== undefined && parent.kind !== "hidden" ? [parent] : []), ...entries];
+      const names = drawn.map((entry) => iconOf(entry).displayName ?? "");
+      expect(new Set(names).size, `${key}: ${drawn.map((entry) => `${entry.id}=${iconOf(entry).displayName ?? "?"}`).join(", ")}`).toBe(names.length);
+    }
+  });
+
+  it("gives a screen that is only a tab the icon of its area in the palette", () => {
+    const entries = paletteEntries({ t: (key) => key, can: () => true, when: { organised: true, fleet: true } });
+    const server = entries.find((entry) => entry.id === "server");
+    const updates = entries.find((entry) => entry.id === "server.updates");
+    expect(updates?.icon).toBe(server?.icon);
+    const alerts = entries.find((entry) => entry.id === "settings.alerts");
+    expect(alerts?.icon).not.toBe(entries.find((entry) => entry.id === "settings")?.icon);
   });
 
   it("names every screen in Spanish too", async () => {

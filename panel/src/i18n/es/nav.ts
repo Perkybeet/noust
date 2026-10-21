@@ -12,14 +12,8 @@ export const nav: Catalog<typeof en> = {
     accountSections: "Secciones de la cuenta",
     projectSections: "Secciones de proyectos",
     overviewSections: "Secciones del resumen",
-    recipeSections: "Vistas de las aplicaciones",
-  },
-  groups: {
-    fleet: "Flota",
-    server: "Servidor",
   },
   settingsGroups: {
-    serverLabel: "Servidor",
     central: "Central {name}",
     serverDescription: "Cómo funciona Noust en {name}. Siguen al servidor que elijas.",
     centralDescription: "Son de la central, {name}: no cambian elijas el servidor que elijas.",

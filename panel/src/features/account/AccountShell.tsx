@@ -9,6 +9,7 @@ import type { SettingsNavItem } from "../../components/page/SettingsLayout";
 import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import { ACCOUNT_SCREENS } from "../nav/account";
+import { iconOf } from "../nav/icons";
 
 /**
  * The account, T3 under the title "Account": the signed-in person's own profile and password, and
@@ -27,6 +28,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
   const items: SettingsNavItem[] = ACCOUNT_SCREENS.map((entry) => ({
     to: entry.to,
     label: t(entry.to === "/account" ? (entry.rootLabel ?? entry.label) : entry.label),
+    icon: iconOf(entry),
     keywords: entry.keywords !== undefined ? t(entry.keywords) : "",
     ...(entry.to === "/account" ? { exact: true } : {}),
   }));

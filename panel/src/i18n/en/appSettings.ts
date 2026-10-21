@@ -13,6 +13,8 @@ export const appSettings = {
   jobFailedSilently: "The job failed without saying why. Its log is on the Activity page.",
   nav: {
     label: "Application settings",
+    /** The headings of the list on the side: the groups of the register (features/nav/app.ts). */
+    groups: { code: "Code", deploys: "Deploys", triggers: "Triggers", runtime: "Runtime", access: "Access" },
     general: "General",
     deploys: "Deploys",
     push: "Deploy on push",

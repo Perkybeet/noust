@@ -14,7 +14,7 @@ export function pageCommands(entries: readonly PaletteEntry[], go: (to: string) 
       id: `page:${entry.to}`,
       group: settings ? "Settings" : "Pages",
       label: entry.text,
-      ...(Icon !== undefined ? { icon: <Icon /> } : {}),
+      icon: <Icon />,
       kind: "navigate",
       run: go(entry.to),
       keywords: entry.keywords,

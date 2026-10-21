@@ -9,6 +9,7 @@ export const appSettings: Catalog<typeof en> = {
   jobFailedSilently: "La tarea falló sin decir por qué. Su registro está en la página Actividad.",
   nav: {
     label: "Ajustes de la aplicación",
+    groups: { code: "Código", deploys: "Despliegues", triggers: "Disparadores", runtime: "Ejecución", access: "Acceso" },
     general: "General",
     deploys: "Despliegues",
     push: "Desplegar al hacer push",

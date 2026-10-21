@@ -18,6 +18,7 @@ import type { PlainKey } from "../../i18n";
 import { useHasFleet, useReturnServer, useServerList } from "../../nodes/servers";
 import { useConsoleContext } from "../../nodes/useNode";
 import { useCentral } from "../central/central";
+import { iconOf } from "../nav/icons";
 import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../nav/settings";
 import type { SettingsBlock } from "../nav/settings";
 
@@ -100,6 +101,7 @@ export function SettingsShell({ children }: { children: ReactNode }) {
       return {
         to: entry.to,
         label: t(root ? (entry.rootLabel ?? entry.label) : entry.label),
+        icon: iconOf(entry),
         ...(root ? { exact: true } : {}),
         keywords: names.join(" ").trim(),
         // From the central's sections, the server's lead back to the server the operator was on.

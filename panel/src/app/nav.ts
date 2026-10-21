@@ -23,13 +23,17 @@
  * get from its group.
  */
 
+import type { LucideIcon } from "lucide-react";
+
 import { ACCOUNT_SCREENS } from "../features/nav/account";
-import { APP_SCREENS, APP_SETTINGS_SCREENS } from "../features/nav/app";
+import { APP_SCREENS } from "../features/nav/app";
+import { APP_SETTINGS_SCREENS } from "../features/nav/appSettings";
 import { APPS_SCREENS } from "../features/nav/apps";
 import { BACKUPS_SCREENS } from "../features/nav/backups";
 import { DATABASES_SCREENS, DATABASE_SCREENS } from "../features/nav/databases";
 import { DOMAINS_SCREENS } from "../features/nav/domains";
 import { FLEET_SCREENS } from "../features/nav/fleet";
+import { sectionIcon } from "../features/nav/icons";
 import { ACTIVITY_SCREENS, CRON_SCREENS, LOGS_SCREENS } from "../features/nav/machine";
 import { OVERVIEW_SCREENS } from "../features/nav/overview";
 import { PROJECTS_SCREENS } from "../features/nav/projects";
@@ -229,6 +233,13 @@ export function shortcuts(scope?: Scope): { id: string; keys: readonly string[];
   });
 }
 
+/** The icon of the area a screen is under: every area has one, and a screen that is not under one is a typo in the register. */
+function areaIcon(entry: Dest): LucideIcon {
+  const icon = rootOf(entry).icon;
+  if (icon === undefined) throw new Error(`app/nav.ts: the area of "${entry.id}" has no icon`);
+  return icon;
+}
+
 export interface PaletteEntry {
   id: string;
   to: ConsolePath;
@@ -240,8 +251,8 @@ export interface PaletteEntry {
   /** Search words, the old names included. */
   keywords: string;
   shortcut?: readonly string[];
-  /** Its own icon, or the area's it is under. */
-  icon?: NonNullable<Dest["icon"]>;
+  /** What it is, drawn: the same in every list (features/nav/icons.ts). */
+  icon: LucideIcon;
 }
 
 export interface PaletteContext extends NavContext {
@@ -260,7 +271,6 @@ export function paletteEntries(ctx: PaletteContext): PaletteEntry[] {
     const old = (RENAMED[entry.id] ?? []).map((key) => t(key));
     // The fleet's destinations are named by their phrase ("Certificates on every server"): their bare name is also a server's.
     const bare = entry.kind === "area" && entry.scope !== "fleet";
-    const icon = entry.icon ?? rootOf(entry).icon;
     return {
       id: entry.id,
       to: entry.to,
@@ -269,7 +279,8 @@ export function paletteEntries(ctx: PaletteContext): PaletteEntry[] {
       path: place.join(" › "),
       keywords: [entry.keywords !== undefined ? t(entry.keywords) : "", ...old].join(" ").trim(),
       ...(entry.shortcut !== undefined ? { shortcut: entry.shortcut } : {}),
-      ...(icon !== undefined ? { icon } : {}),
+      // A tab has no icon of its own: the area's it is under.
+      icon: sectionIcon(entry) ?? areaIcon(entry),
     };
   });
 }

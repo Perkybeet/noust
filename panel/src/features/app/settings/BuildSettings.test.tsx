@@ -56,7 +56,8 @@ describe("the Build commands subsection", () => {
     expect(within(main).getByLabelText(field("Install command"))).toHaveValue("pnpm install --frozen-lockfile");
     expect(within(main).getByLabelText(field("Build command"))).toHaveValue("pnpm --filter web build");
     expect(within(main).getByLabelText(field("Start command"))).toHaveValue("node dist/server.js --port ${PORT}");
-    expect(within(main).getByLabelText(field("Runtime"))).toHaveValue("node@22");
+    // The list on the side has a group of this name too (Runtime), so the field is asked for as the box it is.
+    expect(within(main).getByRole("textbox", { name: field("Runtime") })).toHaveValue("node@22");
     // A Next.js application serves no static output: no publish directory to offer.
     expect(within(main).queryByLabelText(field("Publish directory"))).not.toBeInTheDocument();
     expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
@@ -143,7 +144,7 @@ describe("the Build commands subsection", () => {
   it("says what is wrong before it is sent, beside the field, and sends nothing", { timeout: 30_000 }, async () => {
     const { user, backend } = await buildOf(NONE);
     await user.type(await screen.findByLabelText(field("Base directory")), "../outside");
-    await user.type(screen.getByLabelText(field("Runtime")), "ruby@3");
+    await user.type(screen.getByRole("textbox", { name: field("Runtime") }), "ruby@3");
     await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("A path inside the repository: relative, without .., ~, spaces or quotes.")).toBeInTheDocument();
     expect(screen.getByText("A runtime is a language, @ and a version: node@22, python@3.12, php@8.3, or lts or latest.")).toBeInTheDocument();

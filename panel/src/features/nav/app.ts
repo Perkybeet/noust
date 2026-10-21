@@ -1,11 +1,10 @@
-import { hidden, section, tab, tabsOf } from "../../app/navCore";
-import type { Dest, Strip, TabItem } from "../../app/navCore";
+import { hidden, tab, tabsOf } from "../../app/navCore";
+import type { Strip, TabItem } from "../../app/navCore";
+import { app, appSettings } from "./appRoot";
 
 // An application. Its page is the Overview tab of its own strip, and its settings are a list on
 // the side of the last tab. The register is app/nav.ts; these are groups of it.
 
-const app = hidden("app", "/apps/$domain", "nav.appTabs.overview.label", "apps", { parent: "apps", exact: true });
-const appSettings = tab(app, "settings", "nav.appTabs.settings.label", { keywords: "nav.appTabs.settings.keywords", rootLabel: "appSettings.nav.general" });
 
 export const APP_SCREENS: Strip = [
   app,
@@ -28,27 +27,3 @@ export const APP_SCREENS: Strip = [
 
 /** An application's sections (D8), eight at most (docs/DESIGN.md, "LinkTabs"): each a URL under /apps/$domain. */
 export const APP_TABS: readonly TabItem[] = tabsOf(APP_SCREENS);
-
-/**
- * The subsections of an application's settings (features/app/settings/sections.ts decides, per
- * application, which of them apply). The groups are the ones of 2.5 of the navigation design.
- */
-const setting = (name: string, label: Dest["label"], group: string): Dest => section(appSettings, name, label, { scope: "server", owner: "resource", group });
-export const APP_SETTINGS_SCREENS: Strip = [
-  setting("source", "appSettings.nav.source", "code"),
-  setting("build", "appSettings.nav.buildCommands", "code"),
-  setting("builds", "appSettings.nav.builds", "code"),
-  setting("container", "appSettings.nav.container", "code"),
-  setting("deploys", "appSettings.nav.deploys", "deploys"),
-  setting("deploy-on-push", "appSettings.nav.push", "triggers"),
-  setting("hooks", "appSettings.nav.hooks", "triggers"),
-  setting("previews", "appSettings.nav.previews", "triggers"),
-  setting("resources", "appSettings.nav.resources", "runtime"),
-  setting("disk", "runtime.nav.disk", "runtime"),
-  setting("processes", "runtime.nav.processes", "runtime"),
-  setting("mounts", "runtime.nav.mounts", "runtime"),
-  setting("security", "runtime.nav.security", "runtime"),
-  setting("access", "network.access.nav", "access"),
-  setting("export", "appSettings.nav.export", "danger"),
-  setting("delete", "appSettings.nav.delete", "danger"),
-];

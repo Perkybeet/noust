@@ -8,19 +8,12 @@ export const nav = {
     accountSections: "Account sections",
     projectSections: "Project sections",
     overviewSections: "Overview sections",
-    recipeSections: "Application views",
-  },
-  /** The sidebar's headings on a fleet: every server at once, then the server on screen. */
-  groups: {
-    fleet: "Fleet",
-    server: "Server",
   },
   /**
    * Settings split by whose they are (features/settings/SettingsShell.tsx): the titles of its
    * groups, and what the page says about whose the sections are on a fleet.
    */
   settingsGroups: {
-    serverLabel: "Server",
     central: "Central {name}",
     serverDescription: "How Noust runs on {name}. These follow the server you choose.",
     centralDescription: "These are the central's, {name}: they stay the same whichever server you choose.",

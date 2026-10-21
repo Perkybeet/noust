@@ -17,6 +17,7 @@ import { cx } from "../lib/cx";
 import { ScopeSelector } from "../nodes/ScopeSelector";
 import { useHasFleet, useReturnServer } from "../nodes/servers";
 import { useConsoleContext } from "../nodes/useNode";
+import { iconOf } from "../features/nav/icons";
 import { dest, isUnder, litBy, sidebarFor } from "./nav";
 import type { ConsolePath, Dest, Scope } from "./nav";
 
@@ -73,7 +74,7 @@ interface NavLinkProps {
 
 function NavLink({ entry, failed, expiring, running, onNavigate, node }: NavLinkProps) {
   const t = useT();
-  const Icon = entry.icon;
+  const Icon = iconOf(entry);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   // The screens beneath an area that live at another address (the recipes are Applications') light it too.
   const extra = useMemo(() => litBy(entry), [entry]);
@@ -93,9 +94,7 @@ function NavLink({ entry, failed, expiring, running, onNavigate, node }: NavLink
               to tell it by (WCAG 1.4.11). The bar is: it is drawn in `text`, 3:1 or more against
               the ground, a hovered item and the active fill in both themes (tokens.test.ts). */}
           {isActive || lit ? <span aria-hidden="true" data-nav-indicator="" className="absolute inset-y-1.5 left-0 w-0.5 rounded-pill bg-fg" /> : null}
-          {Icon !== undefined ? (
-            <Icon aria-hidden="true" className={cx("size-icon-md shrink-0 text-fg-faint group-hover:text-fg-muted group-data-[status=active]:text-fg", lit && "text-fg")} />
-          ) : null}
+          <Icon aria-hidden="true" className={cx("size-icon-md shrink-0 text-fg-faint group-hover:text-fg-muted group-data-[status=active]:text-fg", lit && "text-fg")} />
           <span className="min-w-0 flex-1 truncate">{t(entry.label)}</span>
           {/* Spaces between the parts keep the accessible name "Server 1 failed"; the visible
               number is the one inside that sentence, read once. */}
