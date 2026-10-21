@@ -140,6 +140,10 @@ export const complianceSetup: Catalog<typeof en> = {
       title: "Los proveedores de identidad nunca dan admin",
       summary: "Admin lo concede una persona, nunca un proveedor.",
     },
+    second_factor: {
+      title: "Segundo factor obligatorio",
+      summary: "Toda cuenta registra un autenticador o una passkey antes de hacer nada más.",
+    },
     approvals: {
       title: "Aprobación de una segunda persona",
       summary: "Acciones de root y cambios de rol: una segunda persona.",

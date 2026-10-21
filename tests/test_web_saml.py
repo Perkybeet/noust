@@ -29,6 +29,7 @@ from noust.core.accounts import AuthPolicy
 from noust.core.accounts.saml import SamlManager
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_brute_force, get_token_manager
+from tests.mfa_support import require_second_factor
 from tests.saml_support import FakeIdp, make_identity
 from tests.test_web_oidc import (  # noqa: F401 - the fixtures and helpers of the sign-in tests
     BASE,
@@ -184,6 +185,7 @@ class TestTheWholeSignIn:
         self, app: Any, idp: FakeIdp, sandbox: Path
     ) -> None:
         make_account("root-admin", "admin")
+        require_second_factor()
         configure(provisioning="auto", default_role="operator")
         client = browser(app)
 

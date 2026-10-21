@@ -14,13 +14,19 @@ is the only reader and writer; the manager
 
 from __future__ import annotations
 
+import ipaddress
 import json
+import logging
+import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from noust.core.exceptions import ValidationError
+from noust.core.config import Config
+from noust.core.exceptions import NoustError, ValidationError
 from noust.core.store import NoustStore, get_store
+
+logger = logging.getLogger(__name__)
 
 #: Created, not yet finished: the next ``unexpose`` cleans it up.
 STATE_PENDING = "pending"
@@ -205,3 +211,36 @@ def _json_list(value: Any) -> list[str] | None:
     if not isinstance(parsed, list):
         return None
     return [str(item) for item in parsed]
+
+
+def console_published(store: NoustStore | None = None, config: Config | None = None) -> bool:
+    """
+    Tell whether the console can be reached by anyone beyond this machine.
+
+    It is when ``noust console expose`` recorded a publication (finished or not: the site may
+    already answer), or when the console's service listens beyond loopback. The sign-in form of
+    a console like that is tried by whoever finds it, so an account on it must hold a second
+    factor (``mfa_pending``), where on a console only this machine's operator can reach it may
+    set one up later.
+
+    Args:
+        store: The store the publication is recorded in; the process-wide one by default.
+        config: The configuration; the process-wide one by default.
+
+    Returns:
+        True when it is published. A store that cannot be read answers True: not knowing is no
+        reason to ask for less.
+    """
+    try:
+        if ConsoleExposureStore(store).get() is not None:
+            return True
+    except (NoustError, sqlite3.Error) as exc:
+        logger.warning("Cannot read whether the console is published (%s); assuming it is", exc)
+        return True
+    host = str((config or Config()).get("web.host", "127.0.0.1") or "127.0.0.1").strip().lower()
+    if host == "localhost":
+        return False
+    try:
+        return not ipaddress.ip_address(host.strip("[]")).is_loopback
+    except ValueError:
+        return True  # a host name: it answers on whatever it resolves to

@@ -29,6 +29,7 @@ from noust.core.accounts.policy import build_policy
 from noust.core.store import NoustStore
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_brute_force, get_token_manager
+from tests.mfa_support import require_second_factor
 from tests.oidc_support import Clock, FakeIdP, b64
 
 PASSWORD = "correct horse battery staple"
@@ -261,6 +262,7 @@ class TestTheWholeSignIn:
     ) -> None:
         make_account("root-admin", "admin")
         make_account("maria", "operator", mfa=False)
+        require_second_factor()
         configure(idp)
         link("maria")
         client = browser(app)
@@ -605,6 +607,7 @@ class TestProvisioning:
         self, app: Any, idp: FakeIdP
     ) -> None:
         make_account("root-admin", "admin")
+        require_second_factor()
         configure(idp, provisioning="invite")
         accounts().invite("maria", "operator", person_ref="maria@acme.test")
         client = browser(app)

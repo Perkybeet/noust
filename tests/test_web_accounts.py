@@ -28,6 +28,7 @@ from noust.core.store import NoustStore
 from noust.web import auth as auth_module
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
+from tests.mfa_support import require_second_factor
 
 PASSWORD = "correct horse battery staple"
 
@@ -219,6 +220,7 @@ class TestAccountSignIn:
     def test_an_account_without_a_second_factor_may_only_enrol_one(self, sandbox: Path) -> None:
         client = build(sandbox)
         make_account("maria", "admin", mfa=False)
+        require_second_factor()
         body = sign_in(client, "maria", None)
         csrf = body["csrf_token"]
         assert body["mfa_required"] is True
@@ -243,6 +245,7 @@ class TestAccountSignIn:
     def test_an_account_without_a_second_factor_is_not_asked_for_one(self, sandbox: Path) -> None:
         client = build(sandbox)
         make_account("maria", "admin", mfa=False)
+        require_second_factor()
 
         body = client.post(
             "/api/auth/login", json={"username": "maria", "password": PASSWORD}
@@ -920,6 +923,7 @@ class TestWebSocketGates:
 
         client = build(sandbox)
         make_account("maria", "viewer", mfa=False)
+        require_second_factor()
         sign_in(client, "maria", None)
         assert _ws_code(client, "/ws/events") == WS_CLOSE_FORBIDDEN
 

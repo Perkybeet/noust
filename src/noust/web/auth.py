@@ -72,6 +72,7 @@ from noust.core.accounts import AccountManager, AuthPolicy, load_policy
 from noust.core.accounts.model import Account
 from noust.core.audit import install as install_core_audit_log
 from noust.core.audit.legacy import AuditLogger
+from noust.core.console_exposure_store import console_published
 from noust.core.exceptions import SecurityError
 from noust.core.fs import SECRET_MODE, get_fs, is_rehearsal
 from noust.core.store import StoreError
@@ -2504,14 +2505,20 @@ class TokenManager:
             account.id, account.role, permissions_for_role(account.role), self.accounts.store
         )
         permissions = teams["permissions"]
-        notice = self.policy().notice_version
+        policy = self.policy()
+        notice = policy.notice_version
+        # Held at the enrolment only where somebody besides this machine's operator can reach
+        # the sign-in form, or where a framework asks for it; elsewhere it is a step the person
+        # takes now or later. `noust console expose` refuses to publish with an account lacking
+        # one in any case (managers.console_exposure.second_factor_blockers).
+        mfa_required = policy.requires("second_factor") or console_published()
         return {
             "account_id": account.id,
             "username": account.username,
             "role": account.role,
             **teams,
             "scope": legacy_scope(permissions),
-            "mfa_pending": not account.has_mfa,
+            "mfa_pending": not account.has_mfa and mfa_required,
             "notice_pending": notice is not None and account.notice_version != notice,
         }
 
