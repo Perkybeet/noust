@@ -17,9 +17,10 @@ joins the list when one is found; the match ignores case.
 
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
+
+from tests.tree_support import tree_files
 
 ROOT = Path(__file__).parent.parent
 
@@ -42,42 +43,14 @@ REVERSED = (
 )
 NAMES = re.compile("|".join(name[::-1] for name in REVERSED), re.IGNORECASE)
 
-#: Not read: tooling, other people's code, working material that is not published, and the
-#: console's generated build, which is compiled from ``panel/`` (whose sources are read).
-SKIPPED_DIRECTORIES = frozenset(
-    {
-        "node_modules",
-        "__pycache__",
-        ".git",
-        ".venv",
-        ".ruff_cache",
-        ".mypy_cache",
-        ".pytest_cache",
-        "superpowers",
-        ".claude",
-        "dist",
-        ".build",
-        "test-results",
-        "playwright-report",
-        "__screens__",
-    }
-)
-SKIPPED_PATHS = frozenset({"src/noust/web/static", "docs/llms-full.txt"})
+#: Tracked and not read: the console's generated build, which is compiled from ``panel/`` (whose
+#: sources are read). What git ignores is never read either.
+SKIPPED_PATHS = ("src/noust/web/static",)
 
 
 def _files() -> list[Path]:
-    """Every file worth reading, found without descending into the directories that are skipped."""
-    found: list[Path] = []
-    for directory, subdirectories, names in os.walk(ROOT):
-        subdirectories[:] = sorted(d for d in subdirectories if d not in SKIPPED_DIRECTORIES)
-        here = Path(directory)
-        for name in sorted(names):
-            path = here / name
-            posix = path.relative_to(ROOT).as_posix()
-            if any(posix == s or posix.startswith(s + "/") for s in SKIPPED_PATHS):
-                continue
-            found.append(path)
-    return found
+    """Every file worth reading."""
+    return tree_files(ROOT, skip=SKIPPED_PATHS)
 
 
 def test_no_real_customer_or_server_is_named() -> None:
@@ -103,4 +76,4 @@ def test_the_guard_reads_the_tree_it_claims_to() -> None:
     assert "tests/test_no_real_customers.py" in files
     assert "scripts/console_server.py" in files
     assert any(name.startswith("panel/src/") for name in files)
-    assert not any(name.startswith("src/noust/web/static/") for name in files)
+    assert not any(name.startswith(SKIPPED_PATHS) for name in files)

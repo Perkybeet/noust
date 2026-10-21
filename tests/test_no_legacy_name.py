@@ -27,6 +27,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.tree_support import tree_files
+
 ROOT = Path(__file__).parent.parent
 
 #: Where the old name is refused. The tests are not here: they exercise the old spellings on
@@ -61,22 +63,9 @@ SCANNED_FILES = (
 #: from it and is not scanned itself.
 CONSOLE_SOURCES: tuple[str, ...] = ()
 
-#: Directories that are never read: the generated console build is compiled from ``panel/``,
-#: ``docs/superpowers`` is working material that is not published, and the rest is tooling.
-SKIPPED_DIRECTORIES = frozenset(
-    {
-        "node_modules",
-        "__pycache__",
-        ".git",
-        ".venv",
-        ".ruff_cache",
-        ".mypy_cache",
-        ".pytest_cache",
-        "superpowers",
-        ".build",
-    }
-)
-SKIPPED_PATHS = frozenset({"src/noust/web/static", "docs/llms-full.txt"})
+#: Tracked and not read: the console's generated build is compiled from ``panel/``. What git
+#: ignores (a virtual environment, working material, a build directory) is never read either.
+SKIPPED_PATHS = ("src/noust/web/static",)
 
 OLD_NAME = re.compile("wasm", re.IGNORECASE)
 
@@ -153,25 +142,12 @@ HISTORY = re.compile(r"docs/CHANGELOG-[0-9.]+\.md")
 
 
 def _files() -> list[Path]:
-    """Every text file the guard reads, relative to the repository root."""
-    found: list[Path] = []
-    for name in SCANNED_FILES:
-        path = ROOT / name
-        if path.is_file():
-            found.append(path)
-    for directory in (*SCANNED_DIRECTORIES, *CONSOLE_SOURCES):
-        base = ROOT / directory
-        if not base.is_dir():
-            continue
-        for path in sorted(base.rglob("*")):
-            relative = path.relative_to(ROOT).as_posix()
-            parts = set(path.relative_to(ROOT).parts)
-            if not path.is_file() or parts & SKIPPED_DIRECTORIES:
-                continue
-            if any(relative == s or relative.startswith(s + "/") for s in SKIPPED_PATHS):
-                continue
-            found.append(path)
-    return found
+    """Every text file the guard reads."""
+    root_files = [ROOT / name for name in SCANNED_FILES if (ROOT / name).is_file()]
+    return [
+        *root_files,
+        *tree_files(ROOT, under=[*SCANNED_DIRECTORIES, *CONSOLE_SOURCES], skip=SKIPPED_PATHS),
+    ]
 
 
 def _read(path: Path) -> list[str] | None:
@@ -239,8 +215,7 @@ def test_the_guard_reads_the_places_it_claims_to() -> None:
     assert "README.md" in files
     assert "docs/compose.md" in files
     assert "rpm/noust.spec" in files
-    assert not any(name.startswith("src/noust/web/static/") for name in files)
-    assert not any(name.startswith("docs/superpowers/") for name in files)
+    assert not any(name.startswith(SKIPPED_PATHS) for name in files)
 
 
 @pytest.mark.parametrize("text", ["wasm", "WASM", "Wasm-web", "x_wasm_init", "a.wAsM.b"])
