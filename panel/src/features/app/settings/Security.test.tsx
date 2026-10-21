@@ -22,7 +22,7 @@ const HARDENED = {
 const OFF = { ...HARDENED, profile: "off", configured: false, writable_paths: [], directives: [], exposure: 9.6, exposure_label: "UNSAFE" };
 
 function security(hardening: object = HARDENED, routes: Parameters<typeof renderSettings>[3] = {}) {
-  return renderSettings("/security", "Unit security", undefined, {
+  return renderSettings("/security", "Service security", undefined, {
     "GET /api/auth/session": () => json(200, ELEVATED),
     [`GET /api/apps/${DOMAIN}/hardening`]: () => json(200, hardening),
     ...routes,

@@ -6,6 +6,7 @@ import { appKeys } from "../../../api/queries/apps";
 import type { Job } from "../../../api/queries/jobs";
 import { hardeningQuery, runtimeKeys, tuningQuery } from "../../../api/queries/runtime";
 import type { Hardening, UnitTuning } from "../../../api/queries/runtime";
+import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { SaveBar } from "../../../components/page/SaveBar";
 import { Section } from "../../../components/page/Section";
@@ -16,17 +17,17 @@ import { ChoiceCards } from "../../../components/ui/ChoiceCards";
 import { Disclosure } from "../../../components/ui/Disclosure";
 import { Field } from "../../../components/ui/Field";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { Textarea } from "../../../components/ui/Textarea";
-import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { changedFields, useSaveBar } from "./formParts";
 import { JobFailedError, waitForJob } from "./queries";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { PrivilegeFields, useTuningPart } from "./TuningFields";
+import { LoadingRegion } from "../../../components/page";
 
 type Profile = "off" | "default" | "strict";
 
@@ -105,7 +106,7 @@ function HardeningForm({ domain, hardening, tuning, reading }: { domain: string;
     },
     onSuccess: (_result, values) => {
       setSubmitted(false);
-      toast.success(t("runtime.hardening.saved", { domain, profile: profileWords(t, values.profile) }));
+      announce(t("runtime.hardening.saved", { domain, profile: profileWords(t, values.profile) }));
     },
   });
 
@@ -178,10 +179,9 @@ function HardeningForm({ domain, hardening, tuning, reading }: { domain: string;
             </Subsection>
           ) : reading ? (
             // The place the section will take, so its arrival moves nothing.
-            <div aria-busy="true">
-              <span className="sr-only">{t("runtime.tuning.loading")}</span>
+            <LoadingRegion label={t("runtime.tuning.loading")}>
               <Skeleton className="h-40 w-full" />
-            </div>
+            </LoadingRegion>
           ) : null}
           <Checkbox label={t("runtime.hardening.restartLabel")} description={t("runtime.hardening.restartDescription")} checked={restart} onCheckedChange={setRestart} />
           {save.isError && !serverPath ? <ErrorBlock live compact error={save.error} title={t("runtime.hardening.saveFailed", { domain })} /> : null}
@@ -207,25 +207,25 @@ export function SecuritySettings() {
   const t = useT();
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.security", app.domain);
+  const headerIcon = useSubsectionIcon("runtime.nav.security");
   const hardening = useQuery(hardeningQuery(app.domain));
   // Read with the sandbox, so the form is made once with what the unit has; a read that failed
   // is the sandbox alone.
   const tuning = useQuery(tuningQuery(app.domain));
   const data = hardening.data;
   return (
-    <Section title={t("runtime.hardening.title")} description={t("runtime.hardening.description")}>
+    <Section title={t("runtime.hardening.title")} {...headerIcon} description={t("runtime.hardening.description")}>
       {data === undefined ? (
         hardening.isError ? (
           <ErrorBlock error={hardening.error} title={t("runtime.hardening.loadFailed")} onRetry={() => void hardening.refetch()} retrying={hardening.isRefetching} />
         ) : (
-          <div aria-busy="true" className="flex flex-col gap-3">
-            <span className="sr-only">{t("runtime.hardening.loading")}</span>
+          <LoadingRegion label={t("runtime.hardening.loading")} className="flex flex-col gap-3">
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-16 w-full" />
-          </div>
+          </LoadingRegion>
         )
       ) : !data.eligible ? (
-        <Notice tone="info">{t("runtime.hardening.cannot", { reason: data.reason ?? "" })}</Notice>
+        <InlineMessage tone="info">{t("runtime.hardening.cannot", { reason: data.reason ?? "" })}</InlineMessage>
       ) : (
         <HardeningForm domain={app.domain} hardening={data} tuning={tuning.data} reading={tuning.isPending} />
       )}

@@ -26,7 +26,7 @@ const CACHE = { domain: DOMAIN, path: "/var/cache/noust/build/shop-example-com",
 const NO_PROCESSES = { domain: DOMAIN, source: "none", problem: "", procfile_honoured: false, processes: [], notes: [] };
 
 function build(routes: Record<string, RouteHandler> = {}) {
-  return renderSettings("/build", "Build commands", RELEASE_APP, {
+  return renderSettings("/build", "Build", RELEASE_APP, {
     "GET /api/auth/session": () => json(200, ELEVATED),
     [`GET /api/apps/${DOMAIN}/build`]: () => json(200, NONE),
     [`GET /api/apps/${DOMAIN}/build-cache`]: () => json(200, CACHE),
@@ -121,8 +121,11 @@ describe("the process types", () => {
       [`GET /api/apps/${DOMAIN}/process-types`]: () => json(200, { ...NO_PROCESSES, source: "none", problem: "Procfile line 1 (web) needs a shell ('&&'). Put the commands in a script." }),
     });
 
-    expect(await screen.findByText("A Procfile that cannot be used")).toBeInTheDocument();
-    expect(screen.getByText(/needs a shell/)).toBeInTheDocument();
+    // The page draws again when the build commands arrive, so both are read in one go.
+    await waitFor(() => {
+      expect(screen.getByText("A Procfile that cannot be used")).toBeInTheDocument();
+      expect(screen.getByText(/needs a shell/)).toBeInTheDocument();
+    });
   });
 
   it("is not on the page when the repository declares nothing", { timeout: 30_000 }, async () => {

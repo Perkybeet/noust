@@ -7,26 +7,27 @@ import type { App } from "../../../api/queries/apps";
 import { isJobFinished, useFollowedJob } from "../../../api/queries/jobs";
 import type { Job } from "../../../api/queries/jobs";
 import { announce } from "../../../app/Announcer";
-import { CommandHint } from "../../../components/page/CommandHint";
-import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
+import { KeyValueList } from "../../../components/page/KeyValueList";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
-import { Section } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
-import { FeatureState } from "../../../components/ui/FeatureState";
 import { Notice } from "../../../components/ui/Notice";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { useReasonRequired } from "../../settings/compliance/useReasonRequired";
 import { useSudoFirst } from "./formParts";
 import { sandboxQuery, settingsKeys } from "./queries";
 import type { Sandbox } from "./queries";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** The one type whose builds do not go through the sandbox (`UNSUPPORTED_TYPES` in the backend). */
 const COMPOSE = "docker-compose";
@@ -162,8 +163,9 @@ function Trial({ sandbox }: { sandbox: Sandbox }) {
 }
 
 /**
- * Sandboxed builds for a type that has them: the state, the last trial, and the way on (a test
- * build as a job, then turning it on once it passed) or off (building as root, with a reason).
+ * Sandboxed builds for a type that has them: the state in the card's header, the last trial, and the
+ * way on (a test build as a job, then turning it on once it passed) or off (building as root, with a
+ * reason). The card's buttons are what moves it from one state to the next.
  */
 function SandboxCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
   const t = useT();
@@ -202,27 +204,61 @@ function SandboxCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
   }, [job, domain, queryClient]);
 
   const trialPassed = sandbox.trial?.passed === true;
+  const decidedBy = sandbox.changed_by ?? t("appSettings.builds.anOperator");
   return (
-    <Card title={t("appSettings.builds.cardTitle")}>
+    <Card
+      icon={SETTINGS_ICONS.sandbox}
+      title={t("appSettings.builds.cardTitle")}
+      status={
+        sandbox.enabled ? (
+          <StatusPill state="running" size="sm" label={t("appSettings.builds.on")} />
+        ) : sandbox.mode === "off" ? (
+          <StatusPill state="stopped" size="sm" label={t("appSettings.builds.off")} />
+        ) : (
+          <StatusPill state="warning" size="sm" label={t("appSettings.builds.notYet")} />
+        )
+      }
+      description={sandbox.enabled ? t("appSettings.builds.onBody") : sandbox.mode === "off" ? t("appSettings.builds.offTitle", { who: decidedBy }) : t("appSettings.builds.legacyTitle")}
+      actions={
+        sandbox.enabled ? (
+          <>
+            <Button size="sm" variant="ghost" loading={testing} onClick={() => test.mutate()}>
+              {t("appSettings.builds.testAgain")}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                sudoFirst(() => setDisabling(true), t("appSettings.builds.notChanged", { domain }));
+              }}
+            >
+              {t("appSettings.builds.buildAsRoot")}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button icon={<SETTINGS_ICONS.sandbox aria-hidden="true" />} size="sm" loading={testing} onClick={() => test.mutate()}>
+              {trialPassed ? t("appSettings.builds.testAgain") : t("appSettings.builds.test")}
+            </Button>
+            {trialPassed ? (
+              <Button icon={<SETTINGS_ICONS.turnOn aria-hidden="true" />} size="sm" loading={enable.isPending} onClick={() => enable.mutate()}>
+                {t("appSettings.builds.turnOn")}
+              </Button>
+            ) : null}
+          </>
+        )
+      }
+    >
       <div className="flex flex-col gap-4">
         {sandbox.enabled ? (
-          <>
-            <FeatureState state="on" title={t("appSettings.builds.on")}>
-              {t("appSettings.builds.onBody")}
-            </FeatureState>
-            <OnFacts sandbox={sandbox} />
-          </>
+          <OnFacts sandbox={sandbox} />
         ) : sandbox.mode === "off" ? (
-          <FeatureState state="off" title={t("appSettings.builds.offTitle", { who: sandbox.changed_by ?? t("appSettings.builds.anOperator") })}>
-            <span className="flex flex-col gap-1">
-              <span>{sandbox.reason}</span>
-              {sandbox.changed_at ? <span className="text-fg-muted">{t.rich("appSettings.builds.offSince", { time: <RelativeTime value={sandbox.changed_at} /> })}</span> : null}
-            </span>
-          </FeatureState>
+          <div className="flex flex-col gap-1 text-13 text-pretty text-fg-muted">
+            <span className="break-words">{sandbox.reason}</span>
+            {sandbox.changed_at ? <span>{t.rich("appSettings.builds.offSince", { time: <RelativeTime value={sandbox.changed_at} /> })}</span> : null}
+          </div>
         ) : (
-          <FeatureState state="off" title={t("appSettings.builds.legacyTitle")}>
-            {t("appSettings.builds.legacyBody")}
-          </FeatureState>
+          <p className="text-13 text-pretty text-fg-muted">{t("appSettings.builds.legacyBody")}</p>
         )}
 
         <Trial sandbox={sandbox} />
@@ -236,43 +272,12 @@ function SandboxCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
         ) : jobFailed ? (
           <ErrorBlock live compact error={{ detail: job.error ?? t("appSettings.jobFailedSilently") }} title={t("appSettings.builds.testNotFinished")} />
         ) : passedNow && !sandbox.enabled ? (
-          <Notice tone="success" live>
+          <InlineMessage tone="success" live>
             {t("appSettings.builds.passedNow")}
-          </Notice>
+          </InlineMessage>
         ) : null}
         {enable.isError ? <ErrorBlock live compact error={enable.error} title={t("appSettings.builds.notTurnedOn")} /> : null}
-
-        <div className="flex flex-wrap items-center gap-2">
-          {sandbox.enabled ? (
-            <>
-              <Button size="sm" variant="ghost" loading={testing} onClick={() => test.mutate()}>
-                {t("appSettings.builds.testAgain")}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  sudoFirst(() => setDisabling(true), t("appSettings.builds.notChanged", { domain }));
-                }}
-              >
-                {t("appSettings.builds.buildAsRoot")}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button loading={testing} onClick={() => test.mutate()}>
-                {trialPassed ? t("appSettings.builds.testAgain") : t("appSettings.builds.test")}
-              </Button>
-              {trialPassed ? (
-                <Button loading={enable.isPending} onClick={() => enable.mutate()}>
-                  {t("appSettings.builds.turnOn")}
-                </Button>
-              ) : (
-                <p className="text-12 text-fg-muted">{t("appSettings.builds.turnOnAfterTest")}</p>
-              )}
-            </>
-          )}
-        </div>
+        {!sandbox.enabled && !trialPassed ? <p className="text-12 text-fg-muted">{t("appSettings.builds.turnOnAfterTest")}</p> : null}
       </div>
       <ReasonDialog
         key={String(disabling)}
@@ -311,7 +316,7 @@ function ComposeCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
     },
   });
   return (
-    <Card title={t("appSettings.builds.composeTitle")} description={t("appSettings.builds.composeDescription")}>
+    <Card title={t("appSettings.builds.composeTitle")} icon={SETTINGS_ICONS.container} description={t("appSettings.builds.composeDescription")}>
       <div className="flex flex-col gap-4">
         {exception !== null ? (
           <KeyValueList
@@ -371,41 +376,26 @@ function ComposeCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
 }
 
 /**
- * Builds: installing dependencies and building run in a sandbox, as an account that cannot read
- * this server's secrets or change the system. What it protects in one sentence, the state, a
- * test build as a job, turning it on once one passed, and turning it off only with a reason.
+ * The sandbox builds run in, as a card of Build: installing dependencies and building happen as an
+ * account that cannot read this server's secrets or change the system. What it protects, the state, a
+ * test build as a job, turning it on once one passed, and turning it off only with a reason. A compose
+ * stack builds inside Docker, so what it shows is what the stack is allowed that is root.
  */
-export function BuildsSettings() {
+export function SandboxSettings({ app }: { app: App }) {
   const t = useT();
-  const app = useSettingsApp();
-  const domain = app.domain;
-  useSubsectionTitle("appSettings.nav.builds", domain);
   const type = app.app_type ?? "";
   // Every type has a regime to read, a monorepo's included: the backend says how it builds.
-  const sandbox = useQuery(sandboxQuery(domain));
+  const sandbox = useQuery(sandboxQuery(app.domain));
 
-  let body;
   if (sandbox.isPending) {
-    body = (
-      <Card title={t("appSettings.builds.cardTitle")}>
-        <div aria-busy="true">
-          <span className="sr-only">{t("appSettings.builds.loading")}</span>
-          <KeyValueListSkeleton rows={3} />
-        </div>
-      </Card>
+    return (
+      <LoadingRegion label={t("appSettings.builds.loading")}>
+        <SkeletonCard lines={3} />
+      </LoadingRegion>
     );
-  } else if (sandbox.isError) {
-    body = <ErrorBlock error={sandbox.error} title={t("appSettings.builds.readFailed")} onRetry={() => void sandbox.refetch()} retrying={sandbox.isRefetching} />;
-  } else if (type === COMPOSE) {
-    body = <ComposeCard app={app} sandbox={sandbox.data} />;
-  } else {
-    body = <SandboxCard app={app} sandbox={sandbox.data} />;
   }
-
-  return (
-    <Section title={t("appSettings.builds.title")} description={t("appSettings.builds.description")}>
-      {body}
-      <CommandHint command={`noust app sandbox test ${domain}`} label={t("appSettings.fromTerminal")} />
-    </Section>
-  );
+  if (sandbox.isError) {
+    return <ErrorBlock error={sandbox.error} title={t("appSettings.builds.readFailed")} onRetry={() => void sandbox.refetch()} retrying={sandbox.isRefetching} />;
+  }
+  return type === COMPOSE ? <ComposeCard app={app} sandbox={sandbox.data} /> : <SandboxCard app={app} sandbox={sandbox.data} />;
 }

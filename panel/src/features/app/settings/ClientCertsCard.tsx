@@ -6,9 +6,8 @@ import type { SyntheticEvent } from "react";
 import { isApiError, request } from "../../../api/client";
 import { appClientCertsQuery, networkKeys } from "../../../api/queries/network";
 import type { ClientCertificate, IssuedClientCertificate } from "../../../api/queries/network";
-import { CommandHint } from "../../../components/page/CommandHint";
+import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -16,16 +15,18 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { CopyValue } from "../../../components/ui/CopyValue";
 import { Dialog } from "../../../components/ui/Dialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { Field } from "../../../components/ui/Field";
+import { Field, GroupError } from "../../../components/ui/Field";
 import { IconButton } from "../../../components/ui/IconButton";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
-import { toast } from "../../../components/ui/toast";
+import { RowList } from "../../../components/ui/RowList";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { downloadBase64, downloadText } from "../../../lib/clipboard";
-import type { useAccessForm } from "./AccessSettings";
+import type { AccessForm } from "./useAccessForm";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** What the server accepts as the name of a certificate (`noust.managers.database.tls_authority`). */
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._@-]{0,63}$/;
@@ -135,11 +136,11 @@ function IssueDialog({ domain, open, onOpenChange }: IssueDialogProps) {
             <p className="text-13 text-fg-muted">{t("network.access.clients.passwordHelp")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="primary" onClick={() => downloadBase64(`${file}.p12`, made.bundle, "application/x-pkcs12")}>
+            <Button icon={<SETTINGS_ICONS.install aria-hidden="true" />} variant="primary" onClick={() => downloadBase64(`${file}.p12`, made.bundle, "application/x-pkcs12")}>
               {t("network.access.clients.downloadBundle")}
             </Button>
-            <Button onClick={() => downloadText(`${file}.key`, made.key_pem, "application/x-pem-file")}>{t("network.access.clients.downloadKey")}</Button>
-            <Button onClick={() => downloadText(`${file}.crt`, made.certificate_pem, "application/x-pem-file")}>
+            <Button icon={<SETTINGS_ICONS.install aria-hidden="true" />} onClick={() => downloadText(`${file}.key`, made.key_pem, "application/x-pem-file")}>{t("network.access.clients.downloadKey")}</Button>
+            <Button icon={<SETTINGS_ICONS.install aria-hidden="true" />} onClick={() => downloadText(`${file}.crt`, made.certificate_pem, "application/x-pem-file")}>
               {t("network.access.clients.downloadCertificate")}
             </Button>
           </div>
@@ -158,7 +159,7 @@ function IssueDialog({ domain, open, onOpenChange }: IssueDialogProps) {
  * once, each on its own, because the private key is handed over a single time and a revocation
  * is not something to leave half-saved; whether the site asks for one is saved with the form.
  */
-export function ClientCertsCard({ form, domain }: { form: ReturnType<typeof useAccessForm>; domain: string }) {
+export function ClientCertsCard({ form, domain }: { form: AccessForm; domain: string }) {
   const t = useT();
   const { node } = useNode();
   const queryClient = useQueryClient();
@@ -175,6 +176,7 @@ export function ClientCertsCard({ form, domain }: { form: ReturnType<typeof useA
 
   return (
     <Card
+      icon={SETTINGS_ICONS.certificate}
       title={t("network.access.clients.title")}
       description={t("network.access.clients.description")}
       loading={list.isPending}
@@ -191,15 +193,31 @@ export function ClientCertsCard({ form, domain }: { form: ReturnType<typeof useA
           checked={draft.client_certs}
           onCheckedChange={(checked) => edit("client_certs", checked)}
         />
-        {form.errorOf("client_certs") !== undefined ? <p className="text-13 text-fail">{form.errorOf("client_certs")}</p> : null}
+        {form.errorOf("client_certs") !== undefined ? <GroupError id="client-certs-refused">{form.errorOf("client_certs")}</GroupError> : null}
         {list.isError ? <ErrorBlock compact error={list.error} title={t("network.access.clients.readFailed")} /> : null}
         {list.data !== undefined ? (
           certificates.length === 0 ? (
             <EmptyState variant="inline" title={t("network.access.clients.empty")} />
           ) : (
-            <ul aria-label={t("network.access.clients.listLabel", { domain })} className="flex flex-col divide-y divide-border rounded-control border border-border">
+            <RowList aria-label={t("network.access.clients.listLabel", { domain })}>
               {certificates.map((certificate) => (
-                <li key={certificate.serial} className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2">
+                <RowList.Item
+                  key={certificate.serial}
+                  actions={
+                    <>
+                      {certificate.revoked ? (
+                        <StatusPill state="failed" size="sm" label={t("network.access.clients.revoked")} />
+                      ) : usable(certificate, now) ? (
+                        <StatusPill state="running" size="sm" label={t("network.access.clients.valid")} />
+                      ) : (
+                        <StatusPill state="warning" size="sm" label={t("network.access.clients.expired")} />
+                      )}
+                      {certificate.revoked ? null : (
+                        <IconButton label={`${t("network.access.clients.revoke")}: ${certificate.name}`} icon={<ShieldOff />} size="sm" onClick={() => setRevoking(certificate)} />
+                      )}
+                    </>
+                  }
+                >
                   <span className="flex min-w-0 flex-col">
                     <Mono truncate>{certificate.name}</Mono>
                     <span className="truncate text-12 text-fg-muted">
@@ -207,29 +225,11 @@ export function ClientCertsCard({ form, domain }: { form: ReturnType<typeof useA
                       {certificate.issued_by !== undefined && certificate.issued_by !== null ? ` · ${certificate.issued_by}` : ""}
                     </span>
                   </span>
-                  <span className="flex shrink-0 items-center gap-2">
-                    {certificate.revoked ? (
-                      <Badge tone="fail">{t("network.access.clients.revoked")}</Badge>
-                    ) : usable(certificate, now) ? (
-                      <Badge tone="ok">{t("network.access.clients.valid")}</Badge>
-                    ) : (
-                      <Badge tone="warn">{t("network.access.clients.expired")}</Badge>
-                    )}
-                    {certificate.revoked ? null : (
-                      <IconButton
-                        label={`${t("network.access.clients.revoke")}: ${certificate.name}`}
-                        icon={<ShieldOff />}
-                        size="sm"
-                        onClick={() => setRevoking(certificate)}
-                      />
-                    )}
-                  </span>
-                </li>
+                </RowList.Item>
               ))}
-            </ul>
+            </RowList>
           )
         ) : null}
-        <CommandHint command={`noust app policy clients list ${domain}`} label={t("appSettings.fromTerminal")} />
       </div>
       <IssueDialog domain={domain} open={issuing} onOpenChange={setIssuing} />
       <ConfirmDialog
@@ -255,7 +255,7 @@ export function ClientCertsCard({ form, domain }: { form: ReturnType<typeof useA
             query: { accept_lockout: lastValid(revoking) },
           });
           void queryClient.invalidateQueries({ queryKey: networkKeys.appClientCerts(domain) });
-          toast.success(t("network.access.clients.revokedToast", { name: revoking.name }));
+          announce(t("network.access.clients.revokedToast", { name: revoking.name }));
         }}
       />
     </Card>

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { Boxes } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
@@ -6,6 +7,17 @@ import { Button } from "../ui/Button";
 import { Section, Sections } from "./Section";
 
 describe("Section", () => {
+  it("draws the icon of its object before the heading, hidden from assistive technology, and the name stays the title", () => {
+    render(
+      <Section title="Automation" icon={Boxes}>
+        <p>rows</p>
+      </Section>,
+    );
+    const region = screen.getByRole("region", { name: "Automation" });
+    expect(region.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("heading", { level: 2, name: "Automation" })).toBeInTheDocument();
+  });
+
   it("is a region named by its heading, a level below the page title", () => {
     render(
       <Section title="Recent deployments" description="The last eight, across every app.">

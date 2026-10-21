@@ -2,9 +2,8 @@ import type { appBuild as en } from "../en/appBuild";
 import type { Catalog } from "../types";
 
 export const appBuild: Catalog<typeof en> = {
-  area: "Comandos de compilación",
-  title: "Comandos de compilación",
-  description: "Qué instala, compila e inicia el proyecto, dónde está en el repositorio y el runtime en el que se ejecuta. Lo que dejes vacío lo hace el tipo de la aplicación.",
+  title: "Compilación",
+  description: "Cómo se compila el proyecto: qué lo instala, compila y arranca, en qué parte del repositorio vive, el runtime en el que corre y el sandbox en el que se ejecutan sus compilaciones. Vacío, cada uno es lo que hace el tipo de la aplicación.",
   loading: "Cargando los comandos de compilación",
   readFailed: "No se pudieron leer los comandos de compilación",
   notSupported: "Una aplicación {type} se compila con su propia configuración, así que aquí no tiene comandos de compilación.",
@@ -20,16 +19,12 @@ export const appBuild: Catalog<typeof en> = {
     unitDirectory: "El servicio se ejecuta en",
     unitRuntime: "El servicio se ejecuta sobre",
   },
-  precedence: {
-    title: "Los ajustes propios de esta aplicación ganan, enteros",
-    body: "Cuando existen, el noust.yaml del repositorio no se lee en absoluto: nada se mezcla, así que lo que solo decía el repositorio (un directorio base, por ejemplo) deja de aplicarse. Quítalos y vuelven a aplicarse los del repositorio.",
-  },
   repositoryError: {
     title: "El noust.yaml del repositorio no es válido",
     body: "La próxima actualización falla con esto hasta que se arregle, o hasta que esta aplicación tenga ajustes propios.",
     label: "Lo que dijo la validación del bloque de compilación",
   },
-  fromRepository: "Estos valores proceden del repositorio. Guardarlos aquí los hace propios de esta aplicación y el bloque del repositorio deja de leerse: lo que dejes vacío vuelve al comando del tipo, no al del repositorio.",
+  fromRepository: "Estos valores vienen del noust.yaml del repositorio. Al guardarlos pasan a ser de esta aplicación.",
   form: {
     title: "Los comandos",
     description: "Todos son opcionales. Surten efecto con la próxima actualización o despliegue, que también vuelve a escribir el servicio si cambió el comando de inicio, el directorio o el runtime.",
@@ -49,7 +44,6 @@ export const appBuild: Catalog<typeof en> = {
     runtime: "Runtime",
     runtimeDescription: "node@22, python@3.12 o php@8.3: un mayor, un menor, una versión completa, lts o latest. Noust lo instala cuando el servidor no lo tiene.",
     runtimePresets: "Runtimes para empezar",
-    runtimeInstalled: "Lo que tiene instalado este servidor",
     timeout: "Tiempo máximo (segundos)",
     timeoutDescription: "Cuánto pueden durar la instalación y la compilación, cada una, antes de que se detengan. Vacío usa el del servidor: 1800 para la instalación, 2700 para la compilación.",
   },
@@ -58,7 +52,6 @@ export const appBuild: Catalog<typeof en> = {
     title: "¿Quitar los comandos de compilación de {domain}?",
     description: "El noust.yaml del repositorio vuelve a aplicarse en la próxima actualización, y los comandos del tipo donde no tenga. No se recompila nada ahora.",
   },
-  saved: "Guardado. Surte efecto con la próxima actualización.",
   saveFailed: "No se guardaron los comandos de compilación de {domain}",
   notSavedFor: "No se guardaron los comandos de compilación de {domain}",
   validation: {

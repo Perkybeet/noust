@@ -59,7 +59,7 @@ test("the subsections are URLs of their own, and on a phone the list is a page o
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings`);
   const nav = page.getByRole("navigation", { name: "Application settings" }).first();
-  await expect(nav.getByRole("link")).toHaveText(["General", "Source", "Deploys", "Deploy on push", "Deploy hooks", "Access", "Build commands", "Builds", "Resources", "Disk", "Processes", "Unit security", "Mounts", "Previews", "Export", "Delete"]);
+  await expect(nav.getByRole("link")).toHaveText(["General", "Source", "Build", "Releases and rollback", "Automation", "Deploy on push", "Deploy hooks", "Previews", "Resources", "Processes", "Mounts", "Disk", "Service security", "Access", "Protection", "Export", "Delete"]);
   await nav.getByRole("link", { name: "Deploy on push" }).click();
   await expect(page).toHaveURL(new RegExp(`/apps/${escapeRegExp(RELEASE_APP)}/settings/deploy-on-push$`));
   await expect(page.getByRole("heading", { level: 2, name: "Deploy on push" })).toBeVisible();
@@ -96,7 +96,7 @@ test("General reads what the API records", async ({ page, consoleServer }) => {
   await expect(staticSite.getByText("Start command")).toHaveCount(0);
 });
 
-test("Deploys saves the startup check and the versions kept from one save bar, refusing on the field first", async ({ page, consoleServer }) => {
+test("Releases and rollback saves the startup check and the versions kept from one save bar, refusing on the field first", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings/deploys`);
   const before = await factsOf(page, RELEASE_APP);
   const check = card(page, "Startup check");
@@ -157,6 +157,8 @@ test("an in-place app turns on instant rollback through its dry run", async ({ p
 
   const rollback = card(page, "Instant rollback");
   await expect(rollback.getByText(/^Safe updates: if a new version fails/)).toBeVisible();
+  // What turning it on does is one fold away; the dry run says it again before anything changes.
+  await rollback.getByRole("button", { name: "What turning it on does" }).click();
   await expect(rollback.getByText("Turning it on restarts the app once, for a moment.")).toBeVisible();
   await rollback.getByRole("button", { name: "Turn on instant rollback…" }).click();
   const dialog = page.getByRole("dialog", { name: `Turn on instant rollback for ${domain}` });
@@ -181,7 +183,7 @@ test("an in-place app turns on instant rollback through its dry run", async ({ p
   expect(match?.[2]).toBe(match?.[1]);
   await dialog.getByRole("button", { name: "Done" }).click();
   await expect(dialog).toBeHidden();
-  await expect(rollback.getByText("Live version")).toBeVisible();
+  await expect(rollback.getByText("Live now")).toBeVisible();
 });
 
 test("resource limits are refused as the backend would, then saved with exactly what the form says", async ({ page, consoleServer }, testInfo) => {
@@ -209,8 +211,13 @@ test("deploy on push says where the setup stands, step by step, and shows the se
   await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings/deploy-on-push`);
   await expect(page.getByText(/When you push to the repository, GitHub, GitLab, Gitea or Bitbucket tells this server/)).toBeVisible();
   const setup = card(page, "Set it up");
-  await expect(setup.getByRole("heading", { name: "A public address for webhooks" })).toBeVisible();
+  // Only the step the setup is at is drawn: the seeded machine publishes an address and the app has its
+  // secret, so it is the last, where the values are pasted; the two before are one click back.
+  await expect(setup.getByRole("heading", { name: "Add the webhook in GitHub" })).toBeVisible();
+  await expect(setup.getByRole("list", { name: "Steps" }).getByRole("listitem")).toHaveCount(3);
+  await setup.getByRole("button", { name: "Secret: done" }).click();
   await expect(setup.getByText(/^Done: every delivery must be signed with it/)).toBeVisible();
+  await setup.getByRole("button", { name: "Continue" }).click();
   const hookUrl = setup.getByText(new RegExp(`/hooks/deploy/${escapeRegExp(RELEASE_APP)}$`));
   await expect(hookUrl).toBeVisible();
   await expect(setup.getByText("application/json", { exact: true })).toBeVisible();
@@ -235,8 +242,8 @@ test("deploy on push says where the setup stands, step by step, and shows the se
 });
 
 test("a sandboxed test build runs as a job, and its failure is shown in the system's words", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings/builds`);
-  const sandbox = card(page, "Sandboxed builds");
+  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings/build`);
+  const sandbox = card(page, "Build sandbox");
   await expect(sandbox.getByText("Its builds still run as root")).toBeVisible();
   await expect(sandbox.getByText("It can be turned on once a test build passes.")).toBeVisible();
   await expectNoA11yViolations(page, "builds before a test");

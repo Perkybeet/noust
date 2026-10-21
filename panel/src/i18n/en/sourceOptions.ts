@@ -33,7 +33,6 @@ export const sourceOptions = {
     placeholder: "apps/web/**\n!**/*.md",
     note: "GitHub, Gitea and GitLab list the files of a push. A forge that does not (Bitbucket) cannot be filtered, and its pushes deploy.",
   },
-  save: "Save",
   saved: "{domain} will be fetched and deployed this way",
   notSaved: "The source settings of {domain} were not saved",
   reset: "Back to the defaults",
@@ -41,10 +40,8 @@ export const sourceOptions = {
   resetDescription: "Submodules and LFS are fetched as the repository needs, history is not kept, and every push deploys.",
   resetAction: "Use the defaults",
   resetDone: "{domain} uses the default source settings",
-  fromTerminal: "The same, from a terminal",
   deployUrl: {
     label: "Deploy URL",
-    description: "A pipeline deploys this application with a POST to this address and a token that may deploy.",
   },
   outcome: {
     skip: "Marked to skip, ignored",

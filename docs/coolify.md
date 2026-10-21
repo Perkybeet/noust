@@ -64,7 +64,7 @@ command palette (`Ctrl K`) too.
 | Servers | **Server** (this server: system, services, storage, security, updates) and **Fleet** (all servers) |
 | Sources | **Settings > Integrations** |
 | Destinations | None: no Docker networks |
-| Registries | **Settings > Integrations > Container registries**: the accounts, kept once, and an application's **Settings > Deploys** says which it uses ([containers.md](containers.md#registry-accounts)) |
+| Registries | **Settings > Integrations > Container registries**: the accounts, kept once, and an application's **Settings > Compose** or **Container** says which it uses ([containers.md](containers.md#registry-accounts)) |
 | S3 Storage | **Backups > Destinations** |
 | Shared Variables | **Settings > Variables** (the server's), a team's **Variables** tab and a project's page ([variables.md](variables.md)) |
 | Team | **Settings > Accounts**, and **Teams** |
@@ -83,7 +83,7 @@ command palette (`Ctrl K`) too.
 | Settings > Authentication | **Settings > Security** (two-step verification, passkeys), single sign-on ([sso.md](sso.md)) |
 | Settings > Backup (the instance) | **Backups > Noust's own state** (`noust self-backup`, one encrypted file) |
 | Profile, 2FA | **Settings > Security** |
-| An application: General, Domains, Environment, Storage | The application's **Overview**, **Domains**, **Environment** and **Settings** (General, Deploys, Deploy on push, Deploy hooks, Build commands, Builds, Resources, Source, Previews, Export, Delete) |
+| An application: General, Domains, Environment, Storage | The application's **Overview**, **Domains**, **Environment** and **Settings** (General, Source, Build, Releases and rollback, Automation, Deploy on push, Deploy hooks, Previews, Resources, Access, Protection, Export, Delete) |
 | Runtime Logs, Deployment Logs | **Logs** and **Deployments** |
 | Metrics | **Metrics** |
 | Preview Deployments, Webhooks | The application's **Settings > Previews** and **Settings > Deploy on push** |

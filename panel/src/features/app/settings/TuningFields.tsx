@@ -7,6 +7,7 @@ import { appKeys } from "../../../api/queries/apps";
 import { runtimeKeys } from "../../../api/queries/runtime";
 import type { UnitTuning } from "../../../api/queries/runtime";
 import { systemInfoQuery } from "../../../api/queries/system";
+import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -17,7 +18,6 @@ import { Mono } from "../../../components/ui/Mono";
 import { Select } from "../../../components/ui/Select";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { Textarea } from "../../../components/ui/Textarea";
-import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { PlainKey, T } from "../../../i18n";
 import { changedIn, draftOf, parseTuning, presetLines, requestOptions, withLines, FIELD_OF } from "./tuning";
@@ -93,7 +93,7 @@ export function useTuningPart(domain: string, tuning: UnitTuning | undefined, gr
     },
     onSuccess: () => {
       setSubmitted(false);
-      toast.success(t("runtime.tuning.saved", { domain }));
+      announce(t("runtime.tuning.saved", { domain }));
     },
   });
 

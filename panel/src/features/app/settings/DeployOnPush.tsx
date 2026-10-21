@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Webhook } from "lucide-react";
+import { Webhook } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -7,10 +7,12 @@ import { request } from "../../../api/client";
 import { appKeys } from "../../../api/queries/apps";
 import type { App } from "../../../api/queries/apps";
 import { CommandHint } from "../../../components/page/CommandHint";
-import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
-import { ErrorBlock } from "../../../components/page/QueryState";
+import { KeyValueList } from "../../../components/page/KeyValueList";
+import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
+import { Stepper } from "../../../components/page/Stepper";
+import type { WizardStep } from "../../../components/page/Stepper";
 import { Subsection } from "../../../components/page/Subsection";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -21,14 +23,14 @@ import type { Column } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { ExternalLink } from "../../../components/ui/ExternalLink";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { cx } from "../../../lib/cx";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
 import { useBranchPin } from "./BranchPin";
@@ -36,38 +38,22 @@ import { GitPushCard } from "./GitPush";
 import { useSudoFirst } from "./formParts";
 import { RECEIVED_SHOWN, settingsKeys, webhookReceivedQuery, webhookStatusQuery } from "./queries";
 import type { ReceivedDelivery, WebhookSecret, WebhookStatus } from "./queries";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { connectionView, forgeName, outcomeView, senderName } from "./webhook";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** The example name `noust web expose-hooks` is shown with: the operator types their own. */
 const HOOKS_EXAMPLE = "hooks.example.com";
 
 /**
- * One step of the setup: its number, or a check once done, beside what it asks. Its state is
- * said in words by the sentence under its title, which starts with "Done" or "Not done".
+ * The step on screen: what it asks, said by the sentence under its title, which starts with "Done"
+ * or "Not done". The numbers and the way between steps are the kit's `Stepper`.
  */
-function SetupStep({ number, done, title, state, action, children }: { number: number; done: boolean; title: string; state: ReactNode; action?: ReactNode; children?: ReactNode }) {
+function SetupStep({ title, state, action, children }: { title: string; state: ReactNode; action?: ReactNode; children?: ReactNode }) {
   return (
-    <li className="flex min-w-0 gap-3">
-      <span
-        aria-hidden="true"
-        className={cx(
-          "mt-px flex size-6 shrink-0 items-center justify-center rounded-pill border text-12 font-medium tabular-nums",
-          done ? "border-accent bg-accent text-on-accent" : "border-border-strong bg-surface text-fg-muted",
-        )}
-      >
-        {done ? <Check className="size-icon-sm" strokeWidth={3} /> : number}
-      </span>
-      <Subsection
-        level={4}
-        title={title}
-        description={state}
-        actions={action}
-        className="flex-1"
-      >
-        {children}
-      </Subsection>
-    </li>
+    <Subsection level={4} title={title} description={state} actions={action}>
+      {children}
+    </Subsection>
   );
 }
 
@@ -121,10 +107,10 @@ function Connection({ status, followTags, onRotate, onDisable }: { status: Webho
         </div>
         {status.enabled ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Button size="sm" onClick={onRotate}>
+            <Button icon={<SETTINGS_ICONS.rebuild aria-hidden="true" />} size="sm" onClick={onRotate}>
               {t("appSettings.webhook.rotate")}
             </Button>
-            <Button size="sm" variant="ghost" onClick={onDisable}>
+            <Button icon={<SETTINGS_ICONS.turnOff aria-hidden="true" />} size="sm" variant="ghost" onClick={onDisable}>
               {t("appSettings.webhook.turnOff")}
             </Button>
           </div>
@@ -151,9 +137,14 @@ function forgeWords(t: T, forge: string | null | undefined, events: readonly str
   return { how: t("appSettings.webhook.howOther"), events: t("appSettings.webhook.eventsOther") };
 }
 
+type StepId = "address" | "secret" | "forge";
+
 /**
- * The three steps, each with its state: a public address the forge can reach, this app's
- * secret, and the forge's side with the exact values and a link to where they go.
+ * The three steps, each with its state: a public address the forge can reach, this app's secret,
+ * and the forge's side with the exact values and a link to where they go. The kit's stepper shows
+ * where the setup is and the step it is at is open; a step that is done can be opened again to read
+ * its values. When this server's GitHub App already reaches the repository the first step is not
+ * asked of anyone, and does not send them to a terminal.
  */
 function Steps({
   status,
@@ -178,6 +169,31 @@ function Steps({
   const words = forgeWords(t, forge.forge, hooks.events);
   const hookUrl = secret?.hook_url ?? hooks.hook_url ?? null;
   const connected = status.deliveries.last_verified_at ?? null;
+  const app = status.github_app;
+  const byApp = app.covers_repository && !hooks.exposed;
+
+  // The step the setup is at is the first that is not done; the operator can open one that is.
+  const done: Record<StepId, boolean> = { address: hooks.exposed || byApp, secret: status.enabled, forge: connected !== null };
+  const order: StepId[] = ["address", "secret", "forge"];
+  // Covered by the GitHub App and with no webhook yet, the first step is the one that says why none is needed.
+  const firstOpen: StepId = byApp && !status.enabled ? "address" : (order.find((id) => !done[id]) ?? "forge");
+  // Past the address step without a public address: the console's own address is what gets pasted, which
+  // is what a Git host on the same network needs, and the secret may already be there.
+  const afterAddress: StepId = done.secret ? "forge" : "secret";
+  const [chosen, setChosen] = useState<StepId | null>(null);
+  // A secret on screen is pasted at the host, so that is the step it is shown in.
+  const current: StepId = secret !== null ? "forge" : (chosen ?? firstOpen);
+  // A step that is done can be read again from the rail, and this is the way on from it.
+  const goOn = (to: StepId): ReactNode => (
+    <Button icon={<SETTINGS_ICONS.next aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setChosen(to)}>
+      {t("common.wizard.next")}
+    </Button>
+  );
+  const steps: WizardStep[] = [
+    { id: "address", label: t("appSettings.webhook.rail.address") },
+    { id: "secret", label: t("appSettings.webhook.rail.secret") },
+    { id: "forge", label: t("appSettings.webhook.rail.forge", { forge: forgeLabel }) },
+  ];
 
   const values = [
     { label: t("appSettings.webhook.urlLabel"), value: hookUrl },
@@ -188,7 +204,7 @@ function Steps({
           value: status.enabled ? (
             <span className="flex items-center gap-2">
               <span className="text-fg-muted">{t("appSettings.webhook.secretHidden")}</span>
-              <Button size="sm" variant="ghost" loading={revealing} onClick={onReveal}>
+              <Button icon={<SETTINGS_ICONS.show aria-hidden="true" />} size="sm" variant="ghost" loading={revealing} onClick={onReveal}>
                 {t("appSettings.webhook.showSecret")}
               </Button>
             </span>
@@ -204,68 +220,88 @@ function Steps({
   ];
 
   return (
-    <Card title={t("appSettings.webhook.setupTitle")}>
-      <ol className="flex flex-col gap-5">
-        <SetupStep
-          number={1}
-          done={hooks.exposed}
-          title={t("appSettings.webhook.step1Title")}
-          state={
-            hooks.exposed && hooks.base_url
-              ? t.rich("appSettings.webhook.step1Done", { url: <Mono>{hooks.base_url}</Mono> })
-              : t("appSettings.webhook.step1ToDo", { forge: forgeLabel })
-          }
-        >
-          {hooks.exposed ? null : (
-            <div className="flex flex-col gap-1.5">
-              <p className="text-12 text-fg-muted">{t("appSettings.webhook.step1Run")}</p>
-              <CopyValue value={`noust web expose-hooks ${HOOKS_EXAMPLE}`} label={t("appSettings.webhook.copyCommand")} />
-            </div>
-          )}
-        </SetupStep>
-        <SetupStep
-          number={2}
-          done={status.enabled}
-          title={t("appSettings.webhook.step2Title")}
-          state={status.enabled ? t("appSettings.webhook.step2Done") : t("appSettings.webhook.step2ToDo")}
-          action={
-            status.enabled ? undefined : (
-              <Button size="sm" loading={creating} onClick={onCreate}>
-                {t("appSettings.webhook.createSecret")}
-              </Button>
-            )
-          }
-        />
-        <SetupStep
-          number={3}
-          done={connected !== null}
-          title={t("appSettings.webhook.step3Title", { forge: forgeLabel })}
-          state={
-            connected !== null
-              ? t.rich("appSettings.webhook.step3Done", { forge: forgeLabel, time: <RelativeTime value={connected} /> })
-              : words.how
-          }
-        >
-          <div className="flex flex-col gap-2">
-            <KeyValueList items={values} empty={t("appSettings.webhook.urlUnknown")} />
-            {!hooks.hook_url_public && hookUrl !== null ? <p className="text-12 text-pretty text-fg-muted">{t("appSettings.webhook.urlNotPublic", { forge: forgeLabel })}</p> : null}
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              {forge.settings_url ? (
-                <ExternalLink href={forge.settings_url}>
-                  {t("appSettings.webhook.openForgeSettings", { forge: forgeLabel })}
-                </ExternalLink>
+    <Card title={t("appSettings.webhook.setupTitle")} icon={SETTINGS_ICONS.webhook}>
+      <div className="flex flex-col gap-5">
+        <Stepper orientation="horizontal" steps={steps} current={current} onSelect={(id) => setChosen(id as StepId)} />
+        {current === "address" ? (
+          <SetupStep
+            title={t("appSettings.webhook.step1Title")}
+            state={
+              byApp
+                ? t("appSettings.webhook.step1App", { repository: forge.repository ?? "", account: app.account ?? "" })
+                : hooks.exposed && hooks.base_url
+                  ? t.rich("appSettings.webhook.step1Done", { url: <Mono>{hooks.base_url}</Mono> })
+                  : t("appSettings.webhook.step1ToDo", { forge: forgeLabel })
+            }
+            {...(done.address ? { action: goOn("secret") } : {})}
+          >
+            {byApp ? (
+              <div className="flex flex-col items-start gap-2">
+                <InlineMessage>{t("appSettings.webhook.appCoversRisk")}</InlineMessage>
+                {status.enabled ? null : (
+                  <Button size="sm" variant="ghost" onClick={() => setChosen(afterAddress)}>
+                    {t("appSettings.webhook.appSetupAnyway")}
+                  </Button>
+                )}
+              </div>
+            ) : hooks.exposed ? null : (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-12 text-fg-muted">{t("appSettings.webhook.step1Run")}</p>
+                <CopyValue value={`noust web expose-hooks ${HOOKS_EXAMPLE}`} label={t("appSettings.webhook.copyCommand")} />
+                <div>
+                  <Button size="sm" variant="ghost" onClick={() => setChosen(afterAddress)}>
+                    {t("appSettings.webhook.useOwnAddress")}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </SetupStep>
+        ) : null}
+        {current === "secret" ? (
+          <SetupStep
+            title={t("appSettings.webhook.step2Title")}
+            state={status.enabled ? t("appSettings.webhook.step2Done") : t("appSettings.webhook.step2ToDo")}
+            action={
+              status.enabled ? (
+                goOn("forge")
               ) : (
-                <span />
-              )}
-              {secret !== null ? (
-                <Button size="sm" variant="ghost" onClick={onHide}>
-                  {t("appSettings.webhook.hideSecret")}
+                <Button icon={<SETTINGS_ICONS.key aria-hidden="true" />} size="sm" loading={creating} onClick={onCreate}>
+                  {t("appSettings.webhook.createSecret")}
                 </Button>
-              ) : null}
+              )
+            }
+          />
+        ) : null}
+        {current === "forge" ? (
+          <SetupStep
+            title={t("appSettings.webhook.step3Title", { forge: forgeLabel })}
+            state={
+              connected !== null
+                ? t.rich("appSettings.webhook.step3Done", { forge: forgeLabel, time: <RelativeTime value={connected} /> })
+                : words.how
+            }
+          >
+            <div className="flex flex-col gap-2">
+              <KeyValueList items={values} empty={t("appSettings.webhook.urlUnknown")} />
+              {!hooks.hook_url_public && hookUrl !== null ? <p className="text-12 text-pretty text-fg-muted">{t("appSettings.webhook.urlNotPublic", { forge: forgeLabel })}</p> : null}
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                {forge.settings_url ? (
+                  <ExternalLink href={forge.settings_url}>
+                    {t("appSettings.webhook.openForgeSettings", { forge: forgeLabel })}
+                  </ExternalLink>
+                ) : (
+                  <span />
+                )}
+                {secret !== null ? (
+                  <Button icon={<SETTINGS_ICONS.hide aria-hidden="true" />} size="sm" variant="ghost" onClick={onHide}>
+                    {t("appSettings.webhook.hideSecret")}
+                  </Button>
+                ) : null}
+              </div>
             </div>
-          </div>
-        </SetupStep>
-      </ol>
+          </SetupStep>
+        ) : null}
+      </div>
     </Card>
   );
 }
@@ -338,23 +374,35 @@ function PushesReceived({ domain, status }: { domain: string; status: WebhookSta
         </TextLink>
       }
     >
-      {received.isError && received.data === undefined ? (
-        <ErrorBlock compact error={received.error} title={t("appSettings.webhook.receivedFailed")} onRetry={() => void received.refetch()} />
-      ) : received.data?.items.length === 0 ? (
-        // Nothing yet: one line in the table's place, without column headers over nothing.
-        <EmptyState variant="inline" title={t("appSettings.webhook.nothingReceived", { forge })} />
-      ) : (
-        <DataTable
-          caption={t("appSettings.webhook.receivedCaption", { domain })}
-          columns={receivedColumns(t)}
-          rows={received.data?.items ?? []}
-          getRowId={(row) => String(row.id)}
-          loading={received.isPending}
-          skeletonRows={Math.min(Math.max(total, 1), RECEIVED_SHOWN)}
-          density="compact"
-          mobile="cards"
-        />
-      )}
+      <QueryState
+        query={received}
+        label={t("appSettings.webhook.receivedLabel")}
+        skeleton={
+          <DataTable
+            caption={t("appSettings.webhook.receivedCaption", { domain })}
+            columns={receivedColumns(t)}
+            rows={[]}
+            getRowId={(row) => String(row.id)}
+            loading
+            skeletonRows={Math.min(Math.max(total, 1), RECEIVED_SHOWN)}
+            density="compact"
+            mobile="cards"
+          />
+        }
+        isEmpty={(data) => data.items.length === 0}
+        empty={<EmptyState variant="inline" title={t("appSettings.webhook.nothingReceived", { forge })} />}
+      >
+        {(data) => (
+          <DataTable
+            caption={t("appSettings.webhook.receivedCaption", { domain })}
+            columns={receivedColumns(t)}
+            rows={data.items}
+            getRowId={(row) => String(row.id)}
+            density="compact"
+            mobile="cards"
+          />
+        )}
+      </QueryState>
       {total > RECEIVED_SHOWN ? <p className="text-12 text-fg-muted">{t("appSettings.webhook.newestOf", { shown: RECEIVED_SHOWN, total })}</p> : null}
     </Subsection>
   );
@@ -364,14 +412,8 @@ function PushesReceived({ domain, status }: { domain: string; status: WebhookSta
 function GitHubApp({ status }: { status: WebhookStatus }) {
   const t = useT();
   const app = status.github_app;
-  if (app.covers_repository) {
-    return (
-      <Notice title={t("appSettings.webhook.appCoversTitle")}>
-        {t("appSettings.webhook.appCoversBody", { account: app.account ?? "", repository: status.forge.repository ?? "" })}
-      </Notice>
-    );
-  }
-  if (status.forge.forge !== "github") return null;
+  // Covered, it is the first step of the setup that says so.
+  if (app.covers_repository || status.forge.forge !== "github") return null;
   return (
     <p className="max-w-measure text-13 text-pretty text-fg-muted">
       {app.configured ? t("appSettings.webhook.appNotHere") : t("appSettings.webhook.appAlternative")}{" "}
@@ -388,19 +430,6 @@ function GitHubApp({ status }: { status: WebhookStatus }) {
   );
 }
 
-function StatusSkeleton() {
-  const t = useT();
-  return (
-    <div aria-busy="true" className="flex flex-col gap-4">
-      <span className="sr-only">{t("appSettings.webhook.loading")}</span>
-      <Skeleton className="h-16 w-full rounded-card" />
-      <Card title={t("appSettings.webhook.setupTitle")}>
-        <KeyValueListSkeleton rows={4} />
-      </Card>
-    </div>
-  );
-}
-
 /**
  * Deploy on push: a push to the repository deploys the app. Said in one sentence, then set up
  * in three steps that each say whether they are done, with the branch that deploys (and the
@@ -412,6 +441,7 @@ export function DeployOnPush() {
   const app = useSettingsApp();
   const domain = app.domain;
   useSubsectionTitle("appSettings.nav.push", domain);
+  const headerIcon = useSubsectionIcon("appSettings.nav.push");
   const { node } = useNode();
   const queryClient = useQueryClient();
   const sudoFirst = useSudoFirst();
@@ -455,53 +485,60 @@ export function DeployOnPush() {
 
   const data = status.data;
   return (
-    <Section title={t("appSettings.webhook.title")} description={t("appSettings.webhook.description")}>
-      {status.isPending ? (
-        <StatusSkeleton />
-      ) : status.isError || data === undefined ? (
-        <ErrorBlock error={status.error} title={t("appSettings.webhook.statusFailed")} onRetry={() => void status.refetch()} retrying={status.isRefetching} />
-      ) : (
-        <>
-          <Connection status={data} followTags={app.follow_tags ?? null} onRotate={() => elevated(() => setConfirm("rotate"))} onDisable={() => elevated(() => setConfirm("disable"))} />
-          <GitHubApp status={data} />
-          {data.branch.any_push_deploys && !app.follow_tags ? (
-            <Notice
-              tone="warning"
-              title={t("appSettings.webhook.anyBranchTitle")}
-              action={
-                <Button size="sm" onClick={branchPin.pin}>
-                  {t("appSettings.branch.pin")}
-                </Button>
-              }
-            >
-              {t("appSettings.webhook.anyBranchBody")}
-            </Notice>
-          ) : null}
-          {data.inplace_warning ? (
-            <Notice
-              tone="warning"
-              title={t("appSettings.webhook.inPlaceTitle")}
-              action={
-                <TextLink to="/apps/$domain/settings/deploys" params={{ domain }} size="ui">
-                  {t("appSettings.webhook.inPlaceAction")}
-                </TextLink>
-              }
-            >
-              {t("appSettings.webhook.inPlaceBody")}
-            </Notice>
-          ) : null}
-          <Steps
-            status={data}
-            secret={secret}
-            creating={create.isPending}
-            revealing={reveal.isPending}
-            onCreate={() => elevated(() => create.mutate())}
-            onReveal={() => elevated(() => reveal.mutate())}
-            onHide={() => setSecret(null)}
-          />
-          <PushesReceived domain={domain} status={data} />
-        </>
-      )}
+    <Section title={t("appSettings.webhook.title")} {...headerIcon} description={t("appSettings.webhook.description")}>
+      <QueryState
+        query={status}
+        label={t("appSettings.webhook.label")}
+        skeleton={
+          <div className="flex flex-col gap-4">
+            <SkeletonCard lines={1} />
+            <SkeletonCard lines={4} />
+          </div>
+        }
+      >
+        {(data) => (
+          <>
+            <Connection status={data} followTags={app.follow_tags ?? null} onRotate={() => elevated(() => setConfirm("rotate"))} onDisable={() => elevated(() => setConfirm("disable"))} />
+            <GitHubApp status={data} />
+            {data.branch.any_push_deploys && !app.follow_tags ? (
+              <Notice
+                tone="warning"
+                title={t("appSettings.webhook.anyBranchTitle")}
+                action={
+                  <Button size="sm" onClick={branchPin.pin}>
+                    {t("appSettings.branch.pin")}
+                  </Button>
+                }
+              >
+                {t("appSettings.webhook.anyBranchBody")}
+              </Notice>
+            ) : null}
+            {data.inplace_warning ? (
+              <Notice
+                tone="warning"
+                title={t("appSettings.webhook.inPlaceTitle")}
+                action={
+                  <TextLink to="/apps/$domain/settings/deploys" params={{ domain }} size="ui">
+                    {t("appSettings.webhook.inPlaceAction")}
+                  </TextLink>
+                }
+              >
+                {t("appSettings.webhook.inPlaceBody")}
+              </Notice>
+            ) : null}
+            <Steps
+              status={data}
+              secret={secret}
+              creating={create.isPending}
+              revealing={reveal.isPending}
+              onCreate={() => elevated(() => create.mutate())}
+              onReveal={() => elevated(() => reveal.mutate())}
+              onHide={() => setSecret(null)}
+            />
+            <PushesReceived domain={domain} status={data} />
+          </>
+        )}
+      </QueryState>
       {/* Below the status, not beside its skeleton: the skeleton is a third of the page it becomes, so
           anything drawn under it would be on screen for a moment and then pushed out of view. */}
       {status.isPending ? null : (

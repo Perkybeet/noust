@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { isApiError, request } from "../../../api/client";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { SaveBar } from "../../../components/page/SaveBar";
@@ -14,9 +16,10 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -24,10 +27,12 @@ import { useNode } from "../../../nodes/useNode";
 import { allowedKeys, appliedUnit, buildBody, buildProblems, changedKeys, draftOfBuild, hasBuildBlock, looksLikeShell, runtimePresets, sourceOf } from "../../build/model";
 import type { AppBuild, BuildDraft, BuildKey } from "../../build/model";
 import { BuildCacheCard, ProcessesCard } from "./BuildExtras";
+import { SandboxSettings } from "./BuildsSettings";
 import { PackagesCard } from "./PackagesCard";
 import { useSaveBar } from "./formParts";
 import { buildQuery, settingsKeys } from "./queries";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 const COMMAND_KEYS = ["install", "build", "start"] as const;
 
@@ -71,7 +76,7 @@ function Standing({ build, t }: { build: AppBuild; t: T }) {
   );
 }
 
-function Form({ build, appType, domain }: { build: AppBuild; appType: string; domain: string }) {
+function Form({ build, appType, domain, children }: { build: AppBuild; appType: string; domain: string; children?: ReactNode }) {
   const t = useT();
   const { node } = useNode();
   const queryClient = useQueryClient();
@@ -79,7 +84,6 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
   const [baseline, setBaseline] = useState(build);
   const [draft, setDraft] = useState<BuildDraft>(stored);
   const [submitted, setSubmitted] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [removing, setRemoving] = useState(false);
   const source = sourceOf(build);
   const keys = allowedKeys(appType);
@@ -99,7 +103,6 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
       setDraft(draftOfBuild(result));
       setBaseline(result);
       setSubmitted(false);
-      setSaved(true);
     },
   });
   const serverErrors: Record<string, string> = isApiError(save.error) && save.error.fields !== null ? save.error.fields : {};
@@ -122,7 +125,6 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
         discard: () => {
           setDraft(stored);
           setSubmitted(false);
-          setSaved(false);
           save.reset();
         },
       },
@@ -132,7 +134,6 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
 
   const set = (key: BuildKey) => (value: string) => {
     setDraft((previous) => ({ ...previous, [key]: value }));
-    setSaved(false);
     if (save.isError) save.reset();
   };
   const presets = runtimePresets(appType);
@@ -141,7 +142,6 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
   return (
     <>
       <Standing build={build} t={t} />
-      <Notice title={t("appBuild.precedence.title")}>{t("appBuild.precedence.body")}</Notice>
       {build.repository_error !== null && build.repository_error !== undefined ? (
         <Notice tone="error" title={t("appBuild.repositoryError.title")}>
           <div className="flex flex-col gap-2">
@@ -150,9 +150,10 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
           </div>
         </Notice>
       ) : null}
-      {source === "repo" ? <Notice tone="warning">{t("appBuild.fromRepository")}</Notice> : null}
+      {source === "repo" ? <InlineMessage>{t("appBuild.fromRepository")}</InlineMessage> : null}
 
       <Card
+        icon={SETTINGS_ICONS.build}
         title={t("appBuild.form.title")}
         description={t("appBuild.form.description")}
         {...(source === "operator"
@@ -173,28 +174,25 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
             </Field>
           ) : null}
           {COMMAND_KEYS.filter(has).map((key) => (
-            <Field
-              key={key}
-              label={t(key === "install" ? "appBuild.fields.install" : key === "build" ? "appBuild.fields.build" : "appBuild.fields.start")}
-              optional
-              error={errorOf(key)}
-              description={
-                <>
-                  {commandHelp(t, key)}
-                  {looksLikeShell(draft[key]) ? <span className="mt-1 block text-warn">{t("appBuild.fields.shellWarning")}</span> : null}
-                </>
-              }
-            >
-              <Input
-                mono
-                value={draft[key]}
-                placeholder={key === "install" ? "pnpm install --frozen-lockfile" : key === "build" ? "pnpm --filter web build" : "node dist/server.js --port ${PORT}"}
-                onValueChange={set(key)}
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-              />
-            </Field>
+            <div key={key} className="flex flex-col gap-1.5">
+              <Field
+                label={t(key === "install" ? "appBuild.fields.install" : key === "build" ? "appBuild.fields.build" : "appBuild.fields.start")}
+                optional
+                error={errorOf(key)}
+                description={commandHelp(t, key)}
+              >
+                <Input
+                  mono
+                  value={draft[key]}
+                  placeholder={key === "install" ? "pnpm install --frozen-lockfile" : key === "build" ? "pnpm --filter web build" : "node dist/server.js --port ${PORT}"}
+                  onValueChange={set(key)}
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                />
+              </Field>
+              {looksLikeShell(draft[key]) ? <InlineMessage>{t("appBuild.fields.shellWarning")}</InlineMessage> : null}
+            </div>
           ))}
           {has("publish_directory") ? (
             <Field label={t("appBuild.fields.publish")} optional error={errorOf("publish_directory")} description={t("appBuild.fields.publishDescription")} className="sm:max-w-96">
@@ -213,7 +211,6 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
                   </Button>
                 ))}
               </div>
-              <CommandHint command="noust runtime list" label={t("appBuild.fields.runtimeInstalled")} />
             </div>
           ) : null}
           {has("timeout") ? (
@@ -224,11 +221,7 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
         </div>
       </Card>
       {save.isError && !placed ? <ErrorBlock live compact error={save.error} title={t("appBuild.saveFailed", { domain })} /> : null}
-      {saved ? (
-        <Notice tone="success" live>
-          {t("appBuild.saved")}
-        </Notice>
-      ) : null}
+      {children}
       <CommandHint command={`noust app build set ${domain} --start 'node dist/server.js' --runtime node@22`} label={t("appSettings.fromTerminal")} />
       <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
       <ConfirmDialog
@@ -244,7 +237,6 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
           queryClient.setQueryData(settingsKeys.build(domain), result);
           setDraft(draftOfBuild(result));
           setBaseline(result);
-          setSaved(false);
         }}
       />
     </>
@@ -252,43 +244,55 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
 }
 
 /**
- * Build commands (T3 subsection): the install, build and start commands, the base directory a
- * project lives in, the directory a static build leaves, and the runtime it runs on, for the
- * next deployment. It says where they come from - the operator's own block, which wins whole,
- * the repository's `noust.yaml`, or neither - and what the service was last written from.
- * Writing the block is root-equivalent (its commands run in the build sandbox and as the
- * application), so saving asks to confirm it is you.
+ * Build (T3 subsection): how the application is made. The install, build and start commands, the
+ * base directory a project lives in, the directory a static build leaves and the runtime it runs on,
+ * for the next deployment; where they come from (the operator's own block, which wins whole, the
+ * repository's `noust.yaml`, or neither) and what the service was last written from. Beside them the
+ * sandbox the builds run in, the system packages they need, the cache they share and the process
+ * types the code declares. Writing the block is root-equivalent (its commands run in the build
+ * sandbox and, for `start`, as the application), so saving asks to confirm it is you.
  */
 export function BuildSettings() {
   const t = useT();
   const app = useSettingsApp();
   const domain = app.domain;
   const appType = app.app_type ?? "";
-  useSubsectionTitle("appSettings.nav.buildCommands", domain);
+  useSubsectionTitle("appSettings.nav.build", domain);
+  const headerIcon = useSubsectionIcon("appSettings.nav.build");
   const supported = hasBuildBlock(appType);
   const build = useQuery({ ...buildQuery(domain), enabled: supported });
+  const rest = (
+    <>
+      <SandboxSettings app={app} />
+      {supported ? (
+        <>
+          <PackagesCard domain={domain} />
+          <BuildCacheCard domain={domain} />
+          <ProcessesCard domain={domain} />
+        </>
+      ) : null}
+    </>
+  );
+
+  const form = supported && build.data !== undefined ? build.data : null;
 
   return (
-    <Section title={t("appBuild.title")} description={t("appBuild.description")}>
+    <Section title={t("appBuild.title")} {...headerIcon} description={t("appBuild.description")}>
       {!supported ? (
         <EmptyState variant="inline" title={t("appBuild.notSupported", { type: appType })} />
-      ) : build.data === undefined ? (
-        build.isError ? (
-          <ErrorBlock error={build.error} title={t("appBuild.readFailed")} onRetry={() => void build.refetch()} retrying={build.isRefetching} />
-        ) : (
-          <div aria-busy="true" className="flex flex-col gap-3">
-            <span className="sr-only">{t("appBuild.loading")}</span>
-            <Skeleton className="h-24 w-full rounded-card" />
-            <Skeleton className="h-64 w-full rounded-card" />
-          </div>
-        )
+      ) : build.isError && form === null ? (
+        <ErrorBlock error={build.error} title={t("appBuild.readFailed")} onRetry={() => void build.refetch()} retrying={build.isRefetching} />
+      ) : form === null ? (
+        <LoadingRegion label={t("appBuild.loading")}>
+          <SkeletonCard lines={6} />
+        </LoadingRegion>
+      ) : null}
+      {form !== null ? (
+        <Form build={form} appType={appType} domain={domain}>
+          {rest}
+        </Form>
       ) : (
-        <>
-          <Form build={build.data} appType={appType} domain={domain} />
-          <ProcessesCard domain={domain} />
-          <BuildCacheCard domain={domain} />
-          <PackagesCard domain={domain} />
-        </>
+        rest
       )}
     </Section>
   );

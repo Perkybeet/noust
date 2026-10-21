@@ -8,6 +8,7 @@ import { appKeys } from "../../../api/queries/apps";
 import type { Job } from "../../../api/queries/jobs";
 import { processesQuery, replicasQuery, runtimeKeys } from "../../../api/queries/runtime";
 import type { AppProcess, Replicas } from "../../../api/queries/runtime";
+import { announce } from "../../../app/Announcer";
 import { AppStatePill } from "../../../components/page/AppStatePill";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section } from "../../../components/page/Section";
@@ -23,14 +24,16 @@ import { ICONS } from "../../../components/ui/icons";
 import { Input } from "../../../components/ui/Input";
 import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
+import { RowList } from "../../../components/ui/RowList";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Skeleton } from "../../../components/ui/Skeleton";
-import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
 import { reportActionError } from "../../apps/useAppActions";
 import { JobFailedError, waitForJob } from "./queries";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { LoadingRegion } from "../../../components/page";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** The most copies of a background process the API takes. */
 const MAX_PROCESS_COPIES = 32;
@@ -57,20 +60,22 @@ async function setCopies(queryClient: ReturnType<typeof useQueryClient>, domain:
 function CopiesList({ domain, status }: { domain: string; status: Replicas }) {
   const t = useT();
   return (
-    <ul aria-label={t("runtime.replicas.listLabel", { domain })} className="flex flex-col divide-y divide-border rounded-control border border-border">
+    <RowList aria-label={t("runtime.replicas.listLabel", { domain })}>
       {status.units.map((copy) => (
-        <li key={copy.unit} className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2">
-          <Mono truncate className="min-w-0 flex-1 text-13" title={copy.unit}>
-            {copy.unit}
-          </Mono>
-          <span className="text-12 text-fg-muted">{t("runtime.replicas.columnPort")}</span>
-          <Mono>{copy.port}</Mono>
-          <AppStatePill status={copy.state} appearance="inline" size="sm" />
-          {copy.own ? <Badge>{t("runtime.replicas.own")}</Badge> : null}
-          <span className="text-12 text-fg-muted">{copy.serving ? t("runtime.replicas.sharing") : t("runtime.replicas.notSharing")}</span>
-        </li>
+        <RowList.Item key={copy.unit}>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+            <Mono truncate className="min-w-0 flex-1 text-13" title={copy.unit}>
+              {copy.unit}
+            </Mono>
+            <span className="text-12 text-fg-muted">{t("runtime.replicas.columnPort")}</span>
+            <Mono>{copy.port}</Mono>
+            <AppStatePill status={copy.state} appearance="inline" size="sm" />
+            {copy.own ? <Badge>{t("runtime.replicas.own")}</Badge> : null}
+            <span className="text-12 text-fg-muted">{copy.serving ? t("runtime.replicas.sharing") : t("runtime.replicas.notSharing")}</span>
+          </div>
+        </RowList.Item>
       ))}
-    </ul>
+    </RowList>
   );
 }
 
@@ -90,7 +95,7 @@ function CopiesForm({ domain, status }: { domain: string; status: Replicas }) {
     mutationFn: (count: number) => setCopies(queryClient, domain, count),
     onSuccess: (_result, count) => {
       setSubmitted(false);
-      toast.success(t("runtime.replicas.scaled", { domain, count }));
+      announce(t("runtime.replicas.scaled", { domain, count }));
     },
     onError: (error) => {
       reportActionError(t("runtime.replicas.scaleFailed", { domain }), error);
@@ -108,7 +113,7 @@ function CopiesForm({ domain, status }: { domain: string; status: Replicas }) {
       <Field label={t("runtime.replicas.copiesLabel")} description={t("runtime.replicas.copiesDescription", { max: status.maximum })} error={error} className="w-56">
         <Input mono inputMode="numeric" autoComplete="off" value={text} onValueChange={setText} />
       </Field>
-      <Button type="submit" variant="primary" loading={apply.isPending} disabled={copies === status.copies}>
+      <Button type="submit" loading={apply.isPending} disabled={copies === status.copies}>
         {t("runtime.replicas.apply")}
       </Button>
     </form>
@@ -121,17 +126,16 @@ function ReplicasCard({ domain }: { domain: string }) {
   const replicas = useQuery(replicasQuery(domain));
   const status = replicas.data;
   return (
-    <Card title={t("runtime.replicas.title")} description={t("runtime.replicas.description")}>
+    <Card title={t("runtime.replicas.title")} icon={SETTINGS_ICONS.processes} description={t("runtime.replicas.description")}>
       <div className="flex flex-col gap-4">
         {status === undefined ? (
           replicas.isError ? (
             <ErrorBlock compact error={replicas.error} title={t("runtime.replicas.loadFailed")} onRetry={() => void replicas.refetch()} retrying={replicas.isRefetching} />
           ) : (
-            <div aria-busy="true" className="flex flex-col gap-2">
-              <span className="sr-only">{t("runtime.replicas.loading")}</span>
+            <LoadingRegion label={t("runtime.replicas.loading")} className="flex flex-col gap-2">
               <Skeleton className="h-9 w-full" />
               <Skeleton className="h-9 w-full" />
-            </div>
+            </LoadingRegion>
           )
         ) : (
           <>
@@ -139,7 +143,7 @@ function ReplicasCard({ domain }: { domain: string }) {
             {status.eligible ? (
               <CopiesForm domain={domain} status={status} />
             ) : (
-              <Notice tone="info">{t("runtime.replicas.cannot", { reason: status.reason ?? "" })}</Notice>
+              <InlineMessage tone="info">{t("runtime.replicas.cannot", { reason: status.reason ?? "" })}</InlineMessage>
             )}
           </>
         )}
@@ -222,7 +226,7 @@ function ProcessDialog({ domain, process, open, onOpenChange }: { domain: string
       }),
     onSuccess: () => {
       invalidateProcesses(queryClient, domain);
-      toast.success(t("runtime.processes.saved", { name: draft.name.trim() }));
+      announce(t("runtime.processes.saved", { name: draft.name.trim() }));
       onOpenChange(false);
     },
   });
@@ -298,7 +302,7 @@ function ScaleDialog({ domain, process, open, onOpenChange }: { domain: string; 
       request("post", "/api/apps/{domain}/processes/{name}/scale", { params: { domain, name: process.name }, body: { instances } }),
     onSuccess: (_result, instances) => {
       invalidateProcesses(queryClient, domain);
-      toast.success(t("runtime.processes.scaled", { name: process.name, count: instances }));
+      announce(t("runtime.processes.scaled", { name: process.name, count: instances }));
       onOpenChange(false);
     },
   });
@@ -355,7 +359,7 @@ function ProcessActions({ domain, process, onEdit, onScale }: { domain: string; 
     mutationFn: () => request("delete", "/api/apps/{domain}/processes/{name}", { params: { domain, name: process.name } }),
     onSuccess: () => {
       invalidateProcesses(queryClient, domain);
-      toast.success(t("runtime.processes.removed", { name: process.name }));
+      announce(t("runtime.processes.removed", { name: process.name }));
     },
     onError: (error) => {
       reportActionError(t("runtime.processes.removeFailed", { name: process.name }), error);
@@ -455,6 +459,7 @@ function ProcessesCard({ domain }: { domain: string }) {
   const list = processes.data?.processes ?? [];
   return (
     <Card
+      icon={SETTINGS_ICONS.processes}
       title={t("runtime.processes.title")}
       description={t("runtime.processes.description")}
       actions={
@@ -476,11 +481,10 @@ function ProcessesCard({ domain }: { domain: string }) {
             <ErrorBlock compact error={processes.error} title={t("runtime.processes.loadFailed")} onRetry={() => void processes.refetch()} retrying={processes.isRefetching} />
           </div>
         ) : (
-          <div aria-busy="true" className="flex flex-col gap-2 p-4">
-            <span className="sr-only">{t("runtime.processes.loading")}</span>
+          <LoadingRegion label={t("runtime.processes.loading")} className="flex flex-col gap-2 p-4">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
-          </div>
+          </LoadingRegion>
         )
       ) : list.length === 0 ? (
         <div className="p-4">
@@ -507,8 +511,9 @@ export function ProcessesSettings() {
   const t = useT();
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.processes", app.domain);
+  const headerIcon = useSubsectionIcon("runtime.nav.processes");
   return (
-    <Section title={t("runtime.nav.processes")}>
+    <Section title={t("runtime.nav.processes")} {...headerIcon}>
       {hasUnit(app) ? (
         <div className="flex flex-col gap-6">
           <ReplicasCard domain={app.domain} />

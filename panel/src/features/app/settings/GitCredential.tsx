@@ -6,22 +6,24 @@ import { request } from "../../../api/client";
 import { gitCredentialQuery, sourceKeys } from "../../../api/queries/sources";
 import type { GitCredential } from "../../../api/queries/sources";
 import { announce } from "../../../app/Announcer";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Dialog } from "../../../components/ui/Dialog";
-import { FeatureState } from "../../../components/ui/FeatureState";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { splitErrors } from "../../settings/formErrors";
 import { useSudoFirst } from "./formParts";
 import { webhookStatusQuery } from "./queries";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** What the API says an application's credential is now: kept or not, never the token. */
 function useCredentialSettled(domain: string): (result: GitCredential) => void {
@@ -107,7 +109,7 @@ function CredentialDialog({
       }
     >
       <form id="git-credential" onSubmit={submit} noValidate className="flex flex-col gap-4">
-        {bitbucket ? <Notice>{t("sources.credential.dialog.bitbucket")}</Notice> : null}
+        {bitbucket ? <InlineMessage tone="info">{t("sources.credential.dialog.bitbucket")}</InlineMessage> : null}
         <Field label={t("sources.credential.dialog.userLabel")} description={t("sources.credential.dialog.userDescription")} error={userError}>
           <Input mono autoComplete="off" autoCapitalize="off" spellCheck={false} value={username} onValueChange={(value: string) => setUsername(value)} />
         </Field>
@@ -141,15 +143,14 @@ export function GitCredentialCard({ domain, repository }: { domain: string; repo
   const description = t("sources.credential.description");
   if (view.isPending) {
     return (
-      <Card title={title} description={description} loading>
-        <span className="sr-only">{t("sources.credential.loading")}</span>
-        <Skeleton className="h-16 w-full rounded-control" />
-      </Card>
+      <LoadingRegion label={t("sources.credential.loading")}>
+        <SkeletonCard lines={2} />
+      </LoadingRegion>
     );
   }
   if (view.isError) {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.signIn} description={description}>
         <ErrorBlock compact error={view.error} title={t("sources.credential.readFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       </Card>
     );
@@ -162,35 +163,42 @@ export function GitCredentialCard({ domain, repository }: { domain: string; repo
   };
   const set = (): void => elevated(() => setEditing(true));
 
+  // The state of the credential is the pill beside the title; the sentence under it says what it means for this repository.
+  const pill = data.configured ? (
+    <StatusPill state={data.source_is_https ? "running" : "warning"} size="sm" label={data.source_is_https ? t("sources.credential.stateSet") : t("sources.credential.stateUnused")} />
+  ) : (
+    <StatusPill state="stopped" size="sm" label={t("sources.credential.stateNone")} />
+  );
+  const text = data.configured
+    ? data.source_is_https
+      ? t.rich("sources.credential.setBody", { repository: <Mono>{repository}</Mono>, user: <Mono>{data.username ?? ""}</Mono> })
+      : t("sources.credential.unusedBody")
+    : t.rich("sources.credential.noneBody", { host: <Mono>{host}</Mono> });
+
   return (
-    <Card title={title} description={description}>
-      <div className="flex flex-col gap-4">
-        {data.configured ? (
-          <FeatureState state={data.source_is_https ? "on" : "problem"} title={data.source_is_https ? t("sources.credential.stateSet") : t("sources.credential.stateUnused")}>
-            {data.source_is_https
-              ? t.rich("sources.credential.setBody", { repository: <Mono>{repository}</Mono>, user: <Mono>{data.username ?? ""}</Mono> })
-              : t("sources.credential.unusedBody")}
-          </FeatureState>
-        ) : (
-          <FeatureState
-            state="off"
-            title={t("sources.credential.stateNone")}
-            action={
-              <Button size="sm" onClick={set}>
+    <Card
+      icon={SETTINGS_ICONS.signIn}
+      title={title}
+      status={pill}
+      description={text}
+      {...(data.configured
+        ? {}
+        : {
+            actions: (
+              <Button icon={<SETTINGS_ICONS.edit aria-hidden="true" />} size="sm" onClick={set}>
                 {t("sources.credential.set")}
               </Button>
-            }
-          >
-            {t.rich("sources.credential.noneBody", { host: <Mono>{host}</Mono> })}
-          </FeatureState>
-        )}
-        {!data.configured && !data.source_is_https ? <Notice>{t("sources.credential.sshHint")}</Notice> : null}
+            ),
+          })}
+    >
+      <div className="flex flex-col gap-4">
+        {!data.configured && !data.source_is_https ? <InlineMessage tone="info">{t("sources.credential.sshHint")}</InlineMessage> : null}
         {data.configured ? (
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={set}>
+            <Button icon={<SETTINGS_ICONS.rebuild aria-hidden="true" />} size="sm" onClick={set}>
               {t("sources.credential.replace")}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => elevated(() => setRemoving(true))}>
+            <Button icon={<SETTINGS_ICONS.remove aria-hidden="true" />} size="sm" variant="ghost" onClick={() => elevated(() => setRemoving(true))}>
               {t("sources.credential.remove")}
             </Button>
           </div>

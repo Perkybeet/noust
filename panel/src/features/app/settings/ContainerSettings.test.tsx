@@ -48,6 +48,8 @@ const IMAGE: ContainerSettings = {
 function container(settings: ContainerSettings, extra: Record<string, RouteHandler> = {}) {
   return renderSettings("/container", "Container", APP, {
     [`GET /api/apps/${DOMAIN}/container`]: () => json(200, settings),
+    "GET /api/registries": () => json(200, { logins: [], kinds: ["dockerhub", "ghcr", "custom"] }),
+    [`GET /api/apps/${DOMAIN}/registry-logins`]: () => json(200, { domain: DOMAIN, logins: [] }),
     ...extra,
   });
 }
@@ -57,8 +59,6 @@ describe("the Container subsection", () => {
     await container(DOCKERFILE);
     const nav = first(screen.getAllByRole("navigation", { name: "Application settings" }));
     expect(within(nav).getByRole("link", { name: "Container" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/container`);
-    // A container is built by its own configuration: no build commands.
-    expect(within(nav).queryByRole("link", { name: "Build commands" })).not.toBeInTheDocument();
   });
 
   it("shows how the image is made and how it runs, and never a secret", { timeout: 20_000 }, async () => {
@@ -82,6 +82,27 @@ describe("the Container subsection", () => {
     await expectNoAxeViolations(view);
   });
 
+  it("chooses the registry accounts the image is pulled with beside the rest, and saves them with the same Save", { timeout: 30_000 }, async () => {
+    let attached: string[] = [];
+    const account = { kind: "ghcr", server: "ghcr.io", created_at: "2026-10-01T09:00:00+00:00", created_by: "root", updated_at: "2026-10-01T09:00:00+00:00", last_tested_at: null, last_status: null, last_error: null, apps: [] as string[] };
+    const { user, backend } = await container(DOCKERFILE, {
+      "GET /api/registries": () => json(200, { logins: [{ ...account, name: "ghcr-acme", username: "acme-bot" }], kinds: ["dockerhub", "ghcr", "custom"] }),
+      [`GET /api/apps/${DOMAIN}/registry-logins`]: () => json(200, { domain: DOMAIN, logins: attached }),
+      [`PUT /api/apps/${DOMAIN}/registry-logins`]: (call) => {
+        attached = (call.body as { logins: string[] }).logins;
+        return json(200, { domain: DOMAIN, logins: attached });
+      },
+    });
+    await user.click(await screen.findByRole("checkbox", { name: /^ghcr-acme/ }));
+    expect(within(saveBar()).getByText("1 unsaved change")).toBeInTheDocument();
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/registry-logins`)).toHaveLength(1));
+    expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/registry-logins`)[0]?.body).toEqual({ logins: ["ghcr-acme"] });
+    // Nothing else changed, so the container itself is not written.
+    expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/container`)).toHaveLength(0);
+  });
+
   it("saves only what changed, in one request, and says when it takes effect", { timeout: 30_000 }, async () => {
     let stored = DOCKERFILE;
     const { user, backend } = await container(DOCKERFILE, {
@@ -102,7 +123,7 @@ describe("the Container subsection", () => {
     await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/container`)).toHaveLength(1));
     expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/container`)[0]?.body).toEqual({ clear_registry: false, container_port: 9000, volumes: ["/data", "/uploads"] });
-    expect(await screen.findByText("Saved. It takes effect with the next update.")).toBeInTheDocument();
+    await waitFor(() => expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument());
     expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
   });
 

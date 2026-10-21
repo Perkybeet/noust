@@ -5,7 +5,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { json, problem } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import { outcomeView } from "./webhook";
-import { DOMAIN, ELEVATED, RELEASE_APP, part, renderSettings } from "./testKit";
+import { DOMAIN, ELEVATED, RELEASE_APP, part, renderSettings, saveBar } from "./testKit";
 
 const REPOSITORY = "github.com/shop/storefront";
 
@@ -51,11 +51,11 @@ describe("the source options of an application", () => {
     const { container } = await source(DEFAULTS);
     const form = within(card());
 
-    expect(await form.findByRole("switch", { name: /Fetch submodules/ })).not.toBeChecked();
-    expect(form.getByRole("switch", { name: /Shallow clone/ })).toBeChecked();
-    expect(form.getByRole("switch", { name: /Skip pushes marked/ })).toBeChecked();
+    expect(await form.findByRole("checkbox", { name: /Fetch submodules/ })).not.toBeChecked();
+    expect(form.getByRole("checkbox", { name: /Shallow clone/ })).toBeChecked();
+    expect(form.getByRole("checkbox", { name: /Skip pushes marked/ })).toBeChecked();
     expect(form.getByLabelText(/Watch paths/)).toHaveValue("");
-    expect(form.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(within(saveBar()).getByRole("button", { name: "Save" })).toBeDisabled();
     // Nothing was changed, so there is nothing to go back to.
     expect(form.queryByRole("button", { name: "Back to the defaults" })).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
@@ -71,9 +71,9 @@ describe("the source options of an application", () => {
       },
     });
     const form = within(card());
-    await user.click(await form.findByRole("switch", { name: /Fetch submodules/ }));
+    await user.click(await form.findByRole("checkbox", { name: /Fetch submodules/ }));
     await user.type(form.getByLabelText(/Watch paths/), "apps/web/**{Enter}{Enter}!**/*.md");
-    await user.click(form.getByRole("button", { name: "Save" }));
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/source-options`)).toHaveLength(1));
     expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/source-options`)[0]?.body).toEqual({
@@ -85,7 +85,7 @@ describe("the source options of an application", () => {
     });
     expect(await form.findByRole("button", { name: "Back to the defaults" })).toBeInTheDocument();
     expect(form.getByLabelText(/Watch paths/)).toHaveValue("apps/web/**\n!**/*.md");
-    expect(form.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(within(saveBar()).getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
   it("puts the server's refusal of a pattern beside the field it is about", { timeout: 40_000 }, async () => {
@@ -94,7 +94,7 @@ describe("the source options of an application", () => {
     });
     const form = within(card());
     await user.type(await form.findByLabelText(/Watch paths/), "../x");
-    await user.click(form.getByRole("button", { name: "Save" }));
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
 
     expect(await form.findByText(/climbs out of the repository/)).toBeInTheDocument();
     // What was typed is kept, to be corrected.
@@ -114,7 +114,7 @@ describe("the source options of an application", () => {
     await user.click(await screen.findByRole("button", { name: "Use the defaults" }));
 
     await waitFor(() => expect(backend.callsTo(`DELETE /api/apps/${DOMAIN}/source-options`)).toHaveLength(1));
-    await waitFor(() => expect(form.getByRole("switch", { name: /Fetch submodules/ })).not.toBeChecked());
+    await waitFor(() => expect(form.getByRole("checkbox", { name: /Fetch submodules/ })).not.toBeChecked());
   });
 
   it("says when it could not be read", { timeout: 30_000 }, async () => {
