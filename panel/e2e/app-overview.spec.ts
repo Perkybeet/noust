@@ -215,7 +215,9 @@ test("Roll back asks one question that names what it will do, for an app kept in
 test("the overview tab says what is live, lists the last deployments, and reads the app's health", async ({ page, consoleServer }) => {
   const domain = "clientes.example.com";
   await signIn(page, consoleServer, `/apps/${domain}`);
-  await expect(page.getByRole("region", { name: "Live now" })).toBeVisible();
+  // Its unit is down: no version is live, and the overview says the last one that served.
+  await expect(page.getByRole("region", { name: "Last version that served" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Live now" })).toHaveCount(0);
   const deployments = page.getByRole("list", { name: `Last deployments of ${domain}` });
   await expect(deployments.getByRole("link").first()).toHaveAttribute("href", new RegExp(`/apps/${domain.replace(/\./g, "\\.")}/deployments/\\d+$`));
   // Its unit is the one systemd gave up on: said above the tabs, with the diagnosis one click away.
