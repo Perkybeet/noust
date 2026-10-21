@@ -54,6 +54,11 @@ const SCREENS: readonly Screen[] = [
     path: async (page) => `/apps/tienda.example.org/deployments/${String(await deploymentId(page, "tienda.example.org", (row) => row.status === "failed" && (row.error ?? "").includes("Type error")))}`,
   },
   {
+    // The build tool coloured its output: the excerpt shows its words, never the escape codes.
+    name: "deployment-failed-coloured",
+    path: async (page) => `/apps/clientes.example.com/deployments/${String(await deploymentId(page, "clientes.example.com", (row) => row.status === "failed"))}`,
+  },
+  {
     name: "deployment-live",
     path: async (page) => `/apps/tienda.example.org/deployments/${String(await deploymentId(page, "tienda.example.org", (row) => row.status === "success"))}`,
   },

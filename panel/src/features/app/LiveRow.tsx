@@ -12,9 +12,9 @@ import { shortCommit, triggerWords } from "./deployments/words";
  * who or what started it, when, and how long it took to build. It has no buttons: going back is
  * the header's "Roll back" and the list's row menus, which ask the one question, and an address
  * is the header's fact line. The state is told by the section's title ("Live now") and the dot
- * beside the message, a still green: it serves.
+ * beside the message, a still green: it serves (a ring in the idle colour when the service is down).
  */
-export function LiveRow({ deployment }: { deployment: Deployment }) {
+export function LiveRow({ deployment, down = false }: { deployment: Deployment; down?: boolean }) {
   const t = useT();
   const commit = shortCommit(deployment.git_commit);
   const trigger = triggerWords(t, deployment.triggered_by);
@@ -24,7 +24,7 @@ export function LiveRow({ deployment }: { deployment: Deployment }) {
     <Card padding="sm">
       <div className="flex min-w-0 flex-col gap-1.5">
         <p className="flex min-w-0 items-center gap-2 text-14 font-medium text-fg">
-          <StatusGlyph state="running" size={12} className="text-ok" />
+          <StatusGlyph state={down ? "stopped" : "running"} size={12} className={down ? "text-idle" : "text-ok"} />
           <span title={message} className="min-w-0 truncate">
             {message}
           </span>

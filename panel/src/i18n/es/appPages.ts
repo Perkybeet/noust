@@ -176,6 +176,7 @@ export const appPages: Catalog<typeof en> = {
 
   overview: {
     liveNow: "Ahora en producción",
+    lastServed: "Última versión que sirvió",
     nothingLive: "Ningún despliegue de esta aplicación ha salido bien todavía.",
     builtIn: "Compilado en {duration}",
     lastDeployments: "Últimos despliegues",

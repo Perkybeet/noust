@@ -13,6 +13,7 @@ import { appDomainsQuery } from "../../../api/queries/domains";
 import { rolloutQuery } from "../../../api/queries/rollout";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { DeployStatePill } from "../../../components/page/AppStatePill";
+import { appStatus } from "../../../components/page/status";
 import { useNow } from "../../../components/page/clock";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
@@ -343,7 +344,12 @@ function ServingLine({ domain, deployment, phase, t }: { domain: string; deploym
   const history = useQuery(deploymentsQuery({ domain, limit: 20 }));
   const names = useQuery(appDomainsQuery(domain));
   const certs = useQuery(certsQuery());
+  const app = useQuery(appQuery(domain));
   if (history.data === undefined) return <Skeleton className="h-4 w-72" />;
+  // A version "still serves" only while the app runs: when its service is down the banner above says
+  // so, and a line that claimed otherwise would contradict it.
+  const down = app.data !== undefined && ["failed", "stopped"].includes(appStatus(app.data.status).state);
+  if (down) return null;
   const items = history.data.items;
   const kept = keptServing(items, deployment);
   const serving = servingDeployment(items);

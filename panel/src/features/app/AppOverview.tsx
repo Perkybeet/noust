@@ -105,11 +105,13 @@ function Deploys({ app, t }: { app: App; t: T }) {
   const items = history.data.items;
   const serving = servingDeployment(items);
   const recent = items.slice(0, RECENT_APP_DEPLOYS);
+  // With its service down nothing is live: the version is the last that served, and says so.
+  const down = ["failed", "stopped"].includes(appStatus(app.status).state);
   return (
     <>
-      <Section title={t("appPages.overview.liveNow")} icon={<Rocket />}>
+      <Section title={down ? t("appPages.overview.lastServed") : t("appPages.overview.liveNow")} icon={<Rocket />}>
         {serving !== null ? (
-          <LiveRow deployment={serving} />
+          <LiveRow deployment={serving} down={down} />
         ) : (
           <EmptyState variant="inline" title={t("appPages.overview.nothingLive")} />
         )}
@@ -128,7 +130,7 @@ function Deploys({ app, t }: { app: App; t: T }) {
         ) : (
           <RowList aria-label={t("appPages.overview.deploymentsLabel", { domain })}>
             {recent.map((deployment) => (
-              <DeploymentLine key={deployment.id} domain={domain} deployment={deployment} live={serving?.id === deployment.id} kept={keptServing(items, deployment)} t={t} />
+              <DeploymentLine key={deployment.id} domain={domain} deployment={deployment} live={!down && serving?.id === deployment.id} kept={keptServing(items, deployment)} t={t} />
             ))}
           </RowList>
         )}

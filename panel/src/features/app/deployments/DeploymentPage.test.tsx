@@ -134,6 +134,12 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
     expect(boxes.some((box) => box.textContent.includes("Next.js 15.2.4"))).toBe(true);
   });
 
+  it("does not say a version still serves while the app's service is down", async () => {
+    await pageAt(20, {}, { status: "failed" });
+    expect(await screen.findByText("The deploy failed while building")).toBeInTheDocument();
+    expect(screen.queryByText(/still serves|kept serving/)).not.toBeInTheDocument();
+  });
+
   it("opens the log on the line where it first went wrong", async () => {
     // The virtualizer sizes its window from offsetHeight, which jsdom reports as 0.
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);

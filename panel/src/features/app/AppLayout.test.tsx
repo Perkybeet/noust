@@ -415,6 +415,16 @@ describe("an application's page", () => {
       expect(within(live).queryByRole("button")).not.toBeInTheDocument();
     });
 
+    it("says the last version that served, and marks none Live, while the app's service is down", async () => {
+      const app = { domain: DOMAIN, name: "shop", app_type: "nextjs", status: "failed", active: false, enabled: true, port: 3000, layout: "inplace" };
+      await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, app) });
+      const last = await screen.findByRole("region", { name: "Last version that served" });
+      expect(await within(last).findByText("9f2c41a")).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Live now" })).not.toBeInTheDocument();
+      const list = await screen.findByRole("list", { name: `Last deployments of ${DOMAIN}` });
+      expect(within(list).queryByText("Live")).not.toBeInTheDocument();
+    });
+
     it("leaves what the configuration says to Settings: nothing of how it runs is repeated here", async () => {
       await appAt();
       await screen.findByRole("region", { name: "Live now" });

@@ -182,6 +182,7 @@ export const appPages = {
 
   overview: {
     liveNow: "Live now",
+    lastServed: "Last version that served",
     nothingLive: "No deploy of this app has succeeded yet.",
     builtIn: "Built in {duration}",
     lastDeployments: "Last deployments",
