@@ -17,7 +17,7 @@ import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 /** What a major-version move leaves from: an instance of Noust's, or the host's own engine. */
 export interface MigrationSource {

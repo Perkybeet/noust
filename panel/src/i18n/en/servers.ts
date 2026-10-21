@@ -17,7 +17,6 @@ export const servers = {
   // What a hub says on the Fleet, and a server not read yet
 
   fleet: {
-    notRead: "Not read",
     hub: {
       title: "This central deploys nothing itself",
       description:

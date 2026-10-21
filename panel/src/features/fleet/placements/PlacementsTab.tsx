@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRightLeft, Copy, Hammer, Pencil, RefreshCw, Rocket, Server, Trash2, Waypoints } from "lucide-react";
+import { ArrowRightLeft, Copy, Hammer, Network, Pencil, RefreshCw, Rocket, Server, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { CommandHint } from "../../../components/page/CommandHint";
@@ -32,7 +32,7 @@ import { CopyDialog, RolloutDialog } from "./PlacementActionDialog";
 import { PlacementDialog } from "./PlacementDialog";
 import { BuilderDialog, ShipDialog } from "./ShipDialog";
 import { UpstreamsDialog } from "./UpstreamsDialog";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 const NAME_LINK = textLinkClassName("inline", "-mx-1 block max-w-full truncate px-1 py-0.5", "row");
 
@@ -303,7 +303,7 @@ export function PlacementsTab() {
   }
 
   return (
-    <Section icon={Waypoints} title={t("placements.title")} description={t("placements.description")} actions={placements.length > 0 ? place : undefined} loading={list.isPending}>
+    <Section icon={Network} title={t("placements.title")} description={t("placements.description")} actions={placements.length > 0 ? place : undefined} loading={list.isPending}>
       {list.isPending ? (
         <div className="flex flex-col gap-3">
           <span className="sr-only">{t("placements.card.comparing", { domain: "" })}</span>

@@ -16,7 +16,7 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
 import { formatBytes, formatDateTime } from "../../lib/format";
-import { LoadingRegion } from "../../components/page";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 interface SiteHistoryDialogProps {
   site: string;

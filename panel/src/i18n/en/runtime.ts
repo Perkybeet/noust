@@ -393,7 +393,6 @@ export const runtime = {
     lastError: "The last attempt failed:",
     errorLabel: "What {name} answered",
     plaintext: "Not encrypted",
-    plaintextNote: "Its lines travel in the clear.",
     actionsFor: "Actions for {name}",
     test: "Send a test line",
     turnOn: "Turn on",

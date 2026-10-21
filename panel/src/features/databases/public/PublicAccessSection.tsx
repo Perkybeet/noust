@@ -9,7 +9,7 @@ import type { PublicConnection, PublicExposure, PublicOpened } from "../../../ap
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Section } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";

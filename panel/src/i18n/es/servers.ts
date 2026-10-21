@@ -16,7 +16,6 @@ export const servers: Catalog<typeof en> = {
   },
 
   fleet: {
-    notRead: "Sin leer",
     hub: {
       title: "Esta central no despliega nada por sí misma",
       description:

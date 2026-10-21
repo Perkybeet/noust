@@ -17,7 +17,7 @@ import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { Accepted } from "../../databases/jobs";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 export interface MigrationDialogProps {
   open: boolean;

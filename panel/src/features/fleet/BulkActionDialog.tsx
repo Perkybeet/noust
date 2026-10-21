@@ -45,7 +45,7 @@ import {
   runFleetAction,
 } from "./data";
 import type { FleetActionBody, FleetNodeState, FleetPlan, KnownAction } from "./data";
-import { LoadingRegion } from "../../components/page";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 // ---------------------------------------------------------------------------------------
 // Opening it from anywhere on the fleet's pages

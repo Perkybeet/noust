@@ -21,7 +21,7 @@ import { PlanView } from "../BulkActionDialog";
 import { fleetKeys } from "../data";
 import { COMMIT, DOMAIN, GIT_TAG, IMAGE_TAG, lacking, parseFailures, parseSerial, placementKeys, rolloutBody, runCopy, runRollout, sources } from "../placements";
 import type { ActionAnswer, CopyBody, Placement, PlacementServer, RolloutBody, RolloutWhat } from "../placements";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 /** The plan of a rollout or a copy, with what the central says about it, and the failures of either call. */
 function Planned({

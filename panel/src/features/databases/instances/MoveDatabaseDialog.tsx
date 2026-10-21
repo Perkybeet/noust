@@ -17,7 +17,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { Accepted } from "../jobs";
 import { engineFamily, instanceLabel, sortInstances } from "../engines";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 export interface MoveDatabaseDialogProps {
   /** The engine key the database is on, and its name. */

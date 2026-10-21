@@ -74,7 +74,6 @@ export const internalCa = {
     option: "This server's authority",
     optionHelp: "Signed by the private authority of this server, for a name only your devices resolve. Devices must trust the authority.",
     words: "Signed by this server's private authority ({name})",
-    needAuthority: "Make the private authority first: Domains, Certificates, More actions, Private authority.",
     days: "Days valid",
   },
 } as const;

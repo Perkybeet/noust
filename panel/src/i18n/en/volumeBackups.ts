@@ -82,7 +82,6 @@ export const volumeBackups = {
     removeTitle: "Remove the data schedule of {domain}",
     removeDescription: "Its timer is removed and nothing backs this data up on a schedule any more. The backups already taken stay.",
     removeAction: "Remove schedule",
-    loadFailed: "Could not load its data backups",
   },
   consistency: {
     live: "Live",

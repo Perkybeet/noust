@@ -12,8 +12,6 @@ export const policyScope: Catalog<typeof en> = {
     covers: "Cubre",
     coversThis: "Todas las bases de datos de {engine}, incluida {name}",
     leavesThisOut: "Todas las bases de datos de {engine}, menos {name}",
-    overridden: "{name} tiene una programación propia, que esta deja en paz.",
-    loadFailed: "No se pudo cargar la programación de todas las bases de datos",
     remove: "Quitar",
     removeTitle: "Quitar la programación de todas las bases de datos de {engine}",
     removeDescription:
@@ -46,7 +44,5 @@ export const policyScope: Catalog<typeof en> = {
     collections: "colecciones {names}",
     nothing: "Nada",
     scope: "Cubre",
-    scopeAll: "Todas las bases de datos del motor",
-    scopeOne: "Esta base de datos",
   },
 };

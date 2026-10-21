@@ -23,7 +23,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatDate, parseTimestamp } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 const MODES: readonly TlsMode[] = ["off", "optional", "required"];
 

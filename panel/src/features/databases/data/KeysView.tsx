@@ -23,7 +23,7 @@ import type { T } from "../../../i18n";
 import { formatBytes, formatCount, formatDuration } from "../../../lib/format";
 import { Cell } from "../grid/Cell";
 import type { DataSearch, DataSearchPatch } from "./search";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 const TYPES = ["string", "hash", "list", "set", "zset", "stream"] as const;
 const ALL = "all";

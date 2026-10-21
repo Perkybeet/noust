@@ -413,7 +413,6 @@ export const runtime: Catalog<typeof en> = {
     lastError: "El último intento falló:",
     errorLabel: "Lo que respondió {name}",
     plaintext: "Sin cifrar",
-    plaintextNote: "Sus líneas viajan en claro.",
     actionsFor: "Acciones de {name}",
     test: "Enviar una línea de prueba",
     turnOn: "Activar",

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bell, Megaphone } from "lucide-react";
+import { Megaphone, Radio } from "lucide-react";
 
 import { configQuery, patchConfig, smtpSettingsQuery } from "../../api/queries/config";
 import type { SmtpSettings } from "../../api/queries/config";
@@ -148,7 +148,7 @@ function EventsCard({
   const t = useT();
   const values = form.values ?? {};
   return (
-    <Section icon={Bell} title={t("settings.notifications.events.title")} description={t("settings.notifications.events.description")}>
+    <Section icon={Radio} title={t("settings.notifications.events.title")} description={t("settings.notifications.events.description")}>
       <FormFailure error={form.formError} title={t("settings.notifications.events.errorTitle")} />
       <FormFailure error={language.formError ?? privateHosts.formError} title={t("settings.notifications.messages.errorTitle")} />
       <div className="flex min-w-0 flex-col gap-3">

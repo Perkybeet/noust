@@ -5,7 +5,7 @@ import type { RelationSummary } from "../../../api/queries/databases";
 import { Input } from "../../../components/ui/Input";
 import { ICONS } from "../../../components/ui/icons";
 import { Skeleton } from "../../../components/ui/Skeleton";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { useT } from "../../../i18n";
 import { cx } from "../../../lib/cx";

@@ -200,7 +200,6 @@ export const domains: Catalog<typeof en> = {
     serving: "Sirviendo",
     disabled: "Deshabilitado",
     siteColumn: "Sitio",
-    serverColumn: "Servidor",
     stateColumn: "Estado",
     servesColumn: "Sirve",
     namesColumn: "Nombres",

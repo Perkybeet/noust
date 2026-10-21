@@ -10,7 +10,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { PlainKey } from "../../../i18n";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 const CONSTRAINT_WORDS: Readonly<Record<string, PlainKey>> = {
   primary_key: "databases.structure.constraint.primaryKey",

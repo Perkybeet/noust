@@ -76,7 +76,6 @@ export const internalCa: Catalog<typeof en> = {
     option: "La autoridad de este servidor",
     optionHelp: "Firmado por la autoridad privada de este servidor, para un nombre que solo resuelven tus dispositivos. Los dispositivos deben confiar en la autoridad.",
     words: "Firmado por la autoridad privada de este servidor ({name})",
-    needAuthority: "Crea antes la autoridad privada: Dominios, Certificados, Más acciones, Autoridad privada.",
     days: "Días de validez",
   },
 };

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { request } from "../../../api/client";
 import { databaseKeys, historyQuery, savedQueriesQuery } from "../../../api/queries/databases";
 import type { HistoryEntry, SavedQuery } from "../../../api/queries/databases";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Button } from "../../../components/ui/Button";

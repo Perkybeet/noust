@@ -37,7 +37,7 @@ import { useJobStream } from "../../realtime/sockets";
 import { NODE_JOB_VIEW, SKIP_REASONS, batchOf, nodeErrorOf, nodeJobState, textOf } from "./data";
 import type { FleetNodeState } from "./data";
 import { HrefLink, ServerLink } from "./links";
-import { LoadingRegion } from "../../components/page";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 /** The actions that act on each application, and so have a result per application. */
 export const PER_APP_ACTIONS: ReadonlySet<string> = new Set(["apps_update", "apps_restart", "backups_run", "backups_verify"]);

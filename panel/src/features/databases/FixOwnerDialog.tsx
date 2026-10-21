@@ -10,7 +10,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
-import { LoadingRegion } from "../../components/page";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 export interface FixOwnerDialogProps {
   engine: string;

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Database, ScanSearch, ShieldQuestion } from "lucide-react";
+import { Database, Search, ShieldQuestion } from "lucide-react";
 
 import { isApiError, request } from "../../../api/client";
 import { appSqliteQuery } from "../../../api/queries/databases";
@@ -74,7 +74,7 @@ function FileCard({ domain, file, t }: { domain: string; file: SqliteFile; t: T 
           <Button icon={<ShieldQuestion aria-hidden="true" />} size="sm" variant="ghost" loading={check.isPending && !check.variables} disabled={check.isPending} onClick={() => check.mutate(false)}>
             {t("databases.appTab.sqlite.check")}
           </Button>
-          <Button icon={<ScanSearch aria-hidden="true" />} size="sm" variant="ghost" loading={check.isPending && check.variables} disabled={check.isPending} onClick={() => check.mutate(true)}>
+          <Button icon={<Search aria-hidden="true" />} size="sm" variant="ghost" loading={check.isPending && check.variables} disabled={check.isPending} onClick={() => check.mutate(true)}>
             {t("databases.appTab.sqlite.checkFull")}
           </Button>
         </>

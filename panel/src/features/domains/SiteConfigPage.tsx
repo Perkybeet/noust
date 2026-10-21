@@ -40,7 +40,7 @@ import { OlderNoust } from "./SiteViewStates";
 import { hasStructure } from "./siteViews";
 import type { SiteView } from "./siteViews";
 import { useSiteActions } from "./useSiteActions";
-import { LoadingRegion } from "../../components/page";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 type Outcome =
   | { kind: "saved"; webserver: string }

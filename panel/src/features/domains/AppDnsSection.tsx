@@ -21,7 +21,7 @@ import { reportActionError } from "../apps/useAppActions";
 import { DnsConflictDialog } from "./DnsConflictDialog";
 import { conflictOf } from "./dnsConflict";
 import type { RecordConflict } from "./dnsConflict";
-import { LoadingRegion } from "../../components/page";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 /** What the provider would do about a name, in words. */
 function actionWords(t: T, plan: DnsPlan): string {

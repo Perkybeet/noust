@@ -21,7 +21,7 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { olderServer } from "../app/settings/queries";
 import { reportActionError } from "../apps/useAppActions";
-import { LoadingRegion } from "../../components/page";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 /** One test: what it found, step by step, in the server's own words. */
 function Drill({ drill }: { drill: RestoreDrill }) {

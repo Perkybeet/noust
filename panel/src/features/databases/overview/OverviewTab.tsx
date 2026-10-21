@@ -37,7 +37,7 @@ import { ALL_DATABASES, effectivePolicy, newestDumps, policyProtection, protecti
 import { TEXT_LINK } from "../ui";
 import { profileLabel } from "../users/profiles";
 import { VerifiedMark } from "../VerifiedMark";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 /** How many accounts the overview names before sending to the Users tab. */
 const ACCESS_SHOWN = 5;

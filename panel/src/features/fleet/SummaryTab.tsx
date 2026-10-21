@@ -44,7 +44,7 @@ import {
 import type { AttentionEntry, FleetJob, FleetRow, NodeOutcome, RowOrigin } from "./data";
 import { ServerLink } from "./links";
 import { OutcomePill, PartialNotice, ServerCell, useFleetView } from "./parts";
-import { LoadingRegion } from "../../components/page";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 /** How many items "Needs attention" shows before "Show all". */
 const ATTENTION_SHOWN = 5;

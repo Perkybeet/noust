@@ -15,7 +15,7 @@ import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import { UPSTREAM_FORMATS, upstreamsQuery } from "../placements";
 import type { UpstreamFormat } from "../placements";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 export interface UpstreamsDialogProps {
   domain: string;

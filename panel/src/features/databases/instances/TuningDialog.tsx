@@ -23,7 +23,7 @@ import type { T } from "../../../i18n";
 import { draftOf, readTuning } from "./tuning";
 import type { TuningDraft, TuningField } from "./tuning";
 import type { TlsJobWords } from "./TlsDialog";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 export interface TuningDialogProps {
   instance: DbInstance;

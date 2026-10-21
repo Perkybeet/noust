@@ -202,7 +202,6 @@ export const domains = {
     serving: "Serving",
     disabled: "Disabled",
     siteColumn: "Site",
-    serverColumn: "Server",
     stateColumn: "State",
     servesColumn: "Serves",
     namesColumn: "Names",

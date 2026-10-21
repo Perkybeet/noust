@@ -20,7 +20,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { LoadingRegion } from "../../components/page";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 type Action = "close" | "refuse" | "redirect";
 

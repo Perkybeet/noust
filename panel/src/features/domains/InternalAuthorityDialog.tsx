@@ -25,7 +25,7 @@ import { downloadBase64, downloadText } from "../../lib/clipboard";
 import { formatDate } from "../../lib/format";
 import { reportActionError } from "../apps/useAppActions";
 import { IssuedList, SignForm, TrustSteps, listOf } from "./InternalAuthorityPanels";
-import { LoadingRegion } from "../../components/page";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 /** The base64 of a PEM certificate is the certificate itself in the binary form (DER). */
 function derOf(pem: string): string {

@@ -32,7 +32,7 @@ import {
 } from "./nodeTools";
 import type { ConnectionBody, ConnectionOptions, InventoryReport } from "./nodeTools";
 import { nodeKeys } from "./nodes";
-import { LoadingRegion } from "../../components/page";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 // ---------------------------------------------------------------------------------------
 // How the central connects to a server

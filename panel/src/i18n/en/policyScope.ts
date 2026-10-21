@@ -13,8 +13,6 @@ export const policyScope = {
     covers: "Covers",
     coversThis: "Every {engine} database, {name} included",
     leavesThisOut: "Every {engine} database, but not {name}",
-    overridden: "{name} has a schedule of its own, which this one leaves alone.",
-    loadFailed: "Could not load the schedule for every database",
     remove: "Remove",
     removeTitle: "Remove the schedule for every {engine} database",
     removeDescription: "No database is backed up by it any more, and the schedule stops. The dumps already taken stay. Databases with a schedule of their own keep it.",
@@ -45,7 +43,5 @@ export const policyScope = {
     collections: "collections {names}",
     nothing: "Nothing",
     scope: "Covers",
-    scopeAll: "Every database on the engine",
-    scopeOne: "This database",
   },
 } as const;

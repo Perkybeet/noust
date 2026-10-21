@@ -91,7 +91,6 @@ export const dumpImport: Catalog<typeof en> = {
     replace: "Borrarla y crearla de nuevo antes",
     replaceHelp:
       "Todo lo que hay en {name} se borra antes de cargar el volcado, así que lo que el volcado no tenga desaparece. Antes se hace una copia, y se devuelve si la carga falla.",
-    replaceNew: "Nada que borrar: la base de datos todavía no existe.",
     keepOwners: "Conservar los propietarios y privilegios que nombra el volcado",
     keepOwnersHelp:
       "Desactivado, todo pertenece a la cuenta de la propia base de datos: los roles de un volcado son los del servidor de donde viene, y aquí no existen.",

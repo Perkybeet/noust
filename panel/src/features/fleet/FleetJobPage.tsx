@@ -39,7 +39,7 @@ import {
 import type { FleetJob, FleetNodeState, NodeJobState } from "./data";
 import { HrefLink } from "./links";
 import { NodeJobDrawer } from "./NodeJobDrawer";
-import { LoadingRegion } from "../../components/page";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 /** The order a job's counts are said in: what went wrong first. */
 const COUNT_ORDER: readonly NodeJobState[] = ["failed", "unreachable", "refused", "interrupted", "running", "queued", "succeeded", "rolled_back", "skipped", "cancelled"];

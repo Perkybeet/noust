@@ -6,7 +6,7 @@ import { isApiError, request } from "../../../api/client";
 import { appsQuery } from "../../../api/queries/apps";
 import { CONSISTENCY_MODES, volumeKeys, volumeTargetsQuery } from "../../../api/queries/volumeBackups";
 import type { Consistency, VolumePolicy } from "../../../api/queries/volumeBackups";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";

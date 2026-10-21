@@ -82,7 +82,6 @@ export const volumeBackups: Catalog<typeof en> = {
     removeTitle: "Quitar la programación de datos de {domain}",
     removeDescription: "Se quita su temporizador y nada copia estos datos en una programación. Las copias ya hechas se quedan.",
     removeAction: "Quitar programación",
-    loadFailed: "No se pudieron cargar sus copias de datos",
   },
   consistency: {
     live: "En vivo",

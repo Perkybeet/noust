@@ -22,7 +22,7 @@ import { PlanView } from "../BulkActionDialog";
 import { fleetKeys, fleetViewQuery, originOf } from "../data";
 import { COMMIT, buildersQuery, clearBuilder, parseFailures, parseSerial, placementKeys, runShip, setBuilder, shipBody } from "../placements";
 import type { ActionAnswer, Placement, ShipBody } from "../placements";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 /** The server that builds an application, as the central recorded it; undefined when none. */
 function builderOf(domain: string, builders: readonly { domain: string; node: string }[] | undefined): string | undefined {
