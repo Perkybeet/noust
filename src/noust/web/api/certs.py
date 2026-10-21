@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
 from noust.core.teams import scoped_store
+from noust.deployers.name_certificates import names_served_by_certificate
 from noust.managers.cert_manager import CertificateInfo, CertManager
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated, strict_domain
@@ -56,6 +57,9 @@ class CertInfo(BaseModel):
         source: ``letsencrypt`` for a lineage certbot keeps (whichever authority
             issued it), ``custom`` for one that was uploaded, which is never renewed.
         challenge: How it is renewed: ``http-01`` or ``dns-01``; empty for an upload.
+        serves: The names of the applications this certificate presents: all of an
+            application's for its shared certificate, one for a certificate a name holds on
+            its own. Only the names the caller may see.
     """
 
     domain: str
@@ -69,6 +73,7 @@ class CertInfo(BaseModel):
     issuer: str | None = None
     source: str = "letsencrypt"
     challenge: str = "http-01"
+    serves: list[str] = []
 
 
 class CertListResponse(BaseModel):
@@ -143,12 +148,28 @@ def _days_remaining(expiry: str | None) -> int | None:
     return (expires - date.today()).days
 
 
-def _to_cert_info(entry: CertificateInfo) -> CertInfo:
+def _serves() -> dict[str, list[str]]:
+    """
+    Read which names each certificate presents, held to what the caller may see.
+
+    Returns:
+        The names by certificate; a name of another team's application is left out, which
+        matters for a wildcard or an upload that more than one application is served with.
+    """
+    scoped = scoped_store()
+    return {
+        certificate: [name for name in names if scoped.sees_domain(name)]
+        for certificate, names in names_served_by_certificate().items()
+    }
+
+
+def _to_cert_info(entry: CertificateInfo, serves: dict[str, list[str]] | None = None) -> CertInfo:
     """
     Convert a manager certificate entry into the API model.
 
     Args:
         entry: One entry of ``certbot certificates``.
+        serves: The names each certificate presents.
 
     Returns:
         The API representation.
@@ -167,6 +188,7 @@ def _to_cert_info(entry: CertificateInfo) -> CertInfo:
         source=entry.source,
         challenge=entry.challenge,
         auto_renew=entry.source != "custom",
+        serves=(serves or {}).get(entry.get("name", ""), []),
     )
 
 
@@ -186,7 +208,8 @@ def list_certificates(session: Annotated[dict, Depends(get_current_session)]) ->
     entries = scoped_store().filter_domains(
         CertManager(verbose=False).list_certificates(), lambda entry: entry.get("name")
     )
-    certificates = [_to_cert_info(entry) for entry in entries]
+    serves = _serves()
+    certificates = [_to_cert_info(entry, serves) for entry in entries]
     return CertListResponse(certificates=certificates, total=len(certificates))
 
 
@@ -249,7 +272,7 @@ def get_certificate(
     if entry is None:
         raise HTTPException(status_code=404, detail=f"Certificate not found: {validated}")
 
-    return _to_cert_info(entry)
+    return _to_cert_info(entry, _serves())
 
 
 @router.post("/{domain}", response_model=JobAcceptedResponse, status_code=202)

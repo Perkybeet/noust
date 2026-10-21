@@ -26,12 +26,17 @@ from noust.core.exceptions import DependencyError, DomainConflictError, DomainEr
 from noust.core.logger import Logger
 from noust.core.store import DomainRecord
 from noust.deployers.domains import DnsCheck, DomainChange
+from noust.deployers.name_certificates import NameBinding
 
 APP = "example.com"
 PRIMARY = DomainRecord(id=1, app_id=1, domain=APP, kind="primary", created_at="2026-09-25")
 ALIAS = DomainRecord(
     id=2, app_id=1, domain="shop.example.com", kind="alias", created_at="t1", port=9000
 )
+SERVED = [
+    NameBinding(APP, APP, "primary", True, "shared", APP, "acme"),
+    NameBinding(APP, "shop.example.com", "alias", True, "own", "shop.example.com", "acme"),
+]
 HERE = DnsCheck("shop.example.com", ("203.0.113.5",), ("203.0.113.5",), True)
 ELSEWHERE = DnsCheck("shop.example.com", ("203.0.113.5",), ("198.51.100.7",), False)
 
@@ -58,6 +63,7 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, tuple[Any, ...], d
         return fake
 
     monkeypatch.setattr(domain_module, "list_domains", stub("list", [PRIMARY, ALIAS]))
+    monkeypatch.setattr(domain_module, "bindings", lambda app, **kw: SERVED)
     monkeypatch.setattr(domain_module, "add_domain", stub("add", change))
     monkeypatch.setattr(domain_module, "remove_domain", stub("remove", change))
     monkeypatch.setattr(domain_module, "check_dns", stub("dns", HERE))
@@ -90,6 +96,9 @@ def test_list_prints_json_on_either_side_of_the_command(calls: list[Any], args: 
                 "created_at": "2026-09-25",
                 "temporary": False,
                 "enabled": True,
+                "certificate": "shared",
+                "served_by": APP,
+                "certificate_pending": False,
             },
             {
                 "domain": "shop.example.com",
@@ -98,6 +107,9 @@ def test_list_prints_json_on_either_side_of_the_command(calls: list[Any], args: 
                 "created_at": "t1",
                 "temporary": False,
                 "enabled": True,
+                "certificate": "shared",
+                "served_by": "shop.example.com",
+                "certificate_pending": False,
             },
         ],
     }
@@ -300,8 +312,9 @@ def test_the_table_shows_the_port_of_a_name_that_has_one(
 
     invoke(["domain", "list", APP])
 
-    assert tables[0][0] == ["Domain", "Kind", "Port", "Added"]
+    assert tables[0][0] == ["Domain", "Kind", "Port", "Certificate", "Added"]
     assert [row[2] for row in tables[0][1]] == ["-", "9000"]
+    assert [row[3] for row in tables[0][1]] == [APP, "shop.example.com (own)"]
 
 
 def test_removing_orders_the_certificate_again_and_says_so(
@@ -400,3 +413,141 @@ def test_a_rehearsal_orders_no_certificate(calls: list[Any]) -> None:
 
     assert result.exit_code == 0, result.output
     assert calls == []
+
+
+# ---------------------------------------------------------------------------
+# A certificate of its own
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def own(monkeypatch: pytest.MonkeyPatch) -> list[tuple[tuple[Any, ...], dict[str, Any]]]:
+    """Stub the change of a name's certificate, recording how it was called."""
+    from noust.deployers.name_certificates import NameCertificateChange
+
+    recorded: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    def fake(*args: Any, **kwargs: Any) -> Any:
+        recorded.append((args, kwargs))
+        return NameCertificateChange(
+            app=APP,
+            name=args[1],
+            certificate=args[2],
+            changed=True,
+            tls=kwargs.get("tls", True),
+            warnings=("The shared certificate still names it: boom",),
+        )
+
+    monkeypatch.setattr(domain_module, "set_certificate", fake)
+    return recorded
+
+
+def test_a_name_can_be_added_with_a_certificate_of_its_own(
+    calls: list[Any], log: list[str]
+) -> None:
+    result = invoke(["domain", "add", APP, "api.example.com", "--own-certificate"])
+
+    assert result.exit_code == 0, result.output
+    (add,) = [call for call in calls if call[0] == "add"]
+    assert add[2]["certificate"] == "own"
+    assert add[2]["challenge"] is None and add[2]["dns_provider"] is None
+
+
+def test_it_can_be_proven_with_a_dns_account(calls: list[Any], log: list[str]) -> None:
+    result = invoke(["domain", "add", APP, "api.example.com", "--own-certificate", "--dns", "cf"])
+
+    assert result.exit_code == 0, result.output
+    (add,) = [call for call in calls if call[0] == "add"]
+    assert (add[2]["challenge"], add[2]["dns_provider"]) == ("dns-01", "cf")
+
+
+def test_without_it_a_name_is_covered_as_before(calls: list[Any], log: list[str]) -> None:
+    invoke(["domain", "add", APP, "api.example.com"])
+
+    (add,) = [call for call in calls if call[0] == "add"]
+    assert add[2]["certificate"] == "shared"
+
+
+@pytest.mark.parametrize("extra", [["--dns", "cf"], ["--http"]])
+def test_how_it_is_proven_only_means_something_with_a_certificate_of_its_own(
+    calls: list[Any], log: list[str], extra: list[str]
+) -> None:
+    result = invoke(["domain", "add", APP, "api.example.com", *extra])
+
+    assert result.exit_code != 0
+    assert [c for c in calls if c[0] == "add"] == []
+
+
+def test_a_name_takes_a_certificate_of_its_own(
+    calls: list[Any], own: list[Any], log: list[str]
+) -> None:
+    result = invoke(["domain", "certificate", APP, "shop.example.com", "--own"])
+
+    assert result.exit_code == 0, result.output
+    ((args, kwargs),) = own
+    assert args == (APP, "shop.example.com", "own")
+    assert kwargs["challenge"] is None
+    assert any("The shared certificate still names it: boom" in line for line in log)
+
+
+def test_it_is_proven_with_dns_when_told_so(
+    calls: list[Any], own: list[Any], log: list[str]
+) -> None:
+    invoke(["domain", "certificate", APP, "shop.example.com", "--own", "--dns", "cf"])
+
+    ((_, kwargs),) = own
+    assert (kwargs["challenge"], kwargs["dns_provider"]) == ("dns-01", "cf")
+
+
+def test_it_gives_the_certificate_back(calls: list[Any], own: list[Any], log: list[str]) -> None:
+    invoke(["domain", "certificate", APP, "shop.example.com", "--shared"])
+
+    ((args, _),) = own
+    assert args == (APP, "shop.example.com", "shared")
+
+
+def test_a_name_alone_says_which_certificate_serves_it(
+    calls: list[Any], own: list[Any], log: list[str]
+) -> None:
+    result = invoke(["domain", "certificate", APP, "shop.example.com"])
+
+    assert result.exit_code == 0, result.output
+    assert own == []
+    text = "\n".join(log)
+    assert "shop.example.com" in text and "own" in text
+
+
+def test_a_name_that_is_not_the_applications_is_refused_in_words(
+    calls: list[Any], own: list[Any], log: list[str]
+) -> None:
+    result = invoke(["domain", "certificate", APP, "ghost.example.com"])
+
+    assert result.exit_code != 0
+    assert own == []
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--own"],
+        ["--shared"],
+        ["--dns", "cf"],
+        ["shop.example.com", "--reduce"],
+        ["shop.example.com", "--own", "--dns", "cf", "--http"],
+        ["shop.example.com", "--shared", "--dns", "cf"],
+    ],
+)
+def test_options_that_make_no_sense_together_are_refused_before_anything_is_asked(
+    calls: list[Any], own: list[Any], log: list[str], args: list[str]
+) -> None:
+    result = invoke(["domain", "certificate", APP, *args])
+
+    assert result.exit_code != 0
+    assert own == [] and [c for c in calls if c[0] in ("issue", "reduce")] == []
+
+
+def test_a_rehearsal_changes_no_name(calls: list[Any], own: list[Any], log: list[str]) -> None:
+    result = invoke(["--dry-run", "domain", "certificate", APP, "shop.example.com", "--own"])
+
+    assert result.exit_code == 0, result.output
+    assert own == []

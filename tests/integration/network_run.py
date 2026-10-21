@@ -3611,6 +3611,514 @@ def scenario_acme_rfc2136(env: Env) -> None:
 
 
 # ---------------------------------------------------------------------------
+# A certificate for one name of an application, ordered from Pebble (per-name certificates)
+# ---------------------------------------------------------------------------
+
+#: Where the visitor loop of a scenario keeps what it saw, and the file that keeps it going.
+PROBE_LOG = "/tmp/noust-crt-probe.log"
+PROBE_FLAG = "/tmp/noust-crt-probe.run"
+PROBE_SCRIPT = "/tmp/noust-crt-probe.sh"
+
+
+def set_acme_names(names: dict[str, str]) -> None:
+    """
+    Point some names of the test zone at addresses, replacing what they had.
+
+    Args:
+        names: Label under ``acme.test`` to the address its A record gets.
+    """
+    updates = "\n".join(
+        f"update delete {label}.{ACME_ZONE} A\nupdate add {label}.{ACME_ZONE} 60 A {address}"
+        for label, address in names.items()
+    )
+    docker(
+        "exec",
+        "-i",
+        DNS,
+        "nsupdate",
+        "-k",
+        "/etc/bind/noust.key",
+        input_text=f"server 127.0.0.1\n{updates}\nsend\n",
+    )
+
+
+def forget_name_certificates(env: Env, app: str, lineages: list[str]) -> None:
+    """
+    Start a scenario from a server that has neither the application nor the lineages of its names.
+
+    Args:
+        env: The environment.
+        app: The application's domain.
+        lineages: The lineages its names may have left, by their certbot names.
+    """
+    forget_acme_app(env, app)
+    for lineage in lineages:
+        env.srv(
+            f"certbot delete --cert-name '{lineage}' --non-interactive >/dev/null 2>&1; true",
+            label=f"(a re-run) no lineage called {lineage}",
+        )
+
+
+def start_probe(env: Env, host: str, root_file: str) -> None:
+    """
+    Start visiting ``https://host/`` over and over in the server, against the authority's root.
+
+    Each visit writes what curl saw (the status and whether the certificate verified) to a log, so
+    a scenario can prove that no request failed while a name changed certificates.
+
+    Args:
+        env: The environment.
+        host: The name visited.
+        root_file: A file of the server that holds Pebble's root.
+    """
+    loop = (
+        "#!/bin/bash\n"
+        f"while [ -e {PROBE_FLAG} ]; do\n"
+        '  curl -sS -o /dev/null -m 5 -w "%{http_code} verify=%{ssl_verify_result}\\n" '
+        f"--cacert {root_file} --resolve {host}:443:127.0.0.1 https://{host}/ >> {PROBE_LOG} 2>&1 "
+        f"|| echo curl-failed >> {PROBE_LOG}\n"
+        "  sleep 0.2\n"
+        "done\n"
+    )
+    put_file(SERVER, PROBE_SCRIPT, loop)
+    env.srv(
+        f"rm -f {PROBE_LOG}; touch {PROBE_FLAG}; "
+        f"setsid nohup bash {PROBE_SCRIPT} >/dev/null 2>&1 </dev/null &",
+        label=f"(start visiting https://{host}/ over and over)",
+    )
+    # The first visit has to be in the log before the change starts, or the loop proves nothing.
+    wait_for(
+        lambda: env.srv(f"test -s {PROBE_LOG}", check=False).returncode == 0,
+        f"the first visit to {host}",
+        timeout=20,
+    )
+
+
+def stop_probe(env: Env) -> list[str]:
+    """
+    Stop the visitor loop and say what it saw.
+
+    Args:
+        env: The environment.
+
+    Returns:
+        One line per visit: ``200 verify=0`` for a page served over a certificate that verified.
+    """
+    env.srv(f"rm -f {PROBE_FLAG}; sleep 1", label="(stop visiting)")
+    log = env.srv(f"cat {PROBE_LOG}", label="what the visits saw").stdout
+    return [line.strip() for line in log.splitlines() if line.strip()]
+
+
+def only_good_visits(seen: list[str]) -> bool:
+    """
+    Args:
+        seen: What :func:`stop_probe` returned.
+
+    Returns:
+        True when there were visits during the change and every one was served and verified.
+    """
+    return len(seen) >= 3 and all(line == "200 verify=0" for line in seen)
+
+
+def lineages_on_disk(env: Env) -> list[str]:
+    """
+    Args:
+        env: The environment.
+
+    Returns:
+        The names of the lineages certbot keeps.
+    """
+    return env.srv("ls /etc/letsencrypt/live").stdout.split()
+
+
+def site_digest(env: Env, domain: str) -> str:
+    """
+    Args:
+        env: The environment.
+        domain: The application's domain.
+
+    Returns:
+        The SHA-256 of the application's site file.
+    """
+    return env.srv(
+        f"sha256sum /etc/nginx/sites-available/{domain}", label=f"the site of {domain}, hashed"
+    ).stdout.split()[0]
+
+
+def nginx_pid(env: Env) -> str:
+    """
+    Args:
+        env: The environment.
+
+    Returns:
+        nginx's main process id, which a reload keeps and a restart changes.
+    """
+    return env.srv("systemctl show nginx -p MainPID --value").stdout.strip()
+
+
+@scenario("acme_name_certificate_http01")
+def scenario_acme_name_certificate_http01(env: Env) -> None:
+    """A name takes a certificate of its own over HTTP-01, gives it back, renews and goes with the name, with no request failing."""
+    start_acme_stack(env)
+    base = f"crt.{ACME_ZONE}"
+    shop, admin, lost = (f"{label}.{ACME_ZONE}" for label in ("crtshop", "crtadmin", "crtlost"))
+    forget_name_certificates(env, base, [shop, admin, lost])
+    root_file = "/root/pebble-root.pem"
+    put_file(SERVER, root_file, pebble_root(env))
+    # Every name but one points at this server; `crtlost` points where nothing listens.
+    set_acme_names(
+        {
+            "crt": env.server_ip,
+            "crtshop": env.server_ip,
+            "crtadmin": env.server_ip,
+            "crtlost": "192.0.2.1",
+        },
+    )
+
+    created = env.srv(
+        f"noust create -d {base} -s {ECHO_URL} -t nodejs",
+        timeout=DEPLOY_TIMEOUT + 120,
+        check=False,
+    )
+    env.check(
+        created.returncode == 0,
+        f"noust create with a certificate failed:\n{(created.stdout + created.stderr)[-2500:]}",
+    )
+    env.srv(
+        f"noust domain add {base} {shop} --no-dns",
+        timeout=600,
+        label=f"noust domain add {base} {shop} --no-dns",
+    )
+    env.check(
+        sorted(certificate_names(env, base)) == sorted([base, shop]),
+        "the shared certificate does not name the application and its alias",
+    )
+
+    # -- a name added with a certificate of its own: its lineage holds it alone, and the shared
+    #    certificate never names it
+    added = env.srv(
+        f"noust domain add {base} {admin} --no-dns --own-certificate",
+        timeout=600,
+        check=False,
+        label=f"noust domain add {base} {admin} --no-dns --own-certificate",
+    )
+    env.check(
+        added.returncode == 0,
+        f"adding a name with a certificate of its own failed:\n{(added.stdout + added.stderr)[-2500:]}",
+    )
+    env.check(admin in lineages_on_disk(env), f"no lineage was kept for {admin}")
+    env.check(
+        certificate_names(env, admin) == [admin],
+        f"the certificate nginx presents for {admin} names more than the name: "
+        f"{certificate_names(env, admin)}",
+    )
+    env.check(
+        sorted(certificate_names(env, base)) == sorted([base, shop]),
+        "the shared certificate names the name that has one of its own",
+    )
+    env.check(
+        served_chain_verifies(env, admin, root_file) == "200 verify=0",
+        f"{admin} is not served with a certificate that verifies",
+    )
+    env.check("Pebble" in lineage_issuer(env, admin), "the name's certificate is not Pebble's")
+    listed = json_of(env.srv(f"noust domain list {base} --json"), "domain list")
+    by_name = {item["domain"]: item for item in listed["items"]}
+    env.check(
+        by_name[admin]["certificate"] == "own" and by_name[admin]["served_by"] == admin,
+        f"noust domain list does not say which certificate serves {admin}: {by_name[admin]}",
+    )
+    env.check(
+        by_name[shop]["certificate"] == "shared" and by_name[shop]["served_by"] == base,
+        f"noust domain list does not say the shared certificate serves {shop}: {by_name[shop]}",
+    )
+    certs = json_of(env.srv("noust cert list --json"), "cert list")
+    serves = {item["name"]: item.get("serves", []) for item in certs["certificates"]}
+    env.check(
+        serves.get(admin) == [admin] and sorted(serves.get(base, [])) == sorted([base, shop]),
+        f"noust cert list does not say which names each certificate serves: {serves}",
+    )
+    site = env.srv(f"cat /etc/nginx/sites-available/{base}").stdout
+    env.check(
+        site.count(f"server_name {admin};") == 2 and f"server_name {base} {shop};" in site,
+        "the site has no server block pair of its own for the name",
+    )
+
+    # -- a name that shares takes a certificate of its own while visitors keep coming
+    start_probe(env, shop, root_file)
+    switched = env.srv(
+        f"noust domain certificate {base} {shop} --own",
+        timeout=900,
+        check=False,
+        label=f"noust domain certificate {base} {shop} --own",
+    )
+    seen = stop_probe(env)
+    env.check(
+        switched.returncode == 0,
+        f"taking a certificate of its own failed:\n{(switched.stdout + switched.stderr)[-2500:]}",
+    )
+    env.check(
+        only_good_visits(seen),
+        f"a request to {shop} failed or did not verify while it changed certificates: {seen}",
+    )
+    env.check(
+        certificate_names(env, shop) == [shop], f"{shop} does not present its own certificate"
+    )
+    env.check(
+        certificate_names(env, base) == [base],
+        f"the shared certificate was not ordered again without the names that have their own: "
+        f"{certificate_names(env, base)}",
+    )
+    env.check(
+        served_chain_verifies(env, base, root_file) == "200 verify=0",
+        "the application's own name stopped being served",
+    )
+
+    # -- a name whose DNS points elsewhere is refused by the authority, in its words, and
+    #    nothing changes: not the site, not the choice, not the certificates
+    env.srv(f"noust domain add {base} {lost} --no-cert --no-dns", timeout=300)
+    digest = site_digest(env, base)
+    pid = nginx_pid(env)
+    refused = env.srv(
+        f"noust domain certificate {base} {lost} --own",
+        timeout=600,
+        check=False,
+        label=f"noust domain certificate {base} {lost} --own (its A record is 192.0.2.1)",
+    )
+    said = refused.stdout + refused.stderr
+    env.check(
+        refused.returncode != 0,
+        "a certificate was said to be ordered for a name that points elsewhere",
+    )
+    # Noust names the name and its DNS; certbot's own words follow verbatim, authority's detail and all.
+    env.check(
+        lost in said and "Detail:" in said,
+        f"the refusal does not name the name and carry certbot's own words: {said[-800:]}",
+    )
+    env.check(lost not in lineages_on_disk(env), f"a lineage was kept for {lost}")
+    env.check(site_digest(env, base) == digest, "the site changed although the order was refused")
+    env.check(nginx_pid(env) == pid, "nginx was restarted by a change that did not happen")
+    listed = json_of(env.srv(f"noust domain list {base} --json"), "domain list")
+    env.check(
+        {item["domain"]: item["certificate"] for item in listed["items"]}[lost] == "shared",
+        "the choice was kept although the order was refused",
+    )
+    for host in (base, shop, admin):
+        env.check(
+            served_chain_verifies(env, host, root_file) == "200 verify=0",
+            f"{host} stopped being served after a refused order for another name",
+        )
+
+    # -- a renewal asked for the application renews every lineage it has, and reloads nginx
+    before = {name: live_fingerprint(env, name) for name in (base, shop, admin)}
+    pid = nginx_pid(env)
+    env.srv(
+        f"noust cert renew --domain {base} --force",
+        timeout=900,
+        label="noust cert renew --force (the application and the names with their own)",
+    )
+    after = {name: live_fingerprint(env, name) for name in (base, shop, admin)}
+    env.check(
+        all(after[name] != before[name] for name in before),
+        f"a lineage was not renewed: before {before}, after {after}",
+    )
+    env.check(nginx_pid(env) == pid, "nginx was restarted by the renewal, not reloaded")
+    for host in (base, shop, admin):
+        env.check(
+            served_chain_verifies(env, host, root_file) == "200 verify=0",
+            f"{host} does not verify after the renewal",
+        )
+
+    # -- removing a name retires its lineage and its block, and orders nothing else again
+    shared_before = live_fingerprint(env, base)
+    shop_before = live_fingerprint(env, shop)
+    env.srv(f"noust domain remove {base} {admin}", timeout=600)
+    env.check(admin not in lineages_on_disk(env), f"the lineage of the removed {admin} stayed")
+    env.check(
+        not env.srv(f"test -e /etc/letsencrypt/renewal/{admin}.conf", check=False).returncode == 0,
+        "certbot still has a renewal configuration for the removed name",
+    )
+    env.check(
+        admin not in env.srv(f"cat /etc/nginx/sites-available/{base}").stdout, "the block stayed"
+    )
+    env.check(
+        live_fingerprint(env, base) == shared_before,
+        "removing a name that had its own certificate ordered the shared one again",
+    )
+    env.check(live_fingerprint(env, shop) == shop_before, "another name's certificate changed")
+
+    # -- giving the certificate back: the shared one learns the name first, and the lineage goes
+    #    last. A shared name nobody can prove would stop the shared order, so it goes first.
+    env.srv(f"noust domain remove {base} {lost}", timeout=600)
+    start_probe(env, shop, root_file)
+    back = env.srv(
+        f"noust domain certificate {base} {shop} --shared",
+        timeout=900,
+        check=False,
+        label=f"noust domain certificate {base} {shop} --shared",
+    )
+    seen = stop_probe(env)
+    env.check(
+        back.returncode == 0,
+        f"giving the certificate back failed:\n{(back.stdout + back.stderr)[-2500:]}",
+    )
+    env.check(
+        only_good_visits(seen),
+        f"a request to {shop} failed or did not verify while it went back: {seen}",
+    )
+    env.check(
+        shop in certificate_names(env, base) and base in certificate_names(env, base),
+        "the shared certificate does not name the name that came back",
+    )
+    env.check(shop not in lineages_on_disk(env), f"the lineage of {shop} stayed after it came back")
+    audited = env.srv("noust audit list --action domains.certificate --json --limit 50").stdout
+    env.check(
+        '"own"' in audited and '"shared"' in audited,
+        "the changes of certificate are not in the audit log",
+    )
+    forget_name_certificates(env, base, [shop, admin, lost])
+
+
+@scenario("acme_name_certificate_dns01")
+def scenario_acme_name_certificate_dns01(env: Env) -> None:
+    """A name with a certificate of its own is proven with a DNS record while the application's is proven over HTTP, and each renews its own way."""
+    stack = start_acme_stack(env)
+    base = f"crtdns.{ACME_ZONE}"
+    own = f"crtdnsown.{ACME_ZONE}"
+    wild = f"*.crtw.{ACME_ZONE}"
+    wild_lineage = f"_wildcard.crtw.{ACME_ZONE}"
+    forget_name_certificates(env, base, [own, wild_lineage])
+    root_file = "/root/pebble-root.pem"
+    put_file(SERVER, root_file, pebble_root(env))
+    # The application answers on port 80; the other name points where nothing listens, so only a
+    # DNS record can prove it.
+    set_acme_names({"crtdns": env.server_ip, "crtdnsown": "192.0.2.1"})
+    add_cloudflare_account(env, stack)
+
+    created = env.srv(
+        f"noust create -d {base} -s {ECHO_URL} -t nodejs",
+        timeout=DEPLOY_TIMEOUT + 120,
+        check=False,
+    )
+    env.check(
+        created.returncode == 0,
+        f"noust create with a certificate failed:\n{(created.stdout + created.stderr)[-2500:]}",
+    )
+    added = env.srv(
+        f"noust domain add {base} {own} --no-dns --own-certificate --dns cf",
+        timeout=900,
+        check=False,
+        label=f"noust domain add {base} {own} --no-dns --own-certificate --dns cf",
+    )
+    env.check(
+        added.returncode == 0,
+        f"a certificate proven by DNS for one name failed:\n{(added.stdout + added.stderr)[-3000:]}",
+    )
+    env.check(own in lineages_on_disk(env), f"no lineage was kept for {own}")
+    env.check(
+        certificate_names(env, own) == [own], f"{own} does not present a certificate of its own"
+    )
+    env.check(
+        served_chain_verifies(env, own, root_file) == "200 verify=0",
+        f"{own} is not served with the certificate DNS ordered",
+    )
+
+    # -- each lineage keeps its own way of being renewed: the hooks are in the name's alone
+    conf_own = env.srv(f"cat /etc/letsencrypt/renewal/{own}.conf").stdout
+    env.check(
+        "manual_auth_hook" in conf_own
+        and "dns challenge auth" in conf_own
+        and "--account cf" in conf_own
+        and "manual_cleanup_hook" in conf_own
+        and "pref_challs = dns-01" in conf_own,
+        f"certbot does not keep the DNS hooks in the renewal of {own}:\n{conf_own}",
+    )
+    conf_base = env.srv(f"cat /etc/letsencrypt/renewal/{base}.conf").stdout
+    env.check(
+        "manual_auth_hook" not in conf_base and "pref_challs = dns-01" not in conf_base,
+        f"the application's own renewal was changed to DNS by a name's:\n{conf_base}",
+    )
+    record = f"_acme-challenge.{own}"
+    made = challenge_records_made(stack, record)
+    env.check(len(made) == 1, f"expected one challenge record for {own}, found {made}")
+    env.check(
+        made[0].get("comment") == "managed-by: noust acme challenge",
+        f"the record has no ownership marker: {made[0]}",
+    )
+    env.check(
+        challenge_records_made(stack, f"_acme-challenge.{base}") == [],
+        "a DNS record was published for the application, which is proven over HTTP",
+    )
+    env.check(txt_records(stack, record) == [], "the challenge record is still in the zone")
+    env.check(
+        token_in_files(env, stack.token) == "",
+        "the provider's token is written in certbot's files or in Noust's configuration",
+    )
+
+    # -- a renewal of the application publishes the name's record again, and only the name's
+    before = {name: live_fingerprint(env, name) for name in (base, own)}
+    pid = nginx_pid(env)
+    env.srv(
+        f"noust cert renew --domain {base} --force",
+        timeout=900,
+        label="noust cert renew --force (HTTP for the application, DNS for the name)",
+    )
+    after = {name: live_fingerprint(env, name) for name in (base, own)}
+    env.check(all(after[name] != before[name] for name in before), "a lineage was not renewed")
+    env.check(nginx_pid(env) == pid, "nginx was restarted by the renewal, not reloaded")
+    env.check(len(challenge_records_made(stack, record)) == 2, "the renewal published no record")
+    env.check(
+        challenge_records_made(stack, f"_acme-challenge.{base}") == [],
+        "the renewal of the application published a DNS record",
+    )
+    env.check(txt_records(stack, record) == [], "the renewal left its record in the zone")
+
+    # -- changing how the name is proven to something that cannot work is refused and changes nothing
+    digest = site_digest(env, base)
+    refused = env.srv(
+        f"noust domain certificate {base} {own} --own --http",
+        timeout=600,
+        check=False,
+        label=f"noust domain certificate {base} {own} --own --http (nothing answers on its port 80)",
+    )
+    env.check(refused.returncode != 0, "a name nothing answers for was said to be proven over HTTP")
+    conf_after = env.srv(f"cat /etc/letsencrypt/renewal/{own}.conf").stdout
+    env.check("manual_auth_hook" in conf_after, "the failed change took the DNS hooks away")
+    env.check(site_digest(env, base) == digest, "the site changed although the order was refused")
+    env.check(
+        served_chain_verifies(env, own, root_file) == "200 verify=0",
+        f"{own} stopped being served after the refused change",
+    )
+
+    # -- a wildcard of its own, proven by DNS, is kept in the lineage no host can have
+    wildcard = env.srv(
+        f"noust domain add {base} '{wild}' --no-dns --own-certificate --dns cf",
+        timeout=900,
+        check=False,
+        label=f"noust domain add {base} '{wild}' --no-dns --own-certificate --dns cf",
+    )
+    env.check(
+        wildcard.returncode == 0,
+        f"a wildcard with a certificate of its own failed:\n{(wildcard.stdout + wildcard.stderr)[-3000:]}",
+    )
+    env.check(wild_lineage in lineages_on_disk(env), f"no lineage {wild_lineage} was kept")
+    visited = f"anything.crtw.{ACME_ZONE}"
+    env.check(
+        certificate_names(env, visited) == [wild],
+        f"the certificate presented under the wildcard is not the wildcard's alone: "
+        f"{certificate_names(env, visited)}",
+    )
+    env.check(
+        served_chain_verifies(env, visited, root_file) == "200 verify=0",
+        f"{visited} is not served with the wildcard's certificate",
+    )
+    env.srv(f"noust domain remove {base} '{wild}'", timeout=600)
+    env.check(wild_lineage not in lineages_on_disk(env), "the wildcard's lineage stayed")
+
+    forget_name_certificates(env, base, [own, wild_lineage])
+    env.srv("noust dns provider remove cf -y")
+
+
+# ---------------------------------------------------------------------------
 # The time from `apt install` to the first deploy over HTTPS, measured (N-10)
 # ---------------------------------------------------------------------------
 

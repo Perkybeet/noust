@@ -97,6 +97,22 @@ class FakeStore(NetworkTables):
         """
         return self.owners.get(domain)
 
+    def domain_certificate(self, domain: str) -> str | None:
+        """
+        Say how a name is covered.
+
+        Args:
+            domain: The name.
+
+        Returns:
+            ``shared`` or ``own`` for a name of a recorded application, else None.
+        """
+        for records in self.domains.values():
+            for record in records:
+                if record.domain == domain:
+                    return record.certificate
+        return None
+
     def get_served_certificate(self, domain: str) -> tuple[str, str] | None:
         """
         Say which certificate a site serves when it is not its own lineage.

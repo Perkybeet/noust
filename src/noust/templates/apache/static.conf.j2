@@ -7,10 +7,11 @@ ServerTokens Prod
 ServerSignature Off
 {% include "_redirects.j2" %}
 
+{% for server in servers %}
 <VirtualHost *:80>
-    ServerName {{ server_primary | default(domain) }}
-{% if server_aliases %}
-    ServerAlias {{ server_aliases | join(' ') }}
+    ServerName {{ server.primary }}
+{% if server.aliases %}
+    ServerAlias {{ server.aliases | join(' ') }}
 {% endif %}
     ServerAdmin webmaster@{{ domain }}
 
@@ -22,16 +23,16 @@ ServerSignature Off
 </VirtualHost>
 
 <VirtualHost *:443>
-    ServerName {{ server_primary | default(domain) }}
-{% if server_aliases %}
-    ServerAlias {{ server_aliases | join(' ') }}
+    ServerName {{ server.primary }}
+{% if server.aliases %}
+    ServerAlias {{ server.aliases | join(' ') }}
 {% endif %}
     ServerAdmin webmaster@{{ domain }}
 
     # SSL Configuration
     SSLEngine on
-    SSLCertificateFile {{ ssl_certificate | default('/etc/letsencrypt/live/' + domain + '/fullchain.pem') }}
-    SSLCertificateKeyFile {{ ssl_certificate_key | default('/etc/letsencrypt/live/' + domain + '/privkey.pem') }}
+    SSLCertificateFile {{ server.ssl_certificate }}
+    SSLCertificateKeyFile {{ server.ssl_certificate_key }}
     
     # SSL Settings
     SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1
@@ -83,4 +84,8 @@ ServerSignature Off
     <IfModule mod_deflate.c>
         AddOutputFilterByType DEFLATE text/html text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml
     </IfModule>
-</VirtualHost>
+</VirtualHost>{% if not loop.last %}
+
+
+{% endif %}
+{% endfor %}

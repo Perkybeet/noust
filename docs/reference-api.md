@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1047 operations.
+1048 operations.
 
 ## Access
 
@@ -641,6 +641,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/domains` | Post Domain | `apps.manage` |  |  |
 | PUT | `/api/apps/{domain}/domains/canonical` | Put Canonical | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/domains/{name}` | Delete Domain | `apps.manage` | yes |  |
+| PUT | `/api/apps/{domain}/domains/{name}/certificate` | Put Domain Certificate | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/domains/{name}/dns` | Get Domain Dns | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/domains/{name}/enabled` | Put Domain Enabled | `apps.manage` |  |  |
 | PUT | `/api/apps/{domain}/domains/{name}/port` | Put Domain Port | `apps.manage` |  |  |

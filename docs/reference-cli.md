@@ -8180,6 +8180,9 @@ Arguments: `app_domain`, `domain`
 | `--port` | Proxy this name to another port of the application than its own (an alias). |  |
 | `--force` | Add the name although another site of the web server already answers on it. |  |
 | `--no-dns` | Do not point the name at this server in the DNS account that holds its zone. |  |
+| `--own-certificate` | Give DOMAIN a certificate of its own instead of covering it with APP's. |  |
+| `--dns` | With --own-certificate: prove it with a DNS record in ACCOUNT (a wildcard needs it). |  |
+| `--http` | With --own-certificate: prove it over HTTP (the default). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust domain canonical
@@ -8199,16 +8202,20 @@ Arguments: `app_domain`, `spelling`
 
 ### noust domain certificate
 
-Make APP's certificate cover exactly the names it answers on.
+Make APP's certificate cover exactly the names it answers on, or say how one name is covered.
 
 ```
-noust domain certificate [OPTIONS] APP
+noust domain certificate [OPTIONS] APP [NAME]
 ```
 
-Arguments: `app_domain`
+Arguments: `app_domain`, `name`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--own` | Give NAME a certificate of its own, kept under its own name. |  |
+| `--shared` | Cover NAME with APP's certificate again, and delete the one it had. |  |
+| `--dns` | With --own: prove it with a DNS record in ACCOUNT (a wildcard needs it). |  |
+| `--http` | With --own: prove it over HTTP. |  |
 | `--reduce` | Order it again with only the names the application answers on (after a removal). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
