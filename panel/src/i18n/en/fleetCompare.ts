@@ -32,10 +32,9 @@ export const fleetCompare = {
     scopeLabel: "Which servers",
     thisServer: "This server",
     everyServer: "Every server",
-    appNote: "Searching every server: the application filter applies to one server only.",
+    label: "the logs of every server",
     summary: { one: "{count} matching line from {servers} servers.", other: "{count} matching lines from {servers} servers." },
     nothing: "No server has a line that matches.",
     perServer: "Up to {limit} lines from each server.",
-    loadFailed: "Could not search the logs of the servers",
   },
 } as const;

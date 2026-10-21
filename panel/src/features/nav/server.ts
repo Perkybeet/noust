@@ -10,7 +10,6 @@ export const SERVER_SCREENS = strip(
     tab(server, "security", "server.tabs.security"),
     tab(server, "storage", "server.tabs.storage"),
     tab(server, "services", "server.tabs.services"),
-    tab(server, "logs", "server.tabs.logs"),
     tab(server, "system", "server.tabs.system"),
     hidden("server.terminal", "/server/terminal", "terminal.page.title", "server", {
       parent: "server",

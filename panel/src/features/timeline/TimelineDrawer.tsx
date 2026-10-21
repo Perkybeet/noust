@@ -386,7 +386,7 @@ function EventsSection({ data, stretch, app, onClose }: { data: Timeline; stretc
         // The journal's own page asks the same stretch with the query language, for the whole of it.
         shownSources.includes("journal") ? (
           // Going there leaves the drawer behind: on the page it was opened from, it would stay over the new search.
-          <TextLink to="/server/logs" search={{ from: data.start, to: data.end, ...(app !== undefined ? { q: `@app:${app}` } : {}) }} size="ui" onClick={onClose}>
+          <TextLink to="/logs" search={{ source: "system", from: data.start, to: data.end, ...(app !== undefined ? { q: `@app:${app}` } : {}) }} size="ui" onClick={onClose}>
             {t("timeline.events.searchLogs")}
           </TextLink>
         ) : undefined

@@ -114,7 +114,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "server-security-firewall", path: "/server/security?view=firewall" },
   { name: "server-security-bans", path: "/server/security?view=bans" },
   { name: "server-storage", path: "/server/storage" },
-  { name: "server-logs", path: "/server/logs" },
+  { name: "logs-system", path: "/logs?source=system" },
   { name: "server-system", path: "/server/system" },
   { name: "server-terminal", path: "/server/terminal" },
   { name: "settings", path: "/settings" },
