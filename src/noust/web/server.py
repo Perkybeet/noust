@@ -587,16 +587,6 @@ def get_webhook_failures() -> BruteForceProtection:
     return _webhook_failures
 
 
-def get_audit() -> AuditLogger | None:
-    """
-    Return the audit logger.
-
-    Returns:
-        The audit logger, or None when auditing is disabled.
-    """
-    return _audit_logger
-
-
 #: Job types whose terminal state is announced from here, by kind reused from
 #: the notifier's deploy vocabulary. A deploy, an update and a rollback are
 #: no longer among them: every deployment, from the CLI, a console job or the

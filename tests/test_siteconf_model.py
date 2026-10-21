@@ -63,10 +63,10 @@ class TestProggest:
         assert assets.target.alias == "/var/www/proggest/apps/web-gateway/public/assets/"
         assert assets.settings.expires == "1y"
 
-        uaap = by_path(https, "/uaap/", "=")
-        assert uaap.target.kind == "return"
-        assert uaap.target.code == 302
-        assert uaap.target.destination == "/uaap/dashboard"
+        portal = by_path(https, "/portal/", "=")
+        assert portal.target.kind == "return"
+        assert portal.target.code == 302
+        assert portal.target.destination == "/portal/dashboard"
 
         socket = by_path(https, "/socket.io")
         assert socket.target.kind == "proxy"
@@ -127,15 +127,15 @@ class TestProggest:
 
     def test_comments_are_attached_or_kept_as_notes(self, proggest):
         https = proggest.servers[1]
-        uaap = by_path(https, "/uaap/", "=")
-        assert any("Cortacircuito" in comment for comment in uaap.comments)
-        assert any("Páginas del módulo UAAP" in comment for comment in uaap.comments)
+        portal = by_path(https, "/portal/", "=")
+        assert any("Cortacircuito" in comment for comment in portal.comments)
+        assert any("Páginas del módulo Portal" in comment for comment in portal.comments)
         settings_loc = by_path(https, "/api/settings/")
         assert settings_loc.comments == []
         assert any("Next.js API route handlers" in note.text for note in https.notes)
         assert any(note.after == "s1/l4" for note in https.notes)
-        uaap_prefix = by_path(https, "/uaap")
-        body_size = next(d for d in uaap_prefix.directives if d.name == "client_max_body_size")
+        portal_prefix = by_path(https, "/portal")
+        body_size = next(d for d in portal_prefix.directives if d.name == "client_max_body_size")
         assert any("adjuntos de formaciones" in comment for comment in body_size.comments)
         assert proggest.servers[0].comments == ["HTTP server (redirect to HTTPS)"]
         assert proggest.servers[1].comments == ["HTTPS server"]
@@ -163,10 +163,10 @@ class TestProggest:
         json.dumps(first)
 
     def test_lines_point_into_the_file(self, proggest):
-        uaap = by_path(proggest.servers[1], "/uaap/", "=")
+        portal = by_path(proggest.servers[1], "/portal/", "=")
         text = (FIXTURES / "proggest" / "proggest.es").read_text(encoding="utf-8")
-        assert text.splitlines()[uaap.line - 1].strip() == "location = /uaap/ {"
-        assert text.splitlines()[uaap.end_line - 1].strip() == "}"
+        assert text.splitlines()[portal.line - 1].strip() == "location = /portal/ {"
+        assert text.splitlines()[portal.end_line - 1].strip() == "}"
 
 
 def test_modulos_keeps_the_if_as_a_raw_block():
@@ -174,7 +174,7 @@ def test_modulos_keeps_the_if_as_a_raw_block():
     https = model.servers[1]
     block = next(d for d in https.directives if d.name == "if")
     assert block.block is True
-    assert block.args == ["($host", "=", "partestrabajo.proggest.es)"]
+    assert block.args == ["($host", "=", "worklogs.proggest.es)"]
     assert "return 302" in block.text
     assert model.upstreams == []
     socket = by_path(https, "/socket.io")

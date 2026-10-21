@@ -22,7 +22,8 @@ ends in the page that has the detail.
 
 Nothing here is private to Noust. You can read an application's unit with `systemctl cat`, its
 site with `cat`, and its logs with `journalctl`, and the server goes on serving if you do. Units
-from before 0.14.1 keep a legacy `wasm-` prefix, and an application's unit is never renamed.
+from before 0.14.1 keep a legacy prefix until the application's next deployment, which renames the
+unit as part of the restart it makes anyway.
 
 ## A release
 
@@ -31,7 +32,7 @@ A deploy does not rebuild the tree that is serving. It builds in its own directo
 site point at `current`, so the same unit and the same site serve whichever release is active. The
 `.env` and the paths that must persist (uploads, storage) live in `shared/`, outside every
 release. Going back is pointing `current` at an older release still on disk and restarting: seconds,
-no rebuild. Applications deployed by WASM 1.x build in place and stay that way until you migrate
+no rebuild. Applications deployed by 1.x build in place and stay that way until you migrate
 them; Noust never converts one on its own.
 
 Detail: [releases.md](releases.md).

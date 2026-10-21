@@ -690,12 +690,12 @@ class MongoDBManager(BaseDatabaseManager):
             )
 
         success, output = self._execute_mongo(
-            f"db.getSiblingDB({self._js(name)}).createCollection('_wasm_init')"
+            f"db.getSiblingDB({self._js(name)}).createCollection('_noust_init')"
         )
         if not success:
             raise DatabaseError(f"Failed to create database '{name}'", details=output.strip())
 
-        self._execute_mongo(f"db.getSiblingDB({self._js(name)})._wasm_init.drop()")
+        self._execute_mongo(f"db.getSiblingDB({self._js(name)})._noust_init.drop()")
 
         self.logger.info(f"Created database: {name}")
         return self.get_database_info(name)
@@ -1090,7 +1090,7 @@ class MongoDBManager(BaseDatabaseManager):
         archive = self._backup_path(database, output_path, False)
 
         with (
-            tempfile.TemporaryDirectory(prefix="wasm-mongodump-") as workdir,
+            tempfile.TemporaryDirectory(prefix="noust-mongodump-") as workdir,
             self._tool_credentials() as credentials,
         ):
             argv = ["mongodump", *credentials, "--db", database, "--out", workdir, *excluded]
@@ -1147,7 +1147,7 @@ class MongoDBManager(BaseDatabaseManager):
             # dump, or a dump brought from another server or provider.
             self._load_archive(database, backup_path)
             return
-        with tempfile.TemporaryDirectory(prefix="wasm-mongorestore-") as workdir:
+        with tempfile.TemporaryDirectory(prefix="noust-mongorestore-") as workdir:
             if backup_path.is_dir():
                 dump_dir = backup_path
             else:

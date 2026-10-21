@@ -227,22 +227,3 @@ def role_within(role: str | None, permissions: frozenset[str] | set[str]) -> str
         if table[candidate] <= held:
             return candidate
     return "viewer"
-
-
-def fleet_role_for(role: str | None, grant: str | None = None) -> str:
-    """
-    The role a central forwards for one of its principals.
-
-    Args:
-        role: The account's role, when it is an account.
-        grant: How the master token is held, when it is the master token.
-
-    Returns:
-        A role name a node understands: the account's own, ``admin`` for the
-        master token in full or break-glass, ``viewer`` otherwise.
-    """
-    if role in ROLE_PERMISSIONS:
-        return str(role)
-    if grant in (GRANT_COMPAT, GRANT_BREAK_GLASS):
-        return "admin"
-    return "viewer"

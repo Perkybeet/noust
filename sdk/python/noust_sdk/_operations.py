@@ -726,6 +726,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("nodes", "rekey_node"): ("POST", "/api/nodes/{node}/rekey", "fleet.manage", True),
     ("nodes", "get_node_ssh"): ("GET", "/api/nodes/{node}/ssh", "fleet.read", False),
     ("nodes", "set_node_ssh"): ("PUT", "/api/nodes/{node}/ssh", "fleet.manage", True),
+    ("nodes", "ask_bastion_line"): ("POST", "/api/nodes/{node}/ssh/authorization", "fleet.manage", False),
     ("nodes", "set_node_team"): ("PUT", "/api/nodes/{node}/team", "fleet.manage", True),
     ("nodes", "test_node"): ("POST", "/api/nodes/{node}/test", "fleet.read", False),
     ("notifications", "list_channels"): ("GET", "/api/notifications/channels", "settings.read", False),
@@ -5384,13 +5385,13 @@ class Deployments:
     def __init__(self, call: Call) -> None:
         self._call = call
 
-    def rebuild_deployment(self, domain: str, deployment_id: int | str) -> "JobAcceptedResponse":
+    def rebuild_deployment(self, domain: str, deployment_id: int | str, *, body: Union["RebuildRequest", None] = None) -> "JobAcceptedResponse":
         """POST /api/apps/{domain}/deployments/{deployment_id}/rebuild
 
         Rebuild Deployment
 
         Needs: permission `apps.deploy`."""
-        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/deployments/{quote(str(deployment_id), safe='')}/rebuild", query=None, body=None)
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/deployments/{quote(str(deployment_id), safe='')}/rebuild", query=None, body=body)
 
     def rollback_deployment(self, domain: str, deployment_id: int | str, *, body: Union["NoustWebApiDeploymentsRollbackRequest", None] = None) -> "JobAcceptedResponse":
         """POST /api/apps/{domain}/deployments/{deployment_id}/rollback
@@ -6795,7 +6796,7 @@ class Monitor:
 
 
 class Nodes:
-    """Nodes: 14 operations."""
+    """Nodes: 15 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6895,6 +6896,14 @@ class Nodes:
 
         Needs: permission `fleet.manage`, sudo mode."""
         return self._call("PUT", f"/api/nodes/{quote(str(node), safe='')}/ssh", query=None, body=body)
+
+    def ask_bastion_line(self, node: str, body: "BastionIn") -> "BastionLineOut":
+        """POST /api/nodes/{node}/ssh/authorization
+
+        Ask Bastion Line
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", f"/api/nodes/{quote(str(node), safe='')}/ssh/authorization", query=None, body=body)
 
     def set_node_team(self, node: str, body: "NodeTeamRequest") -> "NodeResponse":
         """PUT /api/nodes/{node}/team

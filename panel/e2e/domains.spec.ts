@@ -34,10 +34,10 @@ test("an alias is added after DNS says it points here, and the certificate is ex
 
   await page.getByRole("button", { name: "Add domain" }).click();
   const dialog = page.getByRole("dialog", { name: `Add a domain to ${app}` });
-  await dialog.getByLabel("Domain").fill(alias);
-  // The first press asks DNS; nothing is added yet.
+  // DNS is asked when the operator leaves the field; nothing is added yet.
   const lookup = page.waitForResponse((response) => response.url().endsWith(`/api/apps/${app}/domains/${alias}/dns`));
-  await dialog.getByRole("button", { name: "Check DNS" }).click();
+  await dialog.getByLabel("Domain").fill(alias);
+  await dialog.getByLabel("Domain").blur();
   expect((await lookup).status()).toBe(200);
   await expect(dialog.getByText(`${alias} points here`)).toBeVisible();
   await expect(dialog.getByText("203.0.113.10").first()).toBeVisible();
@@ -69,8 +69,8 @@ test("a name that does not point here is added, and the failed order is shown in
   await page.getByRole("button", { name: "Add domain" }).click();
   const dialog = page.getByRole("dialog", { name: `Add a domain to ${app}` });
   await dialog.getByLabel("Domain").fill(name);
+  // Choosing the kind leaves the field, which is what asks DNS.
   await dialog.getByRole("radio", { name: /Redirect/ }).check();
-  await dialog.getByRole("button", { name: "Check DNS" }).click();
   await expect(dialog.getByText(`${name} has no DNS record yet`)).toBeVisible();
   await expect(dialog.getByText("Nothing: no A or AAAA record")).toBeVisible();
   await dialog.getByRole("button", { name: "Add anyway" }).click();
@@ -86,11 +86,11 @@ test("a name that does not point here is added, and the failed order is shown in
   await stillness(page);
   await expectNoA11yViolations(page, "a failed certificate order");
 
-  // Removing it needs the operator to type the name and confirm it's them.
+  // Removing it is a question with one button (the name is not typed: it can be added again), and asks the operator to confirm it's them.
   await redirect.getByRole("button", { name: `Actions for ${name}` }).click();
   await page.getByRole("menuitem", { name: "Remove" }).click();
   const confirm = page.getByRole("alertdialog", { name: `Remove ${name}` });
-  await confirm.getByRole("textbox").fill(name);
+  await expect(confirm.getByRole("textbox")).toHaveCount(0);
   await confirm.getByRole("button", { name: "Remove domain" }).click();
   await confirmItsYou(page, consoleServer);
   await expect(confirm).toBeHidden();

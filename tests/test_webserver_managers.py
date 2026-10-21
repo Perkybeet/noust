@@ -458,8 +458,9 @@ def test_both_backends_expose_the_same_contract(nginx: NginxManager, apache: Apa
 
     assert public <= nginx_api
     assert public <= apache_api
-    # The only sanctioned difference: nginx has multi-route configurations.
-    assert nginx_api - apache_api == {"create_advanced_site"}
+    # No sanctioned difference is left: a multi-route nginx site is written by create_site with
+    # the advanced template, which the Apache manager shares.
+    assert nginx_api - apache_api == set()
 
 
 def test_apache_is_installed_when_systemd_has_loaded_the_unit(
@@ -2283,7 +2284,7 @@ def test_a_staging_directory_already_there_is_refused_and_left_alone(
     """A directory planted under the staging name is neither used nor deleted."""
     manager, fake = live_nginx
     monkeypatch.setattr("noust.managers.webserver.os.urandom", lambda size: b"\x00" * size)
-    planted = validation_tmp / "wasm-validate-000000000000"
+    planted = validation_tmp / "noust-validate-000000000000"
     planted.mkdir()
 
     with pytest.raises(NginxError):

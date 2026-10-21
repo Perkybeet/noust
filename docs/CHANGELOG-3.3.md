@@ -23,8 +23,8 @@ new is what Noust sees and says, and the actions it offers.
   passwords are read inside the container and never reach the host's process list; the ones
   Noust holds itself travel in the environment of the `docker` process.
 - **Whose it is.** A container's databases belong to the application its Compose project is
-  (the project label against the application's project or name), so the Proggest stack's
-  Postgres and Redis show as proggest.es's.
+  (the project label against the application's project or name), so a stack's
+  Postgres and Redis show as its application's.
 - **What differs.** Start, stop and restart act on the container. Installing, uninstalling and
   configuring do not exist for an instance: the image decides the engine, and Noust says so.
   When only the application's own account is available (no root password in the container's

@@ -1,83 +1,86 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
-import { releasesQuery, rollbackPointsQuery } from "../../api/queries/apps";
+import { rollbackPointsQuery } from "../../api/queries/apps";
 import type { Job } from "../../api/queries/jobs";
+import { deploymentsQuery } from "../../api/queries/deployments";
+import { rolloutQuery } from "../../api/queries/rollout";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { RelativeTime } from "../../components/page/RelativeTime";
-import { Button } from "../../components/ui/Button";
-import { Dialog } from "../../components/ui/Dialog";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { Field } from "../../components/ui/Field";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Mono } from "../../components/ui/Mono";
+import { Select } from "../../components/ui/Select";
+import type { SelectOption } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { formatBytes } from "../../lib/format";
+import { formatBytes, formatDateTime, parseTimestamp } from "../../lib/format";
+import { useNode } from "../../nodes/useNode";
 import { useAppActions } from "../apps/useAppActions";
+import { rollbackTargets, servingDeployment } from "./rollback";
+import type { BackupTarget, Target } from "./rollback";
 import { schemaChangeRefusal } from "./schemaChange";
 import { useSchemaChangeConfirmation } from "./SchemaChangeDialog";
-import { versionTitle } from "./versionTitle";
 
-interface Target {
-  id: string;
-  /** When it was made, as a person reads it; the id when the time is unknown. */
-  title: string;
-  commit: string | null;
-  when: string | null;
-  note: string | null;
+/** The newest deployments the app's history keeps: the store prunes beyond twenty. */
+const HISTORY = 20;
+
+/** What the dialog is opened on: the version asked for, or nothing for the one before the live one. */
+export interface RollbackChoice {
+  /** A deployment of the app, by its number. */
+  deployment?: number;
+  /** A backup of an app kept in a single folder, by its id. */
+  backup?: string;
 }
 
-function titleOf(t: T, when: string | null | undefined, fallback: string): string {
-  return versionTitle(when, t.locale) ?? fallback;
+const key = (target: Target): string => `${target.kind}:${String(target.id)}`;
+
+function whenWords(t: T, when: string | null): string | null {
+  const moment = parseTimestamp(when);
+  return moment === null ? null : formatDateTime(moment, t.locale);
 }
 
-/**
- * The versions the app can go back to, each a row with its own button: choosing one is going
- * back to it, the dialog having been the question. The id the disk and the command line use is
- * each row's second line.
- */
-function Targets({
-  label,
-  targets,
-  pending,
-  onChoose,
-  t,
-}: {
-  label: string;
-  targets: readonly Target[];
-  pending: string | null;
-  onChoose: (id: string) => void;
-  t: T;
-}) {
+function optionOf(t: T, target: Target): SelectOption {
+  const when = whenWords(t, target.when);
+  if (target.kind === "backup") {
+    return {
+      value: key(target),
+      label: t("appPages.rollback.backupOptionLabel", { when: when ?? target.id }),
+      hint: `${target.description}, ${formatBytes(target.sizeBytes, t.locale)}`,
+    };
+  }
+  const detail = [target.commit, when].filter((part): part is string => part !== null).join(" · ");
+  return {
+    value: key(target),
+    label: target.message !== null ? t("appPages.rollback.optionLabel", { id: String(target.id), message: target.message }) : t("appPages.rollback.optionLabelBare", { id: String(target.id) }),
+    ...(detail !== "" ? { hint: detail } : {}),
+  };
+}
+
+/** What going back to this target puts back, in the words of how the backend does it. */
+function goesBack(t: T, target: Target, serving: number | null): ReactNode {
+  if (target.kind === "backup") return t.rich("appPages.rollback.goesBackup", { backup: <Mono>{target.id}</Mono> });
+  const version = <Mono>{target.commit !== null ? `#${String(target.id)} (${target.commit})` : `#${String(target.id)}`}</Mono>;
+  if (target.method === "snapshot" && target.snapshot !== null) {
+    return t.rich("appPages.rollback.goesSnapshot", { backup: <Mono>{target.snapshot}</Mono>, version });
+  }
+  if (target.method === "rebuild" && target.commit !== null) return t.rich("appPages.rollback.goesRebuild", { commit: <Mono>{target.commit}</Mono> });
+  return serving !== null
+    ? t.rich("appPages.rollback.goesInstant", { version, serving: <Mono>{`#${String(serving)}`}</Mono> })
+    : t.rich("appPages.rollback.goesInstantNoServing", { version });
+}
+
+function Consequence({ term, children }: { term: string; children: ReactNode }) {
   return (
-    <ul aria-label={label} className="flex flex-col divide-y divide-border rounded-control border border-border">
-      {targets.map((target) => (
-        <li key={target.id} className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2.5">
-          <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="flex min-w-0 items-baseline gap-2 text-13 font-medium text-fg">
-              <span className="truncate">{target.title}</span>
-              {target.commit ? <Mono tone="muted">{target.commit.slice(0, 7)}</Mono> : null}
-            </span>
-            <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-12 text-fg-muted">
-              <Mono tone="faint" truncate title={target.id}>
-                {target.id}
-              </Mono>
-              {target.when ? <RelativeTime value={target.when} /> : null}
-              {target.note ? <span>{target.note}</span> : null}
-            </span>
-          </span>
-          <Button
-            size="sm"
-            aria-label={t("appPages.rollback.goBackTo", { id: target.id })}
-            loading={pending === target.id}
-            disabled={pending !== null && pending !== target.id}
-            onClick={() => onChoose(target.id)}
-          >
-            {t("appPages.rollback.goBack")}
-          </Button>
-        </li>
-      ))}
-    </ul>
+    <div className="flex min-w-0 flex-col gap-1">
+      <dt className="text-12 text-fg-faint">{term}</dt>
+      <dd className="min-w-0 text-13 text-pretty text-fg">{children}</dd>
+    </div>
   );
 }
 
@@ -87,126 +90,148 @@ export interface RollbackDialogProps {
   layout: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Follows the job a rollback from a backup queues; without it, a toast says it was queued. */
+  /** Follows the job the rollback queues; without it, a toast says it was queued. */
   onJobQueued?: (job: Job) => void;
+  /** What to open on. Without it: the version before the one that serves. */
+  choice?: RollbackChoice;
 }
 
 /**
- * Puts an earlier version of the app back. An app with instant rollback switches to an earlier
- * version in seconds; an app kept in a single folder is restored from one of its backups, as a
- * job. Only what can be gone back to is listed: the version live now is not.
+ * Puts an earlier version of the app back, and says what that does before it does it. One
+ * question for every way back (a release, the images a stack kept, a commit built again, a
+ * backup): the version, what goes back, what stays as it is, and whether automatic deploys will
+ * pause. Past a change to the database's schema it hands over to the question that names it.
  */
-export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued }: RollbackDialogProps) {
+export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued, choice }: RollbackDialogProps) {
   const t = useT();
-  const [chosen, setChosen] = useState<string | null>(null);
-  const onReleases = layout === "releases";
-  const releases = useQuery({ ...releasesQuery(domain), enabled: open && onReleases });
-  // The API also answers "no releases" for an app it finds in place, whatever it was listed as.
-  const inPlace = !onReleases || releases.data === null;
+  const { node } = useNode();
+  const history = useQuery({ ...deploymentsQuery({ domain, limit: HISTORY }), enabled: open });
+  // A single folder keeps backups as well; they are another thing to go back to, listed after the deployments.
+  const inPlace = layout !== "releases";
   const points = useQuery({ ...rollbackPointsQuery(domain), enabled: open && inPlace });
-  const { activateRelease, rollbackToBackup } = useAppActions(domain, onJobQueued ? { onJobQueued } : {});
-  const action = inPlace ? rollbackToBackup : activateRelease;
+  const rollout = useQuery({ ...rolloutQuery(domain), retry: false, enabled: open });
+  const { rollbackToDeployment, rollbackToBackup } = useAppActions(domain, onJobQueued ? { onJobQueued } : {});
   const schema = useSchemaChangeConfirmation(domain);
 
-  const targets: Target[] | undefined = inPlace
-    ? points.data?.items.map((point) => ({
-        id: point.id,
-        title: titleOf(t, point.created_at, point.id),
-        commit: point.git_commit ?? null,
-        when: null,
-        note: `${point.description}, ${formatBytes(point.size_bytes, t.locale)}`,
-      }))
-    : releases.data?.items
-        .filter((release) => !release.active && release.on_disk)
-        .map((release) => ({
-          id: release.id,
-          title: titleOf(t, release.created_at, release.id),
-          commit: release.commit ?? null,
-          when: release.activated_at ?? null,
-          note: null,
-        }));
+  const deployments = useMemo(() => history.data?.items ?? [], [history.data]);
+  const targets = useMemo<Target[]>(() => {
+    const backups: BackupTarget[] = (points.data?.items ?? []).map((point) => ({
+      kind: "backup",
+      id: point.id,
+      commit: point.git_commit?.slice(0, 7) ?? null,
+      when: point.created_at,
+      description: point.description,
+      sizeBytes: point.size_bytes,
+    }));
+    return [...rollbackTargets(deployments), ...backups];
+  }, [deployments, points.data]);
+  const serving = servingDeployment(deployments)?.id ?? null;
 
-  const loading = inPlace ? points.isPending : releases.isPending;
-  const loadError = !inPlace && releases.isError ? releases.error : inPlace && points.isError ? points.error : null;
+  // What the operator picked in this opening: each opening starts from what it was asked on.
+  const [session, setSession] = useState<{ open: boolean; picked: string | null }>({ open, picked: null });
+  if (session.open !== open) setSession({ open, picked: null });
+  const picked = session.picked;
+  const setPicked = (value: string): void => setSession({ open, picked: value });
+  // What was asked for, else the version before the live one (the newest that can be gone back to).
+  const asked = choice?.deployment !== undefined ? `deployment:${String(choice.deployment)}` : choice?.backup !== undefined ? `backup:${choice.backup}` : null;
+  const chosen = targets.find((target) => key(target) === (picked ?? asked)) ?? targets[0] ?? null;
 
-  const close = (next: boolean): void => {
-    if (!next && action.isPending) return;
-    onOpenChange(next);
-    if (!next) {
-      setChosen(null);
-      action.reset();
-    }
-  };
+  const loading = history.isPending || (inPlace && points.isPending);
+  // The deployments and the backups are two lists of one question: when only one cannot be read, the other is still there to choose from.
+  const backupsFailed = inPlace && points.isError;
+  const loadError = targets.length > 0 ? null : history.isError ? history.error : backupsFailed ? points.error : null;
+  const pauses = rollout.data !== undefined && rollout.data.pause_on_rollback && rollout.data.paused === null;
+  const schemaAhead = chosen?.kind === "deployment" ? chosen.schemaBetween : [];
 
-  const choose = (id: string): void => {
-    setChosen(id);
-    action.mutate(
-      { id },
-      {
-        onSuccess: () => {
-          close(false);
-        },
-        onError: (error) => {
-          // Past a schema change the question moves to its own dialog, which names the
-          // deployments and their migrations; this one closes behind it.
-          const asked = schema.intercept(schemaChangeRefusal(error), () => action.mutateAsync({ id, schemaChangedOk: true }));
-          if (asked) {
-            action.reset();
-            close(false);
-          }
-        },
-        onSettled: () => {
-          setChosen(null);
-        },
-      },
-    );
-  };
-
-  let body;
+  let body: ReactNode;
   if (loadError !== null) {
     body = <ErrorBlock compact error={loadError} title={t("appPages.rollback.listError")} />;
-  } else if (loading || targets === undefined) {
+  } else if (loading) {
     body = (
-      <div aria-busy="true" className="flex flex-col gap-2">
-        <span className="sr-only">{t("appPages.rollback.loading")}</span>
-        {[0, 1].map((i) => (
-          <Skeleton key={i} className="h-14 rounded-control" />
-        ))}
-      </div>
+      <LoadingRegion label={t("appPages.rollback.loading")} className="flex flex-col gap-3">
+        <Skeleton className="h-control-md rounded-control" />
+        <Skeleton className="h-16 rounded-control" />
+      </LoadingRegion>
     );
-  } else if (targets.length === 0) {
-    body = <EmptyState variant="inline" title={inPlace ? t("appPages.rollback.noBackups") : t("appPages.rollback.noReleases")} />;
+  } else if (chosen === null) {
+    body = (
+      <EmptyState
+        variant="inline"
+        title={inPlace ? t("appPages.rollback.nothingInPlace") : t("appPages.rollback.nothing")}
+        {...(inPlace
+          ? {
+              action: (
+                <TextLink to="/backups" size="ui">
+                  {t("appPages.rollback.openBackups")}
+                </TextLink>
+              ),
+            }
+          : {})}
+      />
+    );
   } else {
     body = (
-      <Targets
-        label={inPlace ? t("appPages.rollback.backupsLabel") : t("appPages.rollback.releasesLabel")}
-        targets={targets}
-        pending={chosen}
-        onChoose={choose}
-        t={t}
-      />
+      <>
+        <Field label={t("appPages.rollback.versionLabel")}>
+          <Select
+            value={key(chosen)}
+            options={targets.map((target) => optionOf(t, target))}
+            onValueChange={setPicked}
+            aria-label={t("appPages.rollback.versionLabel")}
+            className="w-full"
+          />
+        </Field>
+        <dl className="flex flex-col gap-3">
+          <Consequence term={t("appPages.rollback.whatGoesBack")}>{goesBack(t, chosen, serving)}</Consequence>
+          <Consequence term={t("appPages.rollback.whatStays")}>{t("appPages.rollback.staysBody")}</Consequence>
+          {pauses ? (
+            <Consequence term={t("appPages.rollback.automaticDeploys")}>
+              {t("appPages.rollback.pausesBody")}{" "}
+              <TextLink to="/apps/$domain/settings/deploys" params={{ domain }} size="inline">
+                {t("appPages.rollback.pausesLink")}
+              </TextLink>
+            </Consequence>
+          ) : null}
+        </dl>
+        {schemaAhead.length > 0 ? (
+          <InlineMessage>{t("appPages.rollback.schemaAhead", { count: schemaAhead.length, ids: schemaAhead.map((id) => `#${String(id)}`).join(", ") })}</InlineMessage>
+        ) : null}
+        {history.isError ? <InlineMessage tone="info">{t("appPages.rollback.listError")}</InlineMessage> : null}
+        {backupsFailed ? <InlineMessage tone="info">{t("appPages.deployments.releases.backupsLoadError")}</InlineMessage> : null}
+      </>
     );
   }
 
+  const confirm = async (): Promise<void> => {
+    if (chosen === null) return;
+    const go = (schemaChangedOk: boolean): Promise<unknown> =>
+      chosen.kind === "deployment" ? rollbackToDeployment.mutateAsync({ id: chosen.id, schemaChangedOk }) : rollbackToBackup.mutateAsync({ id: chosen.id, schemaChangedOk });
+    try {
+      await go(false);
+    } catch (error) {
+      // Past a schema change this question closes and the one that names the deployments opens.
+      if (!schema.intercept(schemaChangeRefusal(error), () => go(true))) throw error;
+    }
+  };
+
   return (
     <>
-    <Dialog
-      open={open}
-      onOpenChange={close}
-      title={t("appPages.rollback.title", { domain })}
-      description={inPlace ? t("appPages.rollback.inPlaceDescription") : t("appPages.rollback.releasesDescription")}
-      footer={
-        <Button disabled={action.isPending} onClick={() => close(false)}>
-          {t("appPages.common.cancel")}
-        </Button>
-      }
-    >
-      <div className="flex flex-col gap-4">
+      <ConfirmDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        friction="simple"
+        destructive={false}
+        size="md"
+        server={node}
+        title={t("appPages.rollback.title", { domain })}
+        description={t("appPages.rollback.description")}
+        actionLabel={chosen === null ? t("appPages.rollback.actionNone") : chosen.kind === "deployment" ? t("appPages.rollback.action", { id: String(chosen.id) }) : t("appPages.rollback.actionBackup")}
+        ready={!loading && loadError === null && chosen !== null}
+        onConfirm={confirm}
+      >
         {body}
-        {action.isError ? <ErrorBlock live compact error={action.error} title={t("appPages.rollback.notStarted")} /> : null}
-      </div>
-    </Dialog>
-    {schema.dialog}
+      </ConfirmDialog>
+      {schema.dialog}
     </>
   );
 }

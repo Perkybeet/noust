@@ -961,23 +961,6 @@ class TeamStore:
                 details="Make another member an owner first.",
             )
 
-    def drop_account(self, account_id: int) -> None:
-        """
-        Forget every membership of an account whose role may not have one.
-
-        Called when an account becomes a security officer or an auditor.
-
-        Args:
-            account_id: The account.
-        """
-        with self.store._transaction() as cursor:
-            cursor.execute("DELETE FROM team_members WHERE account_id = ?", (account_id,))
-            cursor.execute("DELETE FROM account_active_team WHERE account_id = ?", (account_id,))
-            cursor.execute(
-                "DELETE FROM access_bindings WHERE account_id = ? AND scope_kind != 'instance'",
-                (account_id,),
-            )
-
     # ------------------------------------------------------------ active team
 
     def active_team(self, account_id: int | None) -> Team | None:

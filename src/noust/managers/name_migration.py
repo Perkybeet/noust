@@ -79,13 +79,31 @@ _MARKED_PLACES: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
+#: Where an operator writes the name of a read-only account by hand: PostgreSQL's host-based
+#: authentication, and the configuration and ACL files of Redis and Valkey (relative to ``/``).
+#: Noust reads these and never writes them.
+_ACCOUNT_FILES: tuple[str, ...] = (
+    "etc/postgresql/*/*/pg_hba.conf",
+    "var/lib/pgsql/data/pg_hba.conf",
+    "var/lib/pgsql/*/data/pg_hba.conf",
+    "var/lib/postgresql/data/pg_hba.conf",
+    "etc/redis/*.conf",
+    "etc/redis/*.acl",
+    "etc/redis.conf",
+    "etc/valkey/*.conf",
+    "etc/valkey/*.acl",
+    "etc/valkey.conf",
+)
+
+
 @dataclass(frozen=True)
 class Finding:
     """
     One thing that still has a name from before 4.0.
 
     Attributes:
-        kind: ``upstream``, ``token``, ``repository file``, ``unit``, ``tree``, ``marker`` or ``folder``.
+        kind: ``upstream``, ``token``, ``repository file``, ``account``, ``unit``, ``tree``,
+            ``marker`` or ``folder``.
         subject: What it is about (an application, a token, a file).
         text: What was found, as a sentence.
         fix: What to do, when there is something to do.
@@ -218,7 +236,7 @@ def run_automatically(argv: list[str], announce: Callable[[str], None]) -> list[
     environ = os.environ
     if os.geteuid() != 0 or environ.get("INVOCATION_ID") or "--dry-run" in argv:
         return None
-    if any(key in environ for key in ("_NOUST_COMPLETE", "_WASM_COMPLETE")):
+    if "_NOUST_COMPLETE" in environ:
         return None
     record = _state_file()
     if record.is_file():
@@ -275,6 +293,8 @@ class NameMigration:
         runner: Runs docker and git.
         web: The web server manager, for the upstream names.
         unit_dir: Where application units live.
+        account_files: The files an operator may have written an account's name into; the
+            places PostgreSQL, Redis and Valkey keep them by default.
     """
 
     def __init__(
@@ -287,6 +307,7 @@ class NameMigration:
         unit_dir: Path | None = None,
         marker_roots: Sequence[tuple[Path, tuple[str, ...]]] | None = None,
         backup_to: Path | None = None,
+        account_files: Sequence[Path] | None = None,
     ) -> None:
         self._store = store
         self._fs = fs
@@ -295,6 +316,7 @@ class NameMigration:
         self.unit_dir = unit_dir or SYSTEMD_DIR
         self.marker_roots = marker_roots
         self.backup_to = backup_to
+        self.account_files = account_files
 
     @property
     def store(self) -> NoustStore:
@@ -494,6 +516,7 @@ class NameMigration:
         found.extend(self._upstream_findings())
         found.extend(self._token_findings())
         found.extend(self._repository_findings())
+        found.extend(self._account_findings())
         found.extend(self._unit_findings())
         found.extend(self._tree_findings())
         found.extend(self._marker_findings())
@@ -579,6 +602,64 @@ class NameMigration:
                         )
                     )
         return found
+
+    def _account_files(self) -> list[Path]:
+        """The files that may name a read-only account: the given ones, or the usual places."""
+        if self.account_files is not None:
+            return list(self.account_files)
+        found: list[Path] = []
+        for pattern in _ACCOUNT_FILES:
+            try:
+                found.extend(sorted(Path("/").glob(pattern)))
+            except OSError:
+                continue
+        return found
+
+    def _account_findings(self) -> list[Finding]:
+        """
+        Name the lines of the operator's own files that spell a read-only account of before 4.0.
+
+        The account is renamed by the next read of its database and the old one is dropped, so a
+        hand-written ``pg_hba.conf`` line or Redis ACL entry that names it stops letting anybody
+        in. Noust cannot keep the old name beside the new one as it does for an upstream: it
+        says where the line is and what to write, and never edits the file. The line itself is
+        not repeated, because an ACL entry carries a password.
+        """
+        from noust.managers.database.base import READ_ONLY_ACCOUNT_PREFIX
+
+        old = legacy_names.READ_ONLY_PREFIX
+        mention = re.compile(re.escape(old) + r"\w*")
+        notes: list[str] = []
+        for path in self._account_files():
+            try:
+                if path.is_symlink() or not path.is_file() or path.stat().st_size > _MAX_BYTES:
+                    continue
+                lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            except OSError:
+                continue
+            for number, line in enumerate(lines, start=1):
+                if line.lstrip().startswith("#"):
+                    continue
+                for found in dict.fromkeys(mention.findall(line)):
+                    notes.append(
+                        f"{path}:{number}  the account {found}  ->  change it to "
+                        f"{READ_ONLY_ACCOUNT_PREFIX}{found.removeprefix(old)}"
+                    )
+        if not notes:
+            return []
+        return [
+            Finding(
+                "account",
+                f"{len(notes)} line(s)",
+                "A file somebody else wrote names a read-only account by its name of before 4.0; "
+                "the next read of its database renames the account and drops the old one, and "
+                "the line then lets nobody in",
+                fix="Change each line to the new name, then run: noust setup rename. Noust never "
+                "edits these files",
+                waits_for_operator=True,
+                notes=tuple(notes),
+            )
+        ]
 
     def _unit_findings(self) -> list[Finding]:
         domains = {domain_to_app_name(domain): domain for domain, _ in self.apps()}

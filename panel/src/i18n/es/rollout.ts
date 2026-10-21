@@ -7,9 +7,11 @@ export const rollout: Catalog<typeof en> = {
     frozenAppTitle: "Los despliegues de {domain} están congelados",
     frozenUntil: "Congelados hasta {until}. Motivo: {reason}",
     frozenOpen: "Congelados hasta que alguien los reanude. Motivo: {reason}",
-    frozenRule: "Un despliegue que alguien pide se rechaza salvo que diga que debe seguir adelante. Los push, las etiquetas y las programaciones esperan.",
+    frozenRule:
+      "Un despliegue que alguien pide se rechaza salvo que diga que debe seguir adelante. Los push, las etiquetas y las programaciones esperan.",
     pausedTitle: "Los despliegues automáticos están en pausa",
-    pausedSince: "En pausa {time}. Un push o una etiqueta que llegue mientras tanto no se despliega.",
+    pausedSince:
+      "En pausa {time}. Un push o una etiqueta que llegue mientras tanto no se despliega.",
     pausedBy: "Pausados por {by}.",
     pausedReason: "Motivo: {reason}",
   },
@@ -21,9 +23,12 @@ export const rollout: Catalog<typeof en> = {
     sourceWebhook: "webhook de push",
     sourceGithub: "GitHub App",
     sourceTags: "etiquetas nuevas",
-    nothingAutomatic: "Nada despliega esta aplicación por sí solo todavía: no tiene webhook de push, GitHub App ni seguimiento de etiquetas.",
+    resume: "Reanudar",
+    nothingAutomatic:
+      "Nada despliega esta aplicación por sí solo todavía: no tiene webhook de push, GitHub App ni seguimiento de etiquetas.",
     pauseTitle: "¿Pausar los despliegues automáticos de {domain}?",
-    pauseDescription: "Los push, las etiquetas y las programaciones dejan de desplegarla hasta que reanudes. Una actualización que inicies tú sigue funcionando.",
+    pauseDescription:
+      "Los push, las etiquetas y las programaciones dejan de desplegarla hasta que reanudes. Una actualización que inicies tú sigue funcionando.",
     reasonLabel: "Motivo",
     reasonDescription: "Se muestra a quien mire y se guarda con la pausa.",
     reasonPlaceholder: "Investigando el fallo del pago",
@@ -33,7 +38,8 @@ export const rollout: Catalog<typeof en> = {
     resumed: "Los despliegues automáticos de {domain} vuelven a funcionar",
     resumedHeld: {
       one: "Los despliegues automáticos de {domain} vuelven a funcionar. Llegó {count} push o etiqueta mientras estaban en pausa y no se desplegó: actualiza la aplicación para ponerte al día.",
-      other: "Los despliegues automáticos de {domain} vuelven a funcionar. Llegaron {count} push o etiquetas mientras estaban en pausa y no se desplegaron: actualiza la aplicación para ponerte al día.",
+      other:
+        "Los despliegues automáticos de {domain} vuelven a funcionar. Llegaron {count} push o etiquetas mientras estaban en pausa y no se desplegaron: actualiza la aplicación para ponerte al día.",
     },
     resumeFailed: "No se pudieron reanudar los despliegues de {domain}",
     heldNow: {
@@ -41,16 +47,20 @@ export const rollout: Catalog<typeof en> = {
       other: "Desde entonces se han retenido {count} push o etiquetas.",
     },
     rollbackLabel: "Pausar los despliegues automáticos tras una reversión",
-    rollbackDescription: "Así el siguiente push no la deshace; reanuda cuando se arregle la causa.",
-    rollbackOn: "Los despliegues automáticos de {domain} se pausarán tras una reversión",
-    rollbackOff: "Los despliegues automáticos de {domain} seguirán funcionando tras una reversión",
+    rollbackDescription:
+      "Así el siguiente push no la deshace; reanuda cuando se arregle la causa.",
+    rollbackOn:
+      "Los despliegues automáticos de {domain} se pausarán tras una reversión",
+    rollbackOff:
+      "Los despliegues automáticos de {domain} seguirán funcionando tras una reversión",
     rollbackFailed: "No se pudo cambiar qué hace una reversión en {domain}",
     pausedPill: "En pausa",
   },
   freeze: {
     title: "Congelar despliegues",
     serverTitle: "Congelación de despliegues",
-    serverDescription: "Retén todos los despliegues de este servidor durante un tiempo. Una aplicación también se puede congelar por separado, desde sus ajustes de automatización.",
+    serverDescription:
+      "Retén todos los despliegues de este servidor durante un tiempo. Una aplicación también se puede congelar por separado, desde sus ajustes de automatización.",
     loading: "Cargando las congelaciones",
     readFailed: "No se pudieron leer las congelaciones",
     none: "No hay ninguna congelación.",
@@ -65,7 +75,8 @@ export const rollout: Catalog<typeof en> = {
     by: "Creada por {by}",
     dialogTitle: "Congelar los despliegues de {domain}",
     dialogTitleServer: "Congelar los despliegues de este servidor",
-    dialogIntro: "Mientras dure, un despliegue que alguien pida se rechaza con el motivo de abajo salvo que diga que debe seguir adelante. Los push, las etiquetas y las programaciones esperan. Una reversión nunca se retiene.",
+    dialogIntro:
+      "Mientras dure, un despliegue que alguien pida se rechaza con el motivo de abajo salvo que diga que debe seguir adelante. Los push, las etiquetas y las programaciones esperan. Una reversión nunca se retiene.",
     reasonLabel: "Motivo",
     reasonDescription: "Quien intente desplegar mientras tanto lo verá.",
     reasonPlaceholder: "Black Friday: no sale nada",
@@ -101,20 +112,25 @@ export const rollout: Catalog<typeof en> = {
   },
   limits: {
     title: "Límites de despliegue",
-    description: "Cuánto historial de despliegues se conserva y cómo se le dice a la aplicación que pare.",
+    description:
+      "Cuánto historial de despliegues se conserva y cómo se le dice a la aplicación que pare.",
     historyLabel: "Despliegues conservados en el historial",
-    historyDescription: "Cuántos despliegues de esta aplicación se conservan con sus registros, de {min} a {max}. Vacío usa los {server} del servidor. Los más antiguos se van en el siguiente despliegue.",
+    historyDescription:
+      "Cuántos despliegues de esta aplicación se conservan con sus registros, de {min} a {max}. Vacío usa los {server} del servidor. Los más antiguos se van en el siguiente despliegue.",
     historyPlaceholder: "El del servidor",
     historyRange: "Un número de {min} a {max}, o vacío para el del servidor.",
     stopTimeoutLabel: "Tiempo para parar",
-    stopTimeoutDescription: "Segundos que tiene la aplicación para terminar tras la señal de parada antes de que se la mate, de {min} a {max}. Vacío deja la espera propia de systemd.",
+    stopTimeoutDescription:
+      "Segundos que tiene la aplicación para terminar tras la señal de parada antes de que se la mate, de {min} a {max}. Vacío deja la espera propia de systemd.",
     stopTimeoutPlaceholder: "La de systemd",
     stopTimeoutRange: "Un número de segundos de {min} a {max}, o vacío.",
     stopTimeoutSuffix: "segundos",
     stopSignalLabel: "Señal de parada",
     stopSignalDefault: "SIGTERM (por defecto)",
-    stopApplied: "La política de parada se escribe ahora en la unidad y se lee la próxima vez que pare. No se reinicia nada.",
-    stopUnsupported: "Esta aplicación no se ejecuta en una unidad que escriba Noust, así que su política de parada no se fija aquí. Una pila de Compose o un contenedor usa la suya.",
+    stopApplied:
+      "La política de parada se escribe ahora en la unidad y se lee la próxima vez que pare. No se reinicia nada.",
+    stopUnsupported:
+      "Esta aplicación no se ejecuta en una unidad que escriba Noust, así que su política de parada no se fija aquí. Una pila de Compose o un contenedor usa la suya.",
     saveFailed: "No se guardaron los límites de despliegue",
     loading: "Cargando los límites de despliegue",
     readFailed: "No se pudieron leer los límites de despliegue",
@@ -127,7 +143,8 @@ export const rollout: Catalog<typeof en> = {
   },
   schedule: {
     title: "Actualizaciones programadas",
-    description: "Haz que la aplicación se actualice sola a la hora que elijas. Cada ejecución hace antes su copia de seguridad y no hace nada si no hay novedades.",
+    description:
+      "Haz que la aplicación se actualice sola a la hora que elijas. Cada ejecución hace antes su copia de seguridad y no hace nada si no hay novedades.",
     loading: "Cargando la programación",
     readFailed: "No se pudo leer la actualización programada",
     whenLabel: "Cuándo",
@@ -136,13 +153,17 @@ export const rollout: Catalog<typeof en> = {
     whenMonthly: "El día 1 de cada mes a las 03:00",
     whenCustom: "A una hora que escribo",
     customLabel: "Expresión de calendario",
-    customDescription: "Una expresión de calendario de systemd, como Sun *-*-* 03:00 o *-*-* 04:30.",
+    customDescription:
+      "Una expresión de calendario de systemd, como Sun *-*-* 03:00 o *-*-* 04:30.",
     customRequired: "Escribe cuándo debe ejecutarse.",
     enabledLabel: "Ejecutar según la programación",
-    backupLabel: "Rechazar la actualización si no se hace su copia de seguridad",
-    backupDescription: "Una ejecución que no puede hacer su copia no actualiza, y lo dice.",
+    backupLabel:
+      "Rechazar la actualización si no se hace su copia de seguridad",
+    backupDescription:
+      "Una ejecución que no puede hacer su copia no actualiza, y lo dice.",
     onlyIfNewLabel: "No hacer nada si no hay novedades",
-    onlyIfNewDescription: "La rama (o las etiquetas que sigue) tiene que tener algo que no tenga la versión en producción.",
+    onlyIfNewDescription:
+      "La rama (o las etiquetas que sigue) tiene que tener algo que no tenga la versión en producción.",
     nextRun: "Próxima ejecución {time}",
     noNextRun: "No hay ninguna ejecución pendiente",
     lastRun: "Última ejecución {time}: {outcome}",
@@ -158,7 +179,8 @@ export const rollout: Catalog<typeof en> = {
     saveFailed: "No se guardó la programación de {domain}",
     remove: "Dejar de actualizarse sola",
     removeTitle: "¿Dejar de actualizar {domain} sola?",
-    removeDescription: "Se quitan la programación y su temporizador. Las actualizaciones que inicies tú no cambian.",
+    removeDescription:
+      "Se quitan la programación y su temporizador. Las actualizaciones que inicies tú no cambian.",
     removeAction: "Dejar de actualizar",
     removed: "{domain} ya no se actualiza sola",
     removeFailed: "No se pudo quitar la programación de {domain}",
@@ -175,14 +197,17 @@ export const rollout: Catalog<typeof en> = {
     promote: "Ponerla en servicio",
     promoteAria: "Poner en servicio la release {id}",
     promoteTitle: "¿Poner en servicio la release {id}?",
-    promoteDescription: "Se compiló antes y no está sirviendo. Entra en producción tras la misma comprobación de salud; sus migraciones se ejecutan ahora y no se compila nada de nuevo.",
-    promoteDescriptionCommit: "El commit {commit} se compiló antes y no está sirviendo. Entra en producción tras la misma comprobación de salud; sus migraciones se ejecutan ahora y no se compila nada de nuevo.",
+    promoteDescription:
+      "Se compiló antes y no está sirviendo. Entra en producción tras la misma comprobación de salud; sus migraciones se ejecutan ahora y no se compila nada de nuevo.",
+    promoteDescriptionCommit:
+      "El commit {commit} se compiló antes y no está sirviendo. Entra en producción tras la misma comprobación de salud; sus migraciones se ejecutan ahora y no se compila nada de nuevo.",
     promoteQueued: "Poniendo en servicio la release {id} de {domain}",
     promoteFailed: "No se pudo poner en servicio la release {id}",
     buildOnly: "Compilar sin servir",
     buildOnlyQueued: "Compilando {domain} sin ponerla en servicio",
     buildOnlyFailed: "No se pudo compilar {domain} sin ponerla en servicio",
-    buildOnlyHint: "Compila la rama en una release que espera. Ponla en servicio desde Despliegues cuando quieras que esté en producción.",
+    buildOnlyHint:
+      "Compila la rama en una release que espera. Ponla en servicio desde Despliegues cuando quieras que esté en producción.",
   },
   hooks: {
     previewPostCreate: "Después de servir una vista previa por primera vez",
@@ -191,26 +216,34 @@ export const rollout: Catalog<typeof en> = {
   previews: {
     nameTitle: "Nombres y buscadores",
     templateLabel: "Nombre de una vista previa",
-    templateDescription: "El dominio completo en el que responde una vista previa, escrito con {tokens}. Vacío es {default}.",
+    templateDescription:
+      "El dominio completo en el que responde una vista previa, escrito con {tokens}. Vacío es {default}.",
     templateExample: "Por ejemplo, {example}",
-    templateNeedsId: "El nombre necesita {id} o {random}, o dos vistas previas lo compartirían.",
+    templateNeedsId:
+      "El nombre necesita {id} o {random}, o dos vistas previas lo compartirían.",
     templateTooLong: "Como máximo {max} caracteres.",
     templateUnknown: "Marcador desconocido: {list}.",
     noindexLabel: "Mantener fuera a los buscadores",
-    noindexDescription: "Las vistas previas responden con una cabecera noindex y un robots.txt que lo prohíbe todo, así nadie las encuentra buscando.",
-    forkLegend: "Pull requests de forks y de personas en quienes el repositorio no confía",
+    noindexDescription:
+      "Las vistas previas responden con una cabecera noindex y un robots.txt que lo prohíbe todo, así nadie las encuentra buscando.",
+    forkLegend:
+      "Pull requests de forks y de personas en quienes el repositorio no confía",
     forkRefuseLabel: "Rechazarlas",
     forkRefuseDescription: "No tienen vista previa. La forma segura.",
     forkApproveLabel: "Esperar mi aprobación",
-    forkApproveDescription: "Su vista previa espera a que un operador apruebe cada commit. Un nuevo push vuelve a esperar.",
+    forkApproveDescription:
+      "Su vista previa espera a que un operador apruebe cada commit. Un nuevo push vuelve a esperar.",
     dataCloneLabel: "Una copia de la base de datos",
-    dataCloneDescription: "Cada vista previa recibe una base de datos propia que empieza como copia de la de la aplicación. Puede tardar y ocupa disco.",
+    dataCloneDescription:
+      "Cada vista previa recibe una base de datos propia que empieza como copia de la de la aplicación. Puede tardar y ocupa disco.",
     statusAwaiting: "Esperando aprobación",
-    awaitingNote: "El commit {commit} de este pull request espera a un operador. No se ha compilado ni ejecutado nada de él.",
+    awaitingNote:
+      "El commit {commit} de este pull request espera a un operador. No se ha compilado ni ejecutado nada de él.",
     approve: "Aprobar",
     approveAria: "Aprobar {name}",
     approveTitle: "¿Aprobar el commit {commit} de {name}?",
-    approveDescription: "Se compila y se ejecuta en este servidor con las variables que reciben las vistas previas. Un nuevo push vuelve a esperar.",
+    approveDescription:
+      "Se compila y se ejecuta en este servidor con las variables que reciben las vistas previas. Un nuevo push vuelve a esperar.",
     approveAction: "Aprobar y compilar",
     approved: "{name} aprobada: se está compilando su commit",
     approveFailed: "No se pudo aprobar {name}",
@@ -218,6 +251,7 @@ export const rollout: Catalog<typeof en> = {
     rejectAria: "Rechazar {name}",
     rejected: "Se rechazó el commit de {name}",
     rejectFailed: "No se pudo rechazar {name}",
-    forkApproveRisk: "Un commit aprobado se ejecuta en este servidor con las variables que reciben las vistas previas.",
+    forkApproveRisk:
+      "Un commit aprobado se ejecuta en este servidor con las variables que reciben las vistas previas.",
   },
 };

@@ -101,7 +101,7 @@ registers a stack someone brought up by hand, such as one run by its own `deploy
   --no-build` must say every container is already as it would be. Otherwise the adoption is
   refused with Compose's own output, unless you read it and pass `--accept-recreate`.
 - The site that serves the domain is found by the names it answers on and left as it is. When
-  its file is not named after the domain (`proggest` for `proggest.es`), the file name is
+  its file is not named after the domain (`shop` for `shop.example.com`), the file name is
   recorded, and the one place that turns a domain into a site file resolves it.
 - The unit is created and enabled, not started. The application is registered in place, at its
   real directory, which can be outside the apps directory.
@@ -322,7 +322,7 @@ definition of it (no service publishes a TCP port on the host), and the deploy, 
   is recorded first, as `image`.
 - **A hook marked `migrates` marked every deployment as changing the schema** when it succeeded,
   so each update of a project running `prisma migrate deploy` counted, and a failed update said
-  the database had been changed when nothing was applied. Found by running Proggest in the
+  the database had been changed when nothing was applied. Found by running a production NestJS stack in the
   harness; the output is now read in the migration tools' words.
 - **`noust --dry-run app adopt`** refused every checkout: reading its origin was not a declared
   read-only probe.
@@ -334,7 +334,7 @@ definition of it (no service publishes a TCP port on the host), and the deploy, 
   `name:`); a backup used to look for one that did not exist and mount an empty one.
 - **Docker Compose in the integration harness.** The Compose scenario had never run: with no
   Docker in the container it printed a note and counted as a pass. It now skips explicitly, the
-  harness image carries Docker, and the scenarios above, and a clone of Proggest, run for real.
+  harness image carries Docker, and the scenarios above, and a clone of a production stack, run for real.
 
 ## Packaging
 

@@ -140,6 +140,43 @@ class SequencedRunner(FakeRunner):
         return base
 
 
+class EmptyAptListsMixin:
+    """
+    Makes a fake runner a machine whose apt lists are empty, as on a fresh image or a container.
+
+    ``apt-get install`` answers "Unable to locate package" until ``apt-get update`` has run, which
+    is the failure every installer of Noust has to survive (it is one function,
+    :func:`noust.core.package_family.install_apt_packages`).
+    """
+
+    updated = False
+    calls: list[tuple[str, ...]]
+    envs: list
+
+    def run(self, argv, **kwargs):  # type: ignore[no-untyped-def]
+        recorded = tuple(str(a) for a in argv)
+        if recorded[:2] == ("apt-get", "update"):
+            self.calls.append(recorded)
+            self.envs.append(kwargs.get("env"))
+            self.updated = True
+            return CommandResult(argv=recorded, exit_code=0)
+        if recorded[:2] == ("apt-get", "install") and not self.updated:
+            self.calls.append(recorded)
+            self.envs.append(kwargs.get("env"))
+            return CommandResult(
+                argv=recorded, exit_code=100, stderr=f"E: Unable to locate package {recorded[-1]}"
+            )
+        return super().run(argv, **kwargs)  # type: ignore[misc]
+
+
+class EmptyAptLists(EmptyAptListsMixin, FakeRunner):
+    """A :class:`FakeRunner` on a machine whose apt lists are empty."""
+
+
+class SequencedEmptyAptLists(EmptyAptListsMixin, SequencedRunner):
+    """A :class:`SequencedRunner` on a machine whose apt lists are empty."""
+
+
 @pytest.fixture
 def no_package_manager_running(monkeypatch: pytest.MonkeyPatch) -> None:
     """

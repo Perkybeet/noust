@@ -1039,18 +1039,3 @@ def offer(method: str, runner: CommandRunner) -> Offer:
     # pip, pipx, and an installation nothing else claims: what the suggested
     # `pip install --upgrade noust` would install.
     return Offer(repository=pypi_latest())
-
-
-def installable_version(method: str, runner: CommandRunner) -> str | None:
-    """
-    Read the newest version the source this installation upgrades from offers.
-
-    Args:
-        method: The installation method (see
-            :meth:`~noust.core.update_checker.UpdateChecker._detect_installation_method`).
-        runner: The :class:`~noust.core.runner.CommandRunner` for local probes.
-
-    Returns:
-        The version, or None when it cannot be determined.
-    """
-    return offer(method, runner).installable

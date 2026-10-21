@@ -59,12 +59,12 @@ SECRETS = (PG_PASSWORD, ROOT_PASSWORD, APP_PASSWORD, REDIS_PASSWORD)
 
 
 class TestWhichImagesAreDatabases:
-    """The images of arennalabs and Proggest, and the ones that only look like them."""
+    """The images of a hosting server and Proggest, and the ones that only look like them."""
 
     @pytest.mark.parametrize(
         ("image", "engine", "flavour"),
         [
-            # arennalabs
+            # a hosting server
             ("postgres:17-alpine", "postgresql", "postgres"),
             ("postgres:16-alpine", "postgresql", "postgres"),
             ("postgres:16", "postgresql", "postgres"),
@@ -124,12 +124,12 @@ class TestKeys:
     """Built and split in one place, and safe in a URL and a file name."""
 
     def test_a_compose_service(self) -> None:
-        key = instance_key("postgresql", project="empleo-arennalabs-com", service="db")
-        assert key == "postgresql@empleo-arennalabs-com.db"
+        key = instance_key("postgresql", project="jobs-example-net", service="db")
+        assert key == "postgresql@jobs-example-net.db"
         parts = parse_instance_key(key)
         assert (parts.engine, parts.project, parts.service) == (
             "postgresql",
-            "empleo-arennalabs-com",
+            "jobs-example-net",
             "db",
         )
         assert str(parts) == key
@@ -196,13 +196,13 @@ def container(
     }
 
 
-#: The database containers of arennalabs and Proggest, with one that only looks like one.
+#: The database containers of a hosting server and Proggest, with one that only looks like one.
 FLEET = [
     container(
         "empleo-arenna-db",
         "postgres:17-alpine",
         env=["POSTGRES_USER=empleo", f"POSTGRES_PASSWORD={PG_PASSWORD}", "POSTGRES_DB=empleo"],
-        project="empleo-arennalabs-com",
+        project="jobs-example-net",
         service="db",
         exposed=("5432/tcp",),
         ports={"5432/tcp": [{"HostIp": "127.0.0.1", "HostPort": "5434"}]},
@@ -216,14 +216,14 @@ FLEET = [
             "MYSQL_USER=tienda",
             f"MYSQL_PASSWORD={APP_PASSWORD}",
         ],
-        project="tienda-arennalabs-com",
+        project="shop-example-net",
         service="mysql",
         exposed=("3306/tcp", "33060/tcp"),
     ),
     container(
         "arenna_tienda_redis",
         "redis:7-alpine",
-        project="tienda-arennalabs-com",
+        project="shop-example-net",
         service="redis",
         exposed=("6379/tcp",),
         cmd=["redis-server", "--requirepass", REDIS_PASSWORD],
@@ -287,11 +287,11 @@ class TestDiscovery:
 
         assert sorted(found) == [
             "mysql@mariadb_contenedor",
-            "mysql@tienda-arennalabs-com.mysql",
+            "mysql@shop-example-net.mysql",
             "mysql@zabbix.zabbix-db",
-            "postgresql@empleo-arennalabs-com.db",
+            "postgresql@jobs-example-net.db",
             "postgresql@proggest.postgres",
-            "redis@tienda-arennalabs-com.redis",
+            "redis@shop-example-net.redis",
         ]
 
     def test_the_applications_that_only_look_like_databases_are_not_even_inspected(
@@ -305,12 +305,12 @@ class TestDiscovery:
     def test_ports_state_and_who_signs_in(self, fleet: FakeRunner) -> None:
         found = by_key(discover(fleet))
 
-        empleo = found["postgresql@empleo-arennalabs-com.db"]
+        empleo = found["postgresql@jobs-example-net.db"]
         assert (empleo.port, empleo.default_port, empleo.running) == (5434, 5432, True)
         assert empleo.admin_user == "empleo" and empleo.access == "full"
         mariadb = found["mysql@mariadb_contenedor"]
         assert (mariadb.flavour, mariadb.port, mariadb.admin_user) == ("mariadb", 3307, "root")
-        assert found["mysql@tienda-arennalabs-com.mysql"].port == 3306
+        assert found["mysql@shop-example-net.mysql"].port == 3306
 
     def test_a_random_root_password_leaves_the_application_account_and_limited_access(
         self, fleet: FakeRunner
@@ -353,11 +353,11 @@ class TestDiscovery:
         owned = by_key(
             assign_apps(
                 discover(fleet),
-                [App("empleo.arennalabs.com"), App("proggest.es", compose_project="proggest")],
+                [App("jobs.example.net"), App("proggest.es", compose_project="proggest")],
             )
         )
 
-        assert owned["postgresql@empleo-arennalabs-com.db"].app == "empleo.arennalabs.com"
+        assert owned["postgresql@jobs-example-net.db"].app == "jobs.example.net"
         assert owned["postgresql@proggest.postgres"].app == "proggest.es"
         assert owned["mysql@mariadb_contenedor"].app is None
 
@@ -386,12 +386,12 @@ class TestPostgresInAContainer:
         self, fleet: FakeRunner, instances: dict[str, DatabaseInstance]
     ) -> None:
         fleet.script(["docker", "exec"], stdout="empleo|UTF8|8192|empleo\npostgres|UTF8|1|x\n")
-        manager = PostgresManager().bind(instances["postgresql@empleo-arennalabs-com.db"])
+        manager = PostgresManager().bind(instances["postgresql@jobs-example-net.db"])
 
         databases = manager.list_databases()
 
         assert [db.name for db in databases] == ["empleo"]
-        assert databases[0].engine == "postgresql@empleo-arennalabs-com.db"
+        assert databases[0].engine == "postgresql@jobs-example-net.db"
         (call,) = fleet.calls
         assert call[:8] == (
             "docker",
@@ -418,7 +418,7 @@ class TestPostgresInAContainer:
         self, fleet: FakeRunner, instances: dict[str, DatabaseInstance], tmp_path: Path
     ) -> None:
         fleet.script(["docker", "exec"], stdout="1\n")
-        manager = PostgresManager().bind(instances["postgresql@empleo-arennalabs-com.db"])
+        manager = PostgresManager().bind(instances["postgresql@jobs-example-net.db"])
 
         manager.execute_query("empleo", "SELECT 1", read_only=True)
 
@@ -439,13 +439,13 @@ class TestPostgresInAContainer:
         self, fleet: FakeRunner, instances: dict[str, DatabaseInstance], tmp_path: Path
     ) -> None:
         fleet.script(["docker", "exec"], stdout="1\n")
-        manager = PostgresManager().bind(instances["postgresql@empleo-arennalabs-com.db"])
+        manager = PostgresManager().bind(instances["postgresql@jobs-example-net.db"])
         manager.BACKUP_DIR = tmp_path
 
         backup = manager.backup("empleo")
 
-        assert backup.path.name.startswith("postgresql.empleo-arennalabs-com.db.empleo-")
-        assert backup.engine == "postgresql@empleo-arennalabs-com.db"
+        assert backup.path.name.startswith("postgresql.jobs-example-net.db.empleo-")
+        assert backup.engine == "postgresql@jobs-example-net.db"
         (dump,) = [call for call in fleet.calls if "pg_dump" in call]
         assert dump[:3] == ("docker", "exec", "-i")
         assert [b.database for b in manager.list_backups()] == ["empleo"]
@@ -454,7 +454,7 @@ class TestPostgresInAContainer:
         self, fleet: FakeRunner, instances: dict[str, DatabaseInstance], tmp_path: Path
     ) -> None:
         fleet.script(["docker", "exec"], stdout="")
-        manager = PostgresManager().bind(instances["postgresql@empleo-arennalabs-com.db"])
+        manager = PostgresManager().bind(instances["postgresql@jobs-example-net.db"])
         manager.BACKUP_DIR = tmp_path
         dump = tmp_path / "plain.sql"
         dump.write_text("CREATE TABLE t (id int);\n")
@@ -467,7 +467,7 @@ class TestPostgresInAContainer:
     def test_install_is_refused_with_the_compose_file_as_the_way(
         self, instances: dict[str, DatabaseInstance]
     ) -> None:
-        manager = PostgresManager().bind(instances["postgresql@empleo-arennalabs-com.db"])
+        manager = PostgresManager().bind(instances["postgresql@jobs-example-net.db"])
 
         with pytest.raises(DatabaseEngineError) as raised:
             manager.install()
@@ -477,7 +477,7 @@ class TestPostgresInAContainer:
     def test_start_stop_and_restart_are_dockers(
         self, fleet: FakeRunner, instances: dict[str, DatabaseInstance]
     ) -> None:
-        manager = PostgresManager().bind(instances["postgresql@empleo-arennalabs-com.db"])
+        manager = PostgresManager().bind(instances["postgresql@jobs-example-net.db"])
 
         manager.restart()
         manager.stop()
@@ -491,15 +491,15 @@ class TestPostgresInAContainer:
 
     def test_its_status_says_where_it_runs(self, fleet: FakeRunner, instances) -> None:
         fleet.script(["docker", "exec"], stdout="psql (PostgreSQL) 17.2\n")
-        manager = PostgresManager().bind(instances["postgresql@empleo-arennalabs-com.db"])
+        manager = PostgresManager().bind(instances["postgresql@jobs-example-net.db"])
 
         status = manager.get_status()
 
-        assert status["engine"] == "postgresql@empleo-arennalabs-com.db"
+        assert status["engine"] == "postgresql@jobs-example-net.db"
         assert (status["kind"], status["container"], status["project"]) == (
             "container",
             "empleo-arenna-db",
-            "empleo-arennalabs-com",
+            "jobs-example-net",
         )
         assert (status["version"], status["port"], status["access"]) == ("17.2", 5434, "full")
         assert manager.is_internal_user("empleo")
@@ -511,7 +511,7 @@ class TestMySQLInAContainer:
     def test_root_signs_in_with_the_root_password_of_the_container(
         self, fleet: FakeRunner, instances: dict[str, DatabaseInstance]
     ) -> None:
-        manager = MySQLManager().bind(instances["mysql@tienda-arennalabs-com.mysql"])
+        manager = MySQLManager().bind(instances["mysql@shop-example-net.mysql"])
 
         manager.database_exists("tienda")
 
@@ -544,7 +544,7 @@ class TestMySQLInAContainer:
         self, fleet: FakeRunner, instances: dict[str, DatabaseInstance]
     ) -> None:
         fleet.script(["docker", "exec"], stdout="tienda\n")
-        manager = MySQLManager().bind(instances["mysql@tienda-arennalabs-com.mysql"])
+        manager = MySQLManager().bind(instances["mysql@shop-example-net.mysql"])
 
         manager.execute_query("tienda", "SELECT 1", read_only=True)
 
@@ -567,7 +567,7 @@ class TestRedisInAContainer:
         self, fleet: FakeRunner, instances: dict[str, DatabaseInstance]
     ) -> None:
         fleet.script(["docker", "exec"], stdout="PONG\n")
-        manager = RedisManager().bind(instances["redis@tienda-arennalabs-com.redis"])
+        manager = RedisManager().bind(instances["redis@shop-example-net.redis"])
 
         manager.execute_query("0", "PING")
 
@@ -578,7 +578,7 @@ class TestRedisInAContainer:
         no_secret_in_any_argv(fleet)
 
     def test_a_snapshot_restore_says_how_instead(self, instances, tmp_path: Path) -> None:
-        manager = RedisManager().bind(instances["redis@tienda-arennalabs-com.redis"])
+        manager = RedisManager().bind(instances["redis@shop-example-net.redis"])
         snapshot = tmp_path / "dump.rdb"
         snapshot.write_bytes(b"REDIS")
 
@@ -659,7 +659,7 @@ class TestTheContainerLog:
             "ERROR: ALTER ROLE app WITH PASSWORD 'pg-otro'\n"
             "url mysql://tienda:clave-url@db:3306/tienda",
         )
-        manager = MySQLManager().bind(instances["mysql@tienda-arennalabs-com.mysql"])
+        manager = MySQLManager().bind(instances["mysql@shop-example-net.mysql"])
 
         log = manager.container_logs(50)
 
@@ -670,7 +670,7 @@ class TestTheContainerLog:
 
     def test_a_redis_requirepass_is_masked(self, fleet: FakeRunner, instances) -> None:
         scripted_log(fleet, FLEET[2], f"config: requirepass {REDIS_PASSWORD}\nReady to accept")
-        manager = RedisManager().bind(instances["redis@tienda-arennalabs-com.redis"])
+        manager = RedisManager().bind(instances["redis@shop-example-net.redis"])
 
         log = manager.container_logs(50)
 
@@ -819,8 +819,8 @@ class TestTheService:
 
         names = [entry["engine"] for entry in described]
         assert set(names[:2]) == {"postgresql", "mysql"}
-        assert "postgresql@empleo-arennalabs-com.db" in names
-        empleo = next(e for e in described if e["engine"] == "postgresql@empleo-arennalabs-com.db")
+        assert "postgresql@jobs-example-net.db" in names
+        empleo = next(e for e in described if e["engine"] == "postgresql@jobs-example-net.db")
         assert empleo["kind"] == "container" and empleo["stored_account"] is False
         assert next(e for e in described if e["engine"] == "postgresql")["kind"] == "host"
         # The engine a key stands for, so nobody splits the key to ask.
@@ -983,7 +983,7 @@ class TestWhatRunsInsideTheContainer:
         return by_key(discover(runner))
 
     def test_the_container_password_reaches_psql_as_pgpassword(self, clients, found) -> None:
-        argv = found["postgresql@empleo-arennalabs-com.db"].exec_argv(
+        argv = found["postgresql@jobs-example-net.db"].exec_argv(
             ["psql", "-d", "postgres"], user="postgres"
         )
 
@@ -994,7 +994,7 @@ class TestWhatRunsInsideTheContainer:
         assert PG_PASSWORD not in report["args"]
 
     def test_a_password_noust_forwards_wins_over_the_containers(self, clients, found) -> None:
-        argv = found["postgresql@empleo-arennalabs-com.db"].exec_argv(
+        argv = found["postgresql@jobs-example-net.db"].exec_argv(
             ["psql"], env={"PGPASSWORD": "read-only"}
         )
 
@@ -1005,7 +1005,7 @@ class TestWhatRunsInsideTheContainer:
         assert report["PGPASSWORD"] == "read-only"
 
     def test_mysql_falls_back_to_the_name_the_image_ships(self, clients, found) -> None:
-        argv = found["mysql@tienda-arennalabs-com.mysql"].exec_argv(["mysql", "-u", "root"])
+        argv = found["mysql@shop-example-net.mysql"].exec_argv(["mysql", "-u", "root"])
 
         report = self.run_inside(clients, argv, {"MYSQL_ROOT_PASSWORD": ROOT_PASSWORD})
 
@@ -1017,10 +1017,10 @@ class TestWhatRunsInsideTheContainer:
 def test_a_redis_container_counts_as_installed_without_a_client_on_the_host(
     fleet: FakeRunner, instances: dict[str, DatabaseInstance]
 ) -> None:
-    # Found on arennalabs: redis-cli was not on the host, so both Redis
+    # Found on a production server: redis-cli was not on the host, so both Redis
     # containers were listed as not installed and their slots never shown.
     fleet.only_knows("docker")
-    manager = RedisManager().bind(instances["redis@tienda-arennalabs-com.redis"])
+    manager = RedisManager().bind(instances["redis@shop-example-net.redis"])
 
     assert manager.is_installed()
 

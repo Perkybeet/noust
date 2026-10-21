@@ -726,7 +726,7 @@ def export(state: Context, domain: str, output: str) -> None:
 )
 @pass_context
 def migrate(state: Context, domain: str | None, every: bool) -> None:
-    """Move an application's variables from its systemd unit into its .env (WASM 1.x units)."""
+    """Move an application's variables from its systemd unit into its .env (units written by 1.x)."""
     _env_migrate(domain, every, state.verbose)
 
 

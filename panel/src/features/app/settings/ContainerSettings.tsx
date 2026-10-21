@@ -14,27 +14,55 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { ContainerFields } from "../../container/ContainerFields";
-import { containerProblems, draftOf, plannedChange } from "../../container/model";
-import type { ContainerDraft, ContainerSettings as Settings } from "../../container/model";
+import {
+  containerProblems,
+  draftOf,
+  plannedChange,
+} from "../../container/model";
+import type {
+  ContainerDraft,
+  ContainerSettings as Settings,
+} from "../../container/model";
 import { useSaveBar } from "./formParts";
 import { RegistryLoginsCard, useRegistryChoice } from "./RegistryLogins";
 import { containerQuery, settingsKeys } from "./queries";
-import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
-import { LoadingRegion } from "../../../components/page";
+import {
+  useSettingsApp,
+  useSubsectionIcon,
+  useSubsectionTitle,
+} from "./settingsApp";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 /** How the image comes to exist, in the words a person reads. */
 function builtFrom(t: T, settings: Settings): string {
   if (settings.method === "image") return t("containers.settings.fromImage");
-  return t(settings.method === "railpack" ? "containers.settings.fromRailpack" : "containers.settings.fromDockerfile");
+  return t(
+    settings.method === "railpack"
+      ? "containers.settings.fromRailpack"
+      : "containers.settings.fromDockerfile",
+  );
 }
 
 /** What the application is now, apart from what the form edits: where it is built from and what serves. */
 function facts(t: T, settings: Settings): KeyValueItem[] {
   return [
-    { label: t("containers.settings.builtFrom"), value: builtFrom(t, settings), mono: false, copy: false },
-    ...(settings.release !== null && settings.release !== undefined ? [{ label: t("containers.settings.release"), value: settings.release }] : []),
+    {
+      label: t("containers.settings.builtFrom"),
+      value: builtFrom(t, settings),
+      mono: false,
+      copy: false,
+    },
+    ...(settings.release !== null && settings.release !== undefined
+      ? [{ label: t("containers.settings.release"), value: settings.release }]
+      : []),
     ...(settings.digest !== null && settings.digest !== undefined
-      ? [{ label: t("containers.settings.digest"), value: settings.digest, hint: t("containers.settings.digestHint") }]
+      ? [
+          {
+            label: t("containers.settings.digest"),
+            value: settings.digest,
+            hint: t("containers.settings.digestHint"),
+          },
+        ]
       : []),
   ];
 }
@@ -50,13 +78,18 @@ function Form({ settings, domain }: { settings: Settings; domain: string }) {
   // The settings changed underneath an untouched form (saved here, or from a terminal): follow them.
   if (settings !== baseline) {
     setBaseline(settings);
-    if (plannedChange(draft, baseline).fields.length === 0) setDraft(draftOf(settings));
+    if (plannedChange(draft, baseline).fields.length === 0)
+      setDraft(draftOf(settings));
   }
 
   const planned = plannedChange(draft, settings);
   const clientErrors = containerProblems(draft, { existing: true });
   const save = useMutation({
-    mutationFn: () => request("put", "/api/apps/{domain}/container", { params: { domain }, body: planned.body }),
+    mutationFn: () =>
+      request("put", "/api/apps/{domain}/container", {
+        params: { domain },
+        body: planned.body,
+      }),
     onSuccess: (result) => {
       queryClient.setQueryData(settingsKeys.container(domain), result);
       // What the server keeps now is what the form says, and no secret typed here stays in it.
@@ -65,7 +98,10 @@ function Form({ settings, domain }: { settings: Settings; domain: string }) {
       setSubmitted(false);
     },
   });
-  const serverErrors: Record<string, string> = isApiError(save.error) && save.error.fields !== null ? save.error.fields : {};
+  const serverErrors: Record<string, string> =
+    isApiError(save.error) && save.error.fields !== null
+      ? save.error.fields
+      : {};
   const errors = { ...(submitted ? clientErrors : {}), ...serverErrors };
   const placed = Object.keys(serverErrors).length > 0;
   // The accounts the image is pulled and built with are chosen beside the rest of how it is made.
@@ -101,7 +137,9 @@ function Form({ settings, domain }: { settings: Settings; domain: string }) {
           <KeyValueList items={facts(t, settings)} />
         </div>
       </Card>
-      <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("containers.settings.takesEffect")}</p>
+      <p className="max-w-measure text-13 text-pretty text-fg-muted">
+        {t("containers.settings.takesEffect")}
+      </p>
       <Card>
         <ContainerFields
           draft={draft}
@@ -115,9 +153,24 @@ function Form({ settings, domain }: { settings: Settings; domain: string }) {
         />
       </Card>
       <RegistryLoginsCard choice={registries} />
-      {save.isError && !placed ? <ErrorBlock live compact error={save.error} title={t("containers.settings.saveFailed", { domain })} /> : null}
-      <CommandHint command={`noust app container set ${domain} --container-port 3000 --volume /data`} label={t("appSettings.fromTerminal")} />
-      <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
+      {save.isError && !placed ? (
+        <ErrorBlock
+          live
+          compact
+          error={save.error}
+          title={t("containers.settings.saveFailed", { domain })}
+        />
+      ) : null}
+      <CommandHint
+        command={`noust app container set ${domain} --container-port 3000 --volume /data`}
+        label={t("appSettings.fromTerminal")}
+      />
+      <SaveBar
+        changes={bar.changes}
+        saving={bar.saving}
+        onSave={bar.onSave}
+        onDiscard={bar.onDiscard}
+      />
     </>
   );
 }
@@ -137,17 +190,35 @@ export function ContainerSettings() {
   useSubsectionTitle("appSettings.nav.container", domain);
   const headerIcon = useSubsectionIcon("appSettings.nav.container");
   const isContainer = app.app_type === "container";
-  const container = useQuery({ ...containerQuery(domain), enabled: isContainer });
+  const container = useQuery({
+    ...containerQuery(domain),
+    enabled: isContainer,
+  });
 
   return (
-    <Section title={t("containers.settings.title")} {...headerIcon} description={t("containers.settings.description")}>
+    <Section
+      title={t("containers.settings.title")}
+      {...headerIcon}
+      description={t("containers.settings.description")}
+    >
       {!isContainer ? (
-        <EmptyState variant="inline" title={t("containers.settings.notContainer")} />
+        <EmptyState
+          variant="inline"
+          title={t("containers.settings.notContainer")}
+        />
       ) : container.data === undefined ? (
         container.isError ? (
-          <ErrorBlock error={container.error} title={t("containers.settings.readFailed")} onRetry={() => void container.refetch()} retrying={container.isRefetching} />
+          <ErrorBlock
+            error={container.error}
+            title={t("containers.settings.readFailed")}
+            onRetry={() => void container.refetch()}
+            retrying={container.isRefetching}
+          />
         ) : (
-          <LoadingRegion label={t("containers.settings.loading")} className="flex flex-col gap-3">
+          <LoadingRegion
+            label={t("containers.settings.loading")}
+            className="flex flex-col gap-3"
+          >
             <Skeleton className="h-24 w-full rounded-card" />
             <Skeleton className="h-64 w-full rounded-card" />
           </LoadingRegion>

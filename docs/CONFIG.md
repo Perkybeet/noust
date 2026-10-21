@@ -62,7 +62,7 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `apps_directory` | `/var/www/apps` | Where applications are deployed, one directory per domain. Must be an absolute path. A Docker Compose stack adopted with `noust app adopt` stays where it already ran (`/opt/proggest`, say), outside this directory; deleting it keeps that directory unless `noust delete --remove-adopted-directory` names it (see [compose.md](compose.md#adopting-a-running-stack)). |
+| `apps_directory` | `/var/www/apps` | Where applications are deployed, one directory per domain. Must be an absolute path. A Docker Compose stack adopted with `noust app adopt` stays where it already ran (`/opt/shop`, say), outside this directory; deleting it keeps that directory unless `noust delete --remove-adopted-directory` names it (see [compose.md](compose.md#adopting-a-running-stack)). |
 | `webserver` | `nginx` | The web server new sites are written for: `nginx` or `apache`. |
 | `service_user` | `www-data` | The Unix user the units of applications without an account of their own run as, and their files belong to. From 3.2 an application Noust creates runs as its own account, `noust-app-<name>`, and one from before moves to its own with `noust app identity migrate`; Docker Compose stacks, monorepos and static sites keep this account (see [releases.md](releases.md#the-account-an-application-runs-as)). |
 | `service_group` | `www-data` | Its group. |

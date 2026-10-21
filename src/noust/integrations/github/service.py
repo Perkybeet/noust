@@ -468,11 +468,6 @@ def configure_webhook(url: str) -> bool:
     return active
 
 
-def mark_webhook_active() -> None:
-    """Record that the operator switched the App's webhook on at GitHub."""
-    write_meta(webhook_active=True)
-
-
 def remove() -> dict[str, Any]:
     """
     Forget the App: its credentials, its installations, every link to them.

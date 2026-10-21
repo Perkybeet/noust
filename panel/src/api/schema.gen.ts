@@ -2071,11 +2071,14 @@ export interface paths {
          *     still on disk is activated (instant), otherwise the commit is built as a
          *     new release; in place the checkout is put on the commit and rebuilt.
          *     There is no ``nothing_new`` check: asking for a commit is explicit.
+         *     With ``no_cache`` the commit is always built, from scratch: what the
+         *     console's "Retry without cache" asks for after a failure.
          *
          *     Args:
          *         domain: Domain of the application.
          *         deployment_id: The deployment whose commit to rebuild.
          *         session: The authenticated session.
+         *         body: Optional; ``no_cache`` builds from scratch.
          *
          *     Returns:
          *         The queued job.
@@ -21025,6 +21028,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/nodes/{node}/ssh/authorization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Bastion Line
+         * @description Give the line a bastion's operator needs, before the bastion is set.
+         *
+         *     Setting a bastion opens the tunnel through it and keeps it only when the server answers, which
+         *     it cannot while the bastion does not yet let the central in. So the line is asked for first,
+         *     with the bastion the operator means to set, exactly as ``noust node ssh NAME --bastion ...
+         *     --show`` does; nothing is changed. The central connects to the address only to check the
+         *     fingerprint it was given, which is why this needs the permission to manage the fleet and not
+         *     the one to read it.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         body: The bastion's address and its key or fingerprint.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The line.
+         *
+         *     Raises:
+         *         NodeError: 400 when the key is not vouched for, the address is malformed, nothing answers
+         *             or what answers is not that fingerprint; 404 when the node is not registered.
+         */
+        post: operations["ask_bastion_line_api_nodes__node__ssh_authorization_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/nodes/{node}/team": {
         parameters: {
             query?: never;
@@ -32375,6 +32417,17 @@ export interface components {
             fingerprint?: string | null;
             /** Host Key */
             host_key?: string | null;
+        };
+        /**
+         * BastionLineOut
+         * @description The line a bastion's operator adds so the central can reach a server through it.
+         *
+         *     Attributes:
+         *         authorized_key_line: One ``authorized_keys`` line: one stream to the server, no shell.
+         */
+        BastionLineOut: {
+            /** Authorized Key Line */
+            authorized_key_line: string;
         };
         /**
          * BastionOut
@@ -44704,9 +44757,18 @@ export interface components {
          *     Attributes:
          *         set: Variables to give a value, added or replaced.
          *         unset: Variables to remove.
+         *         comments: The comments to keep above variables.
+         *         audience: Who sees a variable: the build, the running application or both.
          *         dry_run: Say which variables would change and write nothing.
          */
         MergeAppEnvRequest: {
+            /**
+             * Audience
+             * @description Name to 'both', 'build' or 'runtime' for the variables whose audience changes, as on PUT; a name left out keeps the one it has
+             */
+            audience?: {
+                [key: string]: string;
+            } | null;
             /**
              * Comments
              * @description Name to the comment kept above the variable in the .env, over the ones it has; empty text takes one away
@@ -44739,8 +44801,8 @@ export interface components {
          *
          *     Attributes:
          *         domain: Domain of the application.
-         *         changed: The names whose value was added, replaced or removed. Never a
-         *             value.
+         *         changed: The names whose value or audience was added, replaced or removed.
+         *             Never a value.
          *         restart_required: Whether the running process needs a restart to pick
          *             the change up.
          *         dry_run: Whether nothing was written.
@@ -49941,6 +50003,18 @@ export interface components {
             required?: boolean | null;
             /** Since */
             since?: string | null;
+        };
+        /**
+         * RebuildRequest
+         * @description Building a deployment's commit again.
+         */
+        RebuildRequest: {
+            /**
+             * No Cache
+             * @description Build from scratch: no package manager cache, no dependencies taken from the release that serves, no image layer cache, and a release of that commit already on disk is not activated in its place
+             * @default false
+             */
+            no_cache: boolean;
         };
         /**
          * ReceiveRequest
@@ -65289,7 +65363,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RebuildRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {
@@ -85943,6 +86021,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SSHOptionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_bastion_line_api_nodes__node__ssh_authorization_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BastionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BastionLineOut"];
                 };
             };
             /** @description Validation Error */

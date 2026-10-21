@@ -2,7 +2,8 @@ import { Boxes, DatabaseBackup, GitBranch, RotateCw } from "lucide-react";
 import { useState } from "react";
 
 import { PageHeader } from "../app/PageHeader";
-import { FilterBar, JobProgress, LoadingRegion, Subsection } from "../components/page";
+import { FilterBar, JobProgress, Subsection } from "../components/page";
+import { LoadingRegion } from "../components/page/LoadingRegion";
 import {
   Button,
   Card,
@@ -34,12 +35,27 @@ function Notices() {
     >
       <BothThemes>
         <div className="flex flex-col gap-3">
-          <Notice title="Noust was called WASM until 3.0">Old commands keep working through the wasm alias.</Notice>
-          <Notice tone="success" title="Saved the startup check" onDismiss={() => undefined} />
-          <Notice tone="warning" title="The certificate expires in 5 days" action={<Button size="sm">Renew</Button>}>
+          <Notice title="Noust was called WASM until 3.0">
+            Old commands keep working through the wasm alias.
+          </Notice>
+          <Notice
+            tone="success"
+            title="Saved the startup check"
+            onDismiss={() => undefined}
+          />
+          <Notice
+            tone="warning"
+            title="The certificate expires in 5 days"
+            action={<Button size="sm">Renew</Button>}
+          >
             Renewal runs by itself 30 days before; this one failed twice.
           </Notice>
-          <Notice tone="error" variant="banner" title="shop.example.com is down" action={<Button size="sm">Diagnose</Button>}>
+          <Notice
+            tone="error"
+            variant="banner"
+            title="shop.example.com is down"
+            action={<Button size="sm">Diagnose</Button>}
+          >
             The service stopped 4 minutes ago and has not come back.
           </Notice>
         </div>
@@ -57,9 +73,23 @@ function Jobs() {
     >
       <BothThemes>
         <div className="flex flex-col gap-3">
-          <JobProgress state="queued" title="Backup of shop.example.com" announce={false} />
-          <JobProgress state="running" title="Deploying shop.example.com" step="npm run build" announce={false} />
-          <JobProgress state="succeeded" title="The certificate covers every domain" onDismiss={() => undefined} announce={false} />
+          <JobProgress
+            state="queued"
+            title="Backup of shop.example.com"
+            announce={false}
+          />
+          <JobProgress
+            state="running"
+            title="Deploying shop.example.com"
+            step="npm run build"
+            announce={false}
+          />
+          <JobProgress
+            state="succeeded"
+            title="The certificate covers every domain"
+            onDismiss={() => undefined}
+            announce={false}
+          />
           <JobProgress
             state="failed"
             title="The deploy failed"
@@ -82,7 +112,10 @@ function Loading() {
       description="A skeleton shaped like the content, aria-busy, what it reads said to screen readers at once. After two seconds, views that read the machine (sshd, the firewall, the journal) also say it visibly, with a spinner, so a slow read never looks stuck."
     >
       <BothThemes>
-        <LoadingRegion label="Leyendo SSH" className="grid gap-4 sm:grid-cols-2">
+        <LoadingRegion
+          label="Leyendo SSH"
+          className="grid gap-4 sm:grid-cols-2"
+        >
           <Skeleton className="h-32 w-full rounded-card" />
           <Skeleton className="h-32 w-full rounded-card" />
         </LoadingRegion>
@@ -102,11 +135,28 @@ function Filters() {
       <Stage>
         <FilterBar
           label="Filter applications"
-          search={{ value: q, onChange: setQ, label: "Search applications", placeholder: "Name or domain" }}
+          search={{
+            value: q,
+            onChange: setQ,
+            label: "Search applications",
+            placeholder: "Name or domain",
+          }}
           filters={
             <>
-              <Select aria-label="State" value="all" onValueChange={() => undefined} options={[{ value: "all", label: "Every state" }]} className="min-w-36" />
-              <Select aria-label="Type" value="all" onValueChange={() => undefined} options={[{ value: "all", label: "Every type" }]} className="min-w-36" />
+              <Select
+                aria-label="State"
+                value="all"
+                onValueChange={() => undefined}
+                options={[{ value: "all", label: "Every state" }]}
+                className="min-w-36"
+              />
+              <Select
+                aria-label="Type"
+                value="all"
+                onValueChange={() => undefined}
+                options={[{ value: "all", label: "Every type" }]}
+                className="min-w-36"
+              />
             </>
           }
           count="3 of 17 applications"
@@ -119,14 +169,38 @@ function Filters() {
 
 const COLUMNS: Column<SampleApp>[] = [
   { id: "domain", header: "Application", cell: (app) => app.domain },
-  { id: "state", header: "State", cell: (app) => <StatusPill state={app.status} appearance="inline" size="sm" />, card: "status", width: "w-32" },
+  {
+    id: "state",
+    header: "State",
+    cell: (app) => (
+      <StatusPill state={app.status} appearance="inline" size="sm" />
+    ),
+    card: "status",
+    width: "w-32",
+  },
   { id: "type", header: "Type", cell: (app) => app.type },
   {
     id: "branch",
     header: "Branch",
-    cell: (app) => (app.status === "static" ? <EmptyCell reason="No branch: uploaded files" /> : <span className="mono">main</span>),
+    cell: (app) =>
+      app.status === "static" ? (
+        <EmptyCell reason="No branch: uploaded files" />
+      ) : (
+        <span className="mono">main</span>
+      ),
   },
-  { id: "port", header: "Port", cell: (app) => (app.port === null ? <EmptyCell reason="No port: served as files" /> : `:${String(app.port)}`), align: "end", mono: true },
+  {
+    id: "port",
+    header: "Port",
+    cell: (app) =>
+      app.port === null ? (
+        <EmptyCell reason="No port: served as files" />
+      ) : (
+        `:${String(app.port)}`
+      ),
+    align: "end",
+    mono: true,
+  },
 ];
 
 function Empties() {
@@ -137,7 +211,7 @@ function Empties() {
       description="First use takes the content's place, once per page: what this is, one sentence, the one action possible now and its command. Inline is a line inside a section or a table filtered to nothing, 56px at most. An empty cell is an en dash with its reason for screen readers."
     >
       <div className="grid gap-6 lg:grid-cols-2">
-        <Item label="variant=&quot;firstUse&quot;">
+        <Item label='variant="firstUse"'>
           <Stage plain className="w-full">
             <EmptyState
               variant="firstUse"
@@ -150,21 +224,42 @@ function Empties() {
           </Stage>
         </Item>
         <div className="flex flex-col gap-6">
-          <Item label="variant=&quot;inline&quot;" className="w-full">
+          <Item label='variant="inline"' className="w-full">
             <Card title="Schedules" className="w-full">
-              <EmptyState variant="inline" title="No schedules: backups run only when you start one." action={<Button size="sm">Add schedule</Button>} />
+              <EmptyState
+                variant="inline"
+                title="No schedules: backups run only when you start one."
+                action={<Button size="sm">Add schedule</Button>}
+              />
             </Card>
           </Item>
           <Item label="A filter that matched nothing" className="w-full">
             <Stage plain className="w-full">
-              <EmptyState variant="inline" title="No applications match “billing”." action={<Button size="sm" variant="ghost">Clear filters</Button>} />
+              <EmptyState
+                variant="inline"
+                title="No applications match “billing”."
+                action={
+                  <Button size="sm" variant="ghost">
+                    Clear filters
+                  </Button>
+                }
+              />
             </Stage>
           </Item>
         </div>
       </div>
-      <Item label="EmptyCell in a table (mobile=&quot;cards&quot; below 640px)" className="w-full">
+      <Item
+        label='EmptyCell in a table (mobile="cards" below 640px)'
+        className="w-full"
+      >
         <div className="w-full">
-          <DataTable mobile="cards" caption="Applications" columns={COLUMNS} rows={SAMPLE_APPS.slice(0, 4)} getRowId={(app) => app.domain} />
+          <DataTable
+            mobile="cards"
+            caption="Applications"
+            columns={COLUMNS}
+            rows={SAMPLE_APPS.slice(0, 4)}
+            getRowId={(app) => app.domain}
+          />
         </div>
       </Item>
     </Section>
@@ -179,7 +274,10 @@ function Surfaces() {
       description="Card is every panel: md (20px) for a panel, sm (16px) in a grid or list, none for rows that draw their own edges. Subsection titles a part of a section or card. A button that acts on a field sits beside the control, aligned with it."
     >
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card title="Resources" description="What this app may use of the server.">
+        <Card
+          title="Resources"
+          description="What this app may use of the server."
+        >
           <p className="text-13 text-fg-muted">padding md, 20px</p>
         </Card>
         <Card padding="sm" title="Backups" description="Last 24 hours">
@@ -192,14 +290,28 @@ function Surfaces() {
           </ul>
         </Card>
       </div>
-      <Card title="Deploy on push" description="Pushes to main deploy this app." footer={<Button variant="primary">Save</Button>}>
+      <Card
+        title="Deploy on push"
+        description="Pushes to main deploy this app."
+        footer={<Button variant="primary">Save</Button>}
+      >
         <div className="flex flex-col gap-6">
-          <Subsection title="Repository" description="Where the code comes from.">
-            <Field label="Repository URL" action={<Button icon={<GitBranch />}>Inspect</Button>} description="HTTPS or SSH.">
+          <Subsection
+            title="Repository"
+            description="Where the code comes from."
+          >
+            <Field
+              label="Repository URL"
+              action={<Button icon={<GitBranch />}>Inspect</Button>}
+              description="HTTPS or SSH."
+            >
               <Input mono defaultValue="https://github.com/acme/shop" />
             </Field>
           </Subsection>
-          <Subsection title="Meters with a level" description="Amber at 75%, red at 90%: the glyph and the word come with the colour.">
+          <Subsection
+            title="Meters with a level"
+            description="Amber at 75%, red at 90%: the glyph and the word come with the colour."
+          >
             <div className="grid gap-4 sm:grid-cols-3">
               <Meter label="CPU" value={23} />
               <Meter label="Memory" value={81} />
@@ -221,7 +333,7 @@ function Friction() {
     >
       <Stage>
         <Row>
-          <Item label="friction=&quot;none&quot;">
+          <Item label='friction="none"'>
             <ConfirmDialog
               friction="none"
               title="Disable nightly-report"
@@ -231,7 +343,7 @@ function Friction() {
               trigger={<Button>Disable job</Button>}
             />
           </Item>
-          <Item label="friction=&quot;simple&quot;">
+          <Item label='friction="simple"'>
             <ConfirmDialog
               friction="simple"
               server="web-2"
@@ -242,7 +354,7 @@ function Friction() {
               trigger={<Button data-testid="open-confirm-simple">Stop</Button>}
             />
           </Item>
-          <Item label="friction=&quot;type&quot;">
+          <Item label='friction="type"'>
             <ConfirmDialog
               title="Delete shop.example.com"
               description="Stops the service and removes its files and site. Backups are kept."

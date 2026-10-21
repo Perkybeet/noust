@@ -130,8 +130,8 @@ describe("the palette's verbs on an application", () => {
     });
     await ask(user, "roll back shop");
     await user.click(await screen.findByRole("option", { name: "Roll back shop.example.com" }));
-    const dialog = await screen.findByRole("dialog", { name: "Roll back shop.example.com" });
-    expect(await within(dialog).findByRole("button", { name: "Go back to backup-1" })).toBeInTheDocument();
+    const dialog = await screen.findByRole("alertdialog", { name: "Roll back shop.example.com" });
+    expect(await within(dialog).findByRole("button", { name: "Go back to this backup" })).toBeInTheDocument();
   });
 
   it("confirms it's you when the server asks, and retries the restart by itself", async () => {

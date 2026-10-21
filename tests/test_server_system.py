@@ -202,6 +202,24 @@ class TestClock:
         assert install_env is not None and install_env["DEBIAN_FRONTEND"] == "noninteractive"
         assert "Installed chrony" in message
 
+    def test_a_server_with_empty_package_lists_updates_them_and_installs_chrony(self, host) -> None:
+        from tests.server_support import SequencedEmptyAptLists
+
+        runner = SequencedEmptyAptLists()
+        runner.sequence(
+            ["timedatectl", "set-ntp"],
+            [{"stderr": "NTP not supported", "exit_code": 1}, {"stdout": ""}],
+        )
+
+        message = self._manager(runner, host).set_ntp(True, install=True)
+
+        assert [call for call in runner.calls if call[0] == "apt-get"] == [
+            ("apt-get", "install", "-y", "chrony"),
+            ("apt-get", "update"),
+            ("apt-get", "install", "-y", "chrony"),
+        ]
+        assert "Installed chrony" in message
+
     def test_a_failed_installation_carries_the_package_managers_output(self, host) -> None:
         runner = FakeRunner()
         runner.script(["timedatectl", "set-ntp"], stderr="NTP not supported", exit_code=1)

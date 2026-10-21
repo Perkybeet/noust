@@ -49,7 +49,7 @@ from noust.core.redact import Scrubber, scrubber_for
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.secret_detection import mask_secret_shapes
 from noust.core.store import App, is_compose_backed
-from noust.core.utils import domain_to_app_name
+from noust.core.utils import domain_to_app_name, legacy_app_name
 from noust.managers.server import logquery
 from noust.terminal.targets import find_stack_containers
 
@@ -545,7 +545,7 @@ class LogSearch:
             argv += ["--case-sensitive=false", f"--grep={re.escape(term)}"]
         for app in apps:
             base = domain_to_app_name(app.domain)
-            argv += ["-u", f"{base}*", "-u", f"wasm-{base}*"]
+            argv += ["-u", f"{base}*", "-u", f"{legacy_app_name(app.domain)}*"]
         done = self.runner.run(argv, timeout=JOURNAL_TIMEOUT)
         if not done.success:
             reason = (done.stderr or done.stdout).strip().splitlines()

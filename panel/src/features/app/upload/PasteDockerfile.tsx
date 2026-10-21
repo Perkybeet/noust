@@ -11,6 +11,7 @@ import { useT } from "../../../i18n";
 import { splitErrors } from "../../settings/formErrors";
 import { pasteDockerfile } from "./sourceUploadApi";
 import type { UploadedArchive } from "./ArchiveUpload";
+import { Check, Pencil } from "lucide-react";
 
 /**
  * A Dockerfile typed or pasted in, for an application that has no repository. It becomes a
@@ -45,7 +46,7 @@ export function PasteDockerfile({ onStored, onCleared, disabled = false }: { onS
           live
           title={t("pasteDockerfile.stored")}
           action={
-            <Button size="sm" onClick={edit}>
+            <Button size="sm" icon={<Pencil aria-hidden="true" />} onClick={edit}>
               {t("pasteDockerfile.edit")}
             </Button>
           }
@@ -60,7 +61,7 @@ export function PasteDockerfile({ onStored, onCleared, disabled = false }: { onS
           </Field>
           {store.isError && split.form !== null ? <ErrorBlock live compact error={split.form} title={t("pasteDockerfile.failed")} /> : null}
           <div>
-            <Button size="sm" loading={store.isPending} disabled={disabled || text.trim() === ""} onClick={() => store.mutate()}>
+            <Button size="sm" icon={<Check aria-hidden="true" />} loading={store.isPending} disabled={disabled || text.trim() === ""} onClick={() => store.mutate()}>
               {t("pasteDockerfile.use")}
             </Button>
           </div>

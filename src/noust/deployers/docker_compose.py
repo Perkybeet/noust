@@ -2749,6 +2749,7 @@ class DockerComposeDeployer(AppDeployer):
         # What the gate and the hooks need to know of the stack: whether it
         # is a web at all, and which service a hook without one runs in.
         self.services = parse_services(document)
+        self._record_published_port()
         hooks = self._resolve_hooks()
         self._require_ports_free()
         self._resolve_leftover_relays()
@@ -2863,6 +2864,26 @@ class DockerComposeDeployer(AppDeployer):
                     f"{outcome.new_name}. Change that line to {outcome.new_name}, then run: "
                     "noust setup rename"
                 )
+
+    def _record_published_port(self) -> None:
+        """
+        Record the port a stack registered as a worker publishes now.
+
+        A stack adopted or deployed while its file published nothing has no port in its row, and
+        the health gate asks the row for the port to probe. An operator who then publishes one
+        has made it a web: the update records the port the file names, as a first deploy would,
+        so the gate probes it and the list of who holds which port finds it in the store as well
+        as in the file. The other way round (a web that stops publishing) is
+        ``noust app headless``, which is only done when asked.
+        """
+        if self._is_headless() or self._rehearsing():
+            return
+        app = self.store.get_app(self.domain)
+        if app is None or app.port:
+            return
+        app.port = self._get_primary_port()
+        self.store.update_app(app)
+        self.logger.substep(f"Port {app.port} recorded: {self.domain} publishes it now")
 
     def _rehearsing(self) -> bool:
         """

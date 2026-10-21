@@ -45,7 +45,7 @@ from noust.core.redact import Scrubber, scrubber_for
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore, get_store, is_compose_backed
-from noust.core.utils import domain_to_app_name
+from noust.core.utils import domain_to_app_name, legacy_app_name
 from noust.managers.log_drains import build_transport
 from noust.managers.log_transports import DeliveryError, LogEvent, Transport, batches
 from noust.terminal.targets import StackContainer, find_stack_containers
@@ -100,7 +100,7 @@ class AppIndex:
         for app in apps:
             base = domain_to_app_name(app.domain)
             self._bases[base] = app.domain
-            self._bases[f"wasm-{base}"] = app.domain
+            self._bases[legacy_app_name(app.domain)] = app.domain
         self._processes = processes
 
     def lookup(self, unit: str | None) -> tuple[str, str] | None:

@@ -255,18 +255,6 @@ def drop_stale(
         return cursor.rowcount
 
 
-def drop_request(domain: str, store: NoustStore | None = None) -> None:
-    """
-    Forget the request recorded for an application.
-
-    Args:
-        domain: The application.
-        store: The store; defaults to the process-wide one.
-    """
-    with (store or get_store())._transaction() as cursor:
-        cursor.execute("DELETE FROM delivery_cancel_requests WHERE domain = ?", (domain,))
-
-
 def mark_deployment_cancelled(
     deployment_id: int, by: str | None, store: NoustStore | None = None
 ) -> bool:

@@ -811,8 +811,8 @@ FAILED_JOURNAL_LINES = (
 #: matching what `example_production` and `example_staging` list as.
 _PG_DATABASES: dict[str, tuple[str, int]] = {
     "postgres": ("postgres", 7553827),
-    "example_production": ("wasm_app", 48218931),
-    "example_staging": ("wasm_app", 9120563),
+    "example_production": ("app_owner", 48218931),
+    "example_staging": ("app_owner", 9120563),
 }
 
 #: PostgreSQL roles `list_users` reports: name, superuser, createdb, createrole,
@@ -820,8 +820,8 @@ _PG_DATABASES: dict[str, tuple[str, int]] = {
 #: shape `PostgresManager.list_users`'s combined query now answers in one row.
 _PG_USERS = (
     "postgres|t|t|t|postgres,example_production,example_staging\n"
-    "wasm_app|f|f|f|example_production,example_staging\n"
-    "wasm_readonly|f|f|f|example_production,example_staging\n"
+    "app_owner|f|f|f|example_production,example_staging\n"
+    "app_readonly|f|f|f|example_production,example_staging\n"
 )
 
 #: A read the SQL console can run against any PostgreSQL database, pipe-separated
@@ -1769,13 +1769,13 @@ class _DemoDatabase:
                 # The image's POSTGRES_USER owns what it created and is the superuser.
                 return "catalogo|t|t|0|0|0|f|f\n"
             if not mine:
-                return "wasm_app|t|f|0|0|0|f|f\npostgres|f|t|0|0|0|f|f\n"
+                return "app_owner|t|f|0|0|0|f|f\npostgres|f|t|0|0|0|f|f\n"
             return (
                 "analytics_reader|f|f|5|5|0|f|f\n"
                 "example_production|f|f|5|5|5|t|t\n"
                 "postgres|f|t|5|5|5|f|f\n"
-                "wasm_app|t|f|5|5|5|f|f\n"
-                "wasm_ro_example_production|f|f|5|5|0|t|f\n"
+                "app_owner|t|f|5|5|5|f|f\n"
+                "noust_ro_example_production|f|f|5|5|0|t|f\n"
             )
         if mine and re.search(r"^\s*EXPLAIN\b", statement, re.IGNORECASE | re.MULTILINE):
             analyze = "ANALYZE" in statement.upper()
@@ -2042,14 +2042,14 @@ _PG_DUMP_BYTES = "PGDMP\x01\x0e\x00\x04\x08\x01\x01\x01" + "x" * 4096
 #: What pg_restore --list prints of it.
 _PG_RESTORE_LIST = (
     ";\n; Archive created at 2026-09-29 02:00:04 UTC\n;     dbname: example_production\n;\n"
-    "215; 1259 16390 TABLE public customers wasm_app\n"
-    "216; 1259 16402 TABLE public orders wasm_app\n"
-    "217; 1259 16420 TABLE public order_items wasm_app\n"
-    "218; 1259 16431 TABLE public audit_events wasm_app\n"
-    "219; 1259 16440 VIEW public paid_orders wasm_app\n"
-    "220; 1259 16450 TABLE analytics daily_revenue wasm_app\n"
-    "3310; 0 16390 TABLE DATA public customers wasm_app\n"
-    "3311; 0 16402 TABLE DATA public orders wasm_app\n"
+    "215; 1259 16390 TABLE public customers app_owner\n"
+    "216; 1259 16402 TABLE public orders app_owner\n"
+    "217; 1259 16420 TABLE public order_items app_owner\n"
+    "218; 1259 16431 TABLE public audit_events app_owner\n"
+    "219; 1259 16440 VIEW public paid_orders app_owner\n"
+    "220; 1259 16450 TABLE analytics daily_revenue app_owner\n"
+    "3310; 0 16390 TABLE DATA public customers app_owner\n"
+    "3311; 0 16402 TABLE DATA public orders app_owner\n"
 )
 
 
@@ -3414,7 +3414,7 @@ def seed_job_history(sandbox: Sandbox, store: Any, domain: str) -> None:
         "Fetching origin\n"
         "HEAD is now at 9f2c41a Update dependencies\n"
         "Installing dependencies\n"
-        f"Restarting wasm-{unit}.service\n"
+        f"Restarting {unit}.service\n"
         f"Update of {domain} finished\n",
         encoding="utf-8",
     )
@@ -5992,11 +5992,11 @@ def seed_proggest_site(sandbox: Sandbox, tools: Any) -> None:
         [
             "proggest.es",
             "www.proggest.es",
-            "timpora.proggest.es",
-            "partes.proggest.es",
-            "partestrabajo.proggest.es",
-            "gestordoc.proggest.es",
-            "uaap.proggest.es",
+            "clock.proggest.es",
+            "reports.proggest.es",
+            "worklogs.proggest.es",
+            "docs.proggest.es",
+            "portal.proggest.es",
         ],
         datetime.now() + timedelta(days=75),
     )
@@ -7752,7 +7752,7 @@ def seed_backup_destinations(sandbox: Sandbox, store: Any) -> None:
         "sftp",
         {
             "host": "backup.example.org",
-            "user": "wasm",
+            "user": "backup",
             "port": "22",
             "pass": "Kd82-sftp-seeded-password",
             "path": DESTINATIONS_SFTP_PATH,

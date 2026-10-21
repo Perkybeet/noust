@@ -26,7 +26,7 @@ export function matchKind(location: Pick<SiteLocation, "modifier" | "path">): Ma
   }
 }
 
-/** A location as nginx writes it: `= /uaap/`, `~ /\.`, `/api/`. */
+/** A location as nginx writes it: `= /portal/`, `~ /\.`, `/api/`. */
 export function locationLabel(location: Pick<SiteLocation, "modifier" | "path">): string {
   return `${location.modifier} ${location.path}`.trim();
 }

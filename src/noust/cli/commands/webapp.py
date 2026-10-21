@@ -1833,7 +1833,7 @@ def _show_logs(
             _print_or_emit_logs(deployer.logs(lines=lines), json_output=json_output)
         return 0
 
-    # Resolves both the legacy wasm-* unit names and the current ones.
+    # Resolves both the legacy-prefixed unit names and the current ones.
     service_name = service_manager._resolve_service_name(app_name)
 
     if follow:

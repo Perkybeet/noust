@@ -21,7 +21,6 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 
 from noust.core.exceptions import SecurityError
 from noust.core.fs import FileSystem, get_fs
@@ -457,17 +456,3 @@ class SecurityProbe:
         self._established = None
         self._account_keys = None
         self.accounts = HostAccounts(self.host)
-
-
-def display_path(host: HostPaths, local: Path) -> str:
-    """
-    Show a host path the way it is on the server.
-
-    Args:
-        host: Where the files are.
-        local: A path below the host's root.
-
-    Returns:
-        The absolute path on the server.
-    """
-    return "/" + str(local.relative_to(host.root)).lstrip("/")

@@ -41,11 +41,9 @@ from noust.fleet.authorize import (
     SSHD_DROPIN_DIR,
     TUNNEL_KEYS_DIR,
     AccountPolicy,
-    SshdPolicy,
     SshdSettings,
     apply_account_policy,
     groups_of,
-    plan_account_policy,
     read_sshd_settings,
     sshd_blockers,
 )
@@ -437,17 +435,6 @@ class PushHost:
             keys_file=str(self.keys_dir / f"{PUSH_USER}.keys"),
             changed=policy.changed,
             ssh_port=settings.port,
-        )
-
-    def planned_policy(self) -> SshdPolicy:
-        """
-        Returns:
-            Where the push account's block goes and what the file becomes; nothing is written.
-        """
-        return plan_account_policy(
-            account_policy(PUSH_USER, self.keys_dir),
-            sshd_config=self._sshd_config,
-            dropin_dir=self._dropin_dir,
         )
 
     def status(self) -> Status:

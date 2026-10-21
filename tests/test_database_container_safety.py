@@ -40,8 +40,8 @@ from noust.managers.database.postgres import PostgresManager
 from tests.test_database_instances import FLEET, PS_LINES, container
 from tests.test_mongo_container_restore import archive as mongodump_archive
 
-PG_KEY = "postgresql@empleo-arennalabs-com.db"
-MYSQL_KEY = "mysql@tienda-arennalabs-com.mysql"
+PG_KEY = "postgresql@jobs-example-net.db"
+MYSQL_KEY = "mysql@shop-example-net.mysql"
 
 #: Answers a call, or None to let the scripted default answer.
 Answer = Callable[[tuple[str, ...], "str | None", "Path | None"], "CommandResult | None"]
@@ -365,7 +365,7 @@ class TestCheckingAContainersDump:
 
     @pytest.fixture
     def archive(self, tmp_path: Path) -> Path:
-        dump = tmp_path / "postgresql.empleo-arennalabs-com.db.empleo-20261003_010101.dump"
+        dump = tmp_path / "postgresql.jobs-example-net.db.empleo-20261003_010101.dump"
         dump.write_bytes(b"PGDMP\x01\x0e\x00archive")
         return dump
 
@@ -567,7 +567,7 @@ class StubStore:
     def __init__(self, engine: str) -> None:
         from types import SimpleNamespace
 
-        self.app = SimpleNamespace(id=7, domain="empleo.arennalabs.com", compose_project=None)
+        self.app = SimpleNamespace(id=7, domain="jobs.example.net", compose_project=None)
         self.rows = [SimpleNamespace(name="empleo", engine=engine, app_id=7)]
 
     def get_app(self, domain: str) -> Any:
@@ -598,15 +598,15 @@ def test_an_application_backup_dumps_a_container_linked_database(
     destination = tmp_path / "payload" / "databases"
 
     entries = BackupManager(verbose=False, runner=docker)._dump_databases(
-        "empleo.arennalabs.com", destination
+        "jobs.example.net", destination
     )
 
     (entry,) = entries
     assert entry["engine"] == PG_KEY
-    assert entry["archive_path"].endswith("postgresql.empleo-arennalabs-com.db-empleo.dump.gz")
+    assert entry["archive_path"].endswith("postgresql.jobs-example-net.db-empleo.dump.gz")
     (dump,) = [call for call in docker.calls if inner(call)[:1] == ("pg_dump",)]
     assert dump[:3] == ("docker", "exec", "-i")
-    assert (destination / "postgresql.empleo-arennalabs-com.db-empleo.dump.gz").is_file()
+    assert (destination / "postgresql.jobs-example-net.db-empleo.dump.gz").is_file()
 
 
 # ==================== Findings 5 and 6: what cannot be reached, or asked ====================
@@ -763,9 +763,7 @@ class TestAComposeApplicationsDatabaseIsDrivenThroughItsUnit:
 
         from noust.managers.database.instances import assign_apps
 
-        app = SimpleNamespace(
-            domain="tienda.arennalabs.com", compose_project=None, app_type=app_type
-        )
+        app = SimpleNamespace(domain="shop.example.net", compose_project=None, app_type=app_type)
         (owned,) = [i for i in assign_apps(instances.values(), [app]) if i.key == MYSQL_KEY]
         return owned
 
@@ -787,13 +785,13 @@ class TestAComposeApplicationsDatabaseIsDrivenThroughItsUnit:
 
         monkeypatch.setattr("noust.managers.service_manager.ServiceManager", Services)
         owned = self.owned(instances, "docker-compose")
-        assert owned.unit == "tienda-arennalabs-com"
+        assert owned.unit == "shop-example-net"
         manager = MySQLManager().bind(owned)
 
         manager.restart()
         manager.stop()
 
-        assert asked == [("restart", "tienda-arennalabs-com"), ("stop", "tienda-arennalabs-com")]
+        assert asked == [("restart", "shop-example-net"), ("stop", "shop-example-net")]
         assert not any(
             call[:2] in (("docker", "restart"), ("docker", "stop")) for call in docker.calls
         )
@@ -802,7 +800,7 @@ class TestAComposeApplicationsDatabaseIsDrivenThroughItsUnit:
         self, docker: Docker, instances
     ) -> None:
         owned = self.owned(instances, "nextjs")
-        assert owned.app == "tienda.arennalabs.com" and owned.unit is None
+        assert owned.app == "shop.example.net" and owned.unit is None
 
         MySQLManager().bind(owned).restart()
 
@@ -841,7 +839,7 @@ class TestARedisContainersPassword:
         from noust.managers.database.redis import RedisManager
 
         docker.script(["docker", "exec"], stdout="default\n")
-        manager = RedisManager().bind(instances["redis@tienda-arennalabs-com.redis"])
+        manager = RedisManager().bind(instances["redis@shop-example-net.redis"])
 
         assert manager.warnings() == []
 
@@ -854,7 +852,7 @@ class TestARedisContainersPassword:
 
         docker.script(["docker", "exec"], stdout="default\n")
         bare = replace(
-            instances["redis@tienda-arennalabs-com.redis"],
+            instances["redis@shop-example-net.redis"],
             command_password=None,
             env_names=frozenset({"REDIS_PASSWORD"}),
         )
@@ -871,7 +869,7 @@ class TestARedisContainersPassword:
 
         docker.script(["docker", "exec"], stdout="default\n")
         bare = replace(
-            instances["redis@tienda-arennalabs-com.redis"],
+            instances["redis@shop-example-net.redis"],
             command_password=None,
             published=(PublishedPort(6379, "127.0.0.1", 6380),),
         )

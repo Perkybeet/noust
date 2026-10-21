@@ -9,9 +9,11 @@ export const rollout = {
     frozenAppTitle: "Deploys of {domain} are frozen",
     frozenUntil: "Frozen until {until}. Reason: {reason}",
     frozenOpen: "Frozen until somebody lifts it. Reason: {reason}",
-    frozenRule: "A deploy somebody asks for is refused unless they say it must go ahead. Pushes, tags and schedules wait.",
+    frozenRule:
+      "A deploy somebody asks for is refused unless they say it must go ahead. Pushes, tags and schedules wait.",
     pausedTitle: "Automatic deploys are paused",
-    pausedSince: "Paused {time}. A push or a tag that arrives meanwhile is not deployed.",
+    pausedSince:
+      "Paused {time}. A push or a tag that arrives meanwhile is not deployed.",
     pausedBy: "Paused by {by}.",
     pausedReason: "Reason: {reason}",
   },
@@ -23,9 +25,12 @@ export const rollout = {
     sourceWebhook: "push webhook",
     sourceGithub: "GitHub App",
     sourceTags: "new tags",
-    nothingAutomatic: "Nothing deploys this app by itself yet: it has no push webhook, GitHub App or tag following.",
+    resume: "Resume",
+    nothingAutomatic:
+      "Nothing deploys this app by itself yet: it has no push webhook, GitHub App or tag following.",
     pauseTitle: "Pause automatic deploys of {domain}?",
-    pauseDescription: "Pushes, tags and schedules stop deploying it until you resume. An update you start yourself still runs.",
+    pauseDescription:
+      "Pushes, tags and schedules stop deploying it until you resume. An update you start yourself still runs.",
     reasonLabel: "Reason",
     reasonDescription: "Shown to whoever looks, and kept with the pause.",
     reasonPlaceholder: "Looking into the checkout bug",
@@ -35,7 +40,8 @@ export const rollout = {
     resumed: "Automatic deploys of {domain} are running again",
     resumedHeld: {
       one: "Automatic deploys of {domain} are running again. {count} push or tag arrived while they were paused and was not deployed: update the app to catch up.",
-      other: "Automatic deploys of {domain} are running again. {count} pushes or tags arrived while they were paused and were not deployed: update the app to catch up.",
+      other:
+        "Automatic deploys of {domain} are running again. {count} pushes or tags arrived while they were paused and were not deployed: update the app to catch up.",
     },
     resumeFailed: "Could not resume the deploys of {domain}",
     heldNow: {
@@ -43,16 +49,19 @@ export const rollout = {
       other: "{count} pushes or tags have been held since.",
     },
     rollbackLabel: "Pause automatic deploys after a rollback",
-    rollbackDescription: "So the next push does not undo it; resume when the cause is fixed.",
+    rollbackDescription:
+      "So the next push does not undo it; resume when the cause is fixed.",
     rollbackOn: "Automatic deploys of {domain} will pause after a rollback",
-    rollbackOff: "Automatic deploys of {domain} will keep running after a rollback",
+    rollbackOff:
+      "Automatic deploys of {domain} will keep running after a rollback",
     rollbackFailed: "Could not change what a rollback does to {domain}",
     pausedPill: "Paused",
   },
   freeze: {
     title: "Freeze deploys",
     serverTitle: "Deploy freeze",
-    serverDescription: "Hold every deploy on this server for a stretch. An app can also be frozen on its own, from its Automation settings.",
+    serverDescription:
+      "Hold every deploy on this server for a stretch. An app can also be frozen on its own, from its Automation settings.",
     loading: "Loading the freezes",
     readFailed: "Could not read the freezes",
     none: "No freeze is set.",
@@ -67,7 +76,8 @@ export const rollout = {
     by: "Set by {by}",
     dialogTitle: "Freeze deploys of {domain}",
     dialogTitleServer: "Freeze deploys on this server",
-    dialogIntro: "While it holds, a deploy somebody asks for is refused with the reason below unless they say it must go ahead. Pushes, tags and schedules wait. A rollback is never held.",
+    dialogIntro:
+      "While it holds, a deploy somebody asks for is refused with the reason below unless they say it must go ahead. Pushes, tags and schedules wait. A rollback is never held.",
     reasonLabel: "Reason",
     reasonDescription: "Whoever tries to deploy meanwhile is told it.",
     reasonPlaceholder: "Black Friday: nothing ships",
@@ -103,20 +113,25 @@ export const rollout = {
   },
   limits: {
     title: "Deploy limits",
-    description: "How much of the deploy history is kept, and how the app is told to stop.",
+    description:
+      "How much of the deploy history is kept, and how the app is told to stop.",
     historyLabel: "Deploys kept in history",
-    historyDescription: "How many deploys of this app are kept with their logs, from {min} to {max}. Empty uses the server's {server}. Older ones go at the next deploy.",
+    historyDescription:
+      "How many deploys of this app are kept with their logs, from {min} to {max}. Empty uses the server's {server}. Older ones go at the next deploy.",
     historyPlaceholder: "Server default",
     historyRange: "A number from {min} to {max}, or empty for the server's.",
     stopTimeoutLabel: "Time to stop",
-    stopTimeoutDescription: "Seconds the app gets to finish after the stop signal before it is killed, from {min} to {max}. Empty leaves systemd's own wait.",
+    stopTimeoutDescription:
+      "Seconds the app gets to finish after the stop signal before it is killed, from {min} to {max}. Empty leaves systemd's own wait.",
     stopTimeoutPlaceholder: "systemd's default",
     stopTimeoutRange: "A number of seconds from {min} to {max}, or empty.",
     stopTimeoutSuffix: "seconds",
     stopSignalLabel: "Stop signal",
     stopSignalDefault: "SIGTERM (default)",
-    stopApplied: "The stop policy is written into the unit now and read the next time it stops. Nothing restarts.",
-    stopUnsupported: "This app does not run in a unit Noust writes, so its stop policy is not set here. A Compose stack or a container uses its own.",
+    stopApplied:
+      "The stop policy is written into the unit now and read the next time it stops. Nothing restarts.",
+    stopUnsupported:
+      "This app does not run in a unit Noust writes, so its stop policy is not set here. A Compose stack or a container uses its own.",
     saveFailed: "The deploy limits were not saved",
     loading: "Loading the deploy limits",
     readFailed: "Could not read the deploy limits",
@@ -129,7 +144,8 @@ export const rollout = {
   },
   schedule: {
     title: "Scheduled updates",
-    description: "Make the app update itself at a time you choose. Each run takes its backup first and does nothing when there is nothing new.",
+    description:
+      "Make the app update itself at a time you choose. Each run takes its backup first and does nothing when there is nothing new.",
     loading: "Loading the schedule",
     readFailed: "Could not read the scheduled update",
     whenLabel: "When",
@@ -138,13 +154,16 @@ export const rollout = {
     whenMonthly: "On the first of the month at 03:00",
     whenCustom: "At a time I write",
     customLabel: "Calendar expression",
-    customDescription: "A systemd calendar expression, such as Sun *-*-* 03:00 or *-*-* 04:30.",
+    customDescription:
+      "A systemd calendar expression, such as Sun *-*-* 03:00 or *-*-* 04:30.",
     customRequired: "Write when it should run.",
     enabledLabel: "Run on schedule",
     backupLabel: "Refuse the update when its backup does not happen",
-    backupDescription: "A run that cannot take its backup does not update, and says so.",
+    backupDescription:
+      "A run that cannot take its backup does not update, and says so.",
     onlyIfNewLabel: "Do nothing when there is nothing new",
-    onlyIfNewDescription: "The branch (or the tags it follows) has to have something the live version lacks.",
+    onlyIfNewDescription:
+      "The branch (or the tags it follows) has to have something the live version lacks.",
     nextRun: "Next run {time}",
     noNextRun: "No run is waiting",
     lastRun: "Last run {time}: {outcome}",
@@ -160,7 +179,8 @@ export const rollout = {
     saveFailed: "The schedule of {domain} was not saved",
     remove: "Stop updating by itself",
     removeTitle: "Stop {domain} updating itself?",
-    removeDescription: "The schedule and its timer are removed. Updates you start yourself are not affected.",
+    removeDescription:
+      "The schedule and its timer are removed. Updates you start yourself are not affected.",
     removeAction: "Stop",
     removed: "{domain} no longer updates itself",
     removeFailed: "Could not remove the schedule of {domain}",
@@ -177,14 +197,17 @@ export const rollout = {
     promote: "Make it serve",
     promoteAria: "Make release {id} serve",
     promoteTitle: "Make release {id} serve?",
-    promoteDescription: "It was built earlier and is not serving. It goes live behind the same health check; its migrations run now and nothing is built again.",
-    promoteDescriptionCommit: "Commit {commit} was built earlier and is not serving. It goes live behind the same health check; its migrations run now and nothing is built again.",
+    promoteDescription:
+      "It was built earlier and is not serving. It goes live behind the same health check; its migrations run now and nothing is built again.",
+    promoteDescriptionCommit:
+      "Commit {commit} was built earlier and is not serving. It goes live behind the same health check; its migrations run now and nothing is built again.",
     promoteQueued: "Making release {id} of {domain} serve",
     promoteFailed: "Could not make release {id} serve",
     buildOnly: "Build without serving",
     buildOnlyQueued: "Building {domain} without serving it",
     buildOnlyFailed: "Could not build {domain} without serving it",
-    buildOnlyHint: "Builds the branch into a release that waits. Make it serve from Deployments when you want it live.",
+    buildOnlyHint:
+      "Builds the branch into a release that waits. Make it serve from Deployments when you want it live.",
   },
   hooks: {
     previewPostCreate: "After a preview is first served",
@@ -193,26 +216,34 @@ export const rollout = {
   previews: {
     nameTitle: "Names and search engines",
     templateLabel: "Name of a preview",
-    templateDescription: "The whole domain a preview answers at, written with {tokens}. Empty is {default}.",
+    templateDescription:
+      "The whole domain a preview answers at, written with {tokens}. Empty is {default}.",
     templateExample: "For example, {example}",
-    templateNeedsId: "The name needs {id} or {random}, or two previews would share it.",
+    templateNeedsId:
+      "The name needs {id} or {random}, or two previews would share it.",
     templateTooLong: "At most {max} characters.",
     templateUnknown: "Unknown placeholder: {list}.",
     noindexLabel: "Keep search engines out",
-    noindexDescription: "Previews answer with a noindex header and a robots.txt that disallows everything, so nobody finds them by searching.",
-    forkLegend: "Pull requests from forks and from people the repository does not trust",
+    noindexDescription:
+      "Previews answer with a noindex header and a robots.txt that disallows everything, so nobody finds them by searching.",
+    forkLegend:
+      "Pull requests from forks and from people the repository does not trust",
     forkRefuseLabel: "Refuse them",
     forkRefuseDescription: "They get no preview. The safe way.",
     forkApproveLabel: "Wait for my approval",
-    forkApproveDescription: "Their preview waits until an operator approves each commit. A new push waits again.",
+    forkApproveDescription:
+      "Their preview waits until an operator approves each commit. A new push waits again.",
     dataCloneLabel: "A copy of the database",
-    dataCloneDescription: "Each preview gets a database of its own that starts as a copy of the application's. It can take a while and takes disk space.",
+    dataCloneDescription:
+      "Each preview gets a database of its own that starts as a copy of the application's. It can take a while and takes disk space.",
     statusAwaiting: "Awaiting approval",
-    awaitingNote: "The commit {commit} of this pull request waits for an operator. Nothing of it has been built or run.",
+    awaitingNote:
+      "The commit {commit} of this pull request waits for an operator. Nothing of it has been built or run.",
     approve: "Approve",
     approveAria: "Approve {name}",
     approveTitle: "Approve commit {commit} of {name}?",
-    approveDescription: "It is built and run on this server with the variables previews are given. A new push waits again.",
+    approveDescription:
+      "It is built and run on this server with the variables previews are given. A new push waits again.",
     approveAction: "Approve and build",
     approved: "Approved {name}: its commit is building",
     approveFailed: "Could not approve {name}",
@@ -220,6 +251,7 @@ export const rollout = {
     rejectAria: "Reject {name}",
     rejected: "Turned down the commit of {name}",
     rejectFailed: "Could not turn down {name}",
-    forkApproveRisk: "An approved commit runs on this server with the variables previews are given.",
+    forkApproveRisk:
+      "An approved commit runs on this server with the variables previews are given.",
   },
 } as const;

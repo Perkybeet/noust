@@ -44,9 +44,11 @@ What this means in practice:
 - **The command line keeps what it had.** A command, a flag or an alias that existed is not removed
   within a major version, and a
   test compares the command tree with a frozen contract (`scripts/cli_parity.py`).
-- **Names on disk stay.** Some `wasm` names are kept on purpose because data and clients already
-  use them (the cookies, the `.wasm/` folder of an application, the `wasm_ro_` database roles...);
-  [CONTRIBUTING.md](../CONTRIBUTING.md) lists them.
+- **A name from before 4.0 is read, and the new one is written.** What lives outside Noust (a
+  script's header, an API token in a CI secret, a file in a repository, a backup or an export) keeps
+  working under its old name until 5.0, backups and exports for as long as the file exists;
+  [UPGRADING-4.0.md](UPGRADING-4.0.md) lists them, and `noust.core.legacy_names` says why each is
+  kept and until when.
 - **An application is never converted behind your back.** An existing application keeps how it
   updates and how it is laid out; a release that offers a better way offers it, and does not apply it.
 
@@ -118,7 +120,7 @@ releasing a new minor adds its line, keeps the previous one until the minor afte
 and retires the line before that. CI fails when the table does not list the version being released as
 supported.
 
-A WASM 2.x server upgrades to 3.3.x first: [upgrading-3.0.md](UPGRADING-3.0.md).
+A 2.x server upgrades to 3.3.x first: [upgrading-3.0.md](UPGRADING-3.0.md).
 
 ## Where to read what changed
 
