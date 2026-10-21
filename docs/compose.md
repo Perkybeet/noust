@@ -399,7 +399,7 @@ is the first one relayed.
   service's own port normally, the relay's while one serves. The site includes it inside an
   `upstream` block.
   - **A site Noust wrote** is rendered with those blocks when you turn the mode on, named
-    `wasm_bg_<app>_<service>`, each with `keepalive 64;`. Nothing for you to do.
+    `noust_bg_<app>_<service>`, each with `keepalive 64;`. Nothing for you to do.
   - **A site you wrote** includes the file itself, inside the upstream block that proxies to
     the service, keeping your names. Noust never edits it.
 
@@ -703,7 +703,7 @@ The password is read inside the container, from its own environment (`POSTGRES_P
 names, and handed to the client the way it takes a secret outside a command line. It is in no
 argument on the host or in the container. The dump goes straight to a compressed file, mode
 `0600`, named `stack-<service>-<engine>-<database>.<dump|sql|archive>.gz`, under
-`wasm-backup/databases/` in the backup's archive, with a manifest entry that says how to put it
+`noust-backup/databases/` in the backup's archive, with a manifest entry that says how to put it
 back.
 
 **When.** In the backup every update of a Compose stack takes first, before the `pre_deploy`
@@ -815,7 +815,7 @@ state of its containers and the last lines of `docker compose logs`, and the mon
 in a loop (see [MONITOR.md](MONITOR.md#what-it-watches)). A deployment of one skips the site and
 the certificate.
 
-**A stack WASM 1.x registered with a port.** 1.x gave every stack the default port 3000 and
+**A stack registered with a port by 1.x.** 1.x gave every stack the default port 3000 and
 wrote it a site, so a healthy worker reads as "nothing answers on its port", and its domain
 answers `502`. `noust health`, `noust diagnose` and the application's page point at the fix:
 
@@ -878,7 +878,7 @@ is deployed gets `PORT=<the port its site proxies to>` in its `.env` when it pub
 
 ## Routing with noust.nginx.yaml
 
-A `noust.nginx.yaml` (or the `wasm.nginx.yaml` a repository wrote for WASM) at the root of the
+A `noust.nginx.yaml` (or the file name of before 4.0, which still works until 5.0 and which a deployment asks you to rename) at the root of the
 repository gives the site routes of its own, and tunes the plain proxy site. Docker Compose
 stacks and the single-process application types read it; monorepos do not. The schema is
 closed and every value is checked to be exactly what its directive takes: a key nothing reads, a

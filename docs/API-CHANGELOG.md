@@ -387,7 +387,7 @@ Nothing.
 
 The baseline for version 1 is the API as 3.3.1 shipped it. What differs from it:
 
-- `GET /api/auth/session` no longer answers `renamed_from_wasm`. The console used it to tell an
+- `GET /api/auth/session` no longer answers its `renamed_from_<previous name>` field. The console used it to tell an
   operator, once, that the product had been renamed in 3.0; the notice is gone with the upgrade
   from 2.x, which 4.0 does not move. A client that read the field reads it as absent, which is
   what `false` meant.

@@ -352,7 +352,7 @@ See [docs/console.md](docs/console.md).
   makes going back past it ask first (`--schema-changed-ok`): Noust puts code back, never a
   database.
 
-Applications deployed in place (by WASM 1.x, or with `--layout inplace`) stay in place until
+Applications deployed in place (by 1.x, or with `--layout inplace`) stay in place until
 you run `noust app migrate DOMAIN` (rehearse it first with `noust --dry-run app migrate
 DOMAIN`): the live tree becomes the first release, the `.env` and what the application wrote
 for itself move to `shared/`, and if it does not come up everything is put back. A monorepo moves
@@ -1064,7 +1064,7 @@ paths; `noust setup retire-links` removes the ones nothing uses.
 - [docs/CHANGELOG-3.1.md](docs/CHANGELOG-3.1.md): what changed in 3.1
 - [docs/UPGRADING-3.1.md](docs/UPGRADING-3.1.md): upgrading a 3.0 server or fleet to 3.1, and rolling back
 - [docs/CHANGELOG-3.0.md](docs/CHANGELOG-3.0.md): what changed in 3.0
-- [docs/UPGRADING-3.0.md](docs/UPGRADING-3.0.md): from WASM 2.x, upgrade to 3.3.x first
+- [docs/UPGRADING-3.0.md](docs/UPGRADING-3.0.md): from 2.x, upgrade to 3.3.x first
 - [docs/PLATFORMS.md](docs/PLATFORMS.md): the distributions and processors Noust installs on, what is tested where, and how to verify the installer
 - [docs/CENTRAL.md](docs/CENTRAL.md): running a central, adding a server, fleet views and bulk actions, sealing its secrets
 - [docs/CONFIG.md](docs/CONFIG.md): every setting, and the obsolete ones
@@ -1078,9 +1078,9 @@ paths; `noust setup retire-links` removes the ones nothing uses.
 - [docs/ENS.md](docs/ENS.md): Spain's Esquema Nacional de Seguridad, category MEDIUM (in Spanish, with an English summary)
 - [docs/DESIGN.md](docs/DESIGN.md): the console's design system
 - [docs/MONITOR.md](docs/MONITOR.md): the resource monitor and the metrics history
-- [docs/UPGRADING-2.0.md](docs/UPGRADING-2.0.md): upgrading WASM from 1.6, and between 2.x
-  releases
-- Earlier releases, as WASM: [2.3](docs/CHANGELOG-2.3.md), [2.2](docs/CHANGELOG-2.2.md),
+- [docs/UPGRADING-2.0.md](docs/UPGRADING-2.0.md): upgrading from 1.6, and between 2.x releases
+  (the line that carried the product's previous name)
+- Earlier releases, under that name: [2.3](docs/CHANGELOG-2.3.md), [2.2](docs/CHANGELOG-2.2.md),
   [2.1](docs/CHANGELOG-2.1.md), [2.0](docs/CHANGELOG-2.0.md)
 - `man noust`, and `noust <command> --help`
 
@@ -1108,14 +1108,14 @@ committed to `src/noust/web/static/`, so packaging never runs Node. See
 
 ## License
 
-From 2.1.0, Noust (then WASM) is free software under the **GNU Affero General Public License,
+From 2.1.0, Noust (then under its previous name) is free software under the **GNU Affero General Public License,
 version 3 or later** ([LICENSE](LICENSE)). You may use it for anything, commercially
 included, study it, change it and share it. If you change Noust and let others use your
 changed version over a network (a hosted service, say), you must offer them its source under
 the same licence.
 
-Releases up to 2.0.x were published as WASM under the WASM Non-Commercial Source-Available
-License 1.0, and stay under it.
+Releases up to 2.0.x were published under a non-commercial source-available licence, and stay
+under it: the text is the `LICENSE` of each of those tags.
 
 Copyright (c) 2024-2026 Yago López Prado. For a licence on other terms (for example to
 embed Noust in a closed product), write to yago.lopez.adeje@gmail.com.

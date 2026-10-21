@@ -170,7 +170,7 @@ What is measured per application depends on how it runs:
 
 | Application | CPU and memory | When there is nothing |
 |---|---|---|
-| Node, Python, Go... (in place, releases, legacy `wasm-*` units) | its unit's cgroup, located by systemd (`ControlGroup`) | stopped, unit missing, accounting off |
+| Node, Python, Go... (in place, releases, units with the legacy prefix of before 0.14.1) | its unit's cgroup, located by systemd (`ControlGroup`) | stopped, unit missing, accounting off |
 | Zero-downtime | both instances, summed | as above |
 | Monorepo | every workspace's unit, summed | as above |
 | Docker Compose | the cgroup of each container of the project | no docker, no containers |

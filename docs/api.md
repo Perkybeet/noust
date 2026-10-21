@@ -428,7 +428,7 @@ stream ends, and the reconnection answers `401`.
 | `/ws/logs/{domain}?lines=N` | The application's journal: the last `N` lines (1 to 500, default 50), then follows. `{domain}` may also name a unit Noust manages; any other unit is refused. |
 | `/ws/jobs/{id}` | One job, until it finishes. |
 | `/ws/jobs` | Every job's transitions. |
-| `/ws/events` | Journal entries of Noust's own units: `noust-*` (cron and backup timers, the monitor), and their `wasm-*` names on a server not yet migrated from WASM. |
+| `/ws/events` | Journal entries of Noust's own units: `noust-*` (cron and backup timers, the monitor), and the units of applications from before 0.14.1, which still carry the legacy prefix. |
 
 A handshake authenticates with any one of:
 

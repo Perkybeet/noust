@@ -105,7 +105,7 @@ Thumbs.db
 # Debian packaging
 .pybuild/
 debian/.debhelper/
-debian/wasm/
+debian/noust/
 debian/files
 debian/*.debhelper
 debian/*.substvars
@@ -113,9 +113,6 @@ debian/*.log
 *.deb
 *.changes
 *.buildinfo
-
-# GitHub Copilot
-.github/copilot-instructions.md
 
 # Local development scripts
 install-local.sh
@@ -127,7 +124,7 @@ install-local.sh
 # Development environment
 .venv/
 
-# WASM Console (panel/)
+# The console (panel/)
 node_modules/
 panel/dist/
 panel/test-results/

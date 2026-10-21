@@ -1,3 +1,3 @@
-# Upgrading from WASM 2.x
+# Upgrading from 2.x
 
-From WASM 2.x, upgrade to 3.3.x first: it moves the server onto Noust's names, and Noust 4.0 refuses to start on a server that has not been moved.
+A server on the 2.x line, which carried the product's previous name, upgrades to 3.3.x first: it moves the server onto Noust's names, and Noust 4.0 refuses to start on a server that has not been moved.

@@ -8531,7 +8531,7 @@ Arguments: `domain`, `name`
 
 ### noust env migrate
 
-Move an application's variables from its systemd unit into its .env (WASM 1.x units).
+Move an application's variables from its systemd unit into its .env (units written by 1.x).
 
 ```
 noust env migrate [OPTIONS] [DOMAIN]
