@@ -359,7 +359,7 @@ export function StatusPageSection() {
   const query = useQuery(probesQuery());
   if (query.data === undefined) return null;
   return (
-    <Section title={t("probes.page.title")} description={t("probes.page.description")}>
+    <Section icon={FileText} title={t("probes.page.title")} description={t("probes.page.description")}>
       <PageCard page={query.data.status_page} />
     </Section>
   );

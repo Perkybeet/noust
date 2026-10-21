@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ScanSearch, ShieldQuestion } from "lucide-react";
+import { Database, ScanSearch, ShieldQuestion } from "lucide-react";
 
 import { isApiError, request } from "../../../api/client";
 import { appSqliteQuery } from "../../../api/queries/databases";
@@ -111,7 +111,7 @@ export function SqliteSection({ domain }: { domain: string }) {
   const data = found.data;
   if (data === undefined || data.files.length === 0) return null;
   return (
-    <Section title={t("databases.appTab.sqlite.title")} description={t("databases.appTab.sqlite.intro")}>
+    <Section icon={Database} title={t("databases.appTab.sqlite.title")} description={t("databases.appTab.sqlite.intro")}>
       {data.truncated ? <InlineMessage tone="info">{t("databases.appTab.sqlite.truncated")}</InlineMessage> : null}
       <ul className="grid gap-4 lg:grid-cols-2">
         {data.files.map((file) => (

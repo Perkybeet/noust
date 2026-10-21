@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
-import { Eye, Link2 } from "lucide-react";
+import { Cable, EthernetPort, Eye, Link2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
@@ -167,7 +167,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
           )}
         </Section>
 
-        <Section title={t("databases.connect.fromComputer")} description={t("databases.connect.fromComputerDescription")} loading={tunnel === undefined}>
+        <Section icon={Cable} title={t("databases.connect.fromComputer")} description={t("databases.connect.fromComputerDescription")} loading={tunnel === undefined}>
           <div className="flex min-w-0 flex-col gap-5">
             <div className="flex min-w-0 flex-wrap gap-4">
               <Field label={t("databases.connect.account")} nativeLabel={false} className="w-56">
@@ -238,7 +238,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
 
         <PublicAccessSection engine={engine} name={name} />
 
-        <Section title={t("databases.connect.exposure")} description={t("databases.connect.exposureDescription")} loading={data === undefined}>
+        <Section icon={EthernetPort} title={t("databases.connect.exposure")} description={t("databases.connect.exposureDescription")} loading={data === undefined}>
           {data === undefined ? (
             <Skeleton className="h-12 w-full rounded-card" />
           ) : (

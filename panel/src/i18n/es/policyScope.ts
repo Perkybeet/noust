@@ -17,7 +17,7 @@ export const policyScope: Catalog<typeof en> = {
     remove: "Quitar",
     removeTitle: "Quitar la programación de todas las bases de datos de {engine}",
     removeDescription:
-      "Ninguna base de datos se copia ya con ella y la programación se detiene. Los volcados ya hechos se quedan. Las bases de datos con política propia la conservan.",
+      "Ninguna base de datos se copia ya con ella y la programación se detiene. Los volcados ya hechos se quedan. Las bases de datos con programación propia la conservan.",
     removeAction: "Quitar programación",
   },
   drawer: {

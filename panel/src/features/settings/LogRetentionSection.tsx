@@ -6,7 +6,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, RotateCcw } from "lucide-react";
+import { Pencil, RotateCcw, ScrollText } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -247,7 +247,7 @@ export function LogRetentionSection() {
   const t = useT();
   const query = useQuery(logRetentionQuery());
   return (
-    <Section title={t("logs.retention.title")} description={t("logs.retention.description")}>
+    <Section icon={ScrollText} title={t("logs.retention.title")} description={t("logs.retention.description")}>
       <QueryState query={query} label={t("logs.retention.noun")} skeleton={<SkeletonCard lines={2} />}>
         {(current) => <Retention current={current} />}
       </QueryState>

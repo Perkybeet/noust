@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { Blocks, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -120,6 +120,7 @@ export function ExtensionsCard({ engine, name }: { engine: string; name: string 
 
   return (
     <Card
+      icon={Blocks}
       title={t("databases.extensions.title")}
       level={2}
       description={t("databases.extensions.description")}

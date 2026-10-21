@@ -17,7 +17,7 @@ export const policyScope = {
     loadFailed: "Could not load the schedule for every database",
     remove: "Remove",
     removeTitle: "Remove the schedule for every {engine} database",
-    removeDescription: "No database is backed up by it any more, and the schedule stops. The dumps already taken stay. Databases with a policy of their own keep it.",
+    removeDescription: "No database is backed up by it any more, and the schedule stops. The dumps already taken stay. Databases with a schedule of their own keep it.",
     removeAction: "Remove schedule",
   },
   drawer: {

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Network, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../api/client";
@@ -71,7 +71,7 @@ export function AppDnsSection({ domain }: { domain: string }) {
   });
 
   return (
-    <Section title={t("network.appDns.title")} description={t("network.appDns.description", { domain })}>
+    <Section icon={Network} title={t("network.appDns.title")} description={t("network.appDns.description", { domain })}>
       {dns.isPending ? (
         <LoadingRegion label={t("network.appDns.loading")}>
           <Skeleton className="h-16 rounded-card" />

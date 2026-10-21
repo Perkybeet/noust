@@ -7,6 +7,7 @@ import { request } from "../../api/client";
 import { acmeQuery, appCertificateQuery, dnsAccountsQuery, internalCaQuery, networkKeys, uploadedQuery } from "../../api/queries/network";
 import type { AppCertificate } from "../../api/queries/network";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { ICONS } from "../../components/ui/icons";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
@@ -196,6 +197,7 @@ export function CertificateSourceCard({ domain, onChosen }: { domain: string; on
   return (
     <Card
       as="div"
+      icon={ICONS.verified}
       padding="sm"
       title={t("network.certSource.title")}
       level={3}

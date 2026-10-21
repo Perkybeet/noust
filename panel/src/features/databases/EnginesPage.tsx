@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Download, Play, Plus, Replace, RotateCw, ScrollText, SlidersHorizontal, Square, Trash2 } from "lucide-react";
+import { Boxes, Download, Play, Plus, Replace, RotateCw, ScrollText, Server, SlidersHorizontal, Square, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -461,14 +461,14 @@ export function EnginesPage() {
       ) : (
         <div className="flex min-w-0 flex-col gap-8">
           {containers.length > 0 ? (
-            <Section title={t("databases.instances.hostTitle")} description={t("databases.instances.hostDescription")}>
+            <Section icon={Server} title={t("databases.instances.hostTitle")} description={t("databases.instances.hostDescription")}>
               {hostEngines}
             </Section>
           ) : (
             hostEngines
           )}
           {containers.length > 0 ? (
-            <Section title={t("databases.instances.title")} description={t("databases.instances.description")}>
+            <Section icon={Boxes} title={t("databases.instances.title")} description={t("databases.instances.description")}>
               <DataTable
                 columns={containerColumns}
                 rows={containers}

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, X } from "lucide-react";
+import { Globe, Pencil, X } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -145,6 +145,7 @@ export function UnknownHostsCard() {
 
   return (
     <Card
+      icon={Globe}
       loading={data === undefined}
       level={2}
       title={t("network.unknownHosts.title")}

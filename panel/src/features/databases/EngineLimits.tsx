@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Gauge } from "lucide-react";
 import { useState } from "react";
 
 import { isApiError, request } from "../../api/client";
@@ -243,7 +244,7 @@ export function EngineLimits({ engine, display }: { engine: string; display: str
   // A server that does not have the endpoint yet (an older node behind a central) answers 404 or 405.
   if (limits.isError && isApiError(limits.error) && (limits.error.status === 404 || limits.error.status === 405)) return null;
   return (
-    <Section title={t("databases.engineSettings.limits.title")} description={t("databases.engineSettings.limits.description", { engine: display })}>
+    <Section icon={Gauge} title={t("databases.engineSettings.limits.title")} description={t("databases.engineSettings.limits.description", { engine: display })}>
       <QueryState query={limits} label={t("databases.engineSettings.limits.noun", { engine: display })} skeleton={<Skeleton className="h-48 w-full rounded-card" />}>
         {(data) => <LimitsForm engine={engine} display={display} data={data} />}
       </QueryState>

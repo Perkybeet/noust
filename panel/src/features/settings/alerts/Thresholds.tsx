@@ -10,6 +10,7 @@
  */
 
 import { useState } from "react";
+import { Gauge } from "lucide-react";
 
 import { Section } from "../../../components/page/Section";
 import { Card } from "../../../components/ui/Card";
@@ -231,7 +232,7 @@ export function Thresholds({ form }: { form: SettingsForm<Record<string, string>
   // What a check held when it was ticked off, so ticking it again does not forget the number.
   const [kept, setKept] = useState<Readonly<Record<string, string>>>({});
   return (
-    <Section title={t("alerts.thresholds.title")} description={t("alerts.thresholds.description")}>
+    <Section icon={Gauge} title={t("alerts.thresholds.title")} description={t("alerts.thresholds.description")}>
       <FormFailure error={form.formError} title={t("alerts.thresholds.errorTitle")} />
       <Card padding="none">
         <div className="flex flex-col divide-y divide-border">

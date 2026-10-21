@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Bell, Megaphone } from "lucide-react";
 
 import { configQuery, patchConfig, smtpSettingsQuery } from "../../api/queries/config";
 import type { SmtpSettings } from "../../api/queries/config";
@@ -96,7 +97,7 @@ function Channels({ settings, smtp }: { settings: Settings; smtp: SmtpSettings |
   const t = useT();
   const specs = channels(t);
   return (
-    <Section title={t("settings.notifications.channels.title")}>
+    <Section icon={Megaphone} title={t("settings.notifications.channels.title")}>
       <Card padding="none">
         <div className="flex min-w-0 flex-col divide-y divide-border">
           <DeliveryRow settings={settings} channelsOn={channelsOn(t, settings, smtp)} />
@@ -147,7 +148,7 @@ function EventsCard({
   const t = useT();
   const values = form.values ?? {};
   return (
-    <Section title={t("settings.notifications.events.title")} description={t("settings.notifications.events.description")}>
+    <Section icon={Bell} title={t("settings.notifications.events.title")} description={t("settings.notifications.events.description")}>
       <FormFailure error={form.formError} title={t("settings.notifications.events.errorTitle")} />
       <FormFailure error={language.formError ?? privateHosts.formError} title={t("settings.notifications.messages.errorTitle")} />
       <div className="flex min-w-0 flex-col gap-3">

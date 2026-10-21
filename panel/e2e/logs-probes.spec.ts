@@ -119,7 +119,7 @@ test("a probe is added, its page is kept up to date, and it goes when it is remo
   // The page it is a component of: kept up to date, with the files it wrote.
   const page_ = section(page, "Status page");
   await expect(page_.getByText(/Written to .*: 1 component\./)).toBeVisible();
-  await expect(page_.getByText("It is not on a name of its own: serve the folder above yourself, or put it on one.")).toBeVisible();
+  await expect(page_.getByText("It has no name of its own: serve the folder above yourself, or give it one.")).toBeVisible();
   await page_.getByRole("switch", { name: "Keep the page's files up to date" }).click();
   await confirmItsYou(page, consoleServer);
   await expect(page_.getByRole("switch", { name: "Keep the page's files up to date" })).toBeChecked();

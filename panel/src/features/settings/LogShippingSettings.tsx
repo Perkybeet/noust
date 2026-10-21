@@ -512,7 +512,7 @@ export function LogShippingSettings() {
   const data = drains.data;
   const notRunning = data !== undefined && data.drains.some((drain) => drain.enabled) && !data.service["active"];
   return (
-    <Section title={t("runtime.logShipping.title")} description={t("runtime.logShipping.description")}>
+    <Section icon={Send} title={t("runtime.logShipping.title")} description={t("runtime.logShipping.description")}>
       {notRunning ? (
         <Notice tone="warning" title={t("runtime.logShipping.notRunningTitle")}>
           {t("runtime.logShipping.notRunningBody")}

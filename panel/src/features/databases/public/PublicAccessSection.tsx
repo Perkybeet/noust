@@ -115,7 +115,7 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
 
   if (data === undefined) {
     return (
-      <Section title={t("publicAccess.title")} description={t("publicAccess.description")}>
+      <Section icon={Globe} title={t("publicAccess.title")} description={t("publicAccess.description")}>
         {detail.isError ? (
           <ErrorBlock compact error={detail.error} title={t("publicAccess.loadFailed")} onRetry={() => void detail.refetch()} retrying={detail.isRefetching} />
         ) : (

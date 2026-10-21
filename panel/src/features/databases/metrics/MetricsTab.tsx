@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Timer } from "lucide-react";
 import { useMemo } from "react";
 
 import { databaseMetricsQuery, slowQueriesQuery } from "../../../api/queries/databases";
@@ -263,7 +264,7 @@ export function MetricsTab({ engine, name, range, onRangeChange }: MetricsTabPro
         </Section>
       ) : null}
 
-      <Section title={t("databases.metrics.slow.title")} description={t("databases.metrics.slow.description")} loading={slow.isPending}>
+      <Section icon={Timer} title={t("databases.metrics.slow.title")} description={t("databases.metrics.slow.description")} loading={slow.isPending}>
         {slow.isError ? (
           <ErrorBlock compact error={slow.error} title={t("databases.metrics.slow.failed")} onRetry={() => void slow.refetch()} retrying={slow.isRefetching} />
         ) : slow.data === undefined ? (

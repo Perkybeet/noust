@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Play } from "lucide-react";
+import { Play, Server } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -224,7 +224,7 @@ function RecentActions({ t }: { t: T }) {
     );
   }
   return (
-    <Card as="section" level={2} padding="none" title={t("fleet.summary.actions.title")} description={t("fleet.summary.actions.description")}>
+    <Card icon={Play} as="section" level={2} padding="none" title={t("fleet.summary.actions.title")} description={t("fleet.summary.actions.description")}>
       {body}
     </Card>
   );
@@ -438,7 +438,7 @@ export function SummaryTab() {
         <AttentionCard t={t} rows={rows} loading={loading} />
         <RecentActions t={t} />
       </div>
-      <Card as="section" level={2} padding="none" title={t("fleet.summary.servers.title")} description={t("fleet.summary.servers.description")}>
+      <Card icon={Server} as="section" level={2} padding="none" title={t("fleet.summary.servers.title")} description={t("fleet.summary.servers.description")}>
         <DataTable
           caption={t("fleet.summary.servers.caption")}
           columns={serverColumns(t, view.outcomes)}

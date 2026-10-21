@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRightLeft, Copy, Hammer, Pencil, RefreshCw, Rocket, Server, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Copy, Hammer, Pencil, RefreshCw, Rocket, Server, Trash2, Waypoints } from "lucide-react";
 import { useState } from "react";
 
 import { CommandHint } from "../../../components/page/CommandHint";
@@ -303,7 +303,7 @@ export function PlacementsTab() {
   }
 
   return (
-    <Section title={t("placements.title")} description={t("placements.description")} actions={placements.length > 0 ? place : undefined} loading={list.isPending}>
+    <Section icon={Waypoints} title={t("placements.title")} description={t("placements.description")} actions={placements.length > 0 ? place : undefined} loading={list.isPending}>
       {list.isPending ? (
         <div className="flex flex-col gap-3">
           <span className="sr-only">{t("placements.card.comparing", { domain: "" })}</span>

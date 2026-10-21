@@ -268,7 +268,7 @@ describe("Settings > Probes: the status page", () => {
     const { user, backend } = await pageAt();
     const section = (await screen.findByRole("heading", { name: "Status page" })).closest("section") ?? document.body;
     expect(section.textContent).toContain("Written to /var/lib/noust/status: 1 component.");
-    expect(within(section).getByText("It is not on a name of its own: serve the folder above yourself, or put it on one.")).toBeInTheDocument();
+    expect(within(section).getByText("It has no name of its own: serve the folder above yourself, or give it one.")).toBeInTheDocument();
 
     await user.click(within(section).getByRole("switch", { name: "Keep the page's files up to date" }));
     await waitFor(() => {

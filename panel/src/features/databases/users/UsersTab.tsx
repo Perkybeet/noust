@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Eye, KeyRound, Trash2, UserCog } from "lucide-react";
+import { Eye, KeyRound, Trash2, UserCog, Users } from "lucide-react";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -220,6 +220,7 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-8">
       <Section
+        icon={Users}
         title={t("databases.users.title")}
         description={t("databases.users.description")}
         actions={

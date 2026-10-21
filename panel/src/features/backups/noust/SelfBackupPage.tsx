@@ -133,6 +133,7 @@ export function SelfBackupPage() {
   const stateCard =
     schedule === undefined || reading === null ? null : (
       <Card
+        icon={CalendarClock}
         level={2}
         title={t("selfBackup.state.title")}
         status={<StatusPill size="sm" state={reading.health === "ok" ? "running" : reading.health === "problem" ? "warning" : "stopped"} label={stateWord} />}

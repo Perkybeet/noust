@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { Globe } from "lucide-react";
 
 import { request } from "../../api/client";
 import type { AppDomainChange } from "../../api/queries/domains";
@@ -32,7 +33,7 @@ export function CanonicalSection({ domain, canonical, onChanged }: { domain: str
     },
   });
   return (
-    <Section title={t("network.canonical.title")} description={t("network.canonical.description")}>
+    <Section icon={Globe} title={t("network.canonical.title")} description={t("network.canonical.description")}>
       <ChoiceCards<Spelling>
         legend={t("network.canonical.legend")}
         options={[

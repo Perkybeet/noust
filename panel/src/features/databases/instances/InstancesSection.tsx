@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpFromLine, Gauge, Lock, Play, Plus, Replace, Square, Trash2, Undo2 } from "lucide-react";
+import { ArrowUpFromLine, Boxes, Gauge, Lock, Play, Plus, Replace, Square, Trash2, Undo2 } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -253,6 +253,7 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
 
   return (
     <Section
+      icon={Boxes}
       title={t("databases.instances.runTitle")}
       description={t("databases.instances.runDescription")}
       actions={

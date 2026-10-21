@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { RotateCw } from "lucide-react";
+import { History, RotateCw } from "lucide-react";
 
 import { notificationDeliveriesQuery, notificationKeys, retryNotificationDelivery } from "../../api/queries/notifications";
 import type { NotificationDelivery } from "../../api/queries/notifications";
@@ -124,7 +124,7 @@ export function DeliveryLog() {
   const items = deliveries.data?.items ?? [];
 
   return (
-    <Section title={t("notifyRouting.deliveries.title")} description={t("notifyRouting.deliveries.description")}>
+    <Section icon={History} title={t("notifyRouting.deliveries.title")} description={t("notifyRouting.deliveries.description")}>
       {deliveries.data === undefined ? (
         <LoadingRegion label={t("notifyRouting.deliveries.loading")}>
           <Card padding="none">

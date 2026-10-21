@@ -269,6 +269,34 @@ test("a schedule copies to both destinations, each with its own retention", asyn
   await expectNoA11yViolations(page, "a schedule with destinations");
 });
 
+test("a schedule's destinations fit a phone: each name keeps its own line, each limit its box, and nothing scrolls sideways", async ({ page, consoleServer }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page, consoleServer, "/backups/schedules");
+  await page.getByRole("button", { name: "Actions for shop.example.net" }).click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
+  const dialog = page.getByRole("dialog", { name: "Edit the schedule for shop.example.net" });
+  await expect(dialog.getByLabel(`Keep on ${SFTP}`, { exact: true })).toBeVisible();
+  await settle(page);
+
+  for (const name of [SFTP, ENCRYPTED]) {
+    // The destination's name is what the operator reads to know which limits these are: it is not cut to nothing.
+    const label = dialog.getByRole("checkbox", { name });
+    const box = await label.boundingBox();
+    expect(box?.width ?? 0, `the checkbox of ${name}`).toBeGreaterThan(8);
+    const text = dialog.getByText(name, { exact: true }).first();
+    const shown = await text.boundingBox();
+    expect(shown?.width ?? 0, `the name ${name} keeps room to be read`).toBeGreaterThan(60);
+    for (const field of [`Keep on ${name}`, `Delete after (days) on ${name}`]) {
+      const input = await dialog.getByLabel(field, { exact: true }).boundingBox();
+      expect(input?.width ?? 0, field).toBeGreaterThan(40);
+    }
+  }
+  // The dialog does not scroll sideways: every limit is inside it.
+  const overflow = await dialog.evaluate((element) => element.scrollWidth - element.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  await expectNoA11yViolations(page, "a schedule's destinations at 390 px");
+});
+
 test("copying a local backup to a destination queues a job that finishes", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/backups\/.*\/push$/);
   // A backup's own actions are in its application's drawer.
