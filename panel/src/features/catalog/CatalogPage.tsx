@@ -5,8 +5,9 @@ import { useT } from "../../i18n";
 import { CatalogFrame } from "./CatalogFrame";
 import { RecipeCard } from "./RecipeCard";
 import { CatalogFilterBar, CatalogResults, useRecipeCatalog } from "./RecipeCatalog";
-import { POPULAR_SHOWN, isNarrowed, popularRecipes } from "./model";
+import { isNarrowed } from "./model";
 import type { CatalogSearch } from "./model";
+import { POPULAR_SHOWN, popularRecipes } from "./popular";
 
 export interface CatalogPageProps {
   search: CatalogSearch;

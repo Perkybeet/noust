@@ -10,13 +10,13 @@ import {
   isCategory,
   isNarrowed,
   pageOf,
-  popularRecipes,
   previewNote,
   tagCounts,
   validateCatalogSearch,
   versionLabel,
 } from "./model";
 import type { RecipeSummary } from "../../api/queries/recipes";
+import { popularRecipes } from "./popular";
 import { VAULTWARDEN, WORDPRESS } from "./testFixtures";
 
 describe("the catalogue's filters in the address", () => {

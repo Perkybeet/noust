@@ -110,6 +110,7 @@ export const catalog = {
   popular: { title: "Popular" },
   all: { title: "All recipes" },
   card: {
+    use: "Use",
     docker: "Runs in Docker",
     tags: "Tags",
     moreTags: "+{count}",

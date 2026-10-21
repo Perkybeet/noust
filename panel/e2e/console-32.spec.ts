@@ -19,6 +19,7 @@
 import type { Page, Route } from "@playwright/test";
 
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
+import { chooseWay } from "./wizard-sources";
 
 const RELEASES_APP = "tienda.example.org";
 const LIVE_APP = "pedidos.example.org";
@@ -196,7 +197,7 @@ test("adopting a running stack previews first, with Compose's dry run verbatim",
     });
   });
   await signIn(page, consoleServer, "/apps/new");
-  await page.getByRole("radio", { name: "Already running" }).click();
+  await chooseWay(page, "Already running");
   await page.getByRole("textbox", { name: "Domain" }).fill("stack.example.org");
   await page.getByRole("textbox", { name: "Directory" }).fill("/srv/stack");
   await page.getByRole("button", { name: "Preview" }).click();
@@ -257,7 +258,7 @@ test("adopting a site lists what the server has and previews what is kept as it 
     });
   });
   await signIn(page, consoleServer, "/apps/new");
-  await page.getByRole("radio", { name: "Already running" }).click();
+  await chooseWay(page, "Already running");
   await page.getByRole("radio", { name: /A site on nginx or Apache/ }).click();
   await page.getByRole("button", { name: "Choose legacy.example.org" }).click();
   await expect(page.getByRole("textbox", { name: "Domain" })).toHaveValue("legacy.example.org");

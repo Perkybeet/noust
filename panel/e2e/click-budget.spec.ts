@@ -11,7 +11,8 @@
  *
  * Budgets, from the Applications list (Coolify's, counted the same way from a project's page,
  * are 5 and 3):
- *   - a public repository to its first build: 4 (New application, Inspect source, Continue, Deploy);
+ *   - a public repository to its first build: 4 (New application, Continue to read it and go on, Continue
+ *     past the address, Deploy); on a server with no domain of its own the address is passed over: 3;
  *   - a recipe to its first build: 3 (From a recipe, its card, Deploy);
  *   - the daily verbs of an application: Restart 1, Roll back 1 (to open its chooser), Stop 2
  *     (it asks first);
@@ -31,7 +32,7 @@ import type { Page } from "@playwright/test";
 import { csrf, forgetApp } from "./apps-cleanup";
 import { expect, settle, signIn, test } from "./fixtures";
 import type { ConsoleServer } from "./fixtures";
-import { wizardSource } from "./wizard-sources";
+import { chooseWay, wizardSource } from "./wizard-sources";
 
 /** Only measures: reports the count and leaves the budget unasserted (to run on the old build). */
 const MEASURE_ONLY = process.env.NOUST_E2E_MEASURE === "1";
@@ -152,7 +153,7 @@ test("a recipe goes from the Applications list to its first build within three c
     await direct.click();
   } else {
     await page.getByRole("link", { name: "New application", exact: true }).click();
-    await page.getByRole("radiogroup", { name: "Where the code is" }).getByRole("radio", { name: "From a recipe" }).click();
+    await chooseWay(page, "From a recipe");
   }
   await page.getByRole("button", { name: "Use WordPress" }).click();
   await expect(stepTitle(page)).toBeVisible();

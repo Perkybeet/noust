@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 
 import { certsQuery } from "../../api/queries/certs";
 import { deploymentQuery } from "../../api/queries/deployments";
@@ -19,6 +20,10 @@ export interface SuccessRowProps {
   domain: string;
   /** The deployment the job recorded: where the certificate's outcome is written. */
   deploymentId: number | null;
+  /** What happened, as a sentence ("shop.example.com is deployed"): announced, and the row's first line. */
+  title: string;
+  /** What leads to the build: its log, the job's output. After the title, on the same line where it fits. */
+  actions?: ReactNode;
 }
 
 /**
@@ -28,7 +33,7 @@ export interface SuccessRowProps {
  * does not fail the deploy (a temporary name on a shared domain is refused more often than not):
  * the application serves over HTTP, and the authority's own words are one press away.
  */
-export function SuccessRow({ domain, deploymentId }: SuccessRowProps) {
+export function SuccessRow({ domain, deploymentId, title, actions }: SuccessRowProps) {
   const t = useT();
   const names = useQuery(appDomainsQuery(domain));
   const certs = useQuery(certsQuery());
@@ -42,8 +47,14 @@ export function SuccessRow({ domain, deploymentId }: SuccessRowProps) {
   return (
     <Card padding="sm">
       <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <p role="status" className="flex min-w-0 items-center gap-2 text-14 font-medium text-fg">
+            <StatusPill state="running" label={t("newApp.success.live")} />
+            <span className="min-w-0 break-words">{title}</span>
+          </p>
+          {actions}
+        </div>
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-          <StatusPill state="running" label={t("newApp.success.live")} />
           <ExternalLink href={url} label={t("newApp.success.liveSite", { domain: address.name })}>
             <Mono>{url}</Mono>
           </ExternalLink>

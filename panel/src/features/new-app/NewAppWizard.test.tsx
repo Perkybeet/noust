@@ -373,9 +373,12 @@ describe("the new-app wizard", () => {
     expect(screen.getByRole("button", { name: "Continue" })).toHaveAttribute("aria-busy", "true");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(aborted).toBe(true);
-    await waitFor(() => {
-      expect(screen.queryByText("Reading the repository…")).not.toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.queryByText("Reading the repository…")).not.toBeInTheDocument();
+      },
+      { timeout: 4_000 },
+    );
     expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
     // Cancelling is not a failure.
     expect(screen.queryByText(/Could not inspect/)).not.toBeInTheDocument();

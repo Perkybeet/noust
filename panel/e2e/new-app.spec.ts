@@ -169,10 +169,10 @@ test("also serving www and resource limits reach the deploy request", async ({ p
   // not also wait on a certificate order that a domain with no DNS record cannot complete.
   await page.getByRole("checkbox", { name: "Serve it over HTTPS" }).uncheck();
   // A static site is detected as one type and declares nothing: Configuration and Variables have
-  // nothing to ask, so the address is followed by the deploy. Configuration is still on the
-  // stepper, done, for whoever wants to change what was detected.
+  // nothing to ask, so the address is followed by the deploy. The summary of the deploy says what
+  // was detected and offers to change it, for whoever wants to.
   await continueTo(page, "Deploy");
-  await page.getByRole("button", { name: "Configuration: done" }).click();
+  await page.getByRole("button", { name: "Change detected" }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Configuration" })).toBeFocused();
   await page.getByText("Advanced", { exact: true }).click();
   const limits = page.getByRole("group", { name: "Resource limits" });

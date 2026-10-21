@@ -145,7 +145,7 @@ export function RecipeCard({ recipe, opening = false, disabled = false, onChoose
         <span className="flex min-w-0 items-center gap-3">
           <RecipeLogo logo={recipe.logo} title={recipe.title} />
           {detail ? (
-            <TextLink to="/catalog/$name" params={{ name: recipe.name }} size="inline" className="min-w-0">
+            <TextLink to="/catalog/$name" params={{ name: recipe.name }} variant="row" size="inline" className="min-w-0">
               {name}
             </TextLink>
           ) : (
@@ -165,8 +165,9 @@ export function RecipeCard({ recipe, opening = false, disabled = false, onChoose
       {...(recipe.available && onChoose !== undefined
         ? {
             actions: (
-              <Button size="sm" loading={opening} disabled={disabled && !opening} onClick={onChoose}>
-                {t("newApp.recipes.use", { title: recipe.title })}
+              // "Use" on the tile, "Use WordPress" for whoever hears the buttons one after another.
+              <Button size="sm" loading={opening} disabled={disabled && !opening} onClick={onChoose} aria-label={t("newApp.recipes.use", { title: recipe.title })}>
+                {t("catalog.card.use")}
               </Button>
             ),
           }

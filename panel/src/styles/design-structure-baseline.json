@@ -270,7 +270,6 @@
       "features/databases/public/OpenPublicDialog.tsx": 1,
       "features/domains/SiteConfigPage.tsx": 1,
       "features/fleet/BulkActionDialog.tsx": 1,
-      "features/new-app/ComposeDocument.tsx": 1,
       "features/settings/servers/AddServerDialog.tsx": 1,
       "features/settings/servers/LinkServerDialog.tsx": 1,
       "features/timeline/TimelineDrawer.tsx": 1,

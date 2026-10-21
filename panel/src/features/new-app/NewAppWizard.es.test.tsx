@@ -168,7 +168,8 @@ describe("the new-app wizard in Spanish", () => {
 
     expect(await screen.findByRole("heading", { level: 2, name: "Dirección" })).toHaveFocus();
     await user.click(screen.getByText("Lo que define la exportación"));
-    const summary = screen.getByText("Lo que define la exportación").closest('[data-slot="disclosure-card"]') as HTMLElement;
+    const summary = within(document.body).getByRole("button", { name: /Lo que define la exportación/ }).closest<HTMLElement>('[data-slot="disclosure-card"]');
+    if (summary === null) throw new Error("the export's summary is not a disclosure card");
     expect(within(summary).getByText("1 tarea")).toBeInTheDocument();
     expect(within(summary).getByText("2 valores omitidos")).toBeInTheDocument();
     await user.clear(screen.getByLabelText("Dominio"));

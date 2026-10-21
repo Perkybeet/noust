@@ -12,14 +12,11 @@ import type { Page } from "@playwright/test";
 
 import { forgetApp } from "./apps-cleanup";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
-import { inspectSource, wizardSource } from "./wizard-sources";
+import { chooseWay, inspectSource, wizardSource } from "./wizard-sources";
 
 /** Chooses one of the wizard's ways in: "A Docker image", "From a recipe"... */
 async function chooseStart(page: Page, name: string): Promise<void> {
-  const choice = page.getByRole("radiogroup", { name: "Where the code is" }).getByRole("radio", { name });
-  await expect(choice).toBeVisible();
-  await choice.click();
-  await expect(choice).toHaveAttribute("aria-checked", "true");
+  await chooseWay(page, name);
 }
 
 function stepTitle(page: Page) {

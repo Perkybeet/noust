@@ -112,6 +112,7 @@ export const catalog: Catalog<typeof en> = {
   popular: { title: "Populares" },
   all: { title: "Todas las recetas" },
   card: {
+    use: "Usar",
     docker: "Se ejecuta en Docker",
     tags: "Etiquetas",
     moreTags: "+{count}",

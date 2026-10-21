@@ -260,6 +260,15 @@ export function SourceStep({
   };
   const busy = inspecting !== null;
   const shown = form.source.trim();
+  // The answer to what was typed or chosen: it reads under that, before the other ways of giving the code.
+  const reading =
+    inspecting !== null ? (
+      <Inspecting source={shown} branch={form.branch.trim()} since={inspecting.since} onCancel={onCancel} />
+    ) : failure !== null && failure !== undefined ? (
+      <InspectFailure failure={failure} source={shown} onManual={onManual} onRetry={onRetry} />
+    ) : (
+      (detected ?? null)
+    );
   // "From GitHub" is offered wherever the server can say whether it has an App: with one it lists
   // the repositories, without one it is where GitHub is connected. "From GitLab" only where at
   // least one connection exists.
@@ -321,11 +330,17 @@ export function SourceStep({
       ) : (
         <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
           {mode === "github" && github?.configured === true ? (
-            <GitHubSource status={github} form={form} errors={errors} onChange={onChange} disabled={busy} />
+            <>
+              <GitHubSource status={github} form={form} errors={errors} onChange={onChange} disabled={busy} />
+              {reading}
+            </>
           ) : mode === "github" && github !== null ? (
             <ConnectGitHub form={form} error={errors.source} />
           ) : mode === "gitlab" && gitlab !== null ? (
-            <GitLabSource status={gitlab} form={form} errors={errors} onChange={onChange} disabled={busy} />
+            <>
+              <GitLabSource status={gitlab} form={form} errors={errors} onChange={onChange} disabled={busy} />
+              {reading}
+            </>
           ) : (
             <>
               <Field label={t("newApp.source.field")} error={errors.source} description={t(SOURCE_WORDS[kind])}>
@@ -346,6 +361,8 @@ export function SourceStep({
                   disabled={busy}
                 />
               </Field>
+
+              {reading}
 
               {mode === "manual" ? (
                 <ArchiveUpload
@@ -405,14 +422,6 @@ export function SourceStep({
               <p className="max-w-measure text-12 text-pretty text-fg-muted">{t("workspaces.openHint")}</p>
             </div>
           ) : null}
-
-          {inspecting !== null ? (
-            <Inspecting source={shown} branch={form.branch.trim()} since={inspecting.since} onCancel={onCancel} />
-          ) : failure !== null && failure !== undefined ? (
-            <InspectFailure failure={failure} source={shown} onManual={onManual} onRetry={onRetry} />
-          ) : (
-            (detected ?? null)
-          )}
 
           <CommandHint command={`noust create --domain example.com --source ${shown === "" ? "https://github.com/you/app.git" : shown}`} label={t("newApp.source.terminal")} />
         </form>

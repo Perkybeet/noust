@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { Link2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -144,7 +145,7 @@ export function CreateGitHubApp({ onStart, submitLabel }: { onStart?: () => void
           />
         </Field>
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" variant="primary" loading={start.isPending || redirecting}>
+          <Button type="submit" variant="primary" icon={<Link2 />} loading={start.isPending || redirecting}>
             {submitLabel ?? t("settings.integrations.github.create.createApp")}
           </Button>
           <p className="text-12 text-fg-muted">{t("settings.integrations.github.create.createAppHint")}</p>

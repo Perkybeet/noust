@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { FolderGit2, GitBranch, Globe, Lock, Search } from "lucide-react";
+import { Download, FolderGit2, GitBranch, Globe, Lock, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
@@ -219,6 +219,7 @@ function RepositoryPicker({
                 ? {
                     action: (
                       <a href={configure.href} onClick={configure.onLeave} className={buttonClassName("secondary", "sm")}>
+                        <SlidersHorizontal aria-hidden="true" />
                         {t("newApp.github.configure")}
                       </a>
                     ),
@@ -361,6 +362,7 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
             {/* In this tab: the setup page GitHub sends the browser to brings it back to the wizard. */}
             {status.install_url ? (
               <a href={status.install_url} onClick={keepDraft} className={buttonClassName("secondary")}>
+                <Download aria-hidden="true" />
                 {t("newApp.github.install")}
               </a>
             ) : null}

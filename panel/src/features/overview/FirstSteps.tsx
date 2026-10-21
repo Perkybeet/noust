@@ -18,7 +18,7 @@ import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { popularRecipes } from "../catalog/model";
+import { popularRecipes } from "../catalog/popular";
 import { readNotificationSettings } from "../settings/notifications";
 
 /** One row of a card: what it is, in a sentence, and the one thing that does it. */
@@ -119,12 +119,16 @@ export function FirstSteps({ overview }: { overview: Overview }) {
     <div className="flex min-w-0 flex-col gap-6">
       {/* A server that cannot deploy yet says so before anything else, in one line with its fix. */}
       {installation.data?.ready === false ? (
-        <InlineMessage tone="warning">
-          {t("overview.firstSteps.check.message")}{" "}
-          <TextLink to="/settings/about" size="ui" className="inline-flex items-center gap-1.5">
-            <Stethoscope aria-hidden="true" className="size-icon-sm" />
-            {t("overview.firstSteps.check.action")}
-          </TextLink>
+        <InlineMessage
+          tone="warning"
+          trailing={
+            <TextLink to="/settings/about" size="inline" className="inline-flex items-center gap-1">
+              <Stethoscope aria-hidden="true" className="size-icon-xs" />
+              {t("overview.firstSteps.check.action")}
+            </TextLink>
+          }
+        >
+          {t("overview.firstSteps.check.message")}
         </InlineMessage>
       ) : null}
       <Card as="section" title={t("overview.firstSteps.title")} description={t("overview.firstSteps.description")} level={2} padding="none">
