@@ -3552,6 +3552,7 @@ class BaseDeployer(AppDeployer):
         self._detect_nginx_config()
         self._prepare_env()
         self._refresh_variables()
+        self._announce_detection()
 
         self._seed_shared_files()
         links = staged.manager.link_shared(staged.path, self._persistent_paths())
@@ -4006,6 +4007,51 @@ class BaseDeployer(AppDeployer):
         self._detect_nginx_config()
         self._prepare_env()
         self._refresh_variables()
+        self._announce_detection()
+
+    def _announce_detection(self) -> None:
+        """
+        Say in one line what the deployment understood, before any of it runs.
+
+        A build log that opens with the steps leaves a person whose first deployment fails
+        unable to tell whether their project was read as they meant it. Once the source is
+        fetched the type knows the commands and the port, so they are said here: which type,
+        from which file, and what it will install, build and start.
+        """
+        found = self._detection_evidence()
+        said = [f"Detected {self.DISPLAY_NAME}{f' ({found})' if found else ''}."]
+        install = self.install_command()
+        build = self.build_command()
+        start = self.start_command()
+        if install:
+            said.append(f"Install: {shlex.join(install)}.")
+        if build:
+            said.append(f"Build: {shlex.join(build)}.")
+        if start:
+            said.append(f"Start: {start}.")
+            if self.port:
+                said.append(f"Port {self.port}.")
+        elif not install and not build:
+            said.append("It is served as static files.")
+        self.logger.info(" ".join(said))
+
+    def _detection_evidence(self) -> str:
+        """
+        Name the file of the source that made the type apply.
+
+        Returns:
+            The first of the type's ``DETECTION_FILES`` the source holds, or an empty string
+            when none is there (a type chosen by hand, a build block's directory).
+        """
+        roots = [self.tree_root]
+        base = self.build_config().base_directory
+        if base:
+            roots.insert(0, project_dir(self.tree_root, base))
+        for name in self.DETECTION_FILES:
+            for directory in roots:
+                if next(directory.glob(name), None) is not None:
+                    return name
+        return ""
 
     def _step_certificate(self) -> None:
         """
