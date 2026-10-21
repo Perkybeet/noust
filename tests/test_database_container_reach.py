@@ -32,13 +32,13 @@ ANYWHERE = "0.0.0.0"  # noqa: S104 - what Docker reports for "every address"
 def redis(*, ports: tuple[PublishedPort, ...] = (), **changes) -> DatabaseInstance:
     """A Redis in a Compose service, started with no password."""
     return DatabaseInstance(
-        key="redis@attalaya-arennalabs-com.redis",
+        key="redis@notes-example-net.redis",
         engine="redis",
         flavour="redis",
-        container="attalaya-redis",
+        container="notes-redis",
         container_id="r",
         image="redis:8-alpine",
-        project="attalaya-arennalabs-com",
+        project="notes-example-net",
         service="redis",
         state="running",
         exposed=(6379,),
@@ -166,7 +166,7 @@ class TestARedisWithoutAPassword:
         (warning,) = RedisManager().bind(redis(ports=(published("127.0.0.1", 6380),))).warnings()
 
         assert warning == (
-            "Redis in attalaya-redis has no password and is published on 127.0.0.1:6380: any "
+            "Redis in notes-redis has no password and is published on 127.0.0.1:6380: any "
             "process on this server can read and change every key. Start it with --requirepass "
             "or REDIS_PASSWORD in the compose file and recreate the container."
         )
@@ -175,7 +175,7 @@ class TestARedisWithoutAPassword:
         (warning,) = RedisManager().bind(redis(ports=(published(ANYWHERE, 6380),))).warnings()
 
         assert warning == (
-            f"Redis in attalaya-redis has no password and is published on {ANYWHERE}:6380: "
+            f"Redis in notes-redis has no password and is published on {ANYWHERE}:6380: "
             "anything that reaches port 6380 of this server can read and change every key. "
             "Start it with --requirepass or REDIS_PASSWORD in the compose file and recreate "
             "the container."

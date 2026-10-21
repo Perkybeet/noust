@@ -1,6 +1,6 @@
 // Renders the Noust raster icons and the brand previews from the hand-written SVGs.
 //
-//   export PATH=/home/yago/.local/node22/bin:$PATH   # or any Node 22
+//   export PATH=<a Node 22 bin directory>:$PATH
 //   node docs/brand/render.mjs [path/to/noust-logo-reference.png]
 //
 // Uses the Chromium that the console's Playwright suite already installs, so it runs offline

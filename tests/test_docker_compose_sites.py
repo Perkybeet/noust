@@ -333,11 +333,11 @@ def test_a_headless_stack_refuses_an_alias_saying_why(
 ) -> None:
     from noust.core.exceptions import ValidationError
 
-    root = tmp_path / "apps" / "licitaciones"
+    root = tmp_path / "apps" / "notices"
     root.mkdir(parents=True)
-    shutil.copy(FIXTURES / "licitaciones.docker-compose.yml", root / "docker-compose.yml")
+    shutil.copy(FIXTURES / "notices.docker-compose.yml", root / "docker-compose.yml")
     store.create_app(
-        App(domain="licitaciones.example.com", app_type="docker-compose", app_path=str(root))
+        App(domain="notices.example.com", app_type="docker-compose", app_path=str(root))
     )
 
     def deployer_for(app_type: str, verbose: bool = False) -> Any:
@@ -351,11 +351,9 @@ def test_a_headless_stack_refuses_an_alias_saying_why(
     )
 
     with pytest.raises(ValidationError, match="publishes no port"):
-        domains.add_domain("licitaciones.example.com", "avisos.example.com", "alias")
+        domains.add_domain("notices.example.com", "avisos.example.com", "alias")
 
-    assert [r.domain for r in store.list_domains("licitaciones.example.com")] == [
-        "licitaciones.example.com"
-    ]
+    assert [r.domain for r in store.list_domains("notices.example.com")] == ["notices.example.com"]
 
 
 # -- The Compose project the store pins -----------------------------------------
@@ -392,7 +390,7 @@ def test_force_over_a_checkout_updates_it_in_place_and_keeps_the_data(
     """A clean fetch removed the directory, the bind-mounted data in it included."""
     (root / ".git").mkdir()
     (root / "data").mkdir()
-    (root / "data" / "licitaciones.db").write_text("rows")
+    (root / "data" / "notices.db").write_text("rows")
     calls: list[dict[str, Any]] = []
     monkeypatch.setattr(SourceManager, "fetch", lambda self, **kwargs: calls.append(kwargs) or True)
     deployer = DockerComposeDeployer(runner=runner)
@@ -401,7 +399,7 @@ def test_force_over_a_checkout_updates_it_in_place_and_keeps_the_data(
     deployer._fetch_source()
 
     assert calls and calls[0]["clean"] is False and calls[0]["force"] is True
-    assert (root / "data" / "licitaciones.db").read_text() == "rows"
+    assert (root / "data" / "notices.db").read_text() == "rows"
 
 
 def test_force_over_files_that_are_not_a_checkout_is_refused(

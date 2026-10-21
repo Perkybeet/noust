@@ -330,7 +330,7 @@ class TestChecks:
 
         # Any comment: a 3.0 line named its central otherwise than 3.1 does,
         # and 'migrate-tunnel' alone left it here.
-        line = CENTRAL_LINE.replace("noust-central:hub-1", "noust-central@arennalabs.com")
+        line = CENTRAL_LINE.replace("noust-central:hub-1", "noust-central@example.com")
         host.write("/root/.ssh/authorized_keys", line + "\n")
 
         check = _run(runner, host, risks, host_checks=False).get("noust.fleet_key_root")

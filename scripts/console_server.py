@@ -5992,11 +5992,11 @@ def seed_proggest_site(sandbox: Sandbox, tools: Any) -> None:
         [
             "proggest.es",
             "www.proggest.es",
-            "timpora.proggest.es",
-            "partes.proggest.es",
-            "partestrabajo.proggest.es",
-            "gestordoc.proggest.es",
-            "uaap.proggest.es",
+            "clock.proggest.es",
+            "reports.proggest.es",
+            "worklogs.proggest.es",
+            "docs.proggest.es",
+            "portal.proggest.es",
         ],
         datetime.now() + timedelta(days=75),
     )

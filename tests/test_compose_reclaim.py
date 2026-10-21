@@ -4,7 +4,7 @@
 """
 A Docker Compose stack that runs outside its unit, and handing it back (item 73).
 
-The case: on a production server convertidordepdf.com's unit was stopped and
+The case: on a production server converter.example.org's unit was stopped and
 disabled while its three containers had been up for 37 hours, because someone
 ran ``docker compose up -d`` by hand. ``noust list``, the console and the
 overview called it stopped and the monitor said its unit was not running,
@@ -62,12 +62,12 @@ from tests.test_compose_adopt import (  # noqa: F401  (pytest resolves fixtures 
 # stays one fake of Proggest's server.
 # ruff: noqa: F811
 
-CONVERTER = "convertidordepdf.com"
-CONVERTER_PATH = "/var/www/apps/convertidordepdf-com"
+CONVERTER = "converter.example.org"
+CONVERTER_PATH = "/var/www/apps/converter-example-org"
 CONVERTER_CONTAINERS = (
-    "convertidordepdf-com-backend-1",
-    "convertidordepdf-com-db-1",
-    "convertidordepdf-com-frontend-1",
+    "converter-example-org-backend-1",
+    "converter-example-org-db-1",
+    "converter-example-org-frontend-1",
 )
 
 
@@ -79,9 +79,9 @@ def ps_line(name: str, project: str, working_dir: str, state: str = "running") -
 
 
 def converter_ps(state: str = "running") -> str:
-    """convertidordepdf.com's three containers, as ``docker ps -a`` lists them."""
+    """converter.example.org's three containers, as ``docker ps -a`` lists them."""
     return "".join(
-        ps_line(name, "convertidordepdf-com", CONVERTER_PATH, state) + "\n"
+        ps_line(name, "converter-example-org", CONVERTER_PATH, state) + "\n"
         for name in CONVERTER_CONTAINERS
     )
 
@@ -125,8 +125,8 @@ def container(project: str, working_dir: str) -> StackContainer:
 def test_a_stack_is_known_by_its_derived_project_and_its_directory() -> None:
     identity = stack_identity(stack())
 
-    assert identity.derived == "convertidordepdf-com"
-    assert identity.matches(container("convertidordepdf-com", "/elsewhere"))
+    assert identity.derived == "converter-example-org"
+    assert identity.matches(container("converter-example-org", "/elsewhere"))
     assert identity.matches(container("renamed", CONVERTER_PATH + "/"))
     assert not identity.matches(container("other", "/srv/other"))
 
@@ -166,11 +166,11 @@ def test_a_stopped_unit_with_its_containers_up_is_running_outside_noust(
 ) -> None:
     runner.script(["docker", "ps"], stdout=converter_ps())
 
-    state = resolve_state(stack(), Units({"convertidordepdf-com": INACTIVE}), probe=False)  # type: ignore[arg-type]
+    state = resolve_state(stack(), Units({"converter-example-org": INACTIVE}), probe=False)  # type: ignore[arg-type]
 
     assert state.label == RUNNING_UNMANAGED
     assert not state.healthy
-    assert "convertidordepdf-com-db-1" in state.detail
+    assert "converter-example-org-db-1" in state.detail
     assert "reboot" in state.detail
     assert f"noust app reclaim {CONVERTER}" in state.detail
 
@@ -178,14 +178,14 @@ def test_a_stopped_unit_with_its_containers_up_is_running_outside_noust(
 def test_a_stopped_unit_with_nothing_running_is_stopped(runner: FakeRunner) -> None:
     runner.script(["docker", "ps"], stdout=converter_ps("exited"))
 
-    state = resolve_state(stack(), Units({"convertidordepdf-com": INACTIVE}), probe=False)  # type: ignore[arg-type]
+    state = resolve_state(stack(), Units({"converter-example-org": INACTIVE}), probe=False)  # type: ignore[arg-type]
 
     assert state.label == STOPPED
     assert state.detail == "the unit is not running"
 
 
 def test_a_running_unit_never_asks_docker(runner: FakeRunner) -> None:
-    state = resolve_state(stack(), Units({"convertidordepdf-com": ACTIVE}), probe=False)  # type: ignore[arg-type]
+    state = resolve_state(stack(), Units({"converter-example-org": ACTIVE}), probe=False)  # type: ignore[arg-type]
 
     assert state.label == RUNNING
     assert docker_calls(runner) == []
@@ -194,7 +194,7 @@ def test_a_running_unit_never_asks_docker(runner: FakeRunner) -> None:
 def test_a_failed_unit_stays_failed_whatever_runs(runner: FakeRunner) -> None:
     runner.script(["docker", "ps"], stdout=converter_ps())
 
-    state = resolve_state(stack(), Units({"convertidordepdf-com": FAILED_UNIT}), probe=False)  # type: ignore[arg-type]
+    state = resolve_state(stack(), Units({"converter-example-org": FAILED_UNIT}), probe=False)  # type: ignore[arg-type]
 
     assert state.label == FAILED
     assert docker_calls(runner) == []
@@ -203,7 +203,7 @@ def test_a_failed_unit_stays_failed_whatever_runs(runner: FakeRunner) -> None:
 def test_a_docker_that_cannot_be_asked_leaves_it_stopped(runner: FakeRunner) -> None:
     runner.script(["docker", "ps"], stderr="Cannot connect to the Docker daemon", exit_code=1)
 
-    state = resolve_state(stack(), Units({"convertidordepdf-com": INACTIVE}), probe=False)  # type: ignore[arg-type]
+    state = resolve_state(stack(), Units({"converter-example-org": INACTIVE}), probe=False)  # type: ignore[arg-type]
 
     assert state.label == STOPPED
 
@@ -217,7 +217,7 @@ def test_a_list_asks_docker_once_for_every_stack_whose_unit_is_down(runner: Fake
     ]
     units = Units(
         {
-            "convertidordepdf-com": INACTIVE,
+            "converter-example-org": INACTIVE,
             "other-example-com": INACTIVE,
             "node-example-com": INACTIVE,
         }
@@ -249,7 +249,7 @@ def test_the_snapshot_counts_a_stack_running_outside_its_unit_on_its_own(
     store.create_app(stack())
     runner.script(["docker", "ps"], stdout=converter_ps())
     services = [
-        {"name": "convertidordepdf-com", "active": "inactive", "sub": "dead", "app": CONVERTER}
+        {"name": "converter-example-org", "active": "inactive", "sub": "dead", "app": CONVERTER}
     ]
 
     states = machine.classify_apps(services)
@@ -267,7 +267,7 @@ def test_the_overview_lists_it_as_a_warning(runner: FakeRunner, store: NoustStor
     store.create_app(stack())
     runner.script(["docker", "ps"], stdout=converter_ps())
     services = [
-        {"name": "convertidordepdf-com", "active": "inactive", "sub": "dead", "app": CONVERTER}
+        {"name": "converter-example-org", "active": "inactive", "sub": "dead", "app": CONVERTER}
     ]
 
     items, _total = overview._attention(store, services, lambda: [], lambda: [], [stack()])

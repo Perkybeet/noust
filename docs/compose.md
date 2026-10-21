@@ -651,7 +651,7 @@ unit that failed stays failed.
 Hand it back to its unit:
 
 ```bash
-noust app reclaim convertidordepdf.com
+noust app reclaim converter.example.org
 ```
 
 or "Hand it back to Noust" on the application's page (`POST /api/apps/{domain}/reclaim`, sudo
@@ -929,8 +929,8 @@ routes:
   - path: /assets/
     static: public/assets
     cache: 1y
-  - path: /uaap/
-    return: {code: 302, to: /uaap/dashboard}
+  - path: /portal/
+    return: {code: 302, to: /portal/dashboard}
   - path: /
     port: 3001
 ```

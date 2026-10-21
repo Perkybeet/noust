@@ -126,13 +126,11 @@ def test_a_stack_without_web_services_has_no_root() -> None:
     assert web_root_service(services) is None
 
 
-def test_the_licitaciones_worker_is_headless() -> None:
+def test_the_notices_worker_is_headless() -> None:
     """Owner item 57: the production worker publishes nothing and is not a web."""
-    services = parse_services(
-        yaml.safe_load((FIXTURES / "licitaciones.docker-compose.yml").read_text())
-    )
+    services = parse_services(yaml.safe_load((FIXTURES / "notices.docker-compose.yml").read_text()))
 
-    assert [s.name for s in services] == ["licitaciones-avisos"]
+    assert [s.name for s in services] == ["notices-avisos"]
     assert is_headless_stack(services) is True
 
 

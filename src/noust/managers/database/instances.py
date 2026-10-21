@@ -1330,7 +1330,7 @@ def assign_apps(
 
     The Compose project of the container is an application's
     ``compose_project``, or its ``app_name`` (the domain with dashes):
-    ``empleo-arennalabs-com`` is the database of empleo.arennalabs.com even
+    ``jobs-example-net`` is the database of jobs.example.net even
     when that application is not itself a Compose stack.
 
     When that application is itself a Compose stack and the container is

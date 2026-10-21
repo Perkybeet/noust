@@ -824,7 +824,7 @@ noust node migrate-tunnel vps1 --join-code -   # on the central: paste the new c
 On `vps1`, `authorize` creates `noust-tunnel`, installs the same key for it and takes that
 key out of root's `authorized_keys`, then issues a new token (revoking the old one). The key is
 matched by the key itself (`--replace-root-key`), not by the central's name in the line's
-comment: a 3.0 line can name the central otherwise (`noust-central:arennalabs`), and 3.1.0,
+comment: a 3.0 line can name the central otherwise (`noust-central:example`), and 3.1.0,
 which matched by name, left such lines in root's file. Every other line is kept, and a copy of
 the file as it was is left next to it (`authorized_keys.noust-<UTC time>`, mode 0600).
 `authorize` reports the file under "Old line removed from" (`moved_from` in `--json`) and the

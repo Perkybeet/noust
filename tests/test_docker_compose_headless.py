@@ -4,7 +4,7 @@
 """
 A Compose worker is not a web that is down (owner item 57, spec 3.2 section 8.4).
 
-``licitaciones.picconia.com`` is a stack that publishes no port: a worker
+``notices.example.com`` is a stack that publishes no port: a worker
 that looks for tenders and sends mail. WASM 1.x stored the Compose default
 port (3000) for it and wrote it a site, and since then ``noust diagnose``, the
 console and "needs attention" called it down. Here: a headless stack is
@@ -44,12 +44,12 @@ from noust.managers import diagnose
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.webserver import NGINX_BACKEND
 
-DOMAIN = "licitaciones.example.com"
+DOMAIN = "notices.example.com"
 FIXTURES = Path(__file__).parent / "fixtures" / "compose"
 RUNNING = {
     "ID": "a1b2c3d4e5f6",
-    "Service": "licitaciones-avisos",
-    "Name": "licitaciones-avisos",
+    "Service": "notices-avisos",
+    "Name": "notices-avisos",
     "State": "running",
 }
 
@@ -60,7 +60,7 @@ class Docker(FakeRunner):
     def __init__(self) -> None:
         super().__init__()
         self.containers: list[dict[str, Any]] = [RUNNING]
-        self.log = "licitaciones-avisos  | 12 avisos enviados\n"
+        self.log = "notices-avisos  | 12 avisos enviados\n"
         self.environment: list[str] = []
         #: What ``docker inspect`` says of every running container: the restarts Docker made,
         #: and how long ago the current run began.
@@ -78,7 +78,7 @@ class Docker(FakeRunner):
             began = (datetime.now(timezone.utc) - self.run_age).strftime(
                 "%Y-%m-%dT%H:%M:%S.123456789Z"
             )
-            return replace(result, stdout=f"/licitaciones-avisos|{self.restarts}|{began}\n")
+            return replace(result, stdout=f"/notices-avisos|{self.restarts}|{began}\n")
         if args[:2] == ("docker", "inspect") and "{{json .Config.Env}}" in args:
             return replace(result, stdout=json.dumps(self.environment))
         if args[:2] == ("docker", "compose") and "logs" in args:
@@ -126,9 +126,9 @@ def web(tmp_path: Path, docker: Docker, store: NoustStore) -> NginxManager:
 @pytest.fixture
 def root(tmp_path: Path) -> Path:
     """The worker's tree, with its production compose file."""
-    path = tmp_path / "apps" / "licitaciones"
+    path = tmp_path / "apps" / "notices"
     path.mkdir(parents=True)
-    shutil.copy(FIXTURES / "licitaciones.docker-compose.yml", path / "docker-compose.yml")
+    shutil.copy(FIXTURES / "notices.docker-compose.yml", path / "docker-compose.yml")
     return path
 
 
@@ -364,9 +364,9 @@ def test_diagnose_masks_the_secrets_in_the_containers_output(
     registered(store, root, port=None)
     docker.environment = ["API_TOKEN=tok-9f8e7d6c5b4a", "TZ=Europe/Madrid"]
     docker.log = (
-        "licitaciones-avisos  | using tok-9f8e7d6c5b4a\n"
-        "licitaciones-avisos  | postgres://avisos:Url-p4ss@db/avisos\n"
-        "licitaciones-avisos  | 12 avisos enviados\n"
+        "notices-avisos  | using tok-9f8e7d6c5b4a\n"
+        "notices-avisos  | postgres://avisos:Url-p4ss@db/avisos\n"
+        "notices-avisos  | 12 avisos enviados\n"
     )
 
     result = diagnose.diagnose(DOMAIN, runner=docker, store=store, http_get=_no_http)
@@ -382,7 +382,7 @@ def test_diagnose_does_not_show_output_it_cannot_mask(
 ) -> None:
     registered(store, root, port=None)
     docker.script(["docker", "inspect"], exit_code=1, stderr="Error: No such object")
-    docker.log = "licitaciones-avisos  | secret-in-the-log\n"
+    docker.log = "notices-avisos  | secret-in-the-log\n"
 
     result = diagnose.diagnose(DOMAIN, runner=docker, store=store, http_get=_no_http)
 
@@ -478,7 +478,7 @@ def test_headless_keeps_the_operator_site(
     registered(store, root, port=3000)
     path = web.config_path(DOMAIN)
     path.parent.mkdir(parents=True)
-    path.write_text("server { server_name licitaciones.example.com; }\n")
+    path.write_text("server { server_name notices.example.com; }\n")
 
     change = make_headless(DOMAIN, remove_site=True, logger=_Log(), manager=web)
 
