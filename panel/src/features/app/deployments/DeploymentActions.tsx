@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { GitCommitHorizontal, History } from "lucide-react";
+import { GitCommitHorizontal, Hammer, History, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -14,23 +14,22 @@ import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
+import { MenuItem } from "../../../components/ui/Menu";
 import { Notice } from "../../../components/ui/Notice";
+import { SplitButton } from "../../../components/ui/SplitButton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { RollbackDialog } from "../RollbackDialog";
-import { schemaChangeRefusal } from "../schemaChange";
-import type { SchemaChangeRefusal } from "../schemaChange";
-import { useSchemaChangeConfirmation } from "../SchemaChangeDialog";
+import { reportActionError } from "../../apps/useAppActions";
+import { useRollback, useTrackJob } from "../RollbackHost";
 import { shortCommit } from "./words";
 
 const RUNNING = new Set(["queued", "running"]);
 
-export type DeploymentActionKind = "rebuild" | "rollback";
+/** What a deployment's page can queue. Going back is the page's one rollback question, followed by the header. */
+export type DeploymentActionKind = "rebuild";
 
-function actionWords(t: T, kind: DeploymentActionKind, domain: string): { queued: string; failed: string } {
-  return kind === "rebuild"
-    ? { queued: t("appPages.deployments.actions.rebuildQueued", { domain }), failed: t("appPages.deployments.actions.rebuildFailed") }
-    : { queued: t("appPages.deployments.actions.rollbackQueued", { domain }), failed: t("appPages.deployments.actions.rollbackFailed") };
+function actionWords(t: T, domain: string): { queued: string; failed: string } {
+  return { queued: t("appPages.deployments.actions.rebuildQueued", { domain }), failed: t("appPages.deployments.actions.rebuildFailed") };
 }
 
 /**
@@ -40,7 +39,7 @@ function actionWords(t: T, kind: DeploymentActionKind, domain: string): { queued
  * one (a release activated in seconds) is said to have finished, and one that fails keeps its
  * error on screen, in its own words.
  */
-function useDeploymentAction(domain: string, t: T) {
+export function useDeploymentAction(domain: string, t: T) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const followed = useFollowedJob();
@@ -76,7 +75,7 @@ function useDeploymentAction(domain: string, t: T) {
     done,
     follow: (next: DeploymentActionKind, queued: Job) => {
       setKind(next);
-      announce(actionWords(t, next, domain).queued);
+      announce(actionWords(t, domain).queued);
       followed.follow(queued);
     },
     dismiss: () => {
@@ -94,19 +93,25 @@ export function rebuildWords(t: T, layout: string, commit: string, branch: strin
     : t("appPages.deployments.actions.rebuildInPlaceWordsNoBranch", { commit });
 }
 
-/** What going back to a deployment does, on the app's layout. */
-export function rollbackWords(t: T, layout: string, deployment: Deployment): string {
-  const id = String(deployment.id);
-  if (layout === "releases") return t("appPages.deployments.actions.rollbackReleasesWords", { id: deployment.release_id ?? "" });
-  // A stack that kept the images that deployment ran swaps them; one that did not builds the commit again.
-  if (deployment.rollback_method === "instant") return t("runtime.rollback.instantWords", { id });
-  if (deployment.rollback_method === "rebuild" && deployment.git_commit) {
-    return t("runtime.rollback.rebuildWords", { commit: shortCommit(deployment.git_commit) ?? deployment.git_commit });
-  }
-  return t("appPages.deployments.actions.rollbackInPlaceWords", { snapshot: deployment.snapshot_backup ?? "", id });
+/**
+ * Builds a deployment's commit again (`POST .../rebuild`): the same call for "Retry" on a failed
+ * deployment and "Rebuild this commit" on one that served, with or without the build cache. The
+ * header follows the job like an update's, and `onQueued` lets the caller follow it too.
+ */
+export function useRebuild(domain: string, onQueued: (job: Job) => void) {
+  const trackJob = useTrackJob();
+  return useMutation({
+    mutationFn: ({ id, noCache = false }: { id: number; noCache?: boolean }) =>
+      request("post", "/api/apps/{domain}/deployments/{deployment_id}/rebuild", { params: { domain, deployment_id: id }, body: { no_cache: noCache } }),
+    onSuccess: (accepted) => {
+      const job = accepted.job as unknown as Job;
+      trackJob(job);
+      onQueued(job);
+    },
+  });
 }
 
-function RebuildDialog({
+export function RebuildDialog({
   domain,
   deployment,
   layout,
@@ -116,7 +121,7 @@ function RebuildDialog({
   t,
 }: {
   domain: string;
-  deployment: Deployment;
+  deployment: Pick<Deployment, "id" | "git_commit" | "git_branch">;
   layout: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -124,13 +129,9 @@ function RebuildDialog({
   t: T;
 }) {
   const commit = shortCommit(deployment.git_commit) ?? "";
-  const rebuild = useMutation({
-    mutationFn: () =>
-      request("post", "/api/apps/{domain}/deployments/{deployment_id}/rebuild", { params: { domain, deployment_id: deployment.id } }),
-    onSuccess: (accepted) => {
-      onOpenChange(false);
-      onQueued(accepted.job as unknown as Job);
-    },
+  const rebuild = useRebuild(domain, (job) => {
+    onOpenChange(false);
+    onQueued(job);
   });
   const close = (next: boolean): void => {
     if (!next && rebuild.isPending) return;
@@ -148,7 +149,7 @@ function RebuildDialog({
           <Button disabled={rebuild.isPending} onClick={() => close(false)}>
             {t("appPages.common.cancel")}
           </Button>
-          <Button variant="primary" loading={rebuild.isPending} onClick={() => rebuild.mutate()}>
+          <Button variant="primary" loading={rebuild.isPending} onClick={() => rebuild.mutate({ id: deployment.id })}>
             {t("appPages.deployments.actions.rebuild")}
           </Button>
         </>
@@ -159,87 +160,8 @@ function RebuildDialog({
   );
 }
 
-function RollbackToDeploymentDialog({
-  domain,
-  deployment,
-  layout,
-  open,
-  onOpenChange,
-  onQueued,
-  onChooseAnother,
-  onSchemaChange,
-  t,
-}: {
-  domain: string;
-  deployment: Deployment;
-  layout: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onQueued: (job: Job) => void;
-  onChooseAnother: () => void;
-  /** Hands a refusal to go back past a schema change to the dialog that names it. */
-  onSchemaChange: (refusal: SchemaChangeRefusal, retry: () => Promise<unknown>) => void;
-  t: T;
-}) {
-  const go = (schemaChangedOk: boolean) =>
-    request("post", "/api/apps/{domain}/deployments/{deployment_id}/rollback", {
-      params: { domain, deployment_id: deployment.id },
-      body: { schema_changed_ok: schemaChangedOk },
-    });
-  const rollback = useMutation({
-    mutationFn: go,
-    onSuccess: (accepted) => {
-      onOpenChange(false);
-      onQueued(accepted.job as unknown as Job);
-    },
-    onError: (error) => {
-      const refusal = schemaChangeRefusal(error);
-      if (refusal === null) return;
-      rollback.reset();
-      onOpenChange(false);
-      onSchemaChange(refusal, async () => {
-        const accepted = await go(true);
-        onQueued(accepted.job as unknown as Job);
-      });
-    },
-  });
-  // Said before the button is pressed: going back past these asks again, naming their migrations.
-  const passes = deployment.schema_changed_between ?? [];
-  const close = (next: boolean): void => {
-    if (!next && rollback.isPending) return;
-    if (!next) rollback.reset();
-    onOpenChange(next);
-  };
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={close}
-      title={t("appPages.deployments.actions.rollbackDialogTitle", { id: String(deployment.id) })}
-      description={rollbackWords(t, layout, deployment)}
-      footer={
-        <>
-          <Button variant="ghost" disabled={rollback.isPending} onClick={onChooseAnother} className="sm:mr-auto">
-            {t("appPages.deployments.actions.chooseAnotherVersion")}
-          </Button>
-          <Button disabled={rollback.isPending} onClick={() => close(false)}>
-            {t("appPages.common.cancel")}
-          </Button>
-          <Button variant="primary" loading={rollback.isPending} onClick={() => rollback.mutate(false)}>
-            {t("appPages.deployments.actions.goBack")}
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-3">
-        {passes.length > 0 ? <Notice tone="warning">{t("appPages.schemaChange.ahead", { count: passes.length, ids: passes.map((id) => `#${String(id)}`).join(", ") })}</Notice> : null}
-        {rollback.isError ? <ErrorBlock live compact error={rollback.error} title={t("appPages.rollback.notStarted")} /> : null}
-      </div>
-    </Dialog>
-  );
-}
-
 export interface DeploymentActionParts {
-  /** Go back to this deploy (when the backend says it can) and rebuild its commit, for the page's title row. */
+  /** What can be done about this deployment, for the page's title row: retry it, or go back to it and rebuild its commit. */
   buttons: ReactNode;
   /** How the action it started went: its failure in the job's words, or that it finished. */
   outcome: ReactNode;
@@ -248,42 +170,64 @@ export interface DeploymentActionParts {
 }
 
 /**
- * What can be done from one deploy's page: go back to what it produced, only when that is
- * still possible (`rollback_available`, decided by the backend; otherwise nothing is offered
- * here, and the header's "Roll back…" lists what can be gone back to), and deploy its exact
- * commit again. The header's Update stays the page's one primary action, so both are
- * secondary here.
+ * What can be done from one deploy's page. A deployment that failed is tried again where the
+ * error is: "Retry" builds its commit again, "Retry without cache" does it from scratch, and the
+ * page follows the new job. One that served can be gone back to when the backend says it can
+ * (`rollback_available`, through the page's one rollback question) and its commit built again.
+ * Update in the header stays the page's one primary action, so these are all secondary.
  */
 export function useDeploymentActions(domain: string, deployment: Deployment): DeploymentActionParts {
   const t = useT();
   const app = useQuery(appQuery(domain));
   const action = useDeploymentAction(domain, t);
-  const schema = useSchemaChangeConfirmation(domain);
-  const [dialog, setDialog] = useState<"rebuild" | "rollback" | "chooser" | null>(null);
+  const { openRollback } = useRollback();
+  const [dialog, setDialog] = useState<"rebuild" | null>(null);
+  const retry = useRebuild(domain, (job) => {
+    action.follow("rebuild", job);
+  });
   const running = RUNNING.has(deployment.status);
   const layout = app.data?.layout ?? null;
   const commit = shortCommit(deployment.git_commit);
   const available = deployment.rollback_available;
-
-  const queued = (kind: DeploymentActionKind) => (job: Job) => {
-    action.follow(kind, job);
-  };
-  const setOpen = (which: typeof dialog) => (open: boolean) => {
-    setDialog(open ? which : null);
-  };
+  // A deploy an operator cancelled is stored as failed, and nothing went wrong in it.
+  const failed = deployment.status === "failed" && !deployment.cancelled;
 
   if (running || layout === null) return { buttons: null, outcome: null, dialogs: null };
 
-  const buttons = (
+  const buttons = failed ? (
+    commit !== null ? (
+      <SplitButton
+        name={t("appPages.deployments.actions.retry")}
+        icon={<RotateCw aria-hidden="true" />}
+        loading={retry.isPending || (action.busy && action.kind === "rebuild")}
+        onClick={() => {
+          action.dismiss();
+          retry.mutate({ id: deployment.id }, { onError: (error) => reportActionError(t("appPages.deployments.actions.retryFailed"), error) });
+        }}
+        menu={
+          <MenuItem
+            icon={<Hammer />}
+            onClick={() => {
+              action.dismiss();
+              retry.mutate({ id: deployment.id, noCache: true }, { onError: (error) => reportActionError(t("appPages.deployments.actions.retryFailed"), error) });
+            }}
+          >
+            {t("appPages.deployments.actions.retryFresh")}
+          </MenuItem>
+        }
+      >
+        {t("appPages.deployments.actions.retry")}
+      </SplitButton>
+    ) : null
+  ) : (
     <>
       {available ? (
         <Button
           icon={<History aria-hidden="true" />}
           disabled={action.busy}
-          loading={action.busy && action.kind === "rollback"}
           onClick={() => {
             action.dismiss();
-            setDialog("rollback");
+            openRollback({ deployment: deployment.id });
           }}
         >
           {t("appPages.deployments.actions.goBackToThis")}
@@ -311,48 +255,26 @@ export function useDeploymentActions(domain: string, deployment: Deployment): De
         live
         compact
         error={{ detail: action.failed.error ?? t("appPages.job.noReason") }}
-        title={actionWords(t, action.kind, domain).failed}
+        title={actionWords(t, domain).failed}
       />
     ) : action.done !== null && action.kind !== null ? (
       <Notice tone="success" live>
-        {action.kind === "rollback"
-          ? t("appPages.deployments.actions.rolledBackTo", { id: String(deployment.id) })
-          : t("appPages.deployments.actions.rebuiltCommit", { commit: commit ?? "" })}
+        {t("appPages.deployments.actions.rebuiltCommit", { commit: commit ?? "" })}
       </Notice>
     ) : null;
 
-  const dialogs = (
-    <>
-      {commit !== null ? (
-        <RebuildDialog
-          domain={domain}
-          deployment={deployment}
-          layout={layout}
-          open={dialog === "rebuild"}
-          onOpenChange={setOpen("rebuild")}
-          onQueued={queued("rebuild")}
-          t={t}
-        />
-      ) : null}
-      {available ? (
-        <RollbackToDeploymentDialog
-          domain={domain}
-          deployment={deployment}
-          layout={layout}
-          open={dialog === "rollback"}
-          onOpenChange={setOpen("rollback")}
-          onQueued={queued("rollback")}
-          onChooseAnother={() => setDialog("chooser")}
-          onSchemaChange={(refusal, retry) => {
-            schema.intercept(refusal, retry);
-          }}
-          t={t}
-        />
-      ) : null}
-      {schema.dialog}
-      <RollbackDialog domain={domain} layout={layout} open={dialog === "chooser"} onOpenChange={setOpen("chooser")} onJobQueued={queued("rollback")} />
-    </>
-  );
+  const dialogs =
+    commit !== null && !failed ? (
+      <RebuildDialog
+        domain={domain}
+        deployment={deployment}
+        layout={layout}
+        open={dialog === "rebuild"}
+        onOpenChange={(open) => setDialog(open ? "rebuild" : null)}
+        onQueued={(job) => action.follow("rebuild", job)}
+        t={t}
+      />
+    ) : null;
 
   return { buttons, outcome, dialogs };
 }

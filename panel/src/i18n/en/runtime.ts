@@ -51,11 +51,9 @@ export const runtime = {
     nowCommand: "Now: {command} must exit 0, within {timeout}.",
   },
   pending: {
-    title: { one: "{count} setting is not applied yet", other: "{count} settings are not applied yet" },
     bodyRestart: "{domain} runs with what it had when it was last deployed or restarted. Restart it to apply them.",
     bodyRebuild: "{domain} runs with what it had when it was last deployed. Some of these need the application built again.",
     bodyNextDeploy: "These apply at the next deploy. Nothing needs to restart for them.",
-    review: "Review",
     dialogTitle: "Settings not applied to {domain}",
     dialogDescription: "What {domain} is set to now, and what it runs with. Values of secret settings are never shown.",
     listLabel: "Settings not applied to {domain}",
@@ -560,11 +558,5 @@ export const runtime = {
     stopManagingSettingsDescription: "Removes it from Noust and nothing else: the unit, the site, the certificate and the files in {path} are not touched. You can adopt it again.",
     stopManagingSettingsDescriptionNoPath: "Removes it from Noust and nothing else: the unit, the site, the certificate and the files are not touched. You can adopt it again.",
     stopManagingButton: "Stop managing…",
-  },
-  rollback: {
-    instantWords: "Goes back in seconds: what deployment {id} ran is still on the server, so nothing is built. The database stays as it is: going back puts code back, never data.",
-    rebuildWords: "Builds commit {commit} again where the application runs, which takes as long as a deploy. The database stays as it is: going back puts code back, never data.",
-    instantBadge: "Instant",
-    rebuildBadge: "Rebuilds",
   },
 } as const;

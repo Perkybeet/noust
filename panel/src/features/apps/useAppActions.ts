@@ -240,6 +240,19 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
     },
   });
 
+  // The way back every layout shares: the backend knows how this deployment is gone back to (a
+  // release switched, the images a stack kept, its commit built again, a snapshot restored).
+  const rollbackToDeployment = useMutation({
+    mutationFn: ({ id, schemaChangedOk = false }: { id: number; schemaChangedOk?: boolean }) =>
+      request("post", "/api/apps/{domain}/deployments/{deployment_id}/rollback", {
+        params: { domain, deployment_id: id },
+        body: { schema_changed_ok: schemaChangedOk },
+      }),
+    onSuccess: (result) => {
+      queued(result.job as unknown as Job, "rollback");
+    },
+  });
+
   const activateRelease = useMutation({
     mutationFn: ({ id, schemaChangedOk = false }: GoBack) =>
       request("post", "/api/apps/{domain}/releases/{release_id}/activate", {
@@ -278,6 +291,7 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
       setFrozen(null);
     },
     rollbackToBackup,
+    rollbackToDeployment,
     activateRelease,
   };
 }

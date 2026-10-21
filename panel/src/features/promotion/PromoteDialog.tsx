@@ -20,6 +20,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 function targetLabel(target: PromotionTarget): string {
   const where = target.environment ? ` (${target.environment})` : "";
@@ -135,11 +136,10 @@ export function PromoteDialog({ domain, open, onOpenChange }: PromoteDialogProps
       }
     >
       {promotion.isPending ? (
-        <div aria-busy="true" className="flex flex-col gap-3">
-          <span className="sr-only">{t("promotion.promote.loading", { domain })}</span>
+        <LoadingRegion label={t("promotion.promote.loading", { domain })} className="flex flex-col gap-3">
           <Skeleton className="h-16 w-full rounded-control" />
           <Skeleton className="h-10 w-full rounded-control" />
-        </div>
+        </LoadingRegion>
       ) : promotion.isError ? (
         <ErrorBlock compact error={promotion.error} title={t("promotion.promote.loadFailed", { domain })} onRetry={() => void promotion.refetch()} retrying={promotion.isRefetching} />
       ) : data === undefined ? null : release === null ? (

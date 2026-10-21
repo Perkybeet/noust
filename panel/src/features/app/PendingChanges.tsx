@@ -1,20 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { RotateCw } from "lucide-react";
-import { useState } from "react";
 
 import { pendingQuery } from "../../api/queries/runtime";
 import type { PendingChanges, PendingItem } from "../../api/queries/runtime";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 import { Mono } from "../../components/ui/Mono";
-import { Notice } from "../../components/ui/Notice";
+import { RowList } from "../../components/ui/RowList";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useAppActions } from "../apps/useAppActions";
+import { Hammer } from "lucide-react";
 
 /**
  * What an application is set to that it does not run with yet. Read with the app, so a deploy
- * or a restart that applies it (a job on the app) refreshes it with the rest.
+ * or a restart that applies it (a job on the app) refreshes it with the rest. The header says it
+ * as a chip on the state's line (`NotAppliedChip`), on every tab, whatever else the page says.
  */
 export function usePendingChanges(domain: string) {
   return useQuery(pendingQuery(domain));
@@ -55,30 +56,40 @@ function Item({ item, t }: { item: PendingItem; t: T }) {
   const before = item.before ?? null;
   const after = item.after ?? null;
   return (
-    <li className="flex min-w-0 flex-col gap-1 px-4 py-3">
-      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-13">
-          <span className="font-medium text-fg">{areaWords(t, item.area)}</span>
-          {item.key !== "" ? (
-            <Mono tone="muted" truncate>
-              {item.key}
-            </Mono>
-          ) : null}
-          <span className="text-fg-muted">{changeWords(t, item.change)}</span>
-        </span>
-        <span className="shrink-0 text-12 text-fg-muted">{needsWords(t, item.needs)}</span>
+    <RowList.Item>
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-13">
+            <span className="font-medium text-fg">{areaWords(t, item.area)}</span>
+            {item.key !== "" ? (
+              <Mono tone="muted" truncate>
+                {item.key}
+              </Mono>
+            ) : null}
+            <span className="text-fg-muted">{changeWords(t, item.change)}</span>
+          </span>
+          <span className="shrink-0 text-12 text-fg-muted">{needsWords(t, item.needs)}</span>
+        </div>
+        {before !== null || after !== null ? (
+          <span className="flex min-w-0 flex-wrap gap-x-3 text-12 text-fg-muted">
+            {before !== null ? (
+              <Mono tone="muted" truncate>
+                {t("runtime.pending.before", { value: before })}
+              </Mono>
+            ) : null}
+            {after !== null ? (
+              <Mono tone="muted" truncate>
+                {t("runtime.pending.after", { value: after })}
+              </Mono>
+            ) : null}
+          </span>
+        ) : null}
       </div>
-      {before !== null || after !== null ? (
-        <span className="flex min-w-0 flex-wrap gap-x-3 text-12 text-fg-muted">
-          {before !== null ? <Mono tone="muted" truncate>{t("runtime.pending.before", { value: before })}</Mono> : null}
-          {after !== null ? <Mono tone="muted" truncate>{t("runtime.pending.after", { value: after })}</Mono> : null}
-        </span>
-      ) : null}
-    </li>
+    </RowList.Item>
   );
 }
 
-function PendingDialog({ domain, pending, open, onOpenChange }: { domain: string; pending: PendingChanges; open: boolean; onOpenChange: (open: boolean) => void }) {
+export function PendingDialog({ domain, pending, open, onOpenChange }: { domain: string; pending: PendingChanges; open: boolean; onOpenChange: (open: boolean) => void }) {
   const t = useT();
   const { restart, rebuildAnyway } = useAppActions(domain);
   const needs = pending.needs ?? "next_deploy";
@@ -97,6 +108,7 @@ function PendingDialog({ domain, pending, open, onOpenChange }: { domain: string
           {needs === "rebuild" ? (
             <Button
               variant="primary"
+              icon={<Hammer aria-hidden="true" />}
               loading={rebuildAnyway.isPending}
               onClick={() => {
                 rebuildAnyway.mutate(undefined, { onSuccess: done });
@@ -119,50 +131,17 @@ function PendingDialog({ domain, pending, open, onOpenChange }: { domain: string
         </>
       }
     >
-      <ul aria-label={t("runtime.pending.listLabel", { domain })} className="flex flex-col divide-y divide-border rounded-control border border-border">
-        {(pending.items ?? []).map((item) => (
-          <Item key={`${item.area}/${item.key}`} item={item} t={t} />
-        ))}
-      </ul>
+      <div className="flex flex-col gap-3">
+        {/* What applying them takes, before the list of what they are. */}
+        <p className="text-13 text-pretty text-fg">
+          {needs === "restart" ? t("runtime.pending.bodyRestart", { domain }) : needs === "rebuild" ? t("runtime.pending.bodyRebuild", { domain }) : t("runtime.pending.bodyNextDeploy")}
+        </p>
+        <RowList aria-label={t("runtime.pending.listLabel", { domain })}>
+          {(pending.items ?? []).map((item) => (
+            <Item key={`${item.area}/${item.key}`} item={item} t={t} />
+          ))}
+        </RowList>
+      </div>
     </Dialog>
-  );
-}
-
-/**
- * The banner above an application's tabs when it is set to something it does not run with yet:
- * how many settings, what applying them takes, and one place to see which. It states a fact
- * about the application, not a failure: neutral, and gone the moment a restart or a deploy
- * applies them.
- */
-export function PendingBanner({ domain, pending }: { domain: string; pending: PendingChanges }) {
-  const t = useT();
-  const [open, setOpen] = useState(false);
-  const count = (pending.items ?? []).length;
-  const body =
-    pending.needs === "rebuild"
-      ? t("runtime.pending.bodyRebuild", { domain })
-      : pending.needs === "restart"
-        ? t("runtime.pending.bodyRestart", { domain })
-        : t("runtime.pending.bodyNextDeploy");
-  return (
-    <>
-      <Notice
-        variant="banner"
-        title={t("runtime.pending.title", { count })}
-        action={
-          <Button
-            size="sm"
-            onClick={() => {
-              setOpen(true);
-            }}
-          >
-            {t("runtime.pending.review")}
-          </Button>
-        }
-      >
-        {body}
-      </Notice>
-      <PendingDialog domain={domain} pending={pending} open={open} onOpenChange={setOpen} />
-    </>
   );
 }

@@ -1,7 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, CircleHelp, CircleMinus, CircleX, History, RotateCw, ScrollText } from "lucide-react";
-import { useState } from "react";
+import {
+  ChevronDown,
+  CircleHelp,
+  CircleMinus,
+  CircleX,
+  History,
+  RotateCw,
+  ScrollText,
+  Stethoscope,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 import { appQuery, diagnosisQuery } from "../../../api/queries/apps";
@@ -27,18 +35,48 @@ import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
 import { hasUnit } from "../../apps/AppRowActions";
 import { useAppActions } from "../../apps/useAppActions";
-import { RollbackDialog } from "../RollbackDialog";
-import { checkLabel, checkStatus, headline, isProblem, openChecks, tally, verdictAnnouncement, verdictView } from "./view";
+import { useRollback } from "../RollbackHost";
+import {
+  checkLabel,
+  checkStatus,
+  headline,
+  isProblem,
+  openChecks,
+  tally,
+  verdictAnnouncement,
+  verdictView,
+} from "./view";
 import type { Check, Tone } from "./view";
 
 /** A verdict drawn in the state language: healthy is running, degraded a warning, down failed. */
-const VERDICT_STATE: Record<Tone, Status> = { ok: "running", warn: "warning", fail: "failed", idle: "unknown" };
+const VERDICT_STATE: Record<Tone, Status> = {
+  ok: "running",
+  warn: "warning",
+  fail: "failed",
+  idle: "unknown",
+};
 
 /** A check's outcome as a shape and a word, the colour of its outcome: never the colour alone. */
 function CheckIcon({ tone, className }: { tone: Tone; className?: string }) {
-  const Icon = tone === "ok" ? ICONS.success : tone === "warn" ? ICONS.warning : tone === "fail" ? CircleX : CircleMinus;
-  const colour = tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : tone === "fail" ? "text-fail" : "text-idle";
-  return <Icon aria-hidden="true" className={cx("shrink-0", colour, className)} />;
+  const Icon =
+    tone === "ok"
+      ? ICONS.success
+      : tone === "warn"
+        ? ICONS.warning
+        : tone === "fail"
+          ? CircleX
+          : CircleMinus;
+  const colour =
+    tone === "ok"
+      ? "text-ok"
+      : tone === "warn"
+        ? "text-warn"
+        : tone === "fail"
+          ? "text-fail"
+          : "text-idle";
+  return (
+    <Icon aria-hidden="true" className={cx("shrink-0", colour, className)} />
+  );
 }
 
 /** Where to go next from a check, when another tab shows more of the same. */
@@ -65,7 +103,11 @@ function nextStep(check: Check, domain: string, t: T): ReactNode {
     case "blue_green":
     case "zero_downtime":
       return (
-        <TextLink to="/apps/$domain/settings/deploys" params={{ domain }} size="ui">
+        <TextLink
+          to="/apps/$domain/settings/deploys"
+          params={{ domain }}
+          size="ui"
+        >
           {t("appPages.diagnose.openDeploySettings")}
         </TextLink>
       );
@@ -84,7 +126,11 @@ function ZeroDowntimeSuggestion({ domain, t }: { domain: string; t: T }) {
     <Notice
       title={t("appPages.diagnose.zeroDowntimeTitle")}
       action={
-        <Link to="/apps/$domain/settings/deploys" params={{ domain }} className={buttonClassName("secondary", "sm")}>
+        <Link
+          to="/apps/$domain/settings/deploys"
+          params={{ domain }}
+          className={buttonClassName("secondary", "sm")}
+        >
           {t("appPages.diagnose.zeroDowntimeAction")}
         </Link>
       }
@@ -101,26 +147,38 @@ function ZeroDowntimeSuggestion({ domain, t }: { domain: string; t: T }) {
 function Remedies({ domain, t }: { domain: string; t: T }) {
   const app = useQuery(appQuery(domain));
   const { restart } = useAppActions(domain);
-  const [rollingBack, setRollingBack] = useState(false);
+  const { openRollback } = useRollback();
   if (app.data === undefined) return null;
   const unit = hasUnit(app.data);
   return (
     <div className="flex flex-wrap items-center gap-2">
       {unit ? (
-        <Link to="/apps/$domain/logs" params={{ domain }} className={buttonClassName("secondary", "sm")}>
+        <Link
+          to="/apps/$domain/logs"
+          params={{ domain }}
+          className={buttonClassName("secondary", "sm")}
+        >
           <ScrollText aria-hidden="true" />
           {t("appPages.diagnose.viewLogs")}
         </Link>
       ) : null}
-      <Button size="sm" icon={<History aria-hidden="true" />} onClick={() => setRollingBack(true)}>
+      <Button
+        size="sm"
+        icon={<History aria-hidden="true" />}
+        onClick={() => openRollback()}
+      >
         {t("appPages.diagnose.rollBack")}
       </Button>
       {unit ? (
-        <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()}>
+        <Button
+          size="sm"
+          icon={<RotateCw aria-hidden="true" />}
+          loading={restart.isPending}
+          onClick={() => restart.mutate()}
+        >
           {t("appPages.diagnose.restart")}
         </Button>
       ) : null}
-      <RollbackDialog domain={domain} layout={app.data.layout} open={rollingBack} onOpenChange={setRollingBack} />
     </div>
   );
 }
@@ -144,18 +202,39 @@ function Verdict({
   const counts = tally(diagnosis.checks);
   const healthy = view.tone === "ok";
   const parts = [
-    { tone: "ok" as const, count: counts.ok, word: t("appPages.diagnose.tally.passed", { count: counts.ok }) },
-    { tone: "warn" as const, count: counts.warn, word: t("appPages.diagnose.tally.warning", { count: counts.warn }) },
-    { tone: "fail" as const, count: counts.fail, word: t("appPages.diagnose.tally.failed", { count: counts.fail }) },
-    { tone: "idle" as const, count: counts.skip, word: t("appPages.diagnose.tally.skipped", { count: counts.skip }) },
+    {
+      tone: "ok" as const,
+      count: counts.ok,
+      word: t("appPages.diagnose.tally.passed", { count: counts.ok }),
+    },
+    {
+      tone: "warn" as const,
+      count: counts.warn,
+      word: t("appPages.diagnose.tally.warning", { count: counts.warn }),
+    },
+    {
+      tone: "fail" as const,
+      count: counts.fail,
+      word: t("appPages.diagnose.tally.failed", { count: counts.fail }),
+    },
+    {
+      tone: "idle" as const,
+      count: counts.skip,
+      word: t("appPages.diagnose.tally.skipped", { count: counts.skip }),
+    },
   ].filter((part) => part.count > 0);
 
   return (
     <Card
       level={2}
       title={
-        <span aria-busy={running || undefined} className="flex items-center gap-2">
-          <span className="sr-only">{t("appPages.diagnose.verdictPrefix")}</span>{" "}
+        <span
+          aria-busy={running || undefined}
+          className="flex items-center gap-2"
+        >
+          <span className="sr-only">
+            {t("appPages.diagnose.verdictPrefix")}
+          </span>{" "}
           <span data-verdict={diagnosis.verdict}>
             <StatusPill state={VERDICT_STATE[view.tone]} label={view.word} />
           </span>
@@ -163,8 +242,17 @@ function Verdict({
       }
       actions={
         <>
-          <span className="hidden text-12 text-fg-muted sm:inline">{t.rich("appPages.diagnose.checkedAt", { time: <RelativeTime value={checkedAt} /> })}</span>
-          <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={running} onClick={onRunAgain}>
+          <span className="hidden text-12 text-fg-muted sm:inline">
+            {t.rich("appPages.diagnose.checkedAt", {
+              time: <RelativeTime value={checkedAt} />,
+            })}
+          </span>
+          <Button
+            size="sm"
+            icon={<RotateCw aria-hidden="true" />}
+            loading={running}
+            onClick={onRunAgain}
+          >
             {t("appPages.diagnose.runAgain")}
           </Button>
         </>
@@ -173,12 +261,21 @@ function Verdict({
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex max-w-measure flex-col gap-2">
           <div className="flex flex-col gap-0.5">
-            <p className="text-12 text-fg-muted">{healthy ? t("appPages.diagnose.allGood") : t("appPages.diagnose.mostLikely")}</p>
-            <p className="title text-18 text-pretty text-fg">{headline(diagnosis, t.locale)}</p>
+            <p className="text-12 text-fg-muted">
+              {healthy
+                ? t("appPages.diagnose.allGood")
+                : t("appPages.diagnose.mostLikely")}
+            </p>
+            <p className="title text-18 text-pretty text-fg">
+              {headline(diagnosis, t.locale)}
+            </p>
           </div>
           {diagnosis.probable_cause ? (
             // The correlation's own words, verbatim, under the product's reading of them.
-            <SystemOutput label={t("appPages.diagnose.whatTheChecksFound")} className="rounded-control border border-border bg-bg-sunken px-3 py-2">
+            <SystemOutput
+              label={t("appPages.diagnose.whatTheChecksFound")}
+              className="rounded-control border border-border bg-bg-sunken px-3 py-2"
+            >
               {diagnosis.probable_cause}
             </SystemOutput>
           ) : null}
@@ -187,12 +284,17 @@ function Verdict({
         {healthy ? null : <Remedies domain={domain} t={t} />}
 
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-13 text-fg-muted">
-          <span>{t("appPages.diagnose.checksCount", { count: diagnosis.checks.length })}</span>
+          <span>
+            {t("appPages.diagnose.checksCount", {
+              count: diagnosis.checks.length,
+            })}
+          </span>
           {parts.map((part) => (
             <span key={part.tone} className="inline-flex items-center gap-1.5">
               <CheckIcon tone={part.tone} className="size-icon-sm" />
               <span>
-                <span className="text-fg tabular-nums">{part.count}</span> {part.word}
+                <span className="text-fg tabular-nums">{part.count}</span>{" "}
+                {part.word}
               </span>
             </span>
           ))}
@@ -208,26 +310,45 @@ function CheckStatus({ status, t }: { status: string; t: T }) {
   return (
     <span className="inline-flex h-5 w-24 shrink-0 items-center gap-1.5 text-12 font-medium text-fg-muted">
       {view.tone === "idle" && status.trim().toLowerCase() !== "skip" ? (
-        <CircleHelp aria-hidden="true" className="size-icon-md shrink-0 text-idle" />
+        <CircleHelp
+          aria-hidden="true"
+          className="size-icon-md shrink-0 text-idle"
+        />
       ) : (
         <CheckIcon tone={view.tone} className="size-icon-md" />
       )}
-      <span className={view.tone === "fail" ? "text-fail" : undefined}>{view.word}</span>
+      <span className={view.tone === "fail" ? "text-fail" : undefined}>
+        {view.word}
+      </span>
     </span>
   );
 }
 
 const ROW = "flex min-w-0 flex-wrap items-start gap-x-3 gap-y-1 px-4 py-3";
 
-function CheckRow({ check, domain, open, t }: { check: Check; domain: string; open: boolean; t: T }) {
+function CheckRow({
+  check,
+  domain,
+  open,
+  t,
+}: {
+  check: Check;
+  domain: string;
+  open: boolean;
+  t: T;
+}) {
   const evidence = check.evidence.trim() !== "";
   const next = nextStep(check, domain, t);
   const label = checkLabel(check.name, t.locale);
   const head = (
     <>
       <CheckStatus status={check.status} t={t} />
-      <span className="w-44 shrink-0 text-13 leading-5 font-medium text-fg">{label}</span>
-      <span className="min-w-0 flex-1 basis-60 text-13 leading-5 text-pretty text-fg-muted">{check.summary}</span>
+      <span className="w-44 shrink-0 text-13 leading-5 font-medium text-fg">
+        {label}
+      </span>
+      <span className="min-w-0 flex-1 basis-60 text-13 leading-5 text-pretty text-fg-muted">
+        {check.summary}
+      </span>
     </>
   );
 
@@ -246,17 +367,31 @@ function CheckRow({ check, domain, open, t }: { check: Check; domain: string; op
   return (
     <li>
       <details open={open} className="group">
-        <summary className={cx(ROW, "cursor-pointer list-none -outline-offset-2 hover:bg-surface-hover [&::-webkit-details-marker]:hidden")}>
+        <summary
+          className={cx(
+            ROW,
+            "cursor-pointer list-none -outline-offset-2 hover:bg-surface-hover [&::-webkit-details-marker]:hidden",
+          )}
+        >
           {head}
           <span className="ml-auto flex min-h-5 shrink-0 items-center gap-1 text-12 text-fg-muted">
-            <span className="group-open:hidden">{t("appPages.diagnose.showOutput")}</span>
-            <span className="hidden group-open:inline">{t("appPages.diagnose.hideOutput")}</span>
-            <ChevronDown aria-hidden="true" className="size-icon-sm transition-transform duration-(--duration-fast) group-open:rotate-180" />
+            <span className="group-open:hidden">
+              {t("appPages.diagnose.showOutput")}
+            </span>
+            <span className="hidden group-open:inline">
+              {t("appPages.diagnose.hideOutput")}
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              className="size-icon-sm transition-transform duration-(--duration-fast) group-open:rotate-180"
+            />
           </span>
         </summary>
         <div className="flex flex-col gap-2 px-4 pb-4">
           <SystemOutput
-            label={t("appPages.diagnose.outputOfCheck", { check: label.toLowerCase() })}
+            label={t("appPages.diagnose.outputOfCheck", {
+              check: label.toLowerCase(),
+            })}
             maxHeight="max-h-72"
             className="rounded-control border border-border bg-bg-sunken px-3 py-2 leading-5"
           >
@@ -274,34 +409,79 @@ function CheckRow({ check, domain, open, t }: { check: Check; domain: string; op
  * hangs on open with the logs it cites; what passed or was skipped folded into one line, one
  * click away.
  */
-function Checks({ diagnosis, domain, t }: { diagnosis: Diagnosis; domain: string; t: T }) {
+function Checks({
+  diagnosis,
+  domain,
+  t,
+}: {
+  diagnosis: Diagnosis;
+  domain: string;
+  t: T;
+}) {
   const open = openChecks(diagnosis);
   // What did not pass, and what the verdict cites even when it passed (the logs of a failed
   // app), stay in view; the rest is folded.
-  const shown = (check: Check): boolean => isProblem(check) || open.has(check.name);
+  const shown = (check: Check): boolean =>
+    isProblem(check) || open.has(check.name);
   const problems = diagnosis.checks.filter(shown);
   const rest = diagnosis.checks.filter((check) => !shown(check));
   return (
-    <Section title={t("appPages.diagnose.checksTitle")} description={t("appPages.diagnose.checksDescription")}>
+    <Section
+      title={t("appPages.diagnose.checksTitle")}
+      icon={Stethoscope}
+      description={t("appPages.diagnose.checksDescription")}
+    >
       <Card padding="none">
         {/* Two lists side by side, never one inside the other: a check is one list item. */}
         <div className="flex min-w-0 flex-col divide-y divide-border">
           {problems.length > 0 ? (
-            <ul aria-label={t("appPages.diagnose.problemsLabel")} className="flex min-w-0 flex-col divide-y divide-border">
+            <ul
+              aria-label={t("appPages.diagnose.problemsLabel")}
+              className="flex min-w-0 flex-col divide-y divide-border"
+            >
               {problems.map((check) => (
-                <CheckRow key={check.name} check={check} domain={domain} open={open.has(check.name)} t={t} />
+                <CheckRow
+                  key={check.name}
+                  check={check}
+                  domain={domain}
+                  open={open.has(check.name)}
+                  t={t}
+                />
               ))}
             </ul>
           ) : null}
           {rest.length > 0 ? (
-            <details open={problems.length === 0} data-rest="" className="group/rest">
-              <summary className={cx(ROW, "cursor-pointer list-none items-center -outline-offset-2 hover:bg-surface-hover [&::-webkit-details-marker]:hidden")}>
-                <span className="text-13 font-medium text-fg">{t("appPages.diagnose.restSummary", { count: rest.length })}</span>
-                <ChevronDown aria-hidden="true" className="ml-auto size-icon-sm text-fg-muted transition-transform duration-(--duration-fast) group-open/rest:rotate-180" />
+            <details
+              open={problems.length === 0}
+              data-rest=""
+              className="group/rest"
+            >
+              <summary
+                className={cx(
+                  ROW,
+                  "cursor-pointer list-none items-center -outline-offset-2 hover:bg-surface-hover [&::-webkit-details-marker]:hidden",
+                )}
+              >
+                <span className="text-13 font-medium text-fg">
+                  {t("appPages.diagnose.restSummary", { count: rest.length })}
+                </span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className="ml-auto size-icon-sm text-fg-muted transition-transform duration-(--duration-fast) group-open/rest:rotate-180"
+                />
               </summary>
-              <ul aria-label={t("appPages.diagnose.restLabel")} className="flex min-w-0 flex-col divide-y divide-border border-t border-border">
+              <ul
+                aria-label={t("appPages.diagnose.restLabel")}
+                className="flex min-w-0 flex-col divide-y divide-border border-t border-border"
+              >
                 {rest.map((check) => (
-                  <CheckRow key={check.name} check={check} domain={domain} open={open.has(check.name)} t={t} />
+                  <CheckRow
+                    key={check.name}
+                    check={check}
+                    domain={domain}
+                    open={open.has(check.name)}
+                    t={t}
+                  />
                 ))}
               </ul>
             </details>
@@ -319,7 +499,12 @@ function Checks({ diagnosis, domain, t }: { diagnosis: Diagnosis; domain: string
 function DiagnosisSkeleton({ t }: { t: T }) {
   return (
     <div className="flex flex-col gap-8">
-      <JobProgress state="running" title={t("appPages.diagnose.running")} description={t("appPages.diagnose.runningChecks")} announce={false} />
+      <JobProgress
+        state="running"
+        title={t("appPages.diagnose.running")}
+        description={t("appPages.diagnose.runningChecks")}
+        announce={false}
+      />
       <div aria-hidden="true" className="flex flex-col gap-4">
         <Skeleton className="h-5 w-40" />
         <Card padding="none">
@@ -328,7 +513,9 @@ function DiagnosisSkeleton({ t }: { t: T }) {
               <div key={i} className="flex h-11 items-center gap-3 px-4">
                 <Skeleton className="h-3 w-16 sm:w-24" />
                 <Skeleton className="h-3 w-28 sm:w-44" />
-                <Skeleton className={cx("h-3", i % 2 === 0 ? "w-72" : "w-52")} />
+                <Skeleton
+                  className={cx("h-3", i % 2 === 0 ? "w-72" : "w-52")}
+                />
               </div>
             ))}
           </div>
@@ -347,29 +534,54 @@ export function DiagnoseTab({ domain }: { domain: string }) {
   const t = useT();
   useDocumentTitle(t("appPages.diagnose.documentTitle", { domain }), 1);
   // The probes take seconds and answer for now: never on focus, only when asked.
-  const diagnosis = useQuery({ ...diagnosisQuery(domain), refetchOnWindowFocus: false });
+  const diagnosis = useQuery({
+    ...diagnosisQuery(domain),
+    refetchOnWindowFocus: false,
+  });
 
   const runAgain = (): void => {
     void diagnosis.refetch().then((result) => {
       if (result.data === undefined || result.isError) return;
-      announce(verdictAnnouncement(domain, result.data, t.locale), result.data.verdict === "down" ? "assertive" : "polite");
+      announce(
+        verdictAnnouncement(domain, result.data, t.locale),
+        result.data.verdict === "down" ? "assertive" : "polite",
+      );
     });
   };
 
   return (
     <Sections>
-      <section aria-label={t("appPages.diagnose.ariaLabel", { domain })} className="min-w-0">
-        <QueryState query={diagnosis} label={t("appPages.diagnose.queryLabel", { domain })} skeleton={<DiagnosisSkeleton t={t} />}>
+      <section
+        aria-label={t("appPages.diagnose.ariaLabel", { domain })}
+        className="min-w-0"
+      >
+        <QueryState
+          query={diagnosis}
+          label={t("appPages.diagnose.queryLabel", { domain })}
+          skeleton={<DiagnosisSkeleton t={t} />}
+        >
           {(data) => (
             <div className="flex flex-col gap-8">
-              <Verdict domain={domain} diagnosis={data} checkedAt={diagnosis.dataUpdatedAt} running={diagnosis.isFetching} onRunAgain={runAgain} t={t} />
-              {data.checks.some((check) => check.name === "zero_downtime") ? <ZeroDowntimeSuggestion domain={domain} t={t} /> : null}
+              <Verdict
+                domain={domain}
+                diagnosis={data}
+                checkedAt={diagnosis.dataUpdatedAt}
+                running={diagnosis.isFetching}
+                onRunAgain={runAgain}
+                t={t}
+              />
+              {data.checks.some((check) => check.name === "zero_downtime") ? (
+                <ZeroDowntimeSuggestion domain={domain} t={t} />
+              ) : null}
               <Checks diagnosis={data} domain={domain} t={t} />
             </div>
           )}
         </QueryState>
       </section>
-      <CommandHint command={`noust diagnose ${domain}`} label={t("appPages.fromTerminal")} />
+      <CommandHint
+        command={`noust diagnose ${domain}`}
+        label={t("appPages.fromTerminal")}
+      />
     </Sections>
   );
 }

@@ -940,13 +940,22 @@ def _update_release(
         # is still on disk; activating it again would serve what the gate
         # refused. Its commit is built afresh instead.
         failed = _failed_releases(get_store(), app) | _unserved_releases(get_store(), app)
-        built = next(
-            (
-                r
-                for r in releases.list()
-                if not r.active and r.id not in failed and r.commit and full.startswith(r.commit)
-            ),
-            None,
+        # From scratch is a build, not an activation: asking to leave the cache out of a commit
+        # whose release is on disk would otherwise put that release back and build nothing.
+        built = (
+            None
+            if no_cache
+            else next(
+                (
+                    r
+                    for r in releases.list()
+                    if not r.active
+                    and r.id not in failed
+                    and r.commit
+                    and full.startswith(r.commit)
+                ),
+                None,
+            )
         )
         if built is not None:
             phase(2, RELEASE_PHASES, f"Activating release {built.id}, built from {built_from}")

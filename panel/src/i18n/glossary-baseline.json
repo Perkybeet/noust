@@ -56,7 +56,6 @@
       "Live": 3,
       "Missing": 2,
       "None": 2,
-      "None yet": 3,
       "Not checked yet": 2,
       "Not installed": 2,
       "Not known": 2,
@@ -80,7 +79,6 @@
       "Restart": 2,
       "Restore": 2,
       "Review": 2,
-      "Roll back": 3,
       "Running": 4,
       "Runs": 3,
       "Scheduled": 2,
@@ -146,7 +144,6 @@
       "server": 1
     },
     "en:old-names": {
-      "appPages": 1,
       "nav": 1,
       "runtime": 2
     },
@@ -292,7 +289,6 @@
       "settings": 1
     },
     "es:old-names": {
-      "appPages": 1,
       "nav": 1,
       "runtime": 2
     },
@@ -303,7 +299,6 @@
       "services": 1
     },
     "es:reconstruir": {
-      "appPages": 1,
       "placements": 1
     },
     "es:three-dots": {
@@ -327,7 +322,7 @@
       "probes": 1
     },
     "es:volver-back": {
-      "appPages": 2,
+      "appPages": 1,
       "catalog": 1
     },
     "es:vuestro": {
@@ -339,7 +334,7 @@
       "Delete|Borrar": 7,
       "Deploy|Despliegue": 5,
       "Dismiss|Descartar": 3,
-      "Done|Listo": 2,
+      "Done|Listo": 1,
       "Failed|Con fallo": 1,
       "Failed|Falló": 6,
       "Live|En vivo": 3,

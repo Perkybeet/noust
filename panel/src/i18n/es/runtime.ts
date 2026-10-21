@@ -50,11 +50,9 @@ export const runtime: Catalog<typeof en> = {
     nowCommand: "Ahora: {command} debe salir con 0, en {timeout}.",
   },
   pending: {
-    title: { one: "{count} ajuste todavía no se aplica", other: "{count} ajustes todavía no se aplican" },
     bodyRestart: "{domain} funciona con lo que tenía cuando se desplegó o reinició por última vez. Reinícialo para aplicarlos.",
     bodyRebuild: "{domain} funciona con lo que tenía cuando se desplegó por última vez. Algunos necesitan construir la aplicación otra vez.",
     bodyNextDeploy: "Estos se aplican en el próximo despliegue. No hace falta reiniciar nada.",
-    review: "Revisar",
     dialogTitle: "Ajustes sin aplicar de {domain}",
     dialogDescription: "A qué está ajustado {domain} ahora y con qué funciona. Los valores de los ajustes secretos nunca se muestran.",
     listLabel: "Ajustes sin aplicar de {domain}",
@@ -581,11 +579,5 @@ export const runtime: Catalog<typeof en> = {
     stopManagingSettingsDescription: "Lo quita de Noust y nada más: la unidad, el sitio, el certificado y los ficheros de {path} no se tocan. Puedes volver a adoptarlo.",
     stopManagingSettingsDescriptionNoPath: "Lo quita de Noust y nada más: la unidad, el sitio, el certificado y los ficheros no se tocan. Puedes volver a adoptarlo.",
     stopManagingButton: "Dejar de gestionar…",
-  },
-  rollback: {
-    instantWords: "Vuelve en segundos: lo que ejecutó el despliegue {id} sigue en el servidor, así que no se construye nada. La base de datos queda como está: volver atrás devuelve el código, nunca los datos.",
-    rebuildWords: "Construye otra vez el commit {commit} donde corre la aplicación, y tarda lo que un despliegue. La base de datos queda como está: volver atrás devuelve el código, nunca los datos.",
-    instantBadge: "Al instante",
-    rebuildBadge: "Reconstruye",
   },
 };

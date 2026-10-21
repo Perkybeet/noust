@@ -3,28 +3,18 @@
   "rules": {
     "action-dialog": {},
     "badge-state": {
-      "features/app/deployments/ReleasesSection.tsx": 1,
-      "features/app/environment/ComposeVariables.tsx": 1,
-      "features/app/environment/EnvironmentTab.tsx": 1,
       "features/backups/noust/MigrationReport.tsx": 1,
       "features/backups/RestoreDrills.tsx": 2,
       "features/catalog/RecipeDetailPage.tsx": 1,
       "features/catalog/RecipeRequirements.tsx": 1,
       "features/databases/instances/InstancesSection.tsx": 2,
       "features/databases/instances/TuningDialog.tsx": 1,
-      "features/domains/AppDomainsTab.tsx": 1,
       "features/domains/IssueCertificateDialog.tsx": 1,
       "features/domains/SiteHistoryDialog.tsx": 2,
       "features/domains/SitesPage.tsx": 2,
       "features/overview/NeedsAttention.tsx": 1
     },
     "bordered-list": {
-      "features/app/environment/ComposeVariables.tsx": 1,
-      "features/app/environment/ReviewDialog.tsx": 2,
-      "features/app/PendingChanges.tsx": 1,
-      "features/app/RollbackDialog.tsx": 1,
-      "features/app/SchemaChangeDialog.tsx": 1,
-      "features/apps/BulkAppsDialog.tsx": 1,
       "features/backups/BrowseDestinationDialog.tsx": 1,
       "features/backups/RestoreDrills.tsx": 2,
       "features/catalog/RecipeRequirements.tsx": 1,
@@ -114,18 +104,9 @@
     },
     "hand-aria-busy": {
       "features/activity/JobLogDrawer.tsx": 1,
-      "features/app/AppLayout.tsx": 1,
-      "features/app/AppOverview.tsx": 2,
       "features/app/database/AppDatabaseTab.tsx": 1,
       "features/app/database/CreateLinkDialog.tsx": 1,
-      "features/app/deployments/DeploymentPage.tsx": 2,
-      "features/app/deployments/ReleasesSection.tsx": 1,
-      "features/app/environment/ComposeVariables.tsx": 1,
-      "features/app/files/FilesPage.tsx": 2,
       "features/app/logs/LogsTab.tsx": 1,
-      "features/app/metrics/MetricsTab.tsx": 1,
-      "features/app/metrics/TrafficSection.tsx": 1,
-      "features/app/RollbackDialog.tsx": 1,
       "features/backups/noust/MigrationDialog.tsx": 1,
       "features/backups/RestoreDrills.tsx": 1,
       "features/backups/volumes/VolumePolicyDrawer.tsx": 1,
@@ -146,9 +127,7 @@
       "features/databases/overview/OverviewTab.tsx": 1,
       "features/databases/query/QueryLibrary.tsx": 1,
       "features/databases/wizard/DatabaseStep.tsx": 1,
-      "features/domains/AddDomainDialog.tsx": 1,
       "features/domains/AppDnsSection.tsx": 1,
-      "features/domains/AppDomainsTab.tsx": 2,
       "features/domains/AuthorityDialog.tsx": 1,
       "features/domains/InternalAuthorityDialog.tsx": 1,
       "features/domains/SiteConfigPage.tsx": 1,
@@ -169,7 +148,6 @@
       "features/new-app/GitLabSource.tsx": 1,
       "features/overview/NeedsAttention.tsx": 1,
       "features/overview/RecentActivity.tsx": 1,
-      "features/promotion/PromoteDialog.tsx": 1,
       "features/settings/EmailChannel.tsx": 1,
       "features/settings/LogRetentionSection.tsx": 1,
       "features/settings/LogShippingSettings.tsx": 1,
@@ -188,7 +166,6 @@
       "features/app/database/SqliteSection.tsx": 1,
       "features/app/deployments/DeploymentPage.tsx": 2,
       "features/app/deployments/DeploymentsTab.tsx": 1,
-      "features/app/deployments/ReleasesSection.tsx": 2,
       "features/app/metrics/MetricsTab.tsx": 1,
       "features/apps/AppsPage.tsx": 1,
       "features/backups/BackupsPage.tsx": 1,
@@ -243,7 +220,6 @@
       "i18n/en/volumeBackups.ts": 1
     },
     "inline-empty-by-hand": {
-      "features/app/environment/ComposeVariables.tsx": 1,
       "features/app/environment/PredefinedVariables.tsx": 1,
       "features/app/metrics/TrafficSection.tsx": 1,
       "features/catalog/CatalogPackage.tsx": 1,
@@ -329,9 +305,7 @@
       "features/new-app/RemoteImport.tsx": 1,
       "features/settings/accounts/InviteDialog.tsx": 1
     },
-    "own-back-link": {
-      "features/app/deployments/DeploymentPage.tsx": 1
-    },
+    "own-back-link": {},
     "own-leave-dialog": {
       "features/domains/SiteConfigPage.tsx": 1,
       "features/new-app/NewAppWizard.tsx": 1
@@ -345,7 +319,6 @@
       "features/settings/servers/ServersSettings.tsx": 1
     },
     "row-link-class": {
-      "features/app/AppOverview.tsx": 1,
       "features/app/SourceLink.tsx": 1,
       "features/apps/AppsTable.tsx": 1,
       "features/catalog/InstalledRecipesPage.tsx": 1,
@@ -365,7 +338,6 @@
       "features/teams/TeamsPage.tsx": 1
     },
     "submit-disabled-invalid": {
-      "features/app/environment/ReviewDialog.tsx": 1,
       "features/app/ReclaimDialog.tsx": 1,
       "features/auth/ElevateDialog.tsx": 1,
       "features/auth/PasskeysSection.tsx": 2,

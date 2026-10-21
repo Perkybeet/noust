@@ -441,6 +441,17 @@ class RollbackRequest(BaseModel):
     )
 
 
+class RebuildRequest(BaseModel):
+    """Building a deployment's commit again."""
+
+    no_cache: bool = Field(
+        default=False,
+        description="Build from scratch: no package manager cache, no dependencies taken from "
+        "the release that serves, no image layer cache, and a release of that commit already "
+        "on disk is not activated in its place",
+    )
+
+
 def _deployment_of(domain: str, deployment_id: int) -> DeploymentRecord:
     """
     Read a deployment that must belong to an application.
@@ -469,7 +480,10 @@ def _deployment_of(domain: str, deployment_id: int) -> DeploymentRecord:
     status_code=202,
 )
 def rebuild_deployment(
-    domain: str, deployment_id: int, session: Annotated[dict, Depends(get_current_session)]
+    domain: str,
+    deployment_id: int,
+    session: Annotated[dict, Depends(get_current_session)],
+    body: RebuildRequest | None = None,
 ) -> JobAcceptedResponse:
     """
     Queue a deploy of the exact commit a deployment was built from.
@@ -478,11 +492,14 @@ def rebuild_deployment(
     still on disk is activated (instant), otherwise the commit is built as a
     new release; in place the checkout is put on the commit and rebuilt.
     There is no ``nothing_new`` check: asking for a commit is explicit.
+    With ``no_cache`` the commit is always built, from scratch: what the
+    console's "Retry without cache" asks for after a failure.
 
     Args:
         domain: Domain of the application.
         deployment_id: The deployment whose commit to rebuild.
         session: The authenticated session.
+        body: Optional; ``no_cache`` builds from scratch.
 
     Returns:
         The queued job.
@@ -506,12 +523,18 @@ def rebuild_deployment(
                 "build its source again.",
             },
         )
+    from_scratch = bool(body and body.no_cache)
+    kwargs: dict[str, Any] = {"domain": domain, "commit": commit}
+    if from_scratch:
+        # Only when asked: the job's arguments stay what they were for every caller that never did.
+        kwargs["no_cache"] = True
     job = get_job_manager().create_job(
         job_type=JobType.UPDATE,
-        name=f"Rebuild {domain} at {commit}",
-        description=f"Deploying commit {commit} of {domain} again",
+        name=f"Rebuild {domain} at {commit}" + (" without cache" if from_scratch else ""),
+        description=f"Deploying commit {commit} of {domain} again"
+        + (" from scratch" if from_scratch else ""),
         func=update_app_job,
-        kwargs={"domain": domain, "commit": commit},
+        kwargs=kwargs,
         metadata={"domain": domain, "commit": commit, "deployment_id": deployment_id},
         actor=actor_label(session),
     )

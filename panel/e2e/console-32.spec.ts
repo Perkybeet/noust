@@ -61,6 +61,19 @@ test("going back past a schema change names the deployment, its migration and th
   if (target === undefined || later === undefined) throw new Error("no seeded deployment to go back to");
 
   await amend(page, `/api/deployments/${String(target.id)}`, (body) => ({ ...body, schema_changed_between: [later.id] }));
+  // The one question about going back reads the history, so the history says it too.
+  await page.route(
+    (url) => url.pathname === "/api/deployments",
+    async (route: Route) => {
+      if (route.request().method() !== "GET") {
+        await route.continue();
+        return;
+      }
+      const response = await route.fetch();
+      const body = (await response.json()) as { items: { id: number }[] };
+      await route.fulfill({ response, json: { ...body, items: body.items.map((item) => (item.id === target.id ? { ...item, schema_changed_between: [later.id] } : item)) } });
+    },
+  );
   await amend(page, `/api/deployments/${String(later.id)}`, (body) => ({
     ...body,
     schema_changed: true,
@@ -97,9 +110,9 @@ test("going back past a schema change names the deployment, its migration and th
 
   await page.goto(`/apps/${RELEASES_APP}/deployments/${String(target.id)}`);
   await page.getByRole("button", { name: "Go back to this version" }).click();
-  const first = page.getByRole("dialog", { name: `Go back to deployment ${String(target.id)}?` });
-  await expect(first.getByText(`Deployment #${String(later.id)} changed the database schema after this one.`, { exact: false })).toBeVisible();
-  await first.getByRole("button", { name: "Go back", exact: true }).click();
+  const first = page.getByRole("alertdialog", { name: `Roll back ${RELEASES_APP}` });
+  await expect(first.getByText(`Deployment #${String(later.id)} changed the database schema.`, { exact: false })).toBeVisible();
+  await first.getByRole("button", { name: `Go back to #${String(target.id)}` }).click();
 
   const dialog = page.getByRole("dialog", { name: "Going back passes a change to the database" });
   await expect(dialog.getByRole("link", { name: `Deployment ${String(later.id)}` })).toBeVisible();
