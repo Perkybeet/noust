@@ -117,6 +117,8 @@ server and the one that puts it back), and the databases the application connect
 database is an application like the others that runs a database image, and an application reaches it by
 the name `srv-captain--NAME`: a variable that holds that name is the link. The importer prints the
 `docker exec` dump (the password is read inside the container) and the `noust db import` that loads it.
+The dump finds the container by the application's name or by `srv-captain--NAME`: CapRover 1.15 names
+its services after the application, and older ones put the prefix in front.
 
 What is only said, with what to do instead: an application CapRover built from a `captain-definition`
 (the definition is not part of the application's record, so it is a container application you create
