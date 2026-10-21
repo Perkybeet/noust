@@ -143,7 +143,7 @@ describe("the new-app wizard", () => {
     // shop.example.com holds 3000 in the fake machine, so the next free port is proposed.
     expect(screen.getByLabelText("Port")).toHaveValue("3001");
     // What most deploys leave alone is folded, and says what it is set to.
-    expect(screen.getByText("Advanced").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByRole("button", { name: /^Advanced/ })).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByText("Instant rollback, nginx")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Continue" }));
 

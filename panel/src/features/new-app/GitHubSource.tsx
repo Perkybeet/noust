@@ -7,11 +7,12 @@ import { githubBranchesQuery, githubRepositoriesQuery } from "../../api/queries/
 import type { GitHubRepository, GitHubStatus } from "../../api/queries/github";
 import { announce } from "../../app/Announcer";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
-import { ICONS } from "../../components/ui/icons";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Select } from "../../components/ui/Select";
@@ -385,12 +386,11 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
       );
     }
     return (
-      <div aria-busy="true" className="flex flex-col gap-2">
-        <span className="sr-only">{t("newApp.github.loadingRepositories")}</span>
+      <LoadingRegion label={t("newApp.github.loadingRepositories")} className="flex flex-col gap-2">
         <Skeleton className="h-3 w-24" />
         <Skeleton className="h-8" />
         <Skeleton className="h-40" />
-      </div>
+      </LoadingRegion>
     );
   }
 
@@ -445,10 +445,9 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
           </div>
         </Card>
         {errors.source !== undefined ? (
-          <p role="alert" className="flex items-start gap-1.5 text-13 text-fail">
-            <ICONS.error aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />
-            <span>{errors.source}</span>
-          </p>
+          <InlineMessage tone="error" live>
+            {errors.source}
+          </InlineMessage>
         ) : null}
       </div>
       {names !== null ? (

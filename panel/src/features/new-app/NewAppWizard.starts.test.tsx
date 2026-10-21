@@ -256,7 +256,7 @@ describe("importing an application", () => {
 
     expect(await screen.findByRole("heading", { level: 2, name: "Address" })).toHaveFocus();
     await user.click(screen.getByText("What the export defines"));
-    const summary = screen.getByText("What the export defines").closest("details") as HTMLElement;
+    const summary = screen.getByText("What the export defines").closest('[data-slot="disclosure-card"]') as HTMLElement;
     expect(within(summary).getByText("1 job")).toBeInTheDocument();
     expect(within(summary).getByText("Schedule daily")).toBeInTheDocument();
     expect(within(summary).getByText("store.example.com")).toBeInTheDocument();

@@ -13,6 +13,7 @@ import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { useT } from "../../i18n";
 import { requiredVariables, variableNamed } from "../new-app/recipe";
 import { versionLabel } from "./model";
@@ -118,10 +119,9 @@ export function RecipeUpdateDialog({ item, onOpenChange, onQueued }: RecipeUpdat
           <Notice title={t("catalog.update.safeTitle")}>{t("catalog.update.safe")}</Notice>
 
           {recipe.isPending ? (
-            <div aria-busy="true">
-              <span className="sr-only">{t("catalog.update.reading")}</span>
+            <LoadingRegion label={t("catalog.update.reading")}>
               <Skeleton className="h-9 w-full" />
-            </div>
+            </LoadingRegion>
           ) : recipe.isError ? null : asked.length > 0 ? (
             <div className="flex flex-col gap-4">
               <p className="text-13 text-pretty text-fg-muted">{t("catalog.update.variables")}</p>

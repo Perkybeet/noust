@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 
 import { LoadingRegion } from "../../components/page/LoadingRegion";
-import { ICONS } from "../../components/ui/icons";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import { saveDraft } from "./draft";
@@ -30,10 +30,9 @@ export function ConnectGitHub({ form, error }: { form: SourceForm; error: string
         <CreateGitHubApp submitLabel={t("newApp.github.connect")} onStart={() => saveDraft({ mode: "github", source: form.source, branch: form.branch })} />
       </Suspense>
       {error !== undefined ? (
-        <p role="alert" className="flex items-start gap-1.5 text-13 text-fail">
-          <ICONS.error aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />
-          <span>{error}</span>
-        </p>
+        <InlineMessage tone="error" live>
+          {error}
+        </InlineMessage>
       ) : null}
     </div>
   );

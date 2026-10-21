@@ -35,7 +35,7 @@ describe("the catalog page", () => {
     // until the cards pushed it out of it.
     catalogue({ "GET /api/recipes": () => new Promise<Response>(() => undefined) });
     const busy = await waitFor(() => {
-      const grid = document.querySelector('[aria-busy="true"].grid');
+      const grid = document.querySelector('[aria-busy="true"] .grid');
       if (grid === null) throw new Error("no skeleton yet");
       return grid;
     });

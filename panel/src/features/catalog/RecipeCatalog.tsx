@@ -12,6 +12,7 @@ import { Combobox } from "../../components/ui/Combobox";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { TablePagination, pageWindow } from "../../components/ui/TablePagination";
 import { usePageSize } from "../../components/ui/pageSize";
 import { useT } from "../../i18n";
@@ -166,12 +167,11 @@ const SKELETON_CARDS_MAX = 24;
 function CatalogSkeleton({ count }: { count: number }) {
   const t = useT();
   return (
-    <div aria-busy="true" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      <span className="sr-only">{t("newApp.recipes.loading")}</span>
+    <LoadingRegion label={t("newApp.recipes.loading")} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {Array.from({ length: count }, (_, index) => (
         <Skeleton key={index} className="h-28" />
       ))}
-    </div>
+    </LoadingRegion>
   );
 }
 

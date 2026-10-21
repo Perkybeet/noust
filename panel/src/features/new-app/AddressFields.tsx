@@ -6,6 +6,7 @@ import { Field } from "../../components/ui/Field";
 import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { useT } from "../../i18n";
 import { DnsVerdict } from "../domains/DnsVerdict";
 import { normalizeDomain } from "../domains/names";
@@ -16,11 +17,10 @@ import type { AddressChoice, AddressMode } from "./wizard";
 function DnsSkeleton() {
   const t = useT();
   return (
-    <div aria-busy="true" className="flex items-center gap-2">
-      <span className="sr-only">{t("newApp.review.checkingDns")}</span>
+    <LoadingRegion label={t("newApp.review.checkingDns")} className="flex items-center gap-2">
       <Skeleton className="size-4" />
       <Skeleton className="h-4 w-56" />
-    </div>
+    </LoadingRegion>
   );
 }
 

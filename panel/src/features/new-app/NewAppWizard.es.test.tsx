@@ -168,7 +168,7 @@ describe("the new-app wizard in Spanish", () => {
 
     expect(await screen.findByRole("heading", { level: 2, name: "Dirección" })).toHaveFocus();
     await user.click(screen.getByText("Lo que define la exportación"));
-    const summary = screen.getByText("Lo que define la exportación").closest("details") as HTMLElement;
+    const summary = screen.getByText("Lo que define la exportación").closest('[data-slot="disclosure-card"]') as HTMLElement;
     expect(within(summary).getByText("1 tarea")).toBeInTheDocument();
     expect(within(summary).getByText("2 valores omitidos")).toBeInTheDocument();
     await user.clear(screen.getByLabelText("Dominio"));
