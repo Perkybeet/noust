@@ -29,7 +29,6 @@ export const placements = {
     reference: "Most servers run {commit}",
     label: "Also on every server labelled {label}",
     refresh: "Compare again",
-    actionsFor: "Actions for {domain}",
     rollout: "Roll out",
     copy: "Put it on a server that lacks it",
     upstreams: "Servers for the load balancer",

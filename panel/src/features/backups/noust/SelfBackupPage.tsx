@@ -147,6 +147,11 @@ export function SelfBackupPage() {
             <Button size="sm" variant={schedule.configured ? "secondary" : "primary"} icon={<CalendarClock aria-hidden="true" />} onClick={() => setScheduling(true)}>
               {schedule.configured ? t("selfBackup.state.edit") : t("selfBackup.state.set")}
             </Button>
+            {schedule.configured ? (
+              <Button size="sm" variant="ghost" icon={<Trash2 aria-hidden="true" />} onClick={() => setRemoving(true)}>
+                {t("selfBackup.schedule.remove")}
+              </Button>
+            ) : null}
           </>
         }
       >
@@ -329,13 +334,6 @@ export function SelfBackupPage() {
                 </RowMenu>
               )}
             />
-            {schedule?.configured === true ? (
-              <div>
-                <Button size="sm" variant="ghost" onClick={() => setRemoving(true)}>
-                  {t("selfBackup.schedule.remove")}
-                </Button>
-              </div>
-            ) : null}
           </>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ScanSearch, ShieldQuestion } from "lucide-react";
 
 import { isApiError, request } from "../../../api/client";
 import { appSqliteQuery } from "../../../api/queries/databases";
@@ -70,10 +71,10 @@ function FileCard({ domain, file, t }: { domain: string; file: SqliteFile; t: T 
       title={<Mono className="break-all">{file.path}</Mono>}
       actions={
         <>
-          <Button size="sm" variant="ghost" loading={check.isPending && !check.variables} disabled={check.isPending} onClick={() => check.mutate(false)}>
+          <Button icon={<ShieldQuestion aria-hidden="true" />} size="sm" variant="ghost" loading={check.isPending && !check.variables} disabled={check.isPending} onClick={() => check.mutate(false)}>
             {t("databases.appTab.sqlite.check")}
           </Button>
-          <Button size="sm" variant="ghost" loading={check.isPending && check.variables} disabled={check.isPending} onClick={() => check.mutate(true)}>
+          <Button icon={<ScanSearch aria-hidden="true" />} size="sm" variant="ghost" loading={check.isPending && check.variables} disabled={check.isPending} onClick={() => check.mutate(true)}>
             {t("databases.appTab.sqlite.checkFull")}
           </Button>
         </>
@@ -103,6 +104,7 @@ export function SqliteSection({ domain }: { domain: string }) {
   const found = useQuery(appSqliteQuery(domain));
   // A server that does not have the endpoint yet (an older node behind a central) answers 404 or 405.
   if (found.isError && isApiError(found.error) && (found.error.status === 404 || found.error.status === 405)) return null;
+  // design-exception: hand-error-ternary an application without SQLite files shows nothing at all, so there is no skeleton to stand in for it
   if (found.isError && found.data === undefined) {
     return <ErrorBlock error={found.error} title={t("databases.appTab.sqlite.loadFailed")} onRetry={() => void found.refetch()} retrying={found.isRefetching} />;
   }

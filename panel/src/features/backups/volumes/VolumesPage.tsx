@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { HardDrive } from "lucide-react";
+import { CalendarClock, HardDrive, History, Pencil, Play, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -168,15 +168,15 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
         mobile="cards"
         rowActions={(row) => (
           <RowMenu name={row.domain}>
-            <MenuItem disabled={job.busy || run.isPending} onClick={() => run.mutate(row)}>
+            <MenuItem icon={<Play />} disabled={job.busy || run.isPending} onClick={() => run.mutate(row)}>
               {t("volumeBackups.actions.runNow")}
             </MenuItem>
-            <MenuItem onClick={() => setEditing({ domain: row.domain, policy: row.policy })}>{row.policy === null ? t("volumeBackups.detail.setPolicy") : t("volumeBackups.actions.edit")}</MenuItem>
-            <MenuItem onClick={() => openRow(row)}>{t("volumeBackups.actions.open")}</MenuItem>
+            <MenuItem icon={row.policy === null ? <CalendarClock /> : <Pencil />} onClick={() => setEditing({ domain: row.domain, policy: row.policy })}>{row.policy === null ? t("volumeBackups.detail.setPolicy") : t("volumeBackups.actions.edit")}</MenuItem>
+            <MenuItem icon={<History />} onClick={() => openRow(row)}>{t("volumeBackups.actions.open")}</MenuItem>
             {row.policy !== null ? (
               <>
                 <MenuSeparator />
-                <MenuItem destructive onClick={() => setRemoving(row)}>
+                <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(row)}>
                   {t("volumeBackups.actions.remove")}
                 </MenuItem>
               </>

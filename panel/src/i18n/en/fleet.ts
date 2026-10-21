@@ -96,6 +96,7 @@ export const fleet = {
     },
   },
   page: {
+    createAtProvider: "Create at a provider",
     title: "Fleet",
     description: "Every server this central manages, at once.",
     tabsLabel: "Fleet views",
@@ -299,7 +300,6 @@ export const fleet = {
     updateAvailable: "{version} available",
     now: "Now",
     never: "Never",
-    actionsFor: "Actions for {name}",
     open: "Open",
     test: "Test the connection",
     editLabels: "Edit labels",
@@ -410,7 +410,6 @@ export const fleet = {
         other: "{count} wait for their packages to be published.",
       },
     },
-    actionsFor: "Actions for {name}",
     refreshLists: "Refresh package lists",
     refreshBehind: "Refresh package lists (its index is behind)",
     noMethod: "Not known",

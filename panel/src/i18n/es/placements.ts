@@ -26,7 +26,6 @@ export const placements: Catalog<typeof en> = {
     reference: "La mayoría de los servidores corre {commit}",
     label: "También en cada servidor con la etiqueta {label}",
     refresh: "Comparar de nuevo",
-    actionsFor: "Acciones para {domain}",
     rollout: "Desplegar",
     copy: "Ponerla en un servidor que no la tiene",
     upstreams: "Servidores para el balanceador",

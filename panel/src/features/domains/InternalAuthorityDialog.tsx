@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download, ShieldPlus } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -130,10 +131,10 @@ function Made({ overview, authority, onRemoved }: { overview: InternalCa; author
         ]}
       />
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => downloadText("ca.crt", pem, "application/x-pem-file")}>{t("internalCa.downloadPem")}</Button>
-        <Button onClick={() => downloadBase64("ca.cer", derOf(pem), "application/x-x509-ca-cert")}>{t("internalCa.downloadDer")}</Button>
+        <Button icon={<Download aria-hidden="true" />} onClick={() => downloadText("ca.crt", pem, "application/x-pem-file")}>{t("internalCa.downloadPem")}</Button>
+        <Button icon={<Download aria-hidden="true" />} onClick={() => downloadBase64("ca.cer", derOf(pem), "application/x-x509-ca-cert")}>{t("internalCa.downloadDer")}</Button>
         {overview.system_store !== null ? (
-          <Button loading={trust.isPending} onClick={() => trust.mutate(!overview.trusted_here)}>
+          <Button icon={<ShieldPlus aria-hidden="true" />} loading={trust.isPending} onClick={() => trust.mutate(!overview.trusted_here)}>
             {overview.trusted_here ? t("internalCa.untrustHere") : t("internalCa.trustHere")}
           </Button>
         ) : null}

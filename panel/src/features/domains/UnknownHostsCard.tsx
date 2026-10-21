@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil, X } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -154,11 +155,11 @@ export function UnknownHostsCard() {
         ) : (
           <span className="flex items-center gap-2">
             {data.enabled ? (
-              <Button size="sm" loading={reset.isPending} onClick={() => reset.mutate()}>
+              <Button icon={<X aria-hidden="true" />} size="sm" loading={reset.isPending} onClick={() => reset.mutate()}>
                 {t("network.unknownHosts.remove")}
               </Button>
             ) : null}
-            <Button size="sm" onClick={() => setChanging(true)}>
+            <Button icon={<Pencil aria-hidden="true" />} size="sm" onClick={() => setChanging(true)}>
               {data.enabled ? t("network.unknownHosts.change") : t("network.unknownHosts.set")}
             </Button>
           </span>

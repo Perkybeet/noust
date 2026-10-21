@@ -17,7 +17,7 @@ export const selfBackup: Catalog<typeof en> = {
     offBody:
       "Sin una copia del estado propio de Noust, un servidor perdido pierde sus cuentas, sus ajustes y las claves que leen sus secretos, y las copias de todo lo demás no se pueden devolver solas. Programa una, y guarda su frase de paso fuera de este servidor.",
     pausedBody: "La programación conserva sus ajustes y no corre nada hasta que se vuelva a activar.",
-    set: "Poner una programación",
+    set: "Programar copias",
     edit: "Editar la programación",
     runNow: "Ejecutarla ahora",
     problems: {

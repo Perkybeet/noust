@@ -9,6 +9,7 @@
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ScrollText } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -293,7 +294,7 @@ export function DatabaseJobProgress({ job, words, onDismiss }: { job: Job; words
   const state = jobState(job.status);
   const title = state === "succeeded" ? words.succeeded : state === "failed" ? words.failed : words.running;
   const viewOutput = (
-    <Button size="sm" variant="ghost" onClick={() => setOutputOpen(true)}>
+    <Button icon={<ScrollText aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setOutputOpen(true)}>
       {t("databases.job.viewOutput")}
     </Button>
   );

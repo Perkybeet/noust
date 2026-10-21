@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Settings2 } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -199,7 +200,7 @@ export function CertificateSourceCard({ domain, onChosen }: { domain: string; on
       title={t("network.certSource.title")}
       level={3}
       actions={
-        <Button size="sm" onClick={() => setChoosing(true)}>
+        <Button icon={<Settings2 aria-hidden="true" />} size="sm" onClick={() => setChoosing(true)}>
           {t("network.certSource.change")}
         </Button>
       }

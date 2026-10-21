@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArchiveRestore, CloudUpload, Download, FlaskConical, ShieldQuestion, Trash2, Upload } from "lucide-react";
+import { ArchiveRestore, CalendarClock, CloudUpload, Download, FlaskConical, ShieldQuestion, Trash2, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -154,7 +154,7 @@ function PolicyCard({
                 ? t("policyScope.card.coveredBy", { engine: display })
                 : t("databases.backups.policy.none")}
           </p>
-          <Button size="sm" onClick={onEdit}>
+          <Button icon={<CalendarClock aria-hidden="true" />} size="sm" onClick={onEdit}>
             {all ? t("policyScope.card.set") : t("databases.backups.policy.set")}
           </Button>
         </div>

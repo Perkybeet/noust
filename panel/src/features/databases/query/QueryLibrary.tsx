@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Eraser, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -115,7 +115,7 @@ export function QueryLibrary({ engine, name, onPick }: { engine: string; name: s
               ))}
             </ul>
             <div>
-              <Button size="sm" variant="ghost" onClick={() => setClearing(true)}>
+              <Button icon={<Eraser aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setClearing(true)}>
                 {t("databases.library.clear")}
               </Button>
             </div>

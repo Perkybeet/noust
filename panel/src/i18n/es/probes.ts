@@ -100,7 +100,7 @@ export const probes: Catalog<typeof en> = {
     write: "Escribir ahora",
     written: { one: "Se escribió {count} archivo", other: "Se escribieron {count} archivos" },
     writeFailed: "No se pudo escribir la página de estado",
-    notPublished: "No está en un nombre propio: sirve tú la carpeta de arriba, o ponla en uno.",
+    notPublished: "No tiene un nombre propio: sirve tú la carpeta de arriba, o dale uno.",
     publishedOn: "Publicada en {domain}.",
     open: "Abrir la página",
     done: "Hecho",

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -207,7 +208,7 @@ export function RowDrawer({ engine, name, schema, relation, columns, editable, m
           <>
             <Button onClick={onClose}>{t("databases.row.close")}</Button>
             {editable ? (
-              <Button variant="primary" onClick={() => onModeChange("edit")}>
+              <Button icon={<Pencil aria-hidden="true" />} variant="primary" onClick={() => onModeChange("edit")}>
                 {t("databases.row.edit")}
               </Button>
             ) : null}

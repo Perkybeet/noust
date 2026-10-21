@@ -201,7 +201,7 @@ function TitleDialog({ page, open, onClose }: { page: StatusPage; open: boolean;
           <Button variant="ghost" disabled={save.isPending} onClick={onClose}>
             {t("settings.shared.cancel")}
           </Button>
-          <Button variant="primary" loading={save.isPending} onClick={() => save.mutate()}>
+          <Button icon={<Pencil aria-hidden="true" />} variant="primary" loading={save.isPending} onClick={() => save.mutate()}>
             {t("probes.page.saveTitle")}
           </Button>
         </>

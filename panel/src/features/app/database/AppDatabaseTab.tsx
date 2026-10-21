@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Database as DatabaseIcon, KeyRound, Link2, Unlink } from "lucide-react";
+import { Database as DatabaseIcon, Eye, KeyRound, Link2, Plus, Unlink } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -107,7 +107,7 @@ function LinkCard({
               value: link.url ? (
                 <span className="flex min-w-0 flex-wrap items-center gap-x-2">
                   <Mono truncate>{link.url}</Mono>
-                  <Button size="sm" variant="ghost" onClick={onShow}>
+                  <Button icon={<Eye aria-hidden="true" />} size="sm" variant="ghost" onClick={onShow}>
                     {t("databases.connect.showUrl")}
                   </Button>
                 </span>
@@ -215,7 +215,7 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
         <Notice
           title={t("databases.appTab.pendingTitle", { engine: engineName(pending.engine, engines.data?.engines) })}
           action={
-            <Button size="sm" onClick={() => setCreating(true)}>
+            <Button size="sm" icon={<Plus aria-hidden="true" />} onClick={() => setCreating(true)}>
               {t("databases.appTab.create")}
             </Button>
           }

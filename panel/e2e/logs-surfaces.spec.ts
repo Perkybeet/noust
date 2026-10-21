@@ -22,7 +22,8 @@ async function expectTheToolbar(page: Page): Promise<void> {
   const bar = page.getByRole("search", { name: "Filter the logs" });
   await expect(bar).toBeVisible();
   await expect(bar.getByRole("searchbox", { name: "Search the logs" })).toHaveAttribute("data-page-search", "");
-  await expect(bar.getByRole("radiogroup", { name: /^(Where from|Source)$/ })).toBeVisible();
+  // Where the lines come from: the applications or the system, or an application's own and its web server's.
+  await expect(bar.getByRole("radiogroup")).toBeVisible();
   await expect(bar.getByRole("combobox", { name: "How far back" })).toBeVisible();
   await expect(bar.getByRole("button", { name: "Query syntax" })).toBeVisible();
   await expect(bar.getByRole("button", { name: "Copy link to this search" })).toBeVisible();
@@ -45,8 +46,9 @@ for (const surface of SURFACES) {
 }
 
 test("the range is written in the address of every surface, so the link to a view is the address", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, SURFACES[0].path);
   for (const surface of SURFACES) {
-    await signIn(page, consoleServer, surface.path);
+    await page.goto(surface.path);
     await page.getByRole("combobox", { name: "How far back" }).click();
     await page.getByRole("option", { name: "24 hours" }).click();
     await expect(page).toHaveURL(/since=24h/);

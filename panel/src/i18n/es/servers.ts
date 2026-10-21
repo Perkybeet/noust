@@ -26,45 +26,14 @@ export const servers: Catalog<typeof en> = {
   },
 
   settings: {
-    documentTitle: "Ajustes de servidores",
-    title: "Servidores",
-    description:
-      "Los servidores que gestiona esta central. Llega a cada uno por un túnel SSH hasta su consola, con una clave que solo puede reenviar ese puerto y nunca ejecutar una orden.",
-    loadingLabel: "los servidores",
-    tableCaption: "Servidores que gestiona esta central",
-    column: {
-      name: "Nombre",
-      address: "Cuenta y dirección del túnel",
-      status: "Estado",
-      version: "Versión",
-      access: "Esta central puede",
-      lastSeen: "Visto por última vez",
-    },
-    addServer: "Añadir un servidor",
-    createAtProvider: "Crear en un proveedor",
     linkedAddress: "Llama él: puerto {port} de esta central",
-    test: "Probar",
-    testLabel: "Probar {name}",
     testedToast: "{name} respondió en {latency} ms",
     testedDescription: "Ejecuta Noust {version}.",
     testFailedToast: "{name} no respondió",
-    open: "Abrir",
-    openLabel: "Abrir {name}",
-    remove: "Quitar",
-    removeLabel: "Quitar {name}",
-    never: "Nunca",
-    empty: {
-      title: "Aún no hay servidores",
-      description:
-        "Añade un servidor para gestionarlo desde esta consola. Autorizas a la central en el propio servidor, donde ya eres root; la central nunca obtiene una shell allí.",
-    },
     twoFactor: {
       title: "Activa primero la verificación en dos pasos",
-      description:
-        "Esta central se niega a añadir su primer servidor sin ella: quien inicia sesión aquí llega a todos los servidores que gestiona.",
       link: "Configurar la verificación en dos pasos",
     },
-    fromTerminal: "Desde una terminal",
     monitoring: {
       paused: "Vigilancia en pausa",
       pausedWhy: "Vigilancia en pausa: {reason}",
@@ -78,7 +47,6 @@ export const servers: Catalog<typeof en> = {
       reason: "Motivo",
       reasonHelp: "Se muestra junto al servidor, para que quien mire después sepa que fue a propósito.",
       pausedToast: "Vigilancia de {name} en pausa",
-      resumedToast: "Vigilancia de {name} reanudada",
       resumeFailedToast: "No se pudo reanudar la vigilancia de {name}",
     },
     removeDialog: {
@@ -150,7 +118,6 @@ export const servers: Catalog<typeof en> = {
         wrongPrefix: "Un código de unión empieza por noust-join:v1:. Copia la línea entera que imprimió noust fleet authorize en el servidor.",
         unreadable: "Empieza como un código de unión pero no se lee como tal: vuelve a copiar la línea entera, sin cortarla.",
       },
-      summaryTitle: "Código de unión leído",
       summary: "Para {node}: su cuenta de túnel {user} en el puerto SSH {port}, su consola en el puerto {console}, Noust {version}.",
       otherCentral: "Este código se hizo para la central {central}, no para esta ({name}). El servidor lo rechazaría.",
       otherKey: "Este código se hizo para otra clave distinta de la que mostró esta central en el primer paso. Vuelve a ejecutar la orden del primer paso.",
@@ -242,7 +209,6 @@ export const servers: Catalog<typeof en> = {
         wrongPrefix: "Un código de enlace empieza por noust-link:v1:. Copia la línea entera que imprimió noust fleet link en el servidor.",
         unreadable: "Empieza como un código de enlace pero no se lee como tal: copia la línea entera de nuevo, sin cortarla.",
       },
-      summaryTitle: "Código de enlace leído",
       summary: "Para {node}: su consola en el puerto {console}, Noust {version}.",
       otherNode: "Este código es de un servidor llamado {node}, no {name}. Esta central lo rechazaría.",
       otherCentral: "Este código se hizo para la central {central}, no para esta ({name}). Esta central lo rechazaría.",

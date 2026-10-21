@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Network } from "lucide-react";
+import { Cloud, Network } from "lucide-react";
 import { useState } from "react";
 
 import { LinkTabs } from "../../app/LinkTabs";
@@ -20,6 +20,9 @@ import { FleetActionsProvider } from "./BulkActionDialog";
 export interface FleetLayoutProps {
   /** Set when a hub was asked for one of the pages it does not have. */
   hub?: HubArea | "overview" | undefined;
+  /** The "Add a server" flow is open: the URL says so, so the palette and old links can open it. */
+  adding?: boolean | undefined;
+  onAddingChange?: ((adding: boolean) => void) | undefined;
 }
 
 /**
@@ -29,14 +32,20 @@ export interface FleetLayoutProps {
  * applications, certificates, backups, updates and activity side by side. Each view is the
  * central's one aggregated answer; a server that is down is a row of it, never a blank page.
  */
-export function FleetLayout({ hub }: FleetLayoutProps) {
+export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLayoutProps) {
   const t = useT();
   const central = useCentral();
   const servers = useServerList();
-  const [adding, setAdding] = useState(false);
+  const [addingState, setAddingState] = useState(false);
+  const adding = addingProp ?? addingState;
+  const setAdding = (next: boolean): void => {
+    setAddingState(next);
+    onAddingChange?.(next);
+  };
   const Add = ICONS.add;
   const empty = servers.loaded && servers.nodes.length === 0;
   const onApps = useRouterState({ select: (state) => state.location.pathname === "/fleet/apps" });
+  const onServers = useRouterState({ select: (state) => state.location.pathname === "/fleet/servers" });
 
   const add = (
     <Button
@@ -50,6 +59,14 @@ export function FleetLayout({ hub }: FleetLayoutProps) {
     </Button>
   );
 
+  // A server that does not exist yet: made at a provider, joined by this central itself.
+  const create = (
+    <Link to="/settings/cloud" search={{ create: true }} className={buttonClassName("secondary", "md")}>
+      <Cloud aria-hidden="true" className="size-icon-sm" />
+      {t("fleet.page.createAtProvider")}
+    </Link>
+  );
+
   return (
     <FleetActionsProvider>
       <DetailPage
@@ -59,6 +76,7 @@ export function FleetLayout({ hub }: FleetLayoutProps) {
           ...(empty
             ? {}
             : {
+                ...(onServers ? { secondaryActions: create } : {}),
                 primaryAction: onApps ? (
                   <Link to="/apps/new" search={{ node: undefined }} className={buttonClassName("primary")}>
                     <Add aria-hidden="true" />
@@ -89,7 +107,12 @@ export function FleetLayout({ hub }: FleetLayoutProps) {
             icon={<Network />}
             title={t("fleet.page.empty.title")}
             description={t("fleet.page.empty.description")}
-            action={add}
+            action={
+              <>
+                {add}
+                {create}
+              </>
+            }
             command="noust node key web-2"
           />
         ) : (

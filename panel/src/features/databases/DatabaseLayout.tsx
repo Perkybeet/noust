@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, Database as DatabaseIcon, Replace, Trash2, UserCog } from "lucide-react";
+import { Archive, ArchiveRestore, Database as DatabaseIcon, Replace, Trash2, Unlink, UserCog } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { isApiError, request } from "../../api/client";
@@ -165,7 +165,7 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
         tone="error"
         title={t("databases.layout.missingTitle")}
         action={
-          <Button size="sm" loading={forget.isPending} onClick={() => forget.mutate()}>
+          <Button icon={<Unlink aria-hidden="true" />} size="sm" loading={forget.isPending} onClick={() => forget.mutate()}>
             {t("databases.layout.forget")}
           </Button>
         }

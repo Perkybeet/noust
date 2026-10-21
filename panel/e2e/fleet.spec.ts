@@ -18,7 +18,7 @@
  * - a fleet with a node that is down and one on an older Noust answers partially, never blank;
  * - a destructive, elevated action made while on the node lands on the node, not the central;
  * - a node that stops answering says so on its own pages and in the Fleet's attention;
- * - Settings > Servers lists the node and opens the add flow's first step;
+ * - Fleet > Servers lists the node and opens the add flow's first step;
  * - a central with sealed secrets shows the lock screen and opens with the right passphrase;
  * - a hub sends its own pages to the Fleet instead.
  */
@@ -225,7 +225,7 @@ withFleet("Add a server: a console token pasted as a join code is caught, and a 
   page.on("request", (request) => {
     if (request.method() === "POST" && new URL(request.url()).pathname === "/api/nodes") posts.push(request.url());
   });
-  await signIn(page, consoleServer, "/settings/servers");
+  await signIn(page, consoleServer, "/fleet/servers");
   await page.getByRole("button", { name: "Add a server" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server" });
   // The guided way opens first; the join code is one link away, for a server that must never be given a credential.
@@ -314,16 +314,14 @@ withFleet(
   },
 );
 
-withFleet("Settings > Servers shows the node and the add flow's first step", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/settings/servers");
-  // Settings shares one heading across every section (SettingsLayout's own PageHeader); the
-  // "Servers" table below is what actually says which tab this is.
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Settings");
+withFleet("Fleet > Servers shows the node and the add flow's first step", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/fleet/servers");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Fleet");
 
-  const table = page.getByRole("region", { name: "Servers this central manages" });
+  const table = page.getByRole("region", { name: "Servers of this fleet" });
   const row = table.getByRole("row").filter({ hasText: NODE_NAME });
   await expect(row).toBeVisible();
-  await expect(row.getByText("Reachable")).toBeVisible();
+  await expect(row.getByText("Answered")).toBeVisible();
 
   await page.getByRole("button", { name: "Add a server" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server" });
@@ -347,7 +345,7 @@ const ENROLL_SECRET = "a-good-password-4-the-server";
 withFleet("Add a server, guided: the host key is confirmed first, the credential is used once and kept nowhere, and the job is followed", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/fleet\/enroll$/);
   const name = "enrolled-web";
-  await signIn(page, consoleServer, "/settings/servers");
+  await signIn(page, consoleServer, "/fleet/servers");
   await page.getByRole("button", { name: "Add a server" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server" });
   await expect(dialog.getByText("Used once, kept nowhere")).toBeVisible();
@@ -393,7 +391,7 @@ withFleet("Add a server, guided: the host key is confirmed first, the credential
   expect(kept).not.toContain(ENROLL_SECRET);
   await dialog.getByRole("button", { name: "Done" }).click();
 
-  const table = page.getByRole("region", { name: "Servers this central manages" });
+  const table = page.getByRole("region", { name: "Servers of this fleet" });
   const row = table.getByRole("row").filter({ hasText: name });
   await expect(row).toBeVisible();
 
@@ -401,7 +399,6 @@ withFleet("Add a server, guided: the host key is confirmed first, the credential
   await row.getByRole("button", { name: `Actions for ${name}` }).click();
   await page.getByRole("menuitem", { name: "Remove" }).click();
   const removal = page.getByRole("alertdialog", { name: `Remove ${name}?` });
-  await removal.getByRole("textbox").fill(name);
   await removal.getByRole("button", { name: "Remove server" }).click();
   await expect(row).toHaveCount(0);
 });
@@ -409,7 +406,7 @@ withFleet("Add a server, guided: the host key is confirmed first, the credential
 withFleet("Add a server, guided: a refused credential fails the job in the server's words and leaves nothing behind", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/fleet\/enroll$/);
   const name = "refused-web";
-  await signIn(page, consoleServer, "/settings/servers");
+  await signIn(page, consoleServer, "/fleet/servers");
   await page.getByRole("button", { name: "Add a server" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server" });
   await dialog.getByLabel("Name", { exact: true }).fill(name);
@@ -431,13 +428,13 @@ withFleet("Add a server, guided: a refused credential fails the job in the serve
   await expect(dialog.getByLabel("Password", { exact: true })).toHaveValue("");
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
-  const table = page.getByRole("region", { name: "Servers this central manages" });
+  const table = page.getByRole("region", { name: "Servers of this fleet" });
   await expect(table.getByRole("row").filter({ hasText: name })).toHaveCount(0);
 });
 
 withFleet("Add a server, guided: an address that gives no host key is refused with the server's own words, before anything is sent to it", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 400 .*\/api\/fleet\/enroll\/host-key$/);
-  await signIn(page, consoleServer, "/settings/servers");
+  await signIn(page, consoleServer, "/fleet/servers");
   await page.getByRole("button", { name: "Add a server" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server" });
   await dialog.getByLabel("Name", { exact: true }).fill("silent-web");

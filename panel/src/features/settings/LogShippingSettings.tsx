@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Power, Send, Trash2 } from "lucide-react";
+import { Pencil, Plus, Power, Send, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -522,7 +522,7 @@ export function LogShippingSettings() {
         title={t("runtime.logShipping.destinations")}
         padding="none"
         actions={
-          <Button
+          <Button icon={<Plus aria-hidden="true" />}
             size="sm"
             variant="primary"
             onClick={() => {

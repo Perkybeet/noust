@@ -8,7 +8,6 @@ import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
@@ -16,6 +15,7 @@ import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import { UPSTREAM_FORMATS, upstreamsQuery } from "../placements";
 import type { UpstreamFormat } from "../placements";
+import { LoadingRegion } from "../../../components/page";
 
 export interface UpstreamsDialogProps {
   domain: string;
@@ -74,22 +74,21 @@ export function UpstreamsDialog({ domain, onClose }: UpstreamsDialogProps) {
           </Field>
         </div>
         {written.isPending && port !== null ? (
-          <div aria-busy="true" className="flex flex-col gap-2">
-            <span className="sr-only">{t("placements.card.comparing", { domain })}</span>
+          <LoadingRegion label={t("placements.card.comparing", { domain })} className="flex flex-col gap-2">
             <Skeleton className="h-4 w-64 max-w-full" />
             <Skeleton className="h-24 w-full" />
-          </div>
+          </LoadingRegion>
         ) : null}
         {written.isError ? <ErrorBlock live error={written.error} title={t("placements.upstreams.failed", { domain })} onRetry={() => void written.refetch()} /> : null}
         {written.data !== undefined && port !== null ? (
           <>
-            <div className="flex min-w-0 flex-col gap-1.5 rounded-control border border-border bg-bg-sunken p-3">
-              <div className="flex items-center justify-end">
-                <CopyButton value={written.data.text} label={t("placements.upstreams.copyLabel", { domain })} />
-              </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
               <SystemOutput label={t("placements.upstreams.outputLabel", { domain })} maxHeight="max-h-72">
                 {written.data.text}
               </SystemOutput>
+              <div className="flex items-center justify-end">
+                <CopyButton value={written.data.text} label={t("placements.upstreams.copyLabel", { domain })} />
+              </div>
             </div>
             <ul aria-label={t("placements.upstreams.serversCaption")} className="flex flex-col gap-2">
               {written.data.servers.map((server) => (
@@ -105,7 +104,7 @@ export function UpstreamsDialog({ domain, onClose }: UpstreamsDialogProps) {
                 </li>
               ))}
             </ul>
-            <Notice>{t("placements.upstreams.addressNote")}</Notice>
+            <p className="text-12 text-pretty text-fg-muted">{t("placements.upstreams.addressNote")}</p>
           </>
         ) : null}
       </div>

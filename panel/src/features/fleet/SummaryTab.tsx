@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Play } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -8,6 +9,7 @@ import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { StatTile } from "../../components/page/StatTile";
+import { textLinkClassName } from "../../components/ui/TextLink";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { DataTable } from "../../components/ui/DataTable";
@@ -42,6 +44,7 @@ import {
 import type { AttentionEntry, FleetJob, FleetRow, NodeOutcome, RowOrigin } from "./data";
 import { ServerLink } from "./links";
 import { OutcomePill, PartialNotice, ServerCell, useFleetView } from "./parts";
+import { LoadingRegion } from "../../components/page";
 
 /** How many items "Needs attention" shows before "Show all". */
 const ATTENTION_SHOWN = 5;
@@ -76,7 +79,7 @@ function AttentionItemRow({ t, entry }: { t: T; entry: FleetAttention }) {
           <ServerLink
             node={origin.local ? null : origin.node}
             path={subjectPath(item)}
-            className="min-w-0 truncate rounded-chip text-13 font-medium text-fg hover:underline hover:underline-offset-2"
+            className={textLinkClassName("ui", "min-w-0 truncate", "row")}
           >
             <span translate="no">{item.title}</span>
           </ServerLink>
@@ -103,11 +106,10 @@ function AttentionCard({ t, rows, loading }: { t: T; rows: readonly FleetRow[]; 
   let body: ReactNode;
   if (loading) {
     body = (
-      <div aria-busy="true" className="flex flex-col gap-2 px-4 py-3.5">
-        <span className="sr-only">{t("fleet.summary.attention.loading")}</span>
+      <LoadingRegion label={t("fleet.summary.attention.loading")} className="flex flex-col gap-2 px-4 py-3.5">
         <Skeleton className="h-3.5 w-48" />
         <Skeleton className="h-3 w-72 max-w-full" />
-      </div>
+      </LoadingRegion>
     );
   } else if (entries.length === 0) {
     body = (
@@ -115,7 +117,7 @@ function AttentionCard({ t, rows, loading }: { t: T; rows: readonly FleetRow[]; 
         <span className="flex h-5 items-center">
           <StatusGlyph state="running" size={14} className="text-ok" />
         </span>
-        <p className="text-13 text-pretty text-fg-muted">{t("fleet.summary.attention.empty", { count: rows.length })}</p>
+        <EmptyState variant="inline" title={t("fleet.summary.attention.empty", { count: rows.length })} />
       </div>
     );
   } else {
@@ -166,11 +168,10 @@ function RecentActions({ t }: { t: T }) {
   let body: ReactNode;
   if (jobs.isPending) {
     body = (
-      <div aria-busy="true" className="flex flex-col gap-2 px-4 py-3.5">
-        <span className="sr-only">{t("fleet.summary.actions.loading")}</span>
+      <LoadingRegion label={t("fleet.summary.actions.loading")} className="flex flex-col gap-2 px-4 py-3.5">
         <Skeleton className="h-3.5 w-56" />
         <Skeleton className="h-3.5 w-40" />
-      </div>
+      </LoadingRegion>
     );
   } else if (jobs.isError) {
     body = <ErrorBlock compact error={jobs.error} title={t("fleet.summary.actions.loadFailed")} onRetry={() => void jobs.refetch()} className="m-4" />;
@@ -180,7 +181,7 @@ function RecentActions({ t }: { t: T }) {
         variant="inline"
         title={t("fleet.summary.actions.empty")}
         action={
-          <Button
+          <Button icon={<Play aria-hidden="true" />}
             size="sm"
             variant="ghost"
             onClick={() => {
@@ -205,7 +206,7 @@ function RecentActions({ t }: { t: T }) {
                 <Link
                   to="/fleet/jobs/$id"
                   params={{ id: job.job_id }}
-                  className="min-w-0 truncate rounded-chip text-13 font-medium text-fg hover:underline hover:underline-offset-2"
+                  className={textLinkClassName("ui", "min-w-0 truncate", "row")}
                 >
                   {label}
                 </Link>
@@ -383,6 +384,7 @@ export function SummaryTab() {
   const reboots = rows.filter((row) => objectOf(objectOf(row["server"])?.["reboot"])?.["required"] === true).length;
   const loading = view.isPending;
 
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (view.isError && view.data === undefined) {
     return <ErrorBlock error={view.error} title={t("fleet.page.loadFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />;
   }

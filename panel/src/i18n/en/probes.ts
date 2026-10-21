@@ -101,7 +101,7 @@ export const probes = {
     write: "Write now",
     written: { one: "Wrote {count} file", other: "Wrote {count} files" },
     writeFailed: "Could not write the status page",
-    notPublished: "It is not on a name of its own: serve the folder above yourself, or put it on one.",
+    notPublished: "It has no name of its own: serve the folder above yourself, or give it one.",
     publishedOn: "Published on {domain}.",
     open: "Open the page",
     done: "Done",

@@ -9,6 +9,7 @@ import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { CopyValue } from "../../components/ui/CopyValue";
 import { Dialog } from "../../components/ui/Dialog";
+import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
@@ -31,6 +32,7 @@ import {
 } from "./nodeTools";
 import type { ConnectionBody, ConnectionOptions, InventoryReport } from "./nodeTools";
 import { nodeKeys } from "./nodes";
+import { LoadingRegion } from "../../components/page";
 
 // ---------------------------------------------------------------------------------------
 // How the central connects to a server
@@ -208,11 +210,10 @@ export function ConnectionDialog({ node, onClose }: { node: string; onClose: () 
       {query.isError ? (
         <ErrorBlock live error={query.error} title={t("nodeTools.connection.loadFailed", { name: node })} onRetry={() => void query.refetch()} />
       ) : (
-        <div aria-busy="true" className="flex flex-col gap-3">
-          <span className="sr-only">{t("nodeTools.connection.loading", { name: node })}</span>
+        <LoadingRegion label={t("nodeTools.connection.loading", { name: node })} className="flex flex-col gap-3">
           <Skeleton className="h-10 w-64" />
           <Skeleton className="h-10 w-full" />
-        </div>
+        </LoadingRegion>
       )}
     </Dialog>
   );
@@ -227,7 +228,7 @@ const FILE_CLASS =
 function InventoryReportView({ report }: { report: InventoryReport }) {
   const t = useT();
   const label = (part: string): string => (isInventoryPart(part) ? t(`nodeTools.inventory.part.${part}`) : part);
-  if (report.applied.length === 0 && report.skipped.length === 0) return <Notice>{t("nodeTools.inventory.nothing")}</Notice>;
+  if (report.applied.length === 0 && report.skipped.length === 0) return <EmptyState variant="inline" title={t("nodeTools.inventory.nothing")} />;
   return (
     <div className="flex flex-col gap-4">
       {report.applied.length > 0 ? (
@@ -397,6 +398,7 @@ export function LinkMachineDialog({ node, onClose }: { node: string; onClose: ()
           <Button disabled={link.isPending} onClick={onClose}>
             {t("nodeTools.link.cancel")}
           </Button>
+          {/* design-exception: submit-disabled-invalid the central holds no provider account to link with, which the dialog says: there is no field to complete */}
           <Button type="submit" form={formId} variant="primary" loading={link.isPending} disabled={names.length === 0}>
             {t("nodeTools.link.link")}
           </Button>

@@ -314,7 +314,7 @@ describe("the three contexts", () => {
     await user.click(await trigger("Server: all servers"));
     await user.click(await screen.findByRole("menuitemradio", { name: /^This central/ }));
     await waitFor(() => {
-      expect(history.location.pathname).toBe("/settings/servers");
+      expect(history.location.pathname).toBe("/settings/central");
     });
     expect(await trigger("Server: this central, web-01")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to web-2, the server you were on" })).toHaveAttribute("href", "/n/web-2/settings");
@@ -325,7 +325,7 @@ describe("the three contexts", () => {
     await user.click(await trigger("Server: web-01"));
     await user.click(await screen.findByRole("menuitemradio", { name: /^This central/ }));
     await waitFor(() => {
-      expect(history.location.pathname).toBe("/settings/servers");
+      expect(history.location.pathname).toBe("/settings/central");
     });
     expect(await trigger("Server: this central, web-01")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^Back to web-01/ })).not.toBeInTheDocument();

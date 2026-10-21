@@ -12,7 +12,7 @@ export const selfBackup = {
   state: {
     title: "Schedule",
     on: "On",
-    off: "Off",
+    off: "Not scheduled",
     paused: "Paused",
     problem: "On, with a problem",
     offBody: "Without a copy of Noust's own state, a lost server loses its accounts, its settings and the keys that read its secrets, and the backups of everything else cannot be put back by themselves. Schedule one, and keep its passphrase outside this server.",

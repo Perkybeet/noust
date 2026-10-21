@@ -7,6 +7,8 @@ import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
 import { appStatus } from "../../../components/page/status";
+import { RowMenu } from "../../../components/page/RowMenu";
+import { textLinkClassName } from "../../../components/ui/TextLink";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
@@ -15,8 +17,7 @@ import type { Column } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { IconButton } from "../../../components/ui/IconButton";
-import { ICONS } from "../../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
@@ -31,8 +32,9 @@ import { CopyDialog, RolloutDialog } from "./PlacementActionDialog";
 import { PlacementDialog } from "./PlacementDialog";
 import { BuilderDialog, ShipDialog } from "./ShipDialog";
 import { UpstreamsDialog } from "./UpstreamsDialog";
+import { LoadingRegion } from "../../../components/page";
 
-const NAME_LINK = "-mx-1 block max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2";
+const NAME_LINK = textLinkClassName("inline", "-mx-1 block max-w-full truncate px-1 py-0.5", "row");
 
 function columns(t: T): Column<PlacementServer>[] {
   return [
@@ -155,7 +157,7 @@ function PlacementCard({ placement }: { placement: Placement }) {
               void queryClient.invalidateQueries({ queryKey: placementKeys.one(placement.domain) });
             }}
           />
-          <Menu align="end" trigger={<IconButton label={t("placements.card.actionsFor", { domain: placement.domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+          <RowMenu name={placement.domain}>
             <MenuItem
               icon={<Rocket />}
               onClick={() => {
@@ -214,20 +216,20 @@ function PlacementCard({ placement }: { placement: Placement }) {
             >
               {t("placements.card.remove")}
             </MenuItem>
-          </Menu>
+          </RowMenu>
         </span>
       }
     >
+      {/* design-exception: hand-error-ternary each card compares its own placement and keeps its frame while it loads */}
       {detail.isError && detail.data === undefined ? (
         <div className="px-5 pb-5">
           <ErrorBlock compact error={detail.error} title={t("placements.statusFailed", { domain: placement.domain })} onRetry={() => void detail.refetch()} retrying={detail.isRefetching} />
         </div>
       ) : detail.isPending ? (
-        <div aria-busy="true" className="flex flex-col gap-2 px-5 pb-5">
-          <span className="sr-only">{t("placements.card.comparing", { domain: placement.domain })}</span>
+        <LoadingRegion label={t("placements.card.comparing", { domain: placement.domain })} className="flex flex-col gap-2 px-5 pb-5">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
-        </div>
+        </LoadingRegion>
       ) : (
         <DataTable caption={t("placements.card.caption", { domain: placement.domain })} columns={columns(t)} rows={servers} getRowId={(row) => row.node} density="compact" mobile="cards" />
       )}
@@ -295,6 +297,7 @@ export function PlacementsTab() {
     </Button>
   );
 
+  // design-exception: hand-error-ternary the list is read once for the page; a card per placement draws its own loading
   if (list.isError && list.data === undefined) {
     return <ErrorBlock error={list.error} title={t("placements.loadFailed")} onRetry={() => void list.refetch()} retrying={list.isRefetching} />;
   }

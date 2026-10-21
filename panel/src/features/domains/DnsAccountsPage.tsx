@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, RotateCw, Settings2, Trash2 } from "lucide-react";
+import { List, Plus, RotateCw, Settings2, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -329,7 +329,7 @@ export function DnsAccountsPage() {
           {t("network.dns.add")}
         </Button>
       }
-      {...(empty ? {} : { secondaryActions: <Button onClick={() => setShowRecords(true)}>{t("network.dns.managed")}</Button> })}
+      {...(empty ? {} : { secondaryActions: <Button icon={<List aria-hidden="true" />} onClick={() => setShowRecords(true)}>{t("network.dns.managed")}</Button> })}
       footer={<CommandHint command="noust dns provider list" label={t("domains.fromTerminal")} />}
     >
       {/* design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed */}

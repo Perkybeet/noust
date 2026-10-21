@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { RotateCw } from "lucide-react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -180,7 +181,7 @@ export function TlsDialog({ instance, onOpenChange, onQueued }: TlsDialogProps) 
         <>
           <Button onClick={() => onOpenChange(false)}>{t("common.confirmDialog.cancel")}</Button>
           {current !== "off" ? (
-            <Button disabled={apply.isPending} onClick={() => setRenewing(true)}>
+            <Button icon={<RotateCw aria-hidden="true" />} disabled={apply.isPending} onClick={() => setRenewing(true)}>
               {t("databases.tls.renew")}
             </Button>
           ) : null}

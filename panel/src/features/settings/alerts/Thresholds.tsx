@@ -206,7 +206,7 @@ function CheckRow({ check, form, kept, onKeep }: { check: Check; form: SettingsF
         </div>
       )}
       {fields.length > 0 ? (
-        <div className={switchable ? "grid min-w-0 gap-x-6 gap-y-4 sm:grid-cols-2 sm:pl-7" : "grid min-w-0 gap-x-6 gap-y-4 sm:grid-cols-2"}>
+        <div className={switchable ? "grid min-w-0 gap-x-6 gap-y-4 sm:grid-cols-2 sm:pl-6" : "grid min-w-0 gap-x-6 gap-y-4 sm:grid-cols-2"}>
           {fields.map((setting) => (
             <Field key={setting.key} label={t(setting.label)} {...(setting.description !== undefined ? { description: t(setting.description) } : {})} error={form.fieldErrors[setting.key]}>
               <Input

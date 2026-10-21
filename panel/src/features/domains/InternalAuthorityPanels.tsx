@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { RotateCw } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -100,7 +101,7 @@ export function IssuedList({ issued }: { issued: readonly InternalCaIssued[] }) 
               {t("internalCa.certServedBy")}: {item.apps.length === 0 ? t("internalCa.certNobody") : <Mono>{item.apps.join(", ")}</Mono>}
             </span>
           </div>
-          <Button size="sm" loading={renew.isPending && renew.variables === item.name} aria-label={t("internalCa.renewLabel", { name: item.name })} onClick={() => renew.mutate(item.name)}>
+          <Button icon={<RotateCw aria-hidden="true" />} size="sm" loading={renew.isPending && renew.variables === item.name} aria-label={t("internalCa.renewLabel", { name: item.name })} onClick={() => renew.mutate(item.name)}>
             {t("internalCa.renew")}
           </Button>
         </li>

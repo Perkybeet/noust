@@ -6,6 +6,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil, RotateCcw } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -203,7 +204,7 @@ function Retention({ current }: { current: LogRetention }) {
           </ul>
         ) : null}
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <Button
+          <Button icon={<Pencil aria-hidden="true" />}
             variant="secondary"
             disabled={current.foreign}
             onClick={() => {
@@ -213,7 +214,7 @@ function Retention({ current }: { current: LogRetention }) {
             {t("logs.retention.change")}
           </Button>
           {set ? (
-            <Button
+            <Button icon={<RotateCcw aria-hidden="true" />}
               variant="ghost"
               onClick={() => {
                 setResetting(true);

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
@@ -230,7 +231,7 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
             description={t("databases.overview.usedByDescription")}
             padding="sm"
             actions={
-              <Button size="sm" disabled={database.missing} onClick={() => setLinking(true)}>
+              <Button icon={<Link2 aria-hidden="true" />} size="sm" disabled={database.missing} onClick={() => setLinking(true)}>
                 {t("databases.overview.linkApp")}
               </Button>
             }

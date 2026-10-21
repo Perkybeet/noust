@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Download, History, Play, Save } from "lucide-react";
+import { ChevronDown, Download, FileJson, FileSpreadsheet, History, ListTree, Play, Save, Timer } from "lucide-react";
 import { useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -216,8 +216,8 @@ export function QueryTab({ engine, name }: { engine: string; name: string }) {
                   </Button>
                 }
               >
-                <MenuItem onClick={() => plan(false)}>{t("databases.query.explainPlan")}</MenuItem>
-                <MenuItem onClick={() => plan(true)}>{t("databases.query.explainAnalyze")}</MenuItem>
+                <MenuItem icon={<ListTree />} onClick={() => plan(false)}>{t("databases.query.explainPlan")}</MenuItem>
+                <MenuItem icon={<Timer />} onClick={() => plan(true)}>{t("databases.query.explainAnalyze")}</MenuItem>
               </Menu>
               <Button size="sm" variant="ghost" icon={<Save aria-hidden="true" />} onClick={() => setSaving(statementOf(editor.current, text))} disabled={text.trim() === ""}>
                 {t("databases.query.save")}
@@ -270,8 +270,8 @@ export function QueryTab({ engine, name }: { engine: string; name: string }) {
                     </Button>
                   }
                 >
-                  <MenuItem onClick={() => exporting.mutate({ statement: lastStatement, format: "csv" })}>{t("databases.query.exportCsv")}</MenuItem>
-                  <MenuItem onClick={() => exporting.mutate({ statement: lastStatement, format: "json" })}>{t("databases.query.exportJson")}</MenuItem>
+                  <MenuItem icon={<FileSpreadsheet />} onClick={() => exporting.mutate({ statement: lastStatement, format: "csv" })}>{t("databases.query.exportCsv")}</MenuItem>
+                  <MenuItem icon={<FileJson />} onClick={() => exporting.mutate({ statement: lastStatement, format: "json" })}>{t("databases.query.exportJson")}</MenuItem>
                 </Menu>
               ) : null}
             </div>

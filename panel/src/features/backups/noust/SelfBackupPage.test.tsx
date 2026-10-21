@@ -76,7 +76,7 @@ describe("the Noust tab", () => {
     await pageAt(OFF, []);
     const card = (await screen.findByRole("heading", { name: "Schedule" })).closest("section");
     if (card === null) throw new Error("no schedule card");
-    expect(within(card).getByText("Off")).toBeInTheDocument();
+    expect(within(card).getByText("Not scheduled")).toBeInTheDocument();
     expect(screen.getByText(/a lost server loses its accounts/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Set a schedule" })).toBeInTheDocument();
     expect(screen.getByText("No bundles yet")).toBeInTheDocument();

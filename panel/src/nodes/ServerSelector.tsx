@@ -110,7 +110,7 @@ export function ServerSelector({ className }: { className?: string }) {
       return;
     }
     if (chosen === THIS_CENTRAL) {
-      void navigate({ to: "/settings/servers", search: { node: undefined } }).then(() => {
+      void navigate({ to: "/settings/central", search: { node: undefined } }).then(() => {
         announce(t("fleet.selector.switchedCentral"));
       });
       return;

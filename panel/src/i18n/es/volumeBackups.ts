@@ -28,7 +28,7 @@ export const volumeBackups: Catalog<typeof en> = {
     title: "Todavía no hay copias de datos",
     description:
       "Copia en una programación las carpetas persistentes y los volúmenes Docker de una aplicación, aparte de su código y sus bases de datos. Cada pieza es un archivo, comprobado y enviado donde digas.",
-    action: "Poner una programación",
+    action: "Programar copias",
   },
   actions: {
     runNow: "Copiar ahora",
@@ -63,7 +63,7 @@ export const volumeBackups: Catalog<typeof en> = {
     backups: "Copias",
     noPolicy:
       "Nada copia estos datos en una programación. Pon una política: Noust copia cada pieza, comprueba la copia, la envía donde digas y guarda tantas como elijas.",
-    setPolicy: "Poner una programación",
+    setPolicy: "Programar copias",
     when: "Cuándo",
     covers: "Copia",
     extra: "Además",

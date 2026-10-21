@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
+import { Eye, Link2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
@@ -127,7 +128,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
           description={t("databases.connect.fromAppDescription")}
           loading={data === undefined}
           actions={
-            <Button size="sm" onClick={() => setLinking(true)}>
+            <Button icon={<Link2 aria-hidden="true" />} size="sm" onClick={() => setLinking(true)}>
               {t("databases.overview.linkApp")}
             </Button>
           }
@@ -155,7 +156,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
                       </span>
                     </div>
                     {link.url ? (
-                      <Button size="sm" variant="ghost" loading={revealUrl.isPending && revealUrl.variables === link.domain} onClick={() => revealUrl.mutate(link.domain)}>
+                      <Button icon={<Eye aria-hidden="true" />} size="sm" variant="ghost" loading={revealUrl.isPending && revealUrl.variables === link.domain} onClick={() => revealUrl.mutate(link.domain)}>
                         {t("databases.connect.showUrl")}
                       </Button>
                     ) : null}

@@ -367,7 +367,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
                 tone="warning"
                 title={t("domains.siteHistory.editedTitle")}
                 action={
-                  <Button size="sm" onClick={() => setHistory(true)}>
+                  <Button size="sm" icon={<History aria-hidden="true" />} onClick={() => setHistory(true)}>
                     {t("domains.siteHistory.open")}
                   </Button>
                 }

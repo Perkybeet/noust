@@ -184,7 +184,11 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
               value={domain}
               onValueChange={(next) => {
                 setDomain(next);
-                setErrors((previous) => ({ ...previous, domain: undefined }));
+                setErrors((previous) => {
+                  const next = { ...previous };
+                  delete next.domain;
+                  return next;
+                });
               }}
               placeholder={apps.isPending ? t("backups.fields.loadingApplications") : t("backups.fields.chooseApplication")}
               options={domainOptions}

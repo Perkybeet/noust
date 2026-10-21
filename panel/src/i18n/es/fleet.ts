@@ -89,6 +89,7 @@ export const fleet: Catalog<typeof en> = {
     },
   },
   page: {
+    createAtProvider: "Crear en un proveedor",
     title: "Flota",
     description: "Todos los servidores que gestiona esta central, a la vez.",
     tabsLabel: "Vistas de la flota",
@@ -286,7 +287,6 @@ export const fleet: Catalog<typeof en> = {
     updateAvailable: "{version} disponible",
     now: "Ahora",
     never: "Nunca",
-    actionsFor: "Acciones de {name}",
     open: "Abrir",
     test: "Probar la conexión",
     editLabels: "Editar etiquetas",
@@ -394,7 +394,6 @@ export const fleet: Catalog<typeof en> = {
         other: "{count} esperan a que se publiquen sus paquetes.",
       },
     },
-    actionsFor: "Acciones de {name}",
     refreshLists: "Renovar las listas de paquetes",
     refreshBehind: "Renovar las listas de paquetes (su índice está atrasado)",
     noMethod: "Desconocido",
