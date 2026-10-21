@@ -352,6 +352,9 @@ class BaseDeployer(AppDeployer):
 
         # Deployment progress, shared between pipeline steps
         self._ssl_obtained: bool = False
+        # How the certificate asked for by this run ended: ("issued", "") or ("failed", what the
+        # authority said). None until a certificate step has run.
+        self._certificate_outcome: tuple[str, str] | None = None
         self._app_record: App | None = None
         # What an application's row said before a redeployment marked it
         # "deploying": what it says again when the attempt is cancelled.
@@ -4017,6 +4020,9 @@ class BaseDeployer(AppDeployer):
         try:
             self.obtain_certificate()
         except (CertificateError, NoustError) as e:
+            # What the authority said, word for word, is kept on the deployment: the console
+            # shows it under "What certbot said" when the application ends up on HTTP.
+            self._certificate_outcome = ("failed", str(e.output or e.details or e.message))
             if self.has_certificate():
                 # Extending the lineage to a name whose DNS is not ready must
                 # not take TLS off the names the certificate already covers.
@@ -4030,9 +4036,29 @@ class BaseDeployer(AppDeployer):
             self.logger.substep("Application will be available via HTTP only")
             return
 
+        self._certificate_outcome = ("issued", "")
         self._ssl_obtained = True
         self.logger.substep("Updating site configuration with SSL")
         self.create_site(with_ssl=True)
+
+    def _record_certificate(self, deployment_id: int | None) -> None:
+        """
+        Write how the certificate of this run ended on its deployment row.
+
+        Never fails the deployment it describes: the row is history, and a failure to write it
+        is reported and nothing more.
+
+        Args:
+            deployment_id: The row; nothing is written without one (a rehearsal, or recording
+                failed) or when no certificate was ordered.
+        """
+        outcome, self._certificate_outcome = self._certificate_outcome, None
+        if deployment_id is None or outcome is None:
+            return
+        try:
+            self.store.record_deployment_certificate(deployment_id, *outcome)
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.warning(f"Could not record how the certificate ended: {exc}")
 
     def _step_start(self) -> None:
         """Start the service and record that the deployment succeeded."""
@@ -4260,6 +4286,7 @@ class BaseDeployer(AppDeployer):
             self.deploy_hooks.record(
                 self.store, recorder.deployment_id, self.logger, domain=self.domain
             )
+            self._record_certificate(recorder.deployment_id)
         self.last_deployment_id = recorder.deployment_id
         return self._with_hook_result(result)
 
@@ -4380,6 +4407,7 @@ class BaseDeployer(AppDeployer):
             self.deploy_hooks.record(
                 self.store, recorder.deployment_id, self.logger, domain=self.domain
             )
+            self._record_certificate(recorder.deployment_id)
         self.last_deployment_id = recorder.deployment_id
         return self._with_hook_result(result)
 
@@ -4797,6 +4825,7 @@ class BaseDeployer(AppDeployer):
             NoustError: Whatever the failing step raised, after the rollback.
         """
         self._ssl_obtained = False
+        self._certificate_outcome = None
 
         # A redeployment must not lose its app row just because this attempt
         # failed, so only a genuinely new app registers an undo for it.
@@ -4886,6 +4915,7 @@ class BaseDeployer(AppDeployer):
             self.deploy_hooks.record(
                 self.store, recorder.deployment_id, self.logger, domain=self.domain
             )
+            self._record_certificate(recorder.deployment_id)
         self.last_deployment_id = recorder.deployment_id
 
         self._report_result()

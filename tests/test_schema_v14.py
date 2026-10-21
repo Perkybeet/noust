@@ -32,6 +32,7 @@ AREAS = (
     "SHIPPING",
     "ACCESS6",
     "CERTS",
+    "ARRIVAL",
 )
 
 
