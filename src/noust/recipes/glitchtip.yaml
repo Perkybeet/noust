@@ -3,7 +3,8 @@
 # 2026-10-20) and the scripts of its 6.2.6 release (bin/start.sh, run-all-in-one.sh): with
 # GLITCHTIP_EMBED_WORKER=true the one process migrates the database, maintains its partitions,
 # serves the web and runs the task worker and the scheduler, so there is no separate worker and
-# no job that exits, and no Redis (it keeps its tasks and its cache in PostgreSQL). Settings are its
+# no job that exits, and no Redis (it keeps its tasks and its cache in PostgreSQL once VALKEY_URL is
+# empty: left unset it points at a host called redis and every request waits for a timeout). Settings are its
 # environment: SECRET_KEY, DATABASE_URL, GLITCHTIP_DOMAIN (the public address, with its scheme),
 # EMAIL_URL (consolemail:// prints e-mail to the log until you give an SMTP address) and
 # DEFAULT_FROM_EMAIL. GlitchTip speaks the Sentry protocol: point a Sentry SDK's DSN at it.
@@ -51,7 +52,7 @@ variables:
     generate: password32
     description: The password of the stack's PostgreSQL account.
 health:
-  path: /api/0/settings/
+  path: /_health/
   expect: "200"
   timeout: 300
 files: {noust.nginx.yaml: noust.nginx.yaml}
@@ -68,6 +69,7 @@ compose: |
         SECRET_KEY: "${SECRET_KEY}"
         GLITCHTIP_DOMAIN: "${GLITCHTIP_DOMAIN}"
         GLITCHTIP_EMBED_WORKER: "true"
+        VALKEY_URL: ""
         ENABLE_USER_REGISTRATION: "${ENABLE_USER_REGISTRATION}"
         EMAIL_URL: "${EMAIL_URL}"
         DEFAULT_FROM_EMAIL: "${DEFAULT_FROM_EMAIL}"
