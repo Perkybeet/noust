@@ -433,7 +433,7 @@ describe("in Spanish", () => {
     });
     await act(() => setLocale("es"));
     renderConsole("/domains");
-    expect(await screen.findByRole("heading", { level: 1, name: /^Dominios/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Dominios" })).toBeInTheDocument();
     const table = await screen.findByRole("region", { name: "Certificados" });
     await within(table).findByText("later.example.com");
     expect(within(table).getAllByRole("row")[1]).toHaveTextContent("Caduca en 12 días");

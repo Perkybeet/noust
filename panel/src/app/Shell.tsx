@@ -10,16 +10,16 @@ import { PageServerContext } from "../nodes/pageServer";
 import { useHasFleet, useServerList } from "../nodes/servers";
 import { useConsoleContext } from "../nodes/useNode";
 import { useServerEvents } from "../realtime/events";
-import { CommandPalette } from "./CommandPalette";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { focusPageTitle } from "./focus";
-import { FLEET_ITEM, NAV_GROUPS, SETTINGS_ITEM } from "./nav";
-import { useKeyboardShortcuts } from "./shortcuts";
+import { shortcuts as registeredShortcuts } from "./nav";
+import { useNavScope } from "./useNavScope";
+import PaletteHost from "./PaletteHost";
+import { shortcutKey, useKeyboardShortcuts } from "./shortcuts";
 import type { KeyBinding } from "./shortcuts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar, SidebarFooter, SidebarNav } from "./Sidebar";
 import { Topbar } from "./Topbar";
-import { useConsoleCommands } from "./useConsoleCommands";
 import type { AppVerb } from "./verbCommands";
 
 // The dialogs a verb opens (the question before a stop, the choice of version) load when one is first chosen.
@@ -79,6 +79,8 @@ export function Shell() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Its commands are built at the first opening and kept, so a second one is instant and an operator who never opens it pays nothing.
+  const [paletteReady, setPaletteReady] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const returnFocus = useRef<HTMLElement | null>(null);
@@ -87,6 +89,8 @@ export function Shell() {
 
   useServerEvents();
   const pageServer = usePageServerName();
+  const hasFleet = useHasFleet();
+  const scope = useNavScope();
 
   useEffect(
     () =>
@@ -100,6 +104,7 @@ export function Shell() {
 
   const openPalette = useCallback(() => {
     returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setPaletteReady(true);
     setPaletteOpen(true);
   }, []);
   const openShortcuts = useCallback(() => {
@@ -109,7 +114,7 @@ export function Shell() {
   // Mod+K works everywhere, fields included: it is a chord, not text.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      if (shortcutKey(event) !== "k" || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
       event.preventDefault();
       if (paletteOpen) {
         setPaletteOpen(false);
@@ -129,11 +134,12 @@ export function Shell() {
     const go = (to: string) => () => {
       void navigate({ to });
     };
-    const navShortcuts = [...NAV_GROUPS.flat(), FLEET_ITEM, SETTINGS_ITEM].flatMap((item) =>
-      item.shortcut ? [{ keys: item.shortcut.keys, description: t(item.shortcut.description), run: go(item.to) }] : [],
-    );
+    // The letters of the scope on screen: `g a` is the server's Applications on a server and the fleet's on the fleet.
+    const navShortcuts = registeredShortcuts(scope).map((entry) => ({ keys: entry.keys, description: t(entry.description), run: go(entry.to) }));
     return [
       ...navShortcuts,
+      // The fleet is a scope, not a destination of a server's bar: one key leads to it from a server.
+      ...(hasFleet && scope === "server" ? [{ keys: ["g", "f"], description: t("shell.shortcuts.goToFleet"), run: go("/fleet") }] : []),
       {
         keys: ["g", "d"],
         description: t("shell.shortcuts.goToDeployments"),
@@ -158,7 +164,7 @@ export function Shell() {
       },
       { keys: ["?"], description: t("shell.shortcuts.showShortcuts"), run: openShortcuts },
     ];
-  }, [navigate, router, openPalette, openShortcuts, t]);
+  }, [navigate, router, openPalette, openShortcuts, t, scope, hasFleet]);
 
   useKeyboardShortcuts(bindings);
 
@@ -166,7 +172,6 @@ export function Shell() {
   const runVerb = useCallback((verb: AppVerb, app: AppInfo) => {
     setChosenVerb((previous) => ({ app, verb, choice: (previous?.choice ?? 0) + 1 }));
   }, []);
-  const commands = useConsoleCommands(paletteOpen, openShortcuts, runVerb);
 
   const closeMenuAfterNavigation = useCallback(() => {
     setMenuNavigated(true);
@@ -214,12 +219,9 @@ export function Shell() {
         </div>
       </Drawer>
 
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        commands={commands}
-        returnFocus={() => returnFocus.current}
-      />
+      {paletteReady ? (
+        <PaletteHost open={paletteOpen} onOpenChange={setPaletteOpen} onOpenShortcuts={openShortcuts} onVerb={runVerb} returnFocus={() => returnFocus.current} />
+      ) : null}
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} shortcuts={bindings} />
       {chosenVerb !== null ? (
         <Suspense fallback={null}>

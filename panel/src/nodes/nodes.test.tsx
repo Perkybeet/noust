@@ -292,7 +292,7 @@ describe("the three contexts", () => {
     expect(await within(main).findByText((_, element) => element?.tagName === "P" && element.textContent === "Server web-01")).toBeInTheDocument();
   });
 
-  it("says All servers on the fleet's pages and This central on the central's, never a silent jump", async () => {
+  it("says All servers on the fleet's pages and This central on the central's, and the bar follows, never a silent jump", async () => {
     const { user, history } = await consoleAt("/n/web-2/apps");
     await user.click(await trigger("Server: web-2"));
     await user.click(await screen.findByRole("menuitemradio", { name: /^All servers/ }));
@@ -303,13 +303,21 @@ describe("the three contexts", () => {
     await waitFor(() => {
       expect(screen.getByTestId("announcer-polite")).toHaveTextContent("Viewing all servers");
     });
-    // The way back to the server the operator came from, said in words.
-    expect(screen.getByRole("link", { name: "Back to web-2, the server you were on" })).toHaveAttribute("href", "/n/web-2");
-    // The sidebar's server destinations lead back to it, under its name.
+    // The bar is the fleet's own seven destinations (NV-10), not the last server's under another name.
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     if (nav === undefined) throw new Error("no main navigation");
-    expect(within(nav).getByRole("link", { name: "Applications" })).toHaveAttribute("href", "/n/web-2/apps");
-    expect(within(nav).getByText("web-2")).toBeInTheDocument();
+    expect(within(nav).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      "/fleet",
+      "/fleet/servers",
+      "/fleet/apps",
+      "/fleet/certificates",
+      "/fleet/backups",
+      "/fleet/updates",
+      "/fleet/activity",
+    ]);
+    expect(within(nav).queryByRole("link", { name: "Databases" })).toBeNull();
+    // Settings still lead to the server the operator came from.
+    expect(screen.getAllByRole("link", { name: "Settings" })[0]).toHaveAttribute("href", "/n/web-2/settings");
 
     await user.click(await trigger("Server: all servers"));
     await user.click(await screen.findByRole("menuitemradio", { name: /^This central/ }));
@@ -317,28 +325,20 @@ describe("the three contexts", () => {
       expect(history.location.pathname).toBe("/settings/central");
     });
     expect(await trigger("Server: this central, web-01")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Back to web-2, the server you were on" })).toHaveAttribute("href", "/n/web-2/settings");
-  });
-
-  it("offers no way back to the central's own server on the central's pages: the selector names it already", async () => {
-    const { user, history } = await consoleAt("/apps");
-    await user.click(await trigger("Server: web-01"));
-    await user.click(await screen.findByRole("menuitemradio", { name: /^This central/ }));
-    await waitFor(() => {
-      expect(history.location.pathname).toBe("/settings/central");
-    });
-    expect(await trigger("Server: this central, web-01")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /^Back to web-01/ })).not.toBeInTheDocument();
+    // This central has no bar of its own: the fleet's, with Settings below it.
+    expect(within(screen.getAllByRole("navigation", { name: "Main" })[0] ?? nav).queryByRole("link", { name: "Databases" })).toBeNull();
+    expect(screen.queryByRole("link", { name: /^Back to / })).not.toBeInTheDocument();
   });
 
   it("keeps a node's own settings on the node, and says whose the central's are", async () => {
     const { user, history } = await consoleAt("/n/web-2/settings/notifications");
     const nav = await screen.findByRole("navigation", { name: "Settings sections" });
     expect(within(nav).getByRole("link", { name: "General" })).toHaveAttribute("href", "/n/web-2/settings");
-    expect(within(nav).getByRole("link", { name: "Notifications" })).toHaveAttribute("href", "/n/web-2/settings/notifications");
+    expect(within(nav).getByRole("link", { name: "Channels" })).toHaveAttribute("href", "/n/web-2/settings/notifications");
     // The central's sections never carry the node, and are grouped under the central's name.
     expect(within(nav).getByRole("link", { name: "API tokens" })).toHaveAttribute("href", "/settings/tokens");
-    expect(within(nav).getByText((_, element) => element?.tagName === "P" && element.textContent === "Central web-01")).toBeInTheDocument();
+    expect(within(nav).getByText((_, element) => element?.tagName === "P" && element.textContent === "Central web-01 · Developers")).toBeInTheDocument();
+    expect(within(nav).getByText((_, element) => element?.tagName === "P" && element.textContent === "web-2 · Monitoring")).toBeInTheDocument();
     expect(await trigger("Server: web-2")).toBeInTheDocument();
 
     await user.click(within(nav).getByRole("link", { name: "API tokens" }));

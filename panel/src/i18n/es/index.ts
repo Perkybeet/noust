@@ -4,6 +4,7 @@
  */
 
 export { access } from "./access";
+export { account } from "./account";
 export { accounts } from "./accounts";
 export { activity } from "./activity";
 export { alerts } from "./alerts";
@@ -44,6 +45,7 @@ export { fleetCompare } from "./fleetCompare";
 export { githubHost } from "./githubHost";
 export { gitlab } from "./gitlab";
 export { gitPush } from "./gitPush";
+export { inbox } from "./inbox";
 export { internalCa } from "./internalCa";
 export { language } from "./language";
 export { logSearch } from "./logSearch";

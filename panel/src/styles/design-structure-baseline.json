@@ -5,8 +5,7 @@
     "badge-state": {
       "features/catalog/RecipeDetailPage.tsx": 1,
       "features/catalog/RecipeRequirements.tsx": 1,
-      "features/domains/IssueCertificateDialog.tsx": 1,
-      "features/overview/NeedsAttention.tsx": 1
+      "features/domains/IssueCertificateDialog.tsx": 1
     },
     "bordered-list": {
       "features/catalog/RecipeRequirements.tsx": 1,
@@ -21,8 +20,7 @@
     "danger-button-outside-confirm": {
       "features/new-app/NewAppWizard.tsx": 1,
       "features/server/ActionDialog.tsx": 1,
-      "features/settings/TwoFactorSection.tsx": 1,
-      "features/teams/TeamSettings.tsx": 1
+      "features/settings/TwoFactorSection.tsx": 1
     },
     "destination-outside-register": {},
     "empty-means-off": {
@@ -55,8 +53,7 @@
       "features/server/storage/CleanupScheduleCard.tsx": 2,
       "features/settings/accounts/InviteDialog.tsx": 3,
       "features/settings/AutoUpdateSection.tsx": 1,
-      "features/settings/CreateTokenDialog.tsx": 1,
-      "features/teams/AddMemberDialog.tsx": 1
+      "features/settings/CreateTokenDialog.tsx": 1
     },
     "hand-aria-busy": {
       "features/activity/JobLogDrawer.tsx": 1,
@@ -67,13 +64,8 @@
       "features/new-app/AddressFields.tsx": 1,
       "features/new-app/GitHubSource.tsx": 1,
       "features/new-app/GitLabSource.tsx": 1,
-      "features/overview/NeedsAttention.tsx": 1,
       "features/overview/RecentActivity.tsx": 1,
-      "features/settings/TwoFactorSection.tsx": 1,
-      "features/teams/ProjectPage.tsx": 1,
-      "features/teams/TeamLayout.tsx": 1,
-      "features/teams/TeamNotifications.tsx": 1,
-      "nodes/capability.tsx": 1
+      "features/settings/TwoFactorSection.tsx": 1
     },
     "hand-error-ternary": {
       "features/activity/ActivityPage.tsx": 2,
@@ -87,9 +79,7 @@
       "features/domains/AppDomainsTab.tsx": 2,
       "features/overview/OverviewPage.tsx": 1,
       "features/overview/useFleetSummary.ts": 1,
-      "features/queue/QueuePanel.tsx": 1,
-      "features/teams/TeamMembers.tsx": 1,
-      "features/teams/TeamNotifications.tsx": 1
+      "features/queue/QueuePanel.tsx": 1
     },
     "help-starts-with-state": {
       "i18n/en/autoUpdate.ts": 1,
@@ -114,14 +104,10 @@
     },
     "notice-info-bare": {
       "features/activity/ActivityPage.tsx": 1,
-      "features/auth/ResetPasswordPage.tsx": 1,
-      "features/map/MapPage.tsx": 1,
-      "nodes/NodeNotice.tsx": 2
+      "features/auth/ResetPasswordPage.tsx": 1
     },
     "notice-long": {
-      "features/catalog/RecipeUpdateDialog.tsx": 1,
-      "features/teams/TeamOverview.tsx": 1,
-      "features/teams/TeamsPage.tsx": 1
+      "features/catalog/RecipeUpdateDialog.tsx": 1
     },
     "notice-stack": {
       "features/app/AppBanner.tsx": 1,
@@ -130,8 +116,7 @@
       "features/auth/LoginForm.tsx": 1,
       "features/auth/PasskeysSection.tsx": 1,
       "features/auth/ResetPasswordPage.tsx": 1,
-      "features/new-app/ComposeDocument.tsx": 1,
-      "nodes/NodeNotice.tsx": 1
+      "features/new-app/ComposeDocument.tsx": 1
     },
     "notice-success": {
       "features/app/deployments/DeploymentActions.tsx": 1,
@@ -151,11 +136,7 @@
       "features/apps/AppsTable.tsx": 1,
       "features/catalog/InstalledRecipesPage.tsx": 1,
       "features/domains/AppDomainsTab.tsx": 1,
-      "features/overview/FleetSummary.tsx": 1,
-      "features/overview/NeedsAttention.tsx": 1,
-      "features/teams/ProjectPage.tsx": 2,
-      "features/teams/ProjectsTable.tsx": 1,
-      "features/teams/TeamsPage.tsx": 1
+      "features/overview/FleetSummary.tsx": 1
     },
     "submit-disabled-invalid": {
       "features/app/ReclaimDialog.tsx": 1,
@@ -183,8 +164,6 @@
       "features/apps/UpdateTaggedApps.tsx": 1,
       "features/apps/useAppActions.ts": 3,
       "features/audit/AuditPage.tsx": 1,
-      "features/auth/PasskeysSection.tsx": 1,
-      "features/auth/PasswordDialog.tsx": 1,
       "features/backups/BackupsTable.tsx": 1,
       "features/backups/DestinationsPage.tsx": 1,
       "features/backups/useBackupActions.ts": 5,
@@ -262,11 +241,8 @@
       "features/settings/TokenNetworksDialog.tsx": 1,
       "features/settings/TokensSettings.tsx": 1,
       "features/settings/TwoFactorSection.tsx": 3,
-      "features/teams/MoveAppDialog.tsx": 1,
-      "features/teams/TeamNotifications.tsx": 2,
       "features/terminal/TerminalPanel.tsx": 1,
-      "features/variables/SecretManagers.tsx": 1,
-      "realtime/events.ts": 1
+      "features/variables/SecretManagers.tsx": 1
     }
   }
 }

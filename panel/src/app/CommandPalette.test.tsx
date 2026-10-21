@@ -30,8 +30,34 @@ describe("filterCommands", () => {
   });
 
   it("matches scattered letters only when there are several", () => {
-    expect(filterCommands(commands(), "ovw").flatMap((group) => group.items.map((item) => item.label))).toEqual(["Overview"]);
+    expect(filterCommands(commands(), "ovrw").flatMap((group) => group.items.map((item) => item.label))).toEqual(["Overview"]);
+    // Three letters in order are in nearly any name: that is not a match.
+    expect(filterCommands(commands(), "ovw")).toEqual([]);
     expect(filterCommands(commands(), "zq")).toEqual([]);
+  });
+
+  it("limits the palette to actions after a >, and to ways of changing scope after an @", () => {
+    const all: Command[] = [
+      ...commands(),
+      { id: "act:new", group: "Actions", label: "New application", kind: "navigate", run: () => undefined },
+      { id: "op:restart", group: "Operations", label: "Restart shop.example.com", verb: "restart", browse: true, kind: "action", run: () => undefined },
+      { id: "srv:web2", group: "Servers", label: "Switch to web-2", kind: "navigate", run: () => undefined },
+    ];
+    const ids = (query: string): string[] => filterCommands(all, query).flatMap((group) => group.items.map((item) => item.id));
+    expect(new Set(ids(">"))).toEqual(new Set(["act:new", "op:restart", "x1"]));
+    expect(ids(">")).not.toContain("p1");
+    expect(ids("> new")).toEqual(["act:new"]);
+    expect(ids("@")).toEqual(["srv:web2"]);
+    expect(ids("@web")).toEqual(["srv:web2"]);
+    expect(ids("@shop")).toEqual([]);
+  });
+
+  it("offers the recent ones first with nothing typed, once each, and none while typing", () => {
+    const all = commands();
+    const recent = [{ ...all[1], id: "recent:p2", group: "Recent" as const }] as Command[];
+    expect(filterCommands(all, "", recent)[0]).toMatchObject({ group: "Recent", items: [{ label: "Databases" }] });
+    expect(filterCommands(all, "databases", recent).map((group) => group.group)).not.toContain("Recent");
+    expect(filterCommands(all, ">", recent).map((group) => group.group)).not.toContain("Recent");
   });
 });
 

@@ -18,11 +18,20 @@ export const shell = {
   session: {
     label: "Session and preferences",
     title: "Session",
-    signedInTo: "Signed in to {hostname}",
+    signedInAs: "Signed in as {user} on {hostname}",
+    signedInWithToken: "Signed in with the access token on {hostname}",
+    account: "Account",
+    signInSecurity: "Sign-in security",
     theme: "Theme",
     keyboardShortcuts: "Keyboard shortcuts",
     documentation: "Documentation for this page",
     signOut: "Sign out",
+  },
+  /** The bell in the top bar and the title of what it opens (features/inbox). */
+  inbox: {
+    title: "Inbox",
+    needs: { one: "Inbox, {count} thing needs you", other: "Inbox, {count} things need you" },
+    clear: "Inbox, nothing needs you",
   },
   search: {
     label: "Search",
@@ -33,8 +42,14 @@ export const shell = {
     moveHint: "to move",
     openHint: "to open",
     closeHint: "to close",
+    actionsHint: "for actions",
+    scopeHint: "to switch server",
+    noMatchesHint: "Try the name of a page, a setting or an application, > for actions or @ for another server.",
+    noMatchesCli: "The terminal can do everything: {command}",
+    scope: { server: "Server", application: "Application", all: "All servers", central: "This central" },
   },
   commandGroups: {
+    recent: "Recent",
     pages: "Pages",
     settings: "Settings",
     applications: "Applications",
@@ -100,6 +115,7 @@ export const shell = {
   },
   shortcuts: {
     goToDeployments: "Go to deployments, or activity outside an app",
+    goToFleet: "Go to all servers",
     searchPage: "Search this page, or everything",
     showShortcuts: "Show keyboard shortcuts",
     openPalette: "Open the command palette",

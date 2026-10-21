@@ -65,7 +65,7 @@ interface Route {
   path: string;
 }
 
-/** The server's settings, one URL each (the list `app/nav.ts` calls `settings.*`). Controls is not one yet: it opens Security. */
+/** The server's settings, one URL each (the list `app/nav.ts` calls `settings.*`). */
 const SERVER_SETTINGS: readonly Route[] = [
   { id: "settings-general", path: "/settings" },
   { id: "settings-variables", path: "/settings/variables" },
@@ -89,7 +89,13 @@ const SERVER_SETTINGS: readonly Route[] = [
   { id: "settings-compliance", path: "/settings/compliance" },
   { id: "settings-cloud", path: "/settings/cloud" },
   { id: "settings-central", path: "/settings/central" },
-  { id: "settings-security", path: "/settings/security" },
+  { id: "settings-controls", path: "/settings/controls" },
+];
+
+/** The signed-in person's own pages: they are not Settings (they follow the person, not the machine), and they are as long as one subsection may be. */
+const ACCOUNT_PAGES: readonly Route[] = [
+  { id: "account-profile", path: "/account" },
+  { id: "account-security", path: "/account/security" },
 ];
 
 /**
@@ -120,7 +126,7 @@ test.use({ viewport: { width: 1440, height: 900 } });
 
 /** Settings route files that are not a subsection of their own, with the reason. */
 const NOT_A_SUBSECTION: Readonly<Record<string, string>> = {
-  "settings/controls.tsx": "it opens Security until its page lands; the lane that writes it adds the route here and takes this line away",
+  "settings/security.tsx": "it redirects to /account/security, where the person's sign-in security is",
   "apps/$domain/settings/container.tsx": "only a container application has it, and the seeded machine has none",
   "apps/$domain/settings/compose.tsx": "only a Compose stack has it, and the seeded machine has none",
   "apps/$domain/settings/builds.tsx": "it redirects to Build: the sandbox is a card of that page since 4.0",
@@ -136,11 +142,12 @@ function routeFiles(directory: string): string[] {
 }
 
 test("every settings route of the console has a length in the baseline", () => {
-  const listed = new Set([...SERVER_SETTINGS, ...APPLICATION_SETTINGS].map((route) => route.id));
-  const files = [...routeFiles("settings"), ...routeFiles("apps/$domain/settings")].filter((file) => NOT_A_SUBSECTION[file] === undefined);
+  const listed = new Set([...SERVER_SETTINGS, ...ACCOUNT_PAGES, ...APPLICATION_SETTINGS].map((route) => route.id));
+  const files = [...routeFiles("settings"), ...routeFiles("account"), ...routeFiles("apps/$domain/settings")].filter((file) => NOT_A_SUBSECTION[file] === undefined);
   // settings/index.tsx and apps/$domain/settings/index.tsx are General.
   const ids = files.map((file) => {
     const name = path.basename(file, ".tsx");
+    if (file.startsWith("account/")) return `account-${name === "index" ? "profile" : name}`;
     const prefix = file.startsWith("apps/") ? "app-settings" : "settings";
     return `${prefix}-${name === "index" ? "general" : name}`;
   });
@@ -192,7 +199,7 @@ test("every settings subsection fits in a screen and a half, or says why not, an
   test.skip(testInfo.project.name !== "light", "the length of a page does not depend on the theme");
   test.setTimeout(420_000);
   const baseline = readBaseline();
-  const routes = [...SERVER_SETTINGS, ...APPLICATION_SETTINGS];
+  const routes = [...SERVER_SETTINGS, ...ACCOUNT_PAGES, ...APPLICATION_SETTINGS];
   const measured: Record<string, { path: string; height: number; landed: string }> = {};
 
   // A server of its own, as the seed leaves it and set up as the suite's (two-factor sign-in): the audit trail and the

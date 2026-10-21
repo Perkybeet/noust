@@ -126,7 +126,7 @@ describe("Settings > Probes", () => {
   it("is in the settings navigation, as the server's own section", { timeout: 20_000 }, async () => {
     await pageAt();
     const nav = await screen.findByRole("navigation", { name: "Settings sections" });
-    expect(within(nav).getByRole("link", { name: "Probes" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Probes and status page" })).toHaveAttribute("aria-current", "page");
   });
 
   it("explains what a probe is when there is none", { timeout: 20_000 }, async () => {

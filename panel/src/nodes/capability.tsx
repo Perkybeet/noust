@@ -12,6 +12,7 @@ import { queryOptions } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
 import { api } from "../api/client";
+import { LoadingRegion } from "../components/page/LoadingRegion";
 import { Notice } from "../components/ui/Notice";
 import { useT } from "../i18n";
 import { cx } from "../lib/cx";
@@ -131,9 +132,7 @@ export function NodeCapabilityGate({ capability, children }: { capability: strin
   if (status === "missing" && node !== null) return <NotAvailableOnNode node={node} version={version} />;
   if (status === "checking" && node !== null) {
     return (
-      <div aria-busy="true">
-        <span className="sr-only">{t("fleet.capability.checking", { node })}</span>
-      </div>
+      <LoadingRegion label={t("fleet.capability.checking", { node })}>{null}</LoadingRegion>
     );
   }
   return <>{children}</>;

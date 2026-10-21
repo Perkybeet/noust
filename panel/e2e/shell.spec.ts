@@ -8,18 +8,20 @@
 import type { Page } from "@playwright/test";
 
 import { expect, expectNoA11yViolations, settle, signIn, startConsoleServer, test, totpCode } from "./fixtures";
+import { signInSpanish, useSpanish } from "./spanish";
 
 /** The sidebar, top to bottom, with the heading each destination opens on. */
 const DESTINATIONS: readonly { link: string; path: string; title: string }[] = [
   { link: "Overview", path: "/", title: "Overview" },
   { link: "Applications", path: "/apps", title: "Applications" },
   { link: "Databases", path: "/databases", title: "Databases" },
-  { link: "Domains and certificates", path: "/domains", title: "Domains and certificates" },
+  { link: "Domains", path: "/domains", title: "Domains" },
   { link: "Backups", path: "/backups", title: "Backups" },
+  { link: "Cron", path: "/cron", title: "Cron" },
+  { link: "Logs", path: "/logs", title: "Logs" },
+  { link: "Activity", path: "/activity", title: "Activity" },
   // Services live under Server (its tab), not in the sidebar.
   { link: "Server", path: "/server", title: "Server" },
-  { link: "Cron", path: "/cron", title: "Cron" },
-  { link: "Activity", path: "/activity", title: "Activity" },
   { link: "Settings", path: "/settings", title: "Settings" },
 ];
 
@@ -169,6 +171,38 @@ test("the command palette opens with Ctrl+K, filters, navigates on Enter and clo
   await page.keyboard.press("Escape");
   await expect(palette).toBeHidden();
   await expect(trigger).toBeFocused();
+});
+
+test("the bar says the stream is live in Spanish too, whole, whatever the readings need: the readings give way, never the badge", async ({
+  page,
+  consoleServer,
+}) => {
+  await useSpanish(page);
+  await page.setViewportSize({ width: 1536, height: 900 });
+  await signInSpanish(page, consoleServer, "/");
+  const bar = page.getByRole("banner");
+  const live = bar.getByText("En vivo");
+  const search = bar.getByRole("button", { name: /^Buscar/ }).first();
+  const strip = bar.getByRole("group").first();
+  // Wide enough for the words of the services, the Spanish ones longer than any width assumed: the
+  // readings that do not fit are left out whole, and the badge ends before the search begins.
+  for (const width of [1536, 1440, 1280, 1024, 768]) {
+    await page.setViewportSize({ width, height: 900 });
+    await settle(page);
+    await expect(live).toBeVisible();
+    const badge = await live.boundingBox();
+    const trigger = await search.boundingBox();
+    if (badge !== null && trigger !== null) expect(badge.x + badge.width, `at ${String(width)}px the badge is under the search`).toBeLessThanOrEqual(trigger.x);
+    const room = await strip.evaluate((element) => {
+      const readings = element.querySelector("div > div");
+      return readings === null ? 0 : readings.scrollWidth - readings.clientWidth;
+    });
+    expect(room, `at ${String(width)}px the readings overflow their strip`).toBeLessThanOrEqual(0);
+  }
+  // On a phone the word gives way to the readings the strip has room for, and nothing lies over the buttons.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(page);
+  await expect(live).toBeHidden();
 });
 
 test("a session that ends while the console is open returns to the same page after signing in", async ({

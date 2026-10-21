@@ -18,6 +18,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { AppRowActions } from "../apps/AppRowActions";
@@ -85,7 +86,7 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
     const header = { title: slug, mono: true, breadcrumbs, server: node };
     // The strip of environments has its place from the first frame, so nothing is pushed down when it arrives.
     return (
-      <DetailPage header={header} {...(org.loading || org.error === null || org.error === undefined ? { tabs: <div aria-busy="true"><Skeleton className="h-control-md w-64 rounded-control" /></div> } : {})}>
+      <DetailPage header={header} {...(org.loading || org.error === null || org.error === undefined ? { tabs: <LoadingRegion label={t("teams.project.loadingTabs", { name: slug })}><Skeleton className="h-control-md w-64 rounded-control" /></LoadingRegion> } : {})}>
         {org.loading || org.error === null || org.error === undefined ? (
           <LoadingRegion label={t("teams.project.loading", { name: slug })}>
             <Skeleton className="h-48 w-full rounded-card" />
@@ -141,9 +142,9 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
       card: "title",
       sortValue: (database) => database.name,
       cell: (database) => (
-        <Link to="/databases/$engine/$name" params={{ engine: database.engine, name: database.name }} translate="no" className="-mx-1 block max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2">
+        <TextLink to="/databases/$engine/$name" params={{ engine: database.engine, name: database.name }} translate="no" variant="row" className="-mx-1 block max-w-full truncate px-1 py-0.5">
           {database.name}
-        </Link>
+        </TextLink>
       ),
     },
     { id: "engine", header: t("teams.project.columnEngine"), width: "w-52", sortValue: (database) => database.engine, cell: (database) => <span className="text-fg-muted">{engineName(database.engine)}</span> },
@@ -163,9 +164,9 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
       card: "title",
       sortValue: (site) => site.name,
       cell: (site) => (
-        <Link to="/domains/sites/$site" params={{ site: site.name }} translate="no" className="-mx-1 block max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2">
+        <TextLink to="/domains/sites/$site" params={{ site: site.name }} translate="no" variant="row" className="-mx-1 block max-w-full truncate px-1 py-0.5">
           {site.name}
-        </Link>
+        </TextLink>
       ),
     },
     { id: "state", header: t("teams.project.columnState"), width: "w-32", card: "status", sortValue: (site) => (site.enabled ? 1 : 0), cell: (site) => <SiteState enabled={site.enabled} /> },

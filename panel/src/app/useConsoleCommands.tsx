@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { Archive, BookOpen, BookText, Box, Database, FileCode, FileUp, FolderKanban, Keyboard, Landmark, LogOut, Map as MapIcon, Monitor, Moon, Network, Plus, Server, ShieldCheck, Sun, Unplug, Users } from "lucide-react";
+import { Archive, BookOpen, BookText, Box, Database, FileCode, FileUp, FolderKanban, Keyboard, Landmark, LogOut, Monitor, Moon, Network, Plus, Server, ShieldCheck, Sun, Unplug, Users } from "lucide-react";
 import { useMemo } from "react";
 
 import { appQuery, appTypesQuery, appsQuery } from "../api/queries/apps";
@@ -11,6 +11,7 @@ import type { AppInfo } from "../features/apps/data";
 import { useSignOut } from "../features/auth/useSignOut";
 import { field, fleetViewQuery, originOf } from "../features/fleet/data";
 import { useOrganization } from "../features/teams/useOrganization";
+import { useOrganised } from "../features/teams/useOrganised";
 import { useT } from "../i18n";
 import type { PlainKey } from "../i18n";
 import { announce } from "./Announcer";
@@ -20,7 +21,8 @@ import { nodeOfConsolePath } from "./nodeRoute";
 import { useHasFleet, useServerList } from "../nodes/servers";
 import { useConsoleContext, useNode, useSwitchNode } from "../nodes/useNode";
 import type { Command } from "./CommandPalette";
-import { FLEET_ITEM, FLEET_TABS, NAV_GROUPS, SETTINGS_ITEM, SETTINGS_TABS } from "./nav";
+import { paletteEntries } from "./nav";
+import { pageCommands } from "./pageCommands";
 import { resourceCommands } from "./resourceCommands";
 import type { NavTarget } from "./resourceCommands";
 import { useResourceIndex } from "./useResourceIndex";
@@ -63,6 +65,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
   const { data: fleetApps } = useQuery({ ...fleetViewQuery("apps"), enabled: open && onFleet });
   const listed = useResourceIndex(open, !onFleet);
   const org = useOrganization();
+  const { organised } = useOrganised();
   const index = useMemo(
     () => ({ ...listed, ...(org.available ? { teams: org.teams, projects: org.projects } : {}) }),
     [listed, org.available, org.teams, org.projects],
@@ -91,49 +94,17 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
       });
     };
 
-    const pages: Command[] = [...NAV_GROUPS.flat(), FLEET_ITEM, SETTINGS_ITEM].map((item) => {
-      const Icon = item.icon;
-      return {
-        id: `page:${item.to}`,
-        group: "Pages",
-        label: t(item.label),
-        icon: <Icon />,
-        kind: "navigate",
-        run: go(item.to),
-        ...(item.keywords !== undefined ? { keywords: t(item.keywords) } : {}),
-        ...(item.shortcut !== undefined ? { shortcut: item.shortcut.keys } : {}),
-      };
-    });
-    const settingsIcon = <SETTINGS_ITEM.icon />;
-    for (const tab of SETTINGS_TABS.slice(1)) {
-      if (tab.fleetOnly === true && !hasFleet) continue;
-      // A section the operator may not open is not offered (the settings' navigation hides it too).
-      if (tab.permission !== undefined && !(permissions?.includes(tab.permission) ?? false)) continue;
-      pages.push({
-        id: `page:${tab.to}`,
-        group: "Settings",
-        label: t(tab.command),
-        icon: settingsIcon,
-        kind: "navigate",
-        run: go(tab.to),
-        // Search words, not a sentence: joining them is safe in any language.
-        keywords: [t(SETTINGS_ITEM.label), tab.keywords !== undefined ? t(tab.keywords) : "", tab.scope === "central" ? t("fleet.selector.central") : ""].join(" "),
-      });
-    }
-    if (hasFleet) {
-      const fleetIcon = <Network />;
-      for (const tab of FLEET_TABS.slice(1)) {
-        pages.push({
-          id: `page:${tab.to}`,
-          group: "Pages",
-          label: t(tab.command),
-          icon: fleetIcon,
-          kind: "navigate",
-          run: go(tab.to),
-          keywords: [t(FLEET_ITEM.label), tab.keywords !== undefined ? t(tab.keywords) : ""].join(" "),
-        });
-      }
-    }
+    // Every screen of the register the principal may open, by its own name and by the old ones; the
+    // fleet's other views are offered where there is a fleet to look at (its Overview always: it is
+    // where the first server is added from).
+    const pages: Command[] = pageCommands(
+      paletteEntries({
+        t,
+        can: (permission) => permissions?.includes(permission) ?? false,
+        when: { organised, fleet: hasFleet },
+      }).filter((entry) => entry.scope !== "fleet" || entry.id === "fleet" || hasFleet),
+      go,
+    );
 
     if (appDomain !== null) pages.push(...appSectionCommands(appDomain, currentApp, t, go));
 
@@ -218,16 +189,6 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
         keywords: t("shell.commands.adoptStackKeywords"),
         kind: "navigate",
         run: startWizard("adopt"),
-      },
-      // The map has no place in the navigation yet (that is the navigation's to decide): it is found here.
-      {
-        id: "action:map",
-        group: "Actions",
-        label: t("shell.commands.openMap"),
-        icon: <MapIcon />,
-        keywords: t("shell.commands.openMapKeywords"),
-        kind: "navigate",
-        run: go("/map"),
       },
       {
         id: "action:new-database",
@@ -435,5 +396,5 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
           ];
 
     return [...pages, ...applications, ...resources, ...servers, ...verbs, ...actions];
-  }, [open, apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, pathname, appDomain, currentApp, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, mayOrganise, mayCreateTeams, can, onVerb]);
+  }, [open, apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, pathname, appDomain, currentApp, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, organised, mayOrganise, mayCreateTeams, can, onVerb]);
 }

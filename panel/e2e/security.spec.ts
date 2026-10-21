@@ -85,7 +85,7 @@ test("create a read token, see it once, use it, revoke it", async ({ page, conso
 });
 
 test("signing out other sessions leaves this browser in and signs every other one out", async ({ page, consoleServer, browser }) => {
-  await signIn(page, consoleServer, "/settings/security");
+  await signIn(page, consoleServer, "/account/security");
   const table = page.getByRole("region", { name: "Active sessions" });
   const dataRows = () => table.getByRole("row").filter({ hasNot: page.getByRole("columnheader") });
   // The five most recent show first; this test counts them all.
@@ -102,7 +102,7 @@ test("signing out other sessions leaves this browser in and signs every other on
 
   const otherContext = await browser.newContext({ baseURL: consoleServer.url });
   const otherPage = await otherContext.newPage();
-  await signIn(otherPage, consoleServer, "/settings/security");
+  await signIn(otherPage, consoleServer, "/account/security");
 
   await page.reload();
   // Loaded, not the placeholder rows the table holds while it loads: "Show all" comes with them.
@@ -134,7 +134,7 @@ test("a failure toast is announced once and stays reachable from the keyboard", 
   const { current_session: sid } = (await (await other.get("/api/auth/sessions")).json()) as { current_session: string };
   const prefix = sid.slice(0, 8);
 
-  await signIn(page, consoleServer, "/settings/security");
+  await signIn(page, consoleServer, "/account/security");
   const signOut = page.getByRole("button", { name: `Sign out session ${prefix}` });
   await expect(signOut).toBeVisible();
   // The other browser signs out while this page still lists it.
@@ -172,7 +172,7 @@ const withOwnBackupCodes = test.extend<object, { consoleServer: ConsoleServer }>
 withOwnBackupCodes("new backup codes replace the old ones after confirming it's you, and are shown once", async ({ page, consoleServer, problems }) => {
   // The first ask is refused until the operator confirms it's them, as designed.
   problems.expect(/status of 403 .* \/api\/auth\/2fa\/backup-codes$/);
-  await signIn(page, consoleServer, "/settings/security");
+  await signIn(page, consoleServer, "/account/security");
   await page.getByRole("button", { name: "New backup codes" }).click();
   const ask = page.getByRole("dialog", { name: "Replace your backup codes?" });
   await expect(ask).toBeVisible();
@@ -209,8 +209,8 @@ test("on 127.0.0.1, where every SSH tunnel arrives, one name's failed sign-ins l
   await api.dispose();
 
   // Everyone else on the same address still signs in.
-  await signIn(page, consoleServer, "/settings/security");
-  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+  await signIn(page, consoleServer, "/account/security");
+  await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
 });
 
 const withoutTwoFactor = test.extend<object, { consoleServer: ConsoleServer }>({
@@ -244,7 +244,7 @@ withoutTwoFactor("enrol two-factor end to end, sign in with it, turn it off", as
   // keeps the session in sudo mode while it is used, so turning it off at the end of this same
   // session does not ask again.
   problems.expect(/status of 403 .* \/api\/auth\/2fa\/enroll$/);
-  await signIn(page, consoleServer, "/settings/security");
+  await signIn(page, consoleServer, "/account/security");
   const section = page.getByRole("region", { name: "Two-factor authentication" });
   await expect(section.getByText("Off", { exact: true })).toBeVisible();
   await section.getByRole("button", { name: "Set up two-factor authentication" }).click();

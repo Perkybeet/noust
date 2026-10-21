@@ -120,7 +120,10 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "server-system", path: "/server/system" },
   { name: "server-terminal", path: "/server/terminal" },
   { name: "settings", path: "/settings" },
-  { name: "settings-security", path: "/settings/security" },
+  // 4.0: the person's own pages, and the controls that left Security (its old address redirects to the account).
+  { name: "account", path: "/account" },
+  { name: "account-security", path: "/account/security" },
+  { name: "settings-controls", path: "/settings/controls" },
   { name: "settings-notifications", path: "/settings/notifications" },
   { name: "settings-alerts", path: "/settings/alerts" },
   { name: "settings-tokens", path: "/settings/tokens" },

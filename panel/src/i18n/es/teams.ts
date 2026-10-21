@@ -2,6 +2,9 @@ import type { teams as en } from "../en/teams";
 import type { Catalog } from "../types";
 
 export const teams: Catalog<typeof en> = {
+  frame: {
+    description: "Los proyectos agrupan las aplicaciones, bases de datos y sitios de un mismo trabajo. Los equipos deciden quién los ve y quién puede actuar.",
+  },
   cancel: "Cancelar",
   clearFilters: "Quitar filtros",
   couldNotLoad: "No se pudieron cargar los equipos",
@@ -38,7 +41,7 @@ export const teams: Catalog<typeof en> = {
     description: "Un equipo agrupa a personas y lo que ejecutan, y decide quién ve qué y quién puede actuar.",
     boundaryTitle: "Un equipo no es una máquina aparte",
     boundary:
-      "Un equipo decide quién ve y quién puede actuar. Las aplicaciones de dos equipos siguen ejecutándose en el único kernel de este servidor, con cuentas propias. Un equipo que no deba compartir máquina con otro necesita un servidor propio.",
+      "Un equipo decide quién ve y quién puede actuar. Sus aplicaciones siguen compartiendo el kernel de este servidor: un equipo que no deba compartir máquina necesita un servidor propio.",
     count: { one: "{count} equipo", other: "{count} equipos" },
     countFiltered: "{shown} de {total} equipos",
     caption: "Equipos de este servidor",
@@ -67,7 +70,7 @@ export const teams: Catalog<typeof en> = {
     noMatch: "Ningún equipo coincide",
   },
   team: {
-    loading: "Leyendo {name}",
+    loading: "Cargando {name}",
     notFoundTitle: "Equipo no encontrado",
     notFoundDescription: "No hay ningún equipo {team}, o no lo ves.",
     allTeams: "Todos los equipos",
@@ -92,7 +95,7 @@ export const teams: Catalog<typeof en> = {
     allProjects: "Verlos en la lista de proyectos",
   },
   members: {
-    loading: "Leyendo los miembros",
+    loading: "Cargando los miembros",
     summary: { one: "{count} miembro", other: "{count} miembros" },
     add: "Añadir miembro",
     invite: "Invitar a una persona",
@@ -126,7 +129,7 @@ export const teams: Catalog<typeof en> = {
     left: "Saliste de {team}",
     emptyTitle: "Todavía no hay nadie en este equipo",
     emptyDescription: "Añade una cuenta que exista o invita a una persona.",
-    couldNotLoad: "No se pudieron cargar los miembros",
+    queryLabel: "los miembros",
     caption: "Miembros de {name}",
     readOnlyTitle: "Puedes leer esta lista",
     readOnly: "Solo un propietario del equipo cambia quién está en él y qué puede hacer cada persona.",
@@ -226,8 +229,9 @@ export const teams: Catalog<typeof en> = {
     notFoundTitle: "Proyecto no encontrado",
     notFoundDescription: "No hay ningún proyecto {project} en el equipo {team}, o no lo ves.",
     allProjects: "Todos los proyectos",
-    loading: "Leyendo {name}",
-    loadingResources: "Leyendo lo que hay en {name}",
+    loading: "Cargando {name}",
+    loadingTabs: "Cargando las secciones de {name}",
+    loadingResources: "Cargando lo que hay en {name}",
   },
   environments: {
     new: "Nuevo entorno",

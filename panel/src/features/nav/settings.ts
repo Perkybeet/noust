@@ -1,13 +1,11 @@
-import { Settings } from "lucide-react";
-
-import { area, isStaged, section, tabItem } from "../../app/navCore";
-import type { Dest, More, Owner, Strip, TabItem } from "../../app/navCore";
+import { area, section, shown } from "../../app/navCore";
+import type { Dest, More, NavContext, Owner, Strip } from "../../app/navCore";
 import type { PlainKey } from "../../i18n";
 
 /** The account's own section is in no group of Settings: it leaves them for /account. */
 const NO_GROUP = "";
 
-const settings = area("settings", "/settings", "nav.settings.label", Settings, {
+const settings = area("settings", "/settings", "nav.settings.label", {
   scope: "both",
   group: "pinned",
   shortcut: ["g", "s"],
@@ -23,28 +21,13 @@ const setting = (name: string, label: PlainKey, owner: Owner, group: string, mor
   section(settings, name, label, { owner, ...(group !== NO_GROUP ? { group } : {}), ...more });
 
 /**
- * Settings, the selected server's own sections first and then the central's, which carry `central`:
- * nodeRoute.ts keeps a node off them. The register is app/nav.ts; this is one group of it.
+ * Settings: the selected server's own sections first, in three groups, and then the instance's,
+ * which carry `central` (nodeRoute.ts keeps a node off them). Within a group the order is the one
+ * an operator sets a server up in. The register is app/nav.ts; this is one group of it.
  */
 export const SETTINGS_SCREENS: Strip = [
   settings,
-  setting("notifications", "nav.settingsTabs.notifications.label", "server", "monitoring", {
-    keywords: "nav.settingsTabs.notifications.keywords",
-    command: "nav.settingsTabs.notifications.command",
-  }),
-  setting("alerts", "nav.settingsTabs.alerts.label", "server", "monitoring", {
-    keywords: "nav.settingsTabs.alerts.keywords",
-    command: "nav.settingsTabs.alerts.command",
-  }),
-  setting("integrations", "nav.settingsTabs.integrations.label", "server", "this-server", {
-    keywords: "nav.settingsTabs.integrations.keywords",
-    command: "nav.settingsTabs.integrations.command",
-  }),
-  setting("probes", "probes.nav.label", "server", "monitoring", { keywords: "probes.nav.keywords", command: "probes.nav.command" }),
-  setting("log-shipping", "runtime.logShipping.navLabel", "server", "monitoring", {
-    keywords: "runtime.logShipping.navKeywords",
-    command: "runtime.logShipping.navCommand",
-  }),
+  // This server: what it is and how it is reached.
   setting("variables", "variables.nav.settings.label", "server", "this-server", {
     keywords: "variables.nav.settings.keywords",
     command: "variables.nav.settings.command",
@@ -55,7 +38,41 @@ export const SETTINGS_SCREENS: Strip = [
     command: "variables.providers.nav.command",
     permission: "settings.read",
   }),
-  setting("console", "consoleAccess.nav.label", "server", "this-server", { keywords: "consoleAccess.nav.keywords", command: "consoleAccess.nav.command" }),
+  setting("console", "nav.settingsTabs.console.label", "server", "this-server", {
+    keywords: "nav.settingsTabs.console.keywords",
+    command: "nav.settingsTabs.console.command",
+  }),
+  setting("integrations", "nav.settingsTabs.integrations.label", "server", "this-server", {
+    keywords: "nav.settingsTabs.integrations.keywords",
+    command: "nav.settingsTabs.integrations.command",
+  }),
+  setting("about", "nav.settingsTabs.about.label", "server", "this-server", {
+    keywords: "nav.settingsTabs.about.keywords",
+    command: "nav.settingsTabs.about.command",
+  }),
+  // Monitoring: where the messages go, when they are sent, what is watched from outside, what is exported.
+  setting("notifications", "nav.settingsTabs.notifications.label", "server", "monitoring", {
+    keywords: "nav.settingsTabs.notifications.keywords",
+    command: "nav.settingsTabs.notifications.command",
+  }),
+  setting("alerts", "nav.settingsTabs.alerts.label", "server", "monitoring", {
+    keywords: "nav.settingsTabs.alerts.keywords",
+    command: "nav.settingsTabs.alerts.command",
+  }),
+  setting("probes", "nav.settingsTabs.probes.label", "server", "monitoring", {
+    keywords: "nav.settingsTabs.probes.keywords",
+    command: "nav.settingsTabs.probes.command",
+  }),
+  setting("log-shipping", "nav.settingsTabs.logShipping.label", "server", "monitoring", {
+    keywords: "nav.settingsTabs.logShipping.keywords",
+    command: "nav.settingsTabs.logShipping.command",
+  }),
+  // Developers: the ways in for scripts and other programs.
+  setting("tokens", "nav.settingsTabs.tokens.label", "server", "developers", {
+    central: true,
+    keywords: "nav.settingsTabs.tokens.keywords",
+    command: "nav.settingsTabs.tokens.command",
+  }),
   setting("api", "apiReference.nav.label", "server", "developers", { keywords: "apiReference.nav.keywords", command: "apiReference.nav.command" }),
   setting("manifest", "manifestPreview.nav.label", "server", "developers", {
     keywords: "manifestPreview.nav.keywords",
@@ -67,37 +84,17 @@ export const SETTINGS_SCREENS: Strip = [
     command: "mcpSettings.nav.command",
     permission: "settings.read",
   }),
-  setting("about", "nav.settingsTabs.about.label", "server", "this-server", {
-    keywords: "nav.settingsTabs.about.keywords",
-    command: "nav.settingsTabs.about.command",
-  }),
-  setting("servers", "servers.nav.settingsTab.label", "fleet", "fleet", {
-    central: true,
-    keywords: "servers.nav.settingsTab.keywords",
-    command: "servers.nav.settingsTab.command",
-  }),
-  setting("cloud", "cloud.nav.label", "fleet", "fleet", {
-    central: true,
-    keywords: "cloud.nav.keywords",
-    command: "cloud.nav.command",
-    permission: "fleet.manage",
-  }),
+  // The instance's: who may do what and what is recorded, then the fleet this central holds.
   setting("accounts", "accounts.nav.label", "instance", "people", {
     central: true,
     keywords: "accounts.nav.keywords",
     command: "accounts.nav.command",
     permission: "accounts.read",
   }),
-  // The account's own security leaves Settings for /account/security; until it does it is still a section.
-  setting("security", "nav.settingsTabs.security.label", "account", NO_GROUP, {
+  setting("access", "nav.settingsTabs.access.label", "instance", "people", {
     central: true,
-    keywords: "nav.settingsTabs.security.keywords",
-    command: "nav.settingsTabs.security.command",
-  }),
-  setting("access", "access.nav.label", "instance", "people", {
-    central: true,
-    keywords: "access.nav.keywords",
-    command: "access.nav.command",
+    keywords: "nav.settingsTabs.access.keywords",
+    command: "nav.settingsTabs.access.command",
     permission: "accounts.read",
   }),
   setting("sso", "ssoAdmin.nav.label", "instance", "people", {
@@ -105,11 +102,6 @@ export const SETTINGS_SCREENS: Strip = [
     keywords: "ssoAdmin.nav.keywords",
     command: "ssoAdmin.nav.command",
     permission: "accounts.read",
-  }),
-  setting("tokens", "nav.settingsTabs.tokens.label", "server", "developers", {
-    central: true,
-    keywords: "nav.settingsTabs.tokens.keywords",
-    command: "nav.settingsTabs.tokens.command",
   }),
   setting("approvals", "approvals.nav.label", "instance", "people", {
     central: true,
@@ -122,11 +114,28 @@ export const SETTINGS_SCREENS: Strip = [
     command: "audit.nav.command",
     permission: "audit.read",
   }),
-  setting("compliance", "compliance.nav.label", "instance", "governance", {
+  setting("controls", "nav.screens.controls.label", "instance", "governance", {
     central: true,
-    keywords: "compliance.nav.keywords",
-    command: "compliance.nav.command",
+    keywords: "nav.screens.controls.keywords",
+    command: "nav.screens.controls.command",
     permission: "compliance.read",
+  }),
+  setting("compliance", "nav.settingsTabs.compliance.label", "instance", "governance", {
+    central: true,
+    keywords: "nav.settingsTabs.compliance.keywords",
+    command: "nav.settingsTabs.compliance.command",
+    permission: "compliance.read",
+  }),
+  setting("servers", "servers.nav.settingsTab.label", "fleet", "fleet", {
+    central: true,
+    keywords: "servers.nav.settingsTab.keywords",
+    command: "servers.nav.settingsTab.command",
+  }),
+  setting("cloud", "nav.settingsTabs.cloud.label", "fleet", "fleet", {
+    central: true,
+    keywords: "nav.settingsTabs.cloud.keywords",
+    command: "nav.settingsTabs.cloud.command",
+    permission: "fleet.manage",
   }),
   setting("central", "nav.settingsTabs.central.label", "fleet", "fleet", {
     central: true,
@@ -134,40 +143,53 @@ export const SETTINGS_SCREENS: Strip = [
     keywords: "nav.settingsTabs.central.keywords",
     command: "nav.settingsTabs.central.command",
   }),
-  // New in 4.0, and a route before it is a page (INTERIM): frameworks, controls and the security profile.
-  setting("controls", "nav.screens.controls.label", "instance", "governance", {
-    central: true,
-    keywords: "nav.screens.controls.keywords",
-    command: "nav.screens.controls.command",
-    permission: "compliance.read",
-  }),
 ];
 
-/**
- * Whose a settings section is. `server`: the selected server's own (`/n/web-2/settings/...`
- * on a node). `central`: the central's, whichever server is selected - a node refuses a central
- * on its sign-in, tokens and two-factor on purpose, so these can only ever be the central's.
- */
-export type SettingsScope = "server" | "central";
+/** The block of Settings a section is in: the selected server's own, or the instance's (NV-7). */
+export type SettingsBlock = "server" | "instance";
 
-export interface SettingsTabItem extends TabItem {
-  /** Its name in the command palette, where it stands alone: "Security settings". */
-  command: PlainKey;
-  scope: SettingsScope;
-  /** Only where there is a fleet to hold (a central with servers, or a hub): the seal. */
-  fleetOnly?: boolean;
-  /** Only for whoever holds this permission (`accounts.read`, `audit.read`...). */
-  permission?: string;
+/** The groups of each block, in the order they are drawn. The ids are titled by whoever draws them. */
+export const SETTINGS_GROUPS: Readonly<Record<SettingsBlock, readonly string[]>> = {
+  server: ["this-server", "monitoring", "developers"],
+  instance: ["people", "governance", "fleet"],
+};
+
+const BLOCK_OWNERS: Readonly<Record<SettingsBlock, readonly Owner[]>> = { server: ["server"], instance: ["instance", "fleet"] };
+
+/** The group of a section: General, which is Settings' own page, is the first of "This server". */
+export function settingsGroupOf(entry: Dest): string {
+  return entry.id === "settings" || entry.group === undefined || entry.group === "" ? "this-server" : entry.group;
 }
 
-/** The settings sections as the list on the side draws them: the screens that are only a route so far are not offered. */
-export const SETTINGS_TABS: readonly SettingsTabItem[] = SETTINGS_SCREENS.filter((entry) => !isStaged(entry)).map((entry, index): SettingsTabItem => {
-  if (entry.command === undefined) throw new Error(`the settings section "${entry.id}" has no palette phrase`);
-  return {
-    ...tabItem(entry, index === 0),
-    command: entry.command,
-    scope: entry.central === true ? "central" : "server",
-    ...(entry.when === "fleet" ? { fleetOnly: true } : {}),
-    ...(entry.permission !== undefined ? { permission: entry.permission } : {}),
-  };
-});
+/**
+ * The sections of Settings a block holds, in titled groups. `screens` is the group of screens
+ * Settings is written as (SETTINGS_SCREENS): the page that draws the list passes it, so its route
+ * is given the texts of those sections and no others. The account's own sections are not Settings
+ * (NV-7): they leave for /account, so no block holds them.
+ */
+export function groupSettings(screens: Strip, block: SettingsBlock, ctx: NavContext = {}): { id: string; sections: Dest[] }[] {
+  const entries = screens.filter((entry) => (entry.id === "settings" || entry.kind === "section") && shown(entry, ctx) && entry.owner !== undefined && BLOCK_OWNERS[block].includes(entry.owner));
+  return SETTINGS_GROUPS[block].flatMap((id) => {
+    const sections = entries.filter((entry) => settingsGroupOf(entry) === id);
+    return sections.length > 0 ? [{ id, sections }] : [];
+  });
+}
+
+/**
+ * What the screens that changed their name were called before, as palette search words (NV-5):
+ * an operator who knew "Console access" still finds it. Keys, so the old name is translated.
+ */
+export const RENAMED: Readonly<Record<string, readonly PlainKey[]>> = {
+  domains: ["nav.renamed.domains"],
+  "apps.recipes": ["nav.renamed.catalog"],
+  "settings.notifications": ["nav.renamed.notifications"],
+  "settings.alerts": ["nav.renamed.alerts"],
+  "settings.console": ["nav.renamed.console"],
+  "settings.about": ["nav.renamed.about"],
+  "settings.access": ["nav.renamed.access"],
+  "settings.compliance": ["nav.renamed.compliance"],
+  "settings.probes": ["nav.renamed.probes"],
+  "settings.log-shipping": ["nav.renamed.logShipping"],
+  "settings.cloud": ["nav.renamed.cloud"],
+  "account.security": ["nav.renamed.security"],
+};

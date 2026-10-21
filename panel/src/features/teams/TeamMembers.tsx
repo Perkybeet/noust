@@ -8,7 +8,7 @@ import { sessionQuery } from "../../api/queries/auth";
 import { announce } from "../../app/Announcer";
 import { CommandHint } from "../../components/page/CommandHint";
 import { RelativeTime } from "../../components/page/RelativeTime";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { QueryState } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { DataTable } from "../../components/ui/DataTable";
@@ -138,55 +138,60 @@ export function TeamMembers() {
     </>
   ) : undefined;
 
-  let content;
-  if (members.isError && members.data === undefined) {
-    content = <ErrorBlock error={members.error} title={t("teams.members.couldNotLoad")} onRetry={() => void members.refetch()} retrying={members.isRefetching} />;
-  } else if (members.data !== undefined && rows.length === 0) {
-    content = (
-      <EmptyState
-        variant="firstUse"
-        icon={<Users />}
-        title={t("teams.members.emptyTitle")}
-        description={t("teams.members.emptyDescription")}
-        command={`noust team add-member ${team.slug} <account> --role owner`}
-        level={3}
-      />
-    );
-  } else {
-    content = (
-      <DataTable
-        columns={columns}
-        rows={rows}
-        getRowId={(member) => member.username}
-        caption={t("teams.members.caption", { name: team.name })}
-        loading={members.isPending}
-        skeletonRows={3}
-        defaultSort={{ column: "role", direction: "descending" }}
-        mobile="cards"
-        {...(governs
-          ? {
-              rowActions: (member: Member) => {
-                const self = member.username === me;
-                const last = member.role === "owner" && owners <= 1;
-                return (
-                  <Menu align="end" trigger={<IconButton label={t("teams.members.actionsFor", { name: member.username })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
-                    <MenuItem
-                      icon={self ? <LogOut /> : <UserMinus />}
-                      destructive
-                      disabled={last}
-                      {...(last ? { description: t("teams.members.lastOwner") } : {})}
-                      onClick={() => sudoFirst(() => setRemoving(member), t("teams.members.removeCouldNotStart", { name: member.username }))}
-                    >
-                      {self ? t("teams.members.leave") : t("teams.members.remove")}
-                    </MenuItem>
-                  </Menu>
-                );
-              },
-            }
-          : {})}
-      />
-    );
-  }
+  const table = (loading: boolean) => (
+    <DataTable
+      columns={columns}
+      rows={loading ? [] : rows}
+      getRowId={(member) => member.username}
+      caption={t("teams.members.caption", { name: team.name })}
+      loading={loading}
+      skeletonRows={3}
+      defaultSort={{ column: "role", direction: "descending" }}
+      mobile="cards"
+      {...(governs
+        ? {
+            rowActions: (member: Member) => {
+              const self = member.username === me;
+              const last = member.role === "owner" && owners <= 1;
+              return (
+                <Menu align="end" trigger={<IconButton label={t("teams.members.actionsFor", { name: member.username })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+                  <MenuItem
+                    icon={self ? <LogOut /> : <UserMinus />}
+                    destructive
+                    disabled={last}
+                    {...(last ? { description: t("teams.members.lastOwner") } : {})}
+                    onClick={() => sudoFirst(() => setRemoving(member), t("teams.members.removeCouldNotStart", { name: member.username }))}
+                  >
+                    {self ? t("teams.members.leave") : t("teams.members.remove")}
+                  </MenuItem>
+                </Menu>
+              );
+            },
+          }
+        : {})}
+    />
+  );
+
+  const content = (
+    <QueryState
+      query={members}
+      label={t("teams.members.queryLabel")}
+      skeleton={table(true)}
+      isEmpty={() => rows.length === 0}
+      empty={
+        <EmptyState
+          variant="firstUse"
+          icon={<Users />}
+          title={t("teams.members.emptyTitle")}
+          description={t("teams.members.emptyDescription")}
+          command={`noust team add-member ${team.slug} <account> --role owner`}
+          level={3}
+        />
+      }
+    >
+      {() => table(false)}
+    </QueryState>
+  );
 
   return (
     <div className="flex min-w-0 flex-col gap-6">

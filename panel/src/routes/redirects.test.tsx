@@ -62,8 +62,8 @@ describe("an old address that is live", () => {
     await waitFor(() => {
       expect(location().pathname).toBe(address(row.to));
     });
-    // A list keeps its filters on the way; the page of one thing (a service) has none to keep.
-    if (!row.from.includes("$")) expect(location().search).toMatchObject({ q: "acme" });
+    // A list keeps its filters on the way; the page of one thing (a service, the account) has none to keep.
+    if (!row.from.includes("$") && !("plain" in row)) expect(location().search).toMatchObject({ q: "acme" });
   });
 
   it("keeps the old address out of the history, so Back does not return to a redirect", async () => {
@@ -76,7 +76,8 @@ describe("an old address that is live", () => {
 
   it("shows the page of the new place", async () => {
     open("/teams");
-    expect(await screen.findByRole("heading", { level: 1, name: "Teams" })).toBeInTheDocument();
+    // Teams are the second tab of Projects: the same title, the tab marked.
+    expect(await screen.findByRole("heading", { level: 1, name: "Projects" })).toBeInTheDocument();
   });
 });
 
@@ -89,6 +90,12 @@ describe("an old address that is pending", () => {
 });
 
 describe("a route whose page is yet to come", () => {
+  if (INTERIM.length === 0) {
+    it("is none now: every new route has its page", () => {
+      expect(INTERIM).toEqual([]);
+    });
+    return;
+  }
   it.each(INTERIM.map((row) => [row.from, row] as const))("%s opens the screen that holds the same thing today", async (_from, row) => {
     const { location } = open(address(row.from));
     await waitFor(() => {

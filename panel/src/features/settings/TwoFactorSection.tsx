@@ -15,6 +15,7 @@ import type { SessionInfo, TwoFactorEnrollment, TwoFactorStatus } from "../../ap
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Section } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { Card } from "../../components/ui/Card";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
@@ -478,6 +479,7 @@ export function TwoFactorSection({ session }: { session?: SessionInfo | undefine
   return (
     <Section
       title={t("settings.security.twoFactor.title")}
+      icon={OBJECT_ICONS.signIn}
       description={account ? t("auth.security.factorDescriptionAccount") : t("settings.security.twoFactor.description")}
     >
       {body}

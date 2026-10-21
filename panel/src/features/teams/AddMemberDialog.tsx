@@ -118,8 +118,8 @@ export function AddMemberDialog({ open, onOpenChange, team }: AddMemberDialogPro
           options={TEAM_ROLES.map((value) => ({ value, label: teamRoleLabel(t, value), description: teamRoleDescription(t, value) }))}
           value={role}
           onValueChange={setRole}
+          error={errors.fields.role}
         />
-        {errors.fields.role !== undefined ? <p className="text-13 text-fail">{errors.fields.role}</p> : null}
       </form>
     </Dialog>
   );

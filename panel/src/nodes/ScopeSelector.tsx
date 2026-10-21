@@ -1,7 +1,10 @@
 import { Menu as BaseMenu } from "@base-ui/react/menu";
 import { useNavigate } from "@tanstack/react-router";
-import { Check, ChevronsUpDown, Landmark, Network } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Check, ChevronsUpDown, Landmark, Network, Plus, Server } from "lucide-react";
+import type { ReactNode } from "react";
 
+import { sessionQuery } from "../api/queries/auth";
 import { announce } from "../app/Announcer";
 import { Badge } from "../components/ui/Badge";
 import { Mono } from "../components/ui/Mono";
@@ -61,17 +64,21 @@ function NodeItem({ node }: { node: NodeRecord }) {
   );
 }
 
+/** Where the selector is drawn: the head of the sidebar (from `lg`), or the top bar (below it). */
+export type ScopePlacement = "sidebar" | "topbar";
+
 /**
- * Which context the console is in, and the way to another. Three kinds, and none pretends to
- * be another: a server (this one or a node), "All servers" (the Fleet's pages) and "This
- * central" (the central's own settings). On a fleet the trigger always says which, in words
- * and in mono: web-2, All servers, This central · nas. Hidden on a lone server with no nodes,
- * where there is nothing to tell apart.
+ * Which scope the console is in, and the way to another: one server (this one or a node), "All
+ * servers" (the fleet's pages) or "This central" (the central's own settings, which use the
+ * fleet's bar). It is the head of the sidebar from `lg` and the top bar below it (the caller
+ * chooses with a media query, never with CSS, which would draw both and repeat their ids): a menu
+ * in a drawer is not on screen, and the server's name must always be (DESIGN 6.11, NV-10). Nothing
+ * is drawn on a lone server with no nodes: there is nothing to tell apart.
  *
  * A menu of radio items (Base UI: arrow keys, Home/End, typeahead, Escape), so a screen reader
  * hears which one is checked, and each switch is announced.
  */
-export function ServerSelector({ className }: { className?: string }) {
+export function ScopeSelector({ placement, className }: { placement: ScopePlacement; className?: string }) {
   const t = useT();
   const context = useConsoleContext();
   const hasFleet = useHasFleet();
@@ -79,6 +86,7 @@ export function ServerSelector({ className }: { className?: string }) {
   const switchNode = useSwitchNode();
   const navigate = useNavigate();
   const servers = useServerList();
+  const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
 
   const node = context.kind === "server" ? context.node : null;
   if (!hasFleet && node === null) return null;
@@ -91,6 +99,9 @@ export function ServerSelector({ className }: { className?: string }) {
   const trouble = currentView !== null && currentView.state !== "running" ? currentView : null;
   const serverName = node ?? hostname;
   const value = context.kind === "fleet" ? ALL_SERVERS : context.kind === "central" ? THIS_CENTRAL : (node ?? THIS_SERVER);
+  const mayAdd = permissions?.includes("fleet.manage") ?? false;
+  const total = servers.nodes.length + (role === "hub" ? 0 : 1);
+  const needing = servers.nodes.filter((candidate) => NODE_STATE[nodeStatus(candidate)].state !== "running" && NODE_STATE[nodeStatus(candidate)].state !== "unknown").length;
 
   const label =
     context.kind === "fleet"
@@ -121,6 +132,60 @@ export function ServerSelector({ className }: { className?: string }) {
     });
   };
 
+  const side = placement === "sidebar";
+  // The name and what it is, in the words of the scope; the sidebar adds a second line under it.
+  let icon: ReactNode;
+  let name: ReactNode;
+  let line: ReactNode;
+  if (context.kind === "fleet") {
+    icon = <Network aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
+    name = <span className="min-w-0 truncate font-medium">{t("fleet.selector.all")}</span>;
+    line = (
+      <>
+        <span>{t("fleet.selector.lineServers", { count: total })}</span>
+        {needing > 0 ? (
+          <>
+            {" "}
+            <span aria-hidden="true">·</span> <span className="font-medium text-fail">{t("fleet.selector.lineNeed", { count: needing })}</span>
+          </>
+        ) : null}
+      </>
+    );
+  } else if (context.kind === "central") {
+    icon = <Landmark aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
+    name = (
+      <>
+        <span className={cx("shrink-0 font-medium", !side && "max-sm:sr-only")}>{t("fleet.selector.central")}</span>
+        {side ? null : (
+          <Mono truncate className="min-w-0 font-medium">
+            {hostname}
+          </Mono>
+        )}
+      </>
+    );
+    line = (
+      <Mono tone="muted" truncate>
+        {hostname}
+      </Mono>
+    );
+  } else {
+    icon = <Server aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
+    name = (
+      <>
+        {trouble ? <StatusGlyph state={trouble.state} size={10} className={stateTextClass(trouble.state)} /> : null}
+        <Mono truncate className="min-w-0 font-medium">
+          {serverName}
+        </Mono>
+        {trouble && !side ? <span className={cx("shrink-0 text-12 font-medium max-sm:hidden", stateTextClass(trouble.state))}>{t(trouble.label)}</span> : null}
+      </>
+    );
+    line = trouble ? (
+      <span className={cx("font-medium", stateTextClass(trouble.state))}>{t(trouble.label)}</span>
+    ) : (
+      <span>{node === null ? t("fleet.selector.thisServer") : t("fleet.selector.lineServer")}</span>
+    );
+  }
+
   return (
     <BaseMenu.Root
       onOpenChange={(open: boolean) => {
@@ -130,34 +195,24 @@ export function ServerSelector({ className }: { className?: string }) {
       <BaseMenu.Trigger
         aria-label={label}
         data-context={context.kind}
+        data-placement={placement}
         className={cx(
-          "flex h-control-md max-w-60 min-w-0 shrink cursor-pointer items-center gap-1.5 rounded-control border border-border-strong bg-surface pr-1.5 pl-2.5 text-13 text-fg shadow-raised",
+          "flex min-w-0 cursor-pointer items-center gap-2 rounded-control border border-border-strong bg-surface text-13 text-fg shadow-raised",
           "transition-colors duration-(--duration-fast) ease-out hover:bg-surface-hover",
+          side ? "min-h-control-lg w-full py-1 pr-2 pl-2.5" : "h-control-md max-w-60 shrink gap-1.5 pr-1.5 pl-2.5",
           className,
         )}
       >
-        {context.kind === "fleet" ? (
-          <>
-            <Network aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" />
-            <span className="min-w-0 truncate font-medium">{t("fleet.selector.all")}</span>
-          </>
-        ) : context.kind === "central" ? (
-          <>
-            <Landmark aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" />
-            <span className="shrink-0 font-medium max-sm:sr-only">{t("fleet.selector.central")}</span>
-            <Mono truncate className="min-w-0 font-medium">
-              {hostname}
-            </Mono>
-          </>
+        {side ? icon : null}
+        {side ? (
+          <span className="flex min-w-0 flex-1 flex-col text-left">
+            <span className="flex min-w-0 items-center gap-1.5">{name}</span>
+            <span className="truncate text-12 text-fg-muted">{line}</span>
+          </span>
         ) : (
           <>
-            {trouble ? <StatusGlyph state={trouble.state} size={10} className={stateTextClass(trouble.state)} /> : null}
-            <Mono truncate className="min-w-0 font-medium">
-              {serverName}
-            </Mono>
-            {trouble ? (
-              <span className={cx("shrink-0 text-12 font-medium max-sm:hidden", stateTextClass(trouble.state))}>{t(trouble.label)}</span>
-            ) : null}
+            {context.kind === "fleet" || context.kind === "central" ? icon : null}
+            {name}
           </>
         )}
         <ChevronsUpDown aria-hidden="true" className="size-icon-sm shrink-0 text-fg-faint" />
@@ -181,9 +236,7 @@ export function ServerSelector({ className }: { className?: string }) {
                     <Network aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate font-medium">{t("fleet.selector.all")}</span>{" "}
-                      <span className="text-12 text-fg-muted">
-                        {t("fleet.selector.allDescription", { count: servers.nodes.length + (role === "hub" ? 0 : 1) })}
-                      </span>
+                      <span className="text-12 text-fg-muted">{t("fleet.selector.allDescription", { count: servers.nodes.length + (role === "hub" ? 0 : 1) })}</span>
                     </span>
                   </BaseMenu.RadioItem>
                   <BaseMenu.RadioItem value={THIS_CENTRAL} closeOnClick className={ITEM}>
@@ -202,9 +255,7 @@ export function ServerSelector({ className }: { className?: string }) {
                 </BaseMenu.Group>
               ) : null}
               <BaseMenu.Group>
-                <BaseMenu.GroupLabel className={cx(GROUP_LABEL, hasFleet && "mt-1 border-t border-border pt-2")}>
-                  {t("fleet.selector.servers")}
-                </BaseMenu.GroupLabel>
+                <BaseMenu.GroupLabel className={cx(GROUP_LABEL, hasFleet && "mt-1 border-t border-border pt-2")}>{t("fleet.selector.servers")}</BaseMenu.GroupLabel>
                 <BaseMenu.RadioItem value={THIS_SERVER} closeOnClick className={ITEM}>
                   <ItemCheck />
                   <span className="flex min-w-0 flex-1 flex-col">
@@ -240,6 +291,19 @@ export function ServerSelector({ className }: { className?: string }) {
               <BaseMenu.Item disabled className="px-2 py-1.5 text-12 text-fg-muted">
                 {t("fleet.selector.listFailed")}
               </BaseMenu.Item>
+            ) : null}
+            {mayAdd ? (
+              <div className="mt-1 border-t border-border pt-1">
+                <BaseMenu.Item
+                  className={ITEM}
+                  onClick={() => {
+                    void navigate({ to: "/settings/servers", search: { add: true, node: undefined } });
+                  }}
+                >
+                  <Plus aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
+                  <span className="font-medium">{t("fleet.selector.addServer")}</span>
+                </BaseMenu.Item>
+              </div>
             ) : null}
           </BaseMenu.Popup>
         </BaseMenu.Positioner>

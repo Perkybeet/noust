@@ -150,7 +150,7 @@ describe("the command palette", () => {
 
   it("starts the wizard on the recipes, on an import, or a new database, from the create commands", async () => {
     const { user, location } = await open();
-    await search(user, "recipe");
+    await search(user, "from a recipe");
     await user.keyboard("{Enter}");
     await waitFor(() => expect(location().pathname).toBe("/apps/new"));
     expect(location().search).toEqual({ start: "recipe" });

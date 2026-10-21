@@ -16,6 +16,7 @@ import { Route as ResetPasswordRouteImport } from "./routes/reset-password"
 import { Route as SetupRouteImport } from "./routes/setup"
 import { Route as WelcomeRouteImport } from "./routes/welcome"
 import { Route as ConsoleIndexRouteImport } from "./routes/_console/index"
+import { Route as ConsoleAccountRouteImport } from "./routes/_console/account"
 import { Route as ConsoleActivityRouteImport } from "./routes/_console/activity"
 import { Route as ConsoleCronRouteImport } from "./routes/_console/cron"
 import { Route as ConsoleFleetRouteImport } from "./routes/_console/fleet"
@@ -180,6 +181,11 @@ const ConsoleIndexRoute = ConsoleIndexRouteImport.update({
   path: "/",
   getParentRoute: () => ConsoleRoute,
 } as any)
+const ConsoleAccountRoute = ConsoleAccountRouteImport.update({
+  id: "/account",
+  path: "/account",
+  getParentRoute: () => ConsoleRoute,
+} as any)
 const ConsoleActivityRoute = ConsoleActivityRouteImport.update({
   id: "/activity",
   path: "/activity",
@@ -216,14 +222,14 @@ const ConsoleSettingsRoute = ConsoleSettingsRouteImport.update({
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleAccountIndexRoute = ConsoleAccountIndexRouteImport.update({
-  id: "/account/",
-  path: "/account/",
-  getParentRoute: () => ConsoleRoute,
+  id: "/",
+  path: "/",
+  getParentRoute: () => ConsoleAccountRoute,
 } as any)
 const ConsoleAccountSecurityRoute = ConsoleAccountSecurityRouteImport.update({
-  id: "/account/security",
-  path: "/account/security",
-  getParentRoute: () => ConsoleRoute,
+  id: "/security",
+  path: "/security",
+  getParentRoute: () => ConsoleAccountRoute,
 } as any)
 const ConsoleAppsIndexRoute = ConsoleAppsIndexRouteImport.update({
   id: "/apps/",
@@ -891,6 +897,7 @@ export interface FileRoutesByFullPath {
   "/reset-password": typeof ResetPasswordRoute
   "/setup": typeof SetupRoute
   "/welcome": typeof WelcomeRoute
+  "/account": typeof ConsoleAccountRouteWithChildren
   "/activity": typeof ConsoleActivityRoute
   "/cron": typeof ConsoleCronRoute
   "/fleet": typeof ConsoleFleetRouteWithChildren
@@ -1158,6 +1165,7 @@ export interface FileRoutesById {
   "/reset-password": typeof ResetPasswordRoute
   "/setup": typeof SetupRoute
   "/welcome": typeof WelcomeRoute
+  "/_console/account": typeof ConsoleAccountRouteWithChildren
   "/_console/activity": typeof ConsoleActivityRoute
   "/_console/cron": typeof ConsoleCronRoute
   "/_console/fleet": typeof ConsoleFleetRouteWithChildren
@@ -1298,6 +1306,7 @@ export interface FileRouteTypes {
     | "/reset-password"
     | "/setup"
     | "/welcome"
+    | "/account"
     | "/activity"
     | "/cron"
     | "/fleet"
@@ -1564,6 +1573,7 @@ export interface FileRouteTypes {
     | "/reset-password"
     | "/setup"
     | "/welcome"
+    | "/_console/account"
     | "/_console/activity"
     | "/_console/cron"
     | "/_console/fleet"
@@ -1756,6 +1766,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleIndexRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    "/_console/account": {
+      id: "/_console/account"
+      path: "/account"
+      fullPath: "/account"
+      preLoaderRoute: typeof ConsoleAccountRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
     "/_console/activity": {
       id: "/_console/activity"
       path: "/activity"
@@ -1807,17 +1824,17 @@ declare module "@tanstack/react-router" {
     }
     "/_console/account/": {
       id: "/_console/account/"
-      path: "/account"
+      path: "/"
       fullPath: "/account/"
       preLoaderRoute: typeof ConsoleAccountIndexRouteImport
-      parentRoute: typeof ConsoleRoute
+      parentRoute: typeof ConsoleAccountRoute
     }
     "/_console/account/security": {
       id: "/_console/account/security"
-      path: "/account/security"
+      path: "/security"
       fullPath: "/account/security"
       preLoaderRoute: typeof ConsoleAccountSecurityRouteImport
-      parentRoute: typeof ConsoleRoute
+      parentRoute: typeof ConsoleAccountRoute
     }
     "/_console/apps/": {
       id: "/_console/apps/"
@@ -2662,6 +2679,20 @@ declare module "@tanstack/react-router" {
   }
 }
 
+interface ConsoleAccountRouteChildren {
+  ConsoleAccountSecurityRoute: typeof ConsoleAccountSecurityRoute
+  ConsoleAccountIndexRoute: typeof ConsoleAccountIndexRoute
+}
+
+const ConsoleAccountRouteChildren: ConsoleAccountRouteChildren = {
+  ConsoleAccountSecurityRoute: ConsoleAccountSecurityRoute,
+  ConsoleAccountIndexRoute: ConsoleAccountIndexRoute,
+}
+
+const ConsoleAccountRouteWithChildren = ConsoleAccountRoute._addFileChildren(
+  ConsoleAccountRouteChildren,
+)
+
 interface ConsoleFleetRouteChildren {
   ConsoleFleetActivityRoute: typeof ConsoleFleetActivityRoute
   ConsoleFleetAppsRoute: typeof ConsoleFleetAppsRoute
@@ -2935,6 +2966,7 @@ const ConsoleServerServicesNameRouteWithChildren =
   )
 
 interface ConsoleRouteChildren {
+  ConsoleAccountRoute: typeof ConsoleAccountRouteWithChildren
   ConsoleActivityRoute: typeof ConsoleActivityRoute
   ConsoleCronRoute: typeof ConsoleCronRoute
   ConsoleFleetRoute: typeof ConsoleFleetRouteWithChildren
@@ -2943,7 +2975,6 @@ interface ConsoleRouteChildren {
   ConsoleServerRoute: typeof ConsoleServerRouteWithChildren
   ConsoleSettingsRoute: typeof ConsoleSettingsRouteWithChildren
   ConsoleIndexRoute: typeof ConsoleIndexRoute
-  ConsoleAccountSecurityRoute: typeof ConsoleAccountSecurityRoute
   ConsoleAppsDomainRoute: typeof ConsoleAppsDomainRouteWithChildren
   ConsoleAppsNewRoute: typeof ConsoleAppsNewRoute
   ConsoleBackupsDestinationsRoute: typeof ConsoleBackupsDestinationsRoute
@@ -2959,7 +2990,6 @@ interface ConsoleRouteChildren {
   ConsoleProjectsTeamsRoute: typeof ConsoleProjectsTeamsRoute
   ConsoleServicesNameRoute: typeof ConsoleServicesNameRoute
   ConsoleTeamsTeamRoute: typeof ConsoleTeamsTeamRouteWithChildren
-  ConsoleAccountIndexRoute: typeof ConsoleAccountIndexRoute
   ConsoleAppsIndexRoute: typeof ConsoleAppsIndexRoute
   ConsoleBackupsIndexRoute: typeof ConsoleBackupsIndexRoute
   ConsoleCatalogIndexRoute: typeof ConsoleCatalogIndexRoute
@@ -2981,6 +3011,7 @@ interface ConsoleRouteChildren {
 }
 
 const ConsoleRouteChildren: ConsoleRouteChildren = {
+  ConsoleAccountRoute: ConsoleAccountRouteWithChildren,
   ConsoleActivityRoute: ConsoleActivityRoute,
   ConsoleCronRoute: ConsoleCronRoute,
   ConsoleFleetRoute: ConsoleFleetRouteWithChildren,
@@ -2989,7 +3020,6 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleServerRoute: ConsoleServerRouteWithChildren,
   ConsoleSettingsRoute: ConsoleSettingsRouteWithChildren,
   ConsoleIndexRoute: ConsoleIndexRoute,
-  ConsoleAccountSecurityRoute: ConsoleAccountSecurityRoute,
   ConsoleAppsDomainRoute: ConsoleAppsDomainRouteWithChildren,
   ConsoleAppsNewRoute: ConsoleAppsNewRoute,
   ConsoleBackupsDestinationsRoute: ConsoleBackupsDestinationsRoute,
@@ -3005,7 +3035,6 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleProjectsTeamsRoute: ConsoleProjectsTeamsRoute,
   ConsoleServicesNameRoute: ConsoleServicesNameRoute,
   ConsoleTeamsTeamRoute: ConsoleTeamsTeamRouteWithChildren,
-  ConsoleAccountIndexRoute: ConsoleAccountIndexRoute,
   ConsoleAppsIndexRoute: ConsoleAppsIndexRoute,
   ConsoleBackupsIndexRoute: ConsoleBackupsIndexRoute,
   ConsoleCatalogIndexRoute: ConsoleCatalogIndexRoute,

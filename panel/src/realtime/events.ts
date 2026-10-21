@@ -20,7 +20,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import { expireSession } from "../api/client";
-import { nodeEventsPath, runOnNode } from "../api/nodeScope";
+import { activeNode, nodeEventsPath, runOnNode } from "../api/nodeScope";
 import { appKeys } from "../api/queries/apps";
 import type { App } from "../api/queries/apps";
 import { sessionQuery } from "../api/queries/auth";
@@ -31,6 +31,7 @@ import { jobKeys } from "../api/queries/jobs";
 import type { Job } from "../api/queries/jobs";
 import { metricKeys } from "../api/queries/metrics";
 import type { MetricsSnapshot } from "../api/queries/metrics";
+import { overviewKeys } from "../api/queries/overview";
 import { queueKeys } from "../api/queries/queue";
 import { serviceKeys } from "../api/queries/services";
 import { siteKeys } from "../api/queries/sites";
@@ -39,6 +40,7 @@ import type { Machine } from "../api/queries/system";
 import { toast } from "../components/ui/toast";
 import { useNode } from "../nodes/useNode";
 import { reconnectDelay } from "./backoff";
+import { recordNotice } from "./notices";
 
 /** A state change of one application. Carries its domain and the fields that changed. */
 export type AppEvent = { domain: string } & Partial<Exclude<App, undefined>>;
@@ -203,6 +205,8 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       const { domain, ...changes } = data;
       if (typeof domain !== "string") return;
       void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
+      // What needs the operator is read from the Overview (the inbox and the bar's counters): an application that changed may have started or stopped needing it.
+      void queryClient.invalidateQueries({ queryKey: overviewKeys.all });
       queryClient.setQueryData(appKeys.detail(domain), (current: unknown) =>
         isRecord(current) ? { ...current, ...changes } : current,
       );
@@ -224,6 +228,7 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       if (previous?.status === job.status) return;
       void queryClient.invalidateQueries({ queryKey: jobKeys.all });
       void queryClient.invalidateQueries({ queryKey: deploymentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: overviewKeys.all });
       const domain = job.metadata?.["domain"];
       if (typeof domain === "string" && TERMINAL_JOB_STATES.has(job.status)) {
         void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain) });
@@ -240,7 +245,10 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
     case "notice": {
       const text = typeof data["text"] === "string" ? data["text"] : null;
       if (text === null) return;
+      // The toast is gone in seconds; the inbox keeps the last thirty (NV-17).
+      recordNotice(text, data["state"] === "failed" || data["state"] === "active" || data["state"] === "busy" ? data["state"] : "idle", activeNode());
       if (data["state"] === "failed") toast.error(text);
+      // design-exception: toast-success a notice the server sends is, by definition, something that is not on this screen
       else if (data["state"] === "active") toast.success(text);
       else toast.info(text);
       return;
@@ -250,6 +258,7 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
       void queryClient.invalidateQueries({ queryKey: appKeys.detail(data["id"]) });
       void queryClient.invalidateQueries({ queryKey: jobKeys.all });
+      void queryClient.invalidateQueries({ queryKey: overviewKeys.all });
       return;
     }
   }
