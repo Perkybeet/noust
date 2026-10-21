@@ -1967,6 +1967,20 @@ CREATE TABLE IF NOT EXISTS ldap_directories (
 FEDERATION_COLUMNS: list[tuple[str, str, str]] = []
 
 
+# Owned by the per-name certificates lane (noust.core.domain_certificates): whether a name of an
+# application is covered by the lineage under the primary domain (``shared``, what every name was
+# before) or holds a certificate of its own (``own``: a lineage named after the name, a server block
+# for it, and the shared lineage stops naming it). A column of ``domains`` and not a table of its
+# own: the domain row is the thing the choice is about, it goes with it, and the application's
+# full-row write of a redeploy never touches it. The value is validated by
+# ``NoustStore.set_domain_certificate``; how the own lineage is proven is a ``certificate_settings``
+# row keyed by the name, the same record an application's certificate has.
+CERTS_SQL = ""
+CERTS_COLUMNS: list[tuple[str, str, str]] = [
+    ("domains", "certificate", "TEXT NOT NULL DEFAULT 'shared'"),
+]
+
+
 def _fragments() -> list[str]:
     return [
         TEAMS_SQL,
@@ -1990,6 +2004,7 @@ def _fragments() -> list[str]:
         ROLLOUT_SQL,
         SHIPPING_SQL,
         ACCESS6_SQL,
+        CERTS_SQL,
     ]
 
 
@@ -2016,6 +2031,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *ROLLOUT_COLUMNS,
         *SHIPPING_COLUMNS,
         *ACCESS6_COLUMNS,
+        *CERTS_COLUMNS,
     ]
 
 

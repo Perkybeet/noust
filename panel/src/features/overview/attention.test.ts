@@ -103,7 +103,7 @@ describe("collectAttention", () => {
     const items = collectAttention({
       apps: [app("example.com", "running")],
       deployments: [deploy(3, "example.com", "rolled_back")],
-      certificates: [{ domain: "example.com", domains: [], days_remaining: 12, expires_on: "2026-10-07", auto_renew: true, source: "letsencrypt", challenge: "http-01" }],
+      certificates: [{ domain: "example.com", domains: [], days_remaining: 12, expires_on: "2026-10-07", auto_renew: true, source: "letsencrypt", challenge: "http-01", serves: [] }],
     });
     expect(items).toHaveLength(1);
     expect(items[0]?.severity).toBe("warn");
@@ -117,9 +117,9 @@ describe("collectAttention", () => {
     const items = collectAttention({
       apps: [],
       certificates: [
-        { domain: "ok.example.com", domains: [], days_remaining: 21, auto_renew: true, source: "letsencrypt", challenge: "http-01" },
-        { domain: "soon.example.com", domains: [], days_remaining: 1, auto_renew: true, source: "letsencrypt", challenge: "http-01" },
-        { domain: "late.example.com", domains: [], days_remaining: -3, expires_on: "2026-09-22", auto_renew: true, source: "letsencrypt", challenge: "http-01" },
+        { domain: "ok.example.com", domains: [], days_remaining: 21, auto_renew: true, source: "letsencrypt", challenge: "http-01", serves: [] },
+        { domain: "soon.example.com", domains: [], days_remaining: 1, auto_renew: true, source: "letsencrypt", challenge: "http-01", serves: [] },
+        { domain: "late.example.com", domains: [], days_remaining: -3, expires_on: "2026-09-22", auto_renew: true, source: "letsencrypt", challenge: "http-01", serves: [] },
       ],
     });
     expect(items.map((item) => [item.title, item.severity, item.reasons[0]?.summary])).toEqual([

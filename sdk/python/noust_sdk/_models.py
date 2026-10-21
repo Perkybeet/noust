@@ -196,7 +196,10 @@ ActivityEntry = TypedDict("ActivityEntry", {
 })
 
 AddAppDomainRequest = TypedDict("AddAppDomainRequest", {
+    "certificate": NotRequired[Union[str, None]],
+    "challenge": NotRequired[Union[str, None]],
     "dns": NotRequired[bool],
+    "dns_provider": NotRequired[Union[str, None]],
     "domain": Required[str],
     "force": NotRequired[bool],
     "kind": NotRequired[str],
@@ -402,11 +405,14 @@ AppDnsModel = TypedDict("AppDnsModel", {
 })
 
 AppDomain = TypedDict("AppDomain", {
+    "certificate": NotRequired[str],
+    "certificate_pending": NotRequired[bool],
     "created_at": NotRequired[Union[str, None]],
     "domain": Required[str],
     "enabled": NotRequired[bool],
     "kind": Required[str],
     "port": NotRequired[Union[int, None]],
+    "served_by": NotRequired[Union[str, None]],
     "temporary": NotRequired[bool],
 })
 
@@ -1351,6 +1357,7 @@ CertInfo = TypedDict("CertInfo", {
     "issuer": NotRequired[Union[str, None]],
     "key_path": NotRequired[Union[str, None]],
     "path": NotRequired[Union[str, None]],
+    "serves": NotRequired[list[str]],
     "source": NotRequired[str],
     "valid_until": NotRequired[Union[str, None]],
 })
@@ -2942,6 +2949,12 @@ DoctorSectionOut = TypedDict("DoctorSectionOut", {
     "explain": NotRequired[Union[str, None]],
     "items": Required[list["DoctorItemOut"]],
     "title": Required[str],
+})
+
+DomainCertificateRequest = TypedDict("DomainCertificateRequest", {
+    "certificate": Required[str],
+    "challenge": NotRequired[Union[str, None]],
+    "dns_provider": NotRequired[Union[str, None]],
 })
 
 DomainEnabledRequest = TypedDict("DomainEnabledRequest", {

@@ -972,9 +972,10 @@ class TestPackaging:
         found["rpm/noust.spec"] = re.findall(r"^License:\s*(\S+)", spec, re.MULTILINE)
 
         copyright_text = (REPO / "obs/debian.copyright").read_text(encoding="utf-8")
-        found["obs/debian.copyright"] = re.findall(
-            r"^License:\s*(\S+)", copyright_text, re.MULTILINE
-        )
+        # Noust's own files are the `Files: *` paragraph; a later paragraph names the files derived
+        # from another project (NOTICE), under that project's licence.
+        own = next(p for p in copyright_text.split("\n\n") if p.startswith("Files: *"))
+        found["obs/debian.copyright"] = re.findall(r"^License:\s*(\S+)", own, re.MULTILINE)
 
         offenders = {
             name: values

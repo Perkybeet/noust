@@ -25,6 +25,7 @@ Two rules shape the code:
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
 from argparse import Namespace
 from collections.abc import Sequence
@@ -47,6 +48,7 @@ from noust.core.exceptions import CertificateError, DomainError, NoustError
 from noust.core.logger import Logger
 from noust.core.package_family import install_hint
 from noust.deployers import certificates
+from noust.deployers.name_certificates import names_served_by_certificate
 from noust.managers.cert_manager import CertManager
 from noust.validators.domain import validate_domain
 
@@ -243,13 +245,19 @@ def _list_certificates(manager: CertManager, logger: Logger, *, json_output: boo
         Exit code.
     """
     certificates = manager.list_certificates()
+    serves = _names_served()
 
     if json_output:
         click.echo(
             json.dumps(
                 {
                     "certificates": [
-                        {"name": cert.name, "domains": list(cert.domains), "expiry": cert.expiry}
+                        {
+                            "name": cert.name,
+                            "domains": list(cert.domains),
+                            "expiry": cert.expiry,
+                            "serves": serves.get(cert.name, []),
+                        }
                         for cert in certificates
                     ],
                     "total": len(certificates),
@@ -269,10 +277,41 @@ def _list_certificates(manager: CertManager, logger: Logger, *, json_output: boo
         shown = ", ".join(cert.domains[:2])
         if len(cert.domains) > 2:
             shown += f" (+{len(cert.domains) - 2} more)"
-        rows.append([cert.name, shown, cert.expiry or "Unknown"])
+        rows.append([cert.name, shown, cert.expiry or "Unknown", _serves_shown(serves, cert.name)])
 
-    logger.table(["Name", "Domains", "Expiry"], rows)
+    logger.table(["Name", "Domains", "Expiry", "Serves"], rows)
     return 0
+
+
+def _names_served() -> dict[str, list[str]]:
+    """
+    Read which names each certificate serves, from the store.
+
+    Returns:
+        The names by certificate; empty when the store cannot be read, which the listing
+        survives: it is certbot's, and the column only adds to it.
+    """
+    try:
+        return names_served_by_certificate()
+    except (NoustError, sqlite3.Error) as exc:
+        click.echo(f"Could not read which names each certificate serves: {exc}", err=True)
+        return {}
+
+
+def _serves_shown(serves: dict[str, list[str]], name: str) -> str:
+    """
+    Args:
+        serves: The names each certificate serves.
+        name: A certificate.
+
+    Returns:
+        What the Serves column says: a dash for none, the names (two at most) otherwise.
+    """
+    names = serves.get(name, [])
+    if not names:
+        return "-"
+    shown = ", ".join(names[:2])
+    return f"{shown} (+{len(names) - 2} more)" if len(names) > 2 else shown
 
 
 def _show_certificate(

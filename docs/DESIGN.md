@@ -144,8 +144,8 @@ Rules:
 - **C-9** Work in progress is amber: the spinner, the deploying and queued glyphs, a progress bar.
 - **C-10** The hull violet of the logo (`#7b61ff`) is the brand, not a UI colour.
 - **C-11** The current navigation item is told by more than its fill. `--surface-active` is
-  1.1 to 1.3:1 against the ground, which is not a way to tell where you are (WCAG 1.4.11, and
-  the complaint Coolify's users made of their selected item), so the item also has a 2px bar at
+  1.1 to 1.3:1 against the ground, which is not a way to tell where you are (WCAG 1.4.11), so
+  the item also has a 2px bar at
   its start drawn in `--text`: achromatic, 3:1 or more against the ground, a hovered item and the
   active fill in both themes (`tokens.test.ts`), and a shape as well as a colour. The bar is in
   the DOM only on the current item (`data-nav-indicator`), so a test and a screen reader's
@@ -406,8 +406,8 @@ Rules common to all:
   same size, so nothing moves) until the changes are saved or discarded, and an empty state or a
   card never repeats a primary the header already has (FM-2).
 - **The daily verbs are on the surface.** What an operator presses every day on a resource is
-  a secondary action of its header, never behind `More actions` (Coolify's "Actions" dropdown
-  is what its users protested most): an application's Restart, Stop or Start (by its state) and
+  a secondary action of its header, never behind `More actions` (a verb used every day and kept
+  in a dropdown costs a click every time): an application's Restart, Stop or Start (by its state) and
   Roll back beside its primary, Update. `More actions` holds what is rare (Diagnose, Delete).
   Below 640px those verbs stay on screen as icon buttons that keep their names; the header
   wraps rather than hides them. A verb the resource cannot do is not drawn (a static site has no

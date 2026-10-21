@@ -26,6 +26,7 @@ import sqlite3
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
+from noust.core.domain_certificates import shared_names
 from noust.core.exceptions import CertificateError, DeploymentError, NoustError, ValidationError
 from noust.core.fs import FileSystem
 from noust.core.store import DomainKind
@@ -96,6 +97,11 @@ class ServesDomains(Protocol):
 
     def webserver_manager(self) -> WebServerManager:
         """Return the manager of the web server that serves the application."""
+        ...
+
+    @property
+    def cert_manager(self) -> CertManager:
+        """The certificate manager that orders for the application."""
         ...
 
 
@@ -312,11 +318,11 @@ def certificate_names(store: NoustStore, domain: str, *, include_www: bool = Fal
             rehearsal has no row for.
 
     Returns:
-        The names, redirects included: they are served on 443 as well.
+        The names, redirects included: they are served on 443 as well. Those that hold a
+        certificate of their own are not in it: the shared certificate must not name them
+        (:mod:`noust.core.domain_certificates`).
     """
-    names = [record.domain for record in store.list_domains(domain, include_disabled=False)] or [
-        domain
-    ]
+    names = shared_names(store.list_domains(domain, include_disabled=False)) or [domain]
     if include_www and f"www.{domain}" not in names:
         names.append(f"www.{domain}")
     return names
