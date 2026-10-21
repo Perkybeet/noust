@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import subprocess
 import sys
 import time
@@ -289,6 +290,16 @@ bundle install
 """
 
 PHOENIX = """
+# What mix phx.new writes today asks for an Elixir newer than the distribution's (1.14 on Ubuntu
+# 24.04: phoenix_template wants 1.16), and the framework guide says to install one system-wide.
+# That is done first, from the builds Elixir publishes for the Erlang the distribution carries.
+if ! elixir --version | grep -q 'Elixir 1\\.1[6-9]'; then
+  curl -fsSL -o /tmp/elixir.zip https://builds.hex.pm/builds/elixir/v1.17.3-otp-25.zip
+  rm -rf /usr/local/lib/elixir && mkdir -p /usr/local/lib/elixir
+  unzip -q /tmp/elixir.zip -d /usr/local/lib/elixir
+  for tool in elixir elixirc iex mix; do ln -sf /usr/local/lib/elixir/bin/$tool /usr/local/bin/$tool; done
+fi
+elixir --version | tail -1
 mix local.hex --force
 mix local.rebar --force
 mix archive.install hex phx_new 1.7.21 --force
@@ -355,13 +366,22 @@ CHANGE_V2 = (
 )
 
 
-def forget(sc: Scenario, example: Example) -> None:
-    """Delete the application of an earlier run in a kept container, so a run starts clean."""
+def forget(sc: Scenario, example: Example, *, finished: bool = False) -> None:
+    """
+    Delete the example's application: before it starts, so a kept container gives a clean start,
+    and after it ends, so the port it held is free for the next example (a Compose project
+    whose file says 3000 is not in the way of the Node one that took 3000).
+
+    Args:
+        sc: The scenario.
+        example: The example.
+        finished: Whether this is the clean-up after the example rather than the clean start.
+    """
     sc.run(
         f"noust delete {example.domain} --force >/dev/null 2>&1; rm -rf {example.root}",
         timeout=300,
         check=False,
-        label=f"(clean start) noust delete {example.domain}",
+        label=f"({'clean up' if finished else 'clean start'}) noust delete {example.domain}",
     )
 
 
@@ -449,6 +469,36 @@ def tail(proc: subprocess.CompletedProcess[str]) -> str:
     return (proc.stdout + proc.stderr)[-3000:]
 
 
+def active_release(sc: Scenario, example: Example) -> str:
+    """
+    Name the release that serves.
+
+    A directory layout answers with where ``current`` points; a container application keeps
+    its releases as images and answers with the release list.
+
+    Args:
+        sc: The scenario.
+        example: The example.
+
+    Returns:
+        The release's id (a path under ``releases/`` for a directory layout).
+    """
+    if example.app_type == "container":
+        listing = json.loads(
+            sc.run(
+                f"noust releases list {example.domain} --json",
+                timeout=60,
+                label=f"noust releases list {example.domain} --json",
+            ).stdout
+        )
+        active = [item["id"] for item in listing["items"] if item.get("active")]
+        sc.check(len(active) == 1, f"{example.domain} has no single active release: {listing!r}")
+        return str(active[0])
+    return sc.run(
+        f"readlink {example.root}/current", timeout=15, label=f"readlink {example.root}/current"
+    ).stdout.strip()
+
+
 def deploy(sc: Scenario, example: Example) -> None:
     """
     Create the example, serve it, update it, and go back when the type has releases.
@@ -482,9 +532,7 @@ def deploy(sc: Scenario, example: Example) -> None:
     )
     first = ""
     if example.releases:
-        first = sc.run(
-            f"readlink {example.root}/current", timeout=15, label=f"readlink {example.root}/current"
-        ).stdout.strip()
+        first = active_release(sc, example)
     updated = sc.run(
         f"noust update {example.domain}",
         timeout=UPDATE_TIMEOUT,
@@ -498,9 +546,7 @@ def deploy(sc: Scenario, example: Example) -> None:
     if not example.releases:
         return
 
-    second = sc.run(
-        f"readlink {example.root}/current", timeout=15, label=f"readlink {example.root}/current"
-    ).stdout.strip()
+    second = active_release(sc, example)
     sc.check(first != second, f"the update did not switch release: {first!r}")
     rolled = sc.run(
         f"noust releases rollback {example.domain}",
@@ -510,9 +556,7 @@ def deploy(sc: Scenario, example: Example) -> None:
     )
     sc.check(rolled.returncode == 0, f"the rollback failed ({rolled.returncode}):\n{tail(rolled)}")
     serves(sc, example, 1)
-    back = sc.run(
-        f"readlink {example.root}/current", timeout=15, label=f"readlink {example.root}/current"
-    ).stdout.strip()
+    back = active_release(sc, example)
     sc.check(back == first, f"the rollback is on {back!r}, not {first!r}")
 
 
@@ -562,6 +606,8 @@ def example_scenario(name: str) -> ScenarioFn:
 
     def scenario(sc: Scenario) -> None:
         deploy(sc, EXAMPLES[name])
+        # Only when it passed: a failure leaves the application in a kept container to be looked at.
+        forget(sc, EXAMPLES[name], finished=True)
 
     scenario.__doc__ = f"examples/{name}: create, serve, update, and go back."
     return scenario
