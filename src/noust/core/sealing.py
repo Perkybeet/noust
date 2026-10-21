@@ -345,6 +345,28 @@ def _warn_disk_backed_once(root: Path) -> None:
     )
 
 
+def _usable_runtime_dir(path: Path) -> bool:
+    """
+    Whether ``$XDG_RUNTIME_DIR`` names a directory this process may keep secrets in.
+
+    The variable is inherited: a shell whose session ended (or a WSL that restarted without one)
+    still names ``/run/user/<uid>`` after the directory is gone, and a command run with another
+    user's environment names that user's directory, where its owner could replace what root puts
+    there. Only a directory that exists, belongs to this process's user and is writable counts.
+
+    Args:
+        path: The directory the variable names.
+
+    Returns:
+        True when it can be used.
+    """
+    try:
+        info = path.stat()
+    except OSError:
+        return False
+    return path.is_dir() and info.st_uid == os.getuid() and os.access(path, os.W_OK)
+
+
 def _plaintext_base(
     root: Path,
     *,
@@ -357,7 +379,7 @@ def _plaintext_base(
     Pick a directory for a sealed store's decrypted copies, memory-backed if at all possible.
 
     Order: ``$XDG_RUNTIME_DIR`` (what a login session or systemd user manager
-    sets, always a tmpfs); ``/run/noust`` (created 0700), only when this
+    sets, always a tmpfs) when it exists and is this user's; ``/run/noust`` (created 0700), only when this
     process is root and ``/run`` is itself tmpfs, which is true on every
     systemd-booted host but not inside the container image, where ``/run`` is
     not writable under its read-only root filesystem; ``/dev/shm``, which
@@ -385,7 +407,7 @@ def _plaintext_base(
         The directory.
     """
     xdg = os.environ.get("XDG_RUNTIME_DIR")
-    if xdg:
+    if xdg and _usable_runtime_dir(Path(xdg)):
         return xdg
     target_run_dir = run_dir if run_dir is not None else run_mount / "noust"
     if os.getuid() == 0 and _mount_fstype(run_mount, mounts_file) == "tmpfs":

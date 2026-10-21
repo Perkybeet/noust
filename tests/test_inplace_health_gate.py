@@ -40,6 +40,13 @@ from noust.deployers.monorepo import MonorepoDeployer
 DOMAIN = "stack.example.com"
 PREVIOUS = "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b"
 
+#: A worker: nothing published, so nothing to ask over HTTP.
+HEADLESS_COMPOSE_FILE = """\
+services:
+  worker:
+    build: .
+"""
+
 COMPOSE_FILE = """\
 services:
   web:
@@ -214,11 +221,13 @@ def probe(monkeypatch: pytest.MonkeyPatch) -> Probe:
     return fake
 
 
-def compose_app(store: NoustStore, root: Path, *, port: int = 18080) -> App:
+def compose_app(
+    store: NoustStore, root: Path, *, port: int = 18080, compose: str = COMPOSE_FILE
+) -> App:
     """A deployed stack at ``root``: its tree, a checkout, and its row."""
     root.mkdir(parents=True, exist_ok=True)
     (root / ".git").mkdir(exist_ok=True)
-    (root / "docker-compose.yml").write_text(COMPOSE_FILE)
+    (root / "docker-compose.yml").write_text(compose)
     return store.create_app(
         App(
             domain=DOMAIN,
@@ -447,7 +456,7 @@ def test_a_headless_stack_is_judged_by_its_containers(
 ) -> None:
     """A worker has no port to ask; a container that keeps restarting is the answer."""
     root = tmp_path / "stack"
-    compose_app(store, root, port=0)
+    compose_app(store, root, port=0, compose=HEADLESS_COMPOSE_FILE)
     crashing = [
         {"Service": "worker", "Name": "stack-worker-1", "State": "restarting", "ExitCode": 1},
     ]
