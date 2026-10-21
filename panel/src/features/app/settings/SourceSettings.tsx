@@ -15,7 +15,7 @@ import { ChangeSourceCard } from "./ChangeSource";
 import { GitCredentialCard } from "./GitCredential";
 import { SourceOptionsCard, useSourceOptions } from "./SourceOptions";
 import { useSaveBar } from "./formParts";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 
 /**
  * Source: where the code comes from and how this server signs in to it. The repository or directory
@@ -38,7 +38,7 @@ export function SourceSettings() {
 
   return (
     <>
-      <Section title={t("sources.title")} description={t("sources.description")}>
+      <Section title={t("sources.title")} {...subsectionIcon("appSettings.nav.source")} description={t("sources.description")}>
         {view.isPending ? (
           <LoadingRegion label={t("sources.loading")}>
             <SkeletonCard lines={3} />

@@ -34,6 +34,7 @@ import { useSudoFirst } from "./formParts";
 import type { FormPart } from "./formParts";
 import { JobFailedError, waitForJob } from "./queries";
 import { DRAIN_MAX, DRAIN_MIN, instanceName, parseDrain } from "./zeroDowntime";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** Compose's app type: zero-downtime deploys relay its web services instead of running two units. */
 const COMPOSE = "docker-compose";
@@ -301,7 +302,7 @@ export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: Use
   }
   if (status.isError || data === undefined) {
     return (
-      <Card title={title}>
+      <Card title={title} icon={SETTINGS_ICONS.zeroDowntime}>
         <ErrorBlock compact error={status.error} title={t("appSettings.zeroDowntime.readFailed")} onRetry={() => void status.refetch()} retrying={status.isRefetching} />
       </Card>
     );
@@ -310,7 +311,7 @@ export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: Use
   const description = compose ? t("appSettings.zeroDowntime.composeDescription") : t("appSettings.zeroDowntime.description");
   if (!data.enabled && !data.eligible) {
     return (
-      <Card title={title} status={<StatusPill state="stopped" size="sm" label={t("appSettings.zeroDowntime.off")} />} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.zeroDowntime} status={<StatusPill state="stopped" size="sm" label={t("appSettings.zeroDowntime.off")} />} description={description}>
         {app.layout !== "releases" && !compose ? (
           <p className="text-13 text-pretty text-fg-muted">{t("appSettings.zeroDowntime.needsRollback")}</p>
         ) : (
@@ -325,6 +326,7 @@ export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: Use
 
   return (
     <Card
+      icon={SETTINGS_ICONS.zeroDowntime}
       title={title}
       status={
         data.enabled ? (
@@ -340,11 +342,11 @@ export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: Use
       description={description}
       actions={
         data.enabled ? (
-          <Button size="sm" variant="ghost" onClick={() => ask(() => setTurningOff(true))}>
+          <Button icon={<SETTINGS_ICONS.turnOff aria-hidden="true" />} size="sm" variant="ghost" onClick={() => ask(() => setTurningOff(true))}>
             {t("appSettings.zeroDowntime.turnOffEllipsis")}
           </Button>
         ) : (
-          <Button size="sm" onClick={() => ask(() => setTurningOn(true))}>
+          <Button icon={<SETTINGS_ICONS.turnOn aria-hidden="true" />} size="sm" onClick={() => ask(() => setTurningOn(true))}>
             {t("appSettings.zeroDowntime.turnOnEllipsis")}
           </Button>
         )

@@ -31,8 +31,9 @@ import { useT } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
 import { reportActionError } from "../../apps/useAppActions";
 import { JobFailedError, waitForJob } from "./queries";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** The most copies of a background process the API takes. */
 const MAX_PROCESS_COPIES = 32;
@@ -112,7 +113,7 @@ function CopiesForm({ domain, status }: { domain: string; status: Replicas }) {
       <Field label={t("runtime.replicas.copiesLabel")} description={t("runtime.replicas.copiesDescription", { max: status.maximum })} error={error} className="w-56">
         <Input mono inputMode="numeric" autoComplete="off" value={text} onValueChange={setText} />
       </Field>
-      <Button type="submit" variant="primary" loading={apply.isPending} disabled={copies === status.copies}>
+      <Button type="submit" loading={apply.isPending} disabled={copies === status.copies}>
         {t("runtime.replicas.apply")}
       </Button>
     </form>
@@ -125,7 +126,7 @@ function ReplicasCard({ domain }: { domain: string }) {
   const replicas = useQuery(replicasQuery(domain));
   const status = replicas.data;
   return (
-    <Card title={t("runtime.replicas.title")} description={t("runtime.replicas.description")}>
+    <Card title={t("runtime.replicas.title")} icon={SETTINGS_ICONS.processes} description={t("runtime.replicas.description")}>
       <div className="flex flex-col gap-4">
         {status === undefined ? (
           replicas.isError ? (
@@ -458,6 +459,7 @@ function ProcessesCard({ domain }: { domain: string }) {
   const list = processes.data?.processes ?? [];
   return (
     <Card
+      icon={SETTINGS_ICONS.processes}
       title={t("runtime.processes.title")}
       description={t("runtime.processes.description")}
       actions={
@@ -510,7 +512,7 @@ export function ProcessesSettings() {
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.processes", app.domain);
   return (
-    <Section title={t("runtime.nav.processes")}>
+    <Section title={t("runtime.nav.processes")} {...subsectionIcon("runtime.nav.processes")}>
       {hasUnit(app) ? (
         <div className="flex flex-col gap-6">
           <ReplicasCard domain={app.domain} />

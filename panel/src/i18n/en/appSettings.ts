@@ -548,7 +548,6 @@ export const appSettings = {
     stopped: "{domain} follows its branch again",
   },
   previews: {
-    onBody: "Each pull request opened against the repository gets a copy of this app, removed when it closes or goes quiet.",
     offBody: "Pull requests get no copy of their own. Set what previews need below, then turn them on.",
     title: "Pull request previews",
     description: "Each pull request opened against the repository gets a copy of the app of its own, removed when the pull request closes or goes quiet.",
@@ -623,6 +622,7 @@ export const appSettings = {
     statusFailed: "Failed",
     statusRemoving: "Removing",
     statusUnknown: "Unknown",
+    stateTitle: "Previews for this app",
   },
   danger: {
     title: "Delete",

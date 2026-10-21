@@ -26,8 +26,9 @@ import { useSaveBar } from "./formParts";
 import type { FormPart } from "./formParts";
 import { hooksQuery, olderServer, settingsKeys } from "./queries";
 import type { AppHooks } from "./queries";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 type Hook = AppHooks["pre_deploy"][number];
 
@@ -123,11 +124,12 @@ function OperatorHooks({ domain, hooks, t }: { domain: string; hooks: AppHooks; 
   return (
     <>
       <Card
+        icon={SETTINGS_ICONS.hooks}
         title={t("appSettings.hooks.operatorTitle")}
         description={t("appSettings.hooks.operatorDescription")}
         actions={
           hooks.source === "operator" ? (
-            <Button size="sm" variant="ghost" onClick={() => setRemoving(true)}>
+            <Button icon={<SETTINGS_ICONS.remove aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setRemoving(true)}>
               {t("appSettings.hooks.remove")}
             </Button>
           ) : undefined
@@ -185,14 +187,14 @@ export function HooksSettings() {
 
   if (isStatic) {
     return (
-      <Section title={t("appSettings.hooks.title")} description={t("appSettings.hooks.description")}>
+      <Section title={t("appSettings.hooks.title")} {...subsectionIcon("appSettings.nav.hooks")} description={t("appSettings.hooks.description")}>
         <EmptyState variant="inline" title={t("appSettings.hooks.staticNone")} />
       </Section>
     );
   }
 
   return (
-    <Section title={t("appSettings.hooks.title")} description={t("appSettings.hooks.description")}>
+    <Section title={t("appSettings.hooks.title")} {...subsectionIcon("appSettings.nav.hooks")} description={t("appSettings.hooks.description")}>
       {hooks.isPending ? (
         <LoadingRegion label={t("appSettings.hooks.loading")} className="flex flex-col gap-3">
           <Skeleton className="h-32 w-full rounded-card" />
@@ -204,6 +206,7 @@ export function HooksSettings() {
       ) : (
         <>
           <Card
+            icon={SETTINGS_ICONS.hooks}
             title={t("appSettings.hooks.inUseTitle")}
             actions={<Badge>{originWords(t, hooks.data.source).badge}</Badge>}
           >

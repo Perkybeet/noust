@@ -38,8 +38,9 @@ import { GitPushCard } from "./GitPush";
 import { useSudoFirst } from "./formParts";
 import { RECEIVED_SHOWN, settingsKeys, webhookReceivedQuery, webhookStatusQuery } from "./queries";
 import type { ReceivedDelivery, WebhookSecret, WebhookStatus } from "./queries";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { connectionView, forgeName, outcomeView, senderName } from "./webhook";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** The example name `noust web expose-hooks` is shown with: the operator types their own. */
 const HOOKS_EXAMPLE = "hooks.example.com";
@@ -106,10 +107,10 @@ function Connection({ status, followTags, onRotate, onDisable }: { status: Webho
         </div>
         {status.enabled ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Button size="sm" onClick={onRotate}>
+            <Button icon={<SETTINGS_ICONS.rebuild aria-hidden="true" />} size="sm" onClick={onRotate}>
               {t("appSettings.webhook.rotate")}
             </Button>
-            <Button size="sm" variant="ghost" onClick={onDisable}>
+            <Button icon={<SETTINGS_ICONS.turnOff aria-hidden="true" />} size="sm" variant="ghost" onClick={onDisable}>
               {t("appSettings.webhook.turnOff")}
             </Button>
           </div>
@@ -184,7 +185,7 @@ function Steps({
   const current: StepId = secret !== null ? "forge" : (chosen ?? firstOpen);
   // A step that is done can be read again from the rail, and this is the way on from it.
   const goOn = (to: StepId): ReactNode => (
-    <Button size="sm" variant="ghost" onClick={() => setChosen(to)}>
+    <Button icon={<SETTINGS_ICONS.next aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setChosen(to)}>
       {t("common.wizard.next")}
     </Button>
   );
@@ -203,7 +204,7 @@ function Steps({
           value: status.enabled ? (
             <span className="flex items-center gap-2">
               <span className="text-fg-muted">{t("appSettings.webhook.secretHidden")}</span>
-              <Button size="sm" variant="ghost" loading={revealing} onClick={onReveal}>
+              <Button icon={<SETTINGS_ICONS.show aria-hidden="true" />} size="sm" variant="ghost" loading={revealing} onClick={onReveal}>
                 {t("appSettings.webhook.showSecret")}
               </Button>
             </span>
@@ -219,7 +220,7 @@ function Steps({
   ];
 
   return (
-    <Card title={t("appSettings.webhook.setupTitle")}>
+    <Card title={t("appSettings.webhook.setupTitle")} icon={SETTINGS_ICONS.webhook}>
       <div className="flex flex-col gap-5">
         <Stepper orientation="horizontal" steps={steps} current={current} onSelect={(id) => setChosen(id as StepId)} />
         {current === "address" ? (
@@ -264,7 +265,7 @@ function Steps({
               status.enabled ? (
                 goOn("forge")
               ) : (
-                <Button size="sm" loading={creating} onClick={onCreate}>
+                <Button icon={<SETTINGS_ICONS.key aria-hidden="true" />} size="sm" loading={creating} onClick={onCreate}>
                   {t("appSettings.webhook.createSecret")}
                 </Button>
               )
@@ -292,7 +293,7 @@ function Steps({
                   <span />
                 )}
                 {secret !== null ? (
-                  <Button size="sm" variant="ghost" onClick={onHide}>
+                  <Button icon={<SETTINGS_ICONS.hide aria-hidden="true" />} size="sm" variant="ghost" onClick={onHide}>
                     {t("appSettings.webhook.hideSecret")}
                   </Button>
                 ) : null}
@@ -483,7 +484,7 @@ export function DeployOnPush() {
 
   const data = status.data;
   return (
-    <Section title={t("appSettings.webhook.title")} description={t("appSettings.webhook.description")}>
+    <Section title={t("appSettings.webhook.title")} {...subsectionIcon("appSettings.nav.push")} description={t("appSettings.webhook.description")}>
       <QueryState
         query={status}
         label={t("appSettings.webhook.label")}

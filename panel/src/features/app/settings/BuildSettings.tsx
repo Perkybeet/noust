@@ -31,7 +31,8 @@ import { SandboxSettings } from "./BuildsSettings";
 import { PackagesCard } from "./PackagesCard";
 import { useSaveBar } from "./formParts";
 import { buildQuery, settingsKeys } from "./queries";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 const COMMAND_KEYS = ["install", "build", "start"] as const;
 
@@ -152,6 +153,7 @@ function Form({ build, appType, domain, children }: { build: AppBuild; appType: 
       {source === "repo" ? <InlineMessage>{t("appBuild.fromRepository")}</InlineMessage> : null}
 
       <Card
+        icon={SETTINGS_ICONS.build}
         title={t("appBuild.form.title")}
         description={t("appBuild.form.description")}
         {...(source === "operator"
@@ -274,7 +276,7 @@ export function BuildSettings() {
   const form = supported && build.data !== undefined ? build.data : null;
 
   return (
-    <Section title={t("appBuild.title")} description={t("appBuild.description")}>
+    <Section title={t("appBuild.title")} {...subsectionIcon("appSettings.nav.build")} description={t("appBuild.description")}>
       {!supported ? (
         <EmptyState variant="inline" title={t("appBuild.notSupported", { type: appType })} />
       ) : build.isError && form === null ? (

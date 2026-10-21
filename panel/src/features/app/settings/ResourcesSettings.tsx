@@ -28,7 +28,7 @@ import { useAppActions } from "../../apps/useAppActions";
 import { changedFields, useSaveBar } from "./formParts";
 import { directives, draftOf, parseLimits } from "./limits";
 import type { LimitsDraft, LimitsErrors, LimitsValues } from "./limits";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { AdvancedLimitsFields, useTuningPart } from "./TuningFields";
 import { LoadingRegion } from "../../../components/page";
 
@@ -238,7 +238,7 @@ export function ResourcesSettings() {
   useSubsectionTitle("appSettings.nav.resources", app.domain);
   const tuning = useQuery({ ...tuningQuery(app.domain), enabled: hasUnit(app) });
   return (
-    <Section title={t("appSettings.limits.title")} description={t("appSettings.limits.description")}>
+    <Section title={t("appSettings.limits.title")} {...subsectionIcon("appSettings.nav.resources")} description={t("appSettings.limits.description")}>
       {hasUnit(app) ? (
         <LimitsForm app={app} tuning={tuning.data} reading={tuning.isPending} />
       ) : (

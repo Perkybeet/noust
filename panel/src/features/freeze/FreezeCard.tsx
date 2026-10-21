@@ -25,6 +25,7 @@ import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { olderServer } from "../app/settings/queries";
 import { RowError, RowLoading } from "../app/settings/settingRows";
+import { SETTINGS_ICONS } from "../app/settings/objectIcons";
 
 /** The lengths a freeze is offered for, in hours; `open` lasts until somebody lifts it. */
 const LENGTHS = [
@@ -265,7 +266,7 @@ export function FreezeSetting({ domain, canDeploy }: { domain: string; canDeploy
         {...(inForce ? { status: <StatusPill state="warning" size="sm" label={t("rollout.freeze.stateActive")} /> } : {})}
         action={
           canDeploy ? (
-            <Button size="sm" onClick={() => setMaking(true)}>
+            <Button icon={<SETTINGS_ICONS.freeze aria-hidden="true" />} size="sm" onClick={() => setMaking(true)}>
               {t("rollout.freeze.make")}
             </Button>
           ) : (
@@ -313,7 +314,7 @@ export function FreezeCard({ canDeploy, title, description }: FreezeCardProps) {
   }
   if (query.isError) {
     return (
-      <Card title={title}>
+      <Card title={title} icon={SETTINGS_ICONS.freeze}>
         <ErrorBlock compact error={query.error} title={t("rollout.freeze.readFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
       </Card>
     );
@@ -321,11 +322,12 @@ export function FreezeCard({ canDeploy, title, description }: FreezeCardProps) {
 
   return (
     <Card
+      icon={SETTINGS_ICONS.freeze}
       title={title}
       {...(description !== undefined ? { description } : {})}
       actions={
         canDeploy ? (
-          <Button size="sm" onClick={() => setMaking(true)}>
+          <Button icon={<SETTINGS_ICONS.freeze aria-hidden="true" />} size="sm" onClick={() => setMaking(true)}>
             {t("rollout.freeze.make")}
           </Button>
         ) : undefined

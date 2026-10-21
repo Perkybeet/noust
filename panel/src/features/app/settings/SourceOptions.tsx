@@ -20,6 +20,7 @@ import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { splitErrors } from "../../settings/formErrors";
 import type { FormPart } from "./formParts";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 type Lfs = SourceOptions["lfs"];
 
@@ -153,18 +154,19 @@ export function SourceOptionsCard({ domain, options }: { domain: string; options
   }
   if (view.isError) {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.source} description={description}>
         <ErrorBlock compact error={view.error} title={t("sourceOptions.readFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       </Card>
     );
   }
   return (
     <Card
+      icon={SETTINGS_ICONS.source}
       title={title}
       description={description}
       actions={
         view.data.customised ? (
-          <Button size="sm" variant="ghost" onClick={() => setResetting(true)}>
+          <Button icon={<SETTINGS_ICONS.reset aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setResetting(true)}>
             {t("sourceOptions.reset")}
           </Button>
         ) : undefined

@@ -23,6 +23,7 @@ import { useNode } from "../../../nodes/useNode";
 import { splitErrors } from "../../settings/formErrors";
 import { useSudoFirst } from "./formParts";
 import { webhookStatusQuery } from "./queries";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** What the API says an application's credential is now: kept or not, never the token. */
 function useCredentialSettled(domain: string): (result: GitCredential) => void {
@@ -149,7 +150,7 @@ export function GitCredentialCard({ domain, repository }: { domain: string; repo
   }
   if (view.isError) {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.signIn} description={description}>
         <ErrorBlock compact error={view.error} title={t("sources.credential.readFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       </Card>
     );
@@ -176,6 +177,7 @@ export function GitCredentialCard({ domain, repository }: { domain: string; repo
 
   return (
     <Card
+      icon={SETTINGS_ICONS.signIn}
       title={title}
       status={pill}
       description={text}
@@ -183,7 +185,7 @@ export function GitCredentialCard({ domain, repository }: { domain: string; repo
         ? {}
         : {
             actions: (
-              <Button size="sm" onClick={set}>
+              <Button icon={<SETTINGS_ICONS.edit aria-hidden="true" />} size="sm" onClick={set}>
                 {t("sources.credential.set")}
               </Button>
             ),
@@ -193,10 +195,10 @@ export function GitCredentialCard({ domain, repository }: { domain: string; repo
         {!data.configured && !data.source_is_https ? <InlineMessage tone="info">{t("sources.credential.sshHint")}</InlineMessage> : null}
         {data.configured ? (
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={set}>
+            <Button icon={<SETTINGS_ICONS.rebuild aria-hidden="true" />} size="sm" onClick={set}>
               {t("sources.credential.replace")}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => elevated(() => setRemoving(true))}>
+            <Button icon={<SETTINGS_ICONS.remove aria-hidden="true" />} size="sm" variant="ghost" onClick={() => elevated(() => setRemoving(true))}>
               {t("sources.credential.remove")}
             </Button>
           </div>

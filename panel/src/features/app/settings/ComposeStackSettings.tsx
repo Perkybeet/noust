@@ -5,7 +5,7 @@ import { useT } from "../../../i18n";
 import { ComposeSettingsCard, useComposeOptions } from "./ComposeSettings";
 import { useSaveBar } from "./formParts";
 import { RegistryLoginsCard, useRegistryChoice, usesRegistries } from "./RegistryLogins";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { StackNetworksCard } from "./StackNetworks";
 
 /**
@@ -25,7 +25,7 @@ export function ComposeStackSettings() {
 
   return (
     <>
-      <Section title={t("composeSettings.page.title")} description={t("composeSettings.page.description")}>
+      <Section title={t("composeSettings.page.title")} {...subsectionIcon("appSettings.nav.compose")} description={t("composeSettings.page.description")}>
         <ComposeSettingsCard domain={domain} options={options} />
         <StackNetworksCard domain={domain} />
         {useRegistries ? <RegistryLoginsCard choice={registries} /> : null}

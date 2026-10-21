@@ -26,6 +26,7 @@ import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { downloadBase64, downloadText } from "../../../lib/clipboard";
 import type { AccessForm } from "./useAccessForm";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** What the server accepts as the name of a certificate (`noust.managers.database.tls_authority`). */
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._@-]{0,63}$/;
@@ -135,11 +136,11 @@ function IssueDialog({ domain, open, onOpenChange }: IssueDialogProps) {
             <p className="text-13 text-fg-muted">{t("network.access.clients.passwordHelp")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="primary" onClick={() => downloadBase64(`${file}.p12`, made.bundle, "application/x-pkcs12")}>
+            <Button icon={<SETTINGS_ICONS.install aria-hidden="true" />} variant="primary" onClick={() => downloadBase64(`${file}.p12`, made.bundle, "application/x-pkcs12")}>
               {t("network.access.clients.downloadBundle")}
             </Button>
-            <Button onClick={() => downloadText(`${file}.key`, made.key_pem, "application/x-pem-file")}>{t("network.access.clients.downloadKey")}</Button>
-            <Button onClick={() => downloadText(`${file}.crt`, made.certificate_pem, "application/x-pem-file")}>
+            <Button icon={<SETTINGS_ICONS.install aria-hidden="true" />} onClick={() => downloadText(`${file}.key`, made.key_pem, "application/x-pem-file")}>{t("network.access.clients.downloadKey")}</Button>
+            <Button icon={<SETTINGS_ICONS.install aria-hidden="true" />} onClick={() => downloadText(`${file}.crt`, made.certificate_pem, "application/x-pem-file")}>
               {t("network.access.clients.downloadCertificate")}
             </Button>
           </div>
@@ -175,6 +176,7 @@ export function ClientCertsCard({ form, domain }: { form: AccessForm; domain: st
 
   return (
     <Card
+      icon={SETTINGS_ICONS.certificate}
       title={t("network.access.clients.title")}
       description={t("network.access.clients.description")}
       loading={list.isPending}

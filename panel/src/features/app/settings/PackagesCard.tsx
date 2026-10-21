@@ -21,6 +21,7 @@ import { StatusPill } from "../../../components/ui/StatusPill";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { splitErrors } from "../../settings/formErrors";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** One name per line, blank lines left out and a repeated name once: what the API takes. */
 function namesOf(text: string): string[] {
@@ -119,14 +120,15 @@ function PackagesBody({ domain, state }: { domain: string; state: AppPackages })
 
   return (
     <Card
+      icon={SETTINGS_ICONS.packages}
       title={t("appPackages.title")}
       description={t("appPackages.description")}
       actions={
         <>
-          <Button size="sm" onClick={() => setEditing(true)}>
+          <Button icon={<SETTINGS_ICONS.edit aria-hidden="true" />} size="sm" onClick={() => setEditing(true)}>
             {t("appPackages.edit")}
           </Button>
-          <Button size="sm" loading={installing} disabled={state.missing.length === 0 || !state.supported || state.refused.length > 0} onClick={() => install.mutate()}>
+          <Button icon={<SETTINGS_ICONS.install aria-hidden="true" />} size="sm" loading={installing} disabled={state.missing.length === 0 || !state.supported || state.refused.length > 0} onClick={() => install.mutate()}>
             {t("appPackages.install")}
           </Button>
         </>
@@ -189,7 +191,7 @@ export function PackagesCard({ domain }: { domain: string }) {
   }
   if (view.isError) {
     return (
-      <Card title={t("appPackages.title")} description={t("appPackages.description")}>
+      <Card title={t("appPackages.title")} icon={SETTINGS_ICONS.packages} description={t("appPackages.description")}>
         <ErrorBlock compact error={view.error} title={t("appPackages.readFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       </Card>
     );

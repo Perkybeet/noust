@@ -60,7 +60,8 @@ import {
   templateExample,
 } from "./previews";
 import type { DataMode, ForkPolicy, InheritMode, PreviewErrors, PreviewField, TtlUnit } from "./previews";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 type Disabled = ResponseOf<"/api/apps/{domain}/previews/settings", "delete">;
 
@@ -250,16 +251,17 @@ function PreviewSettingsForm({
   return (
     <>
       <Card
-        title={t("appSettings.previews.title")}
+        icon={SETTINGS_ICONS.preview}
+        title={t("appSettings.previews.stateTitle")}
         status={<StatusPill state={enabled ? "running" : "stopped"} size="sm" label={enabled ? t("appSettings.previews.on") : t("appSettings.previews.off")} />}
-        description={enabled ? t("appSettings.previews.onBody") : t("appSettings.previews.offBody")}
+        {...(enabled ? {} : { description: t("appSettings.previews.offBody") })}
         actions={
           enabled ? (
-            <Button size="sm" variant="ghost" onClick={turnOff}>
+            <Button icon={<SETTINGS_ICONS.turnOff aria-hidden="true" />} size="sm" variant="ghost" onClick={turnOff}>
               {t("appSettings.previews.turnOff")}
             </Button>
           ) : (
-            <Button size="sm" type="submit" form="preview-settings" loading={save.isPending}>
+            <Button icon={<SETTINGS_ICONS.turnOn aria-hidden="true" />} size="sm" type="submit" form="preview-settings" loading={save.isPending}>
               {t("appSettings.previews.turnOn")}
             </Button>
           )
@@ -268,7 +270,7 @@ function PreviewSettingsForm({
         {enabled ? null : <Needs domain={domain} base={null} />}
       </Card>
       <form id="preview-settings" onSubmit={enabled ? (event) => { event.preventDefault(); bar.onSave(); } : turnOn} noValidate className="flex flex-col gap-4">
-        <Card title={t("appSettings.previews.settingsTitle")}>
+        <Card title={t("appSettings.previews.settingsTitle")} icon={SETTINGS_ICONS.limits}>
           <div className="flex flex-col gap-5">
             <div className="grid gap-5 sm:grid-cols-2">
               <Field
@@ -352,7 +354,7 @@ function PreviewSettingsForm({
           </div>
         </Card>
 
-        <Card title={t("rollout.previews.nameTitle")}>
+        <Card title={t("rollout.previews.nameTitle")} icon={SETTINGS_ICONS.addresses}>
           <div className="flex flex-col gap-5">
             <Field
               label={t("rollout.previews.templateLabel")}
@@ -386,7 +388,7 @@ function PreviewSettingsForm({
           </div>
         </Card>
 
-        <Card title={t("previewHand.given.title")}>
+        <Card title={t("previewHand.given.title")} icon={SETTINGS_ICONS.database}>
           <div className="flex flex-col gap-5">
             <ChoiceCards<InheritMode>
               legend={t("previewHand.env.legend")}
@@ -544,7 +546,7 @@ export function PreviewsSettings() {
 
   if (parent !== null) {
     return (
-      <Section title={t("appSettings.previews.title")}>
+      <Section title={t("appSettings.previews.title")} {...subsectionIcon("appSettings.nav.previews")}>
         <Card>
           <div className="flex flex-col gap-1 text-13">
             <p className="text-fg">

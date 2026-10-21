@@ -26,15 +26,16 @@ import { AccessUsers } from "./AccessUsers";
 import { PrivateCard } from "./PrivateCard";
 import { RoutesCard } from "./RoutesCard";
 import { useSaveBar } from "./formParts";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { AccessQuestions, useAccessForm } from "./useAccessForm";
 import type { AccessForm } from "./useAccessForm";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 function PasswordCard({ form, policy, t }: { form: AccessForm; policy: AppPolicy; t: T }) {
   const { draft, edit } = form;
   const noAccounts = policy.users.length === 0;
   return (
-    <Card title={t("network.access.password.title")} description={t("network.access.password.description")}>
+    <Card title={t("network.access.password.title")} icon={SETTINGS_ICONS.account} description={t("network.access.password.description")}>
       <div className="flex flex-col gap-4">
         <Checkbox
           label={t("network.access.password.enable")}
@@ -62,7 +63,7 @@ function PasswordCard({ form, policy, t }: { form: AccessForm; policy: AppPolicy
 function AddressesCard({ form, t }: { form: AccessForm; t: T }) {
   const { draft, edit } = form;
   return (
-    <Card title={t("network.access.addresses.title")} description={t("network.access.addresses.description")}>
+    <Card title={t("network.access.addresses.title")} icon={SETTINGS_ICONS.addresses} description={t("network.access.addresses.description")}>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t("network.access.addresses.allow")} description={t("network.access.addresses.allowHelp")} error={form.errorOf("allow")}>
           <Textarea mono rows={5} wrap="off" value={draft.allow} onChange={(event) => edit("allow", event.target.value)} autoComplete="off" spellCheck={false} />
@@ -212,7 +213,7 @@ export function AccessSettings() {
   const policy = useQuery(appPolicyQuery(domain));
 
   return (
-    <Section title={t("network.access.title")} description={t("network.access.description", { domain })}>
+    <Section title={t("network.access.title")} {...subsectionIcon("network.access.nav")} description={t("network.access.description", { domain })}>
       {policy.isPending ? (
         <LoadingRegion label={t("network.access.loading")}>
           <SkeletonCard lines={3} />

@@ -27,6 +27,7 @@ import { useReasonRequired } from "../../settings/compliance/useReasonRequired";
 import { useSudoFirst } from "./formParts";
 import { sandboxQuery, settingsKeys } from "./queries";
 import type { Sandbox } from "./queries";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** The one type whose builds do not go through the sandbox (`UNSUPPORTED_TYPES` in the backend). */
 const COMPOSE = "docker-compose";
@@ -206,6 +207,7 @@ function SandboxCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
   const decidedBy = sandbox.changed_by ?? t("appSettings.builds.anOperator");
   return (
     <Card
+      icon={SETTINGS_ICONS.sandbox}
       title={t("appSettings.builds.cardTitle")}
       status={
         sandbox.enabled ? (
@@ -235,11 +237,11 @@ function SandboxCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
           </>
         ) : (
           <>
-            <Button size="sm" loading={testing} onClick={() => test.mutate()}>
+            <Button icon={<SETTINGS_ICONS.sandbox aria-hidden="true" />} size="sm" loading={testing} onClick={() => test.mutate()}>
               {trialPassed ? t("appSettings.builds.testAgain") : t("appSettings.builds.test")}
             </Button>
             {trialPassed ? (
-              <Button size="sm" loading={enable.isPending} onClick={() => enable.mutate()}>
+              <Button icon={<SETTINGS_ICONS.turnOn aria-hidden="true" />} size="sm" loading={enable.isPending} onClick={() => enable.mutate()}>
                 {t("appSettings.builds.turnOn")}
               </Button>
             ) : null}
@@ -314,7 +316,7 @@ function ComposeCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
     },
   });
   return (
-    <Card title={t("appSettings.builds.composeTitle")} description={t("appSettings.builds.composeDescription")}>
+    <Card title={t("appSettings.builds.composeTitle")} icon={SETTINGS_ICONS.container} description={t("appSettings.builds.composeDescription")}>
       <div className="flex flex-col gap-4">
         {exception !== null ? (
           <KeyValueList

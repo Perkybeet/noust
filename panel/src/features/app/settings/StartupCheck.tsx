@@ -41,6 +41,7 @@ import {
 } from "./healthExtras";
 import type { HealthExtrasDraft, HealthExtrasErrors, HealthKind } from "./healthExtras";
 import { LoadingRegion } from "../../../components/page";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 const EMPTY: HealthDraft = { path: "", expect: "", timeout: "" };
 
@@ -381,10 +382,11 @@ export function StartupCheckCard({ app, check }: { app: App; check: StartupCheck
   const kind = extras.draft.kind;
   return (
     <Card
+      icon={SETTINGS_ICONS.startupCheck}
       title={t("appSettings.healthCheck.title")}
       description={t("appSettings.healthCheck.description")}
       actions={
-        <Button size="sm" variant="ghost" disabled={sameHealth(draft, EMPTY) && !hasExtras(extras.draft)} onClick={check.toDefaults}>
+        <Button icon={<SETTINGS_ICONS.reset aria-hidden="true" />} size="sm" variant="ghost" disabled={sameHealth(draft, EMPTY) && !hasExtras(extras.draft)} onClick={check.toDefaults}>
           {t("appSettings.healthCheck.useDefaults")}
         </Button>
       }
@@ -502,7 +504,7 @@ function TimeoutField({ check }: { check: StartupCheckPart }) {
 export function StaticStartupNote() {
   const t = useT();
   return (
-    <Card title={t("appSettings.healthCheck.title")}>
+    <Card title={t("appSettings.healthCheck.title")} icon={SETTINGS_ICONS.startupCheck}>
       <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("appSettings.healthCheck.staticNote")}</p>
     </Card>
   );

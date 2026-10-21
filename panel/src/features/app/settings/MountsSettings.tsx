@@ -29,8 +29,9 @@ import { formatBytes } from "../../../lib/format";
 import { hasUnit } from "../../apps/AppRowActions";
 import { reportActionError } from "../../apps/useAppActions";
 import { InlineMessage } from "../../../components/ui/InlineMessage";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 const OCTAL_MODE = /^[0-7]{3,4}$/;
 
@@ -283,6 +284,7 @@ function MountsCard({ domain }: { domain: string }) {
   const data = mounts.data;
   return (
     <Card
+      icon={SETTINGS_ICONS.mounts}
       title={t("runtime.mounts.title")}
       description={t("runtime.mounts.description")}
       padding="none"
@@ -357,7 +359,7 @@ export function MountsSettings() {
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.mounts", app.domain);
   return (
-    <Section title={t("runtime.nav.mounts")}>
+    <Section title={t("runtime.nav.mounts")} {...subsectionIcon("runtime.nav.mounts")}>
       {hasUnit(app) && app.app_type !== "docker-compose" ? (
         <MountsCard domain={app.domain} />
       ) : (

@@ -11,6 +11,7 @@ import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { stackNetworksQuery } from "./queries";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /**
  * The Docker networks a Compose stack is on, and who else is on them, as Docker reports it.
@@ -32,14 +33,14 @@ export function StackNetworksCard({ domain }: { domain: string }) {
   }
   if (view.isError) {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.stackNetworks} description={description}>
         <ErrorBlock compact error={view.error} title={t("composeSettings.networks.readFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       </Card>
     );
   }
   const { networks, isolated, applicable, reason } = view.data;
   return (
-    <Card title={title} description={description}>
+    <Card title={title} icon={SETTINGS_ICONS.stackNetworks} description={description}>
       <div className="flex flex-col gap-4">
         {!applicable ? <p className="text-13 text-fg-muted">{reason}</p> : null}
         {applicable && networks.length === 0 ? <EmptyState variant="inline" title={t("composeSettings.networks.none")} /> : null}

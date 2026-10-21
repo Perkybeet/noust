@@ -19,7 +19,7 @@ import type { ContainerDraft, ContainerSettings as Settings } from "../../contai
 import { useSaveBar } from "./formParts";
 import { RegistryLoginsCard, useRegistryChoice } from "./RegistryLogins";
 import { containerQuery, settingsKeys } from "./queries";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page";
 
 /** How the image comes to exist, in the words a person reads. */
@@ -139,7 +139,7 @@ export function ContainerSettings() {
   const container = useQuery({ ...containerQuery(domain), enabled: isContainer });
 
   return (
-    <Section title={t("containers.settings.title")} description={t("containers.settings.description")}>
+    <Section title={t("containers.settings.title")} {...subsectionIcon("appSettings.nav.container")} description={t("containers.settings.description")}>
       {!isContainer ? (
         <EmptyState variant="inline" title={t("containers.settings.notContainer")} />
       ) : container.data === undefined ? (

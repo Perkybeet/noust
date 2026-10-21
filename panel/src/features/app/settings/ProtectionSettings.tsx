@@ -22,14 +22,15 @@ import type { T } from "../../../i18n";
 import { ClientCertsCard } from "./ClientCertsCard";
 import { WafCard } from "./WafCard";
 import { useSaveBar } from "./formParts";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { AccessQuestions, useAccessForm } from "./useAccessForm";
 import type { AccessForm } from "./useAccessForm";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 function LimitsCard({ form, t }: { form: AccessForm; t: T }) {
   const { draft, edit } = form;
   return (
-    <Card title={t("network.access.limits.title")} description={t("network.access.limits.description")}>
+    <Card title={t("network.access.limits.title")} icon={SETTINGS_ICONS.limits} description={t("network.access.limits.description")}>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex items-start gap-2">
           <Field className="flex-1" label={t("network.access.limits.rate")} description={t("network.access.limits.rateHelp")} error={form.errorOf("rate_amount")}>
@@ -63,7 +64,7 @@ function HeadersCard({ form, policy, t }: { form: AccessForm; policy: AppPolicy;
   const { draft, edit } = form;
   const customised = draft.headers.trim() !== "" || draft.hidden_headers.trim() !== "";
   return (
-    <Card title={t("network.access.headers.title")} description={t("network.access.headers.description")}>
+    <Card title={t("network.access.headers.title")} icon={SETTINGS_ICONS.headers} description={t("network.access.headers.description")}>
       <div className="flex flex-col gap-4">
         <Checkbox
           label={t("network.access.headers.noindex")}
@@ -154,7 +155,7 @@ function Http3Card({ form, domain, t }: { form: AccessForm; domain: string; t: T
             }
           : null;
   return (
-    <Card title={t("network.access.http3.title")} description={t("network.access.http3.description")} loading={support.isPending}>
+    <Card title={t("network.access.http3.title")} icon={SETTINGS_ICONS.http3} description={t("network.access.http3.description")} loading={support.isPending}>
       <div className="flex flex-col gap-3">
         <Checkbox
           label={t("network.access.http3.enable")}
@@ -210,7 +211,7 @@ export function ProtectionSettings() {
   const policy = useQuery(appPolicyQuery(domain));
 
   return (
-    <Section title={t("network.protection.title")} description={t("network.protection.description", { domain })}>
+    <Section title={t("network.protection.title")} {...subsectionIcon("network.protection.nav")} description={t("network.protection.description", { domain })}>
       {policy.isPending ? (
         <LoadingRegion label={t("network.protection.loading")}>
           <SkeletonCard lines={3} />

@@ -39,6 +39,7 @@ import {
   rolloutDraftOf,
 } from "./rolloutLimits";
 import type { RolloutDraft, RolloutField } from "./rolloutLimits";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 interface DrawerProps {
   domain: string;
@@ -174,7 +175,7 @@ export function RolloutLimitsSetting({ domain }: { domain: string }) {
         label={t("rollout.limits.title")}
         help={t("rollout.limits.help")}
         action={
-          <Button size="sm" onClick={() => setEditing(true)}>
+          <Button icon={<SETTINGS_ICONS.limits aria-hidden="true" />} size="sm" onClick={() => setEditing(true)}>
             {t("rollout.limits.edit")}
           </Button>
         }

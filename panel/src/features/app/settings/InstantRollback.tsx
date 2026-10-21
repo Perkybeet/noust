@@ -39,6 +39,7 @@ import { useConfirmItsYou } from "../useDeleteApp";
 import type { FormPart } from "./formParts";
 import { RETENTION_MAX, RETENTION_MIN, parseRetention } from "./healthCheck";
 import { MigrationPlanView } from "./MigrationPlanView";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 // ---------------------------------------------------------------------------------------------
 // How many versions are kept: a part of the Deploys form, on an app with instant rollback.
@@ -187,6 +188,7 @@ function RollbackOn({ app, retention }: { app: App; retention: RetentionPart }) 
   const t = useT();
   return (
     <Card
+      icon={SETTINGS_ICONS.rollback}
       title={t("appSettings.releases.title")}
       status={<StatusPill state="running" size="sm" label={t("appSettings.releases.on")} />}
       description={t("appSettings.releases.descriptionOn")}
@@ -231,11 +233,12 @@ function RollbackOff({ onTurnOn }: { onTurnOn: () => void }) {
   const t = useT();
   return (
     <Card
+      icon={SETTINGS_ICONS.rollback}
       title={t("appSettings.releases.title")}
       status={<StatusPill state="stopped" size="sm" label={t("appSettings.releases.off")} />}
       description={t("appSettings.releases.benefit")}
       actions={
-        <Button size="sm" onClick={onTurnOn}>
+        <Button icon={<SETTINGS_ICONS.turnOn aria-hidden="true" />} size="sm" onClick={onTurnOn}>
           {t("appSettings.releases.turnOn")}
         </Button>
       }

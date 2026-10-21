@@ -22,6 +22,7 @@ import { useT } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { ArchiveUpload } from "../upload/ArchiveUpload";
 import { splitErrors } from "../../settings/formErrors";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** The application types that run as a stack or a container: their source is a checkout or an image. */
 const OWN_FILES = new Set(["docker-compose", "container"]);
@@ -231,7 +232,7 @@ export function ChangeSourceCard({
 
   if (fit !== "yes") {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.source} description={description}>
         <p className="max-w-measure text-13 text-pretty text-fg-muted">
           {fit === "inPlace"
             ? t("changeSource.unsupportedInPlace")
@@ -245,7 +246,7 @@ export function ChangeSourceCard({
     );
   }
   return (
-    <Card title={title} description={description}>
+    <Card title={title} icon={SETTINGS_ICONS.source} description={description}>
       <KeyValueList
         items={[
           { label: t("changeSource.current"), value: changed?.target ?? (recorded === "" ? t("changeSource.none") : recorded) },
@@ -266,7 +267,7 @@ export function ChangeSourceCard({
         </Notice>
       ) : null}
       <div>
-        <Button size="sm" onClick={() => setOpen(true)}>
+        <Button icon={<SETTINGS_ICONS.edit aria-hidden="true" />} size="sm" onClick={() => setOpen(true)}>
           {t("changeSource.open")}
         </Button>
       </div>

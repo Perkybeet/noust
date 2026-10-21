@@ -7,8 +7,9 @@ import { FreezeSetting } from "../../freeze/FreezeCard";
 import { useOrganization } from "../../teams/useOrganization";
 import { AutomaticDeploysRows } from "./AutomaticDeploys";
 import { BackupRequiredRow } from "./BackupRequired";
+import { SETTINGS_ICONS } from "./objectIcons";
 import { RolloutLimitsSetting } from "./RolloutLimits";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { BackupBeforeUpdateRow, isComposeStack } from "./StackSettings";
 import { UpdateScheduleSetting } from "./UpdateSchedule";
 
@@ -27,15 +28,15 @@ export function AutomationSettings() {
   const isPreview = previewParentOf(app) !== null;
 
   return (
-    <Section title={t("appSettings.automation.title")} description={t("appSettings.automation.description")}>
-      <SettingsGroup title={t("appSettings.automation.deploysGroup")}>
+    <Section title={t("appSettings.automation.title")} {...subsectionIcon("appSettings.nav.automation")} description={t("appSettings.automation.description")}>
+      <SettingsGroup title={t("appSettings.automation.deploysGroup")} icon={SETTINGS_ICONS.automaticDeploys}>
         <AutomaticDeploysRows domain={domain} />
       </SettingsGroup>
-      <SettingsGroup title={t("appSettings.automation.backupsGroup")}>
+      <SettingsGroup title={t("appSettings.automation.backupsGroup")} icon={SETTINGS_ICONS.backup}>
         <BackupRequiredRow domain={domain} />
         {isComposeStack(app) ? <BackupBeforeUpdateRow app={app} /> : null}
       </SettingsGroup>
-      <SettingsGroup title={t("appSettings.automation.planGroup")}>
+      <SettingsGroup title={t("appSettings.automation.planGroup")} icon={SETTINGS_ICONS.schedule}>
         <FreezeSetting domain={domain} canDeploy={org.can("apps.deploy", app.team ?? null)} />
         {isPreview ? null : <UpdateScheduleSetting domain={domain} />}
         <RolloutLimitsSetting domain={domain} />

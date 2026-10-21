@@ -38,6 +38,7 @@ import { reportActionError } from "../../apps/useAppActions";
 import { splitErrors } from "../../settings/formErrors";
 import { olderServer } from "./queries";
 import { RowError, RowLoading } from "./settingRows";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 type When = "daily" | "weekly" | "monthly" | "custom";
 
@@ -229,7 +230,7 @@ export function UpdateScheduleSetting({ domain }: { domain: string }) {
         help={t("rollout.schedule.help")}
         {...(data.scheduled ? { status: <StatusPill state={data.enabled ? "running" : "stopped"} size="sm" label={data.enabled ? t("rollout.schedule.pillOn") : t("rollout.schedule.pillOff")} /> } : {})}
         action={
-          <Button size="sm" onClick={() => setEditing(true)}>
+          <Button icon={<SETTINGS_ICONS.schedule aria-hidden="true" />} size="sm" onClick={() => setEditing(true)}>
             {data.scheduled ? t("rollout.schedule.edit") : t("rollout.schedule.set")}
           </Button>
         }

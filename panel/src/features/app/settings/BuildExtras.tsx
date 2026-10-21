@@ -17,6 +17,7 @@ import { formatBytes } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
 import { useAppActions } from "../../apps/useAppActions";
 import { buildCacheQuery, processTypesQuery, settingsKeys } from "./queries";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /**
  * The cache the application's builds share: how much it holds, emptying it, and building the
@@ -41,7 +42,7 @@ export function BuildCacheCard({ domain }: { domain: string }) {
 
   if (view.isPending) {
     return (
-      <Card title={title} description={description} loading>
+      <Card title={title} icon={SETTINGS_ICONS.buildCache} description={description} loading>
         <span className="sr-only">{t("buildExtras.cache.loading")}</span>
         <Skeleton className="h-12 w-full rounded-control" />
       </Card>
@@ -49,14 +50,14 @@ export function BuildCacheCard({ domain }: { domain: string }) {
   }
   if (view.isError) {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.buildCache} description={description}>
         <ErrorBlock compact error={view.error} title={t("buildExtras.cache.readFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       </Card>
     );
   }
   const cache = view.data;
   return (
-    <Card title={title} description={description}>
+    <Card title={title} icon={SETTINGS_ICONS.buildCache} description={description}>
       <div className="flex flex-col gap-4">
         <KeyValueList
           items={[
@@ -66,10 +67,10 @@ export function BuildCacheCard({ domain }: { domain: string }) {
         />
         <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("buildExtras.cache.rebuildDescription")}</p>
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" loading={rebuildFresh.isPending} onClick={() => rebuildFresh.mutate()}>
+          <Button icon={<SETTINGS_ICONS.rebuild aria-hidden="true" />} size="sm" loading={rebuildFresh.isPending} onClick={() => rebuildFresh.mutate()}>
             {t("buildExtras.cache.rebuild")}
           </Button>
-          <Button size="sm" variant="ghost" disabled={!cache.exists || cache.size_bytes === 0} onClick={() => setEmptying(true)}>
+          <Button icon={<SETTINGS_ICONS.empty aria-hidden="true" />} size="sm" variant="ghost" disabled={!cache.exists || cache.size_bytes === 0} onClick={() => setEmptying(true)}>
             {t("buildExtras.cache.empty")}
           </Button>
         </div>
@@ -104,7 +105,7 @@ export function ProcessesCard({ domain }: { domain: string }) {
 
   if (view.isPending) {
     return (
-      <Card title={title} description={description} loading>
+      <Card title={title} icon={SETTINGS_ICONS.processes} description={description} loading>
         <span className="sr-only">{t("buildExtras.processes.loading")}</span>
         <Skeleton className="h-12 w-full rounded-control" />
       </Card>
@@ -112,7 +113,7 @@ export function ProcessesCard({ domain }: { domain: string }) {
   }
   if (view.isError) {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.processes} description={description}>
         <ErrorBlock compact error={view.error} title={t("buildExtras.processes.readFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       </Card>
     );
@@ -120,7 +121,7 @@ export function ProcessesCard({ domain }: { domain: string }) {
   const report = view.data;
   if (report.processes.length === 0 && report.problem === "") return null;
   return (
-    <Card title={title} description={description}>
+    <Card title={title} icon={SETTINGS_ICONS.processes} description={description}>
       <div className="flex flex-col gap-3">
         {report.problem !== "" ? (
           <Notice tone="warning" title={t("buildExtras.processes.problem")}>

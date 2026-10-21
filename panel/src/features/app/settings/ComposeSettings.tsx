@@ -19,6 +19,7 @@ import { joinWords, splitNames, splitWords } from "./composeWords";
 import type { FormPart } from "./formParts";
 import { composeSettingsQuery, settingsKeys } from "./queries";
 import type { ComposeSettings } from "./queries";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** The fields of a Compose stack's settings as typed: lists are words separated by spaces. */
 interface Draft {
@@ -157,7 +158,7 @@ export function ComposeSettingsCard({ domain, options }: { domain: string; optio
   }
   if (view.isError) {
     return (
-      <Card title={title}>
+      <Card title={title} icon={SETTINGS_ICONS.compose}>
         <ErrorBlock compact error={view.error} title={t("composeSettings.readFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       </Card>
     );
@@ -166,11 +167,12 @@ export function ComposeSettingsCard({ domain, options }: { domain: string; optio
   const allowedUp = view.data.allowed_up_args.join(" ");
   return (
     <Card
+      icon={SETTINGS_ICONS.compose}
       title={title}
       description={t("composeSettings.description")}
       actions={
         options.customised ? (
-          <Button size="sm" variant="ghost" onClick={() => setResetting(true)}>
+          <Button icon={<SETTINGS_ICONS.reset aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setResetting(true)}>
             {t("composeSettings.reset")}
           </Button>
         ) : undefined

@@ -14,6 +14,7 @@ import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import { kindWords } from "../../settings/registries/registries";
 import type { FormPart } from "./formParts";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** Whether registry accounts mean anything for the application: the types that pull or build images. */
 export function usesRegistries(app: { app_type?: string | null }): boolean {
@@ -97,7 +98,7 @@ export function RegistryLoginsCard({ choice }: { choice: RegistryChoicePart }) {
   }
   if (all.isError || attached.isError) {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.registry} description={description}>
         <ErrorBlock
           compact
           error={all.error ?? attached.error}
@@ -111,7 +112,7 @@ export function RegistryLoginsCard({ choice }: { choice: RegistryChoicePart }) {
     );
   }
   return (
-    <Card title={title} description={description}>
+    <Card title={title} icon={SETTINGS_ICONS.registry} description={description}>
       {all.data.logins.length === 0 ? (
         <p className="max-w-measure text-13 text-pretty text-fg-muted">
           {t("registries.app.none")}{" "}

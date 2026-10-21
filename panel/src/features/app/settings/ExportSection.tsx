@@ -14,7 +14,7 @@ import { downloadText } from "../../../lib/clipboard";
 import { reportActionError } from "../../apps/useAppActions";
 import { DeclarationCard } from "./Declaration";
 import { ReplicationCard } from "./ReplicationCard";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 
 /**
  * Export: everything that defines the application, as a JSON document in `noust app export`'s
@@ -45,7 +45,7 @@ export function ExportSettings() {
 
   return (
     <div className="flex flex-col gap-8">
-      <Section title={t("appSettings.exportApp.title")} description={t("appSettings.exportApp.description")}>
+      <Section title={t("appSettings.exportApp.title")} {...subsectionIcon("appSettings.nav.export")} description={t("appSettings.exportApp.description")}>
         <Card>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <Checkbox

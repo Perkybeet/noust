@@ -545,7 +545,6 @@ export const appSettings: Catalog<typeof en> = {
     stopped: "{domain} vuelve a seguir su rama",
   },
   previews: {
-    onBody: "Cada pull request abierta contra el repositorio recibe una copia de esta aplicación, que se retira cuando se cierra o se queda inactiva.",
     offBody: "Las pull requests no reciben una copia propia. Prepara abajo lo que necesitan las vistas previas y actívalas.",
     title: "Vistas previas de pull requests",
     description: "Cada pull request abierto contra el repositorio obtiene su propia copia de la app, que se elimina cuando el pull request se cierra o queda inactivo.",
@@ -620,6 +619,7 @@ export const appSettings: Catalog<typeof en> = {
     statusFailed: "Fallida",
     statusRemoving: "Eliminando",
     statusUnknown: "Desconocido",
+    stateTitle: "Vistas previas de esta aplicación",
   },
   danger: {
     title: "Eliminar",

@@ -20,6 +20,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { RowList } from "../../../components/ui/RowList";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** What the server accepts as a login name (`noust.managers.site_policy`). */
 const USERNAME = /^[A-Za-z0-9._@-]{1,64}$/;
@@ -136,6 +137,7 @@ export function AccessUsers({ domain, policy }: { domain: string; policy: AppPol
 
   return (
     <Card
+      icon={SETTINGS_ICONS.access}
       title={t("network.access.users.title")}
       description={t("network.access.users.description")}
       actions={

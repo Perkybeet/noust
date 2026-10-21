@@ -18,6 +18,7 @@ import { useNode } from "../../../nodes/useNode";
 import { splitErrors } from "../../settings/formErrors";
 import { useOrganization } from "../../teams/useOrganization";
 import { lockoutAddress } from "./access";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /**
  * Answer a private network only: a tailnet or a WireGuard interface, named instead of its
@@ -74,7 +75,7 @@ export function PrivateCard({ domain }: { domain: string }) {
   const down = (data?.available ?? []).filter((candidate) => !candidate.up || candidate.cidrs.length === 0);
 
   return (
-    <Card title={t("network.access.private.title")} description={t("network.access.private.description")} loading={status.isPending}>
+    <Card title={t("network.access.private.title")} icon={SETTINGS_ICONS.privateNetwork} description={t("network.access.private.description")} loading={status.isPending}>
       <div className="flex flex-col gap-4">
         {status.isError ? <ErrorBlock compact error={status.error} title={t("network.access.private.readFailed")} /> : null}
         {data !== undefined ? (
@@ -96,11 +97,11 @@ export function PrivateCard({ domain }: { domain: string }) {
                     options={usable.map((candidate) => ({ value: candidate.name, label: `${candidate.name} (${candidate.cidrs.join(", ")})` }))}
                   />
                 </Field>
-                <Button variant="primary" loading={enable.isPending} onClick={() => enable.mutate({ network, accept_lockout: false })}>
+                <Button icon={<SETTINGS_ICONS.turnOn aria-hidden="true" />} variant="primary" loading={enable.isPending} onClick={() => enable.mutate({ network, accept_lockout: false })}>
                   {t("network.access.private.enable")}
                 </Button>
                 {data.private ? (
-                  <Button loading={disable.isPending} onClick={() => disable.mutate()}>
+                  <Button icon={<SETTINGS_ICONS.turnOff aria-hidden="true" />} loading={disable.isPending} onClick={() => disable.mutate()}>
                     {t("network.access.private.disable")}
                   </Button>
                 ) : null}
@@ -122,7 +123,7 @@ export function PrivateCard({ domain }: { domain: string }) {
                   <p className="text-13 text-fg-muted">{t("network.access.private.certificateServed", { name: data.tailnet_certificate })}</p>
                 ) : org.can("server.manage") ? (
                   <div>
-                    <Button loading={certificate.isPending} onClick={() => certificate.mutate()}>
+                    <Button icon={<SETTINGS_ICONS.certificate aria-hidden="true" />} loading={certificate.isPending} onClick={() => certificate.mutate()}>
                       {t("network.access.private.certificate")}
                     </Button>
                     <p className="mt-1 text-13 text-fg-muted">{t("network.access.private.certificateHelp")}</p>

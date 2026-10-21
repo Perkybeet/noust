@@ -37,6 +37,7 @@ import { useSudoFirst } from "./formParts";
 import { webhookStatusQuery } from "./queries";
 import { deployKeysUrl } from "./sourceForge";
 import { forgeName } from "./webhook";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** What an action on the key answers: the application's key as the API now sees it. */
 function useKeySettled(domain: string): (result: AppDeployKey) => void {
@@ -390,7 +391,7 @@ export function DeployKeyCard({ domain, repository }: { domain: string; reposito
   }
   if (view.isError) {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.key} description={description}>
         <ErrorBlock compact error={view.error} title={t("sources.deployKey.readFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       </Card>
     );
@@ -422,6 +423,7 @@ export function DeployKeyCard({ domain, repository }: { domain: string; reposito
 
   return (
     <Card
+      icon={SETTINGS_ICONS.key}
       title={title}
       status={state.pill}
       description={key === null ? noneText : state.text}
@@ -442,7 +444,7 @@ export function DeployKeyCard({ domain, repository }: { domain: string; reposito
               <InlineMessage tone="info">{t.rich("sources.deployKey.httpsHint", { sshUrl: <Mono>{sshUrl}</Mono> })}</InlineMessage>
             ) : null}
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="ghost" onClick={() => elevated(() => setImporting(true))}>
+              <Button icon={<SETTINGS_ICONS.upload aria-hidden="true" />} size="sm" variant="ghost" onClick={() => elevated(() => setImporting(true))}>
                 {t("sources.deployKey.import")}
               </Button>
               {choices.length > 0 ? (
@@ -486,13 +488,13 @@ export function DeployKeyCard({ domain, repository }: { domain: string; reposito
               />
             ) : (
               <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" loading={test.isPending} onClick={() => test.mutate()}>
+                <Button icon={<SETTINGS_ICONS.test aria-hidden="true" />} size="sm" loading={test.isPending} onClick={() => test.mutate()}>
                   {t("sources.deployKey.test")}
                 </Button>
                 <Button size="sm" icon={<RefreshCw aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()}>
                   {t("sources.deployKey.rotate")}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => elevated(() => setRemoving(true))}>
+                <Button icon={<SETTINGS_ICONS.remove aria-hidden="true" />} size="sm" variant="ghost" onClick={() => elevated(() => setRemoving(true))}>
                   {t("sources.deployKey.remove")}
                 </Button>
               </div>

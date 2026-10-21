@@ -26,6 +26,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** The application types that run as a stack or a container: built from their own files. */
 const OWN_FILES = new Set(["docker-compose", "container"]);
@@ -83,7 +84,7 @@ function TurnOn({ domain, info }: { domain: string; info: AppPush }) {
           tone="warning"
           title={t("gitPush.off.notReadyTitle")}
           action={
-            <Button size="sm" loading={prepare.isPending} onClick={() => prepare.mutate()}>
+            <Button icon={<SETTINGS_ICONS.prepare aria-hidden="true" />} size="sm" loading={prepare.isPending} onClick={() => prepare.mutate()}>
               {t("gitPush.off.prepare")}
             </Button>
           }
@@ -106,7 +107,6 @@ function TurnOn({ domain, info }: { domain: string; info: AppPush }) {
       <div>
         {/* design-exception: submit-disabled-invalid the server must be prepared first, which the notice above says and offers */}
         <Button
-          variant="primary"
           loading={enable.isPending}
           disabled={!info.host_ready}
           onClick={() => {
@@ -148,7 +148,7 @@ function AddKey({ domain }: { domain: string }) {
         <Textarea mono rows={3} value={key} placeholder="ssh-ed25519 AAAA..." onChange={(event) => setKey(event.target.value)} />
       </Field>
       <div>
-        <Button size="sm" loading={add.isPending} disabled={label.trim() === "" || key.trim() === ""} onClick={() => add.mutate()}>
+        <Button icon={<SETTINGS_ICONS.add aria-hidden="true" />} size="sm" loading={add.isPending} disabled={label.trim() === "" || key.trim() === ""} onClick={() => add.mutate()}>
           {t("gitPush.on.addKeyAction")}
         </Button>
       </div>
@@ -194,7 +194,7 @@ function TurnedOn({ domain, info }: { domain: string; info: AppPush }) {
           tone="warning"
           title={t("gitPush.on.hookTitle")}
           action={
-            <Button size="sm" loading={refresh.isPending} onClick={() => refresh.mutate()}>
+            <Button icon={<SETTINGS_ICONS.prepare aria-hidden="true" />} size="sm" loading={refresh.isPending} onClick={() => refresh.mutate()}>
               {t("gitPush.on.hookRepair")}
             </Button>
           }
@@ -232,7 +232,7 @@ function TurnedOn({ domain, info }: { domain: string; info: AppPush }) {
       </Subsection>
       <AddKey domain={domain} />
       <div>
-        <Button variant="ghost" onClick={() => setTurningOff(true)}>
+        <Button icon={<SETTINGS_ICONS.turnOff aria-hidden="true" />} variant="ghost" onClick={() => setTurningOff(true)}>
           {t("gitPush.on.turnOff")}
         </Button>
       </div>
@@ -290,7 +290,7 @@ export function GitPushCard({ app }: { app: { domain: string; layout?: string | 
 
   if (fit !== "yes") {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.upload} description={description}>
         <p className="max-w-measure text-13 text-pretty text-fg-muted">
           {fit === "inPlace" ? t("gitPush.unsupportedInPlace") : t("gitPush.unsupportedType", { type: app.app_type ?? "" })}
         </p>
@@ -304,7 +304,7 @@ export function GitPushCard({ app }: { app: { domain: string; layout?: string | 
   }
   if (view.isPending) {
     return (
-      <Card title={title} description={description} loading>
+      <Card title={title} icon={SETTINGS_ICONS.upload} description={description} loading>
         <span className="sr-only">{t("gitPush.loading")}</span>
         <Skeleton className="h-24 w-full rounded-control" />
       </Card>
@@ -312,13 +312,13 @@ export function GitPushCard({ app }: { app: { domain: string; layout?: string | 
   }
   if (view.isError) {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.upload} description={description}>
         <ErrorBlock compact error={view.error} title={t("gitPush.readFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       </Card>
     );
   }
   return (
-    <Card title={title} description={description}>
+    <Card title={title} icon={SETTINGS_ICONS.upload} description={description}>
       {view.data.enabled ? <TurnedOn domain={domain} info={view.data} /> : <TurnOn domain={domain} info={view.data} />}
     </Card>
   );

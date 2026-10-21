@@ -24,6 +24,7 @@ import { splitErrors } from "../../settings/formErrors";
 import { reportActionError } from "../../apps/useAppActions";
 import { discardBlock } from "./declarationDiff";
 import { DeclarationReview } from "./DeclarationReview";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 type Applied = ResponseOf<"/api/apps/{domain}/apply", "post">;
 
@@ -216,14 +217,14 @@ export function DeclarationCard({ domain }: { domain: string }) {
     },
   });
   return (
-    <Card title={t("declaration.title")} description={t("declaration.description")}>
+    <Card title={t("declaration.title")} icon={SETTINGS_ICONS.declaration} description={t("declaration.description")}>
       <div className="flex flex-col gap-4">
         <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("declaration.secrets")}</p>
         <div className="flex flex-wrap items-center gap-2">
           <Button icon={<Download aria-hidden="true" />} loading={download.isPending} onClick={() => download.mutate()}>
             {t("declaration.download")}
           </Button>
-          <Button variant="ghost" onClick={() => setApplying(true)}>
+          <Button icon={<SETTINGS_ICONS.upload aria-hidden="true" />} variant="ghost" onClick={() => setApplying(true)}>
             {t("declaration.fromFile")}
           </Button>
         </div>

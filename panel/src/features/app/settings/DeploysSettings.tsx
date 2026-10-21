@@ -8,7 +8,7 @@ import { useT } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
 import { useSaveBar } from "./formParts";
 import { InstantRollbackCard, useRetention } from "./InstantRollback";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { StartupCheckCard, StaticStartupNote, useStartupCheck } from "./StartupCheck";
 import { ZeroDowntimeCard, useDrain } from "./ZeroDowntime";
 
@@ -36,7 +36,7 @@ export function DeploysSettings() {
 
   return (
     <>
-      <Section title={t("appSettings.deploys.title")} description={t("appSettings.deploys.description")}>
+      <Section title={t("appSettings.deploys.title")} {...subsectionIcon("appSettings.nav.deploys")} description={t("appSettings.deploys.description")}>
         <InstantRollbackCard app={app} retention={retention} />
         {unit ? <StartupCheckCard app={app} check={check} /> : <StaticStartupNote />}
         {unit ? <ZeroDowntimeCard app={app} status={zeroDowntime} drain={drain} /> : null}

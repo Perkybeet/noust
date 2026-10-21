@@ -18,6 +18,7 @@ import { useT } from "../../../i18n";
 import { useOrganization } from "../../teams/useOrganization";
 import { listOf } from "./access";
 import type { AccessForm } from "./useAccessForm";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /**
  * The web application firewall (ModSecurity with the OWASP Core Rule Set): off, writing down what
@@ -50,7 +51,7 @@ export function WafCard({ form, domain }: { form: AccessForm; domain: string }) 
   };
 
   return (
-    <Card title={t("network.access.waf.title")} description={t("network.access.waf.description")} loading={support.isPending}>
+    <Card title={t("network.access.waf.title")} icon={SETTINGS_ICONS.firewall} description={t("network.access.waf.description")} loading={support.isPending}>
       <div className="flex flex-col gap-4">
         {support.isError ? <ErrorBlock compact error={support.error} title={t("network.access.waf.readFailed")} /> : null}
         <ChoiceCards
@@ -70,7 +71,7 @@ export function WafCard({ form, domain }: { form: AccessForm; domain: string }) 
             title={data.problem}
             action={
               data.installable && org.can("server.manage") ? (
-                <Button loading={install.isPending} onClick={() => install.mutate()}>
+                <Button icon={<SETTINGS_ICONS.install aria-hidden="true" />} loading={install.isPending} onClick={() => install.mutate()}>
                   {t("network.access.waf.install")}
                 </Button>
               ) : undefined

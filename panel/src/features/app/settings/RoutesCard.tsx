@@ -22,6 +22,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { REDIRECT_CODES, draftOfRoute, errorsOfRoute, normalPath, routeOf, withRoute, withoutRoute } from "./routes";
 import type { PolicyRoute, RouteAuth, RouteDraft, RouteErrors, RouteKind } from "./routes";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 type Route = PolicyFields["routes"][number];
 
@@ -188,6 +189,7 @@ export function RoutesCard({ domain, routes, error, onChange }: RoutesCardProps)
 
   return (
     <Card
+      icon={SETTINGS_ICONS.routes}
       title={t("network.access.routes.title")}
       description={t("network.access.routes.description")}
       actions={

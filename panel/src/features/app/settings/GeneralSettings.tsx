@@ -17,7 +17,7 @@ import { AppTagList, AppTagsActions } from "./AppTags";
 import { BranchActions } from "./BranchPin";
 import { FollowTagsActions } from "./FollowTags";
 import { IdentityCard } from "./Identity";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { WorkerCard, isComposeStack } from "./StackSettings";
 
 /**
@@ -128,7 +128,7 @@ export function GeneralSettings() {
   ];
 
   return (
-    <Section title={t("appSettings.general.title")} description={t("appSettings.general.description")}>
+    <Section title={t("appSettings.general.title")} {...subsectionIcon("appSettings.nav.general")} description={t("appSettings.general.description")}>
       <Card padding="none">
         <KeyValueList empty={t("appSettings.general.notRecorded")} items={items} className="px-5 py-1" />
       </Card>
