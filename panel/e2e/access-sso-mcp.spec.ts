@@ -150,13 +150,16 @@ serial("a token can be bound to a project, and the access token, which belongs t
 serial("passwords are turned off for single sign-on, keeping the way back, and on again", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/settings/sso");
   await elevate(page, consoleServer);
-  await expect(page.getByRole("heading", { name: "No identity provider yet" })).toBeVisible();
-  // With no provider, turning passwords off would lock everybody out: it is not offered.
-  await expect(page.getByRole("button", { name: "Turn off…" })).toBeDisabled();
+  await expect(page.getByText("No sign-in connection yet")).toBeVisible();
+  // With no provider, turning passwords off would lock everybody out: the switch is off limits, and says why.
+  const passwords = page.getByRole("switch", { name: "Sign in with passwords and passkeys" });
+  await expect(passwords).toBeDisabled();
+  await expect(page.getByText(/Add a provider and test it first/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "Settings, Single sign-on, empty");
 
-  await page.getByRole("button", { name: "Add a provider" }).first().click();
+  await page.getByRole("button", { name: "Add a connection" }).click();
+  await page.getByRole("menuitem", { name: /OpenID Connect provider/ }).click();
   const drawer = page.getByRole("dialog", { name: "Add an identity provider" });
   await drawer.getByLabel("Name", { exact: true }).fill("corp");
   await drawer.getByLabel("Button label").fill("Acme SSO");
@@ -166,17 +169,19 @@ serial("passwords are turned off for single sign-on, keeping the way back, and o
   await settle(page);
   await expectNoA11yViolations(page, "the provider drawer");
   await drawer.getByRole("button", { name: "Add provider" }).click();
-  const providers = page.getByRole("region", { name: "Configured providers" });
+  const providers = page.getByRole("region", { name: "Sign-in connections" });
   await expect(providers.getByText("Acme SSO")).toBeVisible();
   // The secret is kept on the server and never comes back.
   await expect(page.getByText("a-secret-that-is-never-shown-again")).toBeHidden();
 
-  await page.getByRole("button", { name: "Turn off…" }).click();
-  const off = page.getByRole("dialog", { name: "Turn off passwords and passkeys" });
+  // Off is a decision with a way back: the switch asks who keeps a password before anything changes.
+  await passwords.click();
+  const off = page.getByRole("alertdialog", { name: "Turn off passwords and passkeys" });
   await off.getByRole("checkbox", { name: /ana/ }).check();
   await off.getByRole("button", { name: "Turn off passwords and passkeys" }).click();
   await expect(page.getByText("Only the identity provider signs accounts in").first()).toBeVisible();
-  const keepers = page.getByRole("group", { name: "Accounts that keep their password" });
+  await expect(page.locator("[data-state]").getByText("Off", { exact: true })).toBeVisible();
+  const keepers = page.getByText("Accounts that keep their password", { exact: true }).locator("xpath=..");
   await expect(keepers.getByText("ana")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "Settings, Single sign-on, passwords off");
@@ -193,11 +198,12 @@ serial("passwords are turned off for single sign-on, keeping the way back, and o
   await expect(visitor.getByRole("button", { name: "Emergency access" })).toBeVisible();
   await anonymous.close();
 
-  await page.getByRole("button", { name: "Turn on" }).click();
+  await passwords.click();
   await expect(page.getByText("Passwords and passkeys sign accounts in").first()).toBeVisible();
-  await providers.getByRole("button", { name: "Remove corp" }).click();
+  await providers.getByRole("button", { name: "Actions for corp" }).click();
+  await page.getByRole("menuitem", { name: "Remove" }).click();
   await page.getByRole("alertdialog", { name: "Remove corp" }).getByRole("button", { name: "Remove provider" }).click();
-  await expect(page.getByRole("heading", { name: "No identity provider yet" })).toBeVisible();
+  await expect(page.getByText("No sign-in connection yet")).toBeVisible();
 });
 
 serial("the MCP endpoint is turned on, a group of tools switched off, and the tools listed by what they do", async ({ page, consoleServer }) => {
