@@ -81,14 +81,14 @@ GUARANTEES: tuple[Guarantee, ...] = (
     Guarantee(
         1,
         "No process is started from a string of shell",
-        f"Command injection is the largest class of advisories in the products Noust is "
-        f"compared with: Coolify's [GHSA-234r-xrrg-m8f3]({COOLIFY_ADVISORIES}/GHSA-234r-xrrg-m8f3) "
-        f"(CVE-2025-64419, critical) and Dokploy's "
+        f"Command injection is a class of advisory this kind of product has had: Coolify's "
+        f"[GHSA-234r-xrrg-m8f3]({COOLIFY_ADVISORIES}/GHSA-234r-xrrg-m8f3) (CVE-2025-64419, "
+        f"critical) and Dokploy's "
         f"[GHSA-w223-vw9m-4f9c]({DOKPLOY_ADVISORIES}/GHSA-w223-vw9m-4f9c) (CVE-2026-72901, "
-        "critical, remote code execution) are two. Coolify builds each remote action as a shell "
-        "string sent over SSH (`instant_remote_process` is called 281 times in `app/` and "
-        "`bootstrap/` of the 4.4.0 tree read on 2026-10-13) and escapes by hand "
-        "(`escapeshellarg` appears 451 times in the same files).",
+        "critical, remote code execution) are two. In the Coolify 4.4.0 tree read on "
+        "2026-10-13 a remote action is a shell string sent over SSH (`instant_remote_process` "
+        "is called 281 times in `app/` and `bootstrap/`) and `escapeshellarg` appears 451 "
+        "times in the same files.",
         "Every process Noust starts is an argument list. A string where a list is expected, an "
         "empty list and a NUL byte are refused before anything runs; a metacharacter is data. "
         "Every call has a timeout. Secrets reach a process through its environment or its "
@@ -117,11 +117,11 @@ GUARANTEES: tuple[Guarantee, ...] = (
     Guarantee(
         2,
         "The code of a repository does not run as root without a decision on record",
-        "A helper container that mounts the Docker socket makes the permission to deploy equal "
-        "to root on the host: Coolify's deployment job starts its helper with "
-        "`-v /var/run/docker.sock:/var/run/docker.sock` "
-        "(`app/Jobs/ApplicationDeploymentJob.php`, 4.4.0, read on 2026-10-13), and the build "
-        "commands are the repository's.",
+        "A helper container that mounts the Docker socket makes the permission to deploy "
+        "equal to root on the host. In the Coolify 4.4.0 tree read on 2026-10-13, the "
+        "deployment job starts its helper with `-v /var/run/docker.sock:/var/run/docker.sock` "
+        "(`app/Jobs/ApplicationDeploymentJob.php`), and the build commands are the "
+        "repository's.",
         "Installing dependencies, building and running a deploy hook happen as `noust-build` "
         "(or the application's own account) in a transient systemd unit with a read-only "
         "system, no access to Noust's configuration or store, and no new privileges. Before the "
@@ -154,12 +154,13 @@ GUARANTEES: tuple[Guarantee, ...] = (
     Guarantee(
         3,
         "A compromised central does not get a shell on the servers it manages",
-        "Coolify's panel writes the private keys of the servers it manages as plain files on "
-        "its own host (`PrivateKey::storeInFileSystem`, `app/Models/PrivateKey.php:205`) and "
-        "makes its SSH calls with `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` "
-        "(`app/Helpers/SshMultiplexingHelper.php:426`; 4.4.0, read on 2026-10-13), so whoever "
-        "takes the panel, or sits between it and a server, has what it needs to act as root "
-        "there.",
+        "A panel that holds the keys of its servers and does not check theirs is a shell on "
+        "every server for whoever takes the panel or sits between it and a server. In the "
+        "Coolify 4.4.0 tree read on 2026-10-13, the private keys of the servers it manages "
+        "are written as plain files on its own host (`PrivateKey::storeInFileSystem`, "
+        "`app/Models/PrivateKey.php:205`) and its SSH calls use "
+        "`-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` "
+        "(`app/Helpers/SshMultiplexingHelper.php:426`).",
         "A central reaches a node through a tunnel, to its console port and nowhere else: the "
         "account is `noust-tunnel` (no home, no shell, no password), forced to run "
         "`/usr/bin/false`, with no terminal, no agent or X11 forwarding, no reverse or "
@@ -190,10 +191,10 @@ GUARANTEES: tuple[Guarantee, ...] = (
     Guarantee(
         4,
         "Every route declares its permission, and ownership is checked where the data is",
-        "Authorization by convention: Coolify's Livewire components accepted a `server_id` "
-        "without scoping it to the team while its API did (cross-team IDOR, "
-        f"[GHSA-725v-f5gh-22q9]({COOLIFY_ADVISORIES}/GHSA-725v-f5gh-22q9), CVE-2026-57498, "
-        "critical).",
+        "Authorization by convention fails in the route that forgets it. The advisory "
+        f"[GHSA-725v-f5gh-22q9]({COOLIFY_ADVISORIES}/GHSA-725v-f5gh-22q9) (CVE-2026-57498, "
+        "critical) against Coolify is a cross-team IDOR: Livewire components accepted a "
+        "`server_id` without scoping it to the team while the API did.",
         "Every API route names the permission it needs in `web/permissions/routes_<area>.py`; "
         "one global dependency enforces it and publishes it as `x-noust-permission`; a route "
         "without one fails a test and is refused when the server runs. Every WebSocket does "
@@ -223,10 +224,10 @@ GUARANTEES: tuple[Guarantee, ...] = (
     Guarantee(
         5,
         "Root-equivalent actions need a fresh proof, and sometimes a second person",
-        "Coolify's password confirmation lasts three hours (`password_timeout` is 10800 in "
-        "`config/auth.php:113`; 4.4.0, read on 2026-10-13); Noust's sudo mode closes fifteen "
-        "minutes after the last elevated action, and a window it opened never outlives its "
-        "ceiling.",
+        "A confirmation that stays valid for hours is not a fresh proof. Coolify's password "
+        "confirmation lasts three hours (`password_timeout` is 10800 in `config/auth.php:113`; "
+        "4.4.0, read on 2026-10-13); Noust's sudo mode closes fifteen minutes after the last "
+        "elevated action, and a window it opened never outlives its ceiling.",
         "Five roles with least privilege. Actions that are destructive or root-equivalent need "
         "sudo mode, a fresh proof of who is asking with a password or a passkey, for every kind "
         "of identity (a single-sign-on user's provider never stands in for the second factor). "
@@ -250,9 +251,11 @@ GUARANTEES: tuple[Guarantee, ...] = (
     Guarantee(
         6,
         "The sign-in surface is limited by a client that cannot choose its own identity",
-        "Coolify trusts `X-Forwarded-*` from anyone (`TrustProxies` is `*`): a rate-limit bypass "
-        f"([GHSA-688j-rm43-5r8x]({COOLIFY_ADVISORIES}/GHSA-688j-rm43-5r8x)) and reset-link "
-        f"poisoning ([GHSA-cgj8-7m5q-x5gv]({COOLIFY_ADVISORIES}/GHSA-cgj8-7m5q-x5gv)) follow, "
+        "A limit per address means nothing when the client chooses the address it appears to "
+        "come from. In the Coolify 4.4.0 tree read on 2026-10-13, `TrustProxies` is `*`, so "
+        "`X-Forwarded-*` is believed from anyone. Its published advisories include a "
+        f"rate-limit bypass ([GHSA-688j-rm43-5r8x]({COOLIFY_ADVISORIES}/GHSA-688j-rm43-5r8x)), "
+        f"reset-link poisoning ([GHSA-cgj8-7m5q-x5gv]({COOLIFY_ADVISORIES}/GHSA-cgj8-7m5q-x5gv)) "
         f"and a `GET` that reset a password "
         f"([GHSA-389w-cc6x-wr2m]({COOLIFY_ADVISORIES}/GHSA-389w-cc6x-wr2m)).",
         "Forwarding headers are believed only from a proxy the operator declared, "
@@ -284,10 +287,11 @@ GUARANTEES: tuple[Guarantee, ...] = (
     Guarantee(
         7,
         "The browser is held to a strict policy that a real browser tests",
-        "No Content-Security-Policy, frame, content-type or transport-security headers appear in "
-        "Coolify's `app/`, `config/`, `bootstrap/`, `routes/` or `docker/` (searched on "
-        "2026-10-13), and its session cookie is `same_site => lax` (`config/session.php:199`); "
-        "Dokploy had a clickjacking advisory "
+        "A page with no policy depends on every line of its markup being right. In the "
+        "Coolify 4.4.0 tree searched on 2026-10-13, no Content-Security-Policy, frame, "
+        "content-type or transport-security header appears in `app/`, `config/`, "
+        "`bootstrap/`, `routes/` or `docker/`, and its session cookie is `same_site => lax` "
+        "(`config/session.php:199`). Dokploy has a published clickjacking advisory "
         f"([GHSA-c94j-8wgf-2q9q]({DOKPLOY_ADVISORIES}/GHSA-c94j-8wgf-2q9q)).",
         "The console loads nothing from any other origin and runs under a Content Security Policy "
         "with no inline script or style and Trusted Types. Every response, including those "
@@ -316,8 +320,12 @@ GUARANTEES: tuple[Guarantee, ...] = (
     Guarantee(
         8,
         "What was done is recorded, tamper-evident, and shipped off the machine",
-        "Coolify's audit log is a ninety-day table written on a best-effort basis, with no "
-        "tamper evidence.",
+        "An audit trail that is deleted, rewritable or lost with the machine cannot answer who "
+        "did something after an incident. In the Coolify 4.4.0 tree (commit e793472 of "
+        "2026-10-06, read on 2026-10-21) the `audit_events` table has no hash or signature "
+        "column (`database/migrations/2026_08_20_000000_create_audit_events_table.php`) and "
+        "`AuditEvent::pruneExpired` deletes the rows older than ninety days "
+        "(`app/Models/AuditEvent.php:231-236`).",
         "Every change made through the API and every command that changes something is an event "
         "from a closed catalogue (a test scans the code for undeclared ones). Each line carries "
         "the MAC of the previous one; `noust audit verify` finds the first broken link; "
@@ -343,9 +351,10 @@ GUARANTEES: tuple[Guarantee, ...] = (
     Guarantee(
         9,
         "Secrets are not left in the open, and backups leave encrypted",
-        "Coolify passes a PostgreSQL password to `docker exec` as `-e PGPASSWORD=...` and S3 "
-        "keys to `mc alias set` on a command line (`app/Jobs/DatabaseBackupJob.php:687` and "
-        "`:892`; 4.4.0, read on 2026-10-13), where every local user can read them in `ps`.",
+        "A secret on a command line is readable by every local user in `ps`. In the 4.4.0 tree "
+        "read on 2026-10-13, Coolify passes a PostgreSQL password to `docker exec` as "
+        "`-e PGPASSWORD=...` and S3 keys to `mc alias set` "
+        "(`app/Jobs/DatabaseBackupJob.php:687` and `:892`).",
         "A secret is never in a command line or a log: it travels in the environment or on "
         "standard input, and a value Noust knows is scrubbed from build output, job logs and "
         "the audit trail. Files that hold one are `0600`. A central can seal its keys and "
@@ -379,13 +388,14 @@ GUARANTEES: tuple[Guarantee, ...] = (
     Guarantee(
         10,
         "A release can be checked, and a fix is announced with its release",
-        "Coolify updates itself by downloading a script and running it with `bash` "
-        "(`app/Actions/Server/UpdateCoolify.php:122-131`; 4.4.0, read on 2026-10-13), and its "
-        "`SECURITY.md` is twenty-five lines with a contact address and no timeline. On "
-        f"2026-10-13 [Coolify]({COOLIFY_ADVISORIES}) had published 70 advisories (21 critical) "
-        f"and [Dokploy]({DOKPLOY_ADVISORIES}) 60 (34 critical), counted from the published "
-        "advisories of each repository; a fix whose advisory is published long after the "
-        "release leaves everyone who updates on time unwarned.",
+        "A release nobody can check is trusted on the word of the channel it came from, and a "
+        "fix announced after its release leaves everyone who updates on time unwarned. In the "
+        "4.4.0 tree read on 2026-10-13, Coolify updates itself by downloading a script and "
+        "running it with `bash` (`app/Actions/Server/UpdateCoolify.php:122-131`), and its "
+        "`SECURITY.md` has a contact address and no timeline. On 2026-10-13 "
+        f"[Coolify]({COOLIFY_ADVISORIES}) had published 70 advisories (21 critical) and "
+        f"[Dokploy]({DOKPLOY_ADVISORIES}) 60 (34 critical), counted from the published "
+        "advisories of each repository.",
         "Every release is built by GitHub Actions from its tag, signed from 4.0.0 on with the "
         "maintainer's SSH key. Its files have a signed "
         "checksum file and a build-provenance attestation; the wheel has its SBOM attested; "
@@ -418,7 +428,9 @@ GUARANTEES: tuple[Guarantee, ...] = (
     Guarantee(
         11,
         "A compliance profile is one module that every area reads",
-        "Coolify has no hardening profile for self-hosted installations.",
+        "A hardening profile that each area applies for itself drifts: the profile is whatever "
+        "the last area decided. A profile that is one module every area reads can be checked "
+        "in one place.",
         "`security.profile: ens-medium` fixes, in one module, the values Spain's Esquema Nacional "
         "de Seguridad (RD 311/2022) expects of a category MEDIUM system: sessions, lockout, "
         "passwords, token lifetimes, audit retention, approvals, reasons for changes, backup "
