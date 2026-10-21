@@ -131,7 +131,7 @@ def test_wordpress_keeps_wp_content_and_reads_its_config_from_the_environment() 
     assert len(salts) == 8 and all(variable.generate == "password64" for variable in salts)
     config = read_asset("wordpress", "wp-config.php")
     for name in ("WORDPRESS_DB_PASSWORD", "WORDPRESS_NONCE_SALT"):
-        assert f"wasm_env( '{name}' )" in config
+        assert f"noust_env( '{name}' )" in config
     assert "WP_CONTENT_DIR" in config
 
 
@@ -305,7 +305,7 @@ def test_wordpress_plans_a_database_salts_and_php_settings(
     assert arguments["source"].startswith("https://wordpress.org/latest.tar.gz#checksum=")
     assert arguments["layout"] == "releases"
     assert arguments["php_shared_from_release"] == ["wp-content"]
-    assert "wasm_env" in arguments["php_files"]["wp-config.php"]
+    assert "noust_env" in arguments["php_files"]["wp-config.php"]
     assert set(arguments["persistent_paths"]) >= {"wp-content", "wp-config.php"}
     assert arguments["initial_health"] == ("/", "200-399", None)
     assert plan.notes[0].startswith(f"Open https://{DOMAIN}/wp-admin/install.php")

@@ -2283,7 +2283,7 @@ def test_a_staging_directory_already_there_is_refused_and_left_alone(
     """A directory planted under the staging name is neither used nor deleted."""
     manager, fake = live_nginx
     monkeypatch.setattr("noust.managers.webserver.os.urandom", lambda size: b"\x00" * size)
-    planted = validation_tmp / "wasm-validate-000000000000"
+    planted = validation_tmp / "noust-validate-000000000000"
     planted.mkdir()
 
     with pytest.raises(NginxError):

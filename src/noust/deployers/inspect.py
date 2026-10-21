@@ -82,7 +82,7 @@ from noust.validators.source import validate_source
 _logger = logging.getLogger(__name__)
 
 #: Prefix of every scratch directory, and how the stale sweep recognises one.
-SCRATCH_PREFIX = "wasm-inspect-"
+SCRATCH_PREFIX = "noust-inspect-"
 
 #: A scratch directory older than this belongs to an inspection that is no
 #: longer running: every git step has a deadline far shorter.
@@ -117,7 +117,7 @@ _ALSO_READ_AT_ROOT: tuple[str, ...] = (
 #: Domain handed to ``configure()`` so a deployer has something to derive an
 #: app name from. Never persisted, never used to build a path outside the
 #: throwaway checkout: ``app_path`` is always overridden explicitly.
-_PLACEHOLDER_DOMAIN = "wasm-inspect.invalid"
+_PLACEHOLDER_DOMAIN = "noust-inspect.invalid"
 
 #: Substrings that mark an environment variable's name as a credential.
 #: Broader than :data:`EnvManager.SECRET_PATTERNS`, which is tuned to avoid
@@ -980,7 +980,7 @@ def remove_stale_checkouts(
 
     The temporary directory is shared with every account on the machine, so
     only real directories owned by this process's user are touched: a
-    ``wasm-inspect-*`` link is never followed, whoever made it.
+    ``noust-inspect-*`` link is never followed, whoever made it.
 
     Args:
         directory: Where scratch directories are created. Defaults to the

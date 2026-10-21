@@ -1246,7 +1246,7 @@ def fastcgi_params(
     script = uri if uri.endswith(".php") else "/index.php"
     return {
         "GATEWAY_INTERFACE": "CGI/1.1",
-        "SERVER_SOFTWARE": "wasm-health-check",
+        "SERVER_SOFTWARE": "noust-health-check",
         "REQUEST_METHOD": method,
         "REQUEST_URI": path,
         "DOCUMENT_URI": script,
