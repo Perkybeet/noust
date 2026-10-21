@@ -12,7 +12,7 @@ registered without a port, every health reader judges it by its containers,
 and ``noust app headless`` is how one registered wrongly is put right - only
 when asked.
 
-The fixture is the production worker's compose file, verbatim.
+The fixture is modelled on a production worker's compose file.
 """
 
 from __future__ import annotations
@@ -194,6 +194,49 @@ def test_an_update_of_a_worker_registered_with_a_port_does_not_probe_it(
 
     assert probed == []
     assert store.list_deployments(DOMAIN)[0].status == "success"
+
+
+def test_a_stack_registered_as_a_worker_that_publishes_a_port_later_has_it_recorded_and_probed(
+    root: Path, store: NoustStore, docker: Docker, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Adopted with no port, it is a worker; the operator then publishes one and updates it.
+
+    The row kept no port, so the gate found nothing to ask, the stack was never probed, and the
+    port the file publishes was in nobody's record.
+    """
+    registered(store, root, port=None)
+    (root / "docker-compose.yml").write_text(
+        "services:\n  web:\n    image: example/web:1\n    ports:\n      - \"8081:80\"\n"
+    )
+    probed: list[str] = []
+    monkeypatch.setattr(
+        docker_compose, "wait_until_healthy", lambda url, **kw: probed.append(url) or True
+    )
+    monkeypatch.setattr(docker_compose.time, "sleep", lambda seconds: None)
+    deployer = DockerComposeDeployer(runner=docker)
+    deployer.app_path, deployer.app_name, deployer.domain = root, root.name, DOMAIN
+
+    deployer.update()
+
+    app = store.get_app(DOMAIN)
+    assert app is not None and app.port == 8081
+    assert probed and probed[0].startswith("http://127.0.0.1:8081")
+    assert store.list_deployments(DOMAIN)[0].status == "success"
+
+
+def test_a_worker_that_still_publishes_nothing_keeps_no_port(
+    root: Path, store: NoustStore, docker: Docker, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registered(store, root, port=None)
+    monkeypatch.setattr(docker_compose.time, "sleep", lambda seconds: None)
+    deployer = DockerComposeDeployer(runner=docker)
+    deployer.app_path, deployer.app_name, deployer.domain = root, root.name, DOMAIN
+
+    deployer.update()
+
+    app = store.get_app(DOMAIN)
+    assert app is not None and app.port is None
 
 
 # -- Judged by its containers ------------------------------------------------------

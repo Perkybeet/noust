@@ -831,6 +831,11 @@ own. `GET /api/apps/{domain}/headless` (`apps.read`) says whether the stack is a
 port recorded and whether its site can go; `POST` (`apps.manage`, sudo) does it, with
 `{"remove_site": true}` to remove the site.
 
+**A worker that starts publishing a port.** A stack adopted or deployed while it published nothing
+has no port recorded. Publish one in its compose file and update it: the update records the port the
+file names, so the health gate probes it and `noust list` and the console judge the stack as the web
+it has become. The update does not write a site for it: an adopted stack's site is yours.
+
 ## Scheduled tasks of a stack
 
 A cron job associated with a stack can run **in one of its services** instead of on the server:
