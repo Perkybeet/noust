@@ -6,22 +6,23 @@
  */
 export const consoleAccess = {
   nav: {
-    label: "Console access",
+    label: "Console address",
     keywords: "publish expose console domain https certificate public name nginx tunnel allow list",
-    command: "Console access settings",
+    command: "Console address settings",
   },
-  documentTitle: "Console access",
+  documentTitle: "Console address",
   loadFailed: "Could not read whether the console is published",
   loading: "Reading whether the console is published",
   state: {
-    on: "The console is published",
-    onBody: "It answers at {url} over HTTPS. The break-glass access token still signs in there: keep it offline.",
-    off: "The console is private",
-    offBody: "It listens on this server only, and you reach it through an SSH tunnel. Publishing gives it a name of its own and a certificate, so it opens from a browser without a tunnel.",
+    title: "Public name",
+    on: "Published",
+    onBody: "The console answers at {url} over HTTPS. The break-glass access token still signs in there: keep it offline.",
+    off: "Private",
+    offBody: "The console listens on this server only, and you reach it through an SSH tunnel. Publishing gives it a name and a certificate, so a browser opens it without one.",
     problem: "Published, with a problem",
     problemBody: "It is published at {url}, but something Noust made for it is not as it left it.",
-    unfinished: "An earlier attempt did not finish",
-    unfinishedBody: "Part of the work for {domain} was done and the rest was not. Unpublishing cleans up exactly what was made.",
+    unfinished: "Unfinished",
+    unfinishedBody: "An earlier attempt did part of the work for {domain} and not the rest. Unpublishing cleans up exactly what was made.",
   },
   actions: {
     publish: "Publish the console…",
@@ -29,7 +30,6 @@ export const consoleAccess = {
     open: "Open {url}",
   },
   facts: {
-    title: "What was published",
     address: "Address",
     allowList: "Reachable from",
     anyone: "Anyone who knows the name",
@@ -88,8 +88,6 @@ export const consoleAccess = {
     jobSucceeded: "The console is published at {domain}",
     jobFailed: "Publishing the console at {domain} failed",
     logLabel: "Output of publishing the console",
-    logEmpty: "The job has printed nothing yet.",
-    notes: "What to know",
     restarting: "The console restarts in a few seconds and answers at the new address.",
   },
   unpublish: {

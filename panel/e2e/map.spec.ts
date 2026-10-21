@@ -1,5 +1,5 @@
 /**
- * The map of the server against the real backend (checklist M-69): the seeded machine's names,
+ * The map of the server against the real backend (checklist M-69), the Overview's second tab: the seeded machine's names,
  * applications, databases and scheduled work in fixed columns, the same connections as a table with
  * links to each thing, nothing moving when it is read again, and a list per column on a phone.
  */
@@ -13,7 +13,9 @@ async function seededApps(page: import("@playwright/test").Page): Promise<string
 
 test("the server's applications, databases and scheduled work are drawn in columns and listed as a table", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/map");
-  await expect(page.getByRole("heading", { level: 1, name: "Map" })).toBeVisible();
+  // The map is the second view of the Overview: its title, its tabs, the map as the body (NV-2).
+  await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Overview sections" }).getByRole("link", { name: "Map" })).toHaveAttribute("aria-current", "page");
   const figure = page.getByRole("figure", { name: "How this server fits together" });
   await expect(figure).toBeVisible();
   const domains = await seededApps(page);
@@ -64,9 +66,10 @@ test("the map is found from the palette and from the Overview's menu", async ({ 
   await settle(page);
   await page.keyboard.press("Control+k");
   await page.getByRole("combobox", { name: "Search apps, databases, domains, servers, settings and actions" }).fill("map of this");
-  await page.getByRole("option", { name: "Open the map of this server" }).click();
+  // It says where it lives beside its name: the Map is a tab of the Overview.
+  await page.getByRole("option", { name: /^Open the map of this server/ }).click();
   await expect(page).toHaveURL(/\/map$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Map" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
 
   await page.goto("/");
   await page.getByRole("button", { name: "More actions" }).click();

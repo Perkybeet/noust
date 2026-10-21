@@ -36,6 +36,7 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
+from noust.core import domain_certificates
 from noust.core.exceptions import NoustError, SecurityError, ValidationError
 from noust.managers import site_routes
 from noust.validators import container, domain, environment, health, names, port, source
@@ -252,6 +253,44 @@ class TestDomains:
     @pytest.mark.parametrize("value", [None, 0, b"x.com", ["x.com"]])
     def test_a_domain_that_is_not_text_is_refused_not_crashed_on(self, value: object) -> None:
         accepted, _ = verdict(domain.validate_domain, value)
+
+        assert not accepted
+
+
+class TestTheLineageANamesCertificateIsKeptIn:
+    """The name of a certbot lineage: a directory of ``/etc/letsencrypt/live`` and a ``--cert-name``."""
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_is_accepted_is_a_directory_name_and_an_argument_certbot_can_carry(
+        self, value: str
+    ) -> None:
+        accepted, result = verdict(domain_certificates.lineage_name, value)
+
+        if not accepted:
+            return
+        assert re.fullmatch(r"_?[a-z0-9]([a-z0-9._-]*[a-z0-9])?", result), repr(result)
+        assert ".." not in result and "/" not in result and len(result) <= 270
+        assert not result.startswith("-")
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p.strip()])
+    def test_no_known_payload_survives_as_a_lineage_with_anything_odd_in_it(
+        self, payload: str
+    ) -> None:
+        accepted, result = verdict(domain_certificates.lineage_name, payload)
+
+        if accepted:
+            assert re.fullmatch(r"_?[a-z0-9]([a-z0-9._-]*[a-z0-9])?", result), repr(result)
+
+    @pytest.mark.parametrize("value", [None, 0, b"x.com", ["x.com"]])
+    def test_a_name_that_is_not_text_is_refused_not_crashed_on(self, value: object) -> None:
+        accepted, _ = verdict(domain_certificates.lineage_name, value)
+
+        assert not accepted
+
+    @pytest.mark.parametrize("value", ["own ", "Own", "shared\n", "", "all", None, 0])
+    def test_only_the_two_modes_are_modes(self, value: object) -> None:
+        accepted, _ = verdict(domain_certificates.check_mode, value)
 
         assert not accepted
 

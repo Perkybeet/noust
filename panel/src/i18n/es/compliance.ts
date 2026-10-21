@@ -3,9 +3,9 @@ import type { Catalog } from "../types";
 
 export const compliance: Catalog<typeof en> = {
   nav: {
-    label: "Cumplimiento",
+    label: "Informe ENS",
     keywords: "ens esquema nacional seguridad cumplimiento comprobación informe auditoría evidencias",
-    command: "Cumplimiento del ENS",
+    command: "Informe ENS",
   },
   status: {
     fail: "No se cumple",
@@ -29,7 +29,7 @@ export const compliance: Catalog<typeof en> = {
     mpS: "Servicios",
   },
   page: {
-    documentTitle: "Cumplimiento",
+    documentTitle: "Informe ENS",
     title: "ENS categoría MEDIA",
     description: "Este servidor frente al perfil, comprobación a comprobación, agrupado por la medida a la que responde cada una.",
     checkAgain: "Comprobar de nuevo",

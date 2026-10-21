@@ -25,7 +25,6 @@ export const complianceSetup = {
     show: "What it turns on",
     enable: "Turn on…",
     disable: "Turn off…",
-    clauses: "Clause",
     organisational: "Stays organisational",
     notCovered: "Technical, and not enforced here",
     forcedHere: "Forces {count} of the controls below",
@@ -59,7 +58,6 @@ export const complianceSetup = {
     understood: "I have read this and want to go ahead",
     enableAction: "Turn on",
     disableAction: "Turn off",
-    failed: "Could not make the change",
     turnedOn: "{name} is on",
     turnedOff: "{name} is off",
   },
@@ -78,9 +76,8 @@ export const complianceSetup = {
     description:
       "Each control has its own setting. A framework that is on locks the controls it asks for at its value or stricter; you can always tighten one further.",
     lockedBy: "Required by {names}",
-    ownSetting: "Your own setting",
     change: "Change…",
-    forced: "Forced on",
+    noPermission: "Your role cannot change security settings.",
     checkOnly: "Judged by the compliance check: nothing refuses it",
     changed: "{name} changed",
     group: {
@@ -123,8 +120,7 @@ export const complianceSetup = {
   control: {
     roles_split: {
       title: "Split the administrator's duties",
-      summary:
-        "Administrators do not manage accounts, security settings or the audit trail; security officers and auditors do.",
+      summary: "Accounts, security and audit go to other roles.",
     },
     separation_of_duties: {
       title: "Separation of duties",
@@ -133,21 +129,19 @@ export const complianceSetup = {
     },
     single_role_per_account: {
       title: "One role per account",
-      summary:
-        "Roles on the whole server are not added to an account's own; a person with two duties holds two accounts.",
+      summary: "A person with two duties holds two accounts.",
     },
     sso_no_admin: {
       title: "Identity providers never grant admin",
-      summary: "The admin role is granted by a person, never by a provider's default role or group.",
+      summary: "A person grants admin, never an identity provider.",
     },
     approvals: {
       title: "Approval by a second person",
-      summary: "Root-equivalent actions, servers and role changes wait for a second person to approve them.",
+      summary: "Root-level actions and role changes need a second person.",
     },
     restricted_tokens: {
       title: "Restricted API tokens",
-      summary:
-        "A token belongs to an account, cannot act in sudo mode and never holds root-equivalent, account or security permissions.",
+      summary: "A token has an owner and no root-level permissions.",
     },
     token_max_days: {
       title: "Longest API token life",
@@ -167,7 +161,7 @@ export const complianceSetup = {
     },
     sudo_max_minutes: {
       title: "Sudo mode longest time",
-      summary: "The longest sudo mode lasts from its confirmation, however busy the session.",
+      summary: "The longest sudo mode lasts once confirmed.",
     },
     session_idle_minutes: {
       title: "Session idle time",
@@ -199,7 +193,7 @@ export const complianceSetup = {
     },
     change_reasons: {
       title: "A reason for every change",
-      summary: "Every change from the command line, and every approval request, says why.",
+      summary: "Command-line changes and approval requests say why.",
     },
     exception_reasons: {
       title: "A reason for every exception",

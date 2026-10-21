@@ -6,7 +6,7 @@ import { cronJobsQuery } from "../../api/queries/cron";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { QueryState } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
@@ -45,42 +45,45 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
     </Button>
   );
 
-  let content;
-  if (jobs.isError && jobs.data === undefined) {
-    content = <ErrorBlock error={jobs.error} title={t("cron.page.loadError")} onRetry={() => void jobs.refetch()} retrying={jobs.isRefetching} />;
-  } else if (empty) {
-    content = (
-      <EmptyState
-        variant="firstUse"
-        icon={<Clock />}
-        title={t("cron.page.empty.title")}
-        description={t("cron.page.empty.description")}
-        action={newJobButton("secondary")}
-        command="noust cron create nightly-report --schedule daily --command '...'"
-      />
-    );
-  } else {
-    content = (
-      <CronJobsTable
-        jobs={shown}
-        caption={filtered ? t("cron.table.captionFiltered") : t("cron.table.captionAll")}
-        loading={jobs.isPending}
-        onRowActivate={(job) => setRunsFor(job.name)}
-        rowActions={(job) => <CronJobRowActions job={job} onEdit={setDialogJob} onViewRuns={setRunsFor} />}
-        empty={
-          <EmptyState
-            variant="inline"
-            title={t("cron.page.noMatch")}
-            action={
-              <Button size="sm" variant="ghost" onClick={() => onSearchChange({})}>
-                {t("cron.common.clearFilters")}
-              </Button>
-            }
-          />
-        }
-      />
-    );
-  }
+  const caption = filtered ? t("cron.table.captionFiltered") : t("cron.table.captionAll");
+  const content = (
+    <QueryState
+      query={jobs}
+      label={t("cron.page.what")}
+      skeleton={<CronJobsTable jobs={[]} caption={caption} loading />}
+      isEmpty={() => all.length === 0}
+      empty={
+        <EmptyState
+          variant="firstUse"
+          icon={<Clock />}
+          title={t("cron.page.empty.title")}
+          description={t("cron.page.empty.description")}
+          action={newJobButton("secondary")}
+          command="noust cron create nightly-report --schedule daily --command '...'"
+        />
+      }
+    >
+      {() => (
+        <CronJobsTable
+          jobs={shown}
+          caption={caption}
+          onRowActivate={(job) => setRunsFor(job.name)}
+          rowActions={(job) => <CronJobRowActions job={job} onEdit={setDialogJob} onViewRuns={setRunsFor} />}
+          empty={
+            <EmptyState
+              variant="inline"
+              title={t("cron.page.noMatch")}
+              action={
+                <Button size="sm" variant="ghost" onClick={() => onSearchChange({})}>
+                  {t("cron.common.clearFilters")}
+                </Button>
+              }
+            />
+          }
+        />
+      )}
+    </QueryState>
+  );
 
   return (
     <ListPage

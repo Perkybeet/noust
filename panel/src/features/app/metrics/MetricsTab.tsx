@@ -6,9 +6,13 @@ import { useMemo } from "react";
 import { appQuery } from "../../../api/queries/apps";
 import { deploymentsQuery } from "../../../api/queries/deployments";
 import { appMetricsStatusQuery } from "../../../api/queries/metrics";
-import type { AppMetricsStatus, MetricsReason } from "../../../api/queries/metrics";
+import type {
+  AppMetricsStatus,
+  MetricsReason,
+} from "../../../api/queries/metrics";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { CommandHint } from "../../../components/page/CommandHint";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section } from "../../../components/page/Section";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
@@ -17,7 +21,10 @@ import { Subsection } from "../../../components/page/Subsection";
 import { Card } from "../../../components/ui/Card";
 import { ChartGroup, ChartSkeleton } from "../../../components/ui/Chart";
 import type { ChartMarker } from "../../../components/ui/Chart";
-import { formatChartTime, momentNeedsDate } from "../../../components/ui/chart/time";
+import {
+  formatChartTime,
+  momentNeedsDate,
+} from "../../../components/ui/chart/time";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
@@ -26,9 +33,19 @@ import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { PlainKey, T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
-import { formatBytes, formatBytesRate, formatCount, formatPercent, parseTimestamp } from "../../../lib/format";
+import {
+  formatBytes,
+  formatBytesRate,
+  formatCount,
+  formatPercent,
+  parseTimestamp,
+} from "../../../lib/format";
 import { appLimits } from "../../apps/data";
-import { CollectorNotice, TruthLine, collectorReasonText } from "../../overview/HistoryStatus";
+import {
+  CollectorNotice,
+  TruthLine,
+  collectorReasonText,
+} from "../../overview/HistoryStatus";
 import { ContainerCharts, containerMetrics } from "./ContainerCharts";
 import { TrafficSection } from "./TrafficSection";
 import { MetricChart } from "../../overview/MetricChart";
@@ -48,25 +65,80 @@ interface ReasonKeys {
 
 /** Every reason the backend gives, with the console's words for it. */
 const REASONS: Readonly<Record<string, ReasonKeys>> = {
-  static: { title: "appPages.metrics.reason.static.title", description: "appPages.metrics.reason.static.description" },
-  php_fpm_missing: { title: "appPages.metrics.reason.php_fpm_missing.title", description: "appPages.metrics.reason.php_fpm_missing.description", fix: "appPages.metrics.reason.php_fpm_missing.fix" },
-  stopped: { title: "appPages.metrics.reason.stopped.title", description: "appPages.metrics.reason.stopped.description", fix: "appPages.metrics.reason.stopped.fix" },
-  failed: { title: "appPages.metrics.reason.failed.title", description: "appPages.metrics.reason.failed.description", fix: "appPages.metrics.reason.failed.fix" },
-  starting: { title: "appPages.metrics.reason.starting.title", description: "appPages.metrics.reason.starting.description" },
-  unit_missing: { title: "appPages.metrics.reason.unit_missing.title", description: "appPages.metrics.reason.unit_missing.description", fix: "appPages.metrics.reason.unit_missing.fix" },
-  cgroup_v1: { title: "appPages.metrics.reason.cgroup_v1.title", description: "appPages.metrics.reason.cgroup_v1.description", fix: "appPages.metrics.reason.cgroup_v1.fix" },
-  accounting_off: { title: "appPages.metrics.reason.accounting_off.title", description: "appPages.metrics.reason.accounting_off.description", fix: "appPages.metrics.reason.accounting_off.fix" },
-  cgroup_missing: { title: "appPages.metrics.reason.cgroup_missing.title", description: "appPages.metrics.reason.cgroup_missing.description", fix: "appPages.metrics.reason.cgroup_missing.fix" },
-  compose_docker_unavailable: { title: "appPages.metrics.reason.compose_docker_unavailable.title", description: "appPages.metrics.reason.compose_docker_unavailable.description", fix: "appPages.metrics.reason.compose_docker_unavailable.fix" },
-  compose_cgroup_unreadable: { title: "appPages.metrics.reason.compose_cgroup_unreadable.title", description: "appPages.metrics.reason.compose_cgroup_unreadable.description", fix: "appPages.metrics.reason.compose_cgroup_unreadable.fix" },
-  access_log_missing: { title: "appPages.metrics.reason.access_log_missing.title", description: "appPages.metrics.reason.access_log_missing.description", fix: "appPages.metrics.reason.access_log_missing.fix" },
+  static: {
+    title: "appPages.metrics.reason.static.title",
+    description: "appPages.metrics.reason.static.description",
+  },
+  php_fpm_missing: {
+    title: "appPages.metrics.reason.php_fpm_missing.title",
+    description: "appPages.metrics.reason.php_fpm_missing.description",
+    fix: "appPages.metrics.reason.php_fpm_missing.fix",
+  },
+  stopped: {
+    title: "appPages.metrics.reason.stopped.title",
+    description: "appPages.metrics.reason.stopped.description",
+    fix: "appPages.metrics.reason.stopped.fix",
+  },
+  failed: {
+    title: "appPages.metrics.reason.failed.title",
+    description: "appPages.metrics.reason.failed.description",
+    fix: "appPages.metrics.reason.failed.fix",
+  },
+  starting: {
+    title: "appPages.metrics.reason.starting.title",
+    description: "appPages.metrics.reason.starting.description",
+  },
+  unit_missing: {
+    title: "appPages.metrics.reason.unit_missing.title",
+    description: "appPages.metrics.reason.unit_missing.description",
+    fix: "appPages.metrics.reason.unit_missing.fix",
+  },
+  cgroup_v1: {
+    title: "appPages.metrics.reason.cgroup_v1.title",
+    description: "appPages.metrics.reason.cgroup_v1.description",
+    fix: "appPages.metrics.reason.cgroup_v1.fix",
+  },
+  accounting_off: {
+    title: "appPages.metrics.reason.accounting_off.title",
+    description: "appPages.metrics.reason.accounting_off.description",
+    fix: "appPages.metrics.reason.accounting_off.fix",
+  },
+  cgroup_missing: {
+    title: "appPages.metrics.reason.cgroup_missing.title",
+    description: "appPages.metrics.reason.cgroup_missing.description",
+    fix: "appPages.metrics.reason.cgroup_missing.fix",
+  },
+  compose_docker_unavailable: {
+    title: "appPages.metrics.reason.compose_docker_unavailable.title",
+    description:
+      "appPages.metrics.reason.compose_docker_unavailable.description",
+    fix: "appPages.metrics.reason.compose_docker_unavailable.fix",
+  },
+  compose_cgroup_unreadable: {
+    title: "appPages.metrics.reason.compose_cgroup_unreadable.title",
+    description:
+      "appPages.metrics.reason.compose_cgroup_unreadable.description",
+    fix: "appPages.metrics.reason.compose_cgroup_unreadable.fix",
+  },
+  access_log_missing: {
+    title: "appPages.metrics.reason.access_log_missing.title",
+    description: "appPages.metrics.reason.access_log_missing.description",
+    fix: "appPages.metrics.reason.access_log_missing.fix",
+  },
 };
 
 /** A reason in the console's words; one it does not know keeps Noust's own sentence. */
-export function reasonWords(t: T, reason: Pick<MetricsReason, "code" | "message">): { title: string; description: string } {
+export function reasonWords(
+  t: T,
+  reason: Pick<MetricsReason, "code" | "message">,
+): { title: string; description: string } {
   const known = REASONS[reason.code];
-  if (known) return { title: t(known.title), description: t(known.description) };
-  return { title: t("appPages.metrics.reason.other.title"), description: `${t("appPages.metrics.reason.other.description")} ${reason.message}` };
+  if (known)
+    return { title: t(known.title), description: t(known.description) };
+  return {
+    title: t("appPages.metrics.reason.other.title"),
+    description: `${t("appPages.metrics.reason.other.description")} ${reason.message}`,
+  };
 }
 
 const COMMAND = /^(?:noust|systemctl|journalctl|docker)\s[^\s]/;
@@ -76,13 +148,22 @@ const COMMAND = /^(?:noust|systemctl|journalctl|docker)\s[^\s]/;
  * the end of its sentence ("Redeploy it: noust update example.com"), or the one the reason
  * itself names (the service to edit, Docker's own view).
  */
-export function fixCommand(reason: Pick<MetricsReason, "code" | "fix" | "params">): string | null {
+export function fixCommand(
+  reason: Pick<MetricsReason, "code" | "fix" | "params">,
+): string | null {
   const unit = reason.params?.["unit"];
-  if (reason.code === "accounting_off" && typeof unit === "string" && unit !== "") return `systemctl edit ${unit}`;
+  if (
+    reason.code === "accounting_off" &&
+    typeof unit === "string" &&
+    unit !== ""
+  )
+    return `systemctl edit ${unit}`;
   if (reason.code === "compose_cgroup_unreadable") return "docker stats";
   const fix = reason.fix?.trim() ?? "";
   if (COMMAND.test(fix) && !fix.endsWith(".")) return fix;
-  const tail = /:\s+((?:noust|systemctl|journalctl|docker)\s[^()]+?)\.?$/.exec(fix);
+  const tail = /:\s+((?:noust|systemctl|journalctl|docker)\s[^()]+?)\.?$/.exec(
+    fix,
+  );
   return tail?.[1] ?? null;
 }
 
@@ -93,16 +174,30 @@ export function fixCommand(reason: Pick<MetricsReason, "code" | "fix" | "params"
 function ReasonDetail({ t, reason }: { t: T; reason: MetricsReason }) {
   const known = REASONS[reason.code];
   const command = fixCommand(reason);
-  const lead = known?.fix !== undefined ? t(known.fix) : command !== null ? t("appPages.metrics.fixLabel") : (reason.fix ?? null);
+  const lead =
+    known?.fix !== undefined
+      ? t(known.fix)
+      : command !== null
+        ? t("appPages.metrics.fixLabel")
+        : (reason.fix ?? null);
   if (lead === null && command === null && !reason.evidence) return null;
   return (
     <div className="flex min-w-0 flex-col items-start gap-2 text-left">
       {command !== null ? (
-        <CommandHint {...(lead !== null ? { label: lead } : {})} command={command} />
+        <CommandHint
+          {...(lead !== null ? { label: lead } : {})}
+          command={command}
+        />
       ) : lead !== null ? (
-        <p className="max-w-measure text-13 text-pretty text-fg-muted">{lead}</p>
+        <p className="max-w-measure text-13 text-pretty text-fg-muted">
+          {lead}
+        </p>
       ) : null}
-      {reason.evidence ? <SystemOutput label={t("appPages.metrics.evidenceLabel")}>{reason.evidence}</SystemOutput> : null}
+      {reason.evidence ? (
+        <SystemOutput label={t("appPages.metrics.evidenceLabel")}>
+          {reason.evidence}
+        </SystemOutput>
+      ) : null}
     </div>
   );
 }
@@ -116,11 +211,21 @@ interface DeployMark {
   label: string;
 }
 
-function DeployList({ domain, marks, t }: { domain: string; marks: readonly DeployMark[]; t: T }) {
+function DeployList({
+  domain,
+  marks,
+  t,
+}: {
+  domain: string;
+  marks: readonly DeployMark[];
+  t: T;
+}) {
   return (
     <Subsection title={t("appPages.metrics.deploysInRangeTitle")}>
       {marks.length === 0 ? (
-        <p className="text-13 text-fg-muted">{t("appPages.metrics.noDeploysInRange")}</p>
+        <p className="text-13 text-fg-muted">
+          {t("appPages.metrics.noDeploysInRange")}
+        </p>
       ) : (
         <ul className="flex flex-wrap gap-2">
           {marks.map((mark) => {
@@ -131,12 +236,15 @@ function DeployList({ domain, marks, t }: { domain: string; marks: readonly Depl
                   to="/apps/$domain/deployments/$id"
                   params={{ domain, id: String(mark.id) }}
                   aria-label={mark.label}
-                  className="flex h-7 items-center gap-1.5 rounded-pill border border-border bg-surface px-2.5 text-12 text-fg hover:bg-surface-hover"
+                  className="flex h-control-sm items-center gap-1.5 rounded-pill border border-border bg-surface px-2.5 text-12 text-fg hover:bg-surface-hover"
                 >
                   <span className={cx("flex", stateTextClass(view.state))}>
                     <StatusGlyph state={view.state} size={10} />
                   </span>
-                  <span aria-hidden="true" className="flex items-baseline gap-1.5">
+                  <span
+                    aria-hidden="true"
+                    className="flex items-baseline gap-1.5"
+                  >
                     <Mono>{`#${String(mark.id)}`}</Mono>
                     <span className="text-fg-muted">{mark.when}</span>
                   </span>
@@ -156,7 +264,11 @@ export interface MetricsTabProps {
   onRangeChange: (range: MetricRange) => void;
 }
 
-function RangeControl({ range, onRangeChange, t }: Pick<MetricsTabProps, "range" | "onRangeChange"> & { t: T }) {
+function RangeControl({
+  range,
+  onRangeChange,
+  t,
+}: Pick<MetricsTabProps, "range" | "onRangeChange"> & { t: T }) {
   return (
     <SegmentedControl
       label={t("appPages.metrics.timeRangeLabel")}
@@ -169,17 +281,43 @@ function RangeControl({ range, onRangeChange, t }: Pick<MetricsTabProps, "range"
 
 /** The roles of a service's disk and network traffic, charted together two by two (read and write, received and sent). */
 const IO_CHARTS = [
-  { id: "disk", title: "appPages.metrics.diskIo", roles: [["disk_read", "appPages.metrics.diskRead"], ["disk_write", "appPages.metrics.diskWrite"]] },
-  { id: "network", title: "appPages.metrics.network", roles: [["net_rx", "appPages.metrics.netReceived"], ["net_tx", "appPages.metrics.netSent"]] },
-] as const satisfies readonly { id: string; title: PlainKey; roles: readonly (readonly [string, PlainKey])[] }[];
+  {
+    id: "disk",
+    title: "appPages.metrics.diskIo",
+    roles: [
+      ["disk_read", "appPages.metrics.diskRead"],
+      ["disk_write", "appPages.metrics.diskWrite"],
+    ],
+  },
+  {
+    id: "network",
+    title: "appPages.metrics.network",
+    roles: [
+      ["net_rx", "appPages.metrics.netReceived"],
+      ["net_tx", "appPages.metrics.netSent"],
+    ],
+  },
+] as const satisfies readonly {
+  id: string;
+  title: PlainKey;
+  roles: readonly (readonly [string, PlainKey])[];
+}[];
 
 /** The roles this kind of application has charts for, in the order they are drawn. */
-function rolesOf(status: AppMetricsStatus | undefined): { unit: string[]; traffic: string[]; io: string[] } {
+function rolesOf(status: AppMetricsStatus | undefined): {
+  unit: string[];
+  traffic: string[];
+  io: string[];
+} {
   const series: Record<string, string> = status?.series ?? {};
   return {
     unit: ["cpu", "memory"].filter((role) => series[role] !== undefined),
-    traffic: ["requests", "errors_5xx"].filter((role) => series[role] !== undefined),
-    io: IO_CHARTS.flatMap((chart) => chart.roles.map(([role]) => role as string)).filter((role) => series[role] !== undefined),
+    traffic: ["requests", "errors_5xx"].filter(
+      (role) => series[role] !== undefined,
+    ),
+    io: IO_CHARTS.flatMap((chart) =>
+      chart.roles.map(([role]) => role as string),
+    ).filter((role) => series[role] !== undefined),
   };
 }
 
@@ -200,13 +338,26 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
   const shownRoles = traffic ? roles.traffic : [...roles.unit, ...roles.io];
   // A Compose stack's containers each have series of their own: read with the rest, in the one request.
   const containers = status.data?.containers ?? [];
-  const metrics = [...shownRoles.map((role) => status.data?.series?.[role] ?? ""), ...(traffic ? [] : containerMetrics(containers))];
+  const metrics = [
+    ...shownRoles.map((role) => status.data?.series?.[role] ?? ""),
+    ...(traffic ? [] : containerMetrics(containers)),
+  ];
   const read = useMetricsRead(metrics, range, status.data !== undefined);
-  const prepared = useMemo(() => (read.data === undefined ? undefined : prepareRead(read.data, t)), [read.data, t]);
-  const control = <RangeControl range={range} onRangeChange={onRangeChange} t={t} />;
+  const prepared = useMemo(
+    () => (read.data === undefined ? undefined : prepareRead(read.data, t)),
+    [read.data, t],
+  );
+  const control = (
+    <RangeControl range={range} onRangeChange={onRangeChange} t={t} />
+  );
 
-  const hasReadings = prepared !== undefined && [...prepared.byMetric.values()].some((series) => series.values.some((value) => value !== null));
-  const reason: MetricsReason | null = (traffic ? status.data?.traffic.reason : status.data?.reason) ?? null;
+  const hasReadings =
+    prepared !== undefined &&
+    [...prepared.byMetric.values()].some((series) =>
+      series.values.some((value) => value !== null),
+    );
+  const reason: MetricsReason | null =
+    (traffic ? status.data?.traffic.reason : status.data?.reason) ?? null;
   const collector = read.data?.collector ?? status.data?.collector;
 
   const marks = useMemo((): DeployMark[] => {
@@ -221,7 +372,19 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
         if (seconds < window[0] || seconds > window[1]) return [];
         const when = formatChartTime(seconds, withDate, t.locale);
         const state = deployStatus(deploy.status, t.locale).label.toLowerCase();
-        return [{ id: deploy.id, at: seconds, status: deploy.status, when, label: t("appPages.metrics.deployMarkLabel", { id: String(deploy.id), status: state, when }) }];
+        return [
+          {
+            id: deploy.id,
+            at: seconds,
+            status: deploy.status,
+            when,
+            label: t("appPages.metrics.deployMarkLabel", {
+              id: String(deploy.id),
+              status: state,
+              when,
+            }),
+          },
+        ];
       })
       .sort((a, b) => a.at - b.at);
   }, [deploys.data, read.data, t]);
@@ -246,11 +409,17 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
 
   if (status.isError && status.data === undefined) {
     return (
-      <ErrorBlock error={status.error} title={t("appPages.metrics.statusLoadError")} onRetry={() => void status.refetch()} retrying={status.isRefetching} />
+      <ErrorBlock
+        error={status.error}
+        title={t("appPages.metrics.statusLoadError")}
+        onRetry={() => void status.refetch()}
+        retrying={status.isRefetching}
+      />
     );
   }
 
-  const limits = app.data === undefined ? { cpu: null, memory: null } : appLimits(app.data);
+  const limits =
+    app.data === undefined ? { cpu: null, memory: null } : appLimits(app.data);
   const locale = t.locale;
   interface ChartSpec {
     role: string;
@@ -259,43 +428,73 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
     format: (value: number) => string;
     limit: { value: number; label: string } | null;
   }
-  const specs: ChartSpec[] = shownRoles.filter((role) => !roles.io.includes(role)).map((role) => {
-    const metric = status.data?.series?.[role] ?? "";
-    switch (role) {
-      case "cpu":
-        return {
-          role,
-          title: t("appPages.common.cpu"),
-          series: [{ metric, label: t("appPages.common.cpu") }],
-          format: (value: number) => formatPercent(value, locale),
-          limit: limits.cpu === null ? null : { value: limits.cpu, label: t("appPages.metrics.limitLabel", { value: formatPercent(limits.cpu, locale) }) },
-        };
-      case "memory":
-        return {
-          role,
-          title: t("appPages.common.memory"),
-          series: [{ metric, label: t("appPages.common.memory") }],
-          format: (value: number) => formatBytes(value, locale),
-          limit: limits.memory === null ? null : { value: limits.memory, label: t("appPages.metrics.limitLabel", { value: formatBytes(limits.memory, locale) }) },
-        };
-      case "requests":
-        return {
-          role,
-          title: t("appPages.metrics.requests"),
-          series: [{ metric, label: t("appPages.metrics.requests") }],
-          format: (value: number) => t("appPages.metrics.perMinute", { value: formatCount(Math.round(value), locale) }),
-          limit: null,
-        };
-      default:
-        return {
-          role,
-          title: t("appPages.metrics.errors5xx"),
-          series: [{ metric, label: t("appPages.metrics.errors5xx"), state: "failed" as const }],
-          format: (value: number) => t("appPages.metrics.perMinute", { value: formatCount(Math.round(value), locale) }),
-          limit: null,
-        };
-    }
-  });
+  const specs: ChartSpec[] = shownRoles
+    .filter((role) => !roles.io.includes(role))
+    .map((role) => {
+      const metric = status.data?.series?.[role] ?? "";
+      switch (role) {
+        case "cpu":
+          return {
+            role,
+            title: t("appPages.common.cpu"),
+            series: [{ metric, label: t("appPages.common.cpu") }],
+            format: (value: number) => formatPercent(value, locale),
+            limit:
+              limits.cpu === null
+                ? null
+                : {
+                    value: limits.cpu,
+                    label: t("appPages.metrics.limitLabel", {
+                      value: formatPercent(limits.cpu, locale),
+                    }),
+                  },
+          };
+        case "memory":
+          return {
+            role,
+            title: t("appPages.common.memory"),
+            series: [{ metric, label: t("appPages.common.memory") }],
+            format: (value: number) => formatBytes(value, locale),
+            limit:
+              limits.memory === null
+                ? null
+                : {
+                    value: limits.memory,
+                    label: t("appPages.metrics.limitLabel", {
+                      value: formatBytes(limits.memory, locale),
+                    }),
+                  },
+          };
+        case "requests":
+          return {
+            role,
+            title: t("appPages.metrics.requests"),
+            series: [{ metric, label: t("appPages.metrics.requests") }],
+            format: (value: number) =>
+              t("appPages.metrics.perMinute", {
+                value: formatCount(Math.round(value), locale),
+              }),
+            limit: null,
+          };
+        default:
+          return {
+            role,
+            title: t("appPages.metrics.errors5xx"),
+            series: [
+              {
+                metric,
+                label: t("appPages.metrics.errors5xx"),
+                state: "failed" as const,
+              },
+            ],
+            format: (value: number) =>
+              t("appPages.metrics.perMinute", {
+                value: formatCount(Math.round(value), locale),
+              }),
+            limit: null,
+          };
+      }
+    });
 
   // Disk and network, a chart each with its two directions, once the unit reports them.
   const ioSpecs: ChartSpec[] = traffic
@@ -307,14 +506,24 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
           {
             role: chart.id,
             title: t(chart.title),
-            series: present.map(([role, label]) => ({ metric: status.data?.series?.[role] ?? "", label: t(label) })),
+            series: present.map(([role, label]) => ({
+              metric: status.data?.series?.[role] ?? "",
+              label: t(label),
+            })),
             format: (value: number) => formatBytesRate(value, locale),
             limit: null,
           },
         ];
       });
-  const ioMetrics = new Set(ioSpecs.flatMap((spec) => spec.series.map((series) => series.metric)));
-  const ioHasReadings = prepared !== undefined && [...prepared.byMetric].some(([metric, series]) => ioMetrics.has(metric) && series.values.some((value) => value !== null));
+  const ioMetrics = new Set(
+    ioSpecs.flatMap((spec) => spec.series.map((series) => series.metric)),
+  );
+  const ioHasReadings =
+    prepared !== undefined &&
+    [...prepared.byMetric].some(
+      ([metric, series]) =>
+        ioMetrics.has(metric) && series.values.some((value) => value !== null),
+    );
 
   const chart = (spec: ChartSpec) => (
     <MetricChart
@@ -335,7 +544,9 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
   );
   const charts = (
     <ChartGroup>
-      <div className="grid min-w-0 gap-4 xl:grid-cols-2">{specs.map(chart)}</div>
+      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+        {specs.map(chart)}
+      </div>
       {ioSpecs.length > 0 ? (
         <Subsection title={t("appPages.metrics.ioTitle")} className="mt-2">
           {!ioHasReadings && hasReadings ? (
@@ -343,7 +554,9 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
               {t("appPages.metrics.ioMissing")}
             </Notice>
           ) : null}
-          <div className="grid min-w-0 gap-4 xl:grid-cols-2">{ioSpecs.map(chart)}</div>
+          <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+            {ioSpecs.map(chart)}
+          </div>
         </Subsection>
       ) : null}
       {traffic ? null : (
@@ -363,21 +576,32 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
 
   if (status.data === undefined) {
     return (
-      <Section title={t("appPages.metrics.mainTitle")} description={<TruthLine read={undefined} range={range} reading />} actions={control}>
-        <div className="grid min-w-0 gap-4 xl:grid-cols-2" aria-busy="true">
-          {[t("appPages.common.cpu"), t("appPages.common.memory")].map((name) => (
-            <Card key={name} padding="sm" as="div">
-              <ChartSkeleton title={name} height={CHART_HEIGHT} />
-            </Card>
-          ))}
-        </div>
+      <Section
+        title={t("appPages.metrics.mainTitle")}
+        description={<TruthLine read={undefined} range={range} reading />}
+        actions={control}
+      >
+        <LoadingRegion
+          label={t("appPages.metrics.loading")}
+          className="grid min-w-0 gap-4 xl:grid-cols-2"
+        >
+          {[t("appPages.common.cpu"), t("appPages.common.memory")].map(
+            (name) => (
+              <Card key={name} padding="sm" as="div">
+                <ChartSkeleton title={name} height={CHART_HEIGHT} />
+              </Card>
+            ),
+          )}
+        </LoadingRegion>
       </Section>
     );
   }
 
   if (shownRoles.length === 0) {
     // Nothing of this application can be measured: say why, instead of drawing empty charts.
-    const words = reason ? reasonWords(t, reason) : { title: t("appPages.metrics.reason.other.title"), description: "" };
+    const words = reason
+      ? reasonWords(t, reason)
+      : { title: t("appPages.metrics.reason.other.title"), description: "" };
     return (
       <div data-metrics-reason={reason?.code ?? ""}>
         <EmptyState
@@ -386,7 +610,9 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
           icon={<ChartLine />}
           title={words.title}
           description={words.description}
-          {...(reason ? { action: <ReasonDetail t={t} reason={reason} /> } : {})}
+          {...(reason
+            ? { action: <ReasonDetail t={t} reason={reason} /> }
+            : {})}
         />
       </div>
     );
@@ -394,13 +620,28 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
 
   // No reading in the whole window: why, instead of empty charts. The plan's reason first (the
   // service is stopped, accounting is off...), then the collector's (nothing records at all).
-  const collectorReason = collector !== undefined && !collector.recording ? (collector.reason ?? null) : null;
-  const emptyBecause = prepared !== undefined && !hasReadings ? (reason ?? collectorReason) : null;
+  const collectorReason =
+    collector !== undefined && !collector.recording
+      ? (collector.reason ?? null)
+      : null;
+  const emptyBecause =
+    prepared !== undefined && !hasReadings ? (reason ?? collectorReason) : null;
 
   return (
     <Section
-      title={traffic ? t("appPages.metrics.trafficTitle") : t("appPages.metrics.mainTitle")}
-      description={<TruthLine read={read.data} range={range} reading={read.isPlaceholderData} />}
+      title={
+        traffic
+          ? t("appPages.metrics.trafficTitle")
+          : t("appPages.metrics.mainTitle")
+      }
+      icon={ChartLine}
+      description={
+        <TruthLine
+          read={read.data}
+          range={range}
+          reading={read.isPlaceholderData}
+        />
+      }
       actions={control}
     >
       {emptyBecause !== null ? (
@@ -409,8 +650,16 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
             variant="firstUse"
             level={3}
             icon={<ChartLine />}
-            title={emptyBecause === collectorReason ? t("overview.history.notRecordingTitle") : reasonWords(t, emptyBecause).title}
-            description={emptyBecause === collectorReason ? collectorReasonText(t, emptyBecause) : reasonWords(t, emptyBecause).description}
+            title={
+              emptyBecause === collectorReason
+                ? t("overview.history.notRecordingTitle")
+                : reasonWords(t, emptyBecause).title
+            }
+            description={
+              emptyBecause === collectorReason
+                ? collectorReasonText(t, emptyBecause)
+                : reasonWords(t, emptyBecause).description
+            }
             action={<ReasonDetail t={t} reason={emptyBecause} />}
           />
         </div>
@@ -418,7 +667,10 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
         <>
           {reason !== null && hasReadings ? (
             <div data-metrics-reason={reason.code}>
-              <Notice tone={reason.code === "starting" ? "info" : "warning"} title={reasonWords(t, reason).title}>
+              <Notice
+                tone={reason.code === "starting" ? "info" : "warning"}
+                title={reasonWords(t, reason).title}
+              >
                 <div className="flex flex-col gap-2">
                   <p>{`${reasonWords(t, reason).description} ${t("appPages.metrics.earlierStay")}`}</p>
                   <ReasonDetail t={t} reason={reason} />
@@ -429,8 +681,14 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
             <CollectorNotice collector={collector} />
           )}
           {charts}
-          {!traffic ? <p className="text-12 text-pretty text-fg-faint">{t("appPages.metrics.cpuNote")}</p> : null}
-          {status.data.traffic.available ? <TrafficSection domain={domain} /> : null}
+          {!traffic ? (
+            <p className="text-12 text-pretty text-fg-faint">
+              {t("appPages.metrics.cpuNote")}
+            </p>
+          ) : null}
+          {status.data.traffic.available ? (
+            <TrafficSection domain={domain} />
+          ) : null}
           <DeployList domain={domain} marks={marks} t={t} />
         </>
       )}

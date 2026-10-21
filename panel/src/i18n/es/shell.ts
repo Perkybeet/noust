@@ -14,11 +14,19 @@ export const shell: Catalog<typeof en> = {
   session: {
     label: "Sesión y preferencias",
     title: "Sesión",
-    signedInTo: "Sesión iniciada en {hostname}",
+    signedInAs: "Sesión iniciada como {user} en {hostname}",
+    signedInWithToken: "Sesión iniciada con el token de acceso en {hostname}",
+    account: "Cuenta",
+    signInSecurity: "Seguridad de inicio de sesión",
     theme: "Tema",
     keyboardShortcuts: "Atajos de teclado",
     documentation: "Documentación de esta página",
     signOut: "Cerrar sesión",
+  },
+  inbox: {
+    title: "Bandeja",
+    needs: { one: "Bandeja, {count} cosa requiere tu atención", other: "Bandeja, {count} cosas requieren tu atención" },
+    clear: "Bandeja, nada requiere tu atención",
   },
   search: {
     label: "Buscar",
@@ -29,8 +37,14 @@ export const shell: Catalog<typeof en> = {
     moveHint: "para moverte",
     openHint: "para abrir",
     closeHint: "para cerrar",
+    actionsHint: "para acciones",
+    scopeHint: "para cambiar de servidor",
+    noMatchesHint: "Prueba con el nombre de una página, un ajuste o una aplicación, > para acciones o @ para otro servidor.",
+    noMatchesCli: "El terminal lo puede todo: {command}",
+    scope: { server: "Servidor", application: "Aplicación", all: "Todos los servidores", central: "Esta central" },
   },
   commandGroups: {
+    recent: "Recientes",
     pages: "Páginas",
     settings: "Ajustes",
     applications: "Aplicaciones",
@@ -96,6 +110,7 @@ export const shell: Catalog<typeof en> = {
   },
   shortcuts: {
     goToDeployments: "Ir a despliegues, o a la actividad fuera de una aplicación",
+    goToFleet: "Ir a todos los servidores",
     searchPage: "Buscar en esta página, o en todo",
     showShortcuts: "Mostrar los atajos de teclado",
     openPalette: "Abrir la paleta de comandos",

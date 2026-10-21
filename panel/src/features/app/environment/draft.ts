@@ -94,24 +94,44 @@ export interface EnvChange {
 export interface EnvDiff {
   changes: EnvChange[];
   unchanged: number;
-  /** The complete map to save. */
-  next: Map<string, string>;
 }
 
-/** What saving would change, over the values the file really holds. */
-export function diffEnv(before: EnvMap, next: Map<string, string>): EnvDiff {
+/**
+ * What saving would change, from the rows the table draws: a secret's value before is the
+ * placeholder the API sent, so nothing is read in clear to review a change, and what the review
+ * says is what `mergeOf` sends.
+ */
+export function reviewOf(rows: readonly EnvRow[]): EnvDiff {
   const changes: EnvChange[] = [];
   let unchanged = 0;
-  for (const [name, value] of next) {
-    const old = before.get(name);
-    if (old === undefined) changes.push({ name, kind: "added", before: null, after: value });
-    else if (old !== value) changes.push({ name, kind: "changed", before: old, after: value });
+  for (const row of rows) {
+    if (row.state === "added") changes.push({ name: row.name, kind: "added", before: null, after: row.draft });
+    else if (row.state === "changed") changes.push({ name: row.name, kind: "changed", before: row.current, after: row.draft });
+    else if (row.state === "removed") changes.push({ name: row.name, kind: "removed", before: row.current, after: null });
     else unchanged += 1;
   }
-  for (const [name, value] of before) {
-    if (!next.has(name)) changes.push({ name, kind: "removed", before: value, after: null });
+  return { changes, unchanged };
+}
+
+/** What saving sends: the variables to give a value and the ones to remove, and nothing else. */
+export interface EnvMerge {
+  set: Record<string, string>;
+  unset: string[];
+}
+
+/**
+ * The change a draft makes, as a merge: only the variables whose value differs from what the
+ * file holds, so saving one variable never carries the others (and never needs to read them in
+ * clear). A secret the draft sets is sent, because its value cannot be compared; the server says
+ * which names really changed.
+ */
+export function mergeOf(masked: EnvMap, ops: readonly DraftOp[]): EnvMerge {
+  const next = applyDraft(masked, ops);
+  const set: Record<string, string> = {};
+  for (const [name, value] of next) {
+    if (masked.get(name) !== value) set[name] = value;
   }
-  return { changes, unchanged, next };
+  return { set, unset: [...masked.keys()].filter((name) => !next.has(name)) };
 }
 
 /** Counts of a draft's rows by what happens to them. */

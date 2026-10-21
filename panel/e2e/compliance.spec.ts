@@ -19,7 +19,7 @@ test("frameworks are off by default, turn on after listing what changes, and loc
 }) => {
   // Turning one off asks "Confirm it's you" by answering 403 first, by design.
   problems.expect(/status of 403 .* \/api\/compliance$/);
-  await signIn(page, consoleServer, "/settings/security");
+  await signIn(page, consoleServer, "/settings/controls");
   const section = page.getByRole("region", { name: "Compliance" });
   await expect(section.getByRole("heading", { level: 3, name: "Frameworks" })).toBeVisible();
 
@@ -33,7 +33,7 @@ test("frameworks are off by default, turn on after listing what changes, and loc
   // header, beside the div that holds the heading, so a div around the heading would miss the button.
   const card = section.locator("section").filter({ has: page.getByRole("heading", { level: 3, name: "NIS2" }) }).last();
   await card.getByRole("button", { name: "Turn on…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Turn on NIS2" });
+  const dialog = page.getByRole("alertdialog", { name: "Turn on NIS2" });
   await expect(dialog.getByText("Encrypted backups")).toBeVisible();
   await expect(dialog.getByText("Art. 21(2)(h)").first()).toBeVisible();
   await stillness(page);
@@ -49,7 +49,7 @@ test("frameworks are off by default, turn on after listing what changes, and loc
 
   // Turning it off puts the server back as it was, behind "Confirm it's you".
   await card.getByRole("button", { name: "Turn off…" }).click();
-  const off = page.getByRole("dialog", { name: "Turn off NIS2" });
+  const off = page.getByRole("alertdialog", { name: "Turn off NIS2" });
   await expect(off.getByText(/Protection goes down/)).toBeVisible();
   await off.getByRole("button", { name: "Turn off" }).click();
   await confirmItsYou(page, consoleServer);

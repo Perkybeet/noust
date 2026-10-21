@@ -185,6 +185,50 @@ class CertificateStore:
                 ),
             )
 
+    def settings_for_name(
+        self,
+        app_domain: str,
+        name: str,
+        *,
+        challenge: str | None = None,
+        dns_provider: str | None = None,
+        updated_by: str | None = None,
+    ) -> CertificateSettings:
+        """
+        Work out how a name's own certificate is to be proven.
+
+        The settings of a name are a row keyed by the name, the same record an application's
+        certificate has. Explicit wishes come first; then what the name already had; then the
+        application's own way, so a name that takes a certificate of its own is proven the way
+        the rest of the application is until somebody says otherwise. Nothing is written.
+
+        Args:
+            app_domain: The application's primary domain.
+            name: The name, a wildcard included.
+            challenge: ``http-01`` or ``dns-01``, when the caller chose.
+            dns_provider: The DNS account for ``dns-01``.
+            updated_by: Who is asking.
+
+        Returns:
+            The settings to keep for the name.
+        """
+        if challenge is None:
+            current = self.get_settings(name)
+            if not current.is_default:
+                challenge, dns_provider = current.challenge, current.dns_provider
+            else:
+                inherited = self.get_settings(app_domain)
+                if inherited.source == SOURCE_ACME:
+                    challenge, dns_provider = inherited.challenge, inherited.dns_provider
+        challenge = challenge or CHALLENGE_HTTP
+        return CertificateSettings(
+            domain=name,
+            source=SOURCE_ACME,
+            challenge=challenge,
+            dns_provider=dns_provider if challenge == CHALLENGE_DNS else None,
+            updated_by=updated_by,
+        )
+
     def domains_using(self, source: str, name: str) -> list[str]:
         """
         List the applications served by a certificate or lineage.

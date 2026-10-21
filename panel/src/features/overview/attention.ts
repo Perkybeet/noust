@@ -1,246 +1,185 @@
 /**
- * "Needs attention": the problems on this machine, gathered from every source that can report
- * one, grouped by what they are about, the worst first. Pure, so every rule is tested without
- * a page.
+ * What needs an operator, beyond what the server lists. The server's own list (`GET /api/overview`,
+ * `managers/overview.py`) names the problems it can read from one place: an application that is
+ * down, a deployment that failed, a certificate that is expiring, a unit that failed, what the
+ * monitor found. The console adds what only other reads know - an alert that is firing, a probe that
+ * is down, a request waiting for a second person, a Noust or a recipe with an update - as items of
+ * the same shape, so the Overview's "Needs attention", the inbox and the sidebar's counters are one
+ * definition read three times (NV-16): `mergeAttention` puts them in one list, worst first, and
+ * `attentionCounters` is what the sidebar counts from it.
+ *
+ * Pure, so every rule is tested without a page. The reads that feed it are `features/inbox/useAttention`.
  */
 
-import type { CertList } from "../../api/queries/certs";
-import type { ObservationList } from "../../api/queries/monitor";
-import type { Machine } from "../../api/queries/system";
-import { appStatus, deployStatus } from "../../components/page/status";
-import type { AppInfo, Deployment } from "../apps/data";
-import { deployMoment, latestDeployByDomain } from "../apps/data";
-import { serviceState } from "../services/data";
-import type { ServiceInfo } from "../services/data";
-
-type Cert = CertList["certificates"][number];
-type Observation = ObservationList["observations"][number];
+import type { AlertRuleList } from "../../api/queries/alerts";
+import type { OverviewAttentionItem, OverviewAttentionReason } from "../../api/queries/overview";
+import type { ProbeList } from "../../api/queries/probes";
+import { parseTimestamp } from "../../lib/format";
+import type { ApprovalList } from "../approvals/api";
 
 /** Days before expiry at which a certificate starts needing attention (spec, Task 3.11). */
 export const CERT_WARNING_DAYS = 21;
 
 export type Severity = "fail" | "warn";
 
-/**
- * What is wrong, as a message key and its parameters rather than finished text: this module
- * is pure and has no language, so whoever renders an item (`NeedsAttention.tsx`) is the one
- * that calls `t()`.
- */
-export type AttentionSummary =
-  | { key: "serviceFailed" }
-  | { key: "serviceState"; status: string }
-  | { key: "deployFailed" }
-  | { key: "deployRolledBack" }
-  | { key: "certExpired" }
-  | { key: "certExpiresToday" }
-  | { key: "certExpiresIn"; days: number }
-  | { key: "unitFailed" }
-  | { key: "unitRestarting" }
-  | { key: "unitsFailedCount"; count: number }
-  | { key: "monitorFinding"; severity: string; signal: string };
+const RANK: Readonly<Record<string, number>> = { fail: 0, warn: 1 };
 
-export interface AttentionReason {
-  /** Where the problem comes from, which decides where it is fixed. */
-  kind: "state" | "deploy" | "certificate" | "units" | "monitor";
-  severity: Severity;
-  /** What is wrong: "Last deploy failed". */
-  summary: AttentionSummary;
-  /** The system's own words, verbatim, when there are any: the first line of the error, or systemd's result. */
-  detail?: string;
-  /** A certificate's expiry date, in the backend's format; translated and formatted where it is drawn. */
-  validUntil?: string;
-  /** When it happened, as the backend sent it. */
-  when?: string | null;
-  /** A deployment to open for the full story. */
-  deploymentId?: number;
+/** A moment the API gives as Unix seconds (or a date string), in the form the server's own items use. */
+function moment(value: number | string | null | undefined): string | null {
+  return parseTimestamp(value)?.toISOString() ?? null;
 }
 
-export type AttentionSubject =
-  | { kind: "app"; domain: string }
-  | { kind: "certificate"; domain: string }
-  | { kind: "units" }
-  | { kind: "unit"; name: string }
-  | { kind: "monitor"; process: string; pid: number };
+/** The kinds of subject the console adds to the server's list. */
+export type ExtraKind = "alert" | "probe" | "approval" | "noust" | "recipe";
 
-export interface AttentionItem {
-  /** Stable across refreshes, for React keys and tests. */
-  id: string;
-  subject: AttentionSubject;
-  /** What it is about: a domain, "systemd", a process. */
-  title: string;
-  severity: Severity;
-  reasons: AttentionReason[];
+/** A firing alert, as the rules list says it: one item per rule and subject, taken or not. */
+export function alertItems(rules: AlertRuleList | undefined): OverviewAttentionItem[] {
+  return (rules?.items ?? []).flatMap((rule) =>
+    rule.enabled
+      ? (rule.states ?? [])
+          .filter((entry) => entry.state === "firing")
+          .map((entry): OverviewAttentionItem => {
+            const severity: Severity = rule.severity === "failed" ? "fail" : "warn";
+            const taken = entry.acknowledged_by !== null && entry.acknowledged_by !== undefined;
+            const reason: OverviewAttentionReason = {
+              kind: "alert",
+              severity,
+              code: taken ? "alert_taken" : "alert_firing",
+              params: { rule: rule.name, subject: entry.subject, since: entry.since, ...(taken ? { by: entry.acknowledged_by, at: entry.acknowledged_at } : {}) },
+              detail: null,
+              when: moment(entry.since),
+              deployment_id: null,
+              actions: [taken ? "reopen_alert" : "acknowledge_alert"],
+            };
+            return {
+              id: `alert:${rule.name}:${entry.subject}`,
+              subject: { kind: "alert", rule: rule.name, subject: entry.subject },
+              title: entry.subject === "" ? rule.name : `${rule.name} · ${entry.subject}`,
+              severity,
+              reasons: [reason],
+            };
+          })
+      : [],
+  );
 }
 
-export interface AttentionSources {
-  apps?: readonly AppInfo[] | undefined;
-  /** Recent deployments across the machine, newest first. */
-  deployments?: readonly Deployment[] | undefined;
-  certificates?: readonly Cert[] | undefined;
-  observations?: readonly Observation[] | undefined;
-  machine?: Machine | undefined;
-  /** Noust's own units (GET /api/services): names the failed ones no app accounts for. */
-  units?: readonly ServiceInfo[] | undefined;
+/** A probe that is down: what it asked and what it got, in the probe's own words. */
+export function probeItems(probes: ProbeList | undefined): OverviewAttentionItem[] {
+  return (probes?.items ?? [])
+    .filter((probe) => probe.status.state === "down")
+    .map((probe): OverviewAttentionItem => {
+      const reason: OverviewAttentionReason = {
+        kind: "probe",
+        severity: "fail",
+        code: "probe_down",
+        params: { probe: probe.name, since: probe.status.since },
+        detail: probe.status.last_error ?? null,
+        when: moment(probe.status.since),
+        deployment_id: null,
+        actions: ["open_probes"],
+      };
+      return { id: `probe:${probe.name}`, subject: { kind: "probe", name: probe.name }, title: probe.name, severity: "fail", reasons: [reason] };
+    });
 }
 
-/** The first line of a multi-line error, which is where tools put the error itself. */
-function firstLine(text: string | null | undefined): string | undefined {
-  const line = text
-    ?.split("\n")
-    .map((part) => part.trim())
-    .find((part) => part !== "");
-  return line === undefined || line === "" ? undefined : line;
+/** The requests waiting for this person's decision: only those they may decide. */
+export function approvalItems(list: ApprovalList | undefined): OverviewAttentionItem[] {
+  return (list?.approvals ?? [])
+    .filter((approval) => approval.state === "requested" && approval.can_decide)
+    .map((approval): OverviewAttentionItem => {
+      const reason: OverviewAttentionReason = {
+        kind: "approval",
+        severity: "warn",
+        code: "approval_waiting",
+        params: { id: approval.id, by: approval.requester.name },
+        detail: null,
+        when: moment(approval.created_at),
+        deployment_id: null,
+        actions: ["review_approval"],
+      };
+      return { id: `approval:${String(approval.id)}`, subject: { kind: "approval", id: approval.id }, title: `#${String(approval.id)}`, severity: "warn", reasons: [reason] };
+    });
 }
 
-const RANK: Record<Severity, number> = { fail: 0, warn: 1 };
-
-/**
- * The names an app's unit can have, for an app whose record does not name it: the current one
- * (`domain_to_app_name`) and the one apps deployed before v0.14.1 kept (`legacy_app_name`).
- */
-export function appUnitNames(domain: string): string[] {
-  const name = domain.toLowerCase().replace(/[^a-z0-9-]/g, "-");
-  return [name, `wasm-${name}`];
-}
-
-/**
- * Everything that needs an operator, grouped by subject:
- *
- * - an app whose state is a problem (failed, crash-looping, not answering);
- * - an app whose newest deploy failed or was rolled back;
- * - a certificate expiring within 21 days, or expired;
- * - systemd units Noust manages that failed or keep crashing, beyond the apps' own units (an
- *   app's state already names those): each by name when the unit list is known, otherwise as
- *   a count from the machine's tally;
- * - an open monitor observation.
- */
-export function collectAttention({ apps, deployments, certificates, observations, machine, units }: AttentionSources): AttentionItem[] {
-  const byDomain = new Map<string, AttentionItem>();
-  const add = (domain: string, subject: AttentionSubject, reason: AttentionReason): void => {
-    const known = byDomain.get(domain);
-    if (known) {
-      known.reasons.push(reason);
-      if (RANK[reason.severity] < RANK[known.severity]) known.severity = reason.severity;
-      return;
-    }
-    byDomain.set(domain, { id: `${subject.kind}:${domain}`, subject, title: domain, severity: reason.severity, reasons: [reason] });
+/** A newer Noust than the one this server runs; nothing when the check is off or the server is current. */
+export function noustItems(info: { has_update: boolean; latest_version?: string | null; security_update?: boolean; current_version: string } | undefined): OverviewAttentionItem[] {
+  if (info?.has_update !== true) return [];
+  const security = info.security_update === true;
+  const reason: OverviewAttentionReason = {
+    kind: "noust",
+    severity: "warn",
+    code: security ? "noust_security_update" : "noust_update",
+    params: { version: info.latest_version ?? "", current: info.current_version },
+    detail: null,
+    when: null,
+    deployment_id: null,
+    actions: ["open_about"],
   };
+  return [{ id: "noust:update", subject: { kind: "noust" }, title: "Noust", severity: "warn", reasons: [reason] }];
+}
 
-  const appDomains = new Set(apps?.map((app) => app.domain));
-  let failedByState = 0;
-
-  for (const app of apps ?? []) {
-    const view = appStatus(app.status);
-    if (!view.attention) continue;
-    if (view.state === "failed") failedByState += 1;
-    add(app.domain, { kind: "app", domain: app.domain }, {
-      kind: "state",
-      severity: view.state === "failed" ? "fail" : "warn",
-      summary: app.status.trim().toLowerCase() === "failed" ? { key: "serviceFailed" } : { key: "serviceState", status: app.status },
+/** The applications installed from a recipe whose recipe has a newer version. */
+export function recipeItems(installed: { items: readonly { domain: string; recipe: string; update_available: boolean; installed_version: string; latest_version?: string | null }[] } | undefined): OverviewAttentionItem[] {
+  return (installed?.items ?? [])
+    .filter((item) => item.update_available)
+    .map((item): OverviewAttentionItem => {
+      const reason: OverviewAttentionReason = {
+        kind: "recipe",
+        severity: "warn",
+        code: "recipe_update",
+        params: { recipe: item.recipe, version: item.latest_version ?? "", current: item.installed_version },
+        detail: null,
+        when: null,
+        deployment_id: null,
+        actions: ["open_recipes"],
+      };
+      return { id: `recipe:${item.domain}`, subject: { kind: "recipe", domain: item.domain }, title: item.domain, severity: "warn", reasons: [reason] };
     });
-  }
+}
 
-  for (const deploy of latestDeployByDomain(deployments ?? []).values()) {
-    // Cancelled by an operator: stored as failed, but nothing failed and nothing that served was touched.
-    if (deploy.cancelled) continue;
-    const view = deployStatus(deploy.status);
-    if (!view.attention) continue;
-    // A deploy of something that is no longer an app (deleted since) is history, not a problem.
-    if (apps !== undefined && !appDomains.has(deploy.domain)) continue;
-    const reason: AttentionReason = {
-      kind: "deploy",
-      severity: deploy.status === "failed" ? "fail" : "warn",
-      summary: deploy.status === "failed" ? { key: "deployFailed" } : { key: "deployRolledBack" },
-      when: deployMoment(deploy),
-      deploymentId: deploy.id,
-    };
-    const detail = firstLine(deploy.error);
-    add(deploy.domain, { kind: "app", domain: deploy.domain }, detail === undefined ? reason : { ...reason, detail });
-  }
-
-  for (const cert of certificates ?? []) {
-    const days = cert.days_remaining;
-    if (days === null || days === undefined || days >= CERT_WARNING_DAYS) continue;
-    const subject: AttentionSubject = appDomains.has(cert.domain)
-      ? { kind: "app", domain: cert.domain }
-      : { kind: "certificate", domain: cert.domain };
-    const reason: AttentionReason =
-      days < 0
-        ? { kind: "certificate", severity: "fail", summary: { key: "certExpired" } }
-        : {
-            kind: "certificate",
-            severity: "warn",
-            summary: days === 0 ? { key: "certExpiresToday" } : { key: "certExpiresIn", days },
-          };
-    add(cert.domain, subject, { ...reason, ...(cert.expires_on ? { validUntil: cert.expires_on } : {}) });
-  }
-
-  const items = [...byDomain.values()];
-
-  if (units !== undefined) {
-    const appUnits = new Set(apps?.flatMap((app) => [app.unit ?? "", ...appUnitNames(app.domain)]));
-    for (const unit of units) {
-      if (!unit.managed || appUnits.has(unit.name)) continue;
-      const view = serviceState(unit);
-      const failed = view.state === "failed";
-      if (!failed && view.state !== "warning") continue;
-      const result = (unit.result ?? "").trim();
-      items.push({
-        id: `unit:${unit.name}`,
-        subject: { kind: "unit", name: unit.name },
-        title: unit.name,
-        severity: failed ? "fail" : "warn",
-        reasons: [
-          {
-            kind: "units",
-            severity: failed ? "fail" : "warn",
-            summary: failed ? { key: "unitFailed" } : { key: "unitRestarting" },
-            ...(result !== "" && result !== "success" ? { detail: `Result=${result}` } : {}),
-          },
-        ],
-      });
+/**
+ * The server's list and what the console adds, worst first and then by title. An item the server
+ * and the console both name (an application) is kept once, with the reasons of both.
+ */
+export function mergeAttention(base: readonly OverviewAttentionItem[], extras: readonly OverviewAttentionItem[]): OverviewAttentionItem[] {
+  const merged = new Map<string, OverviewAttentionItem>();
+  for (const item of [...base, ...extras]) {
+    const known = merged.get(item.id);
+    if (known === undefined) {
+      merged.set(item.id, { ...item, reasons: [...item.reasons] });
+      continue;
     }
+    known.reasons.push(...item.reasons);
+    if ((RANK[item.severity] ?? 2) < (RANK[known.severity] ?? 2)) known.severity = item.severity;
   }
+  return [...merged.values()].sort((a, b) => (RANK[a.severity] ?? 2) - (RANK[b.severity] ?? 2) || a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+}
 
-  const failedUnits = machine?.units.failed ?? 0;
-  if (units === undefined && failedUnits > failedByState) {
-    const extra = failedUnits - failedByState;
-    items.push({
-      id: "units",
-      subject: { kind: "units" },
-      title: "Services",
-      severity: "fail",
-      reasons: [
-        {
-          kind: "units",
-          severity: "fail",
-          summary: { key: "unitsFailedCount", count: extra },
-        },
-      ],
-    });
+/** What the sidebar counts beside a destination, from the same list the inbox shows. */
+export interface AttentionCounters {
+  /** Applications that failed: red beside Applications. */
+  appsFailed: number;
+  /** Certificates that expired or expire soon: beside Domains, red if any expired. */
+  certificates: number;
+  certificatesExpired: number;
+  /** Noust's own services that failed, beyond the applications': red beside Server. */
+  unitsFailed: number;
+}
+
+export function attentionCounters(items: readonly OverviewAttentionItem[]): AttentionCounters {
+  let appsFailed = 0;
+  let certificates = 0;
+  let certificatesExpired = 0;
+  let unitsFailed = 0;
+  for (const item of items) {
+    const kind = item.subject["kind"];
+    if (kind === "app" && item.reasons.some((reason) => (reason.kind === "state" || reason.kind === "deploy") && reason.severity === "fail")) appsFailed += 1;
+    if (kind === "certificate" || (kind === "app" && item.reasons.some((reason) => reason.kind === "certificate"))) {
+      certificates += 1;
+      if (item.reasons.some((reason) => reason.kind === "certificate" && reason.code === "certificate_expired")) certificatesExpired += 1;
+    }
+    // An application's own units are its state; these are Noust's others.
+    if (kind === "unit" && item.reasons.some((reason) => reason.severity === "fail")) unitsFailed += 1;
   }
-
-  for (const observation of observations ?? []) {
-    if (observation.acknowledged) continue;
-    // The monitor observes and never acts; its findings ("warning", "notice") are for a
-    // person to look at, not failures of anything Noust runs.
-    const severity: Severity = "warn";
-    items.push({
-      id: `monitor:${String(observation.id ?? `${observation.process_name}-${String(observation.pid)}`)}`,
-      subject: { kind: "monitor", process: observation.process_name, pid: observation.pid },
-      title: observation.process_name,
-      severity,
-      reasons: [
-        {
-          kind: "monitor",
-          severity,
-          summary: { key: "monitorFinding", severity: observation.severity, signal: observation.signal },
-          when: observation.observed_at,
-          ...(observation.detail ? { detail: observation.detail } : {}),
-        },
-      ],
-    });
-  }
-
-  return items.sort((a, b) => RANK[a.severity] - RANK[b.severity] || a.title.localeCompare(b.title));
+  return { appsFailed, certificates, certificatesExpired, unitsFailed };
 }

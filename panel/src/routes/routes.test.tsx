@@ -15,8 +15,8 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/", "Overview", "Needs attention"],
   ["/apps", "Applications", "Applications"],
   ["/apps/new", "New application", "Source"],
-  ["/apps/shop.example.com", "shop.example.com", "How it runs"],
-  ["/apps/shop.example.com/deployments", "shop.example.com", "History"],
+  ["/apps/shop.example.com", "shop.example.com", "Health"],
+  ["/apps/shop.example.com/deployments", "shop.example.com", "No deploys recorded yet"],
   ["/apps/shop.example.com/deployments/42", "shop.example.com", "No deployment 42"],
   ["/apps/shop.example.com/logs", "shop.example.com", "Logs of shop.example.com"],
   ["/apps/shop.example.com/metrics", "shop.example.com", "CPU and memory"],
@@ -24,9 +24,11 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/apps/shop.example.com/domains", "shop.example.com", "Domains"],
   ["/apps/shop.example.com/diagnose", "shop.example.com", "Diagnosis of shop.example.com"],
   ["/apps/shop.example.com/settings", "shop.example.com", "General"],
-  ["/apps/shop.example.com/settings/deploys", "shop.example.com", "Deploys"],
+  ["/apps/shop.example.com/settings/deploys", "shop.example.com", "Releases and rollback"],
+  ["/apps/shop.example.com/settings/automation", "shop.example.com", "Automation"],
+  ["/apps/shop.example.com/settings/protection", "shop.example.com", "Protection"],
   ["/apps/shop.example.com/settings/deploy-on-push", "shop.example.com", "Deploy on push"],
-  ["/apps/shop.example.com/settings/builds", "shop.example.com", "Builds"],
+  ["/apps/shop.example.com/settings/build", "shop.example.com", "Build"],
   ["/apps/shop.example.com/settings/resources", "shop.example.com", "Resources"],
   ["/apps/shop.example.com/settings/disk", "shop.example.com", "Disk"],
   ["/apps/shop.example.com/settings/previews", "shop.example.com", "Pull request previews"],
@@ -35,7 +37,7 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/databases", "Databases", "Databases"],
   ["/databases/postgresql/example_production", "example_production", "Used by"],
   ["/backups", "Backups", "Applications and their backups"],
-  ["/domains", "Domains and certificates", "Certificates"],
+  ["/domains", "Domains", "Certificates"],
   ["/services", "Server", "Services"],
   ["/services/wasm-shop", "wasm-shop", "How it runs"],
   ["/cron", "Cron", "Cron jobs"],
@@ -44,7 +46,9 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/server/services", "Server", "Services"],
   ["/server/services/wasm-shop", "wasm-shop", "How it runs"],
   ["/settings", "Settings", "This server"],
-  ["/settings/security", "Settings", "Two-factor authentication"],
+  ["/account", "Account", "API tokens"],
+  ["/account/security", "Account", "Two-factor authentication"],
+  ["/settings/controls", "Settings", "Security profile"],
   ["/settings/notifications", "Settings", "Channels"],
   ["/settings/variables", "Settings", "Server variables"],
   ["/settings/secret-managers", "Settings", "Secret managers"],
@@ -100,6 +104,8 @@ describe("the route tree", () => {
       json(200, { domain: "shop.example.com", variables: { NODE_ENV: "production" }, unmasked: false, secrets: { NODE_ENV: { secret: false, reason: "plain", marked: false } } }),
     );
     backend.on("GET /api/apps/shop.example.com/metrics", () => new Promise<Response>(() => undefined));
+    // A history with nothing in it says what it is for; its heading is the page's second level.
+    backend.on("GET /api/deployments", () => json(200, { items: [], total: 0, next_before_id: null }));
     renderConsole(path);
     expect(await screen.findByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
     // A section heading, or for a page that is one table, the table's region.

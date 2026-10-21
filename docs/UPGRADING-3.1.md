@@ -1,6 +1,6 @@
 # Upgrading to 3.1
 
-This guide is written against Noust 3.0.0. A WASM 2.x server goes through
+This guide is written against Noust 3.0.0. A 2.x server goes through
 [UPGRADING-3.0.md](UPGRADING-3.0.md) first; the packages do both steps in one upgrade, but read
 that guide for what the rename moves.
 
@@ -69,8 +69,8 @@ When the new package is installed, before you do anything:
   until you move them ([Upgrading a fleet](#upgrading-a-fleet)).
 - **Who may do what, until you create an account.** On a server with no accounts, the access
   token is the whole console, exactly as in 3.0.
-- **The names kept from WASM** (`wasm_session`, `X-WASM-CSRF`, `wasm_ro_` roles and the rest), and
-  the `wasm` command.
+- **The names kept from before the rename** (the session cookies, the CSRF header, the read-only
+  database roles and the rest), and the old command.
 
 ## Upgrading a single server
 
@@ -118,7 +118,7 @@ Keep a way to reinstall 3.0.0:
 The package installs and enables `noust-monitor` unless you turned it off. 3.1 remembers that
 you did in `/var/lib/noust/monitor-declined`, which 3.0 never wrote. On the upgrade, the package
 also treats the monitor as turned off when the journal still has lines from `noust-monitor` (or
-`wasm-monitor`) or its observation database holds anything. If you removed the monitor under
+the unit's name before 3.0) or its observation database holds anything. If you removed the monitor under
 3.0 and neither is left (a rotated journal), keep it off with:
 
 ```bash
@@ -135,7 +135,7 @@ monitor records nothing and `noust monitor status` says so. See [MONITOR.md](MON
 apt update && apt upgrade                    # Debian, Ubuntu
 dnf upgrade --refresh                        # Fedora
 zypper refresh && zypper update              # openSUSE
-pip install -U 'noust[all]' wasm-cli         # PyPI (or 'noust[web]' without the monitor)
+pip install -U 'noust[all]'                  # PyPI (or 'noust[web]' without the monitor)
 ```
 
 #### Passkeys need `cryptography`

@@ -83,6 +83,17 @@ export default defineConfig(({ mode }) => {
       // Rolldown (Vite 8) names chunks by content hash and has no parallel-file-ops or
       // CommonJS-plugin knobs; determinism is verified by building twice and diffing.
       reportCompressedSize: false,
+      rolldownOptions: {
+        output: {
+          // An icon that three or more chunks draw goes to one chunk of icons, not to a file of its
+          // own each. Left alone, rolldown made each such icon a chunk, and every route that reaches
+          // one lists it in the preload of its stub: a hundred file names in a hundred stubs, which
+          // the first page pays for and no icon is worth (about 18 kB gzip of totalJs and 1 kB of the
+          // initial script, measured on the navigation lane). One chunk is one name in each list, and
+          // one request where there were dozens. An icon only one or two chunks draw stays with them.
+          codeSplitting: { groups: [{ name: "lucide", test: /node_modules[\\/]lucide-react/, minShareCount: 3 }] },
+        },
+      },
     },
     server: {
       proxy,

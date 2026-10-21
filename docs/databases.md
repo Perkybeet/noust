@@ -21,8 +21,8 @@ went:
 ```bash
 noust db engines                                  # host engines, then containers
 noust db list                                     # every database, and the engines that could not be read
-noust db tables proggest --engine postgresql@proggest.postgres
-noust db backup proggest --engine postgresql@proggest.postgres
+noust db tables shop --engine postgresql@shop.postgres
+noust db backup shop --engine postgresql@shop.postgres
 ```
 
 A container's databases belong to the application its Compose project is. Noust reads the

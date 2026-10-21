@@ -9,46 +9,57 @@ import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { RelativeTime } from "../../../components/page/RelativeTime";
+import { SettingsGroup } from "../../../components/page/SettingsGroup";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
-import { Switch } from "../../../components/ui/Switch";
+import { Setting } from "../../../components/ui/Setting";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatDate, formatDuration, formatLoad, formatMoment, parseTimestamp } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock, explainServerError } from "../errors";
+import { explainServerError, useServerConfirm, ServerQueryState } from "../errors";
 import { usePowerDialog } from "../PowerDialog";
 import { dayOf, identityQuery, serverKeys, summaryQuery, timeQuery } from "../queries";
-import type { Identity } from "../queries";
+import type { Identity, ServerClock } from "../queries";
 import { TimeZoneField } from "../TimeZoneField";
+import { EmptyState } from "../../../components/ui/EmptyState";
 
-function Loading({ title }: { title: string }) {
-  const t = useT();
+/** The card's shape while its read is in flight, inside the loading region QueryState draws. */
+function CardSkeleton({ title }: { title: string }) {
   return (
     <Card level={2} title={title} padding="sm">
-      <div aria-busy="true">
-        <span className="sr-only">{t("server.system.loading")}</span>
-        <KeyValueListSkeleton rows={4} />
-      </div>
+      <KeyValueListSkeleton rows={4} />
     </Card>
   );
 }
 
 export function ClockCard() {
   const t = useT();
+  const clock = useQuery(timeQuery());
+  return (
+    <ServerQueryState query={clock} label={t("server.clock.label")} skeleton={<CardSkeleton title={t("server.clock.title")} />}>
+      {(data) => <ClockPanel data={data} />}
+    </ServerQueryState>
+  );
+}
+
+function ClockPanel({ data }: { data: ServerClock }) {
+  const t = useT();
+  const confirmation = useServerConfirm();
   const { node } = useNode();
   const queryClient = useQueryClient();
-  const clock = useQuery(timeQuery());
   const [zoneOpen, setZoneOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
   const [zone, setZone] = useState("");
@@ -62,15 +73,6 @@ export function ClockCard() {
     onSuccess: refresh,
     onError: (error) => reportActionError(t("server.clock.ntpFailed"), explainServerError(t, error, node)),
   });
-  if (clock.isError && clock.data === undefined) {
-    return (
-      <Card level={2} title={t("server.clock.title")} padding="sm">
-        <ServerErrorBlock compact error={clock.error} title={t("server.clock.loadFailed")} onRetry={() => void clock.refetch()} />
-      </Card>
-    );
-  }
-  if (clock.data === undefined) return <Loading title={t("server.clock.title")} />;
-  const data = clock.data;
   const items: KeyValueItem[] = [
     { label: t("server.clock.localTime"), value: data.local_time },
     { label: t("server.clock.timezone"), value: data.timezone },
@@ -92,9 +94,9 @@ export function ClockCard() {
       : []),
   ];
   return (
-    <Card level={2}
+    <SettingsGroup
+      level={2}
       title={t("server.clock.title")}
-      padding="sm"
       actions={
         <Button
           size="sm"
@@ -108,25 +110,32 @@ export function ClockCard() {
         </Button>
       }
     >
-      <div className="flex flex-col gap-3">
+      <div className="px-5 py-3">
         <KeyValueList items={items} />
-        <Switch
-          label={t("server.clock.ntpLabel")}
-          description={data.ntp_supported ? t("server.clock.ntpDescription") : t("server.clock.ntpMissing")}
-          checked={data.ntp_enabled}
-          disabled={ntp.isPending}
-          onCheckedChange={(checked) => {
-            if (checked && !data.ntp_supported) setInstallOpen(true);
-            else ntp.mutate(checked);
-          }}
-        />
       </div>
+      <Setting
+        label={t("server.clock.ntpLabel")}
+        help={data.ntp_supported ? t("server.clock.ntpDescription") : t("server.clock.ntpMissing")}
+        checked={data.ntp_enabled}
+        busy={ntp.isPending}
+        onCheckedChange={(checked) => {
+          if (checked && !data.ntp_supported) setInstallOpen(true);
+          else ntp.mutate(checked);
+        }}
+      />
       {zoneOpen ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setZoneOpen(false);
+          }}
+          friction="simple"
+          destructive={false}
+          size="md"
           title={t("server.clock.zoneTitle")}
           description={t("server.clock.zoneDescription")}
           actionLabel={t("server.clock.zoneAction")}
-          onClose={() => setZoneOpen(false)}
           onConfirm={async () => {
             const result = await request("put", "/api/server/time", { body: { timezone: zone.trim(), install_ntp: false } });
             refresh();
@@ -136,42 +145,50 @@ export function ClockCard() {
           }}
         >
           <TimeZoneField value={zone} onValueChange={setZone} current={data.timezone} label={t("server.clock.zoneLabel")} />
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
       {installOpen ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setInstallOpen(false);
+          }}
+          friction="simple"
+          destructive={false}
+          size="md"
           title={t("server.clock.installTitle")}
           description={t("server.clock.installDescription")}
           actionLabel={t("server.clock.installAction")}
-          onClose={() => setInstallOpen(false)}
           onConfirm={async () => {
             await request("put", "/api/server/time", { body: { ntp: true, install_ntp: install } });
             refresh();
           }}
         >
           <Checkbox label={t("server.clock.installChrony")} description={t("server.clock.installChronyHelp")} checked={install} onCheckedChange={setInstall} />
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
-    </Card>
+    </SettingsGroup>
   );
 }
 
 export function HostnameCard() {
   const t = useT();
-  const queryClient = useQueryClient();
   const identity = useQuery(identityQuery());
+  return (
+    <ServerQueryState query={identity} label={t("server.hostname.label")} skeleton={<CardSkeleton title={t("server.hostname.title")} />}>
+      {(data) => <HostnamePanel host={data.hostname} />}
+    </ServerQueryState>
+  );
+}
+
+function HostnamePanel({ host }: { host: Identity["hostname"] }) {
+  const t = useT();
+  const confirmation = useServerConfirm();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [keep, setKeep] = useState(true);
-  if (identity.isError && identity.data === undefined) {
-    return (
-      <Card level={2} title={t("server.hostname.title")} padding="sm">
-        <ServerErrorBlock compact error={identity.error} title={t("server.hostname.loadFailed")} onRetry={() => void identity.refetch()} />
-      </Card>
-    );
-  }
-  if (identity.data === undefined) return <Loading title={t("server.hostname.title")} />;
-  const host = identity.data.hostname;
   const items: KeyValueItem[] = [
     { label: t("server.hostname.hostname"), value: host.hostname },
     ...(host.static !== host.hostname ? [{ label: t("server.hostname.static"), value: host.static }] : []),
@@ -201,11 +218,18 @@ export function HostnameCard() {
         {host.cloud_init_resets ? <Notice tone="warning">{t("server.hostname.cloudInit")}</Notice> : null}
       </div>
       {open ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(next) => {
+            if (!next) setOpen(false);
+          }}
+          friction="simple"
+          destructive={false}
+          size="md"
           title={t("server.hostname.renameTitle")}
           description={t("server.hostname.renameDescription")}
           actionLabel={t("server.hostname.renameAction")}
-          onClose={() => setOpen(false)}
           onConfirm={async () => {
             const result = await request("put", "/api/server/identity/hostname", { body: { hostname: name.trim(), keep_against_cloud_init: host.cloud_init && keep } });
             void queryClient.invalidateQueries({ queryKey: serverKeys.identity });
@@ -217,7 +241,7 @@ export function HostnameCard() {
             <Input mono value={name} onValueChange={(value: string) => setName(value)} autoComplete="off" spellCheck={false} />
           </Field>
           {host.cloud_init ? <Checkbox label={t("server.hostname.keep")} description={t("server.hostname.keepHelp")} checked={keep} onCheckedChange={setKeep} /> : null}
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
     </Card>
   );
@@ -236,15 +260,15 @@ function supportLine(t: T, identity: Identity): string {
 export function SystemCard() {
   const t = useT();
   const identity = useQuery(identityQuery());
-  if (identity.isError && identity.data === undefined) {
-    return (
-      <Card level={2} title={t("server.os.title")} padding="sm">
-        <ServerErrorBlock compact error={identity.error} title={t("server.os.loadFailed")} onRetry={() => void identity.refetch()} />
-      </Card>
-    );
-  }
-  if (identity.data === undefined) return <Loading title={t("server.os.title")} />;
-  const data = identity.data;
+  return (
+    <ServerQueryState query={identity} label={t("server.os.label")} skeleton={<CardSkeleton title={t("server.os.title")} />}>
+      {(data) => <SystemFacts data={data} />}
+    </ServerQueryState>
+  );
+}
+
+function SystemFacts({ data }: { data: Identity }) {
+  const t = useT();
   const eolState = data.eol.status === "expired" ? "failed" : data.eol.status === "warn" ? "warning" : null;
   const items: KeyValueItem[] = [
     { label: t("server.os.name"), value: data.os_name, mono: false },
@@ -306,8 +330,13 @@ export function PowerCard() {
               {scheduled.action === "reboot" ? t("server.power.cancelReboot") : t("server.power.cancelShutdown")}
             </Button>
           </div>
+        ) : summary.data === undefined ? (
+          // Nothing is said about the schedule until the server has answered; the line keeps its room.
+          <LoadingRegion label={t("common.queryState.loading", { label: t("server.power.cardTitle") })}>
+            <Skeleton className="h-5 w-48" />
+          </LoadingRegion>
         ) : (
-          <p className="text-13 text-fg-muted">{t("server.overview.nothingScheduled")}</p>
+          <EmptyState variant="inline" title={t("server.overview.nothingScheduled")} />
         )}
         <div className="flex flex-wrap items-center gap-2">
           <Button onClick={() => power.open("reboot")}>{t("server.power.rebootEllipsis")}</Button>

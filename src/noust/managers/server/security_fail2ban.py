@@ -31,6 +31,7 @@ from typing import Any
 
 from noust.core import paths
 from noust.core.exceptions import SecurityError, ValidationError
+from noust.core.package_family import install_apt_packages
 from noust.core.runner import CommandResult, CommandRunner, get_runner
 from noust.managers.server.errors import ConfirmationRequiredError, UnsupportedHostError
 from noust.managers.server.host import PROBE_TIMEOUT, PackageFamily, detect_platform
@@ -43,6 +44,9 @@ ENV = {"LC_ALL": "C", "TERM": "dumb", "DEBIAN_FRONTEND": "noninteractive"}
 
 #: How long installing packages may take.
 INSTALL_TIMEOUT = 600
+
+#: How apt is asked to install; the packages follow. Matched by :meth:`Fail2ban._install_step`.
+APT_INSTALL = ["apt-get", "install", "-y"]
 
 #: How many times, half a second apart, a fail2ban that was just started is asked whether it
 #: answers. Its unit is ``Type=simple``: systemctl returns when the process started, which is
@@ -313,6 +317,25 @@ class Fail2ban:
             for line in (result.stdout + result.stderr).splitlines():
                 self.on_output(line)
 
+    def _install_step(self, argv: list[str]) -> CommandResult:
+        """
+        Run one command of the install plan.
+
+        apt's goes through the one installer that refreshes empty package lists, because a fresh
+        image knows no package until ``apt-get update`` has run.
+
+        Args:
+            argv: A command of :meth:`_install_plan`.
+
+        Returns:
+            What it printed.
+        """
+        if argv[:3] == APT_INSTALL:
+            return install_apt_packages(
+                self.probe.runner, argv[3:], timeout=INSTALL_TIMEOUT, env=ENV
+            )
+        return self.probe.runner.run(argv, timeout=INSTALL_TIMEOUT, env=ENV)
+
     def _install_plan(self) -> tuple[list[list[str]], bool, str]:
         """
         How fail2ban is installed here.
@@ -326,7 +349,7 @@ class Fail2ban:
         major = platform.os.version_id.split(".")[0]
         if platform.family is PackageFamily.APT:
             return (
-                [["apt-get", "install", "-y", "fail2ban", "python3-systemd"]],
+                [[*APT_INSTALL, "fail2ban", "python3-systemd"]],
                 False,
                 "",
             )
@@ -587,7 +610,7 @@ class Fail2ban:
                 required={"epel": True, "packages": [argv[-1] for argv in commands]},
             )
         for argv in commands:
-            result = self.probe.runner.run(argv, timeout=INSTALL_TIMEOUT, env=ENV)
+            result = self._install_step(argv)
             self._say(argv, result)
             if not result.success:
                 raise SecurityError(

@@ -91,12 +91,12 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_DB: 0
       # Un origen por subdominio de producto (infra/nginx/modulos.proggest.es).
-      # partestrabajo no hace falta: redirige a partes.
-      CORS_ORIGIN: https://proggest.es,https://timpora.proggest.es,https://partes.proggest.es,https://gestordoc.proggest.es,https://uaap.proggest.es
+      # worklogs no hace falta: redirige a reports.
+      CORS_ORIGIN: https://proggest.es,https://clock.proggest.es,https://reports.proggest.es,https://docs.proggest.es,https://portal.proggest.es
       # Llaves de acceso (passkeys): el dominio de las llaves y los orígenes desde
       # los que se aceptan. Con proggest.es, una llave vale en todos los subdominios.
       PASSKEY_RP_ID: proggest.es
-      PASSKEY_ORIGINS: https://proggest.es,https://www.proggest.es,https://timpora.proggest.es,https://partes.proggest.es,https://gestordoc.proggest.es,https://uaap.proggest.es
+      PASSKEY_ORIGINS: https://proggest.es,https://www.proggest.es,https://clock.proggest.es,https://reports.proggest.es,https://docs.proggest.es,https://portal.proggest.es
       BULL_BOARD_USER: ${BULL_BOARD_USER:-admin}
       BULL_BOARD_PASSWORD: ${BULL_BOARD_PASSWORD}
       SMTP_HOST: ${SMTP_HOST}

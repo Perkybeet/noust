@@ -57,8 +57,12 @@ describe("Settings > Manifest", () => {
   it("previews what applying a manifest would change, in order, and what it leaves alone, and passes axe", { timeout: 30_000 }, async () => {
     const { backend, user } = await pageAt();
     const button = await screen.findByRole("button", { name: "Preview changes" });
-    // Nothing to preview until something is pasted.
-    expect(button).toBeDisabled();
+    // Nothing to preview until something is pasted: pressing the button says so, where the text goes.
+    await user.click(button);
+    expect(await screen.findByText("Required")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^Manifest/)).toHaveFocus();
+    });
     await user.click(screen.getByLabelText(/^Manifest/));
     await user.paste(MANIFEST);
     await user.click(button);

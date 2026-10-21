@@ -27,7 +27,7 @@ test("schedules a reboot with its pre-checks in view, shows it on every tab and 
   problems.expect(/status of 403 .*\/api\/server\/power\/reboot$/);
   await signIn(page, consoleServer, "/server");
   await page.getByRole("button", { name: "Reboot", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Reboot the server" });
+  const dialog = page.getByRole("alertdialog", { name: "Reboot the server" });
   const checks = dialog.getByRole("list", { name: "Checks before rebooting" });
   await expect(checks.getByText("Nothing is running", { exact: true })).toBeVisible();
   // Judged once the dialog has finished opening: mid-fade its colours are blends of the page's.
@@ -54,7 +54,7 @@ test("the updates tab lists security updates first and shows the plan before ins
   const first = table.getByRole("row").nth(1);
   await expect(first).toContainText("linux-image-6.8.0-47-generic");
   await expect(first).toContainText("Security");
-  await expect(page.getByText("A reboot has been needed since", { exact: false })).toBeVisible();
+  await expect(page.getByText("Reboot needed since")).toBeVisible();
   await expect(page.getByRole("switch", { name: "Automatic security updates" })).toBeChecked();
   await settle(page);
   await expectNoA11yViolations(page, "the updates tab");
@@ -86,8 +86,8 @@ test("the security tab shows its findings, SSH as it runs, the firewall against 
   // Fixing asks for the host name, and says the change undoes itself unless confirmed.
   const row = findings.getByRole("listitem").filter({ hasText: "SSH accepts passwords" });
   await row.getByRole("button", { name: "Fix…" }).click();
-  const fix = page.getByRole("dialog", { name: "Fix: SSH accepts passwords" });
-  await expect(fix.getByText("Undone unless you confirm it")).toBeVisible();
+  const fix = page.getByRole("alertdialog", { name: "Fix: SSH accepts passwords" });
+  await expect(fix.getByText(/undoes itself unless you confirm it/)).toBeVisible();
   await expect(fix.getByRole("button", { name: "Apply fix" })).toBeDisabled();
   await expectNoA11yViolations(page, "the fix dialog");
   await fix.getByRole("button", { name: "Cancel" }).click();

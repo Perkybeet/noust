@@ -73,6 +73,14 @@ async function environmentTab(extra: Record<string, RouteHandler> = {}) {
   return { ...harness, backend };
 }
 
+/** The bar's split Save: "Save only" writes the change and leaves the restart for later. */
+async function saveOnly(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
+  await user.click(screen.getByRole("button", { name: "More options for Save and restart" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Save only" }));
+}
+
+const SAVED = { domain: DOMAIN, changed: ["X"], restart_required: true, dry_run: false };
+
 async function rowAction(user: ReturnType<typeof renderConsole>["user"], name: string, item: string | RegExp): Promise<void> {
   await user.click(screen.getByRole("button", { name: `Actions for ${name}` }));
   await user.click(await screen.findByRole("menuitem", { name: item }));
@@ -133,27 +141,25 @@ describe("the environment tab and what Noust resolves", () => {
     expect(backend.calls.filter((call) => call.search.get("unmask") === "true")).toHaveLength(0);
   });
 
-  it("stages a change of who gets a variable, and saves it with the values in one request", async () => {
+  it("stages a change of who gets a variable, and saves only that, with no value read or sent", async () => {
     const { user, backend } = await environmentTab({
-      [`PUT ${ENV_PATH}`]: () => json(200, { domain: DOMAIN, restart_required: true }),
+      [`PATCH ${ENV_PATH}`]: () => json(200, SAVED),
     });
     await rowAction(user, "NODE_ENV", "Runtime only");
     expect(screen.getByText("1 unsaved change")).toBeInTheDocument();
     expect(within(screen.getByRole("table", { name: `Environment variables of ${DOMAIN}` })).getByText("Runtime only, unsaved")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Review and save" }));
-    const review = await screen.findByRole("dialog", { name: "Review changes" });
-    expect(within(review).getByText("Only who gets the variables changes. The values stay as they are.")).toBeInTheDocument();
-    await user.click(within(review).getByRole("button", { name: "Save changes" }));
+    await saveOnly(user);
 
     await waitFor(() => {
-      expect(backend.callsTo(`PUT ${ENV_PATH}`)[0]?.body).toEqual({ variables: CLEAR, audience: { NODE_ENV: "runtime" } });
+      expect(backend.callsTo(`PATCH ${ENV_PATH}`)[0]?.body).toEqual({ set: {}, unset: [], dry_run: false, audience: { NODE_ENV: "runtime" } });
     });
+    expect(backend.calls.filter((call) => call.search.get("unmask") === "true")).toHaveLength(0);
   });
 
   it("lets the dialog choose who gets a new variable", async () => {
     const { user, backend } = await environmentTab({
-      [`PUT ${ENV_PATH}`]: () => json(200, { domain: DOMAIN, restart_required: true }),
+      [`PATCH ${ENV_PATH}`]: () => json(200, SAVED),
     });
     await user.click(screen.getByRole("button", { name: "Add variable" }));
     const dialog = await screen.findByRole("dialog", { name: "Add a variable" });
@@ -163,11 +169,9 @@ describe("the environment tab and what Noust resolves", () => {
     await user.click(await screen.findByRole("option", { name: "Build only" }));
     await user.click(within(dialog).getByRole("button", { name: "Add variable" }));
 
-    await user.click(screen.getByRole("button", { name: "Review and save" }));
-    const review = await screen.findByRole("dialog", { name: "Review changes" });
-    await user.click(within(review).getByRole("button", { name: "Save changes" }));
+    await saveOnly(user);
     await waitFor(() => {
-      expect(backend.callsTo(`PUT ${ENV_PATH}`)[0]?.body).toEqual({ variables: { ...CLEAR, COMMIT: "x" }, audience: { COMMIT: "build" } });
+      expect(backend.callsTo(`PATCH ${ENV_PATH}`)[0]?.body).toEqual({ set: { COMMIT: "x" }, unset: [], dry_run: false, audience: { COMMIT: "build" } });
     });
   });
 
@@ -187,7 +191,7 @@ describe("the environment tab and what Noust resolves", () => {
     await waitFor(() => {
       expect(backend.callsTo(`POST ${ENV_PATH}/resolve`)).toHaveLength(1);
     });
-    expect(backend.callsTo(`PUT ${ENV_PATH}`)).toHaveLength(0);
+    expect(backend.callsTo(`PATCH ${ENV_PATH}`)).toHaveLength(0);
   });
 
   it("offers no resolving when the file holds no reference", async () => {

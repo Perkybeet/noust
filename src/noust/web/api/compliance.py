@@ -38,19 +38,6 @@ from noust.web.auth import audit_event, get_client_ip
 router = APIRouter(route_class=NoustErrorRoute)
 
 
-class ClauseInfo(BaseModel):
-    """
-    A clause of a framework.
-
-    Attributes:
-        id: Its identifier in the framework.
-        title: What it asks for.
-    """
-
-    id: str
-    title: str
-
-
 class FrameworkChange(BaseModel):
     """
     What enabling a framework would change in one control.

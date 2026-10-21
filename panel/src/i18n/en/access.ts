@@ -6,13 +6,11 @@
  */
 export const access = {
   nav: {
-    label: "Roles and access",
+    label: "Roles",
     keywords: "roles permissions custom role grant binding team project environment scope access least privilege",
-    command: "Roles and access settings",
+    command: "Roles settings",
   },
-  documentTitle: "Roles and access",
-  loadFailed: "Could not read the roles and grants",
-  loading: "Reading the roles and grants",
+  documentTitle: "Roles",
   loadingLabel: "roles and grants",
   scope: {
     instance: "The whole server",
@@ -35,7 +33,6 @@ export const access = {
     emptyDescription: "Accounts have their own role on the server. Grant a role on a team, a project or an environment to give someone more or less than that, exactly where it is needed.",
     column: { account: "Account", role: "Role", where: "Where", granted: "Granted" },
     custom: "Custom",
-    membership: "Team membership",
     manageInTeam: "Managed in the team",
     revoke: "Revoke",
     revokeLabel: "Revoke {role} from {account}",
@@ -95,6 +92,7 @@ export const access = {
       labelHelp: "What the console shows. Defaults to the name.",
       descriptionField: "What it is for",
       permissions: "Permissions",
+      permissionsRequired: "Choose at least one permission.",
       permissionsHelp: "Choose what the role may do. Mixing what governs (accounts, security) with what runs the server is refused: one person should not hold both.",
       canBeHeld: "It can be held on: {places}",
       noPermissions: "Choose at least one permission.",

@@ -136,6 +136,27 @@ class TestPromisesMadeInProse:
     def test_the_dated_claims_are_dated(self, page: str) -> None:
         assert "2026-10-13" in page
 
+    def test_a_failure_that_names_another_product_gives_a_date_or_an_advisory(
+        self, script: ModuleType
+    ) -> None:
+        """What is said of a product is a fact with a date and a source, never a bare claim."""
+        for guarantee in script.GUARANTEES:
+            for product in ("Coolify", "Dokploy"):
+                if product in guarantee.failure:
+                    assert re.search(r"20\d\d-\d\d-\d\d|GHSA-", guarantee.failure), guarantee.title
+
+    def test_a_failure_does_not_say_why_another_product_does_what_it_does(
+        self, script: ModuleType
+    ) -> None:
+        """A motive is not a fact anyone can check, so the page does not attribute one."""
+        motives = re.compile(
+            r"\b(because|protest\w*|complain\w*|trademark|on purpose|deliberately|intends?|"
+            r"wants?|refus\w+ to|in order to)\b",
+            re.IGNORECASE,
+        )
+        for guarantee in script.GUARANTEES:
+            assert not motives.search(guarantee.failure), guarantee.title
+
     @pytest.mark.parametrize(
         "anchor",
         ["#the-browser", "#verifying-a-release"],

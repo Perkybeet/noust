@@ -1,9 +1,9 @@
 /** Strings of the servers made at a cloud provider: Settings > Cloud, its accounts, boot scripts and the wizard that creates one. */
 export const cloud = {
   nav: {
-    label: "Cloud",
+    label: "Cloud providers",
     keywords: "hetzner digitalocean vultr provider token cloud-init create server vps droplet",
-    command: "Cloud settings",
+    command: "Cloud providers settings",
   },
 
   page: {
@@ -84,7 +84,6 @@ export const cloud = {
     },
     never: "Never",
     noNote: "No note",
-    actionsFor: "Actions for {name}",
     verify: "Check the token now",
     replaceToken: "Replace the token",
     remove: "Remove",
@@ -124,7 +123,6 @@ export const cloud = {
       description: "What it does",
     },
     noDescription: "No description",
-    actionsFor: "Actions for {name}",
     view: "View",
     edit: "Edit",
     copy: "Copy as a new script",
@@ -184,7 +182,6 @@ export const cloud = {
       deleted: "Deleted",
     },
     noAddress: "No address yet",
-    actionsFor: "Actions for {name}",
     powerOn: "Power on",
     delete: "Delete the machine",
     deleteTitle: "Delete the machine of {name}?",

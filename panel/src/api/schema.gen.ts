@@ -2071,11 +2071,14 @@ export interface paths {
          *     still on disk is activated (instant), otherwise the commit is built as a
          *     new release; in place the checkout is put on the commit and rebuilt.
          *     There is no ``nothing_new`` check: asking for a commit is explicit.
+         *     With ``no_cache`` the commit is always built, from scratch: what the
+         *     console's "Retry without cache" asks for after a failure.
          *
          *     Args:
          *         domain: Domain of the application.
          *         deployment_id: The deployment whose commit to rebuild.
          *         session: The authenticated session.
+         *         body: Optional; ``no_cache`` builds from scratch.
          *
          *     Returns:
          *         The queued job.
@@ -2438,6 +2441,44 @@ export interface paths {
          *         The application's domains afterwards.
          */
         delete: operations["delete_domain_api_apps__domain__domains__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/domains/{name}/certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Domain Certificate
+         * @description Give a name a certificate of its own, or back to the application's.
+         *
+         *     Certbot never runs on the request path: the change is queued as a job and its id returned
+         *     as ``certificate_job_id``. The certificate is ordered while the site goes on serving the
+         *     name as it did, and only then does the site get a server block for it; if the order fails
+         *     the job fails with certbot's own words and nothing has changed.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         name: The alias or redirect.
+         *         data: Whether the name holds a certificate of its own, and how it is proven.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The application's domains as they are now, and the job.
+         *
+         *     Raises:
+         *         ValidationError: The mode or the way of proving it is not acceptable (400).
+         *         DomainError: The name is not the application's, or is its primary (400).
+         */
+        put: operations["put_domain_certificate_api_apps__domain__domains__name__certificate_put"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -20987,6 +21028,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/nodes/{node}/ssh/authorization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Bastion Line
+         * @description Give the line a bastion's operator needs, before the bastion is set.
+         *
+         *     Setting a bastion opens the tunnel through it and keeps it only when the server answers, which
+         *     it cannot while the bastion does not yet let the central in. So the line is asked for first,
+         *     with the bastion the operator means to set, exactly as ``noust node ssh NAME --bastion ...
+         *     --show`` does; nothing is changed. The central connects to the address only to check the
+         *     fingerprint it was given, which is why this needs the permission to manage the fleet and not
+         *     the one to read it.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         body: The bastion's address and its key or fingerprint.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The line.
+         *
+         *     Raises:
+         *         NodeError: 400 when the key is not vouched for, the address is malformed, nothing answers
+         *             or what answers is not that fingerprint; 404 when the node is not registered.
+         */
+        post: operations["ask_bastion_line_api_nodes__node__ssh_authorization_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/nodes/{node}/team": {
         parameters: {
             query?: never;
@@ -29610,13 +29690,30 @@ export interface components {
          *         force: Add the name although another site of the web server already answers on it.
          *         port: Proxy this name to another port of the application than its own.
          *         dns: Point the name at this server in the DNS account that holds its zone.
+         *         certificate: ``own`` to give the name a certificate of its own instead of covering it
+         *             with the application's.
+         *         challenge: How that certificate is proven, ``http-01`` or ``dns-01``; the application's
+         *             own way by default.
+         *         dns_provider: The DNS account that answers ``dns-01``.
          */
         AddAppDomainRequest: {
+            /**
+             * Certificate
+             * @description shared (the default) or own
+             */
+            certificate?: string | null;
+            /**
+             * Challenge
+             * @description http-01 or dns-01
+             */
+            challenge?: string | null;
             /**
              * Dns
              * @default true
              */
             dns: boolean;
+            /** Dns Provider */
+            dns_provider?: string | null;
             /** Domain */
             domain: string;
             /**
@@ -30255,8 +30352,25 @@ export interface components {
          *             for trying an application out and not for keeping.
          *         enabled: Whether it is served. A name that is switched off keeps its row and its
          *             port; the site and the certificate leave it out.
+         *         certificate: ``shared`` when the application's certificate covers the name, ``own`` when
+         *             it holds one of its own (a lineage named after it and a server block for it).
+         *         served_by: The certificate that presents the name: a lineage certbot keeps (the
+         *             application's, or the name's own) or an uploaded certificate. For a name whose own
+         *             certificate is not issued yet, the shared one, which serves it meanwhile.
+         *         certificate_pending: Whether the name asked for a certificate of its own that is not
+         *             issued yet.
          */
         AppDomain: {
+            /**
+             * Certificate
+             * @default shared
+             */
+            certificate: string;
+            /**
+             * Certificate Pending
+             * @default false
+             */
+            certificate_pending: boolean;
             /** Created At */
             created_at?: string | null;
             /** Domain */
@@ -30270,6 +30384,8 @@ export interface components {
             kind: string;
             /** Port */
             port?: number | null;
+            /** Served By */
+            served_by?: string | null;
             /**
              * Temporary
              * @default false
@@ -32303,6 +32419,17 @@ export interface components {
             host_key?: string | null;
         };
         /**
+         * BastionLineOut
+         * @description The line a bastion's operator adds so the central can reach a server through it.
+         *
+         *     Attributes:
+         *         authorized_key_line: One ``authorized_keys`` line: one stream to the server, no shell.
+         */
+        BastionLineOut: {
+            /** Authorized Key Line */
+            authorized_key_line: string;
+        };
+        /**
          * BastionOut
          * @description A bastion, as shown. Its host key is pinned, and is not part of what is shown.
          *
@@ -33165,6 +33292,9 @@ export interface components {
          *         source: ``letsencrypt`` for a lineage certbot keeps (whichever authority
          *             issued it), ``custom`` for one that was uploaded, which is never renewed.
          *         challenge: How it is renewed: ``http-01`` or ``dns-01``; empty for an upload.
+         *         serves: The names of the applications this certificate presents: all of an
+         *             application's for its shared certificate, one for a certificate a name holds on
+         *             its own. Only the names the caller may see.
          */
         CertInfo: {
             /**
@@ -33194,6 +33324,11 @@ export interface components {
             key_path?: string | null;
             /** Path */
             path?: string | null;
+            /**
+             * Serves
+             * @default []
+             */
+            serves: string[];
             /**
              * Source
              * @default letsencrypt
@@ -38308,6 +38443,31 @@ export interface components {
             items: components["schemas"]["DoctorItemOut"][];
             /** Title */
             title: string;
+        };
+        /**
+         * DomainCertificateRequest
+         * @description Whether a name holds a certificate of its own.
+         *
+         *     Attributes:
+         *         certificate: ``own`` for a certificate kept under the name, ordered for it alone;
+         *             ``shared`` to cover it with the application's again.
+         *         challenge: With ``own``, how it is proven: ``http-01`` or ``dns-01``. What it already had,
+         *             else the application's own way.
+         *         dns_provider: The DNS account that answers ``dns-01``.
+         */
+        DomainCertificateRequest: {
+            /**
+             * Certificate
+             * @description own or shared
+             */
+            certificate: string;
+            /**
+             * Challenge
+             * @description http-01 or dns-01
+             */
+            challenge?: string | null;
+            /** Dns Provider */
+            dns_provider?: string | null;
         };
         /**
          * DomainEnabledRequest
@@ -44597,9 +44757,18 @@ export interface components {
          *     Attributes:
          *         set: Variables to give a value, added or replaced.
          *         unset: Variables to remove.
+         *         comments: The comments to keep above variables.
+         *         audience: Who sees a variable: the build, the running application or both.
          *         dry_run: Say which variables would change and write nothing.
          */
         MergeAppEnvRequest: {
+            /**
+             * Audience
+             * @description Name to 'both', 'build' or 'runtime' for the variables whose audience changes, as on PUT; a name left out keeps the one it has
+             */
+            audience?: {
+                [key: string]: string;
+            } | null;
             /**
              * Comments
              * @description Name to the comment kept above the variable in the .env, over the ones it has; empty text takes one away
@@ -44632,8 +44801,8 @@ export interface components {
          *
          *     Attributes:
          *         domain: Domain of the application.
-         *         changed: The names whose value was added, replaced or removed. Never a
-         *             value.
+         *         changed: The names whose value or audience was added, replaced or removed.
+         *             Never a value.
          *         restart_required: Whether the running process needs a restart to pick
          *             the change up.
          *         dry_run: Whether nothing was written.
@@ -49834,6 +50003,18 @@ export interface components {
             required?: boolean | null;
             /** Since */
             since?: string | null;
+        };
+        /**
+         * RebuildRequest
+         * @description Building a deployment's commit again.
+         */
+        RebuildRequest: {
+            /**
+             * No Cache
+             * @description Build from scratch: no package manager cache, no dependencies taken from the release that serves, no image layer cache, and a release of that commit already on disk is not activated in its place
+             * @default false
+             */
+            no_cache: boolean;
         };
         /**
          * ReceiveRequest
@@ -65182,7 +65363,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RebuildRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {
@@ -65581,6 +65766,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDomainChange"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_domain_certificate_api_apps__domain__domains__name__certificate_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainCertificateRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -85800,6 +86021,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SSHOptionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_bastion_line_api_nodes__node__ssh_authorization_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BastionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BastionLineOut"];
                 };
             };
             /** @description Validation Error */

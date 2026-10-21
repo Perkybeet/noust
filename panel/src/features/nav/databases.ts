@@ -1,10 +1,8 @@
-import { Database } from "lucide-react";
-
 import { area, hidden, strip, tab } from "../../app/navCore";
 
 /** Databases and its Engines tab. The register is app/nav.ts; this is one group of it. */
 export const DATABASES_SCREENS = strip(
-  area("databases", "/databases", "nav.databases.label", Database, {
+  area("databases", "/databases", "nav.databases.label", {
     group: "runs",
     shortcut: ["g", "b"],
     goTo: "nav.databases.goTo",

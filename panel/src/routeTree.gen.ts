@@ -16,6 +16,7 @@ import { Route as ResetPasswordRouteImport } from "./routes/reset-password"
 import { Route as SetupRouteImport } from "./routes/setup"
 import { Route as WelcomeRouteImport } from "./routes/welcome"
 import { Route as ConsoleIndexRouteImport } from "./routes/_console/index"
+import { Route as ConsoleAccountRouteImport } from "./routes/_console/account"
 import { Route as ConsoleActivityRouteImport } from "./routes/_console/activity"
 import { Route as ConsoleCronRouteImport } from "./routes/_console/cron"
 import { Route as ConsoleFleetRouteImport } from "./routes/_console/fleet"
@@ -116,8 +117,10 @@ import { Route as ConsoleAppsDomainDeploymentsIndexRouteImport } from "./routes/
 import { Route as ConsoleAppsDomainDeploymentsIdRouteImport } from "./routes/_console/apps/$domain/deployments/$id"
 import { Route as ConsoleAppsDomainSettingsIndexRouteImport } from "./routes/_console/apps/$domain/settings/index"
 import { Route as ConsoleAppsDomainSettingsAccessRouteImport } from "./routes/_console/apps/$domain/settings/access"
+import { Route as ConsoleAppsDomainSettingsAutomationRouteImport } from "./routes/_console/apps/$domain/settings/automation"
 import { Route as ConsoleAppsDomainSettingsBuildRouteImport } from "./routes/_console/apps/$domain/settings/build"
 import { Route as ConsoleAppsDomainSettingsBuildsRouteImport } from "./routes/_console/apps/$domain/settings/builds"
+import { Route as ConsoleAppsDomainSettingsComposeRouteImport } from "./routes/_console/apps/$domain/settings/compose"
 import { Route as ConsoleAppsDomainSettingsContainerRouteImport } from "./routes/_console/apps/$domain/settings/container"
 import { Route as ConsoleAppsDomainSettingsDeleteRouteImport } from "./routes/_console/apps/$domain/settings/delete"
 import { Route as ConsoleAppsDomainSettingsDeployOnPushRouteImport } from "./routes/_console/apps/$domain/settings/deploy-on-push"
@@ -128,6 +131,7 @@ import { Route as ConsoleAppsDomainSettingsHooksRouteImport } from "./routes/_co
 import { Route as ConsoleAppsDomainSettingsMountsRouteImport } from "./routes/_console/apps/$domain/settings/mounts"
 import { Route as ConsoleAppsDomainSettingsPreviewsRouteImport } from "./routes/_console/apps/$domain/settings/previews"
 import { Route as ConsoleAppsDomainSettingsProcessesRouteImport } from "./routes/_console/apps/$domain/settings/processes"
+import { Route as ConsoleAppsDomainSettingsProtectionRouteImport } from "./routes/_console/apps/$domain/settings/protection"
 import { Route as ConsoleAppsDomainSettingsResourcesRouteImport } from "./routes/_console/apps/$domain/settings/resources"
 import { Route as ConsoleAppsDomainSettingsSecurityRouteImport } from "./routes/_console/apps/$domain/settings/security"
 import { Route as ConsoleAppsDomainSettingsSourceRouteImport } from "./routes/_console/apps/$domain/settings/source"
@@ -177,6 +181,11 @@ const ConsoleIndexRoute = ConsoleIndexRouteImport.update({
   path: "/",
   getParentRoute: () => ConsoleRoute,
 } as any)
+const ConsoleAccountRoute = ConsoleAccountRouteImport.update({
+  id: "/account",
+  path: "/account",
+  getParentRoute: () => ConsoleRoute,
+} as any)
 const ConsoleActivityRoute = ConsoleActivityRouteImport.update({
   id: "/activity",
   path: "/activity",
@@ -213,14 +222,14 @@ const ConsoleSettingsRoute = ConsoleSettingsRouteImport.update({
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleAccountIndexRoute = ConsoleAccountIndexRouteImport.update({
-  id: "/account/",
-  path: "/account/",
-  getParentRoute: () => ConsoleRoute,
+  id: "/",
+  path: "/",
+  getParentRoute: () => ConsoleAccountRoute,
 } as any)
 const ConsoleAccountSecurityRoute = ConsoleAccountSecurityRouteImport.update({
-  id: "/account/security",
-  path: "/account/security",
-  getParentRoute: () => ConsoleRoute,
+  id: "/security",
+  path: "/security",
+  getParentRoute: () => ConsoleAccountRoute,
 } as any)
 const ConsoleAppsIndexRoute = ConsoleAppsIndexRouteImport.update({
   id: "/apps/",
@@ -706,6 +715,12 @@ const ConsoleAppsDomainSettingsAccessRoute =
     path: "/access",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
+const ConsoleAppsDomainSettingsAutomationRoute =
+  ConsoleAppsDomainSettingsAutomationRouteImport.update({
+    id: "/automation",
+    path: "/automation",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
 const ConsoleAppsDomainSettingsBuildRoute =
   ConsoleAppsDomainSettingsBuildRouteImport.update({
     id: "/build",
@@ -716,6 +731,12 @@ const ConsoleAppsDomainSettingsBuildsRoute =
   ConsoleAppsDomainSettingsBuildsRouteImport.update({
     id: "/builds",
     path: "/builds",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
+const ConsoleAppsDomainSettingsComposeRoute =
+  ConsoleAppsDomainSettingsComposeRouteImport.update({
+    id: "/compose",
+    path: "/compose",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
 const ConsoleAppsDomainSettingsContainerRoute =
@@ -776,6 +797,12 @@ const ConsoleAppsDomainSettingsProcessesRoute =
   ConsoleAppsDomainSettingsProcessesRouteImport.update({
     id: "/processes",
     path: "/processes",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
+const ConsoleAppsDomainSettingsProtectionRoute =
+  ConsoleAppsDomainSettingsProtectionRouteImport.update({
+    id: "/protection",
+    path: "/protection",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
 const ConsoleAppsDomainSettingsResourcesRoute =
@@ -870,6 +897,7 @@ export interface FileRoutesByFullPath {
   "/reset-password": typeof ResetPasswordRoute
   "/setup": typeof SetupRoute
   "/welcome": typeof WelcomeRoute
+  "/account": typeof ConsoleAccountRouteWithChildren
   "/activity": typeof ConsoleActivityRoute
   "/cron": typeof ConsoleCronRoute
   "/fleet": typeof ConsoleFleetRouteWithChildren
@@ -968,8 +996,10 @@ export interface FileRoutesByFullPath {
   "/teams/$team/": typeof ConsoleTeamsTeamIndexRoute
   "/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
   "/apps/$domain/settings/access": typeof ConsoleAppsDomainSettingsAccessRoute
+  "/apps/$domain/settings/automation": typeof ConsoleAppsDomainSettingsAutomationRoute
   "/apps/$domain/settings/build": typeof ConsoleAppsDomainSettingsBuildRoute
   "/apps/$domain/settings/builds": typeof ConsoleAppsDomainSettingsBuildsRoute
+  "/apps/$domain/settings/compose": typeof ConsoleAppsDomainSettingsComposeRoute
   "/apps/$domain/settings/container": typeof ConsoleAppsDomainSettingsContainerRoute
   "/apps/$domain/settings/delete": typeof ConsoleAppsDomainSettingsDeleteRoute
   "/apps/$domain/settings/deploy-on-push": typeof ConsoleAppsDomainSettingsDeployOnPushRoute
@@ -980,6 +1010,7 @@ export interface FileRoutesByFullPath {
   "/apps/$domain/settings/mounts": typeof ConsoleAppsDomainSettingsMountsRoute
   "/apps/$domain/settings/previews": typeof ConsoleAppsDomainSettingsPreviewsRoute
   "/apps/$domain/settings/processes": typeof ConsoleAppsDomainSettingsProcessesRoute
+  "/apps/$domain/settings/protection": typeof ConsoleAppsDomainSettingsProtectionRoute
   "/apps/$domain/settings/resources": typeof ConsoleAppsDomainSettingsResourcesRoute
   "/apps/$domain/settings/security": typeof ConsoleAppsDomainSettingsSecurityRoute
   "/apps/$domain/settings/source": typeof ConsoleAppsDomainSettingsSourceRoute
@@ -1094,8 +1125,10 @@ export interface FileRoutesByTo {
   "/teams/$team": typeof ConsoleTeamsTeamIndexRoute
   "/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
   "/apps/$domain/settings/access": typeof ConsoleAppsDomainSettingsAccessRoute
+  "/apps/$domain/settings/automation": typeof ConsoleAppsDomainSettingsAutomationRoute
   "/apps/$domain/settings/build": typeof ConsoleAppsDomainSettingsBuildRoute
   "/apps/$domain/settings/builds": typeof ConsoleAppsDomainSettingsBuildsRoute
+  "/apps/$domain/settings/compose": typeof ConsoleAppsDomainSettingsComposeRoute
   "/apps/$domain/settings/container": typeof ConsoleAppsDomainSettingsContainerRoute
   "/apps/$domain/settings/delete": typeof ConsoleAppsDomainSettingsDeleteRoute
   "/apps/$domain/settings/deploy-on-push": typeof ConsoleAppsDomainSettingsDeployOnPushRoute
@@ -1106,6 +1139,7 @@ export interface FileRoutesByTo {
   "/apps/$domain/settings/mounts": typeof ConsoleAppsDomainSettingsMountsRoute
   "/apps/$domain/settings/previews": typeof ConsoleAppsDomainSettingsPreviewsRoute
   "/apps/$domain/settings/processes": typeof ConsoleAppsDomainSettingsProcessesRoute
+  "/apps/$domain/settings/protection": typeof ConsoleAppsDomainSettingsProtectionRoute
   "/apps/$domain/settings/resources": typeof ConsoleAppsDomainSettingsResourcesRoute
   "/apps/$domain/settings/security": typeof ConsoleAppsDomainSettingsSecurityRoute
   "/apps/$domain/settings/source": typeof ConsoleAppsDomainSettingsSourceRoute
@@ -1131,6 +1165,7 @@ export interface FileRoutesById {
   "/reset-password": typeof ResetPasswordRoute
   "/setup": typeof SetupRoute
   "/welcome": typeof WelcomeRoute
+  "/_console/account": typeof ConsoleAccountRouteWithChildren
   "/_console/activity": typeof ConsoleActivityRoute
   "/_console/cron": typeof ConsoleCronRoute
   "/_console/fleet": typeof ConsoleFleetRouteWithChildren
@@ -1230,8 +1265,10 @@ export interface FileRoutesById {
   "/_console/teams/$team/": typeof ConsoleTeamsTeamIndexRoute
   "/_console/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
   "/_console/apps/$domain/settings/access": typeof ConsoleAppsDomainSettingsAccessRoute
+  "/_console/apps/$domain/settings/automation": typeof ConsoleAppsDomainSettingsAutomationRoute
   "/_console/apps/$domain/settings/build": typeof ConsoleAppsDomainSettingsBuildRoute
   "/_console/apps/$domain/settings/builds": typeof ConsoleAppsDomainSettingsBuildsRoute
+  "/_console/apps/$domain/settings/compose": typeof ConsoleAppsDomainSettingsComposeRoute
   "/_console/apps/$domain/settings/container": typeof ConsoleAppsDomainSettingsContainerRoute
   "/_console/apps/$domain/settings/delete": typeof ConsoleAppsDomainSettingsDeleteRoute
   "/_console/apps/$domain/settings/deploy-on-push": typeof ConsoleAppsDomainSettingsDeployOnPushRoute
@@ -1242,6 +1279,7 @@ export interface FileRoutesById {
   "/_console/apps/$domain/settings/mounts": typeof ConsoleAppsDomainSettingsMountsRoute
   "/_console/apps/$domain/settings/previews": typeof ConsoleAppsDomainSettingsPreviewsRoute
   "/_console/apps/$domain/settings/processes": typeof ConsoleAppsDomainSettingsProcessesRoute
+  "/_console/apps/$domain/settings/protection": typeof ConsoleAppsDomainSettingsProtectionRoute
   "/_console/apps/$domain/settings/resources": typeof ConsoleAppsDomainSettingsResourcesRoute
   "/_console/apps/$domain/settings/security": typeof ConsoleAppsDomainSettingsSecurityRoute
   "/_console/apps/$domain/settings/source": typeof ConsoleAppsDomainSettingsSourceRoute
@@ -1268,6 +1306,7 @@ export interface FileRouteTypes {
     | "/reset-password"
     | "/setup"
     | "/welcome"
+    | "/account"
     | "/activity"
     | "/cron"
     | "/fleet"
@@ -1366,8 +1405,10 @@ export interface FileRouteTypes {
     | "/teams/$team/"
     | "/apps/$domain/deployments/$id"
     | "/apps/$domain/settings/access"
+    | "/apps/$domain/settings/automation"
     | "/apps/$domain/settings/build"
     | "/apps/$domain/settings/builds"
+    | "/apps/$domain/settings/compose"
     | "/apps/$domain/settings/container"
     | "/apps/$domain/settings/delete"
     | "/apps/$domain/settings/deploy-on-push"
@@ -1378,6 +1419,7 @@ export interface FileRouteTypes {
     | "/apps/$domain/settings/mounts"
     | "/apps/$domain/settings/previews"
     | "/apps/$domain/settings/processes"
+    | "/apps/$domain/settings/protection"
     | "/apps/$domain/settings/resources"
     | "/apps/$domain/settings/security"
     | "/apps/$domain/settings/source"
@@ -1492,8 +1534,10 @@ export interface FileRouteTypes {
     | "/teams/$team"
     | "/apps/$domain/deployments/$id"
     | "/apps/$domain/settings/access"
+    | "/apps/$domain/settings/automation"
     | "/apps/$domain/settings/build"
     | "/apps/$domain/settings/builds"
+    | "/apps/$domain/settings/compose"
     | "/apps/$domain/settings/container"
     | "/apps/$domain/settings/delete"
     | "/apps/$domain/settings/deploy-on-push"
@@ -1504,6 +1548,7 @@ export interface FileRouteTypes {
     | "/apps/$domain/settings/mounts"
     | "/apps/$domain/settings/previews"
     | "/apps/$domain/settings/processes"
+    | "/apps/$domain/settings/protection"
     | "/apps/$domain/settings/resources"
     | "/apps/$domain/settings/security"
     | "/apps/$domain/settings/source"
@@ -1528,6 +1573,7 @@ export interface FileRouteTypes {
     | "/reset-password"
     | "/setup"
     | "/welcome"
+    | "/_console/account"
     | "/_console/activity"
     | "/_console/cron"
     | "/_console/fleet"
@@ -1627,8 +1673,10 @@ export interface FileRouteTypes {
     | "/_console/teams/$team/"
     | "/_console/apps/$domain/deployments/$id"
     | "/_console/apps/$domain/settings/access"
+    | "/_console/apps/$domain/settings/automation"
     | "/_console/apps/$domain/settings/build"
     | "/_console/apps/$domain/settings/builds"
+    | "/_console/apps/$domain/settings/compose"
     | "/_console/apps/$domain/settings/container"
     | "/_console/apps/$domain/settings/delete"
     | "/_console/apps/$domain/settings/deploy-on-push"
@@ -1639,6 +1687,7 @@ export interface FileRouteTypes {
     | "/_console/apps/$domain/settings/mounts"
     | "/_console/apps/$domain/settings/previews"
     | "/_console/apps/$domain/settings/processes"
+    | "/_console/apps/$domain/settings/protection"
     | "/_console/apps/$domain/settings/resources"
     | "/_console/apps/$domain/settings/security"
     | "/_console/apps/$domain/settings/source"
@@ -1717,6 +1766,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleIndexRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    "/_console/account": {
+      id: "/_console/account"
+      path: "/account"
+      fullPath: "/account"
+      preLoaderRoute: typeof ConsoleAccountRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
     "/_console/activity": {
       id: "/_console/activity"
       path: "/activity"
@@ -1768,17 +1824,17 @@ declare module "@tanstack/react-router" {
     }
     "/_console/account/": {
       id: "/_console/account/"
-      path: "/account"
+      path: "/"
       fullPath: "/account/"
       preLoaderRoute: typeof ConsoleAccountIndexRouteImport
-      parentRoute: typeof ConsoleRoute
+      parentRoute: typeof ConsoleAccountRoute
     }
     "/_console/account/security": {
       id: "/_console/account/security"
-      path: "/account/security"
+      path: "/security"
       fullPath: "/account/security"
       preLoaderRoute: typeof ConsoleAccountSecurityRouteImport
-      parentRoute: typeof ConsoleRoute
+      parentRoute: typeof ConsoleAccountRoute
     }
     "/_console/apps/": {
       id: "/_console/apps/"
@@ -2417,6 +2473,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleAppsDomainSettingsAccessRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
+    "/_console/apps/$domain/settings/automation": {
+      id: "/_console/apps/$domain/settings/automation"
+      path: "/automation"
+      fullPath: "/apps/$domain/settings/automation"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsAutomationRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
     "/_console/apps/$domain/settings/build": {
       id: "/_console/apps/$domain/settings/build"
       path: "/build"
@@ -2429,6 +2492,13 @@ declare module "@tanstack/react-router" {
       path: "/builds"
       fullPath: "/apps/$domain/settings/builds"
       preLoaderRoute: typeof ConsoleAppsDomainSettingsBuildsRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
+    "/_console/apps/$domain/settings/compose": {
+      id: "/_console/apps/$domain/settings/compose"
+      path: "/compose"
+      fullPath: "/apps/$domain/settings/compose"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsComposeRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
     "/_console/apps/$domain/settings/container": {
@@ -2499,6 +2569,13 @@ declare module "@tanstack/react-router" {
       path: "/processes"
       fullPath: "/apps/$domain/settings/processes"
       preLoaderRoute: typeof ConsoleAppsDomainSettingsProcessesRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
+    "/_console/apps/$domain/settings/protection": {
+      id: "/_console/apps/$domain/settings/protection"
+      path: "/protection"
+      fullPath: "/apps/$domain/settings/protection"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsProtectionRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
     "/_console/apps/$domain/settings/resources": {
@@ -2601,6 +2678,20 @@ declare module "@tanstack/react-router" {
     }
   }
 }
+
+interface ConsoleAccountRouteChildren {
+  ConsoleAccountSecurityRoute: typeof ConsoleAccountSecurityRoute
+  ConsoleAccountIndexRoute: typeof ConsoleAccountIndexRoute
+}
+
+const ConsoleAccountRouteChildren: ConsoleAccountRouteChildren = {
+  ConsoleAccountSecurityRoute: ConsoleAccountSecurityRoute,
+  ConsoleAccountIndexRoute: ConsoleAccountIndexRoute,
+}
+
+const ConsoleAccountRouteWithChildren = ConsoleAccountRoute._addFileChildren(
+  ConsoleAccountRouteChildren,
+)
 
 interface ConsoleFleetRouteChildren {
   ConsoleFleetActivityRoute: typeof ConsoleFleetActivityRoute
@@ -2716,8 +2807,10 @@ const ConsoleSettingsRouteWithChildren = ConsoleSettingsRoute._addFileChildren(
 
 interface ConsoleAppsDomainSettingsRouteChildren {
   ConsoleAppsDomainSettingsAccessRoute: typeof ConsoleAppsDomainSettingsAccessRoute
+  ConsoleAppsDomainSettingsAutomationRoute: typeof ConsoleAppsDomainSettingsAutomationRoute
   ConsoleAppsDomainSettingsBuildRoute: typeof ConsoleAppsDomainSettingsBuildRoute
   ConsoleAppsDomainSettingsBuildsRoute: typeof ConsoleAppsDomainSettingsBuildsRoute
+  ConsoleAppsDomainSettingsComposeRoute: typeof ConsoleAppsDomainSettingsComposeRoute
   ConsoleAppsDomainSettingsContainerRoute: typeof ConsoleAppsDomainSettingsContainerRoute
   ConsoleAppsDomainSettingsDeleteRoute: typeof ConsoleAppsDomainSettingsDeleteRoute
   ConsoleAppsDomainSettingsDeployOnPushRoute: typeof ConsoleAppsDomainSettingsDeployOnPushRoute
@@ -2728,6 +2821,7 @@ interface ConsoleAppsDomainSettingsRouteChildren {
   ConsoleAppsDomainSettingsMountsRoute: typeof ConsoleAppsDomainSettingsMountsRoute
   ConsoleAppsDomainSettingsPreviewsRoute: typeof ConsoleAppsDomainSettingsPreviewsRoute
   ConsoleAppsDomainSettingsProcessesRoute: typeof ConsoleAppsDomainSettingsProcessesRoute
+  ConsoleAppsDomainSettingsProtectionRoute: typeof ConsoleAppsDomainSettingsProtectionRoute
   ConsoleAppsDomainSettingsResourcesRoute: typeof ConsoleAppsDomainSettingsResourcesRoute
   ConsoleAppsDomainSettingsSecurityRoute: typeof ConsoleAppsDomainSettingsSecurityRoute
   ConsoleAppsDomainSettingsSourceRoute: typeof ConsoleAppsDomainSettingsSourceRoute
@@ -2737,8 +2831,12 @@ interface ConsoleAppsDomainSettingsRouteChildren {
 const ConsoleAppsDomainSettingsRouteChildren: ConsoleAppsDomainSettingsRouteChildren =
   {
     ConsoleAppsDomainSettingsAccessRoute: ConsoleAppsDomainSettingsAccessRoute,
+    ConsoleAppsDomainSettingsAutomationRoute:
+      ConsoleAppsDomainSettingsAutomationRoute,
     ConsoleAppsDomainSettingsBuildRoute: ConsoleAppsDomainSettingsBuildRoute,
     ConsoleAppsDomainSettingsBuildsRoute: ConsoleAppsDomainSettingsBuildsRoute,
+    ConsoleAppsDomainSettingsComposeRoute:
+      ConsoleAppsDomainSettingsComposeRoute,
     ConsoleAppsDomainSettingsContainerRoute:
       ConsoleAppsDomainSettingsContainerRoute,
     ConsoleAppsDomainSettingsDeleteRoute: ConsoleAppsDomainSettingsDeleteRoute,
@@ -2754,6 +2852,8 @@ const ConsoleAppsDomainSettingsRouteChildren: ConsoleAppsDomainSettingsRouteChil
       ConsoleAppsDomainSettingsPreviewsRoute,
     ConsoleAppsDomainSettingsProcessesRoute:
       ConsoleAppsDomainSettingsProcessesRoute,
+    ConsoleAppsDomainSettingsProtectionRoute:
+      ConsoleAppsDomainSettingsProtectionRoute,
     ConsoleAppsDomainSettingsResourcesRoute:
       ConsoleAppsDomainSettingsResourcesRoute,
     ConsoleAppsDomainSettingsSecurityRoute:
@@ -2866,6 +2966,7 @@ const ConsoleServerServicesNameRouteWithChildren =
   )
 
 interface ConsoleRouteChildren {
+  ConsoleAccountRoute: typeof ConsoleAccountRouteWithChildren
   ConsoleActivityRoute: typeof ConsoleActivityRoute
   ConsoleCronRoute: typeof ConsoleCronRoute
   ConsoleFleetRoute: typeof ConsoleFleetRouteWithChildren
@@ -2874,7 +2975,6 @@ interface ConsoleRouteChildren {
   ConsoleServerRoute: typeof ConsoleServerRouteWithChildren
   ConsoleSettingsRoute: typeof ConsoleSettingsRouteWithChildren
   ConsoleIndexRoute: typeof ConsoleIndexRoute
-  ConsoleAccountSecurityRoute: typeof ConsoleAccountSecurityRoute
   ConsoleAppsDomainRoute: typeof ConsoleAppsDomainRouteWithChildren
   ConsoleAppsNewRoute: typeof ConsoleAppsNewRoute
   ConsoleBackupsDestinationsRoute: typeof ConsoleBackupsDestinationsRoute
@@ -2890,7 +2990,6 @@ interface ConsoleRouteChildren {
   ConsoleProjectsTeamsRoute: typeof ConsoleProjectsTeamsRoute
   ConsoleServicesNameRoute: typeof ConsoleServicesNameRoute
   ConsoleTeamsTeamRoute: typeof ConsoleTeamsTeamRouteWithChildren
-  ConsoleAccountIndexRoute: typeof ConsoleAccountIndexRoute
   ConsoleAppsIndexRoute: typeof ConsoleAppsIndexRoute
   ConsoleBackupsIndexRoute: typeof ConsoleBackupsIndexRoute
   ConsoleCatalogIndexRoute: typeof ConsoleCatalogIndexRoute
@@ -2912,6 +3011,7 @@ interface ConsoleRouteChildren {
 }
 
 const ConsoleRouteChildren: ConsoleRouteChildren = {
+  ConsoleAccountRoute: ConsoleAccountRouteWithChildren,
   ConsoleActivityRoute: ConsoleActivityRoute,
   ConsoleCronRoute: ConsoleCronRoute,
   ConsoleFleetRoute: ConsoleFleetRouteWithChildren,
@@ -2920,7 +3020,6 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleServerRoute: ConsoleServerRouteWithChildren,
   ConsoleSettingsRoute: ConsoleSettingsRouteWithChildren,
   ConsoleIndexRoute: ConsoleIndexRoute,
-  ConsoleAccountSecurityRoute: ConsoleAccountSecurityRoute,
   ConsoleAppsDomainRoute: ConsoleAppsDomainRouteWithChildren,
   ConsoleAppsNewRoute: ConsoleAppsNewRoute,
   ConsoleBackupsDestinationsRoute: ConsoleBackupsDestinationsRoute,
@@ -2936,7 +3035,6 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleProjectsTeamsRoute: ConsoleProjectsTeamsRoute,
   ConsoleServicesNameRoute: ConsoleServicesNameRoute,
   ConsoleTeamsTeamRoute: ConsoleTeamsTeamRouteWithChildren,
-  ConsoleAccountIndexRoute: ConsoleAccountIndexRoute,
   ConsoleAppsIndexRoute: ConsoleAppsIndexRoute,
   ConsoleBackupsIndexRoute: ConsoleBackupsIndexRoute,
   ConsoleCatalogIndexRoute: ConsoleCatalogIndexRoute,

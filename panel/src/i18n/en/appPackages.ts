@@ -7,7 +7,6 @@ export const appPackages = {
   description: "Libraries and tools of the server this application needs, such as libvips-dev, ffmpeg or a font. Noust installs them before the next build; a repository cannot ask for one.",
   loading: "Loading the system packages",
   readFailed: "The system packages could not be read",
-  fromTerminal: "From a terminal",
   listLabel: "Packages this application needs",
   none: "This application declares no system packages.",
   hasIt: "Installed",
@@ -31,4 +30,5 @@ export const appPackages = {
   notInstalled: "The system packages of {domain} were not installed",
   jobFailedSilently: "The installation failed without saying why. The job's log has the package manager's output.",
   when: "Saving records the list. The packages missing are installed before the next update builds, or now with the button; an update stops, and what serves keeps serving, if they cannot be installed.",
+  edit: "Edit packages…",
 } as const;

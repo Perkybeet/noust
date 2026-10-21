@@ -291,6 +291,17 @@ class BastionIn(BaseModel):
     fingerprint: str | None = Field(default=None, max_length=100)
 
 
+class BastionLineOut(BaseModel):
+    """
+    The line a bastion's operator adds so the central can reach a server through it.
+
+    Attributes:
+        authorized_key_line: One ``authorized_keys`` line: one stream to the server, no shell.
+    """
+
+    authorized_key_line: str
+
+
 class SSHOptionsIn(BaseModel):
     """
     Body of ``PUT /api/nodes/{node}/ssh``: the whole desired state.
@@ -592,6 +603,41 @@ def get_node(node: str, session: Annotated[dict[str, Any], Depends(require_auth)
     return describe(find_node(node))
 
 
+def _chosen_bastion(manager: NodeManager, name: str, proposal: BastionIn) -> Any:
+    """
+    Turn the bastion a request names into one with a pinned host key.
+
+    The one answer for the change (``PUT``) and for the line asked for beforehand (``POST``), so
+    the two cannot disagree about which bastion an address means.
+
+    Args:
+        manager: The node registry.
+        name: The node's name.
+        proposal: The address and, for a bastion that is new or elsewhere, its key or fingerprint.
+
+    Returns:
+        The bastion; the node's current one when the same address comes without a key.
+
+    Raises:
+        NodeError: The address is malformed, the key is not vouched for, or what answers is not
+            the fingerprint.
+    """
+    from noust.fleet.ssh_options import parse_bastion_address
+
+    current = manager.ssh_options(name).bastion
+    user, host, port = parse_bastion_address(proposal.address)
+    if (
+        current is not None
+        and (current.user, current.host.lower(), current.port) == (user, host.lower(), port)
+        and not proposal.host_key
+        and not proposal.fingerprint
+    ):
+        return current
+    return manager.resolve_bastion(
+        proposal.address, host_key=proposal.host_key, fingerprint=proposal.fingerprint
+    )
+
+
 def _ssh_view(name: str) -> SSHOptionsOut:
     """
     Describe a node's connection options, with the line its bastion's operator needs.
@@ -653,27 +699,9 @@ def set_node_ssh(
         NodeError: 400 when a value is invalid or the bastion is unknown; 400 too when
             the server did not answer with the new options (they were not kept).
     """
-    from noust.fleet.ssh_options import parse_bastion_address
-
     record = find_node(node)
     manager = node_manager()
-    current = manager.ssh_options(record.name).bastion
-    chosen = None
-    if body.bastion is not None:
-        user, host, port = parse_bastion_address(body.bastion.address)
-        if (
-            current is not None
-            and (current.user, current.host.lower(), current.port) == (user, host.lower(), port)
-            and not body.bastion.host_key
-            and not body.bastion.fingerprint
-        ):
-            chosen = current
-        else:
-            chosen = manager.resolve_bastion(
-                body.bastion.address,
-                host_key=body.bastion.host_key,
-                fingerprint=body.bastion.fingerprint,
-            )
+    chosen = _chosen_bastion(manager, record.name, body.bastion) if body.bastion else None
     manager.set_ssh_options(
         record.name,
         connect_timeout=body.connect_timeout,
@@ -692,6 +720,40 @@ def set_node_ssh(
         ),
     )
     return _ssh_view(record.name)
+
+
+@router.post("/{node}/ssh/authorization", response_model=BastionLineOut)
+def ask_bastion_line(
+    node: str, body: BastionIn, session: Annotated[dict[str, Any], Depends(require_auth)]
+) -> BastionLineOut:
+    """
+    Give the line a bastion's operator needs, before the bastion is set.
+
+    Setting a bastion opens the tunnel through it and keeps it only when the server answers, which
+    it cannot while the bastion does not yet let the central in. So the line is asked for first,
+    with the bastion the operator means to set, exactly as ``noust node ssh NAME --bastion ...
+    --show`` does; nothing is changed. The central connects to the address only to check the
+    fingerprint it was given, which is why this needs the permission to manage the fleet and not
+    the one to read it.
+
+    Args:
+        node: The node's name.
+        body: The bastion's address and its key or fingerprint.
+        session: The authenticated session.
+
+    Returns:
+        The line.
+
+    Raises:
+        NodeError: 400 when the key is not vouched for, the address is malformed, nothing answers
+            or what answers is not that fingerprint; 404 when the node is not registered.
+    """
+    record = find_node(node)
+    manager = node_manager()
+    proposed = _chosen_bastion(manager, record.name, body)
+    return BastionLineOut(
+        authorized_key_line=manager.bastion_authorization(record.name, bastion=proposed)
+    )
 
 
 @router.get("/{node}/inventory", response_model=dict[str, Any])

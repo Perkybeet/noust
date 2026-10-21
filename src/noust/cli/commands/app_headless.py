@@ -4,8 +4,8 @@
 """
 ``noust app headless``: record a Compose worker as one (owner item 57).
 
-A stack that publishes no port is a worker, judged by its containers. WASM
-1.x registered every stack with the default port (3000) and wrote it a site,
+A stack that publishes no port is a worker, judged by its containers. Before
+2.0 every stack was registered with the default port (3000) and given a site,
 so ``noust list``, ``noust health``, ``noust diagnose`` and the console called
 a healthy worker down. This command clears the port and, when asked, removes
 the site Noust wrote for it; it is never done on its own. The work is

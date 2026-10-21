@@ -4,12 +4,11 @@
  */
 export const declaration = {
   title: "Declaration file",
-  description: "How this application is run (health check, limits, source options, build commands, hooks, non-secret variables, domains and tasks) in the keys of noust.yaml. Written from this application, or applied to it.",
+  description: "How this application is run (startup check, limits, source options, build commands, hooks, non-secret variables, domains and tasks) in the keys of noust.yaml. Written from this application, or applied to it.",
   download: "Download the declaration",
   downloaded: "The declaration of {domain} was downloaded",
   downloadFailed: "Could not write the declaration",
   secrets: "Secret variables are never in it: their names are listed in a comment.",
-  apply: "Apply a declaration…",
   dialog: {
     title: "Apply a declaration to {domain}",
     description: "Paste a declaration file. Only the sections it has are changed, and nothing is changed until you apply it.",
@@ -28,7 +27,7 @@ export const declaration = {
   },
   scope: {
     title: "What this set covers",
-    body: "The health check, resource limits, release retention, source options, Compose settings, build commands, deploy hooks, the variables it names, aliases and redirects, and scheduled tasks. Limits are applied through the health check and put back if it fails; variables are written now and reach the application at its next restart; build commands and hooks run at the next deploy, and only after you agree. Each part is applied on its own and in this order: if one cannot be, the ones before it stay and the result says which. A site's configuration, a database or anything else is changed on its own page.",
+    body: "The startup check, resource limits, release retention, source options, Compose settings, build commands, deploy hooks, the variables it names, aliases and redirects, and scheduled tasks. Limits are applied through the startup check and put back if it fails; variables are written now and reach the application at its next restart; build commands and hooks run at the next deploy, and only after you agree. Each part is applied on its own and in this order: if one cannot be, the ones before it stay and the result says which. A site's configuration, a database or anything else is changed on its own page.",
   },
   review: {
     title: {
@@ -44,7 +43,7 @@ export const declaration = {
     removedLine: "Removed:",
   },
   blocks: {
-    app: "How it runs (health check, limits, releases)",
+    app: "How it runs (startup check, limits, releases)",
     source: "Source options",
     compose: "Compose",
     build: "Build",
@@ -60,6 +59,8 @@ export const declaration = {
     runsCommands: "Runs commands",
     confirm: "I have read what it runs as the application or on this machine, and I agree",
     notApplied: "Not applied",
+    confirmLegend: "Before it runs",
+    confirmAsked: "Tick the box to say you have read what it runs.",
   },
-  fromTerminal: "The same, from a terminal",
+  fromFile: "Apply a declaration…",
 } as const;

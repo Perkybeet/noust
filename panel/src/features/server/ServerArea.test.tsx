@@ -113,7 +113,7 @@ describe("the Server area", () => {
     await user.click(
       within(list).getByRole("button", { name: "Schedule reboot" }),
     );
-    const dialog = await screen.findByRole("dialog", {
+    const dialog = await screen.findByRole("alertdialog", {
       name: "Reboot the server",
     });
     const checks = await within(dialog).findByRole("list", {
@@ -165,10 +165,10 @@ describe("the Server area", () => {
     });
     expect(
       await screen.findByText(
-        /An SSH change is waiting for you: it undoes itself in 1:\d\d/,
+        /An SSH change undoes itself in 1:\d\d/,
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Turn off password logins")).toBeInTheDocument();
+    expect(screen.getByText(/Turn off password logins\./)).toBeInTheDocument();
     // Keep waits for the login that proves the way in works (PendingChanges.banner.test.tsx).
     expect(screen.getByText("Waiting for a new SSH login")).toBeInTheDocument();
     expect(
@@ -334,7 +334,7 @@ describe("the Updates tab", () => {
       "GET /api/jobs/j2": () => json(200, RESTART_JOB),
     });
     await user.click(await screen.findByRole("button", { name: "Restart these services" }));
-    const dialog = await screen.findByRole("dialog", { name: "Restart the services on outdated libraries" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Restart the services on outdated libraries" });
     const order = await within(dialog).findByRole("list", { name: "Restarted, in this order" });
     expect(within(order).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["nginx.service", "cron.service", "noust-web.service"]);
     expect(within(dialog).getByText("dbus.service")).toBeInTheDocument();
@@ -361,7 +361,7 @@ describe("the Updates tab", () => {
         }),
     });
     await user.click(await screen.findByRole("button", { name: "Restart these services" }));
-    const dialog = await screen.findByRole("dialog", { name: "Restart the services on outdated libraries" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Restart the services on outdated libraries" });
     expect(await within(dialog).findByText("None of them can be restarted from here: a reboot restarts them.")).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Restart services" })).toBeDisabled();
   });
@@ -407,14 +407,14 @@ describe("the Security tab", () => {
       .closest("li");
     if (!row) throw new Error("no row");
     await user.click(within(row).getByRole("button", { name: "Fix…" }));
-    const dialog = await screen.findByRole("dialog", {
+    const dialog = await screen.findByRole("alertdialog", {
       name: "Fix: SSH accepts passwords",
     });
     expect(
       await within(dialog).findByText("passwordauthentication"),
     ).toBeInTheDocument();
     expect(
-      within(dialog).getByText("Undone unless you confirm it"),
+      within(dialog).getByText(/undoes itself unless you confirm it from a new SSH session/),
     ).toBeInTheDocument();
     const apply = within(dialog).getByRole("button", { name: "Apply fix" });
     expect(apply).toBeDisabled();
@@ -478,7 +478,7 @@ describe("the Security tab", () => {
     await user.click(await screen.findByRole("button", { name: "Turn on" }));
     // An inactive firewall is an off at a glance: grey, a ring, the word (item 56).
     expect(screen.getByText("installed, not active")).toHaveAttribute("data-state", "stopped");
-    const dialog = await screen.findByRole("dialog", {
+    const dialog = await screen.findByRole("alertdialog", {
       name: "Turn on the firewall",
     });
     await user.type(within(dialog).getByRole("textbox"), "web-01");
@@ -486,7 +486,7 @@ describe("the Security tab", () => {
       within(dialog).getByRole("button", { name: "Turn on the firewall" }),
     );
     expect(
-      await within(dialog).findByText("web-2 did not allow host access"),
+      await within(dialog).findByText(/web-2 does not let this console change how it is reached/),
     ).toBeInTheDocument();
     expect(
       within(dialog).getByText(
@@ -560,7 +560,7 @@ describe("fail2ban watching nginx", () => {
 
     expect(await screen.findByText("Off. fail2ban only watches SSH.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Watch nginx" }));
-    const dialog = await screen.findByRole("dialog", { name: "Make fail2ban watch nginx" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Make fail2ban watch nginx" });
     expect(within(dialog).getByText(/Cloudflare's ranges and every proxy a site declares/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Watch nginx" }));
 
@@ -579,7 +579,7 @@ describe("fail2ban watching nginx", () => {
 
     expect(await screen.findByText(/bans an address that keeps being refused a password/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Stop watching nginx" }));
-    const dialog = await screen.findByRole("dialog", { name: "Stop fail2ban watching nginx" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Stop fail2ban watching nginx" });
     await user.click(within(dialog).getByRole("button", { name: "Stop watching nginx" }));
 
     await waitFor(() => {

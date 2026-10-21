@@ -5,6 +5,9 @@
  * the update goes on with a warning. With no choice made the default follows the databases: on
  * for an app that has one. Choosing either way, and returning to the default, ask "Confirm it's
  * you"; turning it off is asked once more.
+ *
+ * A row of Automation: the switch is the requirement, and what the default is and the way back to it
+ * are said in its help.
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,26 +15,25 @@ import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { announce } from "../../../app/Announcer";
-import { ErrorBlock } from "../../../components/page/QueryState";
-import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Mono } from "../../../components/ui/Mono";
-import { Skeleton } from "../../../components/ui/Skeleton";
-import { Switch } from "../../../components/ui/Switch";
+import { Setting } from "../../../components/ui/Setting";
+import { textLinkClassName } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
 import { backupRequiredQuery, olderServer, settingsKeys } from "./queries";
 import type { BackupRequired } from "./queries";
+import { RowError, RowLoading, useAsksItsYou } from "./settingRows";
 
-/** The card: a switch, what the default is and why, and the way back to the default. */
-export function BackupRequiredCard({ domain }: { domain: string }) {
+/** The row: a switch, what the default is and why, and the way back to the default. */
+export function BackupRequiredRow({ domain }: { domain: string }) {
   const t = useT();
-  const { node } = useNode();
   const queryClient = useQueryClient();
+  const { node } = useNode();
+  const asksItsYou = useAsksItsYou();
+  const [asking, setAsking] = useState(false);
   const query = useQuery(backupRequiredQuery(domain));
-  const [confirmOff, setConfirmOff] = useState(false);
   const change = useMutation({
     mutationFn: (required: boolean | null) => request("put", "/api/apps/{domain}/backup-required", { params: { domain }, body: { required } }),
     onSuccess: (result) => {
@@ -39,63 +41,48 @@ export function BackupRequiredCard({ domain }: { domain: string }) {
       announce(result.explicit ? (result.required ? t("appSettings.backupRequired.announceOn", { domain }) : t("appSettings.backupRequired.announceOff", { domain })) : t("appSettings.backupRequired.announceDefault", { domain }));
     },
   });
-  const title = t("appSettings.backupRequired.title");
 
-  if (query.isPending) {
-    return (
-      <Card title={title}>
-        <div aria-busy="true">
-          <span className="sr-only">{t("appSettings.backupRequired.loading")}</span>
-          <Skeleton className="h-10 w-full rounded-control" />
-        </div>
-      </Card>
-    );
-  }
+  if (query.isPending) return <RowLoading label={t("appSettings.backupRequired.loading")} />;
   // A server older than 3.4 has no such setting: nothing to show rather than a guess.
   if (query.isError && olderServer(query.error)) return null;
-  if (query.isError) {
-    return (
-      <Card title={title}>
-        <ErrorBlock compact error={query.error} title={t("appSettings.backupRequired.readFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
-      </Card>
-    );
-  }
+  if (query.isError) return <RowError title={t("appSettings.backupRequired.readFailed")} error={query.error} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
+
   const data = query.data;
   const required = change.isPending && typeof change.variables === "boolean" ? change.variables : data.required;
   const fail = (error: unknown) => reportActionError(t("appSettings.backupRequired.notSaved", { domain }), error);
+  const useDefault = (
+    <button type="button" disabled={change.isPending} className={textLinkClassName("inline")} onClick={() => change.mutate(null, { onError: fail })}>
+      {t("appSettings.backupRequired.useDefault")}
+    </button>
+  );
 
   return (
-    <Card title={title} description={t("appSettings.backupRequired.description")}>
-      <div className="flex flex-col gap-3">
-        <Switch
-          label={t("appSettings.backupRequired.label")}
-          checked={required}
-          disabled={change.isPending}
-          onCheckedChange={(next) => {
-            if (!next) {
-              setConfirmOff(true);
-              return;
-            }
-            change.mutate(true, { onError: fail });
-          }}
-        />
-        <p className="max-w-measure text-13 text-pretty text-fg-muted" data-testid="backup-required-note">
-          {data.explicit
-            ? t("appSettings.backupRequired.chosen")
-            : data.default_required
-              ? t.rich("appSettings.backupRequired.defaultOn", { databases: <Mono>{(data.databases ?? []).join(", ")}</Mono> })
-              : t("appSettings.backupRequired.defaultOff")}
-        </p>
-        {!required ? <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("appSettings.backupRequired.offNote")}</p> : null}
-        {data.explicit ? (
-          <Button size="sm" variant="ghost" className="self-start" disabled={change.isPending} onClick={() => change.mutate(null, { onError: fail })}>
-            {t("appSettings.backupRequired.useDefault")}
-          </Button>
-        ) : null}
-      </div>
+    <>
+      <Setting
+        label={t("appSettings.backupRequired.label")}
+        help={
+          <span data-testid="backup-required-note">
+            {data.explicit
+              ? t("appSettings.backupRequired.chosen")
+              : data.default_required
+                ? t.rich("appSettings.backupRequired.defaultOn", { databases: <Mono>{(data.databases ?? []).join(", ")}</Mono> })
+                : t("appSettings.backupRequired.defaultOff")}
+            {data.explicit ? <> {useDefault}</> : null}
+          </span>
+        }
+        {...(required ? {} : { risk: t("appSettings.backupRequired.offRisk") })}
+        elevated={asksItsYou}
+        checked={required}
+        busy={change.isPending}
+        onCheckedChange={(next) => {
+          // Turning off a safeguard is asked about first, naming the server on a fleet.
+          if (next) change.mutate(true, { onError: fail });
+          else setAsking(true);
+        }}
+      />
       <ConfirmDialog
-        open={confirmOff}
-        onOpenChange={setConfirmOff}
+        open={asking}
+        onOpenChange={setAsking}
         friction="simple"
         server={node}
         title={t("appSettings.backupRequired.offTitle", { domain })}
@@ -105,6 +92,6 @@ export function BackupRequiredCard({ domain }: { domain: string }) {
           await change.mutateAsync(false);
         }}
       />
-    </Card>
+    </>
   );
 }

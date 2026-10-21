@@ -41,7 +41,8 @@ afterAll(() => {
 describe("the teams list", () => {
   it("lists the teams with the operator's role and what each holds, and says a team is not a machine", async () => {
     const { container } = teamAt("/teams");
-    await screen.findByRole("heading", { level: 1, name: "Teams" });
+    // Teams are the second tab of Projects: the same title, and the tab says where this is.
+    await screen.findByRole("heading", { level: 1, name: "Projects" });
     const table = await screen.findByRole("table", { name: "Teams on this server" });
     const row = (await within(table).findByRole("link", { name: "Acme Corp" })).closest("tr");
     if (row === null) throw new Error("no row for Acme Corp");
@@ -92,7 +93,7 @@ describe("the teams list", () => {
   it("is in Spanish", async () => {
     await act(() => setLocale("es"));
     teamAt("/teams");
-    expect(await screen.findByRole("heading", { level: 1, name: "Equipos" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Proyectos" })).toBeInTheDocument();
     expect(await screen.findByText("Un equipo no es una máquina aparte")).toBeInTheDocument();
   });
 });

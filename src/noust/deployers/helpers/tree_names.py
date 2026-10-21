@@ -12,7 +12,7 @@ An application deployed before keeps them under that name until its next deploym
 new one wins when both exist.
 
 A tree is a repository, and a repository is untrusted input: a link under either name
-(``.wasm -> /etc`` in a commit) is never followed, read or renamed.
+(a link to ``/etc`` in a commit, under either name) is never followed, read or renamed.
 """
 
 from __future__ import annotations

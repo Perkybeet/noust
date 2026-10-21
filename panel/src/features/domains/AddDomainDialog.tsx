@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RotateCw } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
@@ -20,6 +20,7 @@ import type { T } from "../../i18n";
 import { DnsVerdict } from "./DnsVerdict";
 import { dnsVerdict, reachesServer } from "./dns";
 import { domainProblem, isWildcard, normalizeDomain } from "./names";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 type AddableKind = "alias" | "redirect";
 
@@ -45,14 +46,13 @@ function KindChoice({ app, value, onChange }: { app: string; value: AddableKind;
 function VerdictSkeleton() {
   const t = useT();
   return (
-    <div aria-busy="true" className="flex flex-col gap-3 rounded-card border border-border p-3">
-      <span className="sr-only">{t("domains.checkingDns")}</span>
+    <LoadingRegion label={t("domains.checkingDns")} className="flex flex-col gap-3 rounded-card border border-border p-3">
       <Skeleton className="h-4 w-56" />
       <div className="grid gap-3 sm:grid-cols-2">
         <Skeleton className="h-10" />
         <Skeleton className="h-10" />
       </div>
-    </div>
+    </LoadingRegion>
   );
 }
 
@@ -66,13 +66,17 @@ export interface AddDomainDialogProps {
 }
 
 /**
- * Adds a name to an application in two moves with one button: first it asks DNS where the
- * name points and shows the verdict, then it adds the name. A name that does not point here
- * can still be added; the dialog says what that costs (the certificate order fails until it
- * does) before the operator decides.
+ * Adds a name to an application. DNS is asked where the name points as soon as the operator
+ * leaves the field, and the verdict is on screen when they reach the button, so adding is one
+ * press. Pressed before the answer is in, the button waits for it and goes on if the name points
+ * here; if it does not, the verdict is shown and the button says "Add anyway". A name that does
+ * not point here can still be added; the dialog says what that costs (the certificate order fails
+ * until it does).
  */
 export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainDialogProps) {
   const t = useT();
+  const queryClient = useQueryClient();
+  const [asking, setAsking] = useState(false);
   const [name, setName] = useState("");
   const [kind, setKind] = useState<AddableKind>("alias");
   const [checked, setChecked] = useState<string | null>(null);
@@ -129,40 +133,57 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
       setProblem(null);
       setPort("");
       setPointDns(true);
+      setAsking(false);
       add.reset();
       temporary.reset();
     }
   }
 
+  /** Why the name cannot be added at all, or null: the same words on leaving the field and on pressing Add. */
+  const problemWith = (): string | null => {
+    const invalid = domainProblem(name, t.locale, { wildcard: true });
+    if (invalid !== null) return invalid;
+    if (normalized === app) return t("domains.addDomainDialog.alreadyPrimaryError", { app });
+    if (port.trim() !== "" && (!/^\d+$/.test(port.trim()) || Number(port) < 1 || Number(port) > 65535)) return t("network.port.invalid");
+    return null;
+  };
+
+  /** Leaving the field with a name that could be added asks DNS about it, so the verdict is there before the button is. */
+  const askDns = (): void => {
+    if (name.trim() === "" || domainProblem(name, t.locale, { wildcard: true }) !== null || normalized === app || wildcard) return;
+    setChecked(normalized);
+  };
+
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    const invalid = domainProblem(name, t.locale, { wildcard: true });
+    const invalid = problemWith();
     if (invalid !== null) {
       setProblem(invalid);
       return;
     }
-    if (normalized === app) {
-      setProblem(t("domains.addDomainDialog.alreadyPrimaryError", { app }));
-      return;
-    }
-    if (port.trim() !== "" && (!/^\d+$/.test(port.trim()) || Number(port) < 1 || Number(port) > 65535)) {
-      setProblem(t("network.port.invalid"));
-      return;
-    }
     setProblem(null);
-    if (!isChecked) {
-      setChecked(normalized);
+    if (wildcard || (isChecked && !dns.isPending)) {
+      add.mutate({ domain: normalized, force: overlap !== null });
       return;
     }
-    if (!wildcard && dns.isPending) return;
-    add.mutate({ domain: normalized, force: overlap !== null });
+    // The answer is not in yet (the button was pressed straight from the field): wait for the one
+    // already asked, and go on only if the name points here. Otherwise the verdict is shown.
+    setChecked(normalized);
+    setAsking(true);
+    void queryClient
+      .query({ ...dnsCheckQuery(app, normalized), staleTime: "static" })
+      .then((check) => {
+        const kind = dnsVerdict(check);
+        if (reachesServer(kind) || kind === "unknown") add.mutate({ domain: normalized, force: false });
+      })
+      .catch(() => undefined)
+      .finally(() => setAsking(false));
   };
 
   const fieldError = problem ?? (add.error && isApiError(add.error) ? (add.error.fields?.["domain"] ?? null) : null);
-  const primaryLabel = overlap !== null
-    ? t("network.addDomain.addAnyway")
-    : !isChecked
-      ? t("domains.checkDns")
+  const primaryLabel =
+    overlap !== null
+      ? t("network.addDomain.addAnyway")
       : verdict === null || reachesServer(verdict) || verdict === "unknown"
         ? t("domains.addDomain")
         : t("domains.addDomainDialog.addAnyway");
@@ -183,7 +204,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
             type="submit"
             form={formId}
             variant="primary"
-            loading={add.isPending || (isChecked && !wildcard && dns.isFetching && dns.data === undefined)}
+            loading={add.isPending || asking}
           >
             {primaryLabel}
           </Button>
@@ -200,6 +221,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
               setProblem(null);
             }}
             placeholder={`shop.${app}`}
+            onBlur={askDns}
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}

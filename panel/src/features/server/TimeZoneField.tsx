@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { isApiError } from "../../api/client";
 import type { ResponseOf } from "../../api/client";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { useNow } from "../../components/page/clock";
 import { Combobox } from "../../components/ui/Combobox";
 import type { ComboboxItem } from "../../components/ui/Combobox";
@@ -123,11 +124,10 @@ export function TimeZoneField({ value, onValueChange, current, label, descriptio
   }
   if (zones.data === undefined) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-2">
-        <span className="sr-only">{t("server.clock.zonesLoading")}</span>
+      <LoadingRegion label={t("server.clock.zonesLoading")} className="flex flex-col gap-2">
         <Skeleton className="h-4 w-24" />
         <Skeleton className="h-control-md w-full rounded-control" />
-      </div>
+      </LoadingRegion>
     );
   }
   const items = zoneItems(zones.data.timezones);

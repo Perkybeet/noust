@@ -8,7 +8,6 @@ export const apiReference: Catalog<typeof en> = {
     command: "Referencia de la API",
   },
   documentTitle: "Referencia de la API",
-  loadFailed: "No se pudo leer la descripción de la API",
   loadingLabel: "la referencia de la API",
   intro:
     "Todas las rutas que responde este servidor, de su propio documento OpenAPI, con el permiso que pide cada una. Una lectura se puede probar aquí con tu sesión. Un cambio se copia como curl y se envía desde una terminal o un script con un token de API.",
@@ -31,7 +30,6 @@ export const apiReference: Catalog<typeof en> = {
     sudoMode: "Modo sudo",
     approval: "Aprobación",
     deprecated: "Obsoleta",
-    open: "Abrir {route}",
   },
   drawer: {
     description: "Lee la descripción que hace el propio servidor de esta ruta.",
@@ -42,7 +40,7 @@ export const apiReference: Catalog<typeof en> = {
     approval: "Una segunda persona la aprueba",
     deprecated: "Obsoleta: se quitará en una versión posterior",
     parameters: "Parámetros",
-    parameterColumn: { name: "Nombre", where: "En", type: "Tipo", required: "Obligatorio", description: "Qué es" },
+    parameterColumn: { name: "Nombre", where: "En", type: "Tipo", required: "Obligatorio" },
     path: "Ruta",
     query: "Consulta",
     yes: "Sí",

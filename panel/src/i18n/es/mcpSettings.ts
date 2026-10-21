@@ -8,17 +8,14 @@ export const mcpSettings: Catalog<typeof en> = {
     command: "Ajustes de MCP",
   },
   documentTitle: "MCP",
-  loadFailed: "No se pudieron leer los ajustes de MCP",
   loadingLabel: "los ajustes de MCP",
   state: {
-    on: "El endpoint MCP responde",
-    onBody:
-      "Un cliente MCP con un token de API puede usar las herramientas de abajo. Puede hacer exactamente lo que su token permite, ni más, y cada llamada queda en la auditoría.",
-    off: "El endpoint MCP está desactivado",
-    offBody:
-      "Nada responde en la dirección de abajo. Actívalo para que un cliente MCP pueda inspeccionar, desplegar y controlar aplicaciones con un token de API.",
-    turnOn: "Activar",
-    turnOff: "Desactivar",
+    title: "Endpoint MCP",
+    description: "Un cliente puede hacer exactamente lo que permite su token, y cada llamada queda en la auditoría.",
+    label: "Responder a clientes MCP",
+    help: "Deja que un cliente con un token de API gestione aplicaciones.",
+    on: "Activado",
+    off: "Desactivado",
     turnedOn: "El endpoint MCP responde ahora",
     turnedOff: "El endpoint MCP está desactivado",
     failed: "No se pudo cambiar el endpoint MCP",
@@ -39,11 +36,8 @@ export const mcpSettings: Catalog<typeof en> = {
     description:
       "Las herramientas vienen en tres grupos. Desactiva un grupo y sus herramientas no se listan ni se pueden llamar, tenga lo que tenga el token.",
     toolCount: { one: "{count} herramienta", other: "{count} herramientas" },
-    inspect: { name: "Inspeccionar", description: "Solo lectura: aplicaciones, registros, despliegues, salud. Nunca cambia nada." },
-    deploy: {
-      name: "Desplegar",
-      description: "Actualizar, volver atrás y copiar una aplicación, y cancelar un trabajo. Volver atrás se rige por las mismas reglas que en la consola.",
-    },
+    inspect: { name: "Inspeccionar", description: "Solo lectura: aplicaciones, registros, despliegues, salud." },
+    deploy: { name: "Desplegar", description: "Actualizar, volver atrás y copiar una aplicación, y cancelar un trabajo." },
     control: { name: "Controlar", description: "Reiniciar, arrancar y parar una aplicación, y renovar un certificado." },
     changed: "Se cambiaron los grupos que se ofrecen",
   },
@@ -59,7 +53,6 @@ export const mcpSettings: Catalog<typeof en> = {
     prompts: "Prompts",
     resources: "Recursos",
   },
-  command: "Desde una terminal",
   commandEnable: "noust mcp enable",
   commandToken: "noust mcp token ci-bot --preset deploy --owner maria",
 };

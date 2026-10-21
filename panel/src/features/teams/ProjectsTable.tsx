@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import type { Project } from "../../api/queries/teams";
@@ -6,6 +5,7 @@ import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { Mono } from "../../components/ui/Mono";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { Labels } from "./organization";
 import { projectPath } from "./organization";
@@ -50,9 +50,9 @@ export function ProjectsTable({ projects, labels, resources, showTeam, caption, 
       sortValue: (project) => project.name,
       cell: (project) => (
         <span className="flex min-w-0 flex-col">
-          <Link {...projectPath(project)} title={project.name} className="-mx-1 block max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2">
+          <TextLink {...projectPath(project)} title={project.name} variant="row" className="-mx-1 block max-w-full truncate px-1 py-0.5">
             {project.name}
-          </Link>
+          </TextLink>
           <Mono tone="faint" truncate>
             {project.slug}
           </Mono>

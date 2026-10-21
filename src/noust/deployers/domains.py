@@ -22,6 +22,9 @@ functions here. Each change goes through the same four places, in this order:
    reads the same rows). Only for an application that already serves TLS. A
    removed name is dropped from it too: a certificate renews with every name it
    has, so one that no longer points here would fail the renewal of the others.
+   A name that holds a certificate of its own (``certificate="own"``,
+   :mod:`noust.deployers.name_certificates`) is not in that lineage: its own is ordered
+   with it, and removing the name deletes just that lineage.
 4. **The DNS record**, when a DNS account holds the zone and creates records
    without asking (:mod:`noust.managers.dns.records`): the name points here as soon
    as it is added, and is released when the last application using it lets go.
@@ -54,7 +57,9 @@ from typing import Any
 from noust.central import require_server_role
 from noust.core import audit, cdn_networks
 from noust.core.applock import app_lock
+from noust.core.certificate_store import CertificateStore
 from noust.core.config import Config
+from noust.core.domain_certificates import OWN, SHARED, check_mode
 from noust.core.exceptions import (
     CertificateError,
     DependencyError,
@@ -117,6 +122,9 @@ class DomainChange:
             serving TLS with the certificate it had.
         certificate_reduced: Whether the certificate was ordered again without
             the name that was removed.
+        lineage_removed: Whether the certificate the removed name held on its own was deleted.
+        lineage_pending: The removed name whose certificate of its own is still to be deleted
+            (:func:`release_certificate`), when the caller left that to a job.
         dns: What happened to the DNS records of the name: one entry per record,
             ``{"hostname", "type", "outcome"}`` (or ``{"error"}``).
         canonical: The spelling served (``www``, ``apex``), when one is chosen.
@@ -129,6 +137,8 @@ class DomainChange:
     certificate_issued: bool = False
     certificate_error: str | None = None
     certificate_reduced: bool = False
+    lineage_removed: bool = False
+    lineage_pending: str | None = None
     dns: tuple[dict[str, Any], ...] = ()
     canonical: str = ""
 
@@ -191,6 +201,9 @@ def add_domain(
     force: bool = False,
     dns: bool = True,
     port: int | None = None,
+    certificate: str = SHARED,
+    challenge: str | None = None,
+    dns_provider: str | None = None,
     logger: Logger | None = None,
     verbose: bool = False,
 ) -> DomainChange:
@@ -213,6 +226,14 @@ def add_domain(
             when that account creates records without asking. Accounts that ask
             are reported in the change's ``dns`` entries as ``pending``.
         port: Proxy this name to another port of the application than its own.
+        certificate: ``own`` to give the name a certificate of its own (a lineage named after
+            it, a server block of its own, and the shared certificate never names it) instead
+            of covering it with the application's. It is ordered with the rest, and an order
+            that fails leaves the name recorded and served with the shared certificate until
+            this is run again.
+        challenge: How that certificate is proven, ``http-01`` or ``dns-01``; the application's
+            own way by default.
+        dns_provider: The DNS account for ``dns-01``.
         logger: Where progress and warnings go.
         verbose: Verbosity of the managers.
 
@@ -243,6 +264,9 @@ def add_domain(
             force=force,
             dns=dns,
             port=port,
+            certificate=check_mode(certificate),
+            challenge=challenge,
+            dns_provider=dns_provider,
             logger=logger,
             verbose=verbose,
         )
@@ -257,6 +281,9 @@ def _add_domain(
     force: bool,
     dns: bool,
     port: int | None,
+    certificate: str,
+    challenge: str | None,
+    dns_provider: str | None,
     logger: Logger | None,
     verbose: bool,
 ) -> DomainChange:
@@ -291,6 +318,12 @@ def _add_domain(
             )
     if port is not None:
         _check_port(app, kind, port, published=_published_ports(deployer))
+    if certificate == OWN:
+        _check_own(app, kind, name)
+        from noust.deployers.certificates import check_choice
+
+        if challenge is not None:
+            check_choice(challenge, dns_provider)
 
     tls = _serves_tls(app, deployer)
     # Adding a name the application already has, in the same role, is how a
@@ -304,19 +337,36 @@ def _add_domain(
         store.add_domain(app.domain, name, kind)
     if port is not None:
         store.set_domain_port(app.domain, name, port)
+    settings_before = CertificateStore().get_settings(name)
+    if certificate == OWN:
+        # The intent is recorded with the name; the lineage follows once the site serves it,
+        # and until it is on disk the name is served with the shared certificate.
+        certificates = CertificateStore()
+        certificates.set_settings(
+            certificates.settings_for_name(
+                app.domain,
+                name,
+                challenge=challenge,
+                dns_provider=dns_provider,
+                updated_by=_actor(),
+            )
+        )
+        store.set_domain_certificate(app.domain, name, OWN)
     try:
         adopted = _adopt_served_names(app, deployer, log)
         deployer.refresh_site(with_ssl=tls)
     except _APPLY_ERRORS:
         if not retry:
             store.remove_domain(app.domain, name)
+        if certificate == OWN:
+            CertificateStore().set_settings(settings_before)
         raise
     log.success(f"{app.domain} answers on {name} ({kind})")
 
     entries = _point_dns(app, name, log) if dns else ()
     issued, error = False, None
     if tls and issue_cert:
-        issued, error = _try_certificate(deployer, log)
+        issued, error = try_certificate(deployer, log)
     return _change(app, tls, adopted, issued, error, dns=entries)
 
 
@@ -397,14 +447,33 @@ def _remove_domain(
             store.set_domain_port(app.domain, name, records[name].port)
         if not records[name].enabled:
             store.set_domain_enabled(app.domain, name, False)
+        if records[name].certificate == OWN:
+            store.set_domain_certificate(app.domain, name, OWN)
         raise
     log.success(f"{app.domain} no longer answers on {name}")
 
-    reduced, error = (False, None)
-    if tls and reduce_cert:
-        reduced, error = _try_reduce(deployer, log)
+    # A name with a certificate of its own was never in the shared one: only its lineage goes.
+    # Any other name leaves the shared certificate, which renews with every name it has.
+    reduced, removed, pending, error = False, False, None, None
+    if records[name].certificate == OWN:
+        if reduce_cert:
+            removed, error = release_certificate_of(deployer, name, log)
+        else:
+            pending = name
+    elif tls and reduce_cert:
+        reduced, error = try_reduce(deployer, log)
     entries = _release_dns(app, name, log)
-    return _change(app, tls, adopted, False, error, reduced=reduced, dns=entries)
+    return _change(
+        app,
+        tls,
+        adopted,
+        False,
+        error,
+        reduced=reduced,
+        removed=removed,
+        pending=pending,
+        dns=entries,
+    )
 
 
 def disable_domain(
@@ -546,9 +615,9 @@ def _switch(
     issued, reduced, error = False, False, None
     if tls and certificate:
         if enabled:
-            issued, error = _try_certificate(deployer, log)
+            issued, error = try_certificate(deployer, log)
         else:
-            reduced, error = _try_reduce(deployer, log)
+            reduced, error = try_reduce(deployer, log)
     return _change(app, tls, adopted, issued, error, reduced=reduced)
 
 
@@ -651,7 +720,7 @@ def _set_canonical(
     )
     issued, error = False, None
     if tls and issue_cert and choice:
-        issued, error = _try_certificate(deployer, log)
+        issued, error = try_certificate(deployer, log)
     return _change(app, tls, adopted, issued, error, canonical=choice)
 
 
@@ -788,6 +857,42 @@ def reduce_certificate(
             deployer.refresh_site(with_ssl=True)
             log.success(f"The certificate of {app.domain} covers only the names it answers on")
         return _change(app, True, reduced=reduced)
+
+
+def release_certificate(
+    app_domain: str, name: str, *, logger: Logger | None = None, verbose: bool = False
+) -> bool:
+    """
+    Delete the certificate a name held on its own after the name was removed.
+
+    For the panel, which never runs certbot on the request path: it removes the domain and
+    queues this. Nothing is revoked.
+
+    Args:
+        app_domain: The application's primary domain.
+        name: The name that was removed.
+        logger: Where progress goes.
+        verbose: Verbosity of the managers.
+
+    Returns:
+        True when a lineage was deleted; False when the name had none.
+
+    Raises:
+        NoustError: When the application is unknown.
+        CertificateError: When the name is still the application's with a certificate of its
+            own, or certbot refused (its output is carried verbatim).
+        AppBusyError: Another operation is running on the application.
+    """
+    require_server_role("Certificates")
+    log = logger or Logger(verbose=verbose)
+    with app_lock(validate_domain(app_domain), "certificate order"):
+        app = _application(app_domain)
+        deployer = _site_deployer(app, verbose=verbose)
+        host = validate_server_name(name)
+        removed, error = release_certificate_of(deployer, host, log, quiet=False)
+        if error is not None:
+            raise CertificateError(f"The certificate of {host} was not deleted", details=error)
+        return removed
 
 
 def check_dns(
@@ -1033,6 +1138,76 @@ def _check_port(
         )
 
 
+def _check_own(app: App, kind: str, name: str) -> None:
+    """
+    Refuse a name that cannot hold a certificate of its own, before anything is recorded.
+
+    Args:
+        app: The application.
+        kind: The role the name is added in.
+        name: The name.
+
+    Raises:
+        ValidationError: The application's type orders one certificate for names only its
+            deploy knows.
+        DomainError: The name is the primary, or one of the canonical pair.
+    """
+    from noust.core.domain_certificates import TYPES_WITHOUT_OWN_CERTIFICATE
+
+    if app.app_type in TYPES_WITHOUT_OWN_CERTIFICATE:
+        raise ValidationError(
+            f"A {app.app_type} has one certificate for all its names",
+            details="Its workspaces' subdomains are named by its deploy, which orders the "
+            f"certificate: noust update {app.domain}",
+            field="certificate",
+        )
+    if kind == DomainKind.PRIMARY.value or name == app.domain:
+        raise DomainError(
+            f"{name} is the primary domain, and the shared certificate is the one kept under it",
+            details="Give the other names a certificate of their own and the shared one covers "
+            f"{name} alone.",
+        )
+    canonical = SitePolicyManager().get(app.domain).canonical
+    if canonical:
+        host = canonical_host(app.domain, canonical)
+        if name in (host, counterpart(host)):
+            raise DomainError(
+                f"{name} belongs to the canonical pair {app.domain} is served on",
+                details="The pair is served together, with one certificate. Serve both as "
+                f"recorded first: noust domain canonical {app.domain} none",
+            )
+
+
+def release_certificate_of(
+    deployer: ServesDomains, name: str, log: Logger, *, quiet: bool = True
+) -> tuple[bool, str | None]:
+    """
+    Delete the lineage a name held on its own, reporting a certbot failure instead of raising.
+
+    Args:
+        deployer: The application's deployer, whose certificate manager deletes it.
+        name: The name.
+        log: Where the failure is reported.
+        quiet: Report a failure as a warning and return its words; False raises nothing either
+            and leaves the caller to decide.
+
+    Returns:
+        ``(True, None)`` once no certificate of its own remains for the name, or
+        ``(False, words)`` with certbot's own output when it refused.
+    """
+    try:
+        deployer.cert_manager.delete_name(name)
+    except CertificateError as exc:
+        output = exc.details or exc.message
+        if quiet:
+            log.warning(
+                f"The certificate {name} held on its own was not deleted: {exc.message}. "
+                f"It stays and renews until: noust cert delete {name}"
+            )
+        return False, output
+    return True, None
+
+
 def _point_dns(app: App, name: str, log: Logger) -> tuple[dict[str, Any], ...]:
     """
     Point a new name at this server in the DNS account that holds its zone.
@@ -1101,7 +1276,7 @@ def _release_dns(app: App, name: str, log: Logger) -> tuple[dict[str, Any], ...]
     )
 
 
-def _try_reduce(deployer: ServesDomains, log: Logger) -> tuple[bool, str | None]:
+def try_reduce(deployer: ServesDomains, log: Logger) -> tuple[bool, str | None]:
     """
     Order the certificate again without the names that were removed, reporting a failure.
 
@@ -1331,7 +1506,7 @@ def _adopt_served_names(app: App, deployer: ServesDomains, log: Logger) -> tuple
     return tuple(adopted)
 
 
-def _try_certificate(deployer: ServesDomains, log: Logger) -> tuple[bool, str | None]:
+def try_certificate(deployer: ServesDomains, log: Logger) -> tuple[bool, str | None]:
     """
     Expand the certificate, reporting a certbot failure instead of raising it.
 
@@ -1384,6 +1559,8 @@ def _change(
     certificate_error: str | None = None,
     *,
     reduced: bool = False,
+    removed: bool = False,
+    pending: str | None = None,
     dns: Sequence[dict[str, Any]] = (),
     canonical: str | None = None,
 ) -> DomainChange:
@@ -1397,6 +1574,8 @@ def _change(
         certificate_issued: Whether the certificate covers every domain.
         certificate_error: Certbot's output when an order failed.
         reduced: Whether the certificate was ordered again without a removed name.
+        removed: Whether the lineage a removed name held on its own was deleted.
+        pending: The removed name whose lineage is still to be deleted.
         dns: What happened to the DNS records.
         canonical: The spelling served; read from the policy when not given.
 
@@ -1411,6 +1590,8 @@ def _change(
         certificate_issued=certificate_issued,
         certificate_error=certificate_error,
         certificate_reduced=reduced,
+        lineage_removed=removed,
+        lineage_pending=pending,
         dns=tuple(dns),
         canonical=SitePolicyManager().get(app.domain).canonical if canonical is None else canonical,
     )

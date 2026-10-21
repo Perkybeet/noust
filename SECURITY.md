@@ -78,8 +78,9 @@ server already (root is Noust's trust boundary: see `docs/security.md`, "Threat 
 
 ## What a release carries
 
-Every release is built by GitHub Actions from a signed tag. What it publishes can be checked
-by someone who does not trust whoever uploaded it:
+Every release is built by GitHub Actions from its tag; from 4.0.0 on the tag is signed with the
+maintainer's SSH key, which GitHub shows as verified (earlier tags are not signed). What a release
+publishes can be checked by someone who does not trust whoever uploaded it:
 
 | What | Where | How it is protected |
 |---|---|---|

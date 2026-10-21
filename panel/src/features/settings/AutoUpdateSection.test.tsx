@@ -57,7 +57,8 @@ function routes(auto: unknown, extra: Record<string, RouteHandler> = {}): Record
 
 async function openAbout() {
   const harness = renderConsole("/settings/about");
-  const section = await screen.findByRole("region", { name: "Automatic updates" });
+  const section = (await screen.findByRole("heading", { level: 3, name: "Automatic updates" })).closest("section");
+  if (section === null) throw new Error("the card is not a section");
   return { ...harness, section };
 }
 
@@ -65,7 +66,7 @@ describe("Settings > About > Automatic updates", () => {
   it("says it is off, and how updating works meanwhile, and passes axe", async () => {
     fakeBackend(routes(OFF));
     const { section, container } = await openAbout();
-    expect(await within(section).findByText("Automatic updates are off")).toBeInTheDocument();
+    expect(await within(section).findByText("Off")).toHaveAttribute("data-state", "stopped");
     expect(within(section).getByText(/A release that fixes a vulnerability waits for you/)).toBeInTheDocument();
     expect(within(section).getByRole("button", { name: "Set up" })).toBeInTheDocument();
     await expectNoAxeViolations(container);
@@ -74,8 +75,9 @@ describe("Settings > About > Automatic updates", () => {
   it("says what it takes, between which hours, on which days, and what it did last", async () => {
     fakeBackend(routes(ON));
     const { section, container } = await openAbout();
-    expect(await within(section).findByText("Noust installs its security fixes by itself")).toBeInTheDocument();
-    expect(within(section).getByText(/From 23:00 to 01:00 the next day on the server's clock, Monday, Thursday\./)).toBeInTheDocument();
+    expect(await within(section).findByText("On")).toHaveAttribute("data-state", "running");
+    expect(within(section).getByText(/Noust installs its security fixes by itself, inside the window below/)).toBeInTheDocument();
+    expect(within(section).getByText("Monday, Thursday")).toBeInTheDocument();
     expect(within(section).getByText("Security fixes only")).toBeInTheDocument();
     expect(within(section).getByText("23:00-01:00, into the next day")).toBeInTheDocument();
     expect(within(section).getByText(/Updated from 3\.4\.0 to 3\.4\.1/)).toBeInTheDocument();
@@ -85,7 +87,7 @@ describe("Settings > About > Automatic updates", () => {
   it("is on with a problem when the update check is off, because nothing will be installed", async () => {
     fakeBackend(routes({ ...ON, check_enabled: false }));
     const { section } = await openAbout();
-    expect(await within(section).findByText("On, but nothing will be installed")).toBeInTheDocument();
+    expect(await within(section).findByText("On, not installing")).toHaveAttribute("data-state", "warning");
     expect(within(section).getByText(/The update check is off \(updates\.check\)/)).toBeInTheDocument();
   });
 
@@ -132,7 +134,7 @@ describe("Settings > About > Automatic updates", () => {
     // The toast, not the announcer that says it again for assistive technology a moment later: a bare
     // lookup finds one element or two depending on how fast the machine is.
     expect(await within(await screen.findByRole("region", { name: "Notifications" })).findByText("Automatic updates saved")).toBeInTheDocument();
-    expect(await within(section).findByText("Noust installs its security fixes by itself")).toBeInTheDocument();
+    expect(await within(section).findByText(/Noust installs its security fixes by itself/)).toBeInTheDocument();
   });
 
   it("catches a wrong time and a window with no days before asking the server", async () => {
@@ -207,8 +209,9 @@ describe("Settings > About > Automatic updates", () => {
     fakeBackend(routes(ON));
     await act(() => setLocale("es"));
     renderConsole("/settings/about");
-    const section = await screen.findByRole("region", { name: "Actualizaciones automáticas" });
-    expect(await within(section).findByText("Noust instala sus correcciones de seguridad por sí mismo")).toBeInTheDocument();
+    const section = (await screen.findByRole("heading", { level: 3, name: "Actualizaciones automáticas" })).closest("section");
+    if (section === null) throw new Error("the card is not a section");
+    expect(await within(section).findByText(/Noust instala sus correcciones de seguridad por sí mismo/)).toBeInTheDocument();
     expect(within(section).getByText("Solo correcciones de seguridad")).toBeInTheDocument();
   });
 });

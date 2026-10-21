@@ -353,7 +353,7 @@ class ComplianceManager:
             enabled_after=tuple(after),
             effects=tuple(effects),
             loosens=loosens,
-            warnings=tuple(self._warnings(effects, to_enable)),
+            warnings=tuple(self._warnings(effects)),
         )
 
     @staticmethod
@@ -391,11 +391,10 @@ class ComplianceManager:
             )
         return found
 
-    def _warnings(self, effects: list[Effect], enabling: list[str]) -> list[Warning]:
+    def _warnings(self, effects: list[Effect]) -> list[Warning]:
         """
         Args:
             effects: The controls that change.
-            enabling: The frameworks being turned on.
 
         Returns:
             What the change would do to this server that a person must see.

@@ -47,9 +47,11 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "app-settings-push", path: "/apps/tienda.example.org/settings/deploy-on-push" },
   { name: "app-settings-hooks", path: "/apps/tienda.example.org/settings/hooks" },
   { name: "app-settings-access", path: "/apps/tienda.example.org/settings/access" },
-  // 3.4: the build commands of an application, the same page for every type that has a block.
+  // 4.0: what deploys by itself, and what the site limits and sends back, are subsections of their own.
+  { name: "app-settings-automation", path: "/apps/tienda.example.org/settings/automation" },
+  { name: "app-settings-protection", path: "/apps/tienda.example.org/settings/protection" },
+  // 4.0: how the application is built and the sandbox its builds run in; /builds redirects here.
   { name: "app-settings-build", path: "/apps/shop.example.net/settings/build" },
-  { name: "app-settings-builds", path: "/apps/tienda.example.org/settings/builds" },
   { name: "app-settings-resources", path: "/apps/shop.example.net/settings/resources" },
   { name: "app-settings-disk", path: "/apps/shop.example.net/settings/disk" },
   // 3.4: what runs beside the web process, the sandbox of its unit and the files kept for it.
@@ -118,7 +120,10 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "server-system", path: "/server/system" },
   { name: "server-terminal", path: "/server/terminal" },
   { name: "settings", path: "/settings" },
-  { name: "settings-security", path: "/settings/security" },
+  // 4.0: the person's own pages, and the controls that left Security (its old address redirects to the account).
+  { name: "account", path: "/account" },
+  { name: "account-security", path: "/account/security" },
+  { name: "settings-controls", path: "/settings/controls" },
   { name: "settings-notifications", path: "/settings/notifications" },
   { name: "settings-alerts", path: "/settings/alerts" },
   { name: "settings-tokens", path: "/settings/tokens" },

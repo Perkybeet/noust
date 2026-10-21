@@ -323,6 +323,18 @@ class FakeCertManager:
         self.has_cert = True
         return True
 
+    def own_names_of(self, primary: str) -> list[str]:
+        """
+        List the names of an application that hold a certificate of their own.
+
+        Args:
+            primary: The application's primary domain.
+
+        Returns:
+            Always empty: no site here has a name with a certificate of its own.
+        """
+        return []
+
     def get_cert_path(self, domain: str) -> dict[str, Path]:
         """
         Report where the certificate lives.

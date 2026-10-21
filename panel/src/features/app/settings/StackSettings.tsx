@@ -19,53 +19,79 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { Setting } from "../../../components/ui/Setting";
 import { Skeleton } from "../../../components/ui/Skeleton";
-import { Switch } from "../../../components/ui/Switch";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
 import { headlessQuery, olderServer, settingsKeys } from "./queries";
+import { useAsksItsYou } from "./settingRows";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 /** Whether the app is a Compose stack, the only kind these settings are about. */
 export function isComposeStack(app: Pick<App, "app_type">): boolean {
   return app.app_type === "docker-compose";
 }
 
-/** The copy of a stack's databases before each update: a switch, asked again to turn off. */
-export function BackupBeforeUpdateCard({ app }: { app: App }) {
+/** The copy of a stack's databases before each update: a row of Automation, asked about again to turn off. */
+export function BackupBeforeUpdateRow({ app }: { app: App }) {
   const t = useT();
   const { node } = useNode();
   const queryClient = useQueryClient();
+  const asksItsYou = useAsksItsYou();
   const domain = app.domain;
   const [confirmOff, setConfirmOff] = useState(false);
   const change = useMutation({
-    mutationFn: (enabled: boolean) => request("patch", "/api/apps/{domain}/backup-before-update", { params: { domain }, body: { enabled } }),
+    mutationFn: (enabled: boolean) =>
+      request("patch", "/api/apps/{domain}/backup-before-update", {
+        params: { domain },
+        body: { enabled },
+      }),
     onSuccess: (result) => {
-      queryClient.setQueryData<App>(appKeys.detail(domain), (known) => (known ? { ...known, backup_before_update: result.backup_before_update } : known));
-      void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain), exact: true });
-      announce(result.backup_before_update ? t("appSettings.stack.copyOn", { domain }) : t("appSettings.stack.copyOff", { domain }));
+      queryClient.setQueryData<App>(appKeys.detail(domain), (known) =>
+        known
+          ? { ...known, backup_before_update: result.backup_before_update }
+          : known,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: appKeys.detail(domain),
+        exact: true,
+      });
+      announce(
+        result.backup_before_update
+          ? t("appSettings.stack.copyOn", { domain })
+          : t("appSettings.stack.copyOff", { domain }),
+      );
     },
   });
   // A server older than 3.2 does not report the setting: nothing to show rather than a guess.
   if (!("backup_before_update" in app)) return null;
-  const enabled = change.isPending ? change.variables : app.backup_before_update;
+  const enabled = change.isPending
+    ? change.variables
+    : app.backup_before_update;
   return (
-    <Card title={t("appSettings.stack.copyTitle")} description={t("appSettings.stack.copyDescription")}>
-      <div className="flex flex-col gap-2">
-        <Switch
-          label={t("appSettings.stack.copyLabel")}
-          checked={enabled}
-          disabled={change.isPending}
-          onCheckedChange={(next) => {
-            if (!next) {
-              setConfirmOff(true);
-              return;
-            }
-            change.mutate(true, { onError: (error) => reportActionError(t("appSettings.stack.copyNotSaved", { domain }), error) });
-          }}
-        />
-        {!app.backup_before_update ? <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("appSettings.stack.copyOffNote")}</p> : null}
-      </div>
+    <>
+      <Setting
+        label={t("appSettings.stack.copyLabel")}
+        help={t("appSettings.stack.copyDescription")}
+        {...(enabled ? {} : { risk: t("appSettings.stack.copyOffRisk") })}
+        elevated={asksItsYou}
+        checked={enabled}
+        busy={change.isPending}
+        onCheckedChange={(next) => {
+          if (!next) {
+            setConfirmOff(true);
+            return;
+          }
+          change.mutate(true, {
+            onError: (error) =>
+              reportActionError(
+                t("appSettings.stack.copyNotSaved", { domain }),
+                error,
+              ),
+          });
+        }}
+      />
       <ConfirmDialog
         open={confirmOff}
         onOpenChange={setConfirmOff}
@@ -78,7 +104,7 @@ export function BackupBeforeUpdateCard({ app }: { app: App }) {
           await change.mutateAsync(false);
         }}
       />
-    </Card>
+    </>
   );
 }
 
@@ -99,10 +125,9 @@ export function WorkerCard({ app }: { app: App }) {
   if (check.isPending) {
     return (
       <Card title={title}>
-        <div aria-busy="true">
-          <span className="sr-only">{t("appSettings.stack.workerLoading")}</span>
+        <LoadingRegion label={t("appSettings.stack.workerLoading")}>
           <Skeleton className="h-10 w-full rounded-control" />
-        </div>
+        </LoadingRegion>
       </Card>
     );
   }
@@ -111,7 +136,13 @@ export function WorkerCard({ app }: { app: App }) {
   if (check.isError) {
     return (
       <Card title={title}>
-        <ErrorBlock compact error={check.error} title={t("appSettings.stack.workerReadFailed")} onRetry={() => void check.refetch()} retrying={check.isRefetching} />
+        <ErrorBlock
+          compact
+          error={check.error}
+          title={t("appSettings.stack.workerReadFailed")}
+          onRetry={() => void check.refetch()}
+          retrying={check.isRefetching}
+        />
       </Card>
     );
   }
@@ -121,7 +152,9 @@ export function WorkerCard({ app }: { app: App }) {
   return (
     <Card title={title}>
       <div className="flex flex-col gap-3">
-        <p className="max-w-measure text-13 text-pretty text-fg">{t("appSettings.stack.workerDescription", { port })}</p>
+        <p className="max-w-measure text-13 text-pretty text-fg">
+          {t("appSettings.stack.workerDescription", { port })}
+        </p>
         <Button
           size="sm"
           className="self-start"
@@ -143,9 +176,17 @@ export function WorkerCard({ app }: { app: App }) {
         description={t("appSettings.stack.workerConfirmDescription", { port })}
         actionLabel={t("appSettings.stack.workerConfirmAction")}
         onConfirm={async () => {
-          await request("post", "/api/apps/{domain}/headless", { params: { domain }, body: { remove_site: data.site_retirable && removeSite } });
-          void queryClient.invalidateQueries({ queryKey: settingsKeys.headless(domain) });
-          void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain), exact: true });
+          await request("post", "/api/apps/{domain}/headless", {
+            params: { domain },
+            body: { remove_site: data.site_retirable && removeSite },
+          });
+          void queryClient.invalidateQueries({
+            queryKey: settingsKeys.headless(domain),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: appKeys.detail(domain),
+            exact: true,
+          });
           announce(t("appSettings.stack.workerDone", { domain }));
         }}
       >

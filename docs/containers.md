@@ -191,7 +191,7 @@ its AWS keys for a token that lasts twelve hours, asked each time. Docker writes
 is given to a file in clear, so every `docker` command Noust runs for an application (pull, build,
 Compose `up`) logs in to a configuration directory of its own, with the password on standard
 input, and removes the directory straight after. The console does the same from Settings, Integrations,
-Container registries (`/api/registries`), and an application's Deploys settings choose which
+Container registries (`/api/registries`), and an application's Compose or Container settings choose which
 accounts it uses; attaching accounts to an application is sudo mode, because an account reaches
 every image it can read.
 

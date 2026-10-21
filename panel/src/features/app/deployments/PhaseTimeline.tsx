@@ -87,22 +87,31 @@ export function PhaseTimeline({ phases, outcome, className }: PhaseTimelineProps
   const t = useT();
   const failedAt = phases.findIndex((phase) => phase.state === "failed");
   return (
-    <ol aria-label={t("appPages.deployments.phaseTimeline.ariaLabel")} className={cx("grid grid-cols-5", className)}>
+    // A column of five from `sm`; below it, a list: the names ("Instalación", "Comprobación") do not
+    // fit a fifth of a phone, and a list reads top to bottom as the deploy ran.
+    <ol aria-label={t("appPages.deployments.phaseTimeline.ariaLabel")} className={cx("flex flex-col sm:grid sm:grid-cols-5", className)}>
       {phases.map((phase, index) => {
         const afterFailure = outcome === "failed" && failedAt !== -1 && index > failedAt;
         const { node, glyph, word } = look(t, phase.state, afterFailure);
         const next = phases[index + 1];
         // The logs stamp whole seconds, so anything shorter reads as under one.
         const duration = phase.seconds !== null && REACHED.has(phase.state) ? (phase.seconds < 1 ? "<1s" : formatDuration(phase.seconds, t.locale)) : null;
+        const joined = next && REACHED.has(next.state) ? "bg-border-strong" : "bg-border";
         return (
-          <li key={phase.key} data-phase={phase.key} data-state={phase.state} className="relative flex min-w-0 flex-col items-center gap-2 text-center">
+          <li
+            key={phase.key}
+            data-phase={phase.key}
+            data-state={phase.state}
+            className="relative flex min-w-0 items-start gap-3 pb-4 last:pb-0 sm:flex-col sm:items-center sm:gap-2 sm:pb-0 sm:text-center"
+          >
             {/* The line to the next phase, from this node's centre to the next one's: the nodes,
-                drawn after it, cover its ends. Solid once the next phase was reached. */}
+                drawn after it, cover its ends. Solid once the next phase was reached. Down the
+                list on a phone, along the row from `sm`. */}
             {next ? (
-              <span
-                aria-hidden="true"
-                className={cx("absolute top-4 left-1/2 h-0.5 w-full -translate-y-1/2 rounded-pill", REACHED.has(next.state) ? "bg-border-strong" : "bg-border")}
-              />
+              <>
+                <span aria-hidden="true" className={cx("absolute top-4 left-4 h-full w-0.5 -translate-x-1/2 rounded-pill sm:hidden", joined)} />
+                <span aria-hidden="true" className={cx("absolute top-4 left-1/2 hidden h-0.5 w-full -translate-y-1/2 rounded-pill sm:block", joined)} />
+              </>
             ) : null}
             <span
               className={cx("relative flex size-8 shrink-0 items-center justify-center rounded-pill border", node)}
@@ -110,7 +119,7 @@ export function PhaseTimeline({ phases, outcome, className }: PhaseTimelineProps
             >
               {glyph}
             </span>
-            <span className="flex min-w-0 flex-col items-center gap-0.5">
+            <span className="flex min-w-0 flex-col items-start gap-0.5 sm:items-center">
               <span className={cx("text-13 font-medium", phase.state === "unrecorded" || phase.state === "pending" || phase.state === "not_applicable" ? "text-fg-muted" : "text-fg")}>
                 {phaseLabel(t, phase.key)}
               </span>

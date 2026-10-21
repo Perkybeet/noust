@@ -13,9 +13,10 @@ import { useState } from "react";
 import { serviceConfigQuery } from "../../api/queries/services";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FileEditorPage } from "../../components/page/FileEditorPage";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { Mono } from "../../components/ui/Mono";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
@@ -79,22 +80,20 @@ export function UnitFilePage({ name }: { name: string }) {
 
   const notice =
     outcome?.kind === "rejected" ? (
-      <Notice tone="error" live title={t("services.unitFile.rejected")}>
-        <SystemOutput label={t("services.unitFile.analyzeOutput")} maxHeight="max-h-32">
-          {outcome.output}
-        </SystemOutput>
-      </Notice>
+      <ErrorBlock live compact error={{ detail: outcome.output }} title={t("services.unitFile.rejected")} />
     ) : outcome?.kind === "passed" ? (
-      <Notice tone="success" live title={t("services.unitFile.passed")}>
+      <div className="flex flex-col gap-2">
+        <InlineMessage tone="success" live>
+          {t("services.unitFile.passed")}
+        </InlineMessage>
         {outcome.output.trim() !== "" ? (
           <SystemOutput label={t("services.unitFile.analyzeOutput")} maxHeight="max-h-32">
             {outcome.output}
           </SystemOutput>
-        ) : undefined}
-      </Notice>
+        ) : null}
+      </div>
     ) : outcome?.kind === "saved" ? (
       <Notice
-        tone="success"
         live
         title={t("services.unitFile.saved")}
         action={
@@ -110,7 +109,7 @@ export function UnitFilePage({ name }: { name: string }) {
     ) : updateConfig.isError ? (
       <ErrorBlock live compact error={updateConfig.error} title={t("services.unitEditor.saveFailed")} />
     ) : (
-      <Notice title={t("services.unitFile.checkedTitle")} />
+      <InlineMessage tone="info">{t("services.unitFile.checkedTitle")}</InlineMessage>
     );
 
   return (
@@ -142,25 +141,24 @@ export function UnitFilePage({ name }: { name: string }) {
       }}
       footer={<CommandHint command={`noust service status ${name}`} label={t("services.fromTerminal")} />}
     >
-      {config.isError && config.data === undefined ? (
-        <ErrorBlock error={config.error} title={t("services.unitEditor.loadFailed")} onRetry={() => void config.refetch()} retrying={config.isRefetching} />
-      ) : value === null ? (
-        <div aria-busy="true" className="h-full">
-          <span className="sr-only">{t("services.unitEditor.loading")}</span>
-          <Skeleton className="h-full w-full rounded-control" />
-        </div>
-      ) : (
-        <ConfigEditor
-          value={value}
-          onChange={(next) => {
-            setValue(next);
-            if (outcome?.kind !== "rejected") setOutcome(null);
-          }}
-          label={t("services.unitEditor.label", { name })}
-          disabled={updateConfig.isPending}
-          className="h-full"
-        />
-      )}
+      <QueryState query={config} label={t("services.unitEditor.what")} skeleton={<Skeleton className="h-96 w-full rounded-control" />}>
+        {() =>
+          value === null ? (
+            <Skeleton className="h-96 w-full rounded-control" />
+          ) : (
+            <ConfigEditor
+              value={value}
+              onChange={(next) => {
+                setValue(next);
+                if (outcome?.kind !== "rejected") setOutcome(null);
+              }}
+              label={t("services.unitEditor.label", { name })}
+              disabled={updateConfig.isPending}
+              className="h-full"
+            />
+          )
+        }
+      </QueryState>
     </FileEditorPage>
   );
 }

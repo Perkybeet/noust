@@ -13,17 +13,16 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Power, RotateCw } from "lucide-react";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import { request } from "../../api/client";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
-import { Dialog } from "../../components/ui/Dialog";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
-import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
@@ -32,7 +31,8 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatMoment, parseTimestamp } from "../../lib/format";
 import { useNode } from "../../nodes/useNode";
-import { ServerErrorBlock, explainServerError } from "./errors";
+import { ServerErrorBlock, explainServerError, useServerConfirm } from "./errors";
+import { typedHost } from "./friction";
 import { identityQuery, powerQuery, serverKeys } from "./queries";
 import type { Power as PowerStatus, ScheduledPower } from "./queries";
 import { toast } from "../../components/ui/toast";
@@ -89,12 +89,11 @@ export function checkLabel(t: T, id: string): string {
 function PreChecks({ power, t }: { power: PowerStatus | undefined; t: T }) {
   if (power === undefined) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-2">
-        <span className="sr-only">{t("server.power.checksLoading")}</span>
+      <LoadingRegion label={t("server.power.checksLoading")} className="flex flex-col gap-2">
         {Array.from({ length: 5 }, (_, index) => (
           <Skeleton key={index} className="h-5 w-full" />
         ))}
-      </div>
+      </LoadingRegion>
     );
   }
   return (
@@ -121,55 +120,31 @@ function PreChecks({ power, t }: { power: PowerStatus | undefined; t: T }) {
 
 function PowerDialog({ kind, onClose }: { kind: PowerKind; onClose: () => void }) {
   const t = useT();
-  const { node } = useNode();
+  const confirmation = useServerConfirm();
   const queryClient = useQueryClient();
   const power = useQuery(powerQuery());
   const identity = useQuery({ ...identityQuery(), enabled: kind === "shutdown" });
   const [when, setWhen] = useState<When>("soon");
   const [delay, setDelay] = useState<string>("15");
   const [at, setAt] = useState("");
-  const [hostname, setHostname] = useState("");
-  const [missing, setMissing] = useState<string | null>(null);
 
   const warnings = power.data?.checks.filter((check) => check.status !== "ok") ?? [];
+  const rebooting = kind === "reboot";
+  const shownHost = identity.data?.hostname.hostname ?? "";
 
-  const schedule = useMutation({
-    mutationFn: () => {
-      const timing = when === "soon" ? {} : when === "later" ? { in_minutes: Number(delay) } : { at };
-      const body = { ...timing, force: warnings.length > 0 };
-      return kind === "reboot"
-        ? request("post", "/api/server/power/reboot", { body })
-        : request("post", "/api/server/power/shutdown", { body: { ...body, confirm_hostname: hostname } });
-    },
-    onSuccess: (scheduled) => {
-      void queryClient.invalidateQueries({ queryKey: serverKeys.summary });
-      void queryClient.invalidateQueries({ queryKey: serverKeys.power });
-      const moment = parseTimestamp(scheduled.scheduled_for);
-      toast.success(
-        kind === "reboot"
-          ? t("server.power.rebootScheduledToast", { when: moment ? formatMoment(moment, t.locale) : scheduled.scheduled_for })
-          : t("server.power.shutdownScheduledToast", { when: moment ? formatMoment(moment, t.locale) : scheduled.scheduled_for }),
-      );
-      onClose();
-    },
-  });
-
-  const submit = (): void => {
-    if (when === "at" && at === "") {
-      setMissing(t("server.power.atMissing"));
-      return;
-    }
-    if (kind === "shutdown" && hostname.trim() === "") {
-      setMissing(t("server.power.hostnameMissing"));
-      return;
-    }
-    setMissing(null);
-    schedule.mutate();
+  const schedule = async (): Promise<void> => {
+    const timing = when === "soon" ? {} : when === "later" ? { in_minutes: Number(delay) } : { at };
+    const body = { ...timing, force: warnings.length > 0 };
+    const scheduled = rebooting
+      ? await request("post", "/api/server/power/reboot", { body })
+      : await request("post", "/api/server/power/shutdown", { body: { ...body, confirm_hostname: shownHost } });
+    void queryClient.invalidateQueries({ queryKey: serverKeys.summary });
+    void queryClient.invalidateQueries({ queryKey: serverKeys.power });
+    const moment = parseTimestamp(scheduled.scheduled_for);
+    const shown = moment ? formatMoment(moment, t.locale) : scheduled.scheduled_for;
+    toast.success(rebooting ? t("server.power.rebootScheduledToast", { when: shown }) : t("server.power.shutdownScheduledToast", { when: shown }));
   };
 
-  const fieldError = schedule.error !== null && "fields" in schedule.error ? (schedule.error.fields as Record<string, string> | null) : null;
-  const shownHost = identity.data?.hostname.hostname ?? "";
-  const rebooting = kind === "reboot";
   const actionLabel =
     warnings.length > 0
       ? rebooting
@@ -180,88 +155,62 @@ function PowerDialog({ kind, onClose }: { kind: PowerKind; onClose: () => void }
         : t("server.power.shutdown");
 
   return (
-    <Dialog
+    <ConfirmDialog
+      {...confirmation}
+      {...(rebooting ? { friction: "simple" as const } : typedHost(shownHost))}
       open
       onOpenChange={(open) => {
-        if (!open && !schedule.isPending) onClose();
+        if (!open) onClose();
       }}
       size="md"
+      // A shutdown asks for the host name, so it waits for it; a moment chosen needs the moment.
+      ready={(rebooting || shownHost !== "") && (when !== "at" || at !== "")}
       title={rebooting ? t("server.power.rebootTitle") : t("server.power.shutdownTitle")}
       description={rebooting ? t("server.power.rebootDescription") : t("server.power.shutdownDescription")}
-      footer={
-        <>
-          <Button disabled={schedule.isPending} onClick={onClose}>
-            {t("server.power.cancel")}
-          </Button>
-          <Button
-            variant="danger"
-            icon={rebooting ? <RotateCw aria-hidden="true" /> : <Power aria-hidden="true" />}
-            loading={schedule.isPending}
-            onClick={submit}
-          >
-            {actionLabel}
-          </Button>
-        </>
-      }
+      actionLabel={actionLabel}
+      onConfirm={schedule}
     >
-      <div className="flex flex-col gap-5">
-        {node !== null ? <p className="text-13 text-fg-muted">{t.rich("server.power.onServer", { server: <Mono>{node}</Mono> })}</p> : null}
-        {/* A radio group names itself: inside a Field every radio would take the field's name. */}
-        <div className="flex flex-col gap-1.5">
-          <p aria-hidden="true" className="text-13 font-medium text-fg">
-            {t("server.power.whenLabel")}
-          </p>
-          <SegmentedControl<When>
-            label={t("server.power.whenLabel")}
-            value={when}
-            onValueChange={setWhen}
-            options={[
-              { value: "soon", label: t("server.power.whenSoon") },
-              { value: "later", label: t("server.power.whenLater") },
-              { value: "at", label: t("server.power.whenAt") },
-            ]}
-            className="self-start"
-          />
-        </div>
-        {when === "later" ? (
-          <Field label={t("server.power.delayLabel")} nativeLabel={false}>
-            <Select
-              value={delay}
-              onValueChange={setDelay}
-              options={DELAYS.map((minutes) => ({ value: String(minutes), label: t("server.power.delayMinutes", { count: minutes }) }))}
-            />
-          </Field>
-        ) : null}
-        {when === "at" ? (
-          <Field label={t("server.power.atLabel")} description={t("server.power.atDescription")} error={fieldError?.["at"] ?? null}>
-            <Input type="datetime-local" value={at} onValueChange={(value: string) => setAt(value)} />
-          </Field>
-        ) : null}
-        <div className="flex flex-col gap-2">
-          <p className="text-13 font-medium text-fg">{t("server.power.checksTitle")}</p>
-          <PreChecks power={power.data} t={t} />
-          {power.isError ? <ServerErrorBlock compact error={power.error} title={t("server.power.checksFailed")} onRetry={() => void power.refetch()} /> : null}
-          {warnings.length > 0 ? <p className="text-12 text-fg-muted">{t("server.power.warningsRead")}</p> : null}
-        </div>
-        {!rebooting ? (
-          <Field
-            label={t("server.power.hostnameLabel")}
-            description={shownHost !== "" ? t.rich("server.power.hostnameDescription", { host: <Mono>{shownHost}</Mono> }) : undefined}
-            error={fieldError?.["confirm_hostname"] ?? null}
-          >
-            <Input mono value={hostname} onValueChange={(value: string) => setHostname(value)} autoComplete="off" spellCheck={false} />
-          </Field>
-        ) : null}
-        {missing !== null ? (
-          <Notice tone="warning" live>
-            {missing}
-          </Notice>
-        ) : null}
-        {schedule.isError && fieldError === null ? (
-          <ServerErrorBlock live compact error={explainServerError(t, schedule.error, node)} title={rebooting ? t("server.power.rebootFailed") : t("server.power.shutdownFailed")} />
-        ) : null}
+      {/* A radio group names itself: inside a Field every radio would take the field's name. */}
+      <div className="flex flex-col gap-1.5">
+        <p aria-hidden="true" className="text-13 font-medium text-fg">
+          {t("server.power.whenLabel")}
+        </p>
+        <SegmentedControl<When>
+          label={t("server.power.whenLabel")}
+          value={when}
+          onValueChange={setWhen}
+          options={[
+            { value: "soon", label: t("server.power.whenSoon") },
+            { value: "later", label: t("server.power.whenLater") },
+            { value: "at", label: t("server.power.whenAt") },
+          ]}
+          className="self-start"
+        />
       </div>
-    </Dialog>
+      {when === "later" ? (
+        <Field label={t("server.power.delayLabel")} nativeLabel={false}>
+          <Select
+            value={delay}
+            onValueChange={setDelay}
+            options={DELAYS.map((minutes) => ({ value: String(minutes), label: t("server.power.delayMinutes", { count: minutes }) }))}
+          />
+        </Field>
+      ) : null}
+      {when === "at" ? (
+        <Field label={t("server.power.atLabel")} description={t("server.power.atDescription")}>
+          <Input type="datetime-local" value={at} onValueChange={(value: string) => setAt(value)} />
+        </Field>
+      ) : null}
+      <div className="flex flex-col gap-2">
+        <p className="text-13 font-medium text-fg">{t("server.power.checksTitle")}</p>
+        <PreChecks power={power.data} t={t} />
+        {power.isError ? <ServerErrorBlock compact error={power.error} title={t("server.power.checksFailed")} onRetry={() => void power.refetch()} /> : null}
+        {warnings.length > 0 ? <p className="text-12 text-fg-muted">{t("server.power.warningsRead")}</p> : null}
+      </div>
+      {!rebooting && identity.isError ? (
+        <ServerErrorBlock compact error={identity.error} title={t("server.power.hostnameFailed")} onRetry={() => void identity.refetch()} />
+      ) : null}
+    </ConfirmDialog>
   );
 }
 

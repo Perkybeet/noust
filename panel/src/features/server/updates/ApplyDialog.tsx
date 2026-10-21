@@ -11,11 +11,14 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
 import { request } from "../../../api/client";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Dialog } from "../../../components/ui/Dialog";
+import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useNeedsScrollFocus } from "../../../components/ui/scrollable";
@@ -95,6 +98,7 @@ export function ApplyDialog({ scope, keptBack, onClose }: ApplyDialogProps) {
           <Button disabled={apply.isPending} onClick={onClose}>
             {t("server.updates.apply.cancel")}
           </Button>
+          {/* design-exception: submit-disabled-invalid there is nothing to install until the plan is read, and nothing when it is empty */}
           <Button variant="primary" loading={apply.isPending} disabled={plan.data === undefined || plan.data.packages.length === 0} onClick={submit}>
             {t("server.updates.apply.install", { count: plan.data?.packages.length ?? 0 })}
           </Button>
@@ -117,13 +121,12 @@ export function ApplyDialog({ scope, keptBack, onClose }: ApplyDialogProps) {
         {plan.isError ? (
           <ServerErrorBlock compact error={plan.error} title={t("server.updates.apply.planFailed")} onRetry={() => void plan.refetch()} />
         ) : plan.data === undefined ? (
-          <div aria-busy="true" className="flex flex-col gap-3">
-            <span className="sr-only">{t("server.updates.apply.planLoading")}</span>
+          <LoadingRegion label={t("server.updates.apply.planLoading")} className="flex flex-col gap-3">
             <Skeleton className="h-4 w-60" />
             <Skeleton className="h-20 w-full rounded-control" />
-          </div>
+          </LoadingRegion>
         ) : plan.data.packages.length === 0 ? (
-          <Notice>{t("server.updates.apply.nothing")}</Notice>
+          <EmptyState variant="inline" title={t("server.updates.apply.nothing")} />
         ) : (
           <>
             <div className="flex flex-col gap-2">
@@ -136,7 +139,7 @@ export function ApplyDialog({ scope, keptBack, onClose }: ApplyDialogProps) {
                 <Names names={plan.data.impact} label={t("server.updates.apply.impactLabel")} />
               </div>
             ) : null}
-            {plan.data.restarts_console ? <Notice tone="warning">{t("server.updates.apply.restartsConsole")}</Notice> : null}
+            {plan.data.restarts_console ? <InlineMessage>{t("server.updates.apply.restartsConsole")}</InlineMessage> : null}
             {removals.length > 0 ? (
               <Notice tone="error" title={t("server.updates.apply.removalsTitle", { count: removals.length })}>
                 <div className="flex flex-col gap-3">
@@ -150,9 +153,9 @@ export function ApplyDialog({ scope, keptBack, onClose }: ApplyDialogProps) {
           </>
         )}
         {missing ? (
-          <Notice tone="warning" live>
+          <InlineMessage tone="error" live>
             {t("server.updates.apply.removalsMissing")}
-          </Notice>
+          </InlineMessage>
         ) : null}
         {apply.isError ? <ServerErrorBlock live compact error={apply.error} title={t("server.updates.apply.failed")} /> : null}
       </div>

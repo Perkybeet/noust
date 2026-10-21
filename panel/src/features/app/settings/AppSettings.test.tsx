@@ -27,25 +27,47 @@ describe("the settings' navigation", () => {
     screenWidth(1440);
     await renderSettings("", "General");
     const links = within(nav()).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["General", "Source", "Deploys", "Deploy on push", "Deploy hooks", "Access", "Build commands", "Builds", "Resources", "Disk", "Processes", "Unit security", "Mounts", "Previews", "Export", "Delete"]);
+    expect(links.map((link) => link.textContent)).toEqual([
+      "General",
+      "Source",
+      "Build",
+      "Releases and rollback",
+      "Automation",
+      "Deploy on push",
+      "Deploy hooks",
+      "Previews",
+      "Resources",
+      "Processes",
+      "Mounts",
+      "Disk",
+      "Service security",
+      "Access",
+      "Protection",
+      "Export",
+      "Delete",
+    ]);
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       `/apps/${DOMAIN}/settings`,
       `/apps/${DOMAIN}/settings/source`,
+      `/apps/${DOMAIN}/settings/build`,
       `/apps/${DOMAIN}/settings/deploys`,
+      `/apps/${DOMAIN}/settings/automation`,
       `/apps/${DOMAIN}/settings/deploy-on-push`,
       `/apps/${DOMAIN}/settings/hooks`,
-      `/apps/${DOMAIN}/settings/access`,
-      `/apps/${DOMAIN}/settings/build`,
-      `/apps/${DOMAIN}/settings/builds`,
-      `/apps/${DOMAIN}/settings/resources`,
-      `/apps/${DOMAIN}/settings/disk`,
-      `/apps/${DOMAIN}/settings/processes`,
-      `/apps/${DOMAIN}/settings/security`,
-      `/apps/${DOMAIN}/settings/mounts`,
       `/apps/${DOMAIN}/settings/previews`,
+      `/apps/${DOMAIN}/settings/resources`,
+      `/apps/${DOMAIN}/settings/processes`,
+      `/apps/${DOMAIN}/settings/mounts`,
+      `/apps/${DOMAIN}/settings/disk`,
+      `/apps/${DOMAIN}/settings/security`,
+      `/apps/${DOMAIN}/settings/access`,
+      `/apps/${DOMAIN}/settings/protection`,
       `/apps/${DOMAIN}/settings/export`,
       `/apps/${DOMAIN}/settings/delete`,
     ]);
+    // The sections are titled by whose they are; General opens the list without a title, and Delete is set apart.
+    const headings = Array.from(nav().querySelectorAll("p")).map((heading) => heading.textContent);
+    expect(headings).toEqual(["Code", "Deploys", "Triggers", "Runtime", "Access", "Export and delete"]);
     expect(within(nav()).getByRole("link", { name: "General" })).toHaveAttribute("aria-current", "page");
   });
 

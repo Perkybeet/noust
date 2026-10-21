@@ -6,8 +6,13 @@ import type { SyntheticEvent } from "react";
 import { isApiError, request } from "../../../api/client";
 import { appKeys } from "../../../api/queries/apps";
 import type { Job } from "../../../api/queries/jobs";
-import { processesQuery, replicasQuery, runtimeKeys } from "../../../api/queries/runtime";
+import {
+  processesQuery,
+  replicasQuery,
+  runtimeKeys,
+} from "../../../api/queries/runtime";
 import type { AppProcess, Replicas } from "../../../api/queries/runtime";
+import { announce } from "../../../app/Announcer";
 import { AppStatePill } from "../../../components/page/AppStatePill";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section } from "../../../components/page/Section";
@@ -23,14 +28,20 @@ import { ICONS } from "../../../components/ui/icons";
 import { Input } from "../../../components/ui/Input";
 import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
+import { RowList } from "../../../components/ui/RowList";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Skeleton } from "../../../components/ui/Skeleton";
-import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
 import { reportActionError } from "../../apps/useAppActions";
 import { JobFailedError, waitForJob } from "./queries";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import {
+  useSettingsApp,
+  useSubsectionIcon,
+  useSubsectionTitle,
+} from "./settingsApp";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** The most copies of a background process the API takes. */
 const MAX_PROCESS_COPIES = 32;
@@ -46,31 +57,51 @@ function whole(text: string, min: number, max: number): number | null {
 // The copies of the web process
 
 /** Asks for the copies and waits for the job it queues: done means done, not queued. */
-async function setCopies(queryClient: ReturnType<typeof useQueryClient>, domain: string, copies: number): Promise<void> {
-  const queued = await request("put", "/api/apps/{domain}/replicas", { params: { domain }, body: { copies } });
+async function setCopies(
+  queryClient: ReturnType<typeof useQueryClient>,
+  domain: string,
+  copies: number,
+): Promise<void> {
+  const queued = await request("put", "/api/apps/{domain}/replicas", {
+    params: { domain },
+    body: { copies },
+  });
   const job = await waitForJob(queryClient, queued.job as Job);
-  void queryClient.invalidateQueries({ queryKey: runtimeKeys.replicas(domain) });
-  void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain), exact: true });
+  void queryClient.invalidateQueries({
+    queryKey: runtimeKeys.replicas(domain),
+  });
+  void queryClient.invalidateQueries({
+    queryKey: appKeys.detail(domain),
+    exact: true,
+  });
   if (job.status !== "completed") throw new JobFailedError(job.error ?? "");
 }
 
 function CopiesList({ domain, status }: { domain: string; status: Replicas }) {
   const t = useT();
   return (
-    <ul aria-label={t("runtime.replicas.listLabel", { domain })} className="flex flex-col divide-y divide-border rounded-control border border-border">
+    <RowList aria-label={t("runtime.replicas.listLabel", { domain })}>
       {status.units.map((copy) => (
-        <li key={copy.unit} className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2">
-          <Mono truncate className="min-w-0 flex-1 text-13" title={copy.unit}>
-            {copy.unit}
-          </Mono>
-          <span className="text-12 text-fg-muted">{t("runtime.replicas.columnPort")}</span>
-          <Mono>{copy.port}</Mono>
-          <AppStatePill status={copy.state} appearance="inline" size="sm" />
-          {copy.own ? <Badge>{t("runtime.replicas.own")}</Badge> : null}
-          <span className="text-12 text-fg-muted">{copy.serving ? t("runtime.replicas.sharing") : t("runtime.replicas.notSharing")}</span>
-        </li>
+        <RowList.Item key={copy.unit}>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+            <Mono truncate className="min-w-0 flex-1 text-13" title={copy.unit}>
+              {copy.unit}
+            </Mono>
+            <span className="text-12 text-fg-muted">
+              {t("runtime.replicas.columnPort")}
+            </span>
+            <Mono>{copy.port}</Mono>
+            <AppStatePill status={copy.state} appearance="inline" size="sm" />
+            {copy.own ? <Badge>{t("runtime.replicas.own")}</Badge> : null}
+            <span className="text-12 text-fg-muted">
+              {copy.serving
+                ? t("runtime.replicas.sharing")
+                : t("runtime.replicas.notSharing")}
+            </span>
+          </div>
+        </RowList.Item>
       ))}
-    </ul>
+    </RowList>
   );
 }
 
@@ -90,7 +121,7 @@ function CopiesForm({ domain, status }: { domain: string; status: Replicas }) {
     mutationFn: (count: number) => setCopies(queryClient, domain, count),
     onSuccess: (_result, count) => {
       setSubmitted(false);
-      toast.success(t("runtime.replicas.scaled", { domain, count }));
+      announce(t("runtime.replicas.scaled", { domain, count }));
     },
     onError: (error) => {
       reportActionError(t("runtime.replicas.scaleFailed", { domain }), error);
@@ -102,13 +133,37 @@ function CopiesForm({ domain, status }: { domain: string; status: Replicas }) {
     if (copies === null || apply.isPending) return;
     apply.mutate(copies);
   };
-  const error = submitted && copies === null ? t("runtime.replicas.copiesRange", { max: status.maximum }) : undefined;
+  const error =
+    submitted && copies === null
+      ? t("runtime.replicas.copiesRange", { max: status.maximum })
+      : undefined;
   return (
-    <form noValidate onSubmit={submit} className="flex flex-wrap items-end gap-3">
-      <Field label={t("runtime.replicas.copiesLabel")} description={t("runtime.replicas.copiesDescription", { max: status.maximum })} error={error} className="w-56">
-        <Input mono inputMode="numeric" autoComplete="off" value={text} onValueChange={setText} />
+    <form
+      noValidate
+      onSubmit={submit}
+      className="flex flex-wrap items-end gap-3"
+    >
+      <Field
+        label={t("runtime.replicas.copiesLabel")}
+        description={t("runtime.replicas.copiesDescription", {
+          max: status.maximum,
+        })}
+        error={error}
+        className="w-56"
+      >
+        <Input
+          mono
+          inputMode="numeric"
+          autoComplete="off"
+          value={text}
+          onValueChange={setText}
+        />
       </Field>
-      <Button type="submit" variant="primary" loading={apply.isPending} disabled={copies === status.copies}>
+      <Button
+        type="submit"
+        loading={apply.isPending}
+        disabled={copies === status.copies}
+      >
         {t("runtime.replicas.apply")}
       </Button>
     </form>
@@ -121,17 +176,29 @@ function ReplicasCard({ domain }: { domain: string }) {
   const replicas = useQuery(replicasQuery(domain));
   const status = replicas.data;
   return (
-    <Card title={t("runtime.replicas.title")} description={t("runtime.replicas.description")}>
+    <Card
+      title={t("runtime.replicas.title")}
+      icon={SETTINGS_ICONS.processes}
+      description={t("runtime.replicas.description")}
+    >
       <div className="flex flex-col gap-4">
         {status === undefined ? (
           replicas.isError ? (
-            <ErrorBlock compact error={replicas.error} title={t("runtime.replicas.loadFailed")} onRetry={() => void replicas.refetch()} retrying={replicas.isRefetching} />
+            <ErrorBlock
+              compact
+              error={replicas.error}
+              title={t("runtime.replicas.loadFailed")}
+              onRetry={() => void replicas.refetch()}
+              retrying={replicas.isRefetching}
+            />
           ) : (
-            <div aria-busy="true" className="flex flex-col gap-2">
-              <span className="sr-only">{t("runtime.replicas.loading")}</span>
+            <LoadingRegion
+              label={t("runtime.replicas.loading")}
+              className="flex flex-col gap-2"
+            >
               <Skeleton className="h-9 w-full" />
               <Skeleton className="h-9 w-full" />
-            </div>
+            </LoadingRegion>
           )
         ) : (
           <>
@@ -139,7 +206,9 @@ function ReplicasCard({ domain }: { domain: string }) {
             {status.eligible ? (
               <CopiesForm domain={domain} status={status} />
             ) : (
-              <Notice tone="info">{t("runtime.replicas.cannot", { reason: status.reason ?? "" })}</Notice>
+              <InlineMessage tone="info">
+                {t("runtime.replicas.cannot", { reason: status.reason ?? "" })}
+              </InlineMessage>
             )}
           </>
         )}
@@ -166,7 +235,10 @@ function draftOf(process: AppProcess | undefined): ProcessDraft {
     command: process?.command ?? "",
     instances: String(process?.instances ?? 1),
     memory: process?.memory_max_mb == null ? "" : String(process.memory_max_mb),
-    cpu: process?.cpu_quota_percent == null ? "" : String(process.cpu_quota_percent),
+    cpu:
+      process?.cpu_quota_percent == null
+        ? ""
+        : String(process.cpu_quota_percent),
     tasks: process?.tasks_max == null ? "" : String(process.tasks_max),
   };
 }
@@ -179,13 +251,28 @@ function limit(text: string): { value: number | null; bad: boolean } {
   return { value, bad: value === null };
 }
 
-function invalidateProcesses(queryClient: ReturnType<typeof useQueryClient>, domain: string): void {
-  void queryClient.invalidateQueries({ queryKey: runtimeKeys.processes(domain) });
+function invalidateProcesses(
+  queryClient: ReturnType<typeof useQueryClient>,
+  domain: string,
+): void {
+  void queryClient.invalidateQueries({
+    queryKey: runtimeKeys.processes(domain),
+  });
   void queryClient.invalidateQueries({ queryKey: runtimeKeys.pending(domain) });
 }
 
 /** Adds a process, or changes one: its command, its copies and the limits of each. */
-function ProcessDialog({ domain, process, open, onOpenChange }: { domain: string; process?: AppProcess; open: boolean; onOpenChange: (open: boolean) => void }) {
+function ProcessDialog({
+  domain,
+  process,
+  open,
+  onOpenChange,
+}: {
+  domain: string;
+  process?: AppProcess;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const t = useT();
   const queryClient = useQueryClient();
   const editing = process !== undefined;
@@ -201,8 +288,14 @@ function ProcessDialog({ domain, process, open, onOpenChange }: { domain: string
   const tasks = limit(draft.tasks);
   const problems = {
     name: draft.name.trim() === "" ? t("runtime.processes.nameMissing") : null,
-    command: draft.command.trim() === "" ? t("runtime.processes.commandMissing") : null,
-    instances: copies === null ? t("runtime.processes.copiesRange", { max: MAX_PROCESS_COPIES }) : null,
+    command:
+      draft.command.trim() === ""
+        ? t("runtime.processes.commandMissing")
+        : null,
+    instances:
+      copies === null
+        ? t("runtime.processes.copiesRange", { max: MAX_PROCESS_COPIES })
+        : null,
     memory: memory.bad ? t("runtime.processes.limitRange") : null,
     cpu: cpu.bad ? t("runtime.processes.limitRange") : null,
     tasks: tasks.bad ? t("runtime.processes.limitRange") : null,
@@ -222,11 +315,12 @@ function ProcessDialog({ domain, process, open, onOpenChange }: { domain: string
       }),
     onSuccess: () => {
       invalidateProcesses(queryClient, domain);
-      toast.success(t("runtime.processes.saved", { name: draft.name.trim() }));
+      announce(t("runtime.processes.saved", { name: draft.name.trim() }));
       onOpenChange(false);
     },
   });
-  const serverError = (field: string): string | undefined => (isApiError(save.error) ? save.error.fields?.[field] : undefined);
+  const serverError = (field: string): string | undefined =>
+    isApiError(save.error) ? save.error.fields?.[field] : undefined;
   const close = (next: boolean): void => {
     if (!next && save.isPending) return;
     if (!next) save.reset();
@@ -238,48 +332,140 @@ function ProcessDialog({ domain, process, open, onOpenChange }: { domain: string
     if (!valid || save.isPending) return;
     save.mutate();
   };
-  const shown = (field: keyof typeof problems): string | undefined => (submitted ? (problems[field] ?? undefined) : undefined);
+  const shown = (field: keyof typeof problems): string | undefined =>
+    submitted ? (problems[field] ?? undefined) : undefined;
   return (
     <Dialog
       open={open}
       onOpenChange={close}
       size="md"
-      title={editing ? t("runtime.processes.dialogEditTitle", { name: process.name }) : t("runtime.processes.dialogAddTitle")}
+      title={
+        editing
+          ? t("runtime.processes.dialogEditTitle", { name: process.name })
+          : t("runtime.processes.dialogAddTitle")
+      }
       description={t("runtime.processes.dialogDescription")}
       footer={
         <>
           <Button disabled={save.isPending} onClick={() => close(false)}>
             {t("appPages.common.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
+          <Button
+            type="submit"
+            form={formId}
+            variant="primary"
+            loading={save.isPending}
+          >
             {t("runtime.processes.save")}
           </Button>
         </>
       }
     >
-      <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
-        <Field label={t("runtime.processes.nameLabel")} description={t("runtime.processes.nameDescription")} error={shown("name") ?? serverError("name")}>
-          <Input mono disabled={editing} autoComplete="off" autoCapitalize="off" spellCheck={false} placeholder="worker" value={draft.name} onValueChange={edit("name")} />
+      <form
+        id={formId}
+        noValidate
+        onSubmit={submit}
+        className="flex flex-col gap-5"
+      >
+        <Field
+          label={t("runtime.processes.nameLabel")}
+          description={t("runtime.processes.nameDescription")}
+          error={shown("name") ?? serverError("name")}
+        >
+          <Input
+            mono
+            disabled={editing}
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            placeholder="worker"
+            value={draft.name}
+            onValueChange={edit("name")}
+          />
         </Field>
-        <Field label={t("runtime.processes.commandLabel")} description={t("runtime.processes.commandDescription")} error={shown("command") ?? serverError("command")}>
-          <Input mono autoComplete="off" autoCapitalize="off" spellCheck={false} placeholder="node worker.js" value={draft.command} onValueChange={edit("command")} />
+        <Field
+          label={t("runtime.processes.commandLabel")}
+          description={t("runtime.processes.commandDescription")}
+          error={shown("command") ?? serverError("command")}
+        >
+          <Input
+            mono
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            placeholder="node worker.js"
+            value={draft.command}
+            onValueChange={edit("command")}
+          />
         </Field>
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label={t("runtime.processes.copiesLabel")} description={t("runtime.processes.copiesDescription")} error={shown("instances") ?? serverError("instances")}>
-            <Input mono inputMode="numeric" autoComplete="off" value={draft.instances} onValueChange={edit("instances")} />
+          <Field
+            label={t("runtime.processes.copiesLabel")}
+            description={t("runtime.processes.copiesDescription")}
+            error={shown("instances") ?? serverError("instances")}
+          >
+            <Input
+              mono
+              inputMode="numeric"
+              autoComplete="off"
+              value={draft.instances}
+              onValueChange={edit("instances")}
+            />
           </Field>
-          <Field label={t("runtime.processes.memoryLabel")} optional description={t("runtime.processes.memoryDescription")} error={shown("memory") ?? serverError("memory_max_mb")}>
-            <Input mono inputMode="numeric" autoComplete="off" suffix="MB" value={draft.memory} onValueChange={edit("memory")} />
+          <Field
+            label={t("runtime.processes.memoryLabel")}
+            optional
+            description={t("runtime.processes.memoryDescription")}
+            error={shown("memory") ?? serverError("memory_max_mb")}
+          >
+            <Input
+              mono
+              inputMode="numeric"
+              autoComplete="off"
+              suffix="MB"
+              value={draft.memory}
+              onValueChange={edit("memory")}
+            />
           </Field>
-          <Field label={t("runtime.processes.cpuLabel")} optional description={t("runtime.processes.cpuDescription")} error={shown("cpu") ?? serverError("cpu_quota_percent")}>
-            <Input mono inputMode="numeric" autoComplete="off" suffix="%" value={draft.cpu} onValueChange={edit("cpu")} />
+          <Field
+            label={t("runtime.processes.cpuLabel")}
+            optional
+            description={t("runtime.processes.cpuDescription")}
+            error={shown("cpu") ?? serverError("cpu_quota_percent")}
+          >
+            <Input
+              mono
+              inputMode="numeric"
+              autoComplete="off"
+              suffix="%"
+              value={draft.cpu}
+              onValueChange={edit("cpu")}
+            />
           </Field>
-          <Field label={t("runtime.processes.tasksLabel")} optional description={t("runtime.processes.tasksDescription")} error={shown("tasks") ?? serverError("tasks_max")}>
-            <Input mono inputMode="numeric" autoComplete="off" value={draft.tasks} onValueChange={edit("tasks")} />
+          <Field
+            label={t("runtime.processes.tasksLabel")}
+            optional
+            description={t("runtime.processes.tasksDescription")}
+            error={shown("tasks") ?? serverError("tasks_max")}
+          >
+            <Input
+              mono
+              inputMode="numeric"
+              autoComplete="off"
+              value={draft.tasks}
+              onValueChange={edit("tasks")}
+            />
           </Field>
         </div>
         {save.isError && (!isApiError(save.error) || !save.error.fields) ? (
-          <ErrorBlock live compact error={save.error} title={t("runtime.processes.saveFailed", { name: draft.name.trim() || "…" })} />
+          <ErrorBlock
+            live
+            compact
+            error={save.error}
+            title={t("runtime.processes.saveFailed", {
+              name: draft.name.trim() || "…",
+            })}
+          />
         ) : null}
       </form>
     </Dialog>
@@ -287,7 +473,17 @@ function ProcessDialog({ domain, process, open, onOpenChange }: { domain: string
 }
 
 /** How many copies a process runs: a number and a button, in a dialog of its own. */
-function ScaleDialog({ domain, process, open, onOpenChange }: { domain: string; process: AppProcess; open: boolean; onOpenChange: (open: boolean) => void }) {
+function ScaleDialog({
+  domain,
+  process,
+  open,
+  onOpenChange,
+}: {
+  domain: string;
+  process: AppProcess;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const t = useT();
   const queryClient = useQueryClient();
   const [text, setText] = useState(String(process.instances));
@@ -295,10 +491,15 @@ function ScaleDialog({ domain, process, open, onOpenChange }: { domain: string; 
   const copies = whole(text, 0, MAX_PROCESS_COPIES);
   const scale = useMutation({
     mutationFn: (instances: number) =>
-      request("post", "/api/apps/{domain}/processes/{name}/scale", { params: { domain, name: process.name }, body: { instances } }),
+      request("post", "/api/apps/{domain}/processes/{name}/scale", {
+        params: { domain, name: process.name },
+        body: { instances },
+      }),
     onSuccess: (_result, instances) => {
       invalidateProcesses(queryClient, domain);
-      toast.success(t("runtime.processes.scaled", { name: process.name, count: instances }));
+      announce(
+        t("runtime.processes.scaled", { name: process.name, count: instances }),
+      );
       onOpenChange(false);
     },
   });
@@ -326,44 +527,97 @@ function ScaleDialog({ domain, process, open, onOpenChange }: { domain: string; 
           <Button disabled={scale.isPending} onClick={() => close(false)}>
             {t("appPages.common.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={scale.isPending}>
+          <Button
+            type="submit"
+            form={formId}
+            variant="primary"
+            loading={scale.isPending}
+          >
             {t("runtime.processes.scaleSave")}
           </Button>
         </>
       }
     >
-      <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-4">
+      <form
+        id={formId}
+        noValidate
+        onSubmit={submit}
+        className="flex flex-col gap-4"
+      >
         <Field
           label={t("runtime.processes.copiesLabel")}
           description={t("runtime.processes.copiesDescription")}
-          error={submitted && copies === null ? t("runtime.processes.copiesRange", { max: MAX_PROCESS_COPIES }) : undefined}
+          error={
+            submitted && copies === null
+              ? t("runtime.processes.copiesRange", { max: MAX_PROCESS_COPIES })
+              : undefined
+          }
         >
-          <Input mono inputMode="numeric" autoComplete="off" value={text} onValueChange={setText} />
+          <Input
+            mono
+            inputMode="numeric"
+            autoComplete="off"
+            value={text}
+            onValueChange={setText}
+          />
         </Field>
-        {scale.isError ? <ErrorBlock live compact error={scale.error} title={t("runtime.processes.scaleFailed", { name: process.name })} /> : null}
+        {scale.isError ? (
+          <ErrorBlock
+            live
+            compact
+            error={scale.error}
+            title={t("runtime.processes.scaleFailed", { name: process.name })}
+          />
+        ) : null}
       </form>
     </Dialog>
   );
 }
 
 /** The menu at the end of a process: change it, change its copies, remove it. */
-function ProcessActions({ domain, process, onEdit, onScale }: { domain: string; process: AppProcess; onEdit: () => void; onScale: () => void }) {
+function ProcessActions({
+  domain,
+  process,
+  onEdit,
+  onScale,
+}: {
+  domain: string;
+  process: AppProcess;
+  onEdit: () => void;
+  onScale: () => void;
+}) {
   const t = useT();
   const queryClient = useQueryClient();
   const [removing, setRemoving] = useState(false);
   const remove = useMutation({
-    mutationFn: () => request("delete", "/api/apps/{domain}/processes/{name}", { params: { domain, name: process.name } }),
+    mutationFn: () =>
+      request("delete", "/api/apps/{domain}/processes/{name}", {
+        params: { domain, name: process.name },
+      }),
     onSuccess: () => {
       invalidateProcesses(queryClient, domain);
-      toast.success(t("runtime.processes.removed", { name: process.name }));
+      announce(t("runtime.processes.removed", { name: process.name }));
     },
     onError: (error) => {
-      reportActionError(t("runtime.processes.removeFailed", { name: process.name }), error);
+      reportActionError(
+        t("runtime.processes.removeFailed", { name: process.name }),
+        error,
+      );
     },
   });
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={t("runtime.processes.actionsFor", { name: process.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <Menu
+        align="end"
+        trigger={
+          <IconButton
+            label={t("runtime.processes.actionsFor", { name: process.name })}
+            icon={<ICONS.more />}
+            size="sm"
+            tooltip={false}
+          />
+        }
+      >
         <MenuItem icon={<Pencil />} onClick={onEdit}>
           {t("runtime.processes.edit")}
         </MenuItem>
@@ -371,7 +625,11 @@ function ProcessActions({ domain, process, onEdit, onScale }: { domain: string; 
           {t("runtime.processes.scale")}
         </MenuItem>
         <MenuSeparator />
-        <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(true)}>
+        <MenuItem
+          icon={<Trash2 />}
+          destructive
+          onClick={() => setRemoving(true)}
+        >
           {t("runtime.processes.remove")}
         </MenuItem>
       </Menu>
@@ -391,7 +649,13 @@ function ProcessActions({ domain, process, onEdit, onScale }: { domain: string; 
   );
 }
 
-function ProcessRow({ domain, process }: { domain: string; process: AppProcess }) {
+function ProcessRow({
+  domain,
+  process,
+}: {
+  domain: string;
+  process: AppProcess;
+}) {
   const t = useT();
   const [dialog, setDialog] = useState<"edit" | "scale" | null>(null);
   const running = process.running;
@@ -400,18 +664,30 @@ function ProcessRow({ domain, process }: { domain: string; process: AppProcess }
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex min-w-0 items-baseline gap-2">
           <Mono className="text-13 font-medium text-fg">{process.name}</Mono>
-          {process.source === "repository" ? <Badge>{t("runtime.processes.fromRepository")}</Badge> : null}
+          {process.source === "repository" ? (
+            <Badge>{t("runtime.processes.fromRepository")}</Badge>
+          ) : null}
         </span>
         <Mono tone="muted" truncate title={process.command}>
           {process.command}
         </Mono>
       </div>
       <span className="text-12 text-fg-muted">
-        {process.instances === 0 ? t("runtime.processes.stopped") : t("runtime.processes.runningOf", { running, instances: process.instances })}
+        {process.instances === 0
+          ? t("runtime.processes.stopped")
+          : t("runtime.processes.runningOf", {
+              running,
+              instances: process.instances,
+            })}
       </span>
       <div className="flex shrink-0 flex-wrap items-center gap-1">
         {(process.copies ?? []).map((copy) => (
-          <AppStatePill key={copy.unit} status={copy.state} appearance="inline" size="sm" />
+          <AppStatePill
+            key={copy.unit}
+            status={copy.state}
+            appearance="inline"
+            size="sm"
+          />
         ))}
       </div>
       <ProcessActions
@@ -455,6 +731,7 @@ function ProcessesCard({ domain }: { domain: string }) {
   const list = processes.data?.processes ?? [];
   return (
     <Card
+      icon={SETTINGS_ICONS.processes}
       title={t("runtime.processes.title")}
       description={t("runtime.processes.description")}
       actions={
@@ -473,27 +750,44 @@ function ProcessesCard({ domain }: { domain: string }) {
       {processes.data === undefined ? (
         processes.isError ? (
           <div className="p-4">
-            <ErrorBlock compact error={processes.error} title={t("runtime.processes.loadFailed")} onRetry={() => void processes.refetch()} retrying={processes.isRefetching} />
+            <ErrorBlock
+              compact
+              error={processes.error}
+              title={t("runtime.processes.loadFailed")}
+              onRetry={() => void processes.refetch()}
+              retrying={processes.isRefetching}
+            />
           </div>
         ) : (
-          <div aria-busy="true" className="flex flex-col gap-2 p-4">
-            <span className="sr-only">{t("runtime.processes.loading")}</span>
+          <LoadingRegion
+            label={t("runtime.processes.loading")}
+            className="flex flex-col gap-2 p-4"
+          >
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
-          </div>
+          </LoadingRegion>
         )
       ) : list.length === 0 ? (
         <div className="p-4">
-          <EmptyState variant="inline" title={t("runtime.processes.emptyTitle")} description={t("runtime.processes.emptyDescription")} />
+          <EmptyState
+            variant="inline"
+            title={t("runtime.processes.emptyTitle")}
+            description={t("runtime.processes.emptyDescription")}
+          />
         </div>
       ) : (
-        <ul aria-label={t("runtime.processes.listLabel", { domain })} className="flex flex-col divide-y divide-border">
+        <ul
+          aria-label={t("runtime.processes.listLabel", { domain })}
+          className="flex flex-col divide-y divide-border"
+        >
           {list.map((process) => (
             <ProcessRow key={process.name} domain={domain} process={process} />
           ))}
         </ul>
       )}
-      {adding ? <ProcessDialog domain={domain} open onOpenChange={setAdding} /> : null}
+      {adding ? (
+        <ProcessDialog domain={domain} open onOpenChange={setAdding} />
+      ) : null}
     </Card>
   );
 }
@@ -507,8 +801,9 @@ export function ProcessesSettings() {
   const t = useT();
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.processes", app.domain);
+  const headerIcon = useSubsectionIcon("runtime.nav.processes");
   return (
-    <Section title={t("runtime.nav.processes")}>
+    <Section title={t("runtime.nav.processes")} {...headerIcon}>
       {hasUnit(app) ? (
         <div className="flex flex-col gap-6">
           <ReplicasCard domain={app.domain} />
@@ -516,10 +811,13 @@ export function ProcessesSettings() {
         </div>
       ) : (
         <Card>
-          <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("runtime.replicas.cannot", { reason: t("appSettings.limits.staticNote") })}</p>
+          <p className="max-w-measure text-13 text-pretty text-fg-muted">
+            {t("runtime.replicas.cannot", {
+              reason: t("appSettings.limits.staticNote"),
+            })}
+          </p>
         </Card>
       )}
     </Section>
   );
 }
-

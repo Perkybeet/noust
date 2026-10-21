@@ -9,10 +9,9 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { Section } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { Checkbox } from "../../components/ui/Checkbox";
 import { CopyButton } from "../../components/ui/CopyButton";
 import { IconButton } from "../../components/ui/IconButton";
-import { Notice } from "../../components/ui/Notice";
-import { Switch } from "../../components/ui/Switch";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
 import { downloadText } from "../../lib/clipboard";
@@ -32,6 +31,7 @@ export function SupportReport() {
   const journalLeftOut = report?.sections.some((section) => section.key === "journal" && !section.collected) ?? false;
   return (
     <Section
+      level={3}
       title={t("settings.about.supportReport.title")}
       description={t("settings.about.supportReport.description")}
       actions={
@@ -41,7 +41,7 @@ export function SupportReport() {
       }
     >
       <div className="flex min-w-0 flex-col gap-3">
-        <Switch
+        <Checkbox
           checked={hideDomains}
           onCheckedChange={setHideDomains}
           label={t("settings.about.supportReport.hideDomains")}
@@ -67,7 +67,7 @@ export function SupportReport() {
           >
             <div className="flex min-w-0 flex-col gap-3">
               <p className="text-13 text-fg-muted">{t("settings.about.supportReport.readFirst")}</p>
-              {journalLeftOut ? <Notice>{t("settings.about.supportReport.journalLeftOut")}</Notice> : null}
+              {journalLeftOut ? <p className="text-13 text-fg-muted">{t("settings.about.supportReport.journalLeftOut")}</p> : null}
               <SystemOutput label={t("settings.about.supportReport.outputLabel")} maxHeight="max-h-96" className="rounded-control border border-border bg-bg-sunken px-3 py-2 leading-5">
                 {report.markdown}
               </SystemOutput>

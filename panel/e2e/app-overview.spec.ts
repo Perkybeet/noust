@@ -1,7 +1,8 @@
 /**
  * One application's page against the real backend: the header with its state and live
- * address, Update queuing a job and the header following it over the event stream, the
- * confirmations in front of Stop and Delete, and the Overview tab. Runs in both themes, with
+ * address, Update (a split button) queuing a job and the header following it over the event
+ * stream, the confirmations in front of Stop and Delete, and the Overview tab: what is live,
+ * the last deployments, the app's health and where it answers. Runs in both themes, with
  * the CSP and console gates of the `problems` fixture.
  */
 
@@ -26,8 +27,9 @@ test("the header says the app's state, type and port, links to the live site, an
   await expect(pill(page)).toHaveAttribute("data-state", "running");
   await expect(pill(page)).toHaveText("Running");
   await expect(header(page).getByText("Next.js", { exact: true })).toBeVisible();
-  // Update is the page's one primary action; the daily verbs are beside it, not in a menu.
-  await expect(header(page).getByRole("button", { name: "Update" })).toHaveAttribute("data-variant", "primary");
+  // Update is the page's one primary action, a split button with its variations in the arrow; the daily verbs are beside it, not in a menu.
+  await expect(header(page).getByRole("button", { name: "Update", exact: true })).toHaveAttribute("data-variant", "primary");
+  await expect(header(page).getByRole("button", { name: "More options for Update" })).toBeVisible();
   for (const verb of ["Restart", "Stop", "Roll back"]) await expect(header(page).getByRole("button", { name: verb, exact: true })).toBeVisible();
 
   const live = header(page).getByRole("link", { name: new RegExp(`^${DOMAIN.replace(".", "\\.")}`) });
@@ -64,7 +66,7 @@ test("Update queues a job; the header follows it over the event stream to its en
   await expect(pill(page)).toHaveAttribute("data-state", "running");
 
   const queued = page.waitForRequest((request) => request.url().endsWith("/api/jobs/update") && request.method() === "POST");
-  await header(page).getByRole("button", { name: "Update" }).click();
+  await header(page).getByRole("button", { name: "Update", exact: true }).click();
   expect((await queued).postDataJSON()).toEqual({ domain: DOMAIN, force: false });
 
   // The sandbox has no checkout to update, so the job fails; the header keeps the failure,
@@ -80,7 +82,7 @@ test("Update queues a job; the header follows it over the event stream to its en
   const states = await page.evaluate(() => (window as unknown as { __appStates: string[] }).__appStates);
   expect(states.indexOf("deploying")).toBeLessThan(states.lastIndexOf("running"));
   await expect(pill(page)).toHaveAttribute("data-state", "running");
-  await expect(header(page).getByRole("button", { name: "Update" })).not.toHaveAttribute("aria-busy");
+  await expect(header(page).getByRole("button", { name: "Update", exact: true })).not.toHaveAttribute("aria-busy");
 
   // The job's failure also raised the notice toast. Base UI hides a high-priority toast from
   // assistive technology until it is focused (its live region speaks for it) while leaving it
@@ -118,7 +120,7 @@ test("Update with nothing new asks, in the backend's words, and rebuilds only wh
   const dialog = page.getByRole("dialog", { name: `Nothing new to deploy to ${NOTHING_NEW_APP}` });
 
   // Cancelled: nothing is queued.
-  await header(page).getByRole("button", { name: "Update" }).click();
+  await header(page).getByRole("button", { name: "Update", exact: true }).click();
   await expect(dialog.getByText("No new commits on main since 6d1e0b2, which is live")).toBeVisible();
   await expect(dialog.getByText(/Rebuilding the same commit still makes sense when the environment or the dependencies changed/)).toBeVisible();
   await settle(page);
@@ -128,7 +130,7 @@ test("Update with nothing new asks, in the backend's words, and rebuilds only wh
   expect(((await (await page.request.get("/api/jobs/active")).json()) as { jobs: { metadata?: { domain?: string } }[] }).jobs.some((job) => job.metadata?.domain === NOTHING_NEW_APP)).toBe(false);
 
   // Rebuilt anyway: the same request, forced, and the header follows the job.
-  await header(page).getByRole("button", { name: "Update" }).click();
+  await header(page).getByRole("button", { name: "Update", exact: true }).click();
   const forced = page.waitForRequest((request) => request.url().endsWith("/api/jobs/update") && request.method() === "POST" && (request.postDataJSON() as { force?: boolean }).force === true);
   await dialog.getByRole("button", { name: "Rebuild anyway" }).click();
   expect((await forced).postDataJSON()).toEqual({ domain: NOTHING_NEW_APP, force: true });
@@ -199,52 +201,49 @@ test("Delete stays disabled until the domain is typed", async ({ page, consoleSe
   await expect(header(page).getByRole("button", { name: "More actions" })).toBeFocused();
 });
 
-test("Roll back lists the backups of an app kept in a single folder", async ({ page, consoleServer }) => {
+test("Roll back asks one question that names what it will do, for an app kept in a single folder", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${DOMAIN}`);
   await header(page).getByRole("button", { name: "Roll back", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: `Roll back ${DOMAIN}` });
-  await expect(dialog.getByRole("button", { name: /^Go back to / })).not.toHaveCount(0);
+  const dialog = page.getByRole("alertdialog", { name: `Roll back ${DOMAIN}` });
+  await expect(dialog.getByRole("button", { name: /^Go back to / })).toBeVisible();
+  await expect(dialog.getByText("What goes back", { exact: true })).toBeVisible();
   await expectNoA11yViolations(page, "the rollback dialog");
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 });
 
-test("the overview tab shows the deploys as dots that open each deploy, and the runtime", async ({ page, consoleServer }) => {
+test("the overview tab says what is live, lists the last deployments, and reads the app's health", async ({ page, consoleServer }) => {
   const domain = "clientes.example.com";
   await signIn(page, consoleServer, `/apps/${domain}`);
-  const dots = page.getByRole("list", { name: /^Last \d+ deploys, oldest first$/ });
-  const newest = dots.getByRole("link").last();
-  await expect(newest).toHaveAccessibleName(/^Deploy \d+: Failed c07d5e3/);
+  // Its unit is down: no version is live, and the overview says the last one that served.
+  await expect(page.getByRole("region", { name: "Last version that served" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Live now" })).toHaveCount(0);
+  const deployments = page.getByRole("list", { name: `Last deployments of ${domain}` });
+  await expect(deployments.getByRole("link").first()).toHaveAttribute("href", new RegExp(`/apps/${domain.replace(/\./g, "\\.")}/deployments/\\d+$`));
   // Its unit is the one systemd gave up on: said above the tabs, with the diagnosis one click away.
   await expect(pill(page)).toHaveAttribute("data-state", "failed");
   await expect(page.getByText("The service has stopped with an error")).toBeVisible();
 
-  const facts = (await (await page.request.get(`/api/apps/${domain}`)).json()) as { source: string | null; branch: string | null };
-  const runtime = page.getByRole("region", { name: "How it runs" });
-  await expect(runtime.getByText("/var/www/apps/clientes.example.com")).toBeVisible();
-  if (facts.source !== null) {
-    const repo = runtime.getByRole("link", { name: new RegExp(`^${facts.source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) });
-    if (facts.source.startsWith("https://")) await expect(repo).toHaveAttribute("href", facts.source);
-    else await expect(runtime.getByText(facts.source, { exact: true })).toBeVisible();
-  }
-  if (facts.branch !== null) await expect(runtime.getByText(facts.branch, { exact: true })).toBeVisible();
-  // Not every seeded app has a recorded branch: the row still shows, and says so.
-  else await expect(runtime.getByText("Not recorded").first()).toBeVisible();
-  await expect(page.getByRole("region", { name: "Domains" }).getByRole("link", { name: new RegExp(`^${domain.replace(/\./g, "\\.")}`) })).toBeVisible();
+  // Nothing of how it runs is repeated here: that is Settings'. Health says how it is doing, and where to change its limits.
+  await expect(page.getByRole("region", { name: "How it runs" })).toHaveCount(0);
+  const health = page.getByRole("region", { name: "Health" });
+  await expect(health).toBeVisible();
+  await expect(health.getByRole("link", { name: "Edit limits" })).toHaveAttribute("href", `/apps/${domain}/settings/resources`);
+  await expect(page.getByRole("list", { name: `Where ${domain} answers and what deploys it` })).toBeVisible();
 
   // The banner is the page's, not the tab's: it stays on every tab.
   await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Environment" }).click();
   await expect(page.getByText("The service has stopped with an error")).toBeVisible();
   await page.goBack();
 
-  await newest.click();
+  await deployments.getByRole("link").first().click();
   await expect(page).toHaveURL(/\/apps\/clientes\.example\.com\/deployments\/\d+$/);
 });
 
 test("on a phone the header keeps every daily verb in view, beside More actions", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, consoleServer, `/apps/${DOMAIN}`);
-  await expect(header(page).getByRole("button", { name: "Update" })).toBeInViewport();
+  await expect(header(page).getByRole("button", { name: "Update", exact: true })).toBeInViewport();
   for (const verb of ["Restart", "Stop", "Roll back"]) await expect(header(page).getByRole("button", { name: verb, exact: true })).toBeInViewport();
   await header(page).getByRole("button", { name: "More actions" }).click();
   // What is left in the menu is what is rare.

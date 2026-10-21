@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Card } from "../ui/Card";
@@ -6,6 +7,8 @@ import { CommandHint } from "./CommandHint";
 export interface SettingsGroupProps {
   /** The subject of the rows: "Backups", "Notifications". */
   title: string;
+  /** The icon of the object the rows are about, before the title. */
+  icon?: LucideIcon;
   /** One sentence on the subject, when the title does not say it. Not a repeat of a row's help. */
   description?: ReactNode;
   /**
@@ -30,11 +33,12 @@ export interface SettingsGroupProps {
  * `Field`s, not a group of rows: a `Setting` applies the moment it is moved and never shares a
  * surface with a Save button.
  */
-export function SettingsGroup({ title, description, status, actions, command, level = 3, children, className }: SettingsGroupProps) {
+export function SettingsGroup({ title, icon, description, status, actions, command, level = 3, children, className }: SettingsGroupProps) {
   return (
     <Card
       title={title}
       level={level}
+      {...(icon !== undefined ? { icon } : {})}
       padding="none"
       {...(description !== undefined ? { description } : {})}
       {...(status !== undefined ? { status } : {})}

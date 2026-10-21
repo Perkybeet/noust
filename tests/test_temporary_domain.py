@@ -222,6 +222,7 @@ def test_the_command_adds_the_name_through_the_ordinary_add(
             certificate_issued=False,
             certificate_reduced=False,
             certificate_error=None,
+            lineage_removed=False,
             canonical="",
             tls=False,
         )

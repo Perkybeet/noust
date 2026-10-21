@@ -24,6 +24,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/nodes/{node}/inventory"): Permission.FLEET_MANAGE,
     ("GET", "/api/nodes/{node}/ssh"): Permission.FLEET_READ,
     ("PUT", "/api/nodes/{node}/ssh"): Permission.FLEET_MANAGE,
+    ("POST", "/api/nodes/{node}/ssh/authorization"): Permission.FLEET_MANAGE,
     ("POST", "/api/nodes/{node}/test"): Permission.FLEET_READ,
     ("PUT", "/api/nodes/{node}/team"): Permission.FLEET_MANAGE,
     ("POST", "/api/nodes/{node}/rekey"): Permission.FLEET_MANAGE,

@@ -579,7 +579,7 @@ def _update_app(
     store = get_store()
 
     # The store holds the real path, which is what keeps legacy apps deployed
-    # under a wasm- prefix updatable.
+    # under the legacy unit prefix updatable.
     app = store.get_app(domain)
     if app and app.app_path:
         app_path = Path(app.app_path)
@@ -940,13 +940,22 @@ def _update_release(
         # is still on disk; activating it again would serve what the gate
         # refused. Its commit is built afresh instead.
         failed = _failed_releases(get_store(), app) | _unserved_releases(get_store(), app)
-        built = next(
-            (
-                r
-                for r in releases.list()
-                if not r.active and r.id not in failed and r.commit and full.startswith(r.commit)
-            ),
-            None,
+        # From scratch is a build, not an activation: asking to leave the cache out of a commit
+        # whose release is on disk would otherwise put that release back and build nothing.
+        built = (
+            None
+            if no_cache
+            else next(
+                (
+                    r
+                    for r in releases.list()
+                    if not r.active
+                    and r.id not in failed
+                    and r.commit
+                    and full.startswith(r.commit)
+                ),
+                None,
+            )
         )
         if built is not None:
             phase(2, RELEASE_PHASES, f"Activating release {built.id}, built from {built_from}")
@@ -2298,7 +2307,7 @@ def health_gate_for(
             )
     if not app.is_static:
         # The one mapping from an application to its unit: it knows a row
-        # named without the legacy wasm- prefix whose installed unit has it,
+        # named without the legacy unit prefix whose installed unit has it,
         # and, in zero-downtime mode, the instance that serves (restarting it
         # is a cut, which only a caller that asked for a restart gets).
         units = services.serving_units(app)
@@ -4428,7 +4437,7 @@ def _delete_app(
     if app is not None and is_adopted(app.app_type):
         return _release_adopted(domain, remove_adopted_directory, phase, log)
     # The store holds the real path, which is what finds a legacy app
-    # deployed under a wasm- prefix.
+    # deployed under the legacy unit prefix.
     app_path = (
         Path(app.app_path)
         if app is not None and app.app_path
@@ -4496,7 +4505,7 @@ def _delete_app(
     phase(2, DELETE_PHASES, "Removing its units")
     units = [s.name for s in store.list_services() if app is not None and s.app_id == app.id]
     if not units:
-        # A legacy unit is named after its directory (wasm-<name>); an adopted
+        # A legacy unit is named after its directory (the legacy prefix and the name); an adopted
         # directory's name is the operator's, and may be a unit of theirs.
         units = [app_path.name if is_in_apps_directory(app_path) else domain_to_app_name(domain)]
     services = ServiceManager(verbose=log.verbose)

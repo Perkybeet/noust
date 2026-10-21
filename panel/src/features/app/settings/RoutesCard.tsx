@@ -15,12 +15,14 @@ import { IconButton } from "../../../components/ui/IconButton";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
+import { RowList } from "../../../components/ui/RowList";
 import { Select } from "../../../components/ui/Select";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { REDIRECT_CODES, draftOfRoute, errorsOfRoute, normalPath, routeOf, withRoute, withoutRoute } from "./routes";
 import type { PolicyRoute, RouteAuth, RouteDraft, RouteErrors, RouteKind } from "./routes";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 type Route = PolicyFields["routes"][number];
 
@@ -187,6 +189,7 @@ export function RoutesCard({ domain, routes, error, onChange }: RoutesCardProps)
 
   return (
     <Card
+      icon={SETTINGS_ICONS.routes}
       title={t("network.access.routes.title")}
       description={t("network.access.routes.description")}
       actions={
@@ -211,21 +214,25 @@ export function RoutesCard({ domain, routes, error, onChange }: RoutesCardProps)
         {routes.length === 0 ? (
           <EmptyState variant="inline" title={t("network.access.routes.empty")} />
         ) : (
-          <ul aria-label={t("network.access.routes.listLabel", { domain })} className="flex flex-col divide-y divide-border rounded-control border border-border">
+          <RowList aria-label={t("network.access.routes.listLabel", { domain })}>
             {routes.map((route) => (
-              <li key={route.path} className="flex min-w-0 items-center justify-between gap-3 px-3 py-2">
+              <RowList.Item
+                key={route.path}
+                actions={
+                  <>
+                    <IconButton label={t("network.access.routes.edit", { path: route.path })} icon={<Pencil />} size="sm" onClick={() => setDialog({ route })} />
+                    <IconButton label={t("network.access.routes.remove", { path: route.path })} icon={<Trash2 />} size="sm" onClick={() => onChange(withoutRoute(routes, route.path))} />
+                  </>
+                }
+              >
                 <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                   <Mono truncate>{route.path}</Mono>
                   <Badge tone={route.kind === "site" ? "neutral" : "accent"}>{t(`network.access.routes.kinds.${route.kind}` as "network.access.routes.kinds.site")}</Badge>
                   <span className="min-w-0 text-13 text-fg-muted">{summary(route, t)}</span>
                 </span>
-                <span className="flex shrink-0 items-center gap-1">
-                  <IconButton label={t("network.access.routes.edit", { path: route.path })} icon={<Pencil />} size="sm" onClick={() => setDialog({ route })} />
-                  <IconButton label={t("network.access.routes.remove", { path: route.path })} icon={<Trash2 />} size="sm" onClick={() => onChange(withoutRoute(routes, route.path))} />
-                </span>
-              </li>
+              </RowList.Item>
             ))}
-          </ul>
+          </RowList>
         )}
       </div>
       {dialog !== null ? (

@@ -31,6 +31,7 @@ AREAS = (
     "ROLLOUT",
     "SHIPPING",
     "ACCESS6",
+    "CERTS",
 )
 
 

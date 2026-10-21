@@ -1,0 +1,12 @@
+services:
+  notices-avisos:
+    build: .
+    container_name: notices-avisos
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - notices-data:/app/data
+    environment:
+      - DB_PATH=/app/data/notices.db
+volumes:
+  notices-data:

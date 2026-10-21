@@ -93,7 +93,8 @@ export const approvals = {
     title: "Requests",
     description: "Calls that wait for a second person, and the ones already decided.",
     descriptionWho: "Calls that wait for a second person. Who decides: {approvers}. Nobody decides their own.",
-    offTitle: "Approvals are off on this server",
+    on: "On",
+    offLabel: "Off",
     off: "Nothing waits for a second person here. They are on with approval.enabled in the configuration, or when a compliance framework such as ENS asks for them.",
     filterLabel: "Filter requests",
     viewLabel: "Show",
@@ -105,7 +106,7 @@ export const approvals = {
     caption: "Approval requests",
     noneWaiting: "Nothing waits for approval.",
     none: "No requests here.",
-    loadFailed: "Could not load the requests",
+    what: "the requests",
     fromTerminal: "From a terminal",
   },
   table: {

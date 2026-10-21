@@ -185,18 +185,3 @@ class NodeAssignments:
         with self.store._transaction() as cursor:
             cursor.execute("DELETE FROM node_teams WHERE node = ?", (node,))
             return cursor.rowcount > 0
-
-    def count_for_team(self, team_id: int) -> int:
-        """
-        Args:
-            team_id: A team's id.
-
-        Returns:
-            How many servers it has.
-        """
-        row = (
-            self.store._get_connection()
-            .execute("SELECT COUNT(*) FROM node_teams WHERE team_id = ?", (team_id,))
-            .fetchone()
-        )
-        return int(row[0])

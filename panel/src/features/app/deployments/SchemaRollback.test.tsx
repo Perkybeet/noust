@@ -134,10 +134,10 @@ describe("going back past a schema change", { timeout: 20_000 }, () => {
       [`GET /api/jobs/${JOB.id}`]: () => json(200, { ...JOB, status: "running" }),
     });
     await user.click(await screen.findByRole("button", { name: "Go back to this version" }));
-    const first = await screen.findByRole("dialog", { name: "Go back to deployment 20?" });
+    const first = await screen.findByRole("alertdialog", { name: `Roll back ${TAB_DOMAIN}` });
     // Said before the button is pressed.
-    expect(within(first).getByText(/Deployment #22 changed the database schema after this one/)).toBeInTheDocument();
-    await user.click(within(first).getByRole("button", { name: "Go back" }));
+    expect(await within(first).findByText("Deployment #22 changed the database schema. Going back asks you first.")).toBeInTheDocument();
+    await user.click(within(first).getByRole("button", { name: "Go back to #20" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Going back passes a change to the database" });
     const list = within(dialog).getByRole("list", { name: "Deployments that changed the database schema" });
@@ -162,33 +162,24 @@ describe("going back past a schema change", { timeout: 20_000 }, () => {
     });
   });
 
-  it("asks the same before activating an older release, and activates it confirmed", async () => {
-    const releases = {
-      domain: TAB_DOMAIN,
-      items: [
-        { id: "20260922-180000-c0ffe22", commit: "c0ffe22", created_at: "2026-09-22T18:00:00+00:00", activated_at: "2026-09-22T18:00:40+00:00", status: "active", active: true, on_disk: true },
-        { id: "20260920-180000-c0ffe20", commit: "c0ffe20", created_at: "2026-09-20T18:00:00+00:00", activated_at: null, status: "superseded", active: false, on_disk: true },
-      ],
-      total: 2,
-    };
+  it("asks the same from a row of the history, and goes back confirmed", async () => {
     const { user, backend } = await open("/deployments", { layout: "releases" }, {
-      [`GET /api/apps/${TAB_DOMAIN}/releases`]: () => json(200, releases),
-      [`POST /api/apps/${TAB_DOMAIN}/releases/20260920-180000-c0ffe20/activate`]: (call) =>
-        call.search.get("schema_changed_ok") === "true"
-          ? json(200, { domain: TAB_DOMAIN, release_id: "20260920-180000-c0ffe20", previous_id: "20260922-180000-c0ffe22", changed: true, rolled_back: true, deployment_id: 23 })
-          : json(409, { ...REFUSAL, detail: "Going back to release 20260920-180000-c0ffe20 passes deployment 22, which changed the database schema" }),
+      [`POST /api/apps/${TAB_DOMAIN}/deployments/20/rollback`]: (call) =>
+        (call.body as { schema_changed_ok?: boolean }).schema_changed_ok === true ? json(202, { job_id: JOB.id, status: "pending", message: "queued", job: JOB }) : json(409, REFUSAL),
+      [`GET /api/jobs/${JOB.id}`]: () => json(200, { ...JOB, status: "running" }),
     });
-    const list = await screen.findByRole("list", { name: `Versions of ${TAB_DOMAIN}, newest first` });
-    await user.click(within(list).getByRole("button", { name: /Go back to this version/ }));
-    const confirm = await screen.findByRole("alertdialog");
-    await user.click(within(confirm).getByRole("button", { name: "Go back to this version" }));
+    const table = await screen.findByRole("region", { name: `Deploys of ${TAB_DOMAIN}, newest first` });
+    await user.click(await within(table).findByRole("button", { name: "Actions for #20" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Roll back to this" }));
+    const confirm = await screen.findByRole("alertdialog", { name: `Roll back ${TAB_DOMAIN}` });
+    await user.click(await within(confirm).findByRole("button", { name: "Go back to #20" }));
     const dialog = await screen.findByRole("dialog", { name: "Going back passes a change to the database" });
     // The same answer as every other way back: the deployments are named in the list.
     const changed = within(dialog).getByRole("list", { name: "Deployments that changed the database schema" });
     expect(within(changed).getByRole("link", { name: "Deployment 22" })).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Go back anyway" }));
     await waitFor(() => {
-      expect(backend.callsTo(`POST /api/apps/${TAB_DOMAIN}/releases/20260920-180000-c0ffe20/activate`).map((call) => call.search.get("schema_changed_ok"))).toEqual([null, "true"]);
+      expect(backend.callsTo(`POST /api/apps/${TAB_DOMAIN}/deployments/20/rollback`).map((call) => (call.body as { schema_changed_ok: boolean }).schema_changed_ok)).toEqual([false, true]);
     });
   });
 
@@ -198,11 +189,11 @@ describe("going back past a schema change", { timeout: 20_000 }, () => {
         (call.body as { schema_changed_ok: boolean }).schema_changed_ok ? json(202, { message: "queued", job: JOB }) : json(409, REFUSAL),
     });
     const points = await screen.findByRole("list", { name: `Backups of ${TAB_DOMAIN}, newest first` });
-    const [newest] = within(points).getAllByRole("button", { name: /Go back to this version/ });
+    const [newest] = within(points).getAllByRole("button", { name: /^Go back/ });
     if (newest === undefined) throw new Error("No backup to go back to");
     await user.click(newest);
-    const confirm = await screen.findByRole("alertdialog", { name: "Go back to this backup?" });
-    await user.click(within(confirm).getByRole("button", { name: "Go back to this version" }));
+    const confirm = await screen.findByRole("alertdialog", { name: `Roll back ${TAB_DOMAIN}` });
+    await user.click(await within(confirm).findByRole("button", { name: "Go back to this backup" }));
     const dialog = await screen.findByRole("dialog", { name: "Going back passes a change to the database" });
     expect(await within(dialog).findByText("noust backup restore shop-example-com_20260922_175950")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Go back anyway" }));

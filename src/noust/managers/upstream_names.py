@@ -5,11 +5,12 @@
 The name of the upstream Noust generates, and who else writes it down.
 
 Blue/green activation and the Compose relay give nginx an ``upstream`` block of their own. Until
-4.0 it was named ``wasm_bg_<app>``; from 4.0 it is ``noust_bg_<app>``. Noust renames what it
+4.0 it carried the prefix :data:`~noust.core.legacy_names.UPSTREAM_PREFIX`; from 4.0 it is
+``noust_bg_<app>``. Noust renames what it
 wrote, and only that: the files it generated (the upstream file, the application's own site)
 change together, in one step that nginx has tested before it is loaded.
 
-A site somebody else wrote may say ``proxy_pass http://wasm_bg_<app>`` (a hand-written edge in
+A site somebody else wrote may name the old upstream in a ``proxy_pass`` (a hand-written edge in
 front of an application Noust runs as instances does). That file is never rewritten, and it must
 not break at any moment of the change, so for as long as such a site names the old upstream Noust
 defines **both**: the block under the new name, and a second block under the old one with the same
@@ -99,7 +100,7 @@ class Verdict:
     One old upstream name found in files Noust generated, and whether it can go.
 
     Attributes:
-        name: The old name (``wasm_bg_shop_example_com``).
+        name: The old name (the old prefix and the application).
         new_name: The name it becomes.
         files: The generated files that carry it.
         references: The lines of other files that name it; while there are any it stays
@@ -180,7 +181,7 @@ def references_in(text: str, name: str) -> list[tuple[int, str]]:
     """
     Find the directives of an nginx file that name an upstream.
 
-    A block that *defines* the name (``upstream wasm_bg_shop {``) is not a reference to it: that
+    A block that *defines* the name (an ``upstream`` block of the old convention) is not a reference to it: that
     is somebody giving their own block Noust's old convention, and it works as it is.
 
     Args:

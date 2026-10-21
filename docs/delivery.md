@@ -8,7 +8,7 @@ the controls Noust gives around a deploy: [pausing what deploys by itself](#paus
 [how an application is told to stop](#how-an-application-is-told-to-stop),
 [updating on a schedule](#updating-on-a-schedule) and
 [building now and serving later](#building-now-and-serving-later). They are in an application's
-**Deploys** settings in the console, in `noust deploy ...` on the terminal and under
+**Automation** and **Releases and rollback** settings in the console, in `noust deploy ...` on the terminal and under
 `/api/apps/{domain}/rollout` in the API; the server-wide freeze is in **Settings > General**.
 
 ## What holds a deploy, and what does not
@@ -47,7 +47,7 @@ counted instead, and resuming says how many arrived meanwhile, so nothing is los
 next push deploys the newest, or `noust update` does now. A schedule's held run is not counted, because
 nothing may have arrived: it is the schedule's last outcome (`noust deploy schedule show`), and its
 next run after resuming deploys whatever is new. The console shows who paused it and why in the
-application's **Deployments** and **Deploys** pages.
+application's **Deployments** page and **Automation** settings.
 
 ### After a rollback
 

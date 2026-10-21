@@ -1636,23 +1636,6 @@ class RedisManager(BaseDatabaseManager):
         self._secrets().write(REQUIREPASS_SECRET, password)
         self._execute_redis("CONFIG", "REWRITE")
 
-    def get_memory_stats(self) -> dict[str, str]:
-        """
-        Read the memory section of INFO.
-
-        Returns:
-            The section as key-value pairs.
-        """
-        success, output = self._execute_redis("INFO", "memory")
-        if not success:
-            return {}
-        stats = {}
-        for line in output.splitlines():
-            if ":" in line:
-                key, value = line.strip().split(":", 1)
-                stats[key] = value
-        return stats
-
     def flush_all(self) -> None:
         """
         Delete every key in every slot.

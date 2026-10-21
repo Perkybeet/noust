@@ -7,6 +7,7 @@
  * confirmed from a new SSH login (see PendingChanges).
  */
 
+import { Wrench } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -18,6 +19,7 @@ import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
@@ -29,19 +31,20 @@ import { Menu, MenuItem } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
-import { LoadingRegion } from "../../../components/page/LoadingRegion";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatDate, parseTimestamp } from "../../../lib/format";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock } from "../errors";
+import { ServerErrorBlock, useServerConfirm, ServerQueryState } from "../errors";
+import { typedHost } from "../friction";
 import { identityQuery, sshKeysQuery, sshQuery } from "../queries";
 import type { AccountKeys, FixPlan, SshKey, SshStatus } from "../queries";
 import { useServerJob } from "../serverJob";
 import { DirectiveChanges, FixBlocked } from "./FixDialogs";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 
 /** The sshd settings worth reading, in the order a person asks about them. */
 const SETTINGS: readonly { directive: string; label: "passwords" | "root" | "keys" | "keyboard" | "empty" | "tries" | "log" | "x11" }[] = [
@@ -96,7 +99,7 @@ function Settings({ ssh }: { ssh: SshStatus }) {
       ) : (
         <KeyValueList items={items} />
       )}
-      {!ssh.include_present ? <Notice tone="warning" className="mt-3">{t("server.ssh.noInclude")}</Notice> : null}
+      {!ssh.include_present ? <InlineMessage tone="warning" className="mt-3">{t("server.ssh.noInclude")}</InlineMessage> : null}
       {ssh.dropin_error ? <ServerErrorBlock compact error={{ detail: ssh.dropin_error }} title={t("server.ssh.dropinFailed")} className="mt-3" /> : null}
     </Card>
   );
@@ -126,6 +129,7 @@ const TYPED_FIXES: ReadonlySet<string> = new Set(["disable-passwords", "root-no"
 
 function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const [applying, setApplying] = useState<{ fix: string; plan: FixPlan } | null>(null);
   const needed = Object.entries(ssh.fixes).filter(([, plan]) => plan.needed);
@@ -146,7 +150,8 @@ function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
               <span className="text-13 font-medium text-fg">{fixLabel(t, fix, plan)}</span>
               {plan.allowed ? (
-                <Button size="sm" onClick={() => setApplying({ fix, plan })}>
+                // design-exception: card-save applying a fix opens its own confirmation; nothing is saved from the card
+                <Button icon={<Wrench aria-hidden="true" />} size="sm" onClick={() => setApplying({ fix, plan })}>
                   {t("server.ssh.apply")}
                 </Button>
               ) : null}
@@ -157,12 +162,18 @@ function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
         ))}
       </ul>
       {applying !== null ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          {...typedHost(hostname, TYPED_FIXES.has(applying.fix))}
+          open
+          onOpenChange={(open) => {
+            if (!open) setApplying(null);
+          }}
+          destructive={false}
+          size="md"
           title={fixLabel(t, applying.fix, applying.plan)}
           description={t("server.ssh.applyDescription", { count: minutes })}
           actionLabel={t("server.ssh.applyAction")}
-          confirmText={TYPED_FIXES.has(applying.fix) ? hostname : undefined}
-          onClose={() => setApplying(null)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/security/ssh/fixes/{fix}", { params: { fix: applying.fix } });
             jobs.track(accepted.job_id, "security");
@@ -171,7 +182,7 @@ function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
           <DirectiveChanges plan={applying.plan} />
           {/* The evidence that another way in works, as the guard found it. */}
           {applying.plan.proof ? <p className="text-13 text-fg-muted">{applying.plan.proof}</p> : null}
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
     </Card>
   );
@@ -208,6 +219,7 @@ function lastUsed(t: T, key: SshKey) {
 
 function Keys({ hostname }: { hostname: string }) {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const keys = useQuery(sshKeysQuery());
   const [adding, setAdding] = useState(false);
@@ -241,7 +253,7 @@ function Keys({ hostname }: { hostname: string }) {
         <span className="flex flex-wrap items-center gap-1.5">
           <Mono>{row.key.bits ? `${row.key.type} ${String(row.key.bits)}` : row.key.type}</Mono>
           {kindLabel(t, row.key.kind) !== null ? <Badge>{kindLabel(t, row.key.kind)}</Badge> : null}
-          {row.key.weak !== "" ? <Badge tone="warn">{t("server.ssh.keys.weak")}</Badge> : null}
+          {row.key.weak !== "" ? <StatusPill state="warning" label={t("server.ssh.keys.weak")} appearance="inline" size="sm" /> : null}
         </span>
       ),
     },
@@ -289,11 +301,18 @@ function Keys({ hostname }: { hostname: string }) {
         </div>
       ) : null}
       {adding ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setAdding(false);
+          }}
+          friction="simple"
+          destructive={false}
+          size="md"
           title={t("server.ssh.keys.addTitle")}
           description={t("server.ssh.keys.addDescription")}
           actionLabel={t("server.ssh.keys.addAction")}
-          onClose={() => setAdding(false)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/security/ssh/keys", { body: { user, public_key: publicKey.trim() } });
             jobs.track(accepted.job_id, "security");
@@ -305,16 +324,20 @@ function Keys({ hostname }: { hostname: string }) {
           <Field label={t("server.ssh.keys.publicKeyLabel")} description={t("server.ssh.keys.publicKeyDescription")}>
             <Textarea mono rows={4} value={publicKey} onChange={(event) => setPublicKey(event.target.value)} spellCheck={false} />
           </Field>
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
       {removing !== null ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          {...typedHost(hostname)}
+          open
+          onOpenChange={(open) => {
+            if (!open) setRemoving(null);
+          }}
+          size="md"
           title={t("server.ssh.keys.removeTitle")}
           description={t("server.ssh.keys.removeDescription", { user: removing.user })}
           actionLabel={t("server.ssh.keys.removeAction")}
-          destructive
-          confirmText={hostname !== "" ? hostname : undefined}
-          onClose={() => setRemoving(null)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/security/ssh/keys/remove", { body: { user: removing.user, fingerprint: removing.key.fingerprint, force: false } });
             jobs.track(accepted.job_id, "security");
@@ -323,8 +346,8 @@ function Keys({ hostname }: { hostname: string }) {
           <p className="text-13">
             <Mono>{removing.key.fingerprint}</Mono>
           </p>
-          {removing.key.in_use ? <Notice tone="warning">{t("server.ssh.keys.inUse")}</Notice> : null}
-        </ActionDialog>
+          {removing.key.in_use ? <InlineMessage tone="warning">{t("server.ssh.keys.inUse")}</InlineMessage> : null}
+        </ConfirmDialog>
       ) : null}
     </Card>
   );
@@ -378,28 +401,30 @@ export function SshView() {
   const ssh = useQuery(sshQuery());
   const identity = useQuery(identityQuery());
   const hostname = identity.data?.hostname.hostname ?? "";
-  if (ssh.isError && ssh.data === undefined) {
-    return <ServerErrorBlock error={ssh.error} title={t("server.ssh.loadFailed")} onRetry={() => void ssh.refetch()} retrying={ssh.isRefetching} />;
-  }
-  if (ssh.data === undefined) {
-    return (
-      <LoadingRegion label={t("server.ssh.loading")} className="grid gap-6 xl:grid-cols-2">
-        <Skeleton className="h-80 w-full rounded-card" />
-        <Skeleton className="h-80 w-full rounded-card" />
-      </LoadingRegion>
-    );
-  }
   return (
-    <div className="flex min-w-0 flex-col gap-6">
-      {ssh.data.passwords_accepted === true ? <Notice tone="warning" title={t("server.ssh.passwordsTitle")}>{t("server.ssh.passwordsDescription")}</Notice> : null}
-      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-2">
-        <Settings ssh={ssh.data} />
-        <div className="flex min-w-0 flex-col gap-6">
-          <Fixes ssh={ssh.data} hostname={hostname} />
-          <Sessions ssh={ssh.data} />
+    <ServerQueryState
+      query={ssh}
+      label={t("server.ssh.label")}
+      skeleton={
+        <div className="grid gap-6 xl:grid-cols-2">
+          <SkeletonCard lines={6} />
+          <SkeletonCard lines={6} />
         </div>
-      </div>
-      <Keys hostname={hostname} />
-    </div>
+      }
+    >
+      {(data) => (
+        <div className="flex min-w-0 flex-col gap-6">
+          {data.passwords_accepted === true ? <Notice tone="warning" title={t("server.ssh.passwordsTitle")}>{t("server.ssh.passwordsDescription")}</Notice> : null}
+          <div className="grid min-w-0 items-start gap-6 xl:grid-cols-2">
+            <Settings ssh={data} />
+            <div className="flex min-w-0 flex-col gap-6">
+              <Fixes ssh={data} hostname={hostname} />
+              <Sessions ssh={data} />
+            </div>
+          </div>
+          <Keys hostname={hostname} />
+        </div>
+      )}
+    </ServerQueryState>
   );
 }

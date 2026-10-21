@@ -196,7 +196,10 @@ ActivityEntry = TypedDict("ActivityEntry", {
 })
 
 AddAppDomainRequest = TypedDict("AddAppDomainRequest", {
+    "certificate": NotRequired[Union[str, None]],
+    "challenge": NotRequired[Union[str, None]],
     "dns": NotRequired[bool],
+    "dns_provider": NotRequired[Union[str, None]],
     "domain": Required[str],
     "force": NotRequired[bool],
     "kind": NotRequired[str],
@@ -402,11 +405,14 @@ AppDnsModel = TypedDict("AppDnsModel", {
 })
 
 AppDomain = TypedDict("AppDomain", {
+    "certificate": NotRequired[str],
+    "certificate_pending": NotRequired[bool],
     "created_at": NotRequired[Union[str, None]],
     "domain": Required[str],
     "enabled": NotRequired[bool],
     "kind": Required[str],
     "port": NotRequired[Union[int, None]],
+    "served_by": NotRequired[Union[str, None]],
     "temporary": NotRequired[bool],
 })
 
@@ -1051,6 +1057,10 @@ BastionIn = TypedDict("BastionIn", {
     "host_key": NotRequired[Union[str, None]],
 })
 
+BastionLineOut = TypedDict("BastionLineOut", {
+    "authorized_key_line": Required[str],
+})
+
 BastionOut = TypedDict("BastionOut", {
     "address": Required[str],
     "fingerprint": Required[str],
@@ -1351,6 +1361,7 @@ CertInfo = TypedDict("CertInfo", {
     "issuer": NotRequired[Union[str, None]],
     "key_path": NotRequired[Union[str, None]],
     "path": NotRequired[Union[str, None]],
+    "serves": NotRequired[list[str]],
     "source": NotRequired[str],
     "valid_until": NotRequired[Union[str, None]],
 })
@@ -2942,6 +2953,12 @@ DoctorSectionOut = TypedDict("DoctorSectionOut", {
     "explain": NotRequired[Union[str, None]],
     "items": Required[list["DoctorItemOut"]],
     "title": Required[str],
+})
+
+DomainCertificateRequest = TypedDict("DomainCertificateRequest", {
+    "certificate": Required[str],
+    "challenge": NotRequired[Union[str, None]],
+    "dns_provider": NotRequired[Union[str, None]],
 })
 
 DomainEnabledRequest = TypedDict("DomainEnabledRequest", {
@@ -5041,6 +5058,7 @@ MemoryInfo = TypedDict("MemoryInfo", {
 })
 
 MergeAppEnvRequest = TypedDict("MergeAppEnvRequest", {
+    "audience": NotRequired[Union[dict[str, str], None]],
     "comments": NotRequired[Union[dict[str, str], None]],
     "dry_run": NotRequired[bool],
     "set": NotRequired[dict[str, str]],
@@ -6720,6 +6738,10 @@ RebootSummary = TypedDict("RebootSummary", {
     "reasons": NotRequired[list[str]],
     "required": NotRequired[Union[bool, None]],
     "since": NotRequired[Union[str, None]],
+})
+
+RebuildRequest = TypedDict("RebuildRequest", {
+    "no_cache": NotRequired[bool],
 })
 
 ReceiveRequest = TypedDict("ReceiveRequest", {

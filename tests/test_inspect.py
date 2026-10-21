@@ -918,11 +918,11 @@ def test_stale_checkouts_are_removed_and_fresh_ones_kept(tmp_path: Path) -> None
     A console killed mid-inspection leaves its checkout; the next start
     removes it. One still being used by a running inspection stays.
     """
-    stale = tmp_path / "wasm-inspect-abc123"
+    stale = tmp_path / "noust-inspect-abc123"
     (stale / "source" / ".git").mkdir(parents=True)
     (stale / "source" / "package.json").write_text("{}")
     _age(stale, STALE_CHECKOUT_AGE + 60)
-    fresh = tmp_path / "wasm-inspect-def456"
+    fresh = tmp_path / "noust-inspect-def456"
     fresh.mkdir()
     unrelated = tmp_path / "something-else"
     unrelated.mkdir()
@@ -940,16 +940,16 @@ def test_stale_cleanup_never_follows_a_link_or_touches_another_users_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    /tmp is shared: anyone can create a ``wasm-inspect-*`` there. A link is
+    /tmp is shared: anyone can create a ``noust-inspect-*`` there. A link is
     never followed (root would delete its target), and a directory that
     belongs to another account is not ours to remove.
     """
     victim = tmp_path / "victim"
     victim.mkdir()
     (victim / "keep").write_text("important")
-    link = tmp_path / "wasm-inspect-link"
+    link = tmp_path / "noust-inspect-link"
     link.symlink_to(victim)
-    others = tmp_path / "wasm-inspect-other"
+    others = tmp_path / "noust-inspect-other"
     others.mkdir()
     for path in (victim, others):
         _age(path, STALE_CHECKOUT_AGE + 60)

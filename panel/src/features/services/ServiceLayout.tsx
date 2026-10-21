@@ -78,6 +78,7 @@ export function ServiceLayout({ name }: { name: string }) {
   const managed = service !== undefined && !record.foreign;
   const tabs: readonly LinkTab[] = tabsOf(SERVICE_SCREENS).map((tab) => ({ ...tab, params: { name } }));
 
+  // design-exception: notice-stack the three banners are the branches of one chain, so the page draws at most one of them
   const notice =
     record.app !== null ? (
       <Notice
@@ -212,6 +213,7 @@ export function ServiceLayout({ name }: { name: string }) {
         }}
       />
       <ConfirmDialog
+        friction="type"
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         server={node}

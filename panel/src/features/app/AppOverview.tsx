@@ -1,232 +1,316 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { Webhook } from "lucide-react";
+import {
+  GitPullRequest,
+  Globe,
+  HeartPulse,
+  Rocket,
+  ScrollText,
+  Webhook,
+} from "lucide-react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 
-import { appQuery, releasesQuery, webhookDeliveriesQuery } from "../../api/queries/apps";
+import { appQuery, webhookDeliveriesQuery } from "../../api/queries/apps";
 import type { App } from "../../api/queries/apps";
 import { certsQuery } from "../../api/queries/certs";
 import type { Cert } from "../../api/queries/certs";
 import { deploymentsQuery } from "../../api/queries/deployments";
 import { appDomainsQuery } from "../../api/queries/domains";
+import { previewsQuery } from "../../api/queries/previews";
+import type { Preview } from "../../api/queries/previews";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { DeployStatePill } from "../../components/page/AppStatePill";
 import { CommandHint } from "../../components/page/CommandHint";
-import { KeyValueList, KeyValueListSkeleton } from "../../components/page/KeyValueList";
-import type { KeyValueItem } from "../../components/page/KeyValueList";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { ResourceMeter } from "../../components/page/ResourceMeter";
 import { Section } from "../../components/page/Section";
-import { StatTile } from "../../components/page/StatTile";
 import { useNow } from "../../components/page/clock";
-import { appStatus, deployStatus } from "../../components/page/status";
-import { Badge } from "../../components/ui/Badge";
+import { appStatus } from "../../components/page/status";
 import { Card } from "../../components/ui/Card";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { ExternalLink } from "../../components/ui/ExternalLink";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
-import { Notice } from "../../components/ui/Notice";
-import { Skeleton } from "../../components/ui/Skeleton";
-import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
-import type { Status } from "../../components/ui/StatusPill";
+import { RowList } from "../../components/ui/RowList";
+import { Button } from "../../components/ui/Button";
+import { InlineMessage } from "../../components/ui/InlineMessage";
+import {
+  Skeleton,
+  SkeletonRows,
+  SkeletonSection,
+} from "../../components/ui/Skeleton";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { TextLink } from "../../components/ui/TextLink";
-import { Tooltip } from "../../components/ui/Tooltip";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { formatBytes, formatCount, formatDateTime, formatDuration, formatPercent, parseTimestamp } from "../../lib/format";
+import {
+  formatBytes,
+  formatCount,
+  formatDuration,
+  formatPercent,
+  parseTimestamp,
+} from "../../lib/format";
 import type { Deployment } from "../apps/data";
-import { appLimits, appReading, deployMoment, useLatestMetrics } from "../apps/data";
-import { CertificateStatus } from "../domains/CertificateStatus";
-import { coverageOf, covers } from "../domains/certificates";
+import { appLimits, appReading, useLatestMetrics } from "../apps/data";
 import { CERT_WARNING_DAYS } from "../overview/attention";
+import { PreviewLogsDrawer } from "./settings/PreviewLogsDrawer";
+import { previewName, previewStatus } from "./settings/previews";
 import { AdoptedOverview } from "./AdoptedOverview";
 import { isAdopted } from "./adopted";
 import { RECENT_APP_DEPLOYS } from "./AppBanner";
+import { LiveRow } from "./LiveRow";
+import { deploymentStatusWord, shortCommit } from "./deployments/words";
+import { keptServing, servingDeployment } from "./rollback";
 import { findCertificate } from "./lookups";
-import { sourceLink } from "./SourceLink";
+import { displayAddress } from "./displayAddress";
 
-/** How many of the app's other names the overview names before "and N more". */
-const NAMES_SHOWN = 3;
+/** The deployments the overview reads: the store keeps twenty, and the live one may be older than the newest five. */
+const HISTORY = 20;
 
 // ---------------------------------------------------------------------------------------
-// The tiles
+// Live now and the last deployments
 
-/** The last deploys as state dots, oldest first, each opening its deployment. */
-function DeployDots({ domain, deploys, t }: { domain: string; deploys: readonly Deployment[]; t: T }) {
-  const ordered = [...deploys].reverse();
+/** One line of the history: its state, its name, what changed, when and how long, and what kept serving if it failed. */
+function DeploymentLine({
+  domain,
+  deployment,
+  live,
+  kept,
+  t,
+}: {
+  domain: string;
+  deployment: Deployment;
+  live: boolean;
+  kept: number | null;
+  t: T;
+}) {
+  const commit = shortCommit(deployment.git_commit);
+  const failed = deployment.status === "failed" && !deployment.cancelled;
+  const heading = t("appPages.deployments.page.heading", {
+    id: String(deployment.id),
+  });
   return (
-    <ol aria-label={t("appPages.overview.lastDeploys", { count: ordered.length })} className="-ml-1 flex items-center gap-0.5">
-      {ordered.map((deploy) => {
-        const view = deployStatus(deploy.cancelled ? "cancelled" : deploy.status, t.locale);
-        const moment = parseTimestamp(deployMoment(deploy));
-        const when = moment === null ? "" : `, ${formatDateTime(moment, t.locale)}`;
-        const commit = deploy.git_commit ? ` ${deploy.git_commit.slice(0, 7)}` : "";
-        const details = `${view.label}${commit}${when}`;
-        return (
-          <li key={deploy.id}>
-            <Tooltip content={details}>
-              <Link
-                to="/apps/$domain/deployments/$id"
-                params={{ domain, id: String(deploy.id) }}
-                aria-label={t("appPages.overview.deployAriaLabel", { id: String(deploy.id), details })}
-                className={cx("flex size-7 items-center justify-center rounded-pill hover:bg-surface-hover", stateTextClass(view.state))}
-              >
-                <StatusGlyph state={view.state} size={14} />
-              </Link>
-            </Tooltip>
-          </li>
-        );
-      })}
-    </ol>
+    <RowList.Item>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="flex w-28 shrink-0 items-center">
+          {live ? (
+            <StatusPill
+              state="running"
+              label={t("appPages.deployments.words.live")}
+              appearance="inline"
+              size="sm"
+            />
+          ) : (
+            <DeployStatePill
+              status={deploymentStatusWord(deployment)}
+              appearance="inline"
+              size="sm"
+            />
+          )}
+        </span>
+        <TextLink
+          variant="row"
+          to="/apps/$domain/deployments/$id"
+          params={{ domain, id: String(deployment.id) }}
+          size="ui"
+          className="flex min-w-0 flex-1 items-baseline gap-2 basis-48"
+        >
+          <span className="sr-only">{heading}</span>
+          <span
+            aria-hidden="true"
+            className="tabular-nums"
+          >{`#${String(deployment.id)}`}</span>
+          {deployment.commit_message ? (
+            <span
+              title={deployment.commit_message}
+              className="min-w-0 truncate font-normal"
+            >
+              {deployment.commit_message}
+            </span>
+          ) : null}
+        </TextLink>
+        {commit !== null ? <Mono tone="muted">{commit}</Mono> : null}
+        <RelativeTime
+          value={deployment.finished_at ?? deployment.started_at}
+          className="text-12 text-fg-muted"
+        />
+        {deployment.duration_s !== null &&
+        deployment.duration_s !== undefined ? (
+          <Mono tone="muted">
+            {formatDuration(deployment.duration_s, t.locale)}
+          </Mono>
+        ) : null}
+        {failed && kept !== null ? (
+          <span className="text-12 text-fg-muted">
+            {t("appPages.deployments.words.keptServing", { id: String(kept) })}
+          </span>
+        ) : null}
+      </div>
+    </RowList.Item>
   );
 }
+
+/** What serves now and the last few deploys, from the history the page reads once. */
+function Deploys({ app, t }: { app: App; t: T }) {
+  const domain = app.domain;
+  const history = useQuery(deploymentsQuery({ domain, limit: HISTORY }));
+  if (history.isError && history.data === undefined) {
+    return (
+      <ErrorBlock
+        error={history.error}
+        title={t("appPages.deployments.tab.loadError")}
+        onRetry={() => void history.refetch()}
+        retrying={history.isRefetching}
+      />
+    );
+  }
+  if (history.data === undefined) {
+    return (
+      <LoadingRegion
+        label={t("appPages.overview.loadingDeploys")}
+        className="flex flex-col gap-8"
+      >
+        <SkeletonSection rows={2} />
+        <SkeletonSection rows={RECENT_APP_DEPLOYS} />
+      </LoadingRegion>
+    );
+  }
+  const items = history.data.items;
+  const serving = servingDeployment(items);
+  const recent = items.slice(0, RECENT_APP_DEPLOYS);
+  // With its service down nothing is live: the version is the last that served, and says so.
+  const down = ["failed", "stopped"].includes(appStatus(app.status).state);
+  return (
+    <>
+      <Section
+        title={
+          down
+            ? t("appPages.overview.lastServed")
+            : t("appPages.overview.liveNow")
+        }
+        icon={Rocket}
+      >
+        {serving !== null ? (
+          <LiveRow deployment={serving} down={down} />
+        ) : (
+          <EmptyState
+            variant="inline"
+            title={t("appPages.overview.nothingLive")}
+          />
+        )}
+      </Section>
+      <Section
+        title={t("appPages.overview.lastDeployments")}
+        icon={Rocket}
+        actions={
+          <TextLink
+            to="/apps/$domain/deployments"
+            params={{ domain }}
+            size="ui"
+          >
+            {t("appPages.overview.viewAll")}
+          </TextLink>
+        }
+      >
+        {recent.length === 0 ? (
+          <EmptyState
+            variant="inline"
+            title={t("appPages.overview.deploysAppearHere")}
+          />
+        ) : (
+          <RowList
+            aria-label={t("appPages.overview.deploymentsLabel", { domain })}
+          >
+            {recent.map((deployment) => (
+              <DeploymentLine
+                key={deployment.id}
+                domain={domain}
+                deployment={deployment}
+                live={!down && serving?.id === deployment.id}
+                kept={keptServing(items, deployment)}
+                t={t}
+              />
+            ))}
+          </RowList>
+        )}
+      </Section>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------------------
+// Health
 
 /** How long the unit has been up, kept current. */
 function UpFor({ since, locale }: { since: Date; locale: T["locale"] }) {
   const now = useNow(() => 60_000);
-  return <>{formatDuration(Math.max(0, (now - since.getTime()) / 1000), locale)}</>;
-}
-
-function UptimeTile({ app, t }: { app: App; t: T }) {
-  const label = t("appPages.overview.uptimeLabel");
-  const state = appStatus(app.status).state;
-  if (state === "static") return <StatTile label={label} value={t("appPages.overview.alwaysOn")} detail={t("appPages.overview.servedNoProcess")} />;
-  if (!app.active) {
-    return (
-      <StatTile
-        label={label}
-        value={t("appPages.overview.notRunning")}
-        detail={app.enabled ? t("appPages.overview.startsAtBoot") : t("appPages.overview.doesNotStartAtBoot")}
-      />
-    );
-  }
-  const since = parseTimestamp(app.uptime);
-  if (since === null) return <StatTile label={label} value={t("appPages.overview.running")} detail={app.uptime ?? t("appPages.overview.startTimeNotReported")} />;
   return (
-    <StatTile
-      label={label}
-      value={
-        <span className="title text-18 text-fg">
-          <UpFor since={since} locale={t.locale} />
-        </span>
-      }
-      detail={t.rich("appPages.overview.started", { time: <RelativeTime value={since} /> })}
-    />
+    <>{formatDuration(Math.max(0, (now - since.getTime()) / 1000), locale)}</>
   );
 }
 
-function CertificateTile({ cert, error, t }: { cert: Cert | null | undefined; error: unknown; t: T }) {
-  const label = t("appPages.overview.certificateLabel");
-  if (cert === undefined && error) return <StatTile label={label} value={t("appPages.overview.certificateUnknown")} detail={t("appPages.overview.certificateCouldNotList")} />;
-  if (cert === undefined) return <StatTile loading label={label} value={<Skeleton className="h-5 w-24" />} />;
-  if (cert === null) return <StatTile label={label} value={t("appPages.overview.certificateNone")} detail={t("appPages.overview.certificateNoneCovers")} />;
-  const days = cert.days_remaining;
-  if (days === null || days === undefined) return <StatTile label={label} value={t("appPages.overview.certificateIssued")} detail={cert.valid_until ?? undefined} />;
-  const Icon = days < 0 ? ICONS.error : days < CERT_WARNING_DAYS ? ICONS.warning : ICONS.verified;
-  const tone = days < 0 ? "text-fail" : days < CERT_WARNING_DAYS ? "text-warn" : "text-ok";
-  const text = days < 0 ? t("appPages.overview.certificateExpired") : t("appPages.overview.daysLeft", { count: days });
-  const detail = cert.expires_on
-    ? cert.auto_renew
-      ? t("appPages.overview.renewsBefore", { date: cert.expires_on })
-      : t("appPages.overview.validUntil", { date: cert.expires_on })
-    : undefined;
+function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <StatTile
-      label={label}
-      value={
-        <span className="flex items-center gap-2">
-          <Icon aria-hidden="true" className={cx("size-icon-md", tone)} />
-          <span className="title text-18 text-fg">{text}</span>
-        </span>
-      }
-      detail={detail}
-    />
-  );
-}
-
-function Tiles({ app, t }: { app: App; t: T }) {
-  const domain = app.domain;
-  const deploys = useQuery(deploymentsQuery({ domain, limit: RECENT_APP_DEPLOYS }));
-  const releases = useQuery({ ...releasesQuery(domain), enabled: app.layout === "releases" });
-  const certs = useQuery(certsQuery());
-
-  const items = deploys.data?.items ?? [];
-  const newest = items[0];
-  const lastGood = items.find((deploy) => deploy.status === "success");
-  const active = releases.data?.items.find((release) => release.active);
-  const liveLabel = t("appPages.overview.liveVersionLabel");
-
-  let current: ReactNode;
-  if (active) {
-    current = (
-      <StatTile
-        label={liveLabel}
-        value={active.commit?.slice(0, 7) ?? active.id}
-        mono
-        detail={t.rich("appPages.overview.liveSince", { time: <RelativeTime value={active.activated_at ?? active.created_at} /> })}
-      />
-    );
-  } else if (deploys.isPending) {
-    current = <StatTile loading label={liveLabel} value={<Skeleton className="h-5 w-20" />} />;
-  } else if (lastGood) {
-    current = (
-      <StatTile
-        label={liveLabel}
-        value={lastGood.git_commit?.slice(0, 7) ?? t("appPages.overview.deployNumber", { id: String(lastGood.id) })}
-        mono={lastGood.git_commit !== null && lastGood.git_commit !== undefined}
-        detail={
-          lastGood.git_branch
-            ? t.rich("appPages.overview.deployedWithBranch", { branch: lastGood.git_branch, time: <RelativeTime value={deployMoment(lastGood)} /> })
-            : t.rich("appPages.overview.deployed", { time: <RelativeTime value={deployMoment(lastGood)} /> })
-        }
-      />
-    );
-  } else {
-    current = <StatTile label={liveLabel} value={t("appPages.overview.noneRecorded")} detail={t("appPages.overview.noDeploySucceeded")} />;
-  }
-
-  return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {current}
-      <StatTile
-        label={t("appPages.overview.recentDeploysLabel")}
-        loading={deploys.isPending}
-        value={
-          deploys.isPending ? (
-            <Skeleton className="h-5 w-28" />
-          ) : items.length > 0 ? (
-            <DeployDots domain={domain} deploys={items} t={t} />
-          ) : (
-            <span className="title text-18 text-fg">{t("appPages.overview.noneYet")}</span>
-          )
-        }
-        // The glyphs' states in words too (DESIGN 6.1): how many succeeded, how the newest ended.
-        detailLines={2}
-        detail={
-          newest ? (
-            t.rich("appPages.overview.deployTally", {
-              count: items.length,
-              ok: formatCount(items.filter((deploy) => deployStatus(deploy.cancelled ? "cancelled" : deploy.status, t.locale).state === "running").length, t.locale),
-              status: deployStatus(newest.cancelled ? "cancelled" : newest.status, t.locale).label.toLowerCase(),
-              time: <RelativeTime value={deployMoment(newest)} />,
-            })
-          ) : deploys.isPending ? undefined : (
-            t("appPages.overview.deploysAppearHere")
-          )
-        }
-      />
-      <UptimeTile app={app} t={t} />
-      <CertificateTile cert={findCertificate(certs.data, domain)} error={certs.error} t={t} />
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <span className="truncate text-13 text-fg-muted">{label}</span>
+      <div className="min-w-0 text-13 text-fg">{children}</div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------------------
-// The sections
+function uptimeFact(app: App, t: T): ReactNode {
+  const state = appStatus(app.status).state;
+  if (state === "static") return t("appPages.overview.alwaysOn");
+  if (!app.active) return t("appPages.overview.notRunning");
+  const since = parseTimestamp(app.uptime);
+  if (since === null) return t("appPages.overview.running");
+  return <UpFor since={since} locale={t.locale} />;
+}
 
-/** CPU and memory now, each against the most the app may use, for an app with a process. */
-function Resources({ app, t }: { app: App; t: T }) {
+function certificateFact(
+  cert: Cert | null | undefined,
+  error: unknown,
+  t: T,
+): ReactNode {
+  if (cert === undefined && error)
+    return (
+      <span className="text-fg-muted">
+        {t("appPages.overview.certificateUnknown")}
+      </span>
+    );
+  if (cert === undefined) return <Skeleton className="h-4 w-24" />;
+  if (cert === null)
+    return (
+      <span className="text-fg-muted">
+        {t("appPages.overview.certificateNone")}
+      </span>
+    );
+  const days = cert.days_remaining;
+  if (days === null || days === undefined)
+    return t("appPages.overview.certificateIssued");
+  const Icon =
+    days < 0
+      ? ICONS.error
+      : days < CERT_WARNING_DAYS
+        ? ICONS.warning
+        : ICONS.verified;
+  const tone =
+    days < 0 ? "text-fail" : days < CERT_WARNING_DAYS ? "text-warn" : "text-ok";
+  return (
+    <span className="flex items-center gap-1.5">
+      <Icon aria-hidden="true" className={cx("size-icon-md shrink-0", tone)} />
+      {days < 0
+        ? t("appPages.overview.certificateExpired")
+        : t("appPages.overview.daysLeft", { count: days })}
+    </span>
+  );
+}
+
+/** CPU and memory now, each against the most the app may use, with the way to change that. */
+function useReadings(app: App, t: T) {
   const metrics = useLatestMetrics();
   const reading = appReading(metrics, app.domain);
   const limits = appLimits(app);
@@ -235,18 +319,132 @@ function Resources({ app, t }: { app: App; t: T }) {
     : metrics === undefined
       ? t("appPages.overview.resourceMissingWaiting")
       : t("appPages.overview.resourceMissingNoReading");
+  return { reading, limits, missing };
+}
+
+/**
+ * How the app is doing in one row: how long it has been up, what its certificate has left, and
+ * its CPU and memory against their limits, with the way to change them. A static site has no
+ * process to measure, so its row is the first two.
+ */
+function Health({ app, t }: { app: App; t: T }) {
+  const certs = useQuery(certsQuery());
+  const { reading, limits, missing } = useReadings(app, t);
+  const staticSite = appStatus(app.status).state === "static";
+  // Running now and not enabled at boot: after a restart of the server it stays stopped.
+  const service = app.unit ? app.unit.replace(/\.service$/, "") : null;
+  const noBoot = !staticSite && app.active && !app.enabled;
+  return (
+    <Section
+      title={t("appPages.overview.healthTitle")}
+      icon={HeartPulse}
+      actions={
+        staticSite ? undefined : (
+          <TextLink
+            to="/apps/$domain/settings/resources"
+            params={{ domain: app.domain }}
+            size="ui"
+          >
+            {t("appPages.overview.editLimits")}
+          </TextLink>
+        )
+      }
+    >
+      <Card padding="sm">
+        <div
+          className={cx(
+            "grid grid-cols-2 gap-x-8 gap-y-4",
+            !staticSite && "lg:grid-cols-4",
+          )}
+        >
+          <Fact label={t("appPages.overview.uptimeLabel")}>
+            {uptimeFact(app, t)}
+          </Fact>
+          <Fact label={t("appPages.overview.certificateLabel")}>
+            {certificateFact(
+              findCertificate(certs.data, app.domain),
+              certs.error,
+              t,
+            )}
+          </Fact>
+          {staticSite ? null : (
+            <>
+              <ResourceMeter
+                label={t("appPages.common.cpu")}
+                value={reading.cpu}
+                limit={limits.cpu}
+                format={(value) => formatPercent(value, t.locale)}
+                missing={missing}
+              />
+              <ResourceMeter
+                label={t("appPages.common.memory")}
+                value={reading.memory}
+                limit={limits.memory}
+                format={(value) => formatBytes(value, t.locale)}
+                missing={missing}
+              />
+            </>
+          )}
+        </div>
+        {!staticSite && limits.tasks !== null ? (
+          <p className="mt-3 text-12 text-fg-muted">
+            {t("appPages.overview.tasksLimit", {
+              value: formatCount(limits.tasks, t.locale),
+            })}
+          </p>
+        ) : null}
+        {noBoot ? (
+          <InlineMessage
+            className="mt-3"
+            trailing={
+              service !== null ? (
+                <TextLink
+                  to="/services/$name"
+                  params={{ name: service }}
+                  size="ui"
+                >
+                  {t("appPages.overview.openService")}
+                </TextLink>
+              ) : undefined
+            }
+          >
+            {t("appPages.overview.noBoot")}
+          </InlineMessage>
+        ) : null}
+      </Card>
+    </Section>
+  );
+}
+
+/**
+ * CPU and memory of an adopted site's unit, as they have always been drawn for it (its overview
+ * is otherwise its own and does not change).
+ */
+function AdoptedResources({ app, t }: { app: App; t: T }) {
+  const { reading, limits, missing } = useReadings(app, t);
   return (
     <Section
       title={t("appPages.overview.resourcesTitle")}
+      icon={HeartPulse}
       actions={
-        <TextLink to="/apps/$domain/metrics" params={{ domain: app.domain }} size="ui">
+        <TextLink
+          to="/apps/$domain/metrics"
+          params={{ domain: app.domain }}
+          size="ui"
+        >
           {t("appPages.overview.openMetrics")}
         </TextLink>
       }
     >
       <Card padding="sm">
         <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-          <ResourceMeter label={t("appPages.common.cpu")} value={reading.cpu} limit={limits.cpu} format={(value) => formatPercent(value, t.locale)} missing={missing} />
+          <ResourceMeter
+            label={t("appPages.common.cpu")}
+            value={reading.cpu}
+            limit={limits.cpu}
+            format={(value) => formatPercent(value, t.locale)}
+            missing={missing}
+          />
           <ResourceMeter
             label={t("appPages.common.memory")}
             value={reading.memory}
@@ -256,243 +454,246 @@ function Resources({ app, t }: { app: App; t: T }) {
           />
         </div>
         {limits.tasks !== null ? (
-          <p className="mt-3 text-12 text-fg-muted">{t("appPages.overview.tasksLimit", { value: formatCount(limits.tasks, t.locale) })}</p>
+          <p className="mt-3 text-12 text-fg-muted">
+            {t("appPages.overview.tasksLimit", {
+              value: formatCount(limits.tasks, t.locale),
+            })}
+          </p>
         ) : null}
       </Card>
     </Section>
   );
 }
 
-function kindWord(t: T, kind: string): string | null {
-  if (kind === "alias") return t("appPages.overview.kindAlias");
-  if (kind === "redirect") return t("appPages.overview.kindRedirect");
-  return null;
-}
+// ---------------------------------------------------------------------------------------
+// Previews, reach and automation
 
-/**
- * The names the app answers on, each with whether it has HTTPS: the app's own, and the first
- * few others. The whole list, and adding to it, is the Domains tab's.
- */
-function Domains({ app, t }: { app: App; t: T }) {
-  const domain = app.domain;
-  const domains = useQuery(appDomainsQuery(domain));
-  const certs = useQuery(certsQuery());
-  const lineage = certs.isError && certs.data === undefined ? null : findCertificate(certs.data, domain);
-  const entries = domains.data?.domains ?? [];
-  const shown = entries.slice(0, 1 + NAMES_SHOWN);
-  const more = entries.length - shown.length;
-
+/** The pull requests and branches that have a preview of their own, when previews are on. */
+function Previews({ domain, t }: { domain: string; t: T }) {
+  const previews = useQuery(previewsQuery(domain));
+  const [logs, setLogs] = useState<Preview | null>(null);
+  const data = previews.data;
+  // Only an app with previews on has anything to say, and one with none yet says it in its settings.
+  if (
+    data === undefined ||
+    data.settings === null ||
+    data.previews.length === 0
+  )
+    return null;
   return (
-    <Section
-      title={t("appPages.overview.domainsTitle")}
-      actions={
-        <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
-          {t("appPages.overview.manageDomains")}
-        </TextLink>
-      }
-    >
-      <Card padding="none">
-        {domains.isError && domains.data === undefined ? (
-          <ErrorBlock compact error={domains.error} title={t("appPages.overview.domainsLoadError")} className="m-3" />
-        ) : domains.data === undefined ? (
-          // One row: the app's own name, which every app has; aliases are the exception.
-          <div aria-busy="true" className="px-4">
-            <KeyValueListSkeleton rows={1} />
-          </div>
-        ) : (
-          <ul className="flex flex-col divide-y divide-border">
-            {shown.map((entry) => {
-              const coverage = coverageOf(entry.domain, lineage, false);
-              const secure = lineage !== null && lineage !== undefined && covers(lineage, entry.domain);
-              const kind = kindWord(t, entry.kind);
-              return (
-                <li key={entry.domain} className="flex min-h-10 flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <a
-                      href={`${secure ? "https" : "http"}://${entry.domain}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      translate="no"
-                      className="min-w-0 truncate rounded-chip text-13 font-medium text-fg hover:underline hover:underline-offset-2"
-                    >
-                      {entry.domain}
-                      <span className="sr-only"> {t("appPages.sourceLink.opensInNewTab")}</span>
-                    </a>
-                    {kind !== null ? <Badge>{kind}</Badge> : null}
-                  </span>
-                  <CertificateStatus tone={coverage.tone} label={coverage.label} className="text-12" />
-                </li>
-              );
-            })}
-            {more > 0 ? (
-              <li className="flex min-h-10 items-center px-4 py-2 text-13 text-fg-muted">
-                <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
-                  {t("appPages.overview.moreNames", { count: more })}
-                </TextLink>
-              </li>
-            ) : null}
-          </ul>
-        )}
-      </Card>
+    <Section title={t("appPages.overview.previewsTitle")} icon={GitPullRequest}>
+      <RowList aria-label={t("appPages.overview.previewsLabel", { domain })}>
+        {data.previews.map((preview) => {
+          const view = previewStatus(preview.status, t.locale);
+          const name = previewName(preview);
+          return (
+            <RowList.Item
+              key={preview.number}
+              actions={
+                <>
+                  <ExternalLink
+                    href={preview.url}
+                    label={t("appPages.overview.previewOpenAria", { name })}
+                  >
+                    {t("appPages.overview.previewOpen")}
+                  </ExternalLink>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<ScrollText aria-hidden="true" />}
+                    aria-label={t("appPages.overview.previewLogsAria", {
+                      name,
+                    })}
+                    onClick={() => setLogs(preview)}
+                  >
+                    {t("appPages.overview.previewLogs")}
+                  </Button>
+                </>
+              }
+            >
+              <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="flex w-28 shrink-0 items-center">
+                  <StatusPill
+                    state={view.state}
+                    label={view.label}
+                    appearance="inline"
+                    size="sm"
+                  />
+                </span>
+                <Mono>{name}</Mono>
+                {preview.kind === "pr" ? (
+                  <Mono tone="muted" truncate>
+                    {preview.branch}
+                  </Mono>
+                ) : null}
+              </div>
+            </RowList.Item>
+          );
+        })}
+      </RowList>
+      <PreviewLogsDrawer
+        domain={domain}
+        preview={logs}
+        onClose={() => setLogs(null)}
+      />
     </Section>
   );
 }
 
-/**
- * Whether a push deploys the app: off, on and waiting for its first push, or on with the last
- * push it received. The on/off is told at a glance (item 56): on in the running green, off in
- * the stopped grey, waiting as the still, dashed ring, as on the setting's own page.
- */
-function DeployOnPush({ app, t }: { app: App; t: T }) {
+/** The names the app answers on, and whether a push deploys it: what reaches it and what starts it, in two lines. */
+function Reach({ app, t }: { app: App; t: T }) {
   const domain = app.domain;
-  const deliveries = useQuery({ ...webhookDeliveriesQuery(domain), enabled: app.webhook_enabled });
+  const names = useQuery(appDomainsQuery(domain));
+  const certs = useQuery(certsQuery());
+  const deliveries = useQuery({
+    ...webhookDeliveriesQuery(domain),
+    enabled: app.webhook_enabled,
+  });
   const latest = deliveries.data?.items[0];
+  const entries = names.data?.domains ?? [];
+  const address = displayAddress(domain, names.data?.domains, certs.data);
+  const more = Math.max(0, entries.length - 1);
 
-  let state: string;
-  let tone: Status = "running";
-  let detail: ReactNode;
-  if (!app.webhook_enabled) {
-    tone = "stopped";
-    state = t("appPages.overview.pushOff");
-    detail = t("appPages.overview.pushOffDetail");
-  } else if (deliveries.isError && deliveries.data === undefined) {
-    state = t("appPages.overview.pushOn");
-    detail = <ErrorBlock compact error={deliveries.error} title={t("appPages.overview.webhookLoadError")} onRetry={() => void deliveries.refetch()} />;
-  } else if (deliveries.isPending) {
-    state = t("appPages.overview.pushOn");
-    detail = <Skeleton className="h-3.5 w-56" />;
-  } else if (latest === undefined) {
-    tone = "queued";
-    state = t("appPages.overview.pushWaiting");
-    detail = app.branch
-      ? t.rich("appPages.overview.pushBranch", { branch: <Mono>{app.branch}</Mono> })
-      : t("appPages.overview.pushAnyBranch");
-  } else {
-    state = t("appPages.overview.pushOn");
-    detail = (
-      <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-        <DeployStatePill status={latest.status} appearance="inline" size="sm" />
-        {latest.git_commit ? <Mono>{latest.git_commit.slice(0, 7)}</Mono> : null}
-        {t.rich("appPages.overview.pushLast", { time: <RelativeTime value={latest.started_at} /> })}
-      </span>
+  let answers: ReactNode;
+  if (names.isError && names.data === undefined) {
+    answers = (
+      <ErrorBlock
+        compact
+        error={names.error}
+        title={t("appPages.overview.domainsLoadError")}
+      />
     );
+  } else if (names.data === undefined) {
+    answers = <Skeleton className="h-4 w-64" />;
+  } else {
+    const named = <Mono>{address.name}</Mono>;
+    if (address.secure)
+      answers =
+        more > 0
+          ? t.rich("appPages.overview.answersSecureMore", {
+              address: named,
+              count: more,
+            })
+          : t.rich("appPages.overview.answersSecure", { address: named });
+    else
+      answers =
+        more > 0
+          ? t.rich("appPages.overview.answersPlainMore", {
+              address: named,
+              count: more,
+            })
+          : t.rich("appPages.overview.answersPlain", { address: named });
+  }
+
+  let push: ReactNode;
+  if (!app.webhook_enabled) {
+    push = t("appPages.overview.pushOffDetail");
+  } else if (deliveries.isError && deliveries.data === undefined) {
+    push = (
+      <ErrorBlock
+        compact
+        error={deliveries.error}
+        title={t("appPages.overview.webhookLoadError")}
+        onRetry={() => void deliveries.refetch()}
+      />
+    );
+  } else if (deliveries.isPending) {
+    push = <Skeleton className="h-4 w-64" />;
+  } else {
+    const where = app.branch
+      ? t.rich("appPages.overview.pushBranch", {
+          branch: <Mono>{app.branch}</Mono>,
+        })
+      : t("appPages.overview.pushAnyBranch");
+    push =
+      latest === undefined ? (
+        <>
+          {where} {t("appPages.overview.pushWaiting")}
+        </>
+      ) : (
+        <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <span>{where}</span>
+          <DeployStatePill
+            status={latest.status}
+            appearance="inline"
+            size="sm"
+          />
+          {latest.git_commit ? (
+            <Mono>{latest.git_commit.slice(0, 7)}</Mono>
+          ) : null}
+          {t.rich("appPages.overview.pushLast", {
+            time: <RelativeTime value={latest.started_at} />,
+          })}
+        </span>
+      );
   }
 
   return (
-    <Section
-      title={t("appPages.overview.pushTitle")}
-      actions={
-        <TextLink to="/apps/$domain/settings/deploy-on-push" params={{ domain }} size="ui">
-          {app.webhook_enabled ? t("appPages.overview.pushSettings") : t("appPages.overview.pushSetUp")}
-        </TextLink>
-      }
-    >
-      <Card padding="sm">
-        <div className="flex min-w-0 items-start gap-3">
-          <Webhook aria-hidden="true" className="mt-0.5 size-icon-md shrink-0 text-fg-muted" />
-          <div className="flex min-w-0 flex-col gap-1 text-13">
-            <StatusPill state={tone} label={state} size="sm" className="self-start" />
-            <div aria-busy={deliveries.isPending && app.webhook_enabled ? true : undefined} className="text-fg-muted">
-              {detail}
-            </div>
-          </div>
-        </div>
-      </Card>
-    </Section>
-  );
-}
-
-/** The service's name as the Services page knows it: the unit without its suffix. */
-function serviceName(unit: string | null | undefined): string | null {
-  if (!unit) return null;
-  return unit.replace(/\.service$/, "");
-}
-
-/** How the app runs, compactly: what it is built from, how its deploys work, and where it lives. */
-function HowItRuns({ app, t }: { app: App; t: T }) {
-  const staticSite = appStatus(app.status).state === "static";
-  const service = serviceName(app.unit);
-  const releases = app.layout === "releases";
-  const items: KeyValueItem[] = [
-    { label: t("appPages.common.source"), value: sourceLink(app.source ?? null), mono: true, copy: app.source ?? false },
-    { label: t("appPages.common.branch"), value: app.branch ?? null },
-    {
-      label: t("appPages.overview.deploysWork"),
-      value: releases ? t("appPages.overview.layoutReleases") : t("appPages.overview.layoutInPlace"),
-      mono: false,
-      copy: false,
-      hint: releases ? t("appPages.overview.layoutReleasesHint") : t("appPages.overview.layoutInPlaceHint"),
-    },
-    ...(staticSite || service === null ? [] : [{ label: t("appPages.overview.service"), value: service }]),
-    ...(app.active && app.pid ? [{ label: t("appPages.overview.processId"), value: app.pid }] : []),
-    { label: t("appPages.overview.directory"), value: app.path ?? null },
-  ];
-  const noBoot = !staticSite && app.active && !app.enabled;
-  return (
-    <Section title={t("appPages.overview.runtimeTitle")}>
-      <Card padding="none">
-        <div className="px-4 py-1">
-          {/* A fact Noust has no record of (an app deployed before it kept one), as Settings says. */}
-          <KeyValueList empty={t("appPages.common.notRecorded")} items={items} />
-        </div>
-      </Card>
-      {noBoot ? (
-        <Notice
-          tone="warning"
-          title={t("appPages.overview.noBootTitle")}
-          {...(service !== null
-            ? {
-                action: (
-                  <TextLink to="/services/$name" params={{ name: service }} size="ui">
-                    {t("appPages.overview.openService")}
-                  </TextLink>
-                ),
-              }
-            : {})}
+    <RowList aria-label={t("appPages.overview.reachLabel", { domain })}>
+      <RowList.Item
+        leading={
+          <Globe aria-hidden="true" className="size-icon-md text-fg-muted" />
+        }
+        actions={
+          <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
+            {t("appPages.overview.manageDomains")}
+          </TextLink>
+        }
+      >
+        <div className="text-13 text-fg">{answers}</div>
+      </RowList.Item>
+      <RowList.Item
+        leading={
+          <Webhook aria-hidden="true" className="size-icon-md text-fg-muted" />
+        }
+        actions={
+          <TextLink
+            to="/apps/$domain/settings/deploy-on-push"
+            params={{ domain }}
+            size="ui"
+          >
+            {app.webhook_enabled
+              ? t("appPages.overview.pushSettings")
+              : t("appPages.overview.pushSetUp")}
+          </TextLink>
+        }
+      >
+        <div
+          aria-busy={
+            deliveries.isPending && app.webhook_enabled ? true : undefined
+          }
+          className="text-13 text-fg"
         >
-          {t("appPages.overview.noBootBody")}
-        </Notice>
-      ) : null}
-    </Section>
+          {push}
+        </div>
+      </RowList.Item>
+    </RowList>
   );
 }
 
 /**
- * The loaded page's shape: the tiles with their real labels, then the two columns under their
- * headings, with as many rows as they usually have.
+ * The loaded page's shape: what serves, the last deploys, and the row of health, in the order
+ * and at the height they are drawn.
  */
 function OverviewSkeleton({ t }: { t: T }) {
-  const value = <Skeleton className="h-5 w-24" />;
   return (
-    <div aria-busy="true" className="flex flex-col gap-8">
-      <span className="sr-only">{t("appPages.overview.loadingApplication")}</span>
-      <div aria-hidden="true" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile loading label={t("appPages.overview.liveVersionLabel")} value={value} detail={<Skeleton className="h-3 w-28" />} />
-        <StatTile loading label={t("appPages.overview.recentDeploysLabel")} value={value} detail={<Skeleton className="h-3 w-28" />} />
-        <StatTile loading label={t("appPages.overview.uptimeLabel")} value={value} detail={<Skeleton className="h-3 w-20" />} />
-        <StatTile loading label={t("appPages.overview.certificateLabel")} value={value} detail={<Skeleton className="h-3 w-28" />} />
-      </div>
-      <div aria-hidden="true" className="grid gap-8 lg:grid-cols-2">
-        <Card padding="none">
-          <div className="px-4 py-1">
-            <KeyValueListSkeleton rows={2} />
-          </div>
-        </Card>
-        <Card padding="none">
-          <div className="px-4 py-1">
-            <KeyValueListSkeleton rows={5} hints={[2]} />
-          </div>
-        </Card>
-      </div>
-    </div>
+    <LoadingRegion
+      label={t("appPages.overview.loadingApplication")}
+      className="flex flex-col gap-8"
+    >
+      <SkeletonSection rows={2} />
+      <SkeletonSection rows={RECENT_APP_DEPLOYS} />
+      <SkeletonSection rows={2} />
+      <SkeletonRows rows={2} />
+    </LoadingRegion>
   );
 }
 
 /**
- * An app at a glance, summarising and linking rather than repeating the other tabs: the live
- * version, the last deploys, how long it has been up and its certificate; what it uses now
- * against its limits; then its names and whether a push deploys it, beside how it runs. What
- * is wrong with it is the banner's, above every tab.
+ * An app at a glance, in the order an operator asks: what serves and what changed, the last
+ * deploys, how it is doing, then what reaches it and what starts it. It summarises and links
+ * rather than repeating the other tabs, and it says nothing of how the app is configured: that is
+ * Settings, General. What is wrong with it is the banner's, above every tab.
  */
 export function AppOverview({ domain }: { domain: string }) {
   const t = useT();
@@ -500,24 +701,30 @@ export function AppOverview({ domain }: { domain: string }) {
   const app = useQuery(appQuery(domain));
 
   // The layout owns the load failure and the not-found page; this shows the shape meanwhile.
-  if (app.data === undefined) return app.isError ? null : <OverviewSkeleton t={t} />;
+  if (app.data === undefined)
+    return app.isError ? null : <OverviewSkeleton t={t} />;
   const staticSite = appStatus(app.data.status).state === "static";
   // A site Noust adopted has no deploys, no release and no push to show: its own overview.
-  if (isAdopted(app.data)) return <AdoptedOverview app={app.data} resources={staticSite ? null : <Resources app={app.data} t={t} />} />;
+  if (isAdopted(app.data))
+    return (
+      <AdoptedOverview
+        app={app.data}
+        resources={
+          staticSite ? null : <AdoptedResources app={app.data} t={t} />
+        }
+      />
+    );
 
   return (
     <div className="flex flex-col gap-8">
-      <Tiles app={app.data} t={t} />
-      {/* A static site has no process, so nothing to measure or limit. */}
-      {staticSite ? null : <Resources app={app.data} t={t} />}
-      <div className="grid gap-8 lg:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-8">
-          <Domains app={app.data} t={t} />
-          <DeployOnPush app={app.data} t={t} />
-        </div>
-        <HowItRuns app={app.data} t={t} />
-      </div>
-      <CommandHint command={`noust status ${domain}`} label={t("appPages.fromTerminal")} />
+      <Deploys app={app.data} t={t} />
+      <Health app={app.data} t={t} />
+      <Previews domain={domain} t={t} />
+      <Reach app={app.data} t={t} />
+      <CommandHint
+        command={`noust status ${domain}`}
+        label={t("appPages.fromTerminal")}
+      />
     </div>
   );
 }

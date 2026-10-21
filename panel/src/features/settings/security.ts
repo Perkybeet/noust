@@ -7,7 +7,7 @@
 import type { ConsoleConfig } from "../../api/queries/config";
 import { getLocale } from "../../app/locale";
 import { translate } from "../../i18n";
-import type { Locale } from "../../i18n";
+import type { Locale, T } from "../../i18n";
 import { formatDuration } from "../../lib/format";
 
 export interface LockoutPolicy {
@@ -37,6 +37,14 @@ export function readLockoutPolicy(config: ConsoleConfig["config"]): LockoutPolic
     sessionHours: number(web["token_expiration_hours"]),
     ipAllowlist: Array.isArray(allowlist) ? allowlist.filter((entry): entry is string => typeof entry === "string") : [],
   };
+}
+
+/** The security profile that turns on the ENS category MEDIUM defaults. */
+export const ENS_PROFILE = "ens-medium";
+
+/** The profile in words: "Standard", "ENS category MEDIUM". */
+export function profileLabel(t: T, profile: string | null | undefined): string {
+  return profile === ENS_PROFILE ? t("auth.security.profileEns") : t("auth.security.profileStandard");
 }
 
 /** A whole number of seconds as people say it: "15 minutes", "1 hour", "90 seconds". */

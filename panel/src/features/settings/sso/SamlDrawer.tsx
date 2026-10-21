@@ -11,12 +11,12 @@ import { CopyValue } from "../../../components/ui/CopyValue";
 import { Disclosure } from "../../../components/ui/Disclosure";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
-import { Notice } from "../../../components/ui/Notice";
 import { Textarea } from "../../../components/ui/Textarea";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
-import { splitErrors } from "../formErrors";
+import { focusFirstInvalid, splitErrors } from "../formErrors";
 import { ADMISSION_FOLDED, AdmissionFields } from "./AdmissionFields";
 import { NEW_SAML_DRAFT, samlDraftOf, samlSettingsOf, splitCertificates } from "./samlForm";
 import type { SamlDraft } from "./samlForm";
@@ -92,16 +92,25 @@ export function SamlDrawer({ provider, onClose }: SamlDrawerProps) {
       onClose();
     },
   });
+  const [tried, setTried] = useState(false);
+  const required = t("settings.shared.required");
   const errors = splitErrors(save.error, FIELDS);
   const hiddenMessage = FOLDED.map((name) => errors.fields[name]).find((message) => message !== undefined);
 
-  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    if (!save.isPending) save.mutate();
-  };
   // A new provider needs its metadata, or all three of its settings; an old one has them already.
   const described = draft.metadata.trim() !== "" || (draft.entityId.trim() !== "" && draft.ssoUrl.trim() !== "" && splitCertificates(draft.certificates).length > 0);
   const ready = creating ? draft.name.trim() !== "" && described : true;
+  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    if (save.isPending) return;
+    // The button is never off for a missing value: it says what is missing, where, and goes there.
+    if (!ready) {
+      setTried(true);
+      focusFirstInvalid(formId);
+      return;
+    }
+    save.mutate();
+  };
 
   return (
     <Drawer
@@ -117,7 +126,7 @@ export function SamlDrawer({ provider, onClose }: SamlDrawerProps) {
           <Button disabled={save.isPending} onClick={onClose}>
             {t("samlAdmin.form.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={!ready}>
+          <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {creating ? t("samlAdmin.form.create") : t("samlAdmin.form.save")}
           </Button>
         </>
@@ -126,14 +135,14 @@ export function SamlDrawer({ provider, onClose }: SamlDrawerProps) {
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
         {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("samlAdmin.form.errorTitle")} /> : null}
         {hiddenMessage !== undefined ? (
-          <Notice tone="error" live title={t("samlAdmin.form.errorTitle")}>
-            {hiddenMessage}
-          </Notice>
+          <InlineMessage tone="error" live>
+            <span className="font-medium">{t("samlAdmin.form.errorTitle")}</span> {hiddenMessage}
+          </InlineMessage>
         ) : null}
         {badLine !== null ? (
-          <Notice tone="error" live title={t("samlAdmin.form.errorTitle")}>
-            {t("samlAdmin.form.mappingsLine", { line: badLine })}
-          </Notice>
+          <InlineMessage tone="error" live>
+            <span className="font-medium">{t("samlAdmin.form.errorTitle")}</span> {t("samlAdmin.form.mappingsLine", { line: badLine })}
+          </InlineMessage>
         ) : null}
 
         {provider !== null ? (
@@ -147,7 +156,7 @@ export function SamlDrawer({ provider, onClose }: SamlDrawerProps) {
         ) : null}
 
         {creating ? (
-          <Field label={t("samlAdmin.form.name")} description={t("samlAdmin.form.nameHelp")}>
+          <Field label={t("samlAdmin.form.name")} description={t("samlAdmin.form.nameHelp")} error={tried && draft.name.trim() === "" ? required : undefined}>
             <Input
               mono
               autoComplete="off"
@@ -180,7 +189,7 @@ export function SamlDrawer({ provider, onClose }: SamlDrawerProps) {
 
         <Disclosure label={t("samlAdmin.form.idp.title")} defaultOpen>
           <div className="flex flex-col gap-5">
-            <Field label={t("samlAdmin.form.idp.metadata")} optional description={t("samlAdmin.form.idp.metadataHelp")} error={errors.fields.idp_metadata}>
+            <Field label={t("samlAdmin.form.idp.metadata")} optional description={t("samlAdmin.form.idp.metadataHelp")} error={errors.fields.idp_metadata ?? (tried && creating && !described ? t("samlAdmin.form.idp.needed") : undefined)}>
               <Textarea
                 mono
                 rows={4}

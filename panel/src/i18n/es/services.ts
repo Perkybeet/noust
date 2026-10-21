@@ -20,7 +20,7 @@ export const services: Catalog<typeof en> = {
   page: {
     description: "Los workers y demonios que Noust ejecuta en este servidor y, si lo pides, todos los servicios del sistema.",
     newService: "Nuevo servicio",
-    loadFailed: "No se pudieron cargar los servicios",
+    what: "los servicios",
     emptyTitle: "Todavía no hay servicios",
     emptyDescription:
       "Un servicio ejecuta un comando con el usuario de servicio de esta máquina, se reinicia solo y arranca con el sistema. Los servicios de tus aplicaciones se gestionan desde cada aplicación.",
@@ -72,7 +72,6 @@ export const services: Catalog<typeof en> = {
     actionsFor: "Acciones de {name}",
     editTags: "Editar tags...",
     noun: "el servicio",
-    moreActions: "Más acciones",
     startedToast: "Se inició {name}",
     stoppedToast: "Se detuvo {name}",
     restartedToast: "Se reinició {name}",
@@ -167,8 +166,7 @@ export const services: Catalog<typeof en> = {
   },
   unitEditor: {
     label: "Configuración de {name}",
-    loading: "Cargando la configuración",
-    loadFailed: "No se pudo cargar la configuración",
+    what: "la configuración",
     verifyFailed: "No se pudo comprobar la configuración",
     saveFailed: "No se guardó la configuración",
   },

@@ -6,6 +6,7 @@ import type { SyntheticEvent } from "react";
 import { isApiError, request } from "../../../api/client";
 import { networkKeys, policyOf } from "../../../api/queries/network";
 import type { AppPolicy } from "../../../api/queries/network";
+import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -16,9 +17,10 @@ import { Field } from "../../../components/ui/Field";
 import { IconButton } from "../../../components/ui/IconButton";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { toast } from "../../../components/ui/toast";
+import { RowList } from "../../../components/ui/RowList";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** What the server accepts as a login name (`noust.managers.site_policy`). */
 const USERNAME = /^[A-Za-z0-9._@-]{1,64}$/;
@@ -135,6 +137,7 @@ export function AccessUsers({ domain, policy }: { domain: string; policy: AppPol
 
   return (
     <Card
+      icon={SETTINGS_ICONS.access}
       title={t("network.access.users.title")}
       description={t("network.access.users.description")}
       actions={
@@ -146,17 +149,21 @@ export function AccessUsers({ domain, policy }: { domain: string; policy: AppPol
       {policy.users.length === 0 ? (
         <EmptyState variant="inline" title={t("network.access.users.empty")} />
       ) : (
-        <ul aria-label={t("network.access.users.listLabel", { domain })} className="flex flex-col divide-y divide-border rounded-control border border-border">
+        <RowList aria-label={t("network.access.users.listLabel", { domain })}>
           {policy.users.map((name) => (
-            <li key={name} className="flex min-w-0 items-center justify-between gap-3 px-3 py-2">
+            <RowList.Item
+              key={name}
+              actions={
+                <>
+                  <IconButton label={`${t("network.access.users.change")}: ${name}`} icon={<KeyRound />} size="sm" onClick={() => setDialog({ name })} />
+                  <IconButton label={`${t("network.access.users.remove")}: ${name}`} icon={<Trash2 />} size="sm" onClick={() => setRemoving(name)} />
+                </>
+              }
+            >
               <Mono truncate>{name}</Mono>
-              <span className="flex shrink-0 items-center gap-1">
-                <IconButton label={`${t("network.access.users.change")}: ${name}`} icon={<KeyRound />} size="sm" onClick={() => setDialog({ name })} />
-                <IconButton label={`${t("network.access.users.remove")}: ${name}`} icon={<Trash2 />} size="sm" onClick={() => setRemoving(name)} />
-              </span>
-            </li>
+            </RowList.Item>
           ))}
-        </ul>
+        </RowList>
       )}
       <PasswordDialog
         domain={domain}
@@ -167,7 +174,7 @@ export function AccessUsers({ domain, policy }: { domain: string; policy: AppPol
         }}
         onSaved={(next, name) => {
           remember(next);
-          toast.success(t("network.access.users.saved", { name, domain }));
+          announce(t("network.access.users.saved", { name, domain }));
         }}
       />
       <ConfirmDialog
@@ -190,7 +197,7 @@ export function AccessUsers({ domain, policy }: { domain: string; policy: AppPol
           if (removing === null) return;
           const next = await request("delete", "/api/apps/{domain}/policy/users/{username}", { params: { domain, username: removing } });
           remember(policyOf(next));
-          toast.success(t("network.access.users.removed", { name: removing }));
+          announce(t("network.access.users.removed", { name: removing }));
         }}
       />
     </Card>

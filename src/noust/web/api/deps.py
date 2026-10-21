@@ -99,7 +99,6 @@ from noust.web.auth import (
     SCOPE_RANK,
     actor_label,
     authenticates_itself,
-    ensure_permission,
     ensure_scope,
     extend_elevation,
     get_audit_logger,
@@ -108,7 +107,6 @@ from noust.web.auth import (
     is_fleet,
     require_auth,
 )
-from noust.web.permissions import ALL_PERMISSIONS
 from noust.web.pydantic_compat import dump_model
 from noust.web.versioning import API_PREFIX
 
@@ -687,10 +685,9 @@ def require_scope(scope: str) -> Callable[..., Coroutine[Any, Any, dict[str, Any
     Build a dependency that demands a minimum 3.0 credential scope.
 
     Every route's permission is enforced where the credential is resolved,
-    by ``require_auth`` from the maps in :mod:`noust.web.permissions`; prefer
-    :func:`require_permission` for anything new. This remains for handlers
-    written against scopes: it can only tighten, and a payload's scope is
-    what its permissions amount to.
+    by ``require_auth`` from the maps in :mod:`noust.web.permissions`. This
+    remains for handlers written against scopes: it can only tighten, and a
+    payload's scope is what its permissions amount to.
 
     Args:
         scope: The minimum scope, one of ``read``, ``deploy`` or ``admin``.
@@ -721,47 +718,6 @@ def require_scope(scope: str) -> Callable[..., Coroutine[Any, Any, dict[str, Any
             HTTPException: 403 when the credential's scope is below ``scope``.
         """
         ensure_scope(request, session, scope)
-        return session
-
-    return dependency
-
-
-def require_permission(permission: str) -> Callable[..., Coroutine[Any, Any, dict[str, Any]]]:
-    """
-    Build a dependency asking for one more permission than the route's own.
-
-    The route's own permission is enforced by ``require_auth``, from the maps
-    in :mod:`noust.web.permissions`; this is for a handler whose need is
-    stricter than its route's, stated in its signature. It can only tighten.
-
-    Args:
-        permission: A :class:`~noust.web.permissions.Permission` value.
-
-    Returns:
-        A dependency yielding the payload, like ``require_auth``.
-
-    Raises:
-        ValueError: When the permission does not exist. At import time, on
-            purpose: a typo must fail the module, not guard nothing.
-    """
-    if permission not in ALL_PERMISSIONS:
-        raise ValueError(f"Unknown permission {permission!r}")
-
-    async def dependency(
-        request: Request, session: dict[str, Any] = Depends(require_auth)
-    ) -> dict[str, Any]:
-        """
-        Args:
-            request: The incoming request.
-            session: The authenticated payload.
-
-        Returns:
-            The payload.
-
-        Raises:
-            HTTPException: 403 when the permission is missing.
-        """
-        ensure_permission(request, session, permission)
         return session
 
     return dependency

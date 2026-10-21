@@ -4,7 +4,7 @@
 """
 Move an application's variables out of its systemd unit and into its ``.env``.
 
-WASM 1.x wrote every variable of an application into its unit as
+Before 2.0 every variable of an application was written into its unit as
 ``Environment=`` lines. A unit file is 0644 and ``systemctl show <unit>``
 prints its environment to any local user, so every ``DATABASE_URL`` and secret
 of those applications was readable without privileges. Since 2.x a unit

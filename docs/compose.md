@@ -150,7 +150,7 @@ hooks:
       timeout: 120
 ```
 
-`noust app hooks show proggest.es` says which hooks the next deployment runs and where they
+`noust app hooks show shop.example.com` says which hooks the next deployment runs and where they
 come from, and the deployment's page in the console lists what each one printed.
 
 ## File, profiles and extra arguments
@@ -297,9 +297,9 @@ hooks:
       workdir: /app
       migrates: true
 EOF
-noust app hooks set proggest.es --file hooks.yaml     # '--file -' reads standard input
-noust app hooks show proggest.es                      # what the next deployment runs, and where from
-noust app hooks clear proggest.es                     # the repository's noust.yaml applies again
+noust app hooks set shop.example.com --file hooks.yaml     # '--file -' reads standard input
+noust app hooks show shop.example.com                      # what the next deployment runs, and where from
+noust app hooks clear shop.example.com                     # the repository's noust.yaml applies again
 ```
 
 - **They replace the repository's whole.** The two are never merged: what runs is always one
@@ -374,13 +374,13 @@ recreates each web service while a twin of it serves.
 
 Measured in the project's integration harness, under a request every 200 ms through nginx: a
 plain recreate failed 72 of 94 requests; the relay failed 0 of 110. On a real Next.js and
-NestJS stack (Proggest), an update that also applied a Prisma migration failed 0 of 316 to 329
+production NestJS stack, an update that also applied a Prisma migration failed 0 of 316 to 329
 requests, and an update whose backend could not start was refused at the relay with 0 of 687.
 
 ```bash
-noust app zero-downtime proggest.es on               # the mode; --drain SECONDS (0 to 300, default 10)
-noust app zero-downtime proggest.es                  # the mode, and what is missing for it
-noust app zero-downtime proggest.es off
+noust app zero-downtime shop.example.com on               # the mode; --drain SECONDS (0 to 300, default 10)
+noust app zero-downtime shop.example.com                  # the mode, and what is missing for it
+noust app zero-downtime shop.example.com off
 ```
 
 The same command and endpoint (`GET|PUT /api/apps/{domain}/zero-downtime`) as for blue/green
@@ -395,11 +395,11 @@ is the first one relayed.
   a known address.
 - **The site reaches each service through a servers file** of Noust's:
   `/etc/nginx/noust-upstreams/<app>/<service>.servers`, where `<app>` is the domain with dots
-  as dashes (`proggest-es`). It holds only lines of the form `server 127.0.0.1:3000;`: the
+  as dashes (`shop-example-com`). It holds only lines of the form `server 127.0.0.1:3000;`: the
   service's own port normally, the relay's while one serves. The site includes it inside an
   `upstream` block.
   - **A site Noust wrote** is rendered with those blocks when you turn the mode on, named
-    `wasm_bg_<app>_<service>`, each with `keepalive 64;`. Nothing for you to do.
+    `noust_bg_<app>_<service>`, each with `keepalive 64;`. Nothing for you to do.
   - **A site you wrote** includes the file itself, inside the upstream block that proxies to
     the service, keeping your names. Noust never edits it.
 
@@ -417,23 +417,23 @@ upstream nestjs_upstream {
 
 # after
 upstream nestjs_upstream {
-    include /etc/nginx/noust-upstreams/proggest-es/backend.servers;
+    include /etc/nginx/noust-upstreams/shop-example-com/backend.servers;
     keepalive 64;
 }
 ```
 
 The order of operations, because the file has to exist for nginx to accept the include:
 
-1. Run `noust app zero-downtime proggest.es on`. It writes the servers files first, each naming
+1. Run `noust app zero-downtime shop.example.com on`. It writes the servers files first, each naming
    its service's own port, then checks your site and, for every service it does not include,
    refuses and prints the exact line that is missing and which file it goes in. It changes
    nothing in your site.
 2. Add the line, then `nginx -t && systemctl reload nginx`. The site behaves exactly as before:
    the file names the same port you had.
-3. Run `noust app zero-downtime proggest.es on` again. It finds the include and turns the mode
+3. Run `noust app zero-downtime shop.example.com on` again. It finds the include and turns the mode
    on.
 
-`noust app zero-downtime proggest.es` shows the same refusal at any time, with `eligible` and
+`noust app zero-downtime shop.example.com` shows the same refusal at any time, with `eligible` and
 `reason` in `GET /api/apps/{domain}/zero-downtime`.
 
 ### What an update does
@@ -481,7 +481,7 @@ to tolerate, and the reason the mode is opt-in.
 
 ### Turning it off
 
-`noust app zero-downtime proggest.es off` gives any relay still serving back to its container,
+`noust app zero-downtime shop.example.com off` gives any relay still serving back to its container,
 puts the stack back on plain recreates and, for a site Noust wrote, renders it again to proxy to
 the ports directly and removes its servers files. A site you wrote keeps its `include` lines and
 the files stay, each naming its service's own port, so nginx keeps loading it.
@@ -504,7 +504,7 @@ stack's was replaced on every deploy, and a certificate step deleted it.
   configuration Noust did not write; it is left in place, and its certificate with it", and, for
   a stack that was relayed, that the servers files stay while the site includes them. Remove them
   by hand when nothing should answer on the name: `noust site delete DOMAIN`.
-- **A site whose file is not named after the domain** (`proggest` for `proggest.es`) is found by
+- **A site whose file is not named after the domain** (`shop` for `shop.example.com`) is found by
   the names it serves when the application is [adopted](#adopting-a-running-stack), and its name
   is recorded (`site_name`). Every command that turns a domain into a file asks that one place,
   so `noust site`, the certificates and the console all find it.
@@ -516,7 +516,7 @@ See [domains.md](domains.md#operator-sites) for domains and aliases.
 
 ## Adopting a running stack
 
-A stack that somebody brought up by hand (Proggest, in `/opt/proggest`, started by its own
+A stack that somebody brought up by hand (Shop, in `/opt/shop`, started by its own
 `deploy.sh`, served by its own nginx file) cannot be deployed with `noust create`: that would
 clone into a directory that holds its data, derive a project name the running containers do not
 have (and with it new, empty volumes) and write a second site next to yours. `noust app adopt`
@@ -524,8 +524,8 @@ registers it as it is. A site that is not a stack (a unit you wrote, PHP, files)
 `noust app adopt-site`: see [Adopting sites that already run](adopting.md).
 
 ```bash
-noust --dry-run app adopt proggest.es --path /opt/proggest   # what it would record; changes nothing
-noust app adopt proggest.es --path /opt/proggest             # shows the same, asks, adopts
+noust --dry-run app adopt shop.example.com --path /opt/shop   # what it would record; changes nothing
+noust app adopt shop.example.com --path /opt/shop             # shows the same, asks, adopts
 ```
 
 | Option | Meaning |
@@ -574,7 +574,7 @@ Where the code is > **A running stack**.
    as "the operator's, never rewritten".
 4. **Creates the unit and enables it, without starting it.** The stack already runs; starting the
    unit would be an `up` nobody asked for.
-5. **Registers the application** in place, at its real path (`/opt/proggest`, outside the apps
+5. **Registers the application** in place, at its real path (`/opt/shop`, outside the apps
    directory), with its history starting at one entry for the adoption, at the commit that is
    checked out. A stack that publishes no port is registered as a worker, without a site.
 
@@ -589,31 +589,31 @@ resets them to the branch, while files git does not track (`.env`, bind-mounted 
 Compose update. One with no repository skips the fetch and pulls the images instead. The pre-update backup and everything else use the application's recorded path,
 not a directory under `/var/www/apps`.
 
-### Proggest
+### A worked example: Shop
 
-Proggest is a monorepo with a NestJS backend, a Next.js frontend, Postgres and Redis,
-`docker-compose.prod.yml`, Prisma migrations and a hand-written nginx site, `proggest`, serving
-`proggest.es`. Brought up by its own `deploy.sh` under `/opt/proggest`, it adopts, and then gains
+Shop is a monorepo with a NestJS backend, a Next.js frontend, Postgres and Redis,
+`docker-compose.prod.yml`, Prisma migrations and a hand-written nginx site, `shop`, serving
+`shop.example.com`. Brought up by its own `deploy.sh` under `/opt/shop`, it adopts, and then gains
 migrations as hooks, a copy of Postgres before each update and an update without a cut:
 
 ```bash
 # 1. adopt it, as it runs
-noust --dry-run app adopt proggest.es --path /opt/proggest
-noust app adopt proggest.es --path /opt/proggest -y
+noust --dry-run app adopt shop.example.com --path /opt/shop
+noust app adopt shop.example.com --path /opt/shop -y
 
 # 2. in the repository, declare the migration as a hook (see "noust.yaml") and commit it
 #    hooks.pre_deploy: ./node_modules/.bin/prisma migrate deploy, in the backend, migrates: true
 
 # 3. let nginx reach the backend and the frontend through the servers files
-noust app zero-downtime proggest.es on
-#    refused, with the include line for each upstream block of /etc/nginx/sites-available/proggest:
-#      include /etc/nginx/noust-upstreams/proggest-es/backend.servers;
-#      include /etc/nginx/noust-upstreams/proggest-es/frontend.servers;
+noust app zero-downtime shop.example.com on
+#    refused, with the include line for each upstream block of /etc/nginx/sites-available/shop:
+#      include /etc/nginx/noust-upstreams/shop-example-com/backend.servers;
+#      include /etc/nginx/noust-upstreams/shop-example-com/frontend.servers;
 #    add them in place of the `server 127.0.0.1:PORT;` lines, nginx -t, reload, run it again
-noust app zero-downtime proggest.es on
+noust app zero-downtime shop.example.com on
 
 # 4. from now on
-noust update proggest.es
+noust update shop.example.com
 ```
 
 The update dumps Postgres into its pre-update backup, runs the migration in a one-off container
@@ -623,12 +623,12 @@ start, stops without having touched what serves.
 
 ### Deleting an adopted stack
 
-`noust delete proggest.es` takes the stack's containers down, removes its unit, the images Noust
+`noust delete shop.example.com` takes the stack's containers down, removes its unit, the images Noust
 kept for going back and the records, and leaves what Noust did not create:
 
 - **The directory stays** whatever `--keep-files` says, because it is outside Noust's apps
   directory and was not created by Noust, with everything in it. To remove it with the
-  application, name it exactly: `noust delete proggest.es --remove-adopted-directory /opt/proggest`
+  application, name it exactly: `noust delete shop.example.com --remove-adopted-directory /opt/shop`
   (`remove_adopted_directory` in the API). A different path is refused before anything is
   touched.
 - **Your site stays,** with its certificate, and so do the servers files it includes. Both are
@@ -651,7 +651,7 @@ unit that failed stays failed.
 Hand it back to its unit:
 
 ```bash
-noust app reclaim convertidordepdf.com
+noust app reclaim converter.example.org
 ```
 
 or "Hand it back to Noust" on the application's page (`POST /api/apps/{domain}/reclaim`, sudo
@@ -703,7 +703,7 @@ The password is read inside the container, from its own environment (`POSTGRES_P
 names, and handed to the client the way it takes a secret outside a command line. It is in no
 argument on the host or in the container. The dump goes straight to a compressed file, mode
 `0600`, named `stack-<service>-<engine>-<database>.<dump|sql|archive>.gz`, under
-`wasm-backup/databases/` in the backup's archive, with a manifest entry that says how to put it
+`noust-backup/databases/` in the backup's archive, with a manifest entry that says how to put it
 back.
 
 **When.** In the backup every update of a Compose stack takes first, before the `pre_deploy`
@@ -715,26 +715,26 @@ is not switched off by `backup.databases: off`, which is about the automatic cop
 error has the engine's own output and the command that carries on without it:
 
 ```
-To update proggest.es without a copy of its databases, run: noust app backup-before-update
-proggest.es off. To keep the copy, fix what the output above says and run the update again.
+To update shop.example.com without a copy of its databases, run: noust app backup-before-update
+shop.example.com off. To keep the copy, fix what the output above says and run the update again.
 ```
 
 **Turning it off**, when the database is backed up another way or cannot be dumped from its
 container:
 
 ```bash
-noust app backup-before-update proggest.es          # shows it
-noust app backup-before-update proggest.es off      # or on
+noust app backup-before-update shop.example.com          # shows it
+noust app backup-before-update shop.example.com off      # or on
 ```
 
 or `backup.databases: off` in `noust.yaml`, or `PATCH /api/apps/{domain}/backup-before-update`
-with `{"enabled": false}` (`apps.manage`, sudo mode), or the application's Settings > Deploys in
+with `{"enabled": false}` (`apps.manage`, sudo mode), or the application's Settings > Automation in
 the console. `GET /api/apps/{domain}` shows `backup_before_update`.
 
 **Restoring.** With the stack's service reachable through its compose file:
 
 ```bash
-noust backup list proggest.es
+noust backup list shop.example.com
 noust backup restore BACKUP_ID --databases-only     # put back only the databases; every file stays
 noust backup restore BACKUP_ID                      # files and databases, as the backup was taken
 ```
@@ -815,7 +815,7 @@ state of its containers and the last lines of `docker compose logs`, and the mon
 in a loop (see [MONITOR.md](MONITOR.md#what-it-watches)). A deployment of one skips the site and
 the certificate.
 
-**A stack WASM 1.x registered with a port.** 1.x gave every stack the default port 3000 and
+**A stack registered with a port by 1.x.** 1.x gave every stack the default port 3000 and
 wrote it a site, so a healthy worker reads as "nothing answers on its port", and its domain
 answers `502`. `noust health`, `noust diagnose` and the application's page point at the fix:
 
@@ -830,6 +830,11 @@ application answers on no other name; a certificate is left as it is. It is neve
 own. `GET /api/apps/{domain}/headless` (`apps.read`) says whether the stack is a worker with a
 port recorded and whether its site can go; `POST` (`apps.manage`, sudo) does it, with
 `{"remove_site": true}` to remove the site.
+
+**A worker that starts publishing a port.** A stack adopted or deployed while it published nothing
+has no port recorded. Publish one in its compose file and update it: the update records the port the
+file names, so the health gate probes it and `noust list` and the console judge the stack as the web
+it has become. The update does not write a site for it: an adopted stack's site is yours.
 
 ## Scheduled tasks of a stack
 
@@ -856,7 +861,7 @@ task that can hang its own deadline as well.
 
 With several services that publish a port and no `noust.nginx.yaml`, `/` goes to the **service
 in front**: the web service that depends on another web service and that no other web service
-depends on (in Proggest, the Next.js frontend that depends on the NestJS backend). When there is
+depends on (in Shop, the Next.js frontend that depends on the NestJS backend). When there is
 none, to the first web service in the compose file. A port given at deploy time (`--port`) wins.
 
 Noust no longer invents `/<service>` routes for the others: a frontend routed at `/frontend`
@@ -878,7 +883,7 @@ is deployed gets `PORT=<the port its site proxies to>` in its `.env` when it pub
 
 ## Routing with noust.nginx.yaml
 
-A `noust.nginx.yaml` (or the `wasm.nginx.yaml` a repository wrote for WASM) at the root of the
+A `noust.nginx.yaml` (or the file name of before 4.0, which still works until 5.0 and which a deployment asks you to rename) at the root of the
 repository gives the site routes of its own, and tunes the plain proxy site. Docker Compose
 stacks and the single-process application types read it; monorepos do not. The schema is
 closed and every value is checked to be exactly what its directive takes: a key nothing reads, a
@@ -912,7 +917,7 @@ A route is **one of** `port`, `static` or `return`:
 | `buffer_size`, `strip_prefix` | `proxy_buffer_size`; `strip_prefix: true` removes the route's path before proxying. |
 
 A file where no route names a port (routes that only serve files, redirect, or carry options for
-`/`) tunes the plain proxy site instead of replacing it. For example, Proggest-like:
+`/`) tunes the plain proxy site instead of replacing it. For example, a stack like Shop:
 
 ```yaml
 max_body_size: 25m
@@ -929,8 +934,8 @@ routes:
   - path: /assets/
     static: public/assets
     cache: 1y
-  - path: /uaap/
-    return: {code: 302, to: /uaap/dashboard}
+  - path: /portal/
+    return: {code: 302, to: /portal/dashboard}
   - path: /
     port: 3001
 ```

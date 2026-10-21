@@ -203,7 +203,10 @@ serial("a second team brings the switcher, which narrows the lists and is rememb
   await page.setViewportSize({ width: 1440, height: 900 });
   await countClicks(page);
   await signIn(page, consoleServer, "/teams");
-  await expect(page.getByRole("heading", { level: 1, name: "Teams" })).toBeVisible();
+  // /teams is the Teams view of Projects now: the same header, the Teams tab current.
+  await expect(page).toHaveURL(/\/projects\/teams$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Projects" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Project sections" }).getByRole("link", { name: /^Teams/ })).toHaveAttribute("aria-current", "page");
   await elevate(page, consoleServer);
   // One team called default: nothing to switch, and the page says a team is not a machine.
   await expect(page.getByTestId("team-switcher")).toHaveCount(0);
@@ -255,7 +258,7 @@ serial("a second team brings the switcher, which narrows the lists and is rememb
   await expect(button).toBeDisabled();
   await confirm.getByRole("textbox").fill("globex");
   await button.click();
-  await expect(page).toHaveURL(/\/teams$/);
+  await expect(page).toHaveURL(/\/projects\/teams$/);
   await expect(page.getByTestId("team-switcher")).toHaveCount(0);
 });
 
@@ -313,8 +316,8 @@ serial("someone who only reads sees the organisation and no way to change it", a
   await expect(page.getByRole("link", { name: "New application" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "New environment" })).toHaveCount(0);
 
-  await page.goto("/teams");
-  await expect(page.getByRole("heading", { level: 1, name: "Teams" })).toBeVisible();
+  await page.goto("/projects/teams");
+  await expect(page.getByRole("heading", { level: 1, name: "Projects" })).toBeVisible();
   await expect(page.getByRole("button", { name: "New team" })).toHaveCount(0);
 
   await page.goto("/apps");
@@ -333,7 +336,7 @@ serial("the pages of teams and projects read in Spanish", async ({ page, console
   await expect(page.getByRole("button", { name: "Nuevo proyecto" })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "los proyectos");
-  await page.goto("/teams");
-  await expect(page.getByRole("heading", { level: 1, name: "Equipos" })).toBeVisible();
+  await page.goto("/projects/teams");
+  await expect(page.getByRole("heading", { level: 1, name: "Proyectos" })).toBeVisible();
   await expect(page.getByText("Un equipo no es una máquina aparte")).toBeVisible();
 });

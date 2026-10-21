@@ -5,6 +5,7 @@
  * repository, which is a separate yes.
  */
 
+import { Download, Square } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -13,20 +14,18 @@ import { CommandHint } from "../../../components/page/CommandHint";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
-import { LoadingRegion } from "../../../components/page/LoadingRegion";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { formatCount } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock, explainServerError } from "../errors";
+import { ServerErrorBlock, explainServerError, useServerConfirm, ServerQueryState } from "../errors";
 import { fail2banQuery } from "../queries";
 import type { Fail2ban } from "../queries";
 import { useServerJob } from "../serverJob";
@@ -98,22 +97,21 @@ function Jails({ state }: { state: Fail2ban }) {
 /** The brute-force view of the Security tab. */
 export function BansView() {
   const t = useT();
-  const jobs = useServerJob();
   const query = useQuery(fail2banQuery());
+  return (
+    <ServerQueryState query={query} label={t("server.bans.label")} skeleton={<SkeletonCard lines={4} />}>
+      {(state) => <Bans state={state} />}
+    </ServerQueryState>
+  );
+}
+
+function Bans({ state }: { state: Fail2ban }) {
+  const t = useT();
+  const confirmation = useServerConfirm();
+  const jobs = useServerJob();
   const [installing, setInstalling] = useState(false);
   const [epel, setEpel] = useState(false);
   const [watching, setWatching] = useState(false);
-  if (query.isError && query.data === undefined) {
-    return <ServerErrorBlock error={query.error} title={t("server.bans.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
-  }
-  if (query.data === undefined) {
-    return (
-      <LoadingRegion label={t("server.bans.loading")} className="flex flex-col gap-4">
-        <Skeleton className="h-40 w-full rounded-card" />
-      </LoadingRegion>
-    );
-  }
-  const state = query.data;
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -125,20 +123,19 @@ export function BansView() {
           )}
         </div>
         {!state.installed && state.install_supported ? (
-          <Button variant="primary" disabled={jobs.busy} onClick={() => setInstalling(true)}>
+          <Button icon={<Download aria-hidden="true" />} variant="primary" disabled={jobs.busy} onClick={() => setInstalling(true)}>
             {t("server.bans.install")}
           </Button>
         ) : null}
       </div>
       {state.error !== "" ? <ServerErrorBlock compact error={{ detail: state.error }} title={t("server.bans.readFailed")} /> : null}
-      {state.substitutes.length > 0 ? <Notice>{t.rich("server.bans.substitutes", { tools: <Mono>{state.substitutes.join(", ")}</Mono> })}</Notice> : null}
+      {state.substitutes.length > 0 ? <p className="text-13 text-fg-muted">{t.rich("server.bans.substitutes", { tools: <Mono>{state.substitutes.join(", ")}</Mono> })}</p> : null}
       {!state.installed ? (
-        <Notice title={t("server.bans.whyTitle")}>
-          <div className="flex flex-col gap-1.5">
-            <p>{t("server.bans.why")}</p>
-            {!state.install_supported && state.install_hint !== "" ? <p>{state.install_hint}</p> : null}
-          </div>
-        </Notice>
+        <div className="flex flex-col gap-1 text-13 text-fg-muted">
+          <p className="font-medium text-fg">{t("server.bans.whyTitle")}</p>
+          <p>{t("server.bans.why")}</p>
+          {!state.install_supported && state.install_hint !== "" ? <p>{state.install_hint}</p> : null}
+        </div>
       ) : (
         <Jails state={state} />
       )}
@@ -148,18 +145,25 @@ export function BansView() {
             <p className="text-14 font-medium">{t("server.bans.web.title")}</p>
             <p className="text-13 text-fg-muted">{state.web_jails ? t("server.bans.web.on") : t("server.bans.web.off")}</p>
           </div>
-          <Button disabled={jobs.busy} onClick={() => setWatching(true)}>
+          <Button icon={<Square aria-hidden="true" />} disabled={jobs.busy} onClick={() => setWatching(true)}>
             {state.web_jails ? t("server.bans.web.stop") : t("server.bans.web.start")}
           </Button>
         </div>
       ) : null}
       <CommandHint command={state.web_available ? "noust server security fail2ban web on" : "noust server security fail2ban status"} label={t("server.fromTerminal")} />
       {watching ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setWatching(false);
+          }}
+          friction="simple"
+          destructive={false}
+          size="md"
           title={state.web_jails ? t("server.bans.web.stopTitle") : t("server.bans.web.startTitle")}
           description={state.web_jails ? t("server.bans.web.stopDescription") : t("server.bans.web.startDescription")}
           actionLabel={state.web_jails ? t("server.bans.web.stop") : t("server.bans.web.start")}
-          onClose={() => setWatching(false)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/security/fail2ban/web", { body: { enable: !state.web_jails } });
             jobs.track(accepted.job_id, "security");
@@ -167,11 +171,18 @@ export function BansView() {
         />
       ) : null}
       {installing ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setInstalling(false);
+          }}
+          friction="simple"
+          destructive={false}
+          size="md"
           title={t("server.bans.installTitle")}
           description={t("server.bans.installDescription")}
           actionLabel={t("server.bans.installAction")}
-          onClose={() => setInstalling(false)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/security/fail2ban/install", { body: { epel } });
             jobs.track(accepted.job_id, "security");
@@ -179,7 +190,7 @@ export function BansView() {
         >
           {state.needs_epel ? <Checkbox label={t("server.fix.epelLabel")} description={t("server.fix.epelDescription")} checked={epel} onCheckedChange={setEpel} /> : null}
           {state.install_hint !== "" ? <p className="text-13 text-fg-muted">{state.install_hint}</p> : null}
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
     </div>
   );

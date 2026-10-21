@@ -376,6 +376,26 @@ class PackageBackend(ABC):
             UnsupportedHostError: Packages are not installed by Noust here.
         """
 
+    def install(self, packages: Sequence[str], *, timeout: int) -> CommandResult:
+        """
+        Install packages and report what the package manager said.
+
+        What installs a helper (chrony, the WAF's modules) calls this rather than running
+        :meth:`install_argv` itself, so a family that has something more to do to make an install
+        work does it once, for all of them (apt refreshes empty lists).
+
+        Args:
+            packages: Package names, already validated by the caller.
+            timeout: Seconds the install may take.
+
+        Returns:
+            The result that decided; read ``success`` and the output.
+
+        Raises:
+            UnsupportedHostError: Packages are not installed by Noust here.
+        """
+        return self.runner.run(self.install_argv(packages), env=self.env(), timeout=timeout)
+
     def install_lean_argv(self, packages: Sequence[str]) -> list[str]:
         """
         Build the command that installs packages without what they recommend.

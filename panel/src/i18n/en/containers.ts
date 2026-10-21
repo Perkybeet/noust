@@ -3,7 +3,6 @@
  * new-application wizard and an application's Container settings), and the secrets it keeps.
  */
 export const containers = {
-  area: "Containers",
   fromTerminal: "From a terminal",
   restart: {
     unlessStopped: "Unless stopped",
@@ -137,7 +136,6 @@ export const containers = {
     digest: "Pulled image",
     digestHint: "The digest the last deploy resolved.",
     takesEffect: "A change is stored now and takes effect with the next update, which writes the Compose file again. Nothing is recreated by saving.",
-    saved: "Saved. It takes effect with the next update.",
     saveFailed: "The container settings of {domain} were not saved",
     notSavedFor: "The container settings of {domain} were not saved",
   },

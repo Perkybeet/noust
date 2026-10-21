@@ -122,13 +122,13 @@ describe("what the settings in force expose", () => {
   it("says nothing of the safe way, and warns of every variable and of the shared databases when they are chosen", async () => {
     const safe = await previewsOf(() => listing([]));
     await within(safe.section).findByRole("radio", { name: "Only the ones I choose" });
-    expect(within(safe.section).queryByText("Previews get this app's variables")).not.toBeInTheDocument();
-    expect(within(safe.section).queryByText("Previews write into this app's databases")).not.toBeInTheDocument();
+    expect(within(safe.section).queryByText(/reaches code written by pull request authors/)).not.toBeInTheDocument();
+    expect(within(safe.section).queryByText(/connects to the app's databases and can change them/)).not.toBeInTheDocument();
     safe.unmount();
 
     const exposed = await previewsOf(() => listing([], { settings: { ...SETTINGS, inherit_env: "all", data_mode: "shared" } }));
-    expect(await within(exposed.section).findByText("Previews get this app's variables")).toBeInTheDocument();
-    expect(within(exposed.section).getByText("Previews write into this app's databases")).toBeInTheDocument();
+    expect(await within(exposed.section).findByText(/Every variable of the app, bar those never copied, reaches code written by pull request authors/)).toBeInTheDocument();
+    expect(within(exposed.section).getByText(/A pull request's code connects to the app's databases and can change them/)).toBeInTheDocument();
     exposed.unmount();
 
     // An app with no database has nothing to share.
@@ -319,7 +319,7 @@ describe("managing one preview at a time", () => {
       [`POST ${PREVIEWS}/12/redeploy`]: () => json(202, { preview: { ...PR, status: "pending" }, job_id: "job-5" }),
     });
     const list = await within(section).findByRole("list", { name: "Previews" });
-    await user.click(within(list).getByRole("button", { name: "Redeploy #12" }));
+    await user.click(within(list).getByRole("button", { name: "Update #12" }));
     await waitFor(() => {
       expect(backend.callsTo(`POST ${PREVIEWS}/12/redeploy`)).toHaveLength(1);
     });
@@ -385,7 +385,7 @@ describe("managing one preview at a time", () => {
       [`POST ${PREVIEWS}/12/redeploy`]: () => problem(400, "validation_error", "The preview is being removed"),
     });
     const list = await within(section).findByRole("list", { name: "Previews" });
-    await user.click(within(list).getByRole("button", { name: "Redeploy #12" }));
+    await user.click(within(list).getByRole("button", { name: "Update #12" }));
     expect(await screen.findByText("The preview of #12 was not rebuilt")).toBeInTheDocument();
     expect(screen.getByText("The preview is being removed")).toBeInTheDocument();
   });
@@ -396,7 +396,7 @@ describe("what each principal is offered", () => {
     const { section } = await previewsOf(() => listing([PR]), {}, APP, viewerSession() as typeof ELEVATED);
     const list = await within(section).findByRole("list", { name: "Previews" });
     expect(within(list).getByRole("button", { name: "Logs #12" })).toBeInTheDocument();
-    expect(within(list).queryByRole("button", { name: "Redeploy #12" })).not.toBeInTheDocument();
+    expect(within(list).queryByRole("button", { name: "Update #12" })).not.toBeInTheDocument();
     expect(within(list).queryByRole("button", { name: "Actions for the preview of #12" })).not.toBeInTheDocument();
     expect(within(section).queryByRole("button", { name: "New preview" })).not.toBeInTheDocument();
   });
@@ -405,7 +405,7 @@ describe("what each principal is offered", () => {
     const operator = { ...ELEVATED, permissions: ["self", "apps.read", "apps.operate"] };
     const { user, section } = await previewsOf(() => listing([PR]), {}, APP, operator);
     const list = await within(section).findByRole("list", { name: "Previews" });
-    expect(within(list).queryByRole("button", { name: "Redeploy #12" })).not.toBeInTheDocument();
+    expect(within(list).queryByRole("button", { name: "Update #12" })).not.toBeInTheDocument();
     await user.click(within(list).getByRole("button", { name: "Actions for the preview of #12" }));
     expect(await screen.findByRole("menuitem", { name: "Stop" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Remove" })).not.toBeInTheDocument();

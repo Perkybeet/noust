@@ -21,7 +21,14 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { useSudoFirst } from "./formParts";
-import { JobFailedError, identityQuery, olderServer, settingsKeys, waitForJob } from "./queries";
+import {
+  JobFailedError,
+  identityQuery,
+  olderServer,
+  settingsKeys,
+  waitForJob,
+} from "./queries";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 export function IdentityCard({ domain }: { domain: string }) {
   const t = useT();
@@ -35,10 +42,9 @@ export function IdentityCard({ domain }: { domain: string }) {
   if (identity.isPending) {
     return (
       <Card title={title}>
-        <div aria-busy="true">
-          <span className="sr-only">{t("appSettings.identity.loading")}</span>
+        <LoadingRegion label={t("appSettings.identity.loading")}>
           <Skeleton className="h-10 w-full rounded-control" />
-        </div>
+        </LoadingRegion>
       </Card>
     );
   }
@@ -47,7 +53,13 @@ export function IdentityCard({ domain }: { domain: string }) {
   if (identity.isError) {
     return (
       <Card title={title}>
-        <ErrorBlock compact error={identity.error} title={t("appSettings.identity.readFailed")} onRetry={() => void identity.refetch()} retrying={identity.isRefetching} />
+        <ErrorBlock
+          compact
+          error={identity.error}
+          title={t("appSettings.identity.readFailed")}
+          onRetry={() => void identity.refetch()}
+          retrying={identity.isRefetching}
+        />
       </Card>
     );
   }
@@ -58,18 +70,37 @@ export function IdentityCard({ domain }: { domain: string }) {
       <div className="flex flex-col gap-3">
         <p className="text-13 text-pretty text-fg">
           {data.own
-            ? t.rich("appSettings.identity.own", { account: <Mono>{data.account}</Mono> })
-            : t.rich("appSettings.identity.shared", { account: <Mono>{data.account}</Mono>, group: <Mono>{data.group}</Mono> })}
+            ? t.rich("appSettings.identity.own", {
+                account: <Mono>{data.account}</Mono>,
+              })
+            : t.rich("appSettings.identity.shared", {
+                account: <Mono>{data.account}</Mono>,
+                group: <Mono>{data.group}</Mono>,
+              })}
         </p>
         {!data.own && data.eligible && proposed !== null ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Button size="sm" onClick={() => sudoFirst(() => setMoving(true), t("appSettings.identity.notMoved", { domain }))}>
+            <Button
+              size="sm"
+              onClick={() =>
+                sudoFirst(
+                  () => setMoving(true),
+                  t("appSettings.identity.notMoved", { domain }),
+                )
+              }
+            >
               {t("appSettings.identity.move")}
             </Button>
-            <p className="text-12 text-fg-muted">{t.rich("appSettings.identity.moveNote", { account: <Mono>{proposed}</Mono> })}</p>
+            <p className="text-12 text-fg-muted">
+              {t.rich("appSettings.identity.moveNote", {
+                account: <Mono>{proposed}</Mono>,
+              })}
+            </p>
           </div>
         ) : null}
-        {!data.own && !data.eligible && data.reason ? <p className="text-13 text-pretty text-fg-muted">{data.reason}</p> : null}
+        {!data.own && !data.eligible && data.reason ? (
+          <p className="text-13 text-pretty text-fg-muted">{data.reason}</p>
+        ) : null}
       </div>
       <ConfirmDialog
         open={moving}
@@ -78,14 +109,31 @@ export function IdentityCard({ domain }: { domain: string }) {
         destructive={false}
         server={node}
         title={t("appSettings.identity.moveTitle", { domain })}
-        description={t("appSettings.identity.moveDescription", { account: proposed ?? "" })}
+        description={t("appSettings.identity.moveDescription", {
+          account: proposed ?? "",
+        })}
         actionLabel={t("appSettings.identity.moveAction")}
         onConfirm={async () => {
-          const queued = await request("post", "/api/apps/{domain}/identity/migrate", { params: { domain } });
-          const job = await waitForJob(queryClient, queued.job as unknown as Job);
-          void queryClient.invalidateQueries({ queryKey: settingsKeys.identity(domain) });
-          void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain), exact: true });
-          if (job.status !== "completed") throw new JobFailedError(job.error ?? t("appSettings.jobFailedSilently"));
+          const queued = await request(
+            "post",
+            "/api/apps/{domain}/identity/migrate",
+            { params: { domain } },
+          );
+          const job = await waitForJob(
+            queryClient,
+            queued.job as unknown as Job,
+          );
+          void queryClient.invalidateQueries({
+            queryKey: settingsKeys.identity(domain),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: appKeys.detail(domain),
+            exact: true,
+          });
+          if (job.status !== "completed")
+            throw new JobFailedError(
+              job.error ?? t("appSettings.jobFailedSilently"),
+            );
           announce(t("appSettings.identity.moved", { domain }));
         }}
       />

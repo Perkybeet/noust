@@ -22,7 +22,6 @@ import { FakeEventSource, FakeWebSocket, SESSION, json } from "../test/fakes";
 /** Every route of the console and an address that opens it. */
 const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/", "/"],
-  // Routes whose page is yet to come open the screen that holds the same thing today (app/nav.ts, INTERIM).
   ["/account", "/account"],
   ["/account/security", "/account/security"],
   ["/activity", "/activity"],
@@ -40,8 +39,10 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/apps/$domain/metrics", "/apps/shop.example.com/metrics"],
   ["/apps/$domain/settings", "/apps/shop.example.com/settings"],
   ["/apps/$domain/settings/access", "/apps/shop.example.com/settings/access"],
+  ["/apps/$domain/settings/automation", "/apps/shop.example.com/settings/automation"],
   ["/apps/$domain/settings/build", "/apps/shop.example.com/settings/build"],
   ["/apps/$domain/settings/builds", "/apps/shop.example.com/settings/builds"],
+  ["/apps/$domain/settings/compose", "/apps/shop.example.com/settings/compose"],
   ["/apps/$domain/settings/container", "/apps/shop.example.com/settings/container"],
   ["/apps/$domain/settings/delete", "/apps/shop.example.com/settings/delete"],
   ["/apps/$domain/settings/deploy-on-push", "/apps/shop.example.com/settings/deploy-on-push"],
@@ -50,6 +51,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/apps/$domain/settings/export", "/apps/shop.example.com/settings/export"],
   ["/apps/$domain/settings/hooks", "/apps/shop.example.com/settings/hooks"],
   ["/apps/$domain/settings/previews", "/apps/shop.example.com/settings/previews"],
+  ["/apps/$domain/settings/protection", "/apps/shop.example.com/settings/protection"],
   ["/apps/$domain/settings/resources", "/apps/shop.example.com/settings/resources"],
   ["/apps/$domain/settings/processes", "/apps/shop.example.com/settings/processes"],
   ["/apps/$domain/settings/security", "/apps/shop.example.com/settings/security"],
@@ -152,6 +154,7 @@ const BEFORE_SIGN_IN = ["/invite", "/login", "/reset-password", "/setup", "/welc
  * drawn whole from the first frame, so there is nothing to put a skeleton over.
  */
 const NOTHING_TO_WAIT_FOR: Readonly<Record<string, string>> = {
+  "/account": "who is signed in is the session, which is read before any page is drawn; the password is a dialog",
   "/apps/new": "a form: its fields are there from the first frame, and what it reads only feeds later steps",
   "/integrations/github/callback": "reads the address GitHub sent the browser back to, not the server",
   "/integrations/gitlab/callback": "reads the address GitLab sent the browser back to, not the server",

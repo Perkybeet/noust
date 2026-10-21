@@ -1,6 +1,5 @@
 /** Strings of the console's cron area: the jobs list, its dialog and run history. */
 export const cron = {
-  area: "Cron jobs",
 
   common: {
     cancel: "Cancel",
@@ -39,7 +38,7 @@ export const cron = {
     title: "Cron",
     description: "Commands this server runs on a schedule.",
     newJob: "New job",
-    loadError: "Could not load cron jobs",
+    what: "the cron jobs",
     filterAria: "Filter cron jobs",
     searchAria: "Search cron jobs",
     searchPlaceholder: "Search by name or command",
@@ -77,7 +76,7 @@ export const cron = {
 
   deleteDialog: {
     title: "Delete {name}",
-    description: "Removes the timer and its service unit. This cannot be undone.",
+    description: "Removes the timer and its service. This cannot be undone.",
   },
 
   dialog: {
@@ -123,9 +122,8 @@ export const cron = {
   runsDrawer: {
     titleFor: "Runs of {name}",
     titleDefault: "Runs",
-    description: "Newest first, read from the unit's journal.",
-    loadError: "Could not load the run history",
-    loading: "Loading run history",
+    description: "Newest first, read from the service's journal.",
+    what: "the run history",
     empty: "This job has not run yet.",
     noExitCode: "No exit code",
     exitCode: "Exit {code}",
@@ -135,7 +133,7 @@ export const cron = {
 
   ledger: {
     title: "{missed} missed and {late} late in the last 7 days",
-    description: "A timer makes up one run for the time the server was off and says nothing about the others. These moments were due and did not run on time.",
+    description: "A timer makes up one run for the time the server was off and says nothing about the others.",
     listLabel: "Occurrences that did not run on time",
     allRan: { one: "The one occurrence due in the last 7 days ran on time.", other: "All {count} occurrences due in the last 7 days ran on time." },
     late: "ran late: made up afterwards",

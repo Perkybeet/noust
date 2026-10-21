@@ -4,35 +4,6 @@
  * with, and what a test finds, is shown as it was written.
  */
 export const ldapAdmin = {
-  title: "Directories (LDAP)",
-  description:
-    "An LDAP or Active Directory server people sign in against with the name and password they have there. The directory proves the password; the account's own second factor still follows.",
-  loadingLabel: "directories",
-  tableCaption: "Configured directories",
-  add: "Add a directory",
-  emptyTitle: "No directory yet",
-  emptyDescription: "Add one to let people sign in with the account they already have in Active Directory, OpenLDAP or FreeIPA.",
-  column: {
-    directory: "Directory",
-    state: "State",
-    server: "Server",
-    signUp: "A first sign-in",
-    password: "Service account",
-  },
-  state: {
-    enabled: "Enabled",
-    disabled: "Disabled",
-  },
-  password: {
-    kept: "Password kept",
-    anonymous: "Searches anonymously",
-  },
-  testLabel: "Test {name}",
-  test: "Test",
-  editLabel: "Edit {name}",
-  edit: "Edit",
-  removeLabel: "Remove {name}",
-  remove: "Remove",
   form: {
     createTitle: "Add a directory",
     editTitle: "Edit {name}",
@@ -93,7 +64,6 @@ export const ldapAdmin = {
     title: "Remove {name}?",
     description: "Its password is forgotten and people linked to it can no longer sign in with it. Their accounts stay as they are.",
     action: "Remove directory",
-    toast: "Removed the directory {name}",
   },
   savedToast: "Saved the directory {name}",
 } as const;

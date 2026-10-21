@@ -1,15 +1,16 @@
 /**
  * What the command palette finds inside the application on screen (checklist M-04): each of its
  * pages and each section of its settings, named with the application, so "build" finds
- * "Build commands: shop.example.com" and a section moved to another page is still found by its name.
+ * "Build: shop.example.com" and a section moved to another page is still found by its name.
  *
  * Read from the definitions that draw the pages, never copied from them: the tabs are `APP_TABS`
  * and the settings sections are `SETTINGS_SECTIONS`, the lists their navigations render.
  */
 
-import { Box, Settings as SettingsIcon } from "lucide-react";
+import { Box } from "lucide-react";
 
 import type { App } from "../api/queries/apps";
+import { OBJECT_ICONS } from "../components/ui/objectIcons";
 import { SETTINGS_SECTIONS } from "../features/app/settings/sections";
 import type { T } from "../i18n";
 import type { Command } from "./CommandPalette";
@@ -41,8 +42,9 @@ export function appSectionCommands(domain: string, app: App | undefined, t: T, g
       id: `app-setting:${section.path}`,
       group: "Pages",
       label: t("shell.commands.appSetting", { section: t(section.label), domain }),
-      icon: <SettingsIcon />,
-      keywords: [t("nav.appTabs.settings.label"), domain].join(" "),
+      // What the section is and the words it is known by are the register's (features/nav/app.ts), the same as the list on the side.
+      icon: section.icon === undefined ? <OBJECT_ICONS.settings /> : <section.icon />,
+      keywords: [t("nav.appTabs.settings.label"), section.keywords !== undefined ? t(section.keywords) : "", domain].join(" "),
       kind: "navigate",
       run: go(`/apps/$domain/settings${section.path}`, params),
     }),

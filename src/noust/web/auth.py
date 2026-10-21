@@ -141,10 +141,9 @@ RATE_LIMIT_AUTHENTICATED_MAX_REQUESTS = 1200
 RATE_LIMIT_MAX_TRACKED_IPS = 4096
 
 #: Where the signing key, the master token hash, the session database and the
-#: audit log live: the configuration directory, ``/etc/noust`` (``/etc/wasm``
-#: on a server not migrated yet, see :func:`noust.core.paths.config_dir`).
-#: Overridable for tests and for unprivileged installs with this variable, or
-#: with its WASM spelling, ``WASM_WEB_STATE_DIR``.
+#: audit log live: the configuration directory, ``/etc/noust`` (see
+#: :func:`noust.core.paths.config_dir`). Overridable for tests and for unprivileged
+#: installs with this variable.
 STATE_DIR_ENV = "NOUST_WEB_STATE_DIR"
 
 SECRET_FILE_NAME = "web-secret"  # noqa: S105 - file name, not a credential
@@ -529,8 +528,8 @@ class SecurityConfig:
         Directory used for secrets, sessions and audit records.
 
         Returns:
-            The explicit ``state_dir``, else ``NOUST_WEB_STATE_DIR`` (or
-            ``WASM_WEB_STATE_DIR``), else the configuration directory.
+            The explicit ``state_dir``, else ``NOUST_WEB_STATE_DIR``, else the
+            configuration directory.
         """
         if self.state_dir is not None:
             return Path(self.state_dir)
@@ -4686,38 +4685,6 @@ def is_allowed_origin(connection: HTTPConnection, config: SecurityConfig | None 
     if origin.strip().lower() in allowed:
         return True
     return any(_origin_host(value) == origin_host for value in allowed)
-
-
-def is_safe_path(path: str) -> bool:
-    """
-    Check that a path stays inside its base directory.
-
-    Args:
-        path: The path to check.
-
-    Returns:
-        True when the path is relative and contains no traversal.
-    """
-    normalized = os.path.normpath(path)
-    if ".." in normalized.split(os.sep):
-        return False
-    return not normalized.startswith("/")
-
-
-def sanitize_input(value: str, max_length: int = 1000) -> str:
-    """
-    Trim and de-fang a user supplied string.
-
-    Args:
-        value: The input value.
-        max_length: Maximum allowed length.
-
-    Returns:
-        The sanitized value.
-    """
-    if not value:
-        return ""
-    return value[:max_length].replace("\x00", "")
 
 
 def _unauthorized(detail: str) -> HTTPException:

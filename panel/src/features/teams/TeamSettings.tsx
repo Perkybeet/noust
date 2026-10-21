@@ -121,6 +121,7 @@ export function TeamSettings() {
             title={t("teams.settings.deleteActionTitle")}
             description={reason ?? t("teams.settings.deleteActionDescription")}
             action={
+              // design-exception: danger-button-outside-confirm the button of a DangerAction, which opens the ConfirmDialog below
               <Button
                 variant="danger"
                 icon={<Delete aria-hidden="true" />}

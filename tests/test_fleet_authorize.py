@@ -666,9 +666,7 @@ class TestReplaceRootKey:
     def _backups(self, node) -> list[Path]:
         return sorted(node.keys_file("root").parent.glob("authorized_keys.noust-*"))
 
-    @pytest.mark.parametrize(
-        "comment", ["noust-central:arennalabs", "noust-central@arennalabs.com"]
-    )
+    @pytest.mark.parametrize("comment", ["noust-central:example", "noust-central@example.com"])
     def test_the_old_line_leaves_root_s_file_whatever_its_comment(self, node, comment):
         root_file = node.keys_file("root")
         root_file.parent.mkdir(parents=True)
@@ -692,7 +690,7 @@ class TestReplaceRootKey:
         root_file.parent.mkdir(parents=True)
         other = _root_line(OTHER_CENTRAL_KEY, "noust-central:hub-2")
         root_file.write_text(
-            f"{_root_line(CENTRAL_KEY, 'noust-central:arennalabs')}\n{other}\n{OPERATOR_LINE}\n"
+            f"{_root_line(CENTRAL_KEY, 'noust-central:example')}\n{other}\n{OPERATOR_LINE}\n"
         )
 
         result = node.authorize(replace_root_key=CENTRAL_KEY)
@@ -706,7 +704,7 @@ class TestReplaceRootKey:
     def test_it_is_idempotent(self, node):
         root_file = node.keys_file("root")
         root_file.parent.mkdir(parents=True)
-        root_file.write_text(f"{_root_line(CENTRAL_KEY, 'noust-central:arennalabs')}\n")
+        root_file.write_text(f"{_root_line(CENTRAL_KEY, 'noust-central:example')}\n")
         node.authorize(replace_root_key=CENTRAL_KEY)
 
         again = node.authorize(replace_root_key=CENTRAL_KEY)
@@ -719,7 +717,7 @@ class TestReplaceRootKey:
     def test_without_the_flag_a_remaining_line_is_warned_about(self, node):
         root_file = node.keys_file("root")
         root_file.parent.mkdir(parents=True)
-        root_file.write_text(f"{_root_line(CENTRAL_KEY, 'noust-central:arennalabs')}\n")
+        root_file.write_text(f"{_root_line(CENTRAL_KEY, 'noust-central:example')}\n")
 
         result = node.authorize()
 
@@ -743,7 +741,7 @@ class TestReplaceRootKey:
     def test_a_rehearsal_reports_it_and_changes_nothing(self, node):
         root_file = node.keys_file("root")
         root_file.parent.mkdir(parents=True)
-        before = f"{_root_line(CENTRAL_KEY, 'noust-central:arennalabs')}\n"
+        before = f"{_root_line(CENTRAL_KEY, 'noust-central:example')}\n"
         root_file.write_text(before)
 
         result = authorize(
