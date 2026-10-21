@@ -19,6 +19,7 @@ import { useHasFleet, useReturnServer } from "../nodes/servers";
 import { useConsoleContext } from "../nodes/useNode";
 import { iconOf } from "../features/nav/icons";
 import { dest, isUnder, litBy, sidebarFor } from "./nav";
+import { useNavScope } from "./useNavScope";
 import type { ConsolePath, Dest, Scope } from "./nav";
 
 /**
@@ -170,7 +171,7 @@ export function SidebarNav({ onNavigate, className }: { onNavigate?: () => void;
   // then the destinations are held as a skeleton (see NavPending).
   const { organised, settling } = useOrganised();
 
-  const scope: Scope = context.kind === "server" ? "server" : "fleet";
+  const scope: Scope = useNavScope();
   const onServer = scope === "server";
   const counts = useCounts(onServer);
   const running = useRunningJobs(onServer);

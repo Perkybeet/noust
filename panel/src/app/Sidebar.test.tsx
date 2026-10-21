@@ -151,6 +151,15 @@ describe("the sidebar follows the scope", () => {
     expect(within(nav).getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current");
   });
 
+  it("keeps a lone server's own bar on its account, which is the central's page: there is no fleet to show instead", async () => {
+    fakeBackend(signedInRoutes());
+    renderConsole("/account");
+    await screen.findByRole("heading", { level: 1, name: "Account" });
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(within(nav).getByRole("link", { name: "Databases" })).toBeInTheDocument();
+    expect(within(nav).queryByRole("link", { name: "Servers" })).toBeNull();
+  });
+
   it("keeps Applications of the fleet lit on the applications that run on several servers", async () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/nodes": () => json(200, { items: NODES }) });
     renderConsole("/fleet/placements");

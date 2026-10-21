@@ -21,8 +21,8 @@ export function usePaletteScope(): PaletteScope | undefined {
   const { node } = useNode();
   const params = useParams({ strict: false });
   const domain = typeof params.domain === "string" ? params.domain : null;
-  if (context.kind === "fleet") return { label: t("shell.search.scope.all") };
-  if (context.kind === "central") return { label: t("shell.search.scope.central") };
+  if (context.kind === "fleet" && hasFleet) return { label: t("shell.search.scope.all") };
+  if (context.kind === "central" && hasFleet) return { label: t("shell.search.scope.central") };
   if (domain !== null) return { label: t("shell.search.scope.application"), name: domain };
   if (hasFleet || node !== null) {
     const name = node ?? hostname;

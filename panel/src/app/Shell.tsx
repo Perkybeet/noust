@@ -13,6 +13,7 @@ import { useServerEvents } from "../realtime/events";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { focusPageTitle } from "./focus";
 import { shortcuts as registeredShortcuts } from "./nav";
+import { useNavScope } from "./useNavScope";
 import PaletteHost from "./PaletteHost";
 import { shortcutKey, useKeyboardShortcuts } from "./shortcuts";
 import type { KeyBinding } from "./shortcuts";
@@ -88,9 +89,8 @@ export function Shell() {
 
   useServerEvents();
   const pageServer = usePageServerName();
-  const context = useConsoleContext();
   const hasFleet = useHasFleet();
-  const scope = context.kind === "server" ? "server" : "fleet";
+  const scope = useNavScope();
 
   useEffect(
     () =>

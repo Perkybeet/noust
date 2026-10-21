@@ -23,26 +23,26 @@ function nav(name = "Application settings"): HTMLElement {
 }
 
 describe("the settings' navigation", () => {
-  it("lists every subsection as a URL of its own, Delete last and apart", async () => {
+  it("lists every subsection as a URL of its own, in the groups of the register, Delete last and apart", async () => {
     screenWidth(1440);
     await renderSettings("", "General");
     const links = within(nav()).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["General", "Source", "Deploys", "Deploy on push", "Deploy hooks", "Access", "Build commands", "Builds", "Resources", "Disk", "Processes", "Unit security", "Mounts", "Previews", "Export", "Delete"]);
+    expect(links.map((link) => link.textContent)).toEqual(["General", "Source", "Build commands", "Builds", "Deploys", "Deploy on push", "Deploy hooks", "Previews", "Resources", "Disk", "Processes", "Unit security", "Mounts", "Access", "Export", "Delete"]);
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       `/apps/${DOMAIN}/settings`,
       `/apps/${DOMAIN}/settings/source`,
+      `/apps/${DOMAIN}/settings/build`,
+      `/apps/${DOMAIN}/settings/builds`,
       `/apps/${DOMAIN}/settings/deploys`,
       `/apps/${DOMAIN}/settings/deploy-on-push`,
       `/apps/${DOMAIN}/settings/hooks`,
-      `/apps/${DOMAIN}/settings/access`,
-      `/apps/${DOMAIN}/settings/build`,
-      `/apps/${DOMAIN}/settings/builds`,
+      `/apps/${DOMAIN}/settings/previews`,
       `/apps/${DOMAIN}/settings/resources`,
       `/apps/${DOMAIN}/settings/disk`,
       `/apps/${DOMAIN}/settings/processes`,
       `/apps/${DOMAIN}/settings/security`,
       `/apps/${DOMAIN}/settings/mounts`,
-      `/apps/${DOMAIN}/settings/previews`,
+      `/apps/${DOMAIN}/settings/access`,
       `/apps/${DOMAIN}/settings/export`,
       `/apps/${DOMAIN}/settings/delete`,
     ]);

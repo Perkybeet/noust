@@ -23,6 +23,9 @@ const GROUP_TITLES: Readonly<Record<string, PlainKey>> = {
   access: "appSettings.nav.groups.access",
 };
 
+/** The groups in the order the register lists them (features/nav/appSettings.ts): the list draws them in it, each once. */
+const GROUP_ORDER: readonly string[] = ["code", "deploys", "triggers", "runtime", "access", "danger"];
+
 /** A subsection's shape while the app is read: its title, a line, and a card of facts. */
 function SubsectionSkeleton() {
   const t = useT();
@@ -50,11 +53,18 @@ export function AppSettingsLayout({ domain, index, children }: { domain: string;
   const t = useT();
   const app = useQuery(appQuery(domain));
   const params = { domain };
-  const items: SettingsNavItem[] = SETTINGS_SECTIONS.filter((section) => section.when === undefined || (app.data !== undefined && section.when(app.data))).map((section) => {
-    // What the section is, and the group it is in, are the register's (features/nav/app.ts): a section it does not list yet is drawn without.
+  // What the section is, the group it is in and where the group comes are the register's (features/nav/appSettings.ts); a
+  // section it does not list yet keeps its neighbour's place and is drawn without an icon.
+  const shown = SETTINGS_SECTIONS.filter((section) => section.when === undefined || (app.data !== undefined && section.when(app.data)));
+  const ranks = shown.reduce<number[]>((all, section) => {
+    const group = appSettingsEntry(section.path)?.group;
+    all.push(section.path === "" ? -1 : group !== undefined ? GROUP_ORDER.indexOf(group) : (all.at(-1) ?? -1));
+    return all;
+  }, []);
+  const ranked = shown.map((section, position) => {
     const entry = appSettingsEntry(section.path);
     const group = entry?.group !== undefined ? GROUP_TITLES[entry.group] : undefined;
-    return {
+    const item: SettingsNavItem = {
       to: `/apps/$domain/settings${section.path}`,
       params,
       label: t(section.label),
@@ -63,7 +73,10 @@ export function AppSettingsLayout({ domain, index, children }: { domain: string;
       ...(section.path === "" ? { exact: true } : {}),
       ...(section.danger === true ? { danger: true } : {}),
     };
+    return { item, rank: ranks[position] ?? -1 };
   });
+  // Stable: inside a group the order of sections.ts stays.
+  const items: SettingsNavItem[] = ranked.sort((a, b) => a.rank - b.rank).map(({ item }) => item);
   return (
     <SettingsLayout label={t("appSettings.nav.label")} items={items} index={index} backTo="/apps/$domain/settings" backParams={params}>
       {app.data !== undefined ? (
