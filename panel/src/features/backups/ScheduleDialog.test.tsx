@@ -92,7 +92,10 @@ describe("ScheduleDialog", () => {
     await user.click(await screen.findByRole("option", { name: "shop.example.com" }));
     await user.click(await within(dialog).findByRole("checkbox", { name: "offsite" }));
 
-    await user.type(within(dialog).getByLabelText(/^Keep at most/), "2,5");
+    await user.click(within(dialog).getByRole("checkbox", { name: "Limit their total size" }));
+    const size = within(dialog).getByLabelText("Gigabytes");
+    await user.clear(size);
+    await user.type(size, "2,5");
     await user.type(within(dialog).getByLabelText("Gigabytes to keep on offsite"), "40");
     await user.click(within(dialog).getByRole("button", { name: "Create schedule" }));
 
@@ -112,7 +115,10 @@ describe("ScheduleDialog", () => {
     await user.click(within(dialog).getByRole("combobox", { name: "Application" }));
     await user.click(await screen.findByRole("option", { name: "shop.example.com" }));
 
-    await user.type(within(dialog).getByLabelText(/^Keep at most/), "-3");
+    await user.click(within(dialog).getByRole("checkbox", { name: "Limit their total size" }));
+    const size = within(dialog).getByLabelText("Gigabytes");
+    await user.clear(size);
+    await user.type(size, "-3");
     await user.click(within(dialog).getByRole("button", { name: "Create schedule" }));
 
     expect(await within(dialog).findByText("A number above zero, up to 100000.")).toBeInTheDocument();

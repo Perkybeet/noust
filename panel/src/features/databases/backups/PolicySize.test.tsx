@@ -31,8 +31,13 @@ describe("the size a database's dumps may weigh", { timeout: 40_000 }, () => {
 
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     const drawer = await screen.findByRole("dialog", { name: "Edit the backup schedule" });
-    const field = within(drawer).getByLabelText(/^Keep at most/);
-    expect(field).toHaveValue("");
+    // No limit is a box that is not ticked, not an empty field: ticking it asks for the number.
+    const limit = within(drawer).getByRole("checkbox", { name: "Limit their total size" });
+    expect(limit).not.toBeChecked();
+    expect(within(drawer).queryByLabelText("Gigabytes")).not.toBeInTheDocument();
+    await user.click(limit);
+    const field = within(drawer).getByLabelText("Gigabytes");
+    await user.clear(field);
     await user.type(field, "2,5");
     await expectNoAxeViolations(drawer);
     await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
@@ -50,7 +55,8 @@ describe("the size a database's dumps may weigh", { timeout: 40_000 }, () => {
 
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     const drawer = await screen.findByRole("dialog", { name: "Edit the backup schedule" });
-    expect(within(drawer).getByLabelText(/^Keep at most/)).toHaveValue("4");
+    expect(within(drawer).getByRole("checkbox", { name: "Limit their total size" })).toBeChecked();
+    expect(within(drawer).getByLabelText("Gigabytes")).toHaveValue("4");
     expect(within(drawer).getByLabelText("Gigabytes to keep on offsite")).toHaveValue("20");
     await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
 
@@ -63,7 +69,10 @@ describe("the size a database's dumps may weigh", { timeout: 40_000 }, () => {
 
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     const drawer = await screen.findByRole("dialog", { name: "Edit the backup schedule" });
-    await user.type(within(drawer).getByLabelText(/^Keep at most/), "-3");
+    await user.click(within(drawer).getByRole("checkbox", { name: "Limit their total size" }));
+    const size = within(drawer).getByLabelText("Gigabytes");
+    await user.clear(size);
+    await user.type(size, "-3");
     await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
 
     expect(await within(drawer).findByText("A number above zero, up to 100000.")).toBeInTheDocument();

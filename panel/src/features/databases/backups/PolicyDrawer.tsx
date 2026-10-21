@@ -11,11 +11,11 @@ import { Checkbox } from "../../../components/ui/Checkbox";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
 import { InlineMessage } from "../../../components/ui/InlineMessage";
-import { Input } from "../../../components/ui/Input";
 import { Select } from "../../../components/ui/Select";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
+import { GbField } from "../../backups/policy/GbField";
 import { KeepFields } from "../../backups/policy/KeepFields";
 import { MAX_COUNT, MAX_DAYS, destinationBody, destinationsValid, gbValue, limitText, limitValue, validGb, validLimit } from "../../backups/policy/limits";
 import type { DestinationDraft } from "../../backups/policy/limits";
@@ -178,9 +178,7 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
           countError={errors.count}
           daysError={errors.days}
         >
-          <Field label={t("databases.policy.gb")} optional description={t("databases.policy.gbHelp")} error={errors.gb} className="w-44">
-            <Input mono inputMode="decimal" value={gb} onValueChange={setGb} suffix="GB" />
-          </Field>
+          <GbField label={t("databases.policy.gb")} help={t("databases.policy.gbHelp")} value={gb} onChange={setGb} error={errors.gb} />
         </KeepFields>
 
         <SendToFields

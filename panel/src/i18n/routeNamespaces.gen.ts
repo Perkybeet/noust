@@ -57,7 +57,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/_console/databases/": ["appPages", "appTags", "apps", "databases", "dumpImport", "nav", "queue", "teams", "variables"],
   "/_console/databases/$engine/$name": ["appPages", "appTags", "apps", "common", "databases", "nav", "queue", "teams", "variables"],
   "/_console/databases/$engine/$name/": ["activity", "appTags", "auditEvents", "auth", "common", "cron", "databases", "overview", "teams", "timeline", "variables"],
-  "/_console/databases/$engine/$name/backups": ["appPages", "apps", "cron", "databases", "dumpImport", "policyScope", "queue"],
+  "/_console/databases/$engine/$name/backups": ["appPages", "apps", "backups", "cron", "databases", "dumpImport", "policyScope", "queue"],
   "/_console/databases/$engine/$name/connect": ["appPages", "apps", "databases", "publicAccess", "queue"],
   "/_console/databases/$engine/$name/data": ["databases"],
   "/_console/databases/$engine/$name/metrics": ["activity", "auditEvents", "auth", "common", "databases", "overview", "timeline"],
