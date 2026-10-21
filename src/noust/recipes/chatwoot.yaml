@@ -7,8 +7,9 @@
 # (the public address), the database and Redis URLs, FORCE_SSL false because nginx ends TLS, and
 # ENABLE_ACCOUNT_SIGNUP false so that the only way to create an account is the onboarding the
 # first visit shows (/installation/onboarding), which the first note says. The upload storage is
-# local disk under /app/storage. /auth/sign_in is the plainest page that answers without a
-# session.
+# local disk under /app/storage. /api answers 200 with the version and whether its queue and
+# data services are up, without a session; /auth/sign_in is not a gate path: it redirects to the
+# configured frontend address and Rails refuses a redirect to another host with a 500.
 #
 # Pinned to the release tag and to the digests Docker Hub serves for it.
 schema: 2
@@ -42,7 +43,7 @@ variables:
     generate: password32
     description: The password of the stack's PostgreSQL account.
 health:
-  path: /auth/sign_in
+  path: /api
   expect: "200"
   timeout: 600
 files: {noust.yaml: noust.yaml, noust.nginx.yaml: noust.nginx.yaml}

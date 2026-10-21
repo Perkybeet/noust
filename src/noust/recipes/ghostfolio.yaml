@@ -5,7 +5,9 @@
 # REDIS_PASSWORD, ACCESS_TOKEN_SALT (salts the security tokens people sign in with) and
 # JWT_SECRET_KEY. The image migrates the database when it starts. The first user to sign up
 # becomes the administrator, which the first note says. /api/v1/health answers without a
-# sign-in.
+# sign-in. The connection string says sslmode=disable: the database is the stack's own PostgreSQL on
+# a private network without TLS, and the image's Prisma 7 driver reads the guide's sslmode=prefer
+# as require and stops at its seed with "The server does not support SSL connections".
 #
 # Pinned to the release tag and to the digests Docker Hub serves for it.
 schema: 2
@@ -60,7 +62,7 @@ compose: |
         NODE_ENV: production
         ACCESS_TOKEN_SALT: "${ACCESS_TOKEN_SALT}"
         JWT_SECRET_KEY: "${JWT_SECRET_KEY}"
-        DATABASE_URL: "postgresql://ghostfolio:${DB_PASSWORD}@db:5432/ghostfolio?connect_timeout=300&sslmode=prefer"
+        DATABASE_URL: "postgresql://ghostfolio:${DB_PASSWORD}@db:5432/ghostfolio?connect_timeout=300&sslmode=disable"
         REDIS_HOST: redis
         REDIS_PORT: "6379"
         REDIS_PASSWORD: "${REDIS_PASSWORD}"
