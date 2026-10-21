@@ -4,7 +4,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BellPlus, CheckCheck, Pencil, Undo2 } from "lucide-react";
+import { CheckCheck, Pencil, Undo2 } from "lucide-react";
 import { useState } from "react";
 
 import { acknowledgeAlert, alertKeys, alertRulesQuery, handBackAlert, removeAlertRule, switchAlertRule } from "../../../api/queries/alerts";
@@ -192,14 +192,12 @@ function Rules({ data, onCreate }: { data: AlertRuleList; onCreate: () => void }
       )}
       {data.items.length === 0 ? (
         <EmptyState
-          variant="firstUse"
-          level={3}
-          icon={<BellPlus />}
+          variant="inline"
           title={t("alerts.rules.emptyTitle")}
           description={t("alerts.rules.emptyDescription")}
           // With no rule the header has no button: the empty state's is the one way to add the first.
           action={
-            <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
+            <Button size="sm" variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
               {t("alerts.rules.new")}
             </Button>
           }

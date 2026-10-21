@@ -26,7 +26,7 @@ export const alerts: Catalog<typeof en> = {
   },
   rules: {
     title: "Reglas de alerta",
-    description: "Avísame cuando una medición se mantiene más allá de un límite. El monitor juzga las reglas cada minuto y envía el mensaje a tus canales. Reconocer una alerta activa detiene sus recordatorios y nunca la resuelve.",
+    description: "Avísame cuando una medición se mantiene más allá de un límite. Reconocer una alerta activa detiene sus recordatorios; nunca la resuelve.",
     new: "Nueva regla",
     listLabel: "Reglas de alerta",
     emptyTitle: "Todavía no hay reglas de alerta",
@@ -110,7 +110,7 @@ export const alerts: Catalog<typeof en> = {
   },
   thresholds: {
     title: "Comprobaciones incluidas",
-    description: "Lo que el monitor anuncia sin una regla tuya. El propio monitor se activa desde el resumen del servidor.",
+    description: "Lo que el monitor anuncia sin una regla tuya.",
     errorTitle: "No se pudieron guardar las comprobaciones",
     disks: {
       title: "Discos",

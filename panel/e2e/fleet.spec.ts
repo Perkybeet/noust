@@ -314,6 +314,22 @@ withFleet(
   },
 );
 
+withFleet("the old Settings > Servers address is the fleet's list, and the add flow it asked for opens there and stays there", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/settings/servers?add=true");
+  // One list of servers: the old address goes to it, and the link that asks for the flow is spent in place.
+  await expect(page).toHaveURL(/\/fleet\/servers$/);
+  const dialog = page.getByRole("dialog", { name: "Add a server" });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/fleet\/servers$/);
+  await expect(page.getByRole("region", { name: "Servers of this fleet" })).toBeVisible();
+  // Opening it from the list does not leave the list either.
+  await page.getByRole("button", { name: "Add a server" }).click();
+  await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL(/\/fleet\/servers$/);
+});
+
 withFleet("Fleet > Servers shows the node and the add flow's first step", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/fleet/servers");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Fleet");

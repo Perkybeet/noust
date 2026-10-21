@@ -165,7 +165,7 @@ describe("Settings > Alerts", () => {
     expect(within(firing).queryByText(/Acknowledged by/)).toBeNull();
     expect(within(ruleRow("cpu-high")).queryByRole("button", { name: /Acknowledge the alert/ })).toBeNull();
     // The page says once what acknowledging does and does not do.
-    expect(screen.getByText(/Acknowledging an alert that is firing stops its reminders and never resolves it/)).toBeInTheDocument();
+    expect(screen.getByText(/Acknowledging a firing alert stops its reminders; it never resolves it/)).toBeInTheDocument();
 
     await user.click(within(firing).getByRole("button", { name: "Acknowledge the alert for shop.example.com" }));
 

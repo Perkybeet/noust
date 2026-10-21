@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, ChevronDown, ChevronRight, Pencil, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 import { checkProbe, probeHistoryQuery, probeKeys, probesQuery, removeProbe, saveProbe } from "../../../api/queries/probes";
@@ -251,14 +251,12 @@ function Probes({ data, onCreate }: { data: ProbeListData; onCreate: () => void 
       )}
       {data.items.length === 0 ? (
         <EmptyState
-          variant="firstUse"
-          level={3}
-          icon={<Activity />}
+          variant="inline"
           title={t("probes.emptyTitle")}
           description={t("probes.emptyDescription")}
           // With no probe the header has no button: the empty state's is the one way to add the first.
           action={
-            <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
+            <Button size="sm" variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
               {t("probes.new")}
             </Button>
           }

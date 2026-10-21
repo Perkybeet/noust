@@ -27,7 +27,7 @@ export const alerts = {
   },
   rules: {
     title: "Alert rules",
-    description: "Tell me when a measurement stays past a limit. The monitor judges the rules every minute and sends the message to your channels. Acknowledging an alert that is firing stops its reminders and never resolves it.",
+    description: "Tell me when a measurement stays past a limit. Acknowledging a firing alert stops its reminders; it never resolves it.",
     new: "New rule",
     listLabel: "Alert rules",
     emptyTitle: "No alert rules yet",
@@ -111,7 +111,7 @@ export const alerts = {
   },
   thresholds: {
     title: "Built-in checks",
-    description: "What the monitor announces without a rule of yours. The monitor itself is switched on from the server's overview.",
+    description: "What the monitor announces without a rule of yours.",
     errorTitle: "Could not save the checks",
     disks: {
       title: "Disks",

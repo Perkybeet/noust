@@ -99,7 +99,6 @@
       "Tag": 4,
       "Tags": 2,
       "The same, from a terminal": 2,
-      "Time range": 3,
       "To": 2,
       "Update": 2,
       "View": 2,
@@ -155,7 +154,7 @@
       "consoleAccess": 1
     },
     "en:reading": {
-      "appPages": 2,
+      "appPages": 1,
       "appTraffic": 1,
       "backups": 1,
       "catalog": 1,
@@ -173,7 +172,7 @@
       "overview": 1,
       "promotion": 1,
       "runtime": 1,
-      "server": 5,
+      "server": 4,
       "settings": 2,
       "ssoAdmin": 1,
       "teams": 4
@@ -219,7 +218,7 @@
       "cron": 1,
       "databases": 13,
       "domains": 3,
-      "dumpImport": 2,
+      "dumpImport": 1,
       "fleet": 1,
       "manifestPreview": 2,
       "network": 1,
@@ -253,7 +252,7 @@
       "settings": 1
     },
     "es:leyendo": {
-      "appPages": 2,
+      "appPages": 1,
       "appTraffic": 1,
       "backups": 1,
       "catalog": 1,
@@ -271,7 +270,7 @@
       "overview": 1,
       "promotion": 1,
       "runtime": 1,
-      "server": 5,
+      "server": 4,
       "settings": 2,
       "ssoAdmin": 1,
       "teams": 4

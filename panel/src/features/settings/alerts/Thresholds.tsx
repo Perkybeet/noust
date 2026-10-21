@@ -18,6 +18,7 @@ import { Checkbox } from "../../../components/ui/Checkbox";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { useT } from "../../../i18n";
+import { cx } from "../../../lib/cx";
 import type { PlainKey } from "../../../i18n";
 import { FormFailure } from "../SettingsForm";
 import type { SettingsForm } from "../useSettingsForm";
@@ -182,47 +183,49 @@ function CheckRow({ check, form, kept, onKeep }: { check: Check; form: SettingsF
   const offKey = check.off;
   const defaultOn = check.fields.find((field) => field.key === offKey)?.fallback ?? 0;
   const fields = switchable && !on ? [] : check.fields;
+  // One number sits beside what the check says (a row of 76px), several are a line under it: the page is the monitor's
+  // whole list of checks and a screen and a half is what it may take (FM-8).
+  const alone = fields.length === 1;
+  const header = switchable && offKey !== undefined ? (
+    <Checkbox
+      label={t(check.title)}
+      description={t(check.description)}
+      checked={on}
+      disabled={values === undefined}
+      onCheckedChange={(next) => {
+        if (next) {
+          // Back to what it held before it was ticked off, or to the server's own default.
+          form.set(offKey, kept[offKey] ?? String(defaultOn));
+        } else {
+          onKeep(offKey, values?.[offKey] ?? String(defaultOn));
+          form.set(offKey, "0");
+        }
+      }}
+    />
+  ) : (
+    <div className="flex min-w-0 flex-col">
+      <p className="text-13 font-medium text-fg">{t(check.title)}</p>
+      <p className="text-12 text-pretty text-fg-muted">{t(check.description)}</p>
+    </div>
+  );
+  const numbers = fields.map((setting) => (
+    <Field key={setting.key} label={t(setting.label)} {...(setting.description !== undefined ? { description: t(setting.description) } : {})} error={form.fieldErrors[setting.key]}>
+      <Input
+        mono
+        inputMode={setting.decimal === true ? "decimal" : "numeric"}
+        value={values?.[setting.key] ?? ""}
+        disabled={values === undefined}
+        onValueChange={(next: string) => {
+          form.set(setting.key, next);
+        }}
+      />
+    </Field>
+  ));
   return (
-    <div className="flex min-w-0 flex-col gap-3 px-5 py-4">
-      {switchable && offKey !== undefined ? (
-        <Checkbox
-          label={t(check.title)}
-          description={t(check.description)}
-          checked={on}
-          disabled={values === undefined}
-          onCheckedChange={(next) => {
-            if (next) {
-              // Back to what it held before it was ticked off, or to the server's own default.
-              form.set(offKey, kept[offKey] ?? String(defaultOn));
-            } else {
-              onKeep(offKey, values?.[offKey] ?? String(defaultOn));
-              form.set(offKey, "0");
-            }
-          }}
-        />
-      ) : (
-        <div className="flex min-w-0 flex-col">
-          <p className="text-13 font-medium text-fg">{t(check.title)}</p>
-          <p className="text-12 text-pretty text-fg-muted">{t(check.description)}</p>
-        </div>
-      )}
-      {fields.length > 0 ? (
-        <div className={switchable ? "grid min-w-0 gap-x-6 gap-y-4 sm:grid-cols-2 sm:pl-6" : "grid min-w-0 gap-x-6 gap-y-4 sm:grid-cols-2"}>
-          {fields.map((setting) => (
-            <Field key={setting.key} label={t(setting.label)} {...(setting.description !== undefined ? { description: t(setting.description) } : {})} error={form.fieldErrors[setting.key]}>
-              <Input
-                mono
-                inputMode={setting.decimal === true ? "decimal" : "numeric"}
-                value={values?.[setting.key] ?? ""}
-                disabled={values === undefined}
-                onValueChange={(next: string) => {
-                  form.set(setting.key, next);
-                }}
-              />
-            </Field>
-          ))}
-        </div>
-      ) : null}
+    <div className={cx("flex min-w-0 gap-2.5 px-5 py-2.5", alone ? "flex-col sm:flex-row sm:items-start sm:justify-between sm:gap-8" : "flex-col")}>
+      <div className="min-w-0 sm:max-w-xl">{header}</div>
+      {alone ? <div className="w-full sm:w-48 sm:shrink-0">{numbers}</div> : null}
+      {fields.length > 1 ? <div className={cx("grid min-w-0 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3", switchable && "sm:pl-6")}>{numbers}</div> : null}
     </div>
   );
 }
