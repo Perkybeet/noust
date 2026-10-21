@@ -267,7 +267,7 @@ function PreviewSettingsForm({
           )
         }
       >
-        {enabled ? null : <Needs domain={domain} base={null} />}
+        {enabled ? undefined : <Needs domain={domain} base={null} />}
       </Card>
       <form id="preview-settings" onSubmit={enabled ? (event) => { event.preventDefault(); bar.onSave(); } : turnOn} noValidate className="flex flex-col gap-4">
         <Card title={t("appSettings.previews.settingsTitle")} icon={SETTINGS_ICONS.limits}>
