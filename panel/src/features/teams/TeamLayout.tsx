@@ -10,6 +10,7 @@ import { announce } from "../../app/Announcer";
 import { LinkTabs } from "../../app/LinkTabs";
 import { TEAM_TABS } from "../nav/team";
 import { DetailPage } from "../../components/page/DetailPage";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -36,11 +37,10 @@ export function useTeam(): TeamDetail {
 function BodySkeleton({ slug }: { slug: string }) {
   const t = useT();
   return (
-    <div aria-busy="true" className="flex flex-col gap-8">
-      <span className="sr-only">{t("teams.team.loading", { name: slug })}</span>
+    <LoadingRegion label={t("teams.team.loading", { name: slug })} className="flex flex-col gap-8">
       <Skeleton className="h-10 w-full max-w-xl" />
       <Skeleton className="h-64 w-full rounded-card" />
-    </div>
+    </LoadingRegion>
   );
 }
 

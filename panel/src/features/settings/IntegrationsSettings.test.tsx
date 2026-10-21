@@ -113,8 +113,11 @@ describe("Settings > Integrations", () => {
     renderConsole("/settings/integrations");
     const tabs = await screen.findByRole("navigation", { name: "Settings sections" });
     expect(within(tabs).getByRole("link", { name: "Integrations" })).toHaveAttribute("aria-current", "page");
-    // About is the last section on a lone server, after everything that is configured.
-    expect(within(tabs).getAllByRole("link").at(-1)).toHaveAccessibleName("About");
+    // About closes the group of this server, right after Integrations.
+    const names = within(tabs)
+      .getAllByRole("link")
+      .map((link) => link.textContent);
+    expect(names.indexOf("About Noust")).toBe(names.indexOf("Integrations") + 1);
   });
 
   it("gives a scraper the address to ask, an entry to paste and what credential it needs, and never a token", { timeout: 20_000 }, async () => {

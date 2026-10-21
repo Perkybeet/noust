@@ -144,7 +144,6 @@
       "server": 1
     },
     "en:old-names": {
-      "nav": 1,
       "runtime": 2
     },
     "en:open-capitalised": {
@@ -168,15 +167,14 @@
       "logSearch": 1,
       "newApp": 5,
       "nodeTools": 1,
-      "notifyRouting": 3,
+      "notifyRouting": 2,
       "overview": 1,
       "probes": 1,
       "promotion": 1,
       "runtime": 1,
       "server": 5,
       "settings": 2,
-      "ssoAdmin": 1,
-      "teams": 4
+      "ssoAdmin": 1
     },
     "en:retry-variants": {
       "apps": 1,
@@ -269,15 +267,14 @@
       "logSearch": 1,
       "newApp": 5,
       "nodeTools": 1,
-      "notifyRouting": 3,
+      "notifyRouting": 2,
       "overview": 1,
       "probes": 1,
       "promotion": 1,
       "runtime": 1,
       "server": 5,
       "settings": 2,
-      "ssoAdmin": 1,
-      "teams": 4
+      "ssoAdmin": 1
     },
     "es:log-word": {
       "fleet": 5,
@@ -289,7 +286,6 @@
       "settings": 1
     },
     "es:old-names": {
-      "nav": 1,
       "runtime": 2
     },
     "es:parar-arrancar": {

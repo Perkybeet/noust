@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Bell, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -237,5 +238,32 @@ describe("SettingsLayout, a long list", () => {
     await expectNoAxeViolations(container);
     await userEvent.type(screen.getByRole("searchbox", { name: "Filter sections" }), "section 1");
     await expectNoAxeViolations(container);
+  });
+});
+
+describe("SettingsLayout, the icon of a section", () => {
+  it("is drawn before its name, hidden from assistive technology, in the quiet colour of the list and red for what destroys", async () => {
+    await renderRouted(
+      <SettingsLayout label="Settings" items={[{ to: "/settings/bell", label: "Channels", icon: Bell }, { to: "/settings/gone", label: "Delete", icon: Trash2, danger: true }]}>
+        <p>x</p>
+      </SettingsLayout>,
+    );
+    const channels = within(nav()).getByRole("link", { name: "Channels" });
+    const icon = channels.querySelector("svg");
+    expect(icon).not.toBeNull();
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+    expect(icon).toHaveClass("size-icon-md", "text-fg-faint");
+    expect(channels.textContent).toBe("Channels");
+    const gone = within(nav()).getByRole("link", { name: "Delete" }).querySelector("svg");
+    expect(gone).toHaveClass("text-fail");
+  });
+
+  it("is optional: a list of names alone has no empty room before them", async () => {
+    await renderRouted(
+      <SettingsLayout label="Settings" items={sections(2)}>
+        <p>x</p>
+      </SettingsLayout>,
+    );
+    expect(nav().querySelector("svg")).toBeNull();
   });
 });

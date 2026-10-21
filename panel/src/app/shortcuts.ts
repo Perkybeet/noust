@@ -9,7 +9,7 @@
 import { useEffect, useRef } from "react";
 
 export interface KeyBinding {
-  /** Keys pressed one after the other, as KeyboardEvent.key values: ["g", "a"] or ["?"]. */
+  /** Keys pressed one after the other, as `shortcutKey` names them: ["g", "a"] or ["?"]. */
   keys: readonly string[];
   /** What it does, for the shortcuts dialog. */
   description: string;
@@ -69,7 +69,8 @@ export function createKeySequenceHandler(
     if (at - lastAt > timeoutMs) pending = [];
     lastAt = at;
 
-    for (const candidate of [[...pending, event.key], [event.key]]) {
+    const key = shortcutKey(event);
+    for (const candidate of [[...pending, key], [key]]) {
       const match = bindings.find((binding) => binding.keys.length === candidate.length && startsWith(binding.keys, candidate));
       if (match) {
         event.preventDefault();
@@ -84,6 +85,27 @@ export function createKeySequenceHandler(
     }
     pending = [];
   };
+}
+
+const LETTER = /^\p{L}$/u;
+const LATIN_LETTER = /^\p{Script=Latin}$/u;
+
+/**
+ * What a key press stands for when it is matched against a shortcut (NV-6). The character the key
+ * produces when that is a Latin letter or a symbol - so a shortcut works on AZERTY, QWERTZ and
+ * Dvorak, where the key labelled "a" is somewhere else - and the letter of the physical key
+ * (`event.code`) when the layout produces a letter of another script (Cyrillic, Greek, Arabic),
+ * where `event.key` is a character no binding names. A Latin letter is lower case, so Caps Lock does
+ * not make `g a` stop working.
+ */
+export function shortcutKey(event: Pick<KeyboardEvent, "key" | "code">): string {
+  const { key, code } = event;
+  if (LATIN_LETTER.test(key)) return key.toLowerCase();
+  if (LETTER.test(key)) {
+    const physical = /^Key([A-Z])$/.exec(code);
+    return physical?.[1]?.toLowerCase() ?? key;
+  }
+  return key;
 }
 
 /** Listens for the bindings on the document while the calling component is mounted. */

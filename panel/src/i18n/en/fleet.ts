@@ -37,20 +37,23 @@ export const fleet = {
     viewAll: "View all servers",
     viewCentral: "Open this central's settings, {name}",
     keywords: "server node fleet machine switch central all",
-    backTo: "Back to {name}",
-    backToLabel: "Back to {name}, the server you were on",
+    /** The second line of the selector at the head of the sidebar. */
+    lineServer: "Server",
+    lineServers: { one: "{count} server", other: "{count} servers" },
+    lineNeed: { one: "{count} needs you", other: "{count} need you" },
+    addServer: "Add a server",
   },
   shell: {
     noticeLabel: "About {node}",
+    ceilingTitle: "Limited access on {node}",
+    versionTitle: "{node} runs another Noust",
     olderNode:
       "{node} runs Noust {nodeVersion}, older than this server's {version}. A page that needs something {node} does not have says so.",
-    newerNode:
-      "{node} runs Noust {nodeVersion}, newer than this server's {version}. This console shows only what it knows; update this server to use everything {node} offers.",
+    newerNode: "{node} runs Noust {nodeVersion}, newer than this server's {version}. Update this server to use everything {node} offers.",
     unknownNode: "This server has no node named {node}.",
     backToThisServer: "Go to this server",
     readOnly: "{node} lets this central only read. Anything that changes {node} from here is refused there, on purpose.",
-    deployOnly:
-      "{node} lets this central operate, update and roll back its applications, not create, delete or configure anything. Those are refused there, on purpose.",
+    deployOnly: "{node} lets this central operate, update and roll back applications. Creating, deleting and configuring are refused there, on purpose.",
   },
   capability: {
     notAvailable: "Not available on {node} (Noust {version})",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { APP_SETTINGS_SCREENS } from "../../nav/app";
+import { iconOf } from "../../nav/icons";
 import { SETTINGS_GROUPS, SETTINGS_SECTIONS } from "./sections";
 
 const ROOT = "/apps/$domain/settings";
@@ -9,8 +10,8 @@ describe("the subsections of an application's settings", () => {
   it("are the register's, in its order, so the side list, the palette and the icons are one list", () => {
     const drawn = SETTINGS_SECTIONS.slice(1);
     expect(drawn.map((section) => [section.path, section.label, section.group])).toEqual(APP_SETTINGS_SCREENS.map((screen) => [screen.to.slice(ROOT.length), screen.label, screen.group]));
-    // An icon the register gives a destination reaches the list; none is drawn here.
-    expect(drawn.map((section) => section.icon)).toEqual(APP_SETTINGS_SCREENS.map((screen) => screen.icon));
+    // The icon of each is the register's (features/nav/icons.ts); none is chosen here.
+    expect(drawn.map((section) => section.icon)).toEqual(APP_SETTINGS_SCREENS.map((screen) => iconOf(screen)));
   });
 
   it("open with General, which has no group, and set Delete apart at the end", () => {

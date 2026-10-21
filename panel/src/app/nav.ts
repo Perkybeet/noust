@@ -29,28 +29,27 @@ import { ACCOUNT_SCREENS } from "../features/nav/account";
 import { APP_SCREENS, APP_SETTINGS_SCREENS } from "../features/nav/app";
 import { APPS_SCREENS } from "../features/nav/apps";
 import { BACKUPS_SCREENS } from "../features/nav/backups";
-import { CATALOG_SCREENS } from "../features/nav/catalog";
 import { DATABASES_SCREENS, DATABASE_SCREENS } from "../features/nav/databases";
 import { DOMAINS_SCREENS } from "../features/nav/domains";
 import { FLEET_SCREENS } from "../features/nav/fleet";
+import { iconOf, sectionIcon } from "../features/nav/icons";
 import { ACTIVITY_SCREENS, CRON_SCREENS, LOGS_SCREENS } from "../features/nav/machine";
 import { OVERVIEW_SCREENS } from "../features/nav/overview";
 import { PROJECTS_SCREENS } from "../features/nav/projects";
 import { SERVER_SCREENS, SERVICE_SCREENS } from "../features/nav/server";
-import { SETTINGS_SCREENS } from "../features/nav/settings";
+import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../features/nav/settings";
+import type { SettingsBlock } from "../features/nav/settings";
 import { TEAM_SCREENS } from "../features/nav/team";
 import type { PlainKey } from "../i18n";
 import { REDIRECT_ROWS } from "./redirects";
 import { shown, tabsOf } from "./navCore";
-import type { ConsolePath, Dest, NavContext, Owner, Scope, TabItem } from "./navCore";
+import type { ConsolePath, Dest, NavContext, Scope, TabItem } from "./navCore";
 
 export { INTERIM, isStaged, tabsOf, withCounts } from "./navCore";
 export type { ConsolePath, Dest, Kind, NavContext, Owner, Scope, Strip, TabItem, When } from "./navCore";
 export { APP_TABS } from "../features/nav/app";
 export { FLEET_TABS } from "../features/nav/fleet";
 export type { FleetTabItem } from "../features/nav/fleet";
-export { SETTINGS_TABS } from "../features/nav/settings";
-export type { SettingsScope, SettingsTabItem } from "../features/nav/settings";
 export { TEAM_TABS } from "../features/nav/team";
 
 /** The register itself, filled in the order the lists draw the groups. */
@@ -60,20 +59,19 @@ const BY_ID = new Map<string, Dest>();
 /** Every screen, in the order its list draws it. */
 export const DESTS: readonly Dest[] = REGISTERED;
 
-// The server scope first, groups separated by space (on a fleet the sidebar heads them with the
-// server's name), then what is under them, then the fleet, Settings and the account.
+// The server scope first, in its three groups separated by space (what runs, what happens, the
+// machine), then what is under them, then the fleet, Settings and the account.
 for (const group of [
   OVERVIEW_SCREENS,
   PROJECTS_SCREENS,
   APPS_SCREENS,
-  CATALOG_SCREENS,
   DATABASES_SCREENS,
   DOMAINS_SCREENS,
   BACKUPS_SCREENS,
-  SERVER_SCREENS,
   CRON_SCREENS,
   LOGS_SCREENS,
   ACTIVITY_SCREENS,
+  SERVER_SCREENS,
   SERVICE_SCREENS,
   DATABASE_SCREENS,
   APP_SCREENS,
@@ -127,23 +125,6 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
 export const PLANNED: readonly { id: string; to: string; lane: string }[] = [
 ];
 
-/**
- * What the screens that changed their name were called before, as palette search words (NV-5):
- * an operator who knew "Console access" still finds it. Keys, so the old name is translated.
- */
-export const RENAMED: Readonly<Record<string, readonly PlainKey[]>> = {
-  domains: ["nav.renamed.domains"],
-  "settings.notifications": ["nav.renamed.notifications"],
-  "settings.alerts": ["nav.renamed.alerts"],
-  "settings.console": ["nav.renamed.console"],
-  "settings.about": ["nav.renamed.about"],
-  "settings.access": ["nav.renamed.access"],
-  "settings.compliance": ["nav.renamed.compliance"],
-  "settings.probes": ["nav.renamed.probes"],
-  "settings.log-shipping": ["nav.renamed.logShipping"],
-  "account.security": ["nav.renamed.security"],
-};
-
 /** An old address and where its screen is now (2.9 of the navigation design). */
 export interface Redirect {
   from: ConsolePath;
@@ -157,6 +138,8 @@ export interface Redirect {
    */
   state: "live" | "pending";
   after?: string;
+  /** The destination is a page of one thing with no filters: whatever search the old address carried is dropped. */
+  plain?: true;
 }
 
 /**
@@ -182,36 +165,16 @@ export function tabsById(id: string, ctx: NavContext = {}): TabItem[] {
   return tabsOf([dest(id), ...REGISTERED.filter((entry) => entry.parent === id)], ctx);
 }
 
-/** The block of Settings a section is in: the selected server's own, or the instance's. */
-export type SettingsBlock = "server" | "instance";
+export { RENAMED, SETTINGS_GROUPS, groupSettings, settingsGroupOf } from "../features/nav/settings";
+export type { SettingsBlock } from "../features/nav/settings";
 
-/** The groups of each block, in the order they are drawn. The ids are titled by whoever draws them. */
-export const SETTINGS_GROUPS: Readonly<Record<SettingsBlock, readonly string[]>> = {
-  server: ["this-server", "monitoring", "developers"],
-  instance: ["people", "governance", "fleet"],
-};
-
-const BLOCK_OWNERS: Readonly<Record<SettingsBlock, readonly Owner[]>> = { server: ["server"], instance: ["instance", "fleet"] };
-
-/** The group of a section: General, which is Settings' own page, is the first of "This server". */
-function settingsGroupOf(entry: Dest): string {
-  return entry.id === "settings" ? "this-server" : entry.group === undefined || entry.group === "" ? "this-server" : entry.group;
-}
-
-function settingsEntries(ctx: NavContext): Dest[] {
-  return REGISTERED.filter((entry) => (entry.id === "settings" || (entry.parent === "settings" && entry.kind === "section")) && shown(entry, ctx));
-}
-
-/**
- * The sections of Settings a block holds, in titled groups. The account's own sections are not
- * Settings (NV-7): they leave for /account, so no block holds them.
- */
+/** The sections of Settings a block holds, in titled groups, from the whole register. */
 export function settingsGroups(block: SettingsBlock, ctx: NavContext = {}): { id: string; sections: Dest[] }[] {
-  const entries = settingsEntries(ctx).filter((entry) => entry.owner !== undefined && BLOCK_OWNERS[block].includes(entry.owner));
-  return SETTINGS_GROUPS[block].flatMap((id) => {
-    const sections = entries.filter((entry) => settingsGroupOf(entry) === id);
-    return sections.length > 0 ? [{ id, sections }] : [];
-  });
+  return groupSettings(
+    REGISTERED.filter((entry) => entry.id === "settings" || entry.parent === "settings"),
+    block,
+    ctx,
+  );
 }
 
 /** The entries above one, root first: where it sits in the tree. A resource's own page stays in the chain, for its name to replace. */
@@ -225,14 +188,56 @@ export function crumbsOf(id: string): Dest[] {
   return chain;
 }
 
-/** The `g` shortcuts, in the order the shortcut list shows them. */
-export function shortcuts(): { id: string; keys: readonly string[]; description: PlainKey; to: ConsolePath }[] {
-  return REGISTERED.flatMap((entry) => (entry.shortcut !== undefined && entry.goTo !== undefined ? [{ id: entry.id, keys: entry.shortcut, description: entry.goTo, to: entry.to }] : []));
+/** Whether `path` is `prefix` or beneath it. */
+export function isUnder(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(prefix === "/" ? "//" : `${prefix}/`);
+}
+
+/** The static start of a path with parameters: `/teams/$team/members` begins at `/teams`. */
+export function staticPrefix(to: string): string {
+  const at = to.indexOf("/$");
+  return at <= 0 ? to : to.slice(0, at);
+}
+
+/** The area, or the resource, an entry belongs to: where its chain of parents ends. */
+function rootOf(entry: Dest): Dest {
+  let current = entry;
+  for (let guard = 0; current.parent !== undefined && guard < 8; guard += 1) current = dest(current.parent);
+  return current;
+}
+
+/**
+ * The addresses that keep an area lit in the sidebar besides its own: the screens that are under
+ * it in the tree but live at another start (the recipes are at `/catalog` and belong to
+ * Applications, a team's pages are at `/teams` and belong to Projects, the Map is Overview's).
+ */
+export function litBy(area: Dest): string[] {
+  const own = staticPrefix(area.to);
+  const others = REGISTERED.filter((entry) => entry !== area && rootOf(entry) === area).map((entry) => staticPrefix(entry.to));
+  return [...new Set(others.filter((prefix) => !isUnder(prefix, own)))];
+}
+
+/**
+ * The `g` shortcuts, in the order the shortcut list shows them, of one scope (or of all). Settings
+ * is in both: the same two keys open it from a server and from the fleet.
+ */
+export function shortcuts(scope?: Scope): { id: string; keys: readonly string[]; description: PlainKey; to: ConsolePath }[] {
+  return REGISTERED.flatMap((entry) => {
+    if (entry.shortcut === undefined || entry.goTo === undefined) return [];
+    if (scope !== undefined && entry.scope !== "both" && entry.scope !== scope) return [];
+    return [{ id: entry.id, keys: entry.shortcut, description: entry.goTo, to: entry.to }];
+  });
+}
+
+/** The icon of the area a screen is under: every area has one, and a screen that is not under one is a typo in the register. */
+function areaIcon(entry: Dest): LucideIcon {
+  return iconOf(rootOf(entry));
 }
 
 export interface PaletteEntry {
   id: string;
   to: ConsolePath;
+  scope: Scope | "both";
   /** What the palette lists it as: its label, its phrase, or its place in text. */
   text: string;
   /** Where it lives, in words: "Server › System updates". */
@@ -240,6 +245,8 @@ export interface PaletteEntry {
   /** Search words, the old names included. */
   keywords: string;
   shortcut?: readonly string[];
+  /** What it is, drawn: the same in every list (features/nav/icons.ts). */
+  icon: LucideIcon;
 }
 
 export interface PaletteContext extends NavContext {
@@ -256,54 +263,18 @@ export function paletteEntries(ctx: PaletteContext): PaletteEntry[] {
   return REGISTERED.filter((entry) => !entry.to.includes("$") && shown(entry, ctx)).map((entry) => {
     const place = [...crumbsOf(entry.id), entry].filter((step) => step.kind !== "hidden" || step === entry).map((step) => t(step.label));
     const old = (RENAMED[entry.id] ?? []).map((key) => t(key));
+    // The fleet's destinations are named by their phrase ("Certificates on every server"): their bare name is also a server's.
+    const bare = entry.kind === "area" && entry.scope !== "fleet";
     return {
       id: entry.id,
       to: entry.to,
-      text: entry.kind === "area" ? t(entry.label) : entry.command !== undefined ? t(entry.command) : place.join(" › "),
+      scope: entry.scope,
+      text: bare ? t(entry.label) : entry.command !== undefined ? t(entry.command) : place.join(" › "),
       path: place.join(" › "),
       keywords: [entry.keywords !== undefined ? t(entry.keywords) : "", ...old].join(" ").trim(),
       ...(entry.shortcut !== undefined ? { shortcut: entry.shortcut } : {}),
+      // A tab has no icon of its own: the area's it is under.
+      icon: sectionIcon(entry) ?? areaIcon(entry),
     };
   });
 }
-
-// What the components that predate the register read. They are derived from it, never written by
-// hand again; the next steps of the navigation work (the sidebar, the settings list, the palette)
-// read the derivations above and these go.
-
-/** A destination of the sidebar, as the sidebar and the palette draw it. */
-export interface NavItem {
-  label: PlainKey;
-  to: ConsolePath;
-  icon: LucideIcon;
-  /** The two-key shortcut that opens it, such as ["g", "a"], and what the shortcut list calls it. */
-  shortcut?: { keys: readonly string[]; description: PlainKey };
-  /** Other words an operator might type for it in the palette. */
-  keywords?: PlainKey;
-  /**
-   * Offered only where there is something to organise: more than one team, project or
-   * environment, or someone who may start (`teams.manage`). A server nobody organised in
-   * teams shows everyone else the sidebar it always had.
-   */
-  when?: "organised";
-}
-
-function navItem(entry: Dest): NavItem {
-  if (entry.icon === undefined) throw new Error(`the area "${entry.id}" has no icon`);
-  return {
-    label: entry.label,
-    to: entry.to,
-    icon: entry.icon,
-    ...(entry.shortcut !== undefined && entry.goTo !== undefined ? { shortcut: { keys: entry.shortcut, description: entry.goTo } } : {}),
-    ...(entry.keywords !== undefined ? { keywords: entry.keywords } : {}),
-    ...(entry.when === "organised" ? { when: "organised" as const } : {}),
-  };
-}
-
-/** A server's destinations in the sidebar, top to bottom: what it runs, then the machine itself. */
-export const NAV_GROUPS: readonly (readonly NavItem[])[] = sidebarFor("server").map((group) => group.map(navItem));
-
-/** The fleet, every server at once ("All servers"): in the sidebar of a central that manages servers, or of a hub. */
-export const FLEET_ITEM: NavItem = navItem(dest("fleet"));
-
-export const SETTINGS_ITEM: NavItem = navItem(dest("settings"));

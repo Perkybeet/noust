@@ -10,6 +10,7 @@ import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section } from "../../components/page/Section";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { Dialog } from "../../components/ui/Dialog";
@@ -123,7 +124,7 @@ export function SessionsSection() {
   ];
 
   return (
-    <Section title={t("settings.security.sessions.title")} description={t("settings.security.sessions.description")}>
+    <Section title={t("settings.security.sessions.title")} icon={OBJECT_ICONS.session} description={t("settings.security.sessions.description")}>
       <div className="flex min-w-0 flex-col gap-3">
         <QueryState
           query={query}

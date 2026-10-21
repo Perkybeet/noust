@@ -1,27 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, CircleUser, Keyboard, LogOut, Menu, Search } from "lucide-react";
+import { BookOpen, CircleUser, Keyboard, KeyRound, LogOut, Menu, Search, UserRound } from "lucide-react";
 import { useState } from "react";
 import type { Ref } from "react";
 
 import { sessionQuery } from "../api/queries/auth";
 import { Logo } from "../components/brand/Logo";
-import { Button } from "../components/ui/Button";
+import { Button, buttonClassName } from "../components/ui/Button";
 import { ExternalLink } from "../components/ui/ExternalLink";
 import { IconButton } from "../components/ui/IconButton";
 import { Kbd } from "../components/ui/Kbd";
 import { Mono } from "../components/ui/Mono";
 import { Popover } from "../components/ui/Popover";
+import { LG_UP, useMediaQuery } from "../components/ui/useMediaQuery";
 import { useSignOut } from "../features/auth/useSignOut";
+import { InboxButton } from "../features/inbox/InboxButton";
 import { TeamSwitcher } from "../features/teams/TeamSwitcher";
-import { ServerSelector } from "../nodes/ServerSelector";
-import { useReturnServer } from "../nodes/servers";
-import { useConsoleContext } from "../nodes/useNode";
+import { ScopeSelector } from "../nodes/ScopeSelector";
 import { useT } from "../i18n";
+import { cx } from "../lib/cx";
 import { helpFor, helpUrl } from "./help";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { MachineStrip } from "./MachineStrip";
-import { returnTarget } from "./nodeRoute";
 import { modKeyLabel } from "./shortcuts";
 import { ThemeSwitch } from "./ThemeSwitch";
 import { useTheme } from "./theme";
@@ -42,6 +42,9 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
   const { signOut, pending: signingOut } = useSignOut();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
+  const username = session?.account?.username;
+  const close = (): void => setOpen(false);
+
   return (
     <Popover
       open={open}
@@ -50,13 +53,26 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
       trigger={<IconButton label={t("shell.session.label")} icon={<CircleUser />} tooltip={false} />}
       title={t("shell.session.title")}
       description={
-        session?.hostname !== undefined
-          ? t.rich("shell.session.signedInTo", { hostname: <Mono>{session.hostname}</Mono> })
-          : undefined
+        session?.hostname === undefined
+          ? undefined
+          : username !== undefined
+            ? t.rich("shell.session.signedInAs", { user: <Mono key="user">{username}</Mono>, hostname: <Mono key="host">{session.hostname}</Mono> })
+            : t.rich("shell.session.signedInWithToken", { hostname: <Mono key="host">{session.hostname}</Mono> })
       }
       className="w-72"
     >
       <div className="flex flex-col gap-4">
+        {/* Who is signed in and what is theirs: the account is two clicks from anywhere, and so is turning on the second factor. */}
+        <div className="-mx-2 flex flex-col">
+          <Link to="/account" onClick={close} className={cx(buttonClassName("ghost"), "justify-start")}>
+            <UserRound aria-hidden="true" className="size-icon-md shrink-0" />
+            {t("shell.session.account")}
+          </Link>
+          <Link to="/account/security" onClick={close} className={cx(buttonClassName("ghost"), "justify-start")}>
+            <KeyRound aria-hidden="true" className="size-icon-md shrink-0" />
+            {t("shell.session.signInSecurity")}
+          </Link>
+        </div>
         <div className="flex flex-col gap-1.5">
           <span className="text-12 font-medium text-fg-muted">{t("shell.session.theme")}</span>
           <ThemeSwitch value={theme} onChange={setTheme} />
@@ -97,45 +113,12 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
   );
 }
 
-/**
- * On the fleet's and the central's pages, the way back to the server the operator came from:
- * the same page there when it has one (its settings from the central's), its overview
- * otherwise. Said in words and in mono, never implied.
- */
-function BackToServer() {
-  const t = useT();
-  const context = useConsoleContext();
-  const back = useReturnServer();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  if (context.kind === "server" || back === null) return null;
-  // On the central's pages the selector already names the central's own server: a way "back"
-  // to the machine on screen would only repeat it.
-  if (context.kind === "central" && back.node === null) return null;
-  return (
-    <Link
-      to={returnTarget(pathname)}
-      search={{ node: back.node ?? undefined }}
-      aria-label={t("fleet.selector.backToLabel", { name: back.name })}
-      className="flex h-control-md min-w-0 shrink items-center gap-1.5 rounded-control px-2 text-13 text-fg-muted hover:bg-surface-hover hover:text-fg max-md:hidden"
-    >
-      <ArrowLeft aria-hidden="true" className="size-icon-sm shrink-0" />
-      <span className="min-w-0 truncate">
-        {t.rich("fleet.selector.backTo", {
-          name: (
-            <Mono key="name" tone="default">
-              {back.name}
-            </Mono>
-          ),
-        })}
-      </span>
-    </Link>
-  );
-}
-
 /** The bar over every page: the machine strip, search, the session, and the menu on phones. */
 export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTriggerRef }: TopbarProps) {
   const t = useT();
   const mod = modKeyLabel();
+  // The selector is the head of the sidebar from `lg`; below it, here: a menu in a drawer is not on screen.
+  const wide = useMediaQuery(LG_UP);
   // Left padding of 26px on wide screens: with the hostname link's own 6px, the hostname
   // starts on the same edge as the page title below it.
   return (
@@ -148,8 +131,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTrigge
         <Logo variant="icon" height={22} decorative />
       </Link>
 
-      <ServerSelector />
-      <BackToServer />
+      {wide ? null : <ScopeSelector placement="topbar" />}
       <TeamSwitcher />
 
       <MachineStrip className="flex-1" />
@@ -177,6 +159,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTrigge
           tooltip={false}
           className="md:hidden"
         />
+        <InboxButton />
         <SessionPanel onOpenShortcuts={onOpenShortcuts} />
         <IconButton label={t("shell.menu.open")} icon={<Menu />} onClick={onOpenNav} tooltip={false} className="lg:hidden" />
       </div>

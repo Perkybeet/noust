@@ -1,12 +1,8 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
-/**
- * Settings > Controls: the compliance frameworks and the security profile. Until its page lands
- * (carved out of Settings > Security) it opens the screen that holds them today (app/nav.ts, INTERIM).
- */
+import { ControlsSettings } from "../../../features/settings/compliance/ControlsSettings";
+
+/** Settings > Controls: the compliance frameworks, the controls they are made of and the security profile. */
 export const Route = createFileRoute("/_console/settings/controls")({
-  beforeLoad: () => {
-    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
-    throw redirect({ to: "/settings/security", replace: true });
-  },
+  component: ControlsSettings,
 });

@@ -156,21 +156,27 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
   }
 });
 
-withFleet("the selector says which of the three contexts the console is in, and leads back to the server", async ({ page, consoleServer }) => {
+withFleet("the selector says which of the three contexts the console is in, and the bar follows it", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/n/${NODE_NAME}/apps`);
   await page.getByRole("button", { name: `Server: ${NODE_NAME}` }).click();
   await page.getByRole("menuitemradio", { name: /^All servers/ }).click();
   await expect(page).toHaveURL(/\/fleet$/);
   await expect(page.getByRole("button", { name: "Server: all servers" })).toBeVisible();
 
-  // Never a silent jump: the way back to the node is there, in words.
-  const back = page.getByRole("link", { name: `Back to ${NODE_NAME}, the server you were on` });
-  await expect(back).toBeVisible();
-  // The sidebar's server destinations lead to the node, under its name.
-  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Applications" })).toHaveAttribute("href", `/n/${NODE_NAME}/apps`);
-  await back.click();
+  // Never a silent jump, and no back link: the bar is the fleet's own seven destinations, and the
+  // selector is the way to a server (docs/DESIGN.md NV-10).
+  const main = page.getByRole("navigation", { name: "Main" });
+  await expect(main.getByRole("link")).toHaveText(["Overview", "Servers", "Applications", "Certificates", "Backups", "Updates", "Activity"]);
+  await expect(main.getByRole("link", { name: "Databases" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /^Back to / })).toHaveCount(0);
+  // Settings still lead to the server the operator came from.
+  await expect(page.getByRole("link", { name: "Settings", exact: true })).toHaveAttribute("href", `/n/${NODE_NAME}/settings`);
+
+  await page.getByRole("button", { name: "Server: all servers" }).click();
+  await page.getByRole("menuitemradio", { name: new RegExp(`^${NODE_NAME}`) }).click();
   await expect(page).toHaveURL(new RegExp(`/n/${NODE_NAME}$`));
   await expect(page.getByRole("button", { name: `Server: ${NODE_NAME}` })).toBeVisible();
+  await expect(main.getByRole("link", { name: "Applications" })).toHaveAttribute("href", `/n/${NODE_NAME}/apps`);
 });
 
 withFleet("a node's own settings stay on the node; the central's say whose they are and how to manage the node's", async ({ page, consoleServer }) => {

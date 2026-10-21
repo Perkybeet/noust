@@ -19,7 +19,7 @@ test("frameworks are off by default, turn on after listing what changes, and loc
 }) => {
   // Turning one off asks "Confirm it's you" by answering 403 first, by design.
   problems.expect(/status of 403 .* \/api\/compliance$/);
-  await signIn(page, consoleServer, "/settings/security");
+  await signIn(page, consoleServer, "/settings/controls");
   const section = page.getByRole("region", { name: "Compliance" });
   await expect(section.getByRole("heading", { level: 3, name: "Frameworks" })).toBeVisible();
 

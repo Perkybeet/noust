@@ -4,9 +4,10 @@ import { useState } from "react";
 
 import { removeTeamChannel, saveTeamChannel, teamChannelKeys, teamChannelsQuery, testTeamChannel, typesOf } from "../../api/queries/teamNotifications";
 import type { TeamChannel, TeamChannelBody, TeamChannelType } from "../../api/queries/teamNotifications";
+import { announce } from "../../app/Announcer";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { CommandHint } from "../../components/page/CommandHint";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { QueryState } from "../../components/page/QueryState";
 import { Section } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -15,7 +16,6 @@ import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { ChannelDrawer, ChannelRow, ChannelState, SecretInput, testReasonFor } from "../settings/channelParts";
@@ -138,7 +138,8 @@ function TeamChannelDrawer({ team, channel, types, open, onOpenChange }: DrawerP
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: teamChannelKeys.list(team) });
       setDraft(null);
-      toast.success(creating ? t("notifyRouting.team.addedToast", { name: channelName }) : t("notifyRouting.team.savedToast", { name: channelName }));
+      // The row appears, or the save bar goes: what is said is for those who do not see it.
+      announce(creating ? t("notifyRouting.team.addedToast", { name: channelName }) : t("notifyRouting.team.savedToast", { name: channelName }));
       // A new channel is set up in the same form, so there is nothing left to do here.
       if (creating) onOpenChange(false);
     },
@@ -158,7 +159,7 @@ function TeamChannelDrawer({ team, channel, types, open, onOpenChange }: DrawerP
         run: async () => {
           await removeTeamChannel(team, channel.name);
           void queryClient.invalidateQueries({ queryKey: teamChannelKeys.list(team) });
-          toast.success(t("notifyRouting.team.removedToast", { name: channel.name }));
+          announce(t("notifyRouting.team.removedToast", { name: channel.name }));
         },
       };
 
@@ -348,27 +349,32 @@ export function TeamNotifications() {
             }
           : {})}
       >
-        {list.isError && list.data === undefined ? (
-          <ErrorBlock error={list.error} title={t("notifyRouting.team.loadFailed")} onRetry={() => void list.refetch()} retrying={list.isRefetching} />
-        ) : (
-          <Card padding="none">
-            {list.data === undefined ? (
-              <div aria-busy="true" className="flex items-center justify-between gap-4 px-4 py-3 sm:px-5">
-                <span className="sr-only">{t("notifyRouting.team.loading")}</span>
+        <QueryState
+          query={list}
+          label={t("notifyRouting.team.queryLabel")}
+          skeleton={
+            <Card padding="none">
+              <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-5">
                 <Skeleton className="h-4 w-64 max-w-full" />
                 <Skeleton className="h-control-sm w-20" />
               </div>
-            ) : items.length === 0 ? (
-              <p className="px-4 py-3 text-13 text-fg-muted sm:px-5">{canManage ? t("notifyRouting.team.empty") : t("notifyRouting.team.emptyReadOnly")}</p>
-            ) : (
-              <ul aria-label={t("notifyRouting.team.listLabel")} className="flex min-w-0 flex-col divide-y divide-border">
-                {items.map((channel) => (
-                  <TeamChannelRow key={channel.name} team={team.slug} channel={channel} types={types} canManage={canManage} />
-                ))}
-              </ul>
-            )}
-          </Card>
-        )}
+            </Card>
+          }
+        >
+          {() => (
+            <Card padding="none">
+              {items.length === 0 ? (
+                <p className="px-4 py-3 text-13 text-fg-muted sm:px-5">{canManage ? t("notifyRouting.team.empty") : t("notifyRouting.team.emptyReadOnly")}</p>
+              ) : (
+                <ul aria-label={t("notifyRouting.team.listLabel")} className="flex min-w-0 flex-col divide-y divide-border">
+                  {items.map((channel) => (
+                    <TeamChannelRow key={channel.name} team={team.slug} channel={channel} types={types} canManage={canManage} />
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
+        </QueryState>
       </Section>
       {!canManage && list.data !== undefined ? <p className="text-13 text-fg-muted">{t("notifyRouting.team.readOnly")}</p> : null}
       {adding ? (

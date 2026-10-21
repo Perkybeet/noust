@@ -42,7 +42,6 @@ describe("the shell", () => {
       FakeEventSource.latest().emit("machine", { ...MACHINE, hostname: "web-02", units: { running: 9, failed: 3, stopped: 2 } });
     });
     expect(await within(strip).findByText("web-02")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Server 3 failed" })).toBeInTheDocument();
     expect(within(strip).getByRole("link", { name: "Noust's services: 9 running, 3 failed, 2 stopped" })).toBeInTheDocument();
   });
 

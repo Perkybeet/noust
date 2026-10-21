@@ -4,6 +4,7 @@ import type { App } from "../../../api/queries/apps";
 import type { PlainKey } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
 import { APP_SCREENS, APP_SETTINGS_SCREENS } from "../../nav/app";
+import { iconOf } from "../../nav/icons";
 import { isAdopted } from "../adopted";
 
 /**
@@ -24,6 +25,8 @@ export interface SettingsSection {
   group?: SettingsGroupId;
   /** Drawn beside the name, when the register gives the destination one. */
   icon?: LucideIcon;
+  /** The words the command palette also finds it by: the register's. */
+  keywords?: PlainKey;
   danger?: boolean;
   /** Leaves the section out for an application it does not concern. */
   when?: (app: App) => boolean;
@@ -80,7 +83,7 @@ const SETTINGS_ROOT = "/apps/$domain/settings";
  * read it, so a section cannot be on a page and missing from the search (checklist M-04).
  */
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
-  { path: "", label: APP_SCREENS.find((screen) => screen.id === "app.settings")?.rootLabel ?? "appSettings.nav.general" },
+  { path: "", label: APP_SCREENS.find((screen) => screen.id === "app.settings")?.rootLabel ?? "appSettings.nav.general", icon: iconOf({ id: "app.settings" }) },
   ...APP_SETTINGS_SCREENS.map((screen): SettingsSection => {
     const name = screen.to.slice(SETTINGS_ROOT.length + 1);
     const concerns = CONCERNS[name];
@@ -88,7 +91,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
       path: `/${name}`,
       label: screen.label,
       group: groupOf(screen.id, screen.group),
-      ...(screen.icon !== undefined ? { icon: screen.icon } : {}),
+      icon: iconOf(screen),
+      ...(screen.keywords !== undefined ? { keywords: screen.keywords } : {}),
       ...(APART.has(name) ? { danger: true } : {}),
       ...(concerns !== undefined ? { when: concerns } : {}),
     };

@@ -8,7 +8,6 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 import { Mono } from "../../components/ui/Mono";
-import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { DestinationFields } from "./DestinationFields";
 import { refreshPlacement } from "./refresh";
@@ -50,7 +49,6 @@ function MoveForm({ app, onClose }: { app: MovableApp; onClose: () => void }) {
         await refreshPlacement(queryClient, app.domain);
         setPending(false);
         announce(t("teams.move.moved", { domain: app.domain, where }));
-        toast.success(t("teams.move.moved", { domain: app.domain, where }));
         onClose();
       },
       (failure: unknown) => {

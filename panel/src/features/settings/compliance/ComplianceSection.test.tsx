@@ -51,7 +51,7 @@ async function pageAt(initial?: ReturnType<typeof withFrameworksOn>, extra: Reco
   screenWidth(1440);
   const world: World = { state: initial ?? { ...COMPLIANCE, frameworks: COMPLIANCE.frameworks, controls: COMPLIANCE.controls }, plans: [], changes: [] };
   fakeBackend(routes(world, extra));
-  const harness = renderConsole("/settings/security");
+  const harness = renderConsole("/settings/controls");
   const heading = await screen.findByRole("heading", { level: 2, name: title });
   const section = heading.closest("section");
   if (!section) throw new Error("no compliance section");
@@ -59,7 +59,7 @@ async function pageAt(initial?: ReturnType<typeof withFrameworksOn>, extra: Reco
   return { ...harness, world, section };
 }
 
-describe("Settings > Security > Compliance", () => {
+describe("Settings > Controls > Compliance", () => {
   it("lists the frameworks that can be switched on, off by default, with one line on what each is, and passes axe", { timeout: 30_000 }, async () => {
     const { section } = await pageAt();
 
@@ -196,7 +196,7 @@ describe("Settings > Security > Compliance", () => {
       ...signedInRoutes({ ...SESSION, permissions: (SESSION.permissions ?? []).filter((permission) => permission !== "security.manage") }),
       "GET /api/compliance": () => json(200, world.state),
     });
-    renderConsole("/settings/security");
+    renderConsole("/settings/controls");
     const heading = await screen.findByRole("heading", { level: 2, name: "Compliance" });
     const section = present(heading.closest("section"));
     await within(section).findByRole("heading", { level: 3, name: "Frameworks" });
