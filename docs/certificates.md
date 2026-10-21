@@ -75,6 +75,75 @@ noust cert use wiki.example.com --acme --dns cf
 noust cert create -d wiki.example.com
 ```
 
+## A certificate for one name
+
+An application's names share one certificate by default: the lineage under its primary domain
+names every one of them. That is the right shape until it is not: a name that should not sit
+beside the others in a certificate transparency log, or one whose DNS may stop pointing here and
+would then fail the renewal of all its neighbours. A name can hold a certificate of its own:
+
+```bash
+noust domain certificate shop.example.com admin.example.com --own          # ordered over HTTP-01
+noust domain certificate shop.example.com admin.example.com --own --dns cf  # proven with a DNS record in cf
+noust domain add shop.example.com api.example.com --own-certificate        # a new name, with its own
+noust domain certificate shop.example.com admin.example.com                # which certificate serves it
+noust domain certificate shop.example.com admin.example.com --shared       # back to the shared one
+```
+
+The name gets a certbot lineage named after it (`admin.example.com`; a wildcard's is
+`_wildcard.example.com`, a name no host can have) that holds that name alone, and a server block
+of its own in the site that presents it. The shared certificate stops naming it, and is ordered
+again without it, so the renewal of the others no longer depends on it. A redirect can hold one
+too, since it is served over HTTPS as well. The primary cannot: the shared certificate is the one
+kept under it (give every other name its own and it covers the primary alone). The `www` and bare
+pair of a canonical name is served together and keeps one. A monorepo orders its certificate in
+its own deploy, for subdomains only it knows, and keeps one.
+
+**The service is never cut.** Taking a certificate of its own goes in this order, and a failure at
+a step changes nothing before it:
+
+1. the name's certificate is ordered, while the site goes on serving the name as it did. A refusal
+   ends it here, in certbot's own words, and nothing has changed;
+2. the site is written again with the name's server block, and the web server tests the whole
+   configuration before it reloads. A refusal puts the choice and the file back;
+3. the shared certificate is ordered again without the name. This is housekeeping: the site is
+   already right, so a failure is reported (`noust domain certificate APP --reduce` retries it) and
+   undoes nothing.
+
+Giving it back runs the other way: the shared certificate is extended to cover the name first, the
+site is written with the name back in the shared block, and the lineage the name held is deleted
+last, unrevoked. A site is set apart only once the name's lineage is on disk, so a name whose order
+failed is still served with the shared certificate and the web server is never pointed at a file it
+lacks. On a site that serves no TLS yet only the choice is kept; its first certificate
+(`noust cert create`) orders the name's own as well.
+
+**How the name is proven** is kept per name, the same record an application's certificate has: the
+application's own way when the name takes its certificate (HTTP-01 or a DNS account), or what
+`--dns ACCOUNT` / `--http` say. Changing it orders the name's certificate again once, because
+certbot keeps the way in the lineage's renewal configuration. A wildcard needs a DNS account.
+A DNS account's hooks are kept in the name's lineage, so each renewal publishes and removes the
+record of that name alone.
+
+**Renewal.** `noust cert renew --domain APP` renews every lineage the application has, each by its
+own certbot command, so one that cannot renew is named, with certbot's output, and does not keep the
+others from it. certbot's own timer renews every lineage, and the hook that reloads the web server
+after a renewal (`renewal-hooks/deploy/noust-reload`) runs for each. Removing a name from an
+application deletes only its lineage and its server block; `noust domain disable` keeps the
+lineage (the name comes back). A lineage still presented by a name is never deleted.
+
+**A site you wrote** is never rewritten. The certificate is ordered and the choice recorded, and the
+answer names the two files your site has to present for the name; the shared certificate is not
+ordered again without the name, because your site may still present it. Point the site at the new
+files, then `noust domain certificate APP --reduce`.
+
+**Which certificate serves each name.** `noust domain list APP` has a Certificate column,
+`noust cert list` a Serves column, and the console's Domains tab marks the names that hold one of
+their own. API: `GET /api/apps/{domain}/domains` gives each name `certificate` (`shared` or `own`),
+`served_by` and `certificate_pending`; `GET /api/certs` gives each certificate `serves`;
+`PUT /api/apps/{domain}/domains/{name}/certificate` with `{"certificate": "own"}` (and optionally
+`challenge` and `dns_provider`) queues the change as a job, because certbot never runs on a
+request.
+
 ## A certificate you bring
 
 ```bash
@@ -153,7 +222,7 @@ team's.
 ## When a name goes
 
 Removing a domain from an application orders its certificate again with only the names it still
-answers on (`noust domain certificate APP --reduce` retries it) and lets go of the DNS record Noust
+answers on (a name that held a certificate of its own takes only that one with it) (`noust domain certificate APP --reduce` retries it) and lets go of the DNS record Noust
 made for it. Coolify's issue #6800, a certificate that kept a deleted domain, is this case.
 Nothing is revoked: the old certificate expires on its own and the new one never covered the name.
 

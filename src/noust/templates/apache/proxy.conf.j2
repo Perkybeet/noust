@@ -7,19 +7,16 @@ ServerTokens Prod
 ServerSignature Off
 {% include "_redirects.j2" %}
 {#
-    One pair of virtual hosts per group of names: the application's own, and one
-    for each port a name is proxied to apart from it.
+    One pair of virtual hosts per group of names (``servers``, worked out by the web server
+    manager): the application's own, one for each port a name is proxied to apart from it, and
+    one for each name that holds a certificate of its own.
 #}
-{% set groups = [{"name": server_primary | default(domain), "aliases": server_aliases | default([]), "port": port}] %}
-{% for extra in port_servers | default([]) %}
-{% set _ = groups.append({"name": extra.names.split()[0], "aliases": extra.names.split()[1:], "port": extra.port}) %}
-{% endfor %}
 
-{% for group in groups %}
+{% for server in servers %}
 <VirtualHost *:80>
-    ServerName {{ group.name }}
-{% if group.aliases %}
-    ServerAlias {{ group.aliases | join(' ') }}
+    ServerName {{ server.primary }}
+{% if server.aliases %}
+    ServerAlias {{ server.aliases | join(' ') }}
 {% endif %}
     ServerAdmin webmaster@{{ domain }}
 
@@ -31,16 +28,16 @@ ServerSignature Off
 </VirtualHost>
 
 <VirtualHost *:443>
-    ServerName {{ group.name }}
-{% if group.aliases %}
-    ServerAlias {{ group.aliases | join(' ') }}
+    ServerName {{ server.primary }}
+{% if server.aliases %}
+    ServerAlias {{ server.aliases | join(' ') }}
 {% endif %}
     ServerAdmin webmaster@{{ domain }}
 
     # SSL Configuration
     SSLEngine on
-    SSLCertificateFile {{ ssl_certificate | default('/etc/letsencrypt/live/' + domain + '/fullchain.pem') }}
-    SSLCertificateKeyFile {{ ssl_certificate_key | default('/etc/letsencrypt/live/' + domain + '/privkey.pem') }}
+    SSLCertificateFile {{ server.ssl_certificate }}
+    SSLCertificateKeyFile {{ server.ssl_certificate_key }}
     
     # SSL Settings
     SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1
@@ -61,14 +58,14 @@ ServerSignature Off
     ProxyPreserveHost On
     ProxyRequests Off
     
-    ProxyPass / http://127.0.0.1:{{ group.port }}/
-    ProxyPassReverse / http://127.0.0.1:{{ group.port }}/
+    ProxyPass / http://127.0.0.1:{{ server.port or port }}/
+    ProxyPassReverse / http://127.0.0.1:{{ server.port or port }}/
 
     # WebSocket support
     RewriteEngine On
     RewriteCond %{HTTP:Upgrade} websocket [NC]
     RewriteCond %{HTTP:Connection} upgrade [NC]
-    RewriteRule ^/?(.*) "ws://127.0.0.1:{{ group.port }}/$1" [P,L]
+    RewriteRule ^/?(.*) "ws://127.0.0.1:{{ server.port or port }}/$1" [P,L]
 
     # Timeouts
     ProxyTimeout 60

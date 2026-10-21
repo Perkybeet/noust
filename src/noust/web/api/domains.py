@@ -22,13 +22,16 @@ to run before it creates one, so it is mounted separately under ``/domains``.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from noust.core.domain_certificates import check_mode
 from noust.core.store import DomainKind, DomainRecord
 from noust.core.teams import scoped_store
+from noust.deployers.certificates import check_choice
 from noust.deployers.domains import (
     DomainChange,
     add_domain,
@@ -38,10 +41,12 @@ from noust.deployers.domains import (
     issue_certificate,
     list_domains,
     reduce_certificate,
+    release_certificate,
     remove_domain,
     set_canonical,
     set_domain_port,
 )
+from noust.deployers.name_certificates import NameBinding, bindings, set_certificate
 from noust.deployers.temporary_domain import is_temporary, suggest
 from noust.managers.site_policy import SitePolicyManager
 from noust.web.api.auth import get_current_session
@@ -77,6 +82,13 @@ class AppDomain(BaseModel):
             for trying an application out and not for keeping.
         enabled: Whether it is served. A name that is switched off keeps its row and its
             port; the site and the certificate leave it out.
+        certificate: ``shared`` when the application's certificate covers the name, ``own`` when
+            it holds one of its own (a lineage named after it and a server block for it).
+        served_by: The certificate that presents the name: a lineage certbot keeps (the
+            application's, or the name's own) or an uploaded certificate. For a name whose own
+            certificate is not issued yet, the shared one, which serves it meanwhile.
+        certificate_pending: Whether the name asked for a certificate of its own that is not
+            issued yet.
     """
 
     domain: str
@@ -85,6 +97,9 @@ class AppDomain(BaseModel):
     port: int | None = None
     temporary: bool = False
     enabled: bool = True
+    certificate: str = "shared"
+    served_by: str | None = None
+    certificate_pending: bool = False
 
     _iso_timestamps = iso_offset_validator("created_at")
 
@@ -115,6 +130,11 @@ class AddAppDomainRequest(BaseModel):
         force: Add the name although another site of the web server already answers on it.
         port: Proxy this name to another port of the application than its own.
         dns: Point the name at this server in the DNS account that holds its zone.
+        certificate: ``own`` to give the name a certificate of its own instead of covering it
+            with the application's.
+        challenge: How that certificate is proven, ``http-01`` or ``dns-01``; the application's
+            own way by default.
+        dns_provider: The DNS account that answers ``dns-01``.
     """
 
     domain: str
@@ -122,6 +142,9 @@ class AddAppDomainRequest(BaseModel):
     force: bool = False
     port: int | None = Field(default=None, ge=1, le=65535)
     dns: bool = True
+    certificate: str | None = Field(default=None, description="shared (the default) or own")
+    challenge: str | None = Field(default=None, description="http-01 or dns-01")
+    dns_provider: str | None = None
 
 
 class AppDomainChange(BaseModel):
@@ -197,12 +220,13 @@ def _require_app(domain: str) -> str:
     return validated
 
 
-def _entry(record: DomainRecord) -> AppDomain:
+def _entry(record: DomainRecord, binding: NameBinding | None = None) -> AppDomain:
     """
     Translate a domain record to its response model.
 
     Args:
         record: The store's record.
+        binding: Which certificate serves the name, when it is known.
 
     Returns:
         The response model.
@@ -214,7 +238,25 @@ def _entry(record: DomainRecord) -> AppDomain:
         port=record.port,
         temporary=is_temporary(record.domain),
         enabled=record.enabled,
+        certificate=record.certificate,
+        served_by=binding.served_by if binding is not None else None,
+        certificate_pending=binding.pending if binding is not None else False,
     )
+
+
+def _entries(app_domain: str, records: Sequence[DomainRecord]) -> list[AppDomain]:
+    """
+    Translate an application's domain records, saying which certificate serves each.
+
+    Args:
+        app_domain: The application's primary domain.
+        records: Its rows.
+
+    Returns:
+        The response models, in the rows' order.
+    """
+    served = {binding.name: binding for binding in bindings(app_domain)}
+    return [_entry(record, served.get(record.domain)) for record in records]
 
 
 def _changed(change: DomainChange, job_id: str | None = None) -> AppDomainChange:
@@ -230,7 +272,7 @@ def _changed(change: DomainChange, job_id: str | None = None) -> AppDomainChange
     """
     return AppDomainChange(
         app=change.app,
-        domains=[_entry(record) for record in change.domains],
+        domains=_entries(change.app, change.domains),
         tls=change.tls,
         adopted=list(change.adopted),
         certificate_job_id=job_id,
@@ -279,7 +321,7 @@ def get_domains(
     validated = _require_app(domain)
     return AppDomainList(
         app=validated,
-        domains=[_entry(r) for r in list_domains(validated)],
+        domains=_entries(validated, list_domains(validated)),
         canonical=SitePolicyManager().get(validated).canonical,
     )
 
@@ -341,6 +383,9 @@ def post_domain(
         force=data.force,
         dns=data.dns,
         port=data.port,
+        certificate=data.certificate or "shared",
+        challenge=data.challenge,
+        dns_provider=data.dns_provider,
     )
 
     job_id: str | None = None
@@ -381,7 +426,18 @@ def delete_domain(
     validated = _require_app(domain)
     change = remove_domain(validated, strict_server_name(name), reduce_cert=False)
     job_id: str | None = None
-    if change.tls:
+    if change.lineage_pending:
+        job = get_job_manager().create_job(
+            job_type=JobType.CERT_CREATE,
+            name=f"SSL for {validated}",
+            description=f"Deleting the certificate {name} held on its own",
+            func=release_certificate_job,
+            kwargs={"app_domain": validated, "name": change.lineage_pending},
+            metadata={"domain": validated},
+            actor=actor_label(session),
+        )
+        job_id = job.id
+    elif change.tls:
         job = get_job_manager().create_job(
             job_type=JobType.CERT_CREATE,
             name=f"SSL for {validated}",
@@ -540,6 +596,158 @@ def put_domain_enabled(
         )
         job_id = job.id
     return _changed(change, job_id)
+
+
+def release_certificate_job(
+    app_domain: str, name: str, job_context: JobContext | None = None
+) -> dict[str, Any]:
+    """
+    Delete the certificate a removed name held on its own, as a job.
+
+    Args:
+        app_domain: The application's primary domain.
+        name: The name that was removed.
+        job_context: Injected by the job manager.
+
+    Returns:
+        The application, the name and whether a lineage was deleted.
+
+    Raises:
+        CertificateError: When certbot refuses; the job fails with its output.
+    """
+    if job_context is not None:
+        job_context.set_metadata("domain", app_domain)
+        job_context.update(f"Deleting the certificate of {name}", 20)
+    removed = release_certificate(app_domain, name)
+    if job_context is not None:
+        job_context.update("The certificate is deleted", 100)
+    return {"domain": app_domain, "name": name, "removed": removed}
+
+
+def name_certificate_job(
+    app_domain: str,
+    name: str,
+    certificate: str,
+    challenge: str | None,
+    dns_provider: str | None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Give a name a certificate of its own, or back to the shared one, as a job.
+
+    Args:
+        app_domain: The application's primary domain.
+        name: The alias or redirect.
+        certificate: ``own`` or ``shared``.
+        challenge: How the name's own certificate is proven.
+        dns_provider: The DNS account that answers ``dns-01``.
+        job_context: Injected by the job manager.
+
+    Returns:
+        What changed: the name, its certificate afterwards, whether one was ordered and
+        what did not work after the site was already right.
+
+    Raises:
+        CertificateError: certbot refused; the job fails with its output and the certificate
+            that served keeps serving.
+    """
+    if job_context is not None:
+        job_context.set_metadata("domain", app_domain)
+        job_context.update(
+            "Ordering the certificate of its own" if certificate == "own" else "Giving it back", 20
+        )
+    change = set_certificate(
+        app_domain, name, certificate, challenge=challenge, dns_provider=dns_provider
+    )
+    if job_context is not None:
+        job_context.update("The certificate is in place", 100)
+    return {
+        "domain": app_domain,
+        "name": change.name,
+        "certificate": change.certificate,
+        "changed": change.changed,
+        "ordered": change.ordered,
+        "warnings": list(change.warnings),
+    }
+
+
+class DomainCertificateRequest(BaseModel):
+    """
+    Whether a name holds a certificate of its own.
+
+    Attributes:
+        certificate: ``own`` for a certificate kept under the name, ordered for it alone;
+            ``shared`` to cover it with the application's again.
+        challenge: With ``own``, how it is proven: ``http-01`` or ``dns-01``. What it already had,
+            else the application's own way.
+        dns_provider: The DNS account that answers ``dns-01``.
+    """
+
+    certificate: str = Field(description="own or shared")
+    challenge: str | None = Field(default=None, description="http-01 or dns-01")
+    dns_provider: str | None = None
+
+
+@router.put("/{domain}/domains/{name}/certificate", response_model=AppDomainChange)
+def put_domain_certificate(
+    domain: str,
+    name: str,
+    data: DomainCertificateRequest,
+    session: Annotated[dict[str, Any], Depends(get_current_session)],
+) -> AppDomainChange:
+    """
+    Give a name a certificate of its own, or back to the application's.
+
+    Certbot never runs on the request path: the change is queued as a job and its id returned
+    as ``certificate_job_id``. The certificate is ordered while the site goes on serving the
+    name as it did, and only then does the site get a server block for it; if the order fails
+    the job fails with certbot's own words and nothing has changed.
+
+    Args:
+        domain: The application's primary domain.
+        name: The alias or redirect.
+        data: Whether the name holds a certificate of its own, and how it is proven.
+        session: Authenticated session, injected.
+
+    Returns:
+        The application's domains as they are now, and the job.
+
+    Raises:
+        ValidationError: The mode or the way of proving it is not acceptable (400).
+        DomainError: The name is not the application's, or is its primary (400).
+    """
+    validated = _require_app(domain)
+    bare = strict_server_name(name)
+    check_mode(data.certificate)
+    if data.challenge is not None:
+        check_choice(data.challenge, data.dns_provider)
+    job = get_job_manager().create_job(
+        job_type=JobType.CERT_CREATE,
+        name=f"SSL for {validated}",
+        description=(
+            f"Ordering a certificate of its own for {bare}"
+            if data.certificate == "own"
+            else f"Covering {bare} with the certificate of {validated} again"
+        ),
+        func=name_certificate_job,
+        kwargs={
+            "app_domain": validated,
+            "name": bare,
+            "certificate": data.certificate,
+            "challenge": data.challenge,
+            "dns_provider": data.dns_provider,
+        },
+        metadata={"domain": validated},
+        actor=actor_label(session),
+    )
+    app = scoped_store().get_app(validated)
+    return AppDomainChange(
+        app=validated,
+        domains=_entries(validated, list_domains(validated)),
+        tls=bool(app is not None and app.ssl_enabled),
+        certificate_job_id=job.id,
+        canonical=SitePolicyManager().get(validated).canonical,
+    )
 
 
 @router.get("/{domain}/domains/{name}/dns", response_model=DnsCheckResponse)

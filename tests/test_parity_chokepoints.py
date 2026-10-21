@@ -195,6 +195,9 @@ class _StubCertManager:
     def cert_exists(self, domain: str) -> bool:
         return self._has_cert
 
+    def own_names_of(self, primary: str) -> list[str]:
+        return []
+
     def delete(self, domain: str) -> bool:
         self.deleted.append(domain)
         self._has_cert = False

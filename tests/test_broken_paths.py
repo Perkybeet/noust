@@ -573,6 +573,7 @@ def test_site_delete_removes_the_certificate(
     monkeypatch.setattr(ApacheManager, "site_exists", lambda self, domain: False)
     monkeypatch.setattr(CertManager, "is_installed", lambda self: True)
     monkeypatch.setattr(CertManager, "cert_exists", lambda self, domain: True)
+    monkeypatch.setattr(CertManager, "own_names_of", lambda self, primary: [])
     monkeypatch.setattr(CertManager, "delete", lambda self, domain: deleted.append(domain))
 
     exit_code = site_command._handle_delete(

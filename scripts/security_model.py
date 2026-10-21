@@ -386,7 +386,8 @@ GUARANTEES: tuple[Guarantee, ...] = (
         f"and [Dokploy]({DOKPLOY_ADVISORIES}) 60 (34 critical), counted from the published "
         "advisories of each repository; a fix whose advisory is published long after the "
         "release leaves everyone who updates on time unwarned.",
-        "Every release is built by GitHub Actions from a signed tag. Its files have a signed "
+        "Every release is built by GitHub Actions from its tag, signed from 4.0.0 on with the "
+        "maintainer's SSH key. Its files have a signed "
         "checksum file and a build-provenance attestation; the wheel has its SBOM attested; "
         "the container image is signed and attested by digest, and a fixable critical "
         "vulnerability in it stops the release; PyPI publishes with attestations; the "

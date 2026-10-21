@@ -1,10 +1,12 @@
 {#
     One redirect per domain of kind "redirect": a permanent redirect to the
-    primary, over HTTPS when the site has a certificate (which covers these
-    names too). Included by every application template, before its own
-    server blocks; renders nothing when there are no redirects.
+    primary, over HTTPS when the site has a certificate. That certificate covers
+    these names too, unless a name holds one of its own (``redirect_certificates``).
+    Included by every application template, before its own server blocks;
+    renders nothing when there are no redirects.
 #}
 {% for redirect in redirect_domains %}
+{% set own = (redirect_certificates | default({})).get(redirect) %}
 
 # {{ redirect }} redirects permanently to {{ redirect_target | default(domain) }}
 server {
@@ -31,8 +33,8 @@ server {
     server_name {{ redirect }};
     server_tokens off;
 
-    ssl_certificate {{ ssl_certificate | default('/etc/letsencrypt/live/' + domain + '/fullchain.pem') }};
-    ssl_certificate_key {{ ssl_certificate_key | default('/etc/letsencrypt/live/' + domain + '/privkey.pem') }};
+    ssl_certificate {{ own.ssl_certificate if own else (ssl_certificate | default('/etc/letsencrypt/live/' + domain + '/fullchain.pem')) }};
+    ssl_certificate_key {{ own.ssl_certificate_key if own else (ssl_certificate_key | default('/etc/letsencrypt/live/' + domain + '/privkey.pem')) }};
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
 
