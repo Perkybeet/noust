@@ -7,6 +7,19 @@ console (React SPA) over a JSON API.
 
 **Repository**: https://github.com/Perkybeet/noust | **License**: AGPL-3.0-or-later (from 2.1.0; releases up to 2.0.x were WASM-NCSAL 1.0)
 
+### The licence of a contribution
+
+Noust is free software under the AGPL-3.0-or-later. By contributing you agree that:
+
+1. your contribution is licensed under the AGPL-3.0-or-later, like the rest of the project;
+2. you have the right to submit it, and you say in its description where any part of it comes from
+   when it is not your own, with its licence;
+3. you also grant the author, Yago López Prado, a perpetual, irrevocable licence to use your
+   contribution under other terms, so that Noust can also be offered under a separate commercial
+   licence alongside the AGPL, which stays.
+
+For a licence on other terms, write to yago.lopez.adeje@gmail.com.
+
 ---
 
 ## The four rules

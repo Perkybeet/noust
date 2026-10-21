@@ -1,0 +1,74 @@
+Noust
+Copyright (c) 2024-2026 Yago López Prado
+Licensed under the GNU Affero General Public License, version 3 or later (see LICENSE).
+
+This product includes material derived from other projects, under their own licences.
+
+Coolify templates
+-----------------
+Some recipes of Noust's catalog are derived in part from the Docker Compose templates of Coolify
+(https://github.com/coollabsio/coolify, templates/compose/), Copyright 2025 Andras Bacsai, licensed
+under the Apache License, Version 2.0 (see LICENSE-APACHE-2.0). Each of these files says in its
+header which template it comes from and what was changed:
+
+  src/noust/recipes/affine.yaml
+  src/noust/recipes/anythingllm.yaml
+  src/noust/recipes/docuseal.yaml
+  src/noust/recipes/elasticsearch.yaml
+  src/noust/recipes/glance.yaml
+  src/noust/recipes/glitchtip.yaml
+  src/noust/recipes/homebox.yaml
+  src/noust/recipes/hoppscotch.yaml
+  src/noust/recipes/karakeep.yaml
+  src/noust/recipes/kimai.yaml
+  src/noust/recipes/linkwarden.yaml
+  src/noust/recipes/mealie.yaml
+  src/noust/recipes/openobserve.yaml
+  src/noust/recipes/outline.yaml
+  src/noust/recipes/penpot.yaml
+  src/noust/recipes/pgadmin.yaml
+  src/noust/recipes/plane.yaml
+  src/noust/recipes/pocket-id.yaml
+  src/noust/recipes/privatebin.yaml
+  src/noust/recipes/qdrant.yaml
+  src/noust/recipes/rabbitmq.yaml
+  src/noust/recipes/silverbullet.yaml
+  src/noust/recipes/weaviate.yaml
+
+Plausible Community Edition
+---------------------------
+Four ClickHouse configuration files of the Plausible recipe are copied unchanged from
+https://github.com/plausible/community-edition (v3.2.1, directory clickhouse/), Copyright (c) 2024
+Plausible Analytics, licensed under the MIT License. Their notice and the licence text are in
+src/noust/recipes/assets/plausible/NOTICE:
+
+  src/noust/recipes/assets/plausible/clickhouse/*.xml
+
+Fonts of the console
+--------------------
+The console ships JetBrains Mono (Copyright 2020 The JetBrains Mono Project Authors) and Mona Sans
+(Copyright 2022 The Mona Sans Project Authors, with Reserved Font Name "Mona"), licensed under the
+SIL Open Font License, Version 1.1 (see LICENSE-OFL-1.1):
+
+  src/noust/web/static/assets/*.woff2
+
+Dokploy templates
+-----------------
+The tests of the Dokploy template converter quote parts of templates from
+https://github.com/Dokploy/templates, Copyright (c) 2024 Dokploy and Carlos Ortiz, licensed under the
+MIT License. Noust ships none of them. The licence:
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+  associated documentation files (the "Software"), to deal in the Software without restriction,
+  including without limitation the rights to use, copy, modify, merge, publish, distribute,
+  sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies or
+  substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+  NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+  DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+  OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

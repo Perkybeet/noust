@@ -38,7 +38,7 @@ import { formatBytes, formatCount, formatDateTime, formatDuration, formatPercent
 import type { Deployment } from "../apps/data";
 import { appLimits, appReading, deployMoment, useLatestMetrics } from "../apps/data";
 import { CertificateStatus } from "../domains/CertificateStatus";
-import { coverageOf, covers } from "../domains/certificates";
+import { certificateOf, coverageOf, covers } from "../domains/certificates";
 import { CERT_WARNING_DAYS } from "../overview/attention";
 import { AdoptedOverview } from "./AdoptedOverview";
 import { isAdopted } from "./adopted";
@@ -302,8 +302,9 @@ function Domains({ app, t }: { app: App; t: T }) {
         ) : (
           <ul className="flex flex-col divide-y divide-border">
             {shown.map((entry) => {
-              const coverage = coverageOf(entry.domain, lineage, false);
-              const secure = lineage !== null && lineage !== undefined && covers(lineage, entry.domain);
+              const presenting = certificateOf(entry, lineage, (name) => findCertificate(certs.data, name));
+              const coverage = coverageOf(entry.domain, presenting, false);
+              const secure = presenting !== null && presenting !== undefined && covers(presenting, entry.domain);
               const kind = kindWord(t, entry.kind);
               return (
                 <li key={entry.domain} className="flex min-h-10 flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2">

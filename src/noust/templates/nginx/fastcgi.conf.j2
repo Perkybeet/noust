@@ -4,10 +4,11 @@
 {% include "_redirects.j2" %}
 {% include "_policy_zones.j2" %}
 
+{% for server in servers %}
 server {
     listen 80;
     listen [::]:80;
-    server_name {{ server_names | default(domain) }};
+    server_name {{ server.names }};
     server_tokens off;
 
     # ACME challenge location for Let's Encrypt (webroot method). ^~ stops
@@ -36,7 +37,7 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name {{ server_names | default(domain) }};
+    server_name {{ server.names }};
     server_tokens off;
 {% else %}
     # The policy does not force HTTPS: one server answers on both ports.
@@ -45,8 +46,8 @@ server {
 {% endif %}
 
     # SSL Configuration
-    ssl_certificate {{ ssl_certificate | default('/etc/letsencrypt/live/' + domain + '/fullchain.pem') }};
-    ssl_certificate_key {{ ssl_certificate_key | default('/etc/letsencrypt/live/' + domain + '/privkey.pem') }};
+    ssl_certificate {{ server.ssl_certificate }};
+    ssl_certificate_key {{ server.ssl_certificate_key }};
 
     # SSL Settings
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -155,4 +156,8 @@ server {
         access_log off;
         try_files $uri =404;
     }
-}
+}{% if not loop.last %}
+
+
+{% endif %}
+{% endfor %}

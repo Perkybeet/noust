@@ -71,6 +71,19 @@ class _Store:
         """
         return []
 
+    def domain_certificate(self, _domain: str) -> None:
+        """
+        Say how a name is covered.
+
+        Args:
+            _domain: Domain name.
+
+        Returns:
+            Always None: no test here has a deployed application, so no name holds a
+            certificate of its own.
+        """
+        return None
+
 
 @pytest.fixture
 def certs(runner: FakeRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CertManager:

@@ -1,10 +1,12 @@
 {#
     One redirect per domain of kind "redirect": a permanent redirect to the
-    primary, over HTTPS when the site has a certificate (which covers these
-    names too). Included by every application template, before its own
-    virtual hosts; renders nothing when there are no redirects.
+    primary, over HTTPS when the site has a certificate. That certificate covers
+    these names too, unless a name holds one of its own (``redirect_certificates``).
+    Included by every application template, before its own virtual hosts;
+    renders nothing when there are no redirects.
 #}
 {% for redirect in redirect_domains %}
+{% set own = (redirect_certificates | default({})).get(redirect) %}
 
 # {{ redirect }} redirects permanently to {{ redirect_target | default(domain) }}
 <VirtualHost *:80>
@@ -22,8 +24,8 @@
     ServerName {{ redirect }}
 
     SSLEngine on
-    SSLCertificateFile {{ ssl_certificate | default('/etc/letsencrypt/live/' + domain + '/fullchain.pem') }}
-    SSLCertificateKeyFile {{ ssl_certificate_key | default('/etc/letsencrypt/live/' + domain + '/privkey.pem') }}
+    SSLCertificateFile {{ own.ssl_certificate if own else (ssl_certificate | default('/etc/letsencrypt/live/' + domain + '/fullchain.pem')) }}
+    SSLCertificateKeyFile {{ own.ssl_certificate_key if own else (ssl_certificate_key | default('/etc/letsencrypt/live/' + domain + '/privkey.pem')) }}
     SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1
 
     RewriteEngine On

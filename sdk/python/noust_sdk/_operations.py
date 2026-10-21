@@ -563,6 +563,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("domains", "post_domain"): ("POST", "/api/apps/{domain}/domains", "apps.manage", False),
     ("domains", "put_canonical"): ("PUT", "/api/apps/{domain}/domains/canonical", "apps.manage", False),
     ("domains", "delete_domain"): ("DELETE", "/api/apps/{domain}/domains/{name}", "apps.manage", True),
+    ("domains", "put_domain_certificate"): ("PUT", "/api/apps/{domain}/domains/{name}/certificate", "apps.manage", False),
     ("domains", "get_domain_dns"): ("GET", "/api/apps/{domain}/domains/{name}/dns", "apps.read", False),
     ("domains", "put_domain_enabled"): ("PUT", "/api/apps/{domain}/domains/{name}/enabled", "apps.manage", False),
     ("domains", "put_domain_port"): ("PUT", "/api/apps/{domain}/domains/{name}/port", "apps.manage", False),
@@ -5426,7 +5427,7 @@ class Deployments:
 
 
 class Domains:
-    """Domains: 30 operations."""
+    """Domains: 31 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5494,6 +5495,14 @@ class Domains:
 
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/domains/{quote(str(name), safe='')}", query=None, body=None)
+
+    def put_domain_certificate(self, domain: str, name: str, body: "DomainCertificateRequest") -> "AppDomainChange":
+        """PUT /api/apps/{domain}/domains/{name}/certificate
+
+        Put Domain Certificate
+
+        Needs: permission `apps.manage`."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/domains/{quote(str(name), safe='')}/certificate", query=None, body=body)
 
     def get_domain_dns(self, domain: str, name: str) -> "DnsCheckResponse":
         """GET /api/apps/{domain}/domains/{name}/dns

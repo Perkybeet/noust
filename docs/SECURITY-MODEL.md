@@ -238,7 +238,7 @@ central that has been compromised, an application that has been compromised.
 
 **The failure it answers.** Coolify updates itself by downloading a script and running it with `bash` (`app/Actions/Server/UpdateCoolify.php:122-131`; 4.4.0, read on 2026-10-13), and its `SECURITY.md` is twenty-five lines with a contact address and no timeline. On 2026-10-13 [Coolify](https://github.com/coollabsio/coolify/security/advisories) had published 70 advisories (21 critical) and [Dokploy](https://github.com/Dokploy/dokploy/security/advisories) 60 (34 critical), counted from the published advisories of each repository; a fix whose advisory is published long after the release leaves everyone who updates on time unwarned.
 
-**The guarantee.** Every release is built by GitHub Actions from a signed tag. Its files have a signed checksum file and a build-provenance attestation; the wheel has its SBOM attested; the container image is signed and attested by digest, and a fixable critical vulnerability in it stops the release; PyPI publishes with attestations; the installer is published with its own signed checksum. The update the product performs is one fixed command per installation method; nothing of the request reaches the command line. A release that fixes a vulnerability is titled *(security release)*, which the update check, `noust health` and the console report. `SECURITY.md` commits to acknowledging in 3 working days, confirming in 10 and fixing in 90.
+**The guarantee.** Every release is built by GitHub Actions from its tag, signed from 4.0.0 on with the maintainer's SSH key. Its files have a signed checksum file and a build-provenance attestation; the wheel has its SBOM attested; the container image is signed and attested by digest, and a fixable critical vulnerability in it stops the release; PyPI publishes with attestations; the installer is published with its own signed checksum. The update the product performs is one fixed command per installation method; nothing of the request reaches the command line. A release that fixes a vulnerability is titled *(security release)*, which the update check, `noust health` and the console report. `SECURITY.md` commits to acknowledging in 3 working days, confirming in 10 and fixing in 90.
 
 **How it is enforced.** `.github/workflows/release.yml`, `.github/workflows/security.yml` (CodeQL, gitleaks, Trivy, dependency review), `scripts/release.py`, `SECURITY.md`, `.well-known/security.txt`, `managers/self_update.py`.
 
@@ -359,7 +359,7 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **1047** API operations. **1005** need a permission (`x-noust-permission`) and **42** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **1048** API operations. **1006** need a permission (`x-noust-permission`) and **42** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
 - **351** operations need sudo mode and **40** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
@@ -368,7 +368,7 @@ only what recovering an account takes.
 | `accounts.manage` | 30 |
 | `accounts.read` | 12 |
 | `apps.deploy` | 36 |
-| `apps.manage` | 145 |
+| `apps.manage` | 146 |
 | `apps.operate` | 34 |
 | `apps.read` | 141 |
 | `apps.terminal` | 12 |
@@ -485,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **507** events.
+The catalogue holds **508** events.
 
 | Category | Events |
 |---|---|
 | access | 48 |
 | account | 37 |
 | config | 29 |
-| change | 331 |
+| change | 332 |
 | read | 21 |
 | denial | 16 |
 | system | 22 |
@@ -573,8 +573,9 @@ credited. A summary of any review that is done will be published here with its d
 
 ## Verifying a release
 
-A release is built by GitHub Actions from a signed tag, and what it publishes can be checked without
-trusting whoever uploaded it. `VERSION` below is the release, for example `3.4.0`.
+A release is built by GitHub Actions from its tag (signed from 4.0.0 on with the maintainer's SSH key),
+and what it publishes can be checked without trusting whoever uploaded it. `VERSION` below is the
+release, for example `4.0.0`.
 
 The files of a release (wheel, source distribution, Debian packages, SBOM, installer) have one
 checksum file, signed by the release workflow with a keyless Sigstore certificate that names the

@@ -31,20 +31,18 @@ limit_req_zone $binary_remote_addr zone={{ zone_name }}:10m rate={{ rate }};
 {% endfor %}
 {% include "_policy_zones.j2" %}
 {#
-    One server block pair per group of names: the application's own, and one for
-    each port a name is proxied to apart from it (a second listener of the
-    application: an admin interface, an API on its own port).
+    One server block pair per group of names (``servers``, worked out by the web server
+    manager): the application's own, one for each port a name is proxied to apart from it (a
+    second listener of the application: an admin interface, an API on its own port), and one
+    for each name that holds a certificate of its own.
 #}
-{% set groups = [{"names": server_names | default(domain), "target": upstream_name | default('127.0.0.1:' ~ port, true)}] %}
-{% for extra in port_servers | default([]) %}
-{% set _ = groups.append({"names": extra.names, "target": '127.0.0.1:' ~ extra.port}) %}
-{% endfor %}
 
-{% for group in groups %}
+{% for server in servers %}
+{% set target = ('127.0.0.1:' ~ server.port) if server.port else (upstream_name | default('127.0.0.1:' ~ port, true)) %}
 server {
     listen 80;
     listen [::]:80;
-    server_name {{ group.names }};
+    server_name {{ server.names }};
     server_tokens off;
 
     # ACME challenge location for Let's Encrypt (webroot method)
@@ -70,7 +68,7 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name {{ group.names }};
+    server_name {{ server.names }};
     server_tokens off;
 {% else %}
     # The policy does not force HTTPS: one server answers on both ports.
@@ -79,8 +77,8 @@ server {
 {% endif %}
 
     # SSL Configuration
-    ssl_certificate {{ ssl_certificate | default('/etc/letsencrypt/live/' + domain + '/fullchain.pem') }};
-    ssl_certificate_key {{ ssl_certificate_key | default('/etc/letsencrypt/live/' + domain + '/privkey.pem') }};
+    ssl_certificate {{ server.ssl_certificate }};
+    ssl_certificate_key {{ server.ssl_certificate_key }};
     
     # SSL Settings
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -138,7 +136,7 @@ server {
 {% if root.max_body_size %}
         client_max_body_size {{ root.max_body_size }};
 {% endif %}
-        proxy_pass http://{{ group.target }};
+        proxy_pass http://{{ target }};
         proxy_http_version 1.1;
         
         # Headers
@@ -180,7 +178,7 @@ server {
 {% if health_check is defined and health_check != '/' %}
     # Health check endpoint
     location {{ health_check }} {
-        proxy_pass http://{{ group.target }}{{ health_check }};
+        proxy_pass http://{{ target }}{{ health_check }};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         access_log off;
