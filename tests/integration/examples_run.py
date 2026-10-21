@@ -273,8 +273,13 @@ class Example:
 
 RAILS = """
 gem install --no-document rails -v '~> 8.0'
-rails new . --api --minimal --skip-active-record --skip-git --skip-test --skip-bundle \\
+# The generator names the application after its directory, and "rails" is a constant it refuses:
+# it writes into a directory of another name and the project is copied here.
+scratch=$(mktemp -d)
+rails new "$scratch/hello" --api --minimal --skip-active-record --skip-git --skip-test --skip-bundle \\
   --skip-docker --skip-kamal --skip-thruster --skip-solid --skip-ci --skip-brakeman --skip-rubocop --force
+cp -a "$scratch/hello/." .
+rm -rf "$scratch"
 cat > config/routes.rb <<'RUBY'
 Rails.application.routes.draw do
   root to: proc { [200, { "Content-Type" => "text/plain" }, ["Hello from Noust (rails)\\n"]] }
@@ -287,7 +292,8 @@ PHOENIX = """
 mix local.hex --force
 mix local.rebar --force
 mix archive.install hex phx_new 1.7.21 --force
-mix phx.new . --app hello --no-ecto --no-mailer --no-gettext --no-dashboard --install
+# The directory exists (the repository's), and the generator asks whether to go on in it.
+printf 'y\\n' | mix phx.new . --app hello --no-ecto --no-mailer --no-gettext --no-dashboard --install
 printf '<p>Hello from Noust (phoenix)</p>\\n' > lib/hello_web/controllers/page_html/home.html.heex
 """
 
@@ -614,9 +620,11 @@ def parse_args() -> argparse.Namespace:
 def selected(names: list[str] | None) -> list[tuple[str, ScenarioFn]]:
     if not names:
         return list(SCENARIOS)
-    unknown = [name for name in names if name not in EXAMPLES]
+    # "from_a_directory" is the one scenario that is not a folder of examples/: the form the README shows.
+    known = {*EXAMPLES, "from_a_directory"}
+    unknown = [name for name in names if name not in known]
     if unknown:
-        raise HarnessError(f"no example named {unknown!r}; available: {sorted(EXAMPLES)}")
+        raise HarnessError(f"no example named {unknown!r}; available: {sorted(known)}")
     wanted = {f"example_{name.replace('-', '_')}" for name in names}
     return [(n, fn) for n, fn in SCENARIOS if n in wanted]
 
