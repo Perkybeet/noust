@@ -22,6 +22,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from noust.core import paths
 from noust.core.exceptions import ValidationError
 from noust.core.fs import FileSystem
 from noust.core.runner import CommandRunner, get_runner
@@ -496,10 +497,10 @@ class ClockManager:
             [
                 "systemctl",
                 "list-timers",
-                "noust-cron-*",
-                "noust-backup-*",
-                "wasm-cron-*",
-                "wasm-backup-*",
+                f"{paths.CRON_UNIT_PREFIX}*",
+                f"{paths.BACKUP_UNIT_PREFIX}*",
+                f"{paths.LEGACY_CRON_UNIT_PREFIX}*",
+                f"{paths.LEGACY_BACKUP_UNIT_PREFIX}*",
                 "--all",
                 "--no-legend",
                 "--plain",
@@ -579,9 +580,7 @@ class ClockManager:
                     output=words,
                 )
             backend = backend_for(self.platform, runner=self._runner, fs=self._fs, host=self.host)
-            install_result = self.runner.run(
-                backend.install_argv([NTP_PACKAGE]), env=backend.env(), timeout=INSTALL_TIMEOUT
-            )
+            install_result = backend.install([NTP_PACKAGE], timeout=INSTALL_TIMEOUT)
             if not install_result.success:
                 raise ServerError(
                     f"Could not install {NTP_PACKAGE}",

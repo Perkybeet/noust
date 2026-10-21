@@ -29,7 +29,7 @@ import logging
 import re
 import sqlite3
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import partial
@@ -557,14 +557,3 @@ def acknowledge_alert(
             )
         )
     return state
-
-
-def subjects_of(rules: Iterable[AlertRule]) -> set[str]:
-    """
-    Args:
-        rules: Alert rules.
-
-    Returns:
-        The applications the rules name; for the monitor to know which are watched.
-    """
-    return {rule.app_domain for rule in rules if rule.app_domain}

@@ -153,7 +153,6 @@ class TestAutomaticRun:
         monkeypatch.setattr(os, "geteuid", lambda: 0)
         monkeypatch.delenv("INVOCATION_ID", raising=False)
         monkeypatch.delenv("_NOUST_COMPLETE", raising=False)
-        monkeypatch.delenv("_WASM_COMPLETE", raising=False)
         monkeypatch.setattr(name_migration, "_MARKED_PLACES", ())
         return tmp_path / "state" / "name-migration.json"
 
@@ -313,7 +312,12 @@ class TestSteps:
 
 
 class TestFindings:
-    def migration(self, tmp_path: Path, apps: list[App] | None = None) -> NameMigration:
+    def migration(
+        self,
+        tmp_path: Path,
+        apps: list[App] | None = None,
+        account_files: list[Path] | None = None,
+    ) -> NameMigration:
         units = tmp_path / "systemd"
         units.mkdir(exist_ok=True)
         nginx = tmp_path / "nginx"
@@ -333,6 +337,7 @@ class TestFindings:
             web=web,
             unit_dir=units,
             marker_roots=[(units, (".service",))],
+            account_files=account_files or [],
         )
 
     def kinds(self, found: list[name_migration.Finding]) -> list[str]:
@@ -399,6 +404,49 @@ class TestFindings:
         assert f"{edge.resolve()}:3" in found[0].notes[0]
         assert "noust_bg_shop" in found[0].notes[0]
         assert "noust setup rename" in (found[0].fix or "")
+
+    def test_a_pg_hba_line_that_names_the_old_account_is_said_with_its_file_and_line(
+        self, tmp_path: Path, runner: FakeRunner
+    ) -> None:
+        hba = tmp_path / "pg_hba.conf"
+        hba.write_text(
+            "local all postgres peer\n"
+            "host wasm_ro_shop shop 127.0.0.1/32 scram-sha-256\n"
+            "# host wasm_ro_old shop 127.0.0.1/32 scram-sha-256\n"
+        )
+
+        (finding,) = self.migration(tmp_path, account_files=[hba]).findings()
+
+        assert finding.kind == "account" and finding.waits_for_operator
+        assert len(finding.notes) == 1, "a commented line names nothing"
+        assert f"{hba}:2" in finding.notes[0]
+        assert "wasm_ro_shop" in finding.notes[0] and "noust_ro_shop" in finding.notes[0]
+        assert "noust setup rename" in (finding.fix or "")
+        assert hba.read_text().count("wasm_ro_") == 2, "an operator's file is never rewritten"
+
+    def test_a_redis_acl_file_that_names_the_old_user_is_said_with_its_file_and_line(
+        self, tmp_path: Path, runner: FakeRunner
+    ) -> None:
+        acl = tmp_path / "users.acl"
+        acl.write_text("user default on nopass ~* +@all\nuser wasm_ro_redis on >s3cret ~* +@read\n")
+
+        (finding,) = self.migration(tmp_path, account_files=[acl]).findings()
+
+        assert finding.kind == "account" and finding.waits_for_operator
+        assert f"{acl}:2" in finding.notes[0] and "noust_ro_redis" in finding.notes[0]
+        assert "s3cret" not in " ".join(finding.notes), "a password in the file is not repeated"
+
+    def test_a_file_that_is_a_link_or_too_big_is_not_followed(
+        self, tmp_path: Path, runner: FakeRunner
+    ) -> None:
+        real = tmp_path / "real.conf"
+        real.write_text("host wasm_ro_shop shop 127.0.0.1/32 scram-sha-256\n")
+        link = tmp_path / "pg_hba.conf"
+        link.symlink_to(real)
+        big = tmp_path / "big.conf"
+        big.write_text("host wasm_ro_shop shop 127.0.0.1/32 md5\n" + "# padding\n" * 200_000)
+
+        assert self.migration(tmp_path, account_files=[link, big]).findings() == []
 
     def test_what_waits_for_the_operator_comes_first(
         self, tmp_path: Path, runner: FakeRunner

@@ -141,17 +141,6 @@ def remote_commands() -> dict[str, click.Command]:
     return dict(remote.commands)
 
 
-def remote_command(name: str) -> click.Command | None:
-    """
-    Args:
-        name: A top-level command the operator typed.
-
-    Returns:
-        Its form on another server, or None when it has none.
-    """
-    return remote_commands().get(name)
-
-
 def target_of(ctx: Context) -> Target:
     """
     Args:

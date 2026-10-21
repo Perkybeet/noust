@@ -24,6 +24,7 @@ import logging
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from noust.core import legacy_names
 from noust.core.config import Config
 from noust.core.exceptions import (
     CertificateError,
@@ -44,9 +45,9 @@ TEMPLATE = "hooks"
 
 #: The first line of every hooks site: how Noust recognises its own.
 MARKER = "# Noust hooks site for "
-#: The first line WASM wrote before 3.0. Such a site is just as much ours:
+#: The first line a hooks site had before 3.0. Such a site is just as much ours:
 #: it is rewritten under the new marker the next time it is exposed.
-LEGACY_MARKER = "# WASM hooks site for "
+LEGACY_MARKER = legacy_names.HOOKS_SITE_MARKER
 
 #: The configuration key the public URL of ``/hooks`` is kept in:
 #: ``https://hooks.example.com/hooks``.

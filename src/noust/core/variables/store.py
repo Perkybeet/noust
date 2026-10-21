@@ -308,18 +308,6 @@ class VariableStore:
             self.set(scope, owner, name, text, secret=secret, audience=audience, actor=actor)
         return self.list(scope, owner)
 
-    def usage_count(self, scope: str, owner: int) -> int:
-        """
-        Args:
-            scope: The scope.
-            owner: Its owner's id (0 for the server).
-
-        Returns:
-            How many variables it holds.
-        """
-        with self.store._transaction() as cursor:
-            return self._count(cursor, scope, owner)
-
     def referencing_apps(self, scope: str, owner: int, name: str) -> builtins.list[str]:
         """
         Find the applications whose variables name a shared variable.
@@ -416,21 +404,6 @@ class VariableStore:
                         variable.build_value,
                     ),
                 )
-
-    def copy_app_variables(self, source_id: int, target_id: int) -> int:
-        """
-        Give an application the variable data of another (a clone).
-
-        Args:
-            source_id: The application copied from.
-            target_id: The application copied to; its own rows are replaced.
-
-        Returns:
-            How many rows were copied.
-        """
-        rows = list(self.app_variables(source_id).values())
-        self.set_app_variables(target_id, rows)
-        return len(rows)
 
     # Internals ---------------------------------------------------------------
 

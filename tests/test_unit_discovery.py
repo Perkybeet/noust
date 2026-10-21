@@ -393,16 +393,14 @@ def test_a_stored_row_with_the_derived_name_resolves_to_the_legacy_unit(
     ``noust store import`` records wasm-<app>.service under the derived name.
 
     The reboot pre-check on the owner's central then asked systemd about
-    ``admon-africarsrent-com.service``, which does not exist, and reported the
-    application as not enabled while ``wasm-admon-africarsrent-com`` was.
+    ``admin-example-org.service``, which does not exist, and reported the
+    application as not enabled while ``wasm-admin-example-org`` was.
     """
-    app = deploy(store, "admon.africarsrent.com")
-    legacy = marked(unit_dirs, "wasm-admon-africarsrent-com")
-    store.create_service(
-        Service(name="admon-africarsrent-com", app_id=app.id, unit_file=str(legacy))
-    )
+    app = deploy(store, "admin.example.org")
+    legacy = marked(unit_dirs, "wasm-admin-example-org")
+    store.create_service(Service(name="admin-example-org", app_id=app.id, unit_file=str(legacy)))
 
-    assert ServiceManager().app_units(app) == ["wasm-admon-africarsrent-com"]
+    assert ServiceManager().app_units(app) == ["wasm-admin-example-org"]
 
 
 def test_a_stored_row_whose_unit_exists_is_its_unit(

@@ -38,7 +38,7 @@ from noust.web.api.deps import install_error_handlers, require_elevated
 from noust.web.permissions import Permission
 from noust.web.permissions.routes_app_stack import ROUTES
 
-DOMAIN = "licitaciones.example.com"
+DOMAIN = "notices.example.com"
 WEB = "shop.example.com"
 FIXTURES = Path(__file__).parent / "fixtures" / "compose"
 
@@ -48,9 +48,9 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
     """The process-wide store, with a worker registered by 1.x and a Node web."""
     NoustStore.reset_instance()
     instance = get_store()
-    root = tmp_path / "apps" / "licitaciones"
+    root = tmp_path / "apps" / "notices"
     root.mkdir(parents=True)
-    shutil.copy(FIXTURES / "licitaciones.docker-compose.yml", root / "docker-compose.yml")
+    shutil.copy(FIXTURES / "notices.docker-compose.yml", root / "docker-compose.yml")
     instance.create_app(
         App(domain=DOMAIN, app_type="docker-compose", app_path=str(root), port=3000)
     )

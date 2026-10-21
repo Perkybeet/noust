@@ -22,10 +22,10 @@ HOST_MYSQL = Endpoint(engine="mysql", family="mysql", ports=frozenset({3306}))
 HOST_POSTGRES = Endpoint(engine="postgresql", family="postgresql", ports=frozenset({5432}))
 HOST_REDIS = Endpoint(engine="redis", family="redis", ports=frozenset({6379}))
 EMPLEO_DB = Endpoint(
-    engine="postgresql@empleo-arennalabs-com.db",
+    engine="postgresql@jobs-example-net.db",
     family="postgresql",
     ports=frozenset({5434}),
-    project="empleo-arennalabs-com",
+    project="jobs-example-net",
     service="db",
 )
 PROGGEST_PG = Endpoint(
@@ -127,7 +127,7 @@ class TestResolve:
     def test_a_published_port_resolves_to_its_container(self) -> None:
         (ref,) = references_in({"DATABASE_URL": "postgresql://u:p@127.0.0.1:5434/empleo"})
 
-        assert resolve(ref, [HOST_POSTGRES, EMPLEO_DB]) == "postgresql@empleo-arennalabs-com.db"
+        assert resolve(ref, [HOST_POSTGRES, EMPLEO_DB]) == "postgresql@jobs-example-net.db"
 
     def test_a_service_name_resolves_inside_its_own_project(self) -> None:
         (ref,) = references_in({"DATABASE_URL": "postgresql://u:p@postgres:5432/proggest"})

@@ -40,7 +40,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from noust import __version__
-from noust.core import redact
+from noust.core import legacy_names, redact
 from noust.core.app_state import AppState, resolve_states
 from noust.core.exceptions import NoustError
 from noust.core.runner import CommandRunner, get_runner
@@ -430,7 +430,7 @@ class SupportReporter:
                 "--plain",
                 "--no-pager",
                 "noust-*",
-                "wasm-*",
+                f"{legacy_names.UNIT_PREFIX}*",
             ],
             timeout=30,
         )

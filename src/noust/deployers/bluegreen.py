@@ -599,7 +599,7 @@ def own_unit_name(app: App, store: NoustStore) -> str:
         store: Where its service row is read.
 
     Returns:
-        The recorded unit's name (a legacy ``wasm-`` one included), or the
+        The recorded unit's name (a legacy-prefixed one included), or the
         application's name when none is recorded.
     """
     service = store.get_service_by_app_id(app.id) if app.id is not None else None
@@ -1341,7 +1341,7 @@ class BlueGreen:
             self.log.substep("Moving traffic to the green instance first: blue holds the port")
             self.activate(active.path, releases)
 
-        # The application's own name: a legacy wasm- row is not a name a
+        # The application's own name: a legacy-prefixed row is not a name a
         # unit is created under any more.
         name = self.base
         undo: list[Callable[[], None]] = []

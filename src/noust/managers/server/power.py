@@ -285,7 +285,7 @@ def unenabled_app_units(runner: CommandRunner) -> list[str]:
 
     Each application is asked about through the units it runs as
     (:meth:`~noust.managers.service_manager.ServiceManager.serving_units`),
-    never through the name derived from its domain: a legacy ``wasm-`` unit, a
+    never through the name derived from its domain: a unit with the legacy prefix, a
     monorepo's workspaces and a Compose project each have their own.
 
     Returns:

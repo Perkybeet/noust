@@ -1057,6 +1057,10 @@ BastionIn = TypedDict("BastionIn", {
     "host_key": NotRequired[Union[str, None]],
 })
 
+BastionLineOut = TypedDict("BastionLineOut", {
+    "authorized_key_line": Required[str],
+})
+
 BastionOut = TypedDict("BastionOut", {
     "address": Required[str],
     "fingerprint": Required[str],

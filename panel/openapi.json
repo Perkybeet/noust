@@ -6344,6 +6344,20 @@
         "title": "BastionIn",
         "type": "object"
       },
+      "BastionLineOut": {
+        "description": "The line a bastion's operator adds so the central can reach a server through it.\n\nAttributes:\n    authorized_key_line: One ``authorized_keys`` line: one stream to the server, no shell.",
+        "properties": {
+          "authorized_key_line": {
+            "title": "Authorized Key Line",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorized_key_line"
+        ],
+        "title": "BastionLineOut",
+        "type": "object"
+      },
       "BastionOut": {
         "description": "A bastion, as shown. Its host key is pinned, and is not part of what is shown.\n\nAttributes:\n    host: Its host name or address.\n    port: Its SSH port.\n    user: The account the central logs in as there.\n    address: ``user@host:port``.\n    fingerprint: The pinned key's ``SHA256:...``.",
         "properties": {
@@ -98908,6 +98922,60 @@
         ],
         "x-noust-permission": "fleet.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/nodes/{node}/ssh/authorization": {
+      "post": {
+        "description": "Give the line a bastion's operator needs, before the bastion is set.\n\nSetting a bastion opens the tunnel through it and keeps it only when the server answers, which\nit cannot while the bastion does not yet let the central in. So the line is asked for first,\nwith the bastion the operator means to set, exactly as ``noust node ssh NAME --bastion ...\n--show`` does; nothing is changed. The central connects to the address only to check the\nfingerprint it was given, which is why this needs the permission to manage the fleet and not\nthe one to read it.\n\nArgs:\n    node: The node's name.\n    body: The bastion's address and its key or fingerprint.\n    session: The authenticated session.\n\nReturns:\n    The line.\n\nRaises:\n    NodeError: 400 when the key is not vouched for, the address is malformed, nothing answers\n        or what answers is not that fingerprint; 404 when the node is not registered.",
+        "operationId": "ask_bastion_line_api_nodes__node__ssh_authorization_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BastionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BastionLineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ask Bastion Line",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-permission": "fleet.manage"
       }
     },
     "/api/nodes/{node}/team": {

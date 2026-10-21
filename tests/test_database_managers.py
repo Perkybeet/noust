@@ -1745,7 +1745,7 @@ class TestListingFailures:
     """
     A listing the engine refused is an error, never an empty list.
 
-    grupotambor's MySQL asks root for a password Noust did not have; the
+    a customer's MySQL asks root for a password Noust did not have; the
     console showed it as a server with no databases and no users.
     """
 

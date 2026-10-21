@@ -643,20 +643,6 @@ class OidcStore:
                     (mapped_role, identity_id),
                 )
 
-    def has_identity(self, account_id: int) -> bool:
-        """
-        Args:
-            account_id: An account.
-
-        Returns:
-            Whether any provider's person is linked to it.
-        """
-        return bool(
-            self._rows(
-                "SELECT 1 FROM account_identities WHERE account_id = ? LIMIT 1", (int(account_id),)
-            )
-        )
-
     def accounts_linked_to(self, issuer: str) -> set[int]:
         """
         Args:

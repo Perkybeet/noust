@@ -438,7 +438,7 @@ def _in_thread(domain: str) -> None:
         domain: Domain of the application that changed.
     """
     threading.Thread(
-        target=publish_app_state, args=(domain,), name="wasm-app-event", daemon=True
+        target=publish_app_state, args=(domain,), name="noust-app-event", daemon=True
     ).start()
 
 

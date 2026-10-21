@@ -27,7 +27,7 @@ from noust.managers.server.pkg.apt import (
     parse_upgrade_simulation,
 )
 from noust.managers.server.pkg.base import UpdateScope
-from tests.server_support import fixture, make_host, platform_for
+from tests.server_support import EmptyAptLists, fixture, make_host, platform_for
 
 
 @pytest.fixture
@@ -467,3 +467,39 @@ def test_natural_kernel_order_puts_100_after_45() -> None:
     key = host_module.natural_key
 
     assert key("6.8.0-100-generic") > key("6.8.0-45-generic")
+
+
+class TestInstall:
+    """The one way a helper package is installed refreshes empty lists, like every other."""
+
+    def test_a_package_the_lists_do_not_know_is_installed_after_updating_them(
+        self, host, fs
+    ) -> None:
+        runner = EmptyAptLists()
+        backend = AptBackend(platform_for("apt"), runner=runner, fs=fs, host=host)
+
+        result = backend.install(["chrony"], timeout=600)
+
+        assert result.success
+        assert runner.calls == [
+            ("apt-get", "install", "-y", "chrony"),
+            ("apt-get", "update"),
+            ("apt-get", "install", "-y", "chrony"),
+        ]
+
+    def test_it_runs_in_the_package_managers_environment_both_times(self, host, fs) -> None:
+        runner = EmptyAptLists()
+        backend = AptBackend(platform_for("apt"), runner=runner, fs=fs, host=host)
+
+        backend.install(["chrony"], timeout=600)
+
+        assert all(env and env["DEBIAN_FRONTEND"] == "noninteractive" for env in runner.envs)
+
+    def test_a_package_that_installs_at_once_is_not_preceded_by_an_update(
+        self, runner: FakeRunner, host, fs
+    ) -> None:
+        backend = AptBackend(platform_for("apt"), runner=runner, fs=fs, host=host)
+
+        backend.install(["chrony"], timeout=600)
+
+        assert runner.calls == [("apt-get", "install", "-y", "chrony")]

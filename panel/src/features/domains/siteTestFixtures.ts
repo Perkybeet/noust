@@ -3308,7 +3308,7 @@ export const PROGGEST_STRUCTURE: SiteStructure = {
           "locations": [],
           "evaluation_order": [],
           "comments": [
-            "Acceso público de partes para los ayuntamientos.",
+            "Acceso público de partes para los visitantes.",
             "",
             "El límite va aquí y no solo en el @Throttle de Nest porque este bloque ve",
             "la IP real del visitante: la petición llega directa del navegador. El",
@@ -6303,7 +6303,7 @@ export const PROGGEST_STRUCTURE: SiteStructure = {
         {
           "id": "s1/l19",
           "modifier": "=",
-          "path": "/uaap/",
+          "path": "/portal/",
           "source": "location",
           "line": 295,
           "end_line": 297,
@@ -6320,7 +6320,7 @@ export const PROGGEST_STRUCTURE: SiteStructure = {
             "alias": null,
             "inherited": false,
             "code": 302,
-            "destination": "/uaap/dashboard",
+            "destination": "/portal/dashboard",
             "detail": null
           },
           "settings": {
@@ -6343,9 +6343,9 @@ export const PROGGEST_STRUCTURE: SiteStructure = {
               "name": "return",
               "args": [
                 "302",
-                "/uaap/dashboard"
+                "/portal/dashboard"
               ],
-              "text": "return 302 /uaap/dashboard;",
+              "text": "return 302 /portal/dashboard;",
               "block": false,
               "line": 296,
               "end_line": 296,
@@ -6356,17 +6356,17 @@ export const PROGGEST_STRUCTURE: SiteStructure = {
           "locations": [],
           "evaluation_order": [],
           "comments": [
-            "Páginas del módulo UAAP (proxy Next -> Next).",
+            "Páginas del módulo Portal (proxy Next -> Next).",
             "El informe global va por Server Action, y una Server Action POSTea a la URL",
-            "de la PÁGINA que la invoca (/uaap/dashboard y /uaap/trabajadores), no a",
+            "de la PÁGINA que la invoca (/portal/dashboard y /portal/trabajadores), no a",
             "/api/: hereda el `location /` y sus 60s por defecto de Nginx. Generar la",
             "ficha de hasta 200 trabajadores encadena 200 render de pdfmake más el",
             "merge, así que sin este bloque la descarga muere en 504 con la plantilla",
             "entera seleccionada. Mismo motivo y mismos valores que",
             "/work-reports/reports/download.",
             "Cortacircuito del bucle de redirecciones cacheado: la primera version del",
-            "bloque /uaap/ emitio un 301 permanente (/uaap -> /uaap/) que los navegadores",
-            "guardan; con Next devolviendo 308 (/uaap/ -> /uaap) el bucle vivia en la",
+            "bloque /portal/ emitio un 301 permanente (/portal -> /portal/) que los navegadores",
+            "guardan; con Next devolviendo 308 (/portal/ -> /portal) el bucle vivia en la",
             "cache del cliente aunque el servidor ya estuviera corregido. Un 302 (no",
             "cacheable) directo al dashboard rompe el ciclo sin pedirle nada al usuario."
           ],
@@ -6375,7 +6375,7 @@ export const PROGGEST_STRUCTURE: SiteStructure = {
         {
           "id": "s1/l20",
           "modifier": "",
-          "path": "/uaap",
+          "path": "/portal",
           "source": "location",
           "line": 299,
           "end_line": 313,

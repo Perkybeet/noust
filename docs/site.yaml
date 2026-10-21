@@ -201,10 +201,7 @@ sections:
         summary: Upgrading a 3.0 server or fleet to 3.1, and rolling back.
       - source: docs/UPGRADING-3.0.md
         slug: upgrading-3.0
-        summary: From WASM 2.x, upgrade to 3.3.x first.
-      - source: docs/UPGRADING-2.0.md
-        slug: upgrading-2.0
-        summary: Upgrading WASM from 1.6, and between 2.x releases.
+        summary: From 2.x, upgrade to 3.3.x first.
 
   - title: Changelog
     pages:
@@ -220,18 +217,6 @@ sections:
       - source: docs/CHANGELOG-3.0.md
         slug: changelog-3.0
         summary: What changed in 3.0.
-      - source: docs/CHANGELOG-2.3.md
-        slug: changelog-2.3
-        summary: What changed in WASM 2.3.
-      - source: docs/CHANGELOG-2.2.md
-        slug: changelog-2.2
-        summary: What changed in WASM 2.2.
-      - source: docs/CHANGELOG-2.1.md
-        slug: changelog-2.1
-        summary: What changed in WASM 2.1.
-      - source: docs/CHANGELOG-2.0.md
-        slug: changelog-2.0
-        summary: What changed in WASM 2.0.
       - source: docs/API-CHANGELOG.md
         slug: api-changelog
         summary: Changes to the API, with the breaking ones and the deprecations.
@@ -291,7 +276,17 @@ sections:
         summary: How the distribution packages are built on the openSUSE Build Service.
 
 # Markdown files of docs/ that are deliberately not on the site, with the reason.
-exclude: []
+exclude:
+  - source: docs/UPGRADING-2.0.md
+    why: The upgrade guide of a line that carried the product's previous name; history, kept in the repository.
+  - source: docs/CHANGELOG-2.3.md
+    why: A changelog of the line before the rename; history, kept in the repository.
+  - source: docs/CHANGELOG-2.2.md
+    why: A changelog of the line before the rename; history, kept in the repository.
+  - source: docs/CHANGELOG-2.1.md
+    why: A changelog of the line before the rename; history, kept in the repository.
+  - source: docs/CHANGELOG-2.0.md
+    why: A changelog of the line before the rename; history, kept in the repository.
 
 # Old route -> slug. Add a line whenever a slug is renamed or a page is merged into another.
 redirects: {}

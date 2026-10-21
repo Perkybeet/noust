@@ -802,8 +802,7 @@ it runs as the engine's superuser); `EXPLAIN ANALYZE` executes its statement and
 write. With approvals on, a write is a four-eyes request. The server enforces a statement
 timeout and bounds the output. Only one statement is accepted per request in read mode. Every
 statement is an audit event: a read by its digest, a write with its text, secrets scrubbed.
-(Up to 3.0 the text went to a `wasm.audit` logger that had no handler, so it was recorded
-nowhere.)
+(Up to 3.0 the text went to a logger that had no handler, so it was recorded nowhere.)
 
 The data browser (tables, rows, Redis keys) reads as the same read-only account. Editing a row
 changes exactly one row, found by its whole primary key, needs `databases.write` and sudo mode,

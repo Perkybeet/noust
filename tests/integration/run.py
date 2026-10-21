@@ -5069,7 +5069,7 @@ def scenario_compose_worker(sc: Scenario) -> None:
     """
     A stack that publishes no port is deployed and updated with no site and no web probe.
 
-    A worker (the shape of licitaciones in production): running, healthy, nothing for a browser.
+    A worker (the shape of a notices worker in production): running, healthy, nothing for a browser.
     No nginx site is written for it, its container runs, and an update recreates it with the
     new version, still without a site.
     """
@@ -5156,7 +5156,7 @@ def scenario_compose_worker_not_down(sc: Scenario) -> None:
     """
     A stack with no port is judged by its containers, and a mis-registered one is fixed on request.
 
-    Item 57 (licitaciones): a worker deployed by WASM 1.x kept port 3000 and an nginx site, and
+    Item 57 (notices): a worker deployed by WASM 1.x kept port 3000 and an nginx site, and
     `noust diagnose`, the monitor and the health report called it down because nothing answered
     on a port it never had. Now: a healthy worker diagnoses healthy; a worker that crashes in a
     loop diagnoses down with its container state and last log lines (not an HTTP probe);

@@ -3,14 +3,14 @@
 Noust builds every deploy of a new application in its own directory, switches to it
 atomically, keeps it only if it answers, and can go back to any release still on disk in
 seconds. This page describes that layout, how a deploy moves through it, and how an
-application deployed by WASM 1.x is moved onto it.
+application deployed by 1.x is moved onto it.
 
 ## Two layouts
 
 | Layout | Who gets it | Deploy | Rollback |
 |---|---|---|---|
-| `releases` | Every application created by WASM 2.0 or later, unless told otherwise | A new directory per deploy, health-gated activation, automatic rollback | Re-point `current` and restart: seconds |
-| `inplace` | Every application deployed by WASM 1.x, a monorepo until it is [moved](#a-monorepo-on-releases), and types that cannot build releases yet | Backup, pull and rebuild over the tree the service is running, restart. A failed health check after the restart is reported, not rolled back, except for Docker Compose and monorepo applications, which [go back automatically](#docker-compose-and-monorepo-applications). | Rebuild an earlier deployment's commit behind the health gate, or restore a backup ([rolling back to a deployment](#rolling-back-to-a-deployment)) |
+| `releases` | Every application created by 2.0 or later, unless told otherwise | A new directory per deploy, health-gated activation, automatic rollback | Re-point `current` and restart: seconds |
+| `inplace` | Every application deployed by 1.x, a monorepo until it is [moved](#a-monorepo-on-releases), and types that cannot build releases yet | Backup, pull and rebuild over the tree the service is running, restart. A failed health check after the restart is reported, not rolled back, except for Docker Compose and monorepo applications, which [go back automatically](#docker-compose-and-monorepo-applications). | Rebuild an earlier deployment's commit behind the health gate, or restore a backup ([rolling back to a deployment](#rolling-back-to-a-deployment)) |
 
 The layout of a new application comes from `--layout` on `noust create` (or `layout` on
 `POST /api/apps`), and otherwise from the `deploy.layout` setting, which defaults to
@@ -18,7 +18,7 @@ The layout of a new application comes from `--layout` on `noust create` (or `lay
 
 ```bash
 noust config get deploy.layout
-noust config set deploy.layout inplace   # new applications build in place, as in WASM 1.x
+noust config set deploy.layout inplace   # new applications build in place, as in 1.x
 ```
 
 An existing application always keeps the layout it has. A deploy or an update never changes
@@ -379,7 +379,7 @@ for more characters; one that names none is an error. `--commit` does not combin
 - **In place**, the pre-update backup is taken, the checkout is detached at the commit
   (`git checkout --force --detach`: tracked files are rewritten, untracked ones such as
   uploads stay), and the tree is rebuilt and restarted. The branch the checkout was on is
-  remembered in the repository's own configuration (`wasm.branch`), so the next
+  remembered in the repository's own configuration (`noust.branch`), so the next
   `noust update` without `--commit` checks that branch out again and pulls it: the
   application follows its branch again. The deployment history records that branch, not
   `HEAD`.
@@ -716,7 +716,7 @@ holds the receiving. The largest bundle a server takes is `releases.bundle_max_b
 
 ## Moving an in-place application onto releases
 
-An application deployed by WASM 1.x keeps running and updating in place after the upgrade, exactly
+An application deployed by 1.x keeps running and updating in place after the upgrade, exactly
 as before. Moving it onto releases is an explicit operation, one application at a time:
 
 ```bash
@@ -736,7 +736,7 @@ What the migration does:
    states this downtime; it lasts until the health gate passes, usually seconds.
 2. **The live tree becomes the first release.** It is moved, not copied: every change is a
    rename inside the application directory, or the creation of a directory or a link.
-3. **The environment moves to `shared/`.** `.env` and Noust's inventory of it (`.wasm`) are
+3. **The environment moves to `shared/`.** `.env` and Noust's inventory of it (`.noust`) are
    moved to `shared/` and linked into the release.
 4. **What the application wrote for itself moves to `shared/`.** In a git checkout that is
    every untracked directory, ignored or not (`git status --ignored`), minus build output
@@ -791,7 +791,7 @@ because without it a migration cannot be undone; `noust app backup-before-update
 1. **Record what serves.** `docker compose ps -q` lists the running containers and
    `docker inspect` reads, for each, the image it runs, the image name it was created from and
    its Compose service and project. Each image is also tagged
-   `<project>-<service>:wasm-previous`, because the build is about to move the service's own
+   `<project>-<service>:noust_previous`, because the build is about to move the service's own
    name to a new image, and an image with no name is what `docker image prune` deletes. Each
    update moves that tag, so one extra image per service is kept on disk.
 2. **Build.** A failed build recreates nothing: the containers still run the old images. The

@@ -131,12 +131,6 @@ TIERS: tuple[Tier, ...] = (RAW, MINUTE, TEN_MINUTES, HOUR)
 #: The tiers that are aggregated from a finer one, with what feeds each.
 _ROLLED: tuple[tuple[Tier, Tier], ...] = ((MINUTE, RAW), (TEN_MINUTES, MINUTE), (HOUR, TEN_MINUTES))
 
-# Kept for callers that predate the four tiers.
-RAW_RETENTION_SECONDS = RAW.retention or 0
-MINUTE_RESOLUTION = MINUTE.resolution
-MINUTE_RETENTION_SECONDS = MINUTE.retention or 0
-HOUR_RESOLUTION = HOUR.resolution
-
 #: Upsert rather than fail on a duplicate second: a collector that lands twice
 #: on the same timestamp (clock step, NTP slew) is reporting a gauge, and the
 #: newer reading is the truer one.

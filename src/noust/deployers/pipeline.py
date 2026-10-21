@@ -47,20 +47,6 @@ class DeployStep:
     skip_if: Callable[[], bool] | None = None
 
 
-class StepFailure(Exception):
-    """Internal marker: a step raised, and the raiser is preserved as ``cause``."""
-
-    def __init__(self, step: DeployStep, cause: BaseException):
-        """
-        Args:
-            step: The step that failed.
-            cause: The original exception.
-        """
-        super().__init__(f"Step failed: {step.title}")
-        self.step = step
-        self.cause = cause
-
-
 def run_pipeline(steps: list[DeployStep], logger: Logger) -> None:
     """
     Execute steps in order, undoing the completed ones if any step fails.

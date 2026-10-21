@@ -1009,8 +1009,7 @@ marked interrupted.
 ## Themes
 
 Light, dark, or the system's (the default), from the session menu or the command palette.
-The choice is kept in the browser's local storage (`noust.theme`; a choice saved by WASM as
-`wasm.theme` is carried over) and applies to every open tab.
+The choice is kept in the browser's local storage (`noust.theme`) and applies to every open tab.
 
 ## From the terminal
 

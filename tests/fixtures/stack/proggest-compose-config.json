@@ -28,7 +28,7 @@
         "AWS_SECRET_ACCESS_KEY": "",
         "BULL_BOARD_PASSWORD": "dummy-bull-board-password",
         "BULL_BOARD_USER": "admin",
-        "CORS_ORIGIN": "https://proggest.example,https://partes.proggest.example",
+        "CORS_ORIGIN": "https://proggest.example,https://reports.proggest.example",
         "DATABASE_URL": "postgresql://proggest:dummy-db-password@postgres:5432/proggest",
         "FIREBASE_CLIENT_EMAIL": "",
         "FIREBASE_PRIVATE_KEY": "",

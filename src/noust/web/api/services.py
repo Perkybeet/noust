@@ -58,7 +58,7 @@ router = APIRouter(route_class=NoustErrorRoute)
 SYSTEMD_UNIT_DIR: Path = SYSTEMD_DIR
 
 #: Units created by older Noust versions carry this prefix.
-LEGACY_PREFIX = "wasm-"
+LEGACY_PREFIX = legacy_names.UNIT_PREFIX
 
 #: The one classifier of Noust's own units, bound when this module is
 #: imported: the tests swap ``ServiceManager`` for a recording stub, and the
@@ -88,9 +88,9 @@ _OWN_UNIT_HINTS: dict[str, str] = {
 }
 
 #: Units whose journal is the console's or the monitor's own output, which only an
-#: admin credential reads, here and on ``/ws/logs``. Under both names: on a
-#: server not migrated yet the console still runs as WASM's ``wasm-web``, and
-#: its journal must not become readable by spelling the old name.
+#: admin credential reads, here and on ``/ws/logs``. Under both names: journald keeps the
+#: journal of the console's name before 3.0, and it must not become readable by
+#: spelling the old name.
 OWN_JOURNAL_UNITS = frozenset(
     {paths.WEB_UNIT, paths.MONITOR_UNIT, paths.LEGACY_WEB_UNIT, paths.LEGACY_MONITOR_UNIT}
 )
@@ -349,7 +349,7 @@ def _refuse_own_unit(*names: str) -> None:
     own = _own_unit(*names)
     if own is None:
         return
-    # WASM's names for the same units (not migrated yet) get the same hint.
+    # The names these units had before 3.0 get the same hint.
     key = (
         paths.UNIT_PREFIX + own.removeprefix(paths.LEGACY_UNIT_PREFIX)
         if own.startswith(paths.LEGACY_UNIT_PREFIX)

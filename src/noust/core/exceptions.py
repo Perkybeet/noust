@@ -485,12 +485,6 @@ class MonitorError(NoustError):
     pass
 
 
-class AIAnalysisError(NoustError):
-    """Raised when AI analysis fails."""
-
-    pass
-
-
 class EmailError(NoustError):
     """Raised when email notification fails."""
 

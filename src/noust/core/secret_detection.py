@@ -71,6 +71,7 @@ from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from noust.core import legacy_names
 from noust.core.config import REDACTED, is_secret_key
 
 #: A credential embedded in a connection string. ``DATABASE_URL`` is the
@@ -175,7 +176,12 @@ _VALUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("sendgrid api key", re.compile(r"\bSG\.[A-Za-z0-9_\-]{16,}\.[A-Za-z0-9_\-]{16,}\b")),
     ("twilio credential", re.compile(r"\b(?:SK|AC)[0-9a-fA-F]{32}\b")),
     ("npm token", re.compile(r"\bnpm_[A-Za-z0-9]{36}\b")),
-    ("noust token", re.compile(r"\b(?:noust|wasm)_tok_[A-Za-z0-9_\-]{16,}")),
+    (
+        "noust token",
+        re.compile(
+            rf"\b(?:noust_tok_|{re.escape(legacy_names.API_TOKEN_PREFIX)})[A-Za-z0-9_\-]{{16,}}"
+        ),
+    ),
     ("telegram bot token", re.compile(r"\b\d{8,10}:[A-Za-z0-9_\-]{30,}\b")),
     # Provider API keys of the form "sk-" followed by at least 32 more
     # characters. Checked after Stripe, which uses "sk_" (underscore) rather

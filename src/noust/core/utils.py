@@ -19,7 +19,7 @@ import shutil
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from noust.core import paths
+from noust.core import legacy_names, paths
 from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner, get_runner
 
 __all__ = [
@@ -230,7 +230,7 @@ def domain_to_app_name(domain: str) -> str:
 
 def legacy_app_name(domain: str) -> str:
     """
-    Get legacy app name format (with wasm- prefix).
+    Get the legacy app name format (with the unit prefix of before 0.14.1).
 
     Used for backwards compatibility with apps created before v0.14.1.
 
@@ -238,9 +238,9 @@ def legacy_app_name(domain: str) -> str:
         domain: Domain name (e.g., "myapp.example.com").
 
     Returns:
-        Legacy application name (e.g., "wasm-myapp-example-com").
+        Legacy application name (``legacy_names.UNIT_PREFIX`` and the name).
     """
-    return f"wasm-{sanitize_name(domain)}"
+    return f"{legacy_names.UNIT_PREFIX}{sanitize_name(domain)}"
 
 
 def ensure_directory(path: Path, mode: int = 0o755) -> bool:
