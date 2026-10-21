@@ -31,7 +31,7 @@ import { SandboxSettings } from "./BuildsSettings";
 import { PackagesCard } from "./PackagesCard";
 import { useSaveBar } from "./formParts";
 import { buildQuery, settingsKeys } from "./queries";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { SETTINGS_ICONS } from "./objectIcons";
 
 const COMMAND_KEYS = ["install", "build", "start"] as const;
@@ -258,6 +258,7 @@ export function BuildSettings() {
   const domain = app.domain;
   const appType = app.app_type ?? "";
   useSubsectionTitle("appSettings.nav.build", domain);
+  const headerIcon = useSubsectionIcon("appSettings.nav.build");
   const supported = hasBuildBlock(appType);
   const build = useQuery({ ...buildQuery(domain), enabled: supported });
   const rest = (
@@ -276,7 +277,7 @@ export function BuildSettings() {
   const form = supported && build.data !== undefined ? build.data : null;
 
   return (
-    <Section title={t("appBuild.title")} {...subsectionIcon("appSettings.nav.build")} description={t("appBuild.description")}>
+    <Section title={t("appBuild.title")} {...headerIcon} description={t("appBuild.description")}>
       {!supported ? (
         <EmptyState variant="inline" title={t("appBuild.notSupported", { type: appType })} />
       ) : build.isError && form === null ? (

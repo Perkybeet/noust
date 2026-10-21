@@ -26,7 +26,7 @@ import { useSaveBar } from "./formParts";
 import type { FormPart } from "./formParts";
 import { hooksQuery, olderServer, settingsKeys } from "./queries";
 import type { AppHooks } from "./queries";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page";
 import { SETTINGS_ICONS } from "./objectIcons";
 
@@ -182,19 +182,20 @@ export function HooksSettings() {
   const app = useSettingsApp();
   const domain = app.domain;
   useSubsectionTitle("appSettings.nav.hooks", domain);
+  const headerIcon = useSubsectionIcon("appSettings.nav.hooks");
   const isStatic = app.app_type === "static";
   const hooks = useQuery({ ...hooksQuery(domain), enabled: !isStatic });
 
   if (isStatic) {
     return (
-      <Section title={t("appSettings.hooks.title")} {...subsectionIcon("appSettings.nav.hooks")} description={t("appSettings.hooks.description")}>
+      <Section title={t("appSettings.hooks.title")} {...headerIcon} description={t("appSettings.hooks.description")}>
         <EmptyState variant="inline" title={t("appSettings.hooks.staticNone")} />
       </Section>
     );
   }
 
   return (
-    <Section title={t("appSettings.hooks.title")} {...subsectionIcon("appSettings.nav.hooks")} description={t("appSettings.hooks.description")}>
+    <Section title={t("appSettings.hooks.title")} {...headerIcon} description={t("appSettings.hooks.description")}>
       {hooks.isPending ? (
         <LoadingRegion label={t("appSettings.hooks.loading")} className="flex flex-col gap-3">
           <Skeleton className="h-32 w-full rounded-card" />

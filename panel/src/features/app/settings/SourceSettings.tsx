@@ -15,7 +15,7 @@ import { ChangeSourceCard } from "./ChangeSource";
 import { GitCredentialCard } from "./GitCredential";
 import { SourceOptionsCard, useSourceOptions } from "./SourceOptions";
 import { useSaveBar } from "./formParts";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 
 /**
  * Source: where the code comes from and how this server signs in to it. The repository or directory
@@ -30,6 +30,7 @@ export function SourceSettings() {
   const app = useSettingsApp();
   const domain = app.domain;
   useSubsectionTitle("appSettings.nav.source", domain);
+  const headerIcon = useSubsectionIcon("appSettings.nav.source");
   // The same read the deploy key card makes: one request, and it names the repository.
   const view = useQuery(deployKeyQuery(domain));
   const repository = view.data?.repository ?? null;
@@ -38,7 +39,7 @@ export function SourceSettings() {
 
   return (
     <>
-      <Section title={t("sources.title")} {...subsectionIcon("appSettings.nav.source")} description={t("sources.description")}>
+      <Section title={t("sources.title")} {...headerIcon} description={t("sources.description")}>
         {view.isPending ? (
           <LoadingRegion label={t("sources.loading")}>
             <SkeletonCard lines={3} />

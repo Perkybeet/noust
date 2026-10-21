@@ -38,7 +38,7 @@ import { GitPushCard } from "./GitPush";
 import { useSudoFirst } from "./formParts";
 import { RECEIVED_SHOWN, settingsKeys, webhookReceivedQuery, webhookStatusQuery } from "./queries";
 import type { ReceivedDelivery, WebhookSecret, WebhookStatus } from "./queries";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { connectionView, forgeName, outcomeView, senderName } from "./webhook";
 import { SETTINGS_ICONS } from "./objectIcons";
 
@@ -441,6 +441,7 @@ export function DeployOnPush() {
   const app = useSettingsApp();
   const domain = app.domain;
   useSubsectionTitle("appSettings.nav.push", domain);
+  const headerIcon = useSubsectionIcon("appSettings.nav.push");
   const { node } = useNode();
   const queryClient = useQueryClient();
   const sudoFirst = useSudoFirst();
@@ -484,7 +485,7 @@ export function DeployOnPush() {
 
   const data = status.data;
   return (
-    <Section title={t("appSettings.webhook.title")} {...subsectionIcon("appSettings.nav.push")} description={t("appSettings.webhook.description")}>
+    <Section title={t("appSettings.webhook.title")} {...headerIcon} description={t("appSettings.webhook.description")}>
       <QueryState
         query={status}
         label={t("appSettings.webhook.label")}

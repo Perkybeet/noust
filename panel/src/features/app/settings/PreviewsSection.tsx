@@ -60,7 +60,7 @@ import {
   templateExample,
 } from "./previews";
 import type { DataMode, ForkPolicy, InheritMode, PreviewErrors, PreviewField, TtlUnit } from "./previews";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { SETTINGS_ICONS } from "./objectIcons";
 
 type Disabled = ResponseOf<"/api/apps/{domain}/previews/settings", "delete">;
@@ -538,6 +538,7 @@ export function PreviewsSettings() {
   const app = useSettingsApp();
   const domain = app.domain;
   useSubsectionTitle("appSettings.nav.previews", domain);
+  const headerIcon = useSubsectionIcon("appSettings.nav.previews");
   const parent = previewParentOf(app);
   const previews = useQuery({ ...previewsQuery(domain), enabled: parent === null });
   const org = useOrganization();
@@ -546,7 +547,7 @@ export function PreviewsSettings() {
 
   if (parent !== null) {
     return (
-      <Section title={t("appSettings.previews.title")} {...subsectionIcon("appSettings.nav.previews")}>
+      <Section title={t("appSettings.previews.title")} {...headerIcon}>
         <Card>
           <div className="flex flex-col gap-1 text-13">
             <p className="text-fg">

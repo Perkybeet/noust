@@ -29,7 +29,7 @@ import { formatBytes } from "../../../lib/format";
 import { hasUnit } from "../../apps/AppRowActions";
 import { reportActionError } from "../../apps/useAppActions";
 import { InlineMessage } from "../../../components/ui/InlineMessage";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page";
 import { SETTINGS_ICONS } from "./objectIcons";
 
@@ -358,8 +358,9 @@ export function MountsSettings() {
   const t = useT();
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.mounts", app.domain);
+  const headerIcon = useSubsectionIcon("runtime.nav.mounts");
   return (
-    <Section title={t("runtime.nav.mounts")} {...subsectionIcon("runtime.nav.mounts")}>
+    <Section title={t("runtime.nav.mounts")} {...headerIcon}>
       {hasUnit(app) && app.app_type !== "docker-compose" ? (
         <MountsCard domain={app.domain} />
       ) : (

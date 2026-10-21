@@ -29,7 +29,7 @@ import { formatBytes } from "../../../lib/format";
 import { KernelQuota } from "./KernelQuota";
 import { useSaveBar } from "./formParts";
 import type { FormPart } from "./formParts";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 
 /** The least a limit can be (MB), the backend's own floor: a release has to fit in it. */
 const MIN_LIMIT_MB = 64;
@@ -256,12 +256,13 @@ export function DiskSettings() {
   const t = useT();
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.disk", app.domain);
+  const headerIcon = useSubsectionIcon("runtime.nav.disk");
   const disk = useQuery(diskQuery(app.domain));
   const limit = useDiskLimit(app.domain, disk.data);
   const bar = useSaveBar([limit.part], t("runtime.disk.saveFailed"));
   return (
     <>
-      <Section title={t("runtime.disk.title")} {...subsectionIcon("runtime.nav.disk")} description={t("runtime.disk.description")}>
+      <Section title={t("runtime.disk.title")} {...headerIcon} description={t("runtime.disk.description")}>
         <DiskCard app={app} disk={disk} limit={limit} />
       </Section>
       {disk.data !== undefined ? <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} /> : null}

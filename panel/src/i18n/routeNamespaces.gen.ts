@@ -21,7 +21,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/_console/apps/$domain/files": ["appPages", "apps", "queue", "runtime"],
   "/_console/apps/$domain/logs": ["appPages"],
   "/_console/apps/$domain/metrics": ["activity", "appPages", "appTraffic", "auditEvents", "auth", "common", "overview", "runtime", "timeline"],
-  "/_console/apps/$domain/settings": ["appPages", "appSettings", "apps", "network", "promotion", "queue", "rollout", "runtime", "teams", "variables"],
+  "/_console/apps/$domain/settings": ["appPages", "appSettings", "apps", "databases", "nav", "network", "promotion", "queue", "rollout", "runtime", "teams", "variables"],
   "/_console/apps/$domain/settings/": ["appPages", "appSettings", "appTags", "apps", "promotion", "queue", "rollout", "runtime", "teams", "variables"],
   "/_console/apps/$domain/settings/access": ["appPages", "appSettings", "apps", "common", "network", "queue", "server"],
   "/_console/apps/$domain/settings/automation": ["appPages", "appSettings", "apps", "queue", "rollout", "runtime"],

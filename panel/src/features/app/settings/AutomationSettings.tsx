@@ -9,7 +9,7 @@ import { AutomaticDeploysRows } from "./AutomaticDeploys";
 import { BackupRequiredRow } from "./BackupRequired";
 import { SETTINGS_ICONS } from "./objectIcons";
 import { RolloutLimitsSetting } from "./RolloutLimits";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { BackupBeforeUpdateRow, isComposeStack } from "./StackSettings";
 import { UpdateScheduleSetting } from "./UpdateSchedule";
 
@@ -24,11 +24,12 @@ export function AutomationSettings() {
   const app = useSettingsApp();
   const domain = app.domain;
   useSubsectionTitle("appSettings.nav.automation", domain);
+  const headerIcon = useSubsectionIcon("appSettings.nav.automation");
   const org = useOrganization();
   const isPreview = previewParentOf(app) !== null;
 
   return (
-    <Section title={t("appSettings.automation.title")} {...subsectionIcon("appSettings.nav.automation")} description={t("appSettings.automation.description")}>
+    <Section title={t("appSettings.automation.title")} {...headerIcon} description={t("appSettings.automation.description")}>
       <SettingsGroup title={t("appSettings.automation.deploysGroup")} icon={SETTINGS_ICONS.automaticDeploys}>
         <AutomaticDeploysRows domain={domain} />
       </SettingsGroup>

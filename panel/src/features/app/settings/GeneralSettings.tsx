@@ -17,7 +17,7 @@ import { AppTagList, AppTagsActions } from "./AppTags";
 import { BranchActions } from "./BranchPin";
 import { FollowTagsActions } from "./FollowTags";
 import { IdentityCard } from "./Identity";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { WorkerCard, isComposeStack } from "./StackSettings";
 
 /**
@@ -32,6 +32,7 @@ export function GeneralSettings() {
   const org = useOrganization();
   const move = useMoveApp(app);
   useSubsectionTitle("appSettings.nav.general", app.domain);
+  const headerIcon = useSubsectionIcon("appSettings.nav.general");
   const unit = hasUnit(app);
   const argv = app.build_command ?? [];
   const buildCommand = argv.length > 0 ? argv.join(" ") : null;
@@ -128,7 +129,7 @@ export function GeneralSettings() {
   ];
 
   return (
-    <Section title={t("appSettings.general.title")} {...subsectionIcon("appSettings.nav.general")} description={t("appSettings.general.description")}>
+    <Section title={t("appSettings.general.title")} {...headerIcon} description={t("appSettings.general.description")}>
       <Card padding="none">
         <KeyValueList empty={t("appSettings.general.notRecorded")} items={items} className="px-5 py-1" />
       </Card>

@@ -5,7 +5,6 @@ import type { App } from "../../../api/queries/apps";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { useT } from "../../../i18n";
 import type { PlainKey } from "../../../i18n";
-import { SETTINGS_SECTIONS } from "./sections";
 
 /**
  * The application whose settings are open. The settings' layout provides it once the app is
@@ -29,11 +28,18 @@ export function useSubsectionTitle(section: PlainKey, domain: string): void {
 
 
 /**
- * The icon the register gives a subsection, as the props of the `Section` that heads its page: one
- * object, one icon, so the heading draws the one its entry in the side list does (docs/DESIGN.md,
- * 2.8). Nothing while the register gives none.
+ * The icons the register gives the subsections, by the label of each: the settings' layout provides
+ * them, so a page never imports the register (which names the strings of a dozen namespaces) to
+ * head itself with the icon its entry in the side list has.
  */
-export function subsectionIcon(section: PlainKey): { icon?: LucideIcon } {
-  const icon = SETTINGS_SECTIONS.find((candidate) => candidate.label === section)?.icon;
+export const SettingsIconsContext = createContext<ReadonlyMap<PlainKey, LucideIcon>>(new Map());
+
+/**
+ * The icon of a subsection, as the props of the `Section` that heads its page: one object, one icon,
+ * so the heading draws the one its entry in the side list does (docs/DESIGN.md, 2.8). Nothing while
+ * the register gives none.
+ */
+export function useSubsectionIcon(section: PlainKey): { icon?: LucideIcon } {
+  const icon = useContext(SettingsIconsContext).get(section);
   return icon === undefined ? {} : { icon };
 }

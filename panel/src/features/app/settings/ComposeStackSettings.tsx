@@ -5,7 +5,7 @@ import { useT } from "../../../i18n";
 import { ComposeSettingsCard, useComposeOptions } from "./ComposeSettings";
 import { useSaveBar } from "./formParts";
 import { RegistryLoginsCard, useRegistryChoice, usesRegistries } from "./RegistryLogins";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { StackNetworksCard } from "./StackNetworks";
 
 /**
@@ -18,6 +18,7 @@ export function ComposeStackSettings() {
   const app = useSettingsApp();
   const domain = app.domain;
   useSubsectionTitle("appSettings.nav.compose", domain);
+  const headerIcon = useSubsectionIcon("appSettings.nav.compose");
   const options = useComposeOptions(domain);
   const useRegistries = usesRegistries(app);
   const registries = useRegistryChoice(domain, useRegistries);
@@ -25,7 +26,7 @@ export function ComposeStackSettings() {
 
   return (
     <>
-      <Section title={t("composeSettings.page.title")} {...subsectionIcon("appSettings.nav.compose")} description={t("composeSettings.page.description")}>
+      <Section title={t("composeSettings.page.title")} {...headerIcon} description={t("composeSettings.page.description")}>
         <ComposeSettingsCard domain={domain} options={options} />
         <StackNetworksCard domain={domain} />
         {useRegistries ? <RegistryLoginsCard choice={registries} /> : null}

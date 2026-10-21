@@ -31,7 +31,7 @@ import { useT } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
 import { reportActionError } from "../../apps/useAppActions";
 import { JobFailedError, waitForJob } from "./queries";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page";
 import { SETTINGS_ICONS } from "./objectIcons";
 
@@ -511,8 +511,9 @@ export function ProcessesSettings() {
   const t = useT();
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.processes", app.domain);
+  const headerIcon = useSubsectionIcon("runtime.nav.processes");
   return (
-    <Section title={t("runtime.nav.processes")} {...subsectionIcon("runtime.nav.processes")}>
+    <Section title={t("runtime.nav.processes")} {...headerIcon}>
       {hasUnit(app) ? (
         <div className="flex flex-col gap-6">
           <ReplicasCard domain={app.domain} />

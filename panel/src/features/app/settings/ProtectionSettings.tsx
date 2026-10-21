@@ -22,7 +22,7 @@ import type { T } from "../../../i18n";
 import { ClientCertsCard } from "./ClientCertsCard";
 import { WafCard } from "./WafCard";
 import { useSaveBar } from "./formParts";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { AccessQuestions, useAccessForm } from "./useAccessForm";
 import type { AccessForm } from "./useAccessForm";
 import { SETTINGS_ICONS } from "./objectIcons";
@@ -208,10 +208,11 @@ export function ProtectionSettings() {
   const app = useSettingsApp();
   const domain = app.domain;
   useSubsectionTitle("network.protection.nav", domain);
+  const headerIcon = useSubsectionIcon("network.protection.nav");
   const policy = useQuery(appPolicyQuery(domain));
 
   return (
-    <Section title={t("network.protection.title")} {...subsectionIcon("network.protection.nav")} description={t("network.protection.description", { domain })}>
+    <Section title={t("network.protection.title")} {...headerIcon} description={t("network.protection.description", { domain })}>
       {policy.isPending ? (
         <LoadingRegion label={t("network.protection.loading")}>
           <SkeletonCard lines={3} />

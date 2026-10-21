@@ -26,7 +26,7 @@ import { AccessUsers } from "./AccessUsers";
 import { PrivateCard } from "./PrivateCard";
 import { RoutesCard } from "./RoutesCard";
 import { useSaveBar } from "./formParts";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { AccessQuestions, useAccessForm } from "./useAccessForm";
 import type { AccessForm } from "./useAccessForm";
 import { SETTINGS_ICONS } from "./objectIcons";
@@ -210,10 +210,11 @@ export function AccessSettings() {
   const app = useSettingsApp();
   const domain = app.domain;
   useSubsectionTitle("network.access.nav", domain);
+  const headerIcon = useSubsectionIcon("network.access.nav");
   const policy = useQuery(appPolicyQuery(domain));
 
   return (
-    <Section title={t("network.access.title")} {...subsectionIcon("network.access.nav")} description={t("network.access.description", { domain })}>
+    <Section title={t("network.access.title")} {...headerIcon} description={t("network.access.description", { domain })}>
       {policy.isPending ? (
         <LoadingRegion label={t("network.access.loading")}>
           <SkeletonCard lines={3} />

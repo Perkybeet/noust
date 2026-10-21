@@ -25,7 +25,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { changedFields, useSaveBar } from "./formParts";
 import { JobFailedError, waitForJob } from "./queries";
-import { useSettingsApp, subsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { PrivilegeFields, useTuningPart } from "./TuningFields";
 import { LoadingRegion } from "../../../components/page";
 
@@ -207,13 +207,14 @@ export function SecuritySettings() {
   const t = useT();
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.security", app.domain);
+  const headerIcon = useSubsectionIcon("runtime.nav.security");
   const hardening = useQuery(hardeningQuery(app.domain));
   // Read with the sandbox, so the form is made once with what the unit has; a read that failed
   // is the sandbox alone.
   const tuning = useQuery(tuningQuery(app.domain));
   const data = hardening.data;
   return (
-    <Section title={t("runtime.hardening.title")} {...subsectionIcon("runtime.nav.security")} description={t("runtime.hardening.description")}>
+    <Section title={t("runtime.hardening.title")} {...headerIcon} description={t("runtime.hardening.description")}>
       {data === undefined ? (
         hardening.isError ? (
           <ErrorBlock error={hardening.error} title={t("runtime.hardening.loadFailed")} onRetry={() => void hardening.refetch()} retrying={hardening.isRefetching} />
