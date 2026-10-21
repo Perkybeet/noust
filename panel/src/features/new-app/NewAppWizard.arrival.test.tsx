@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { RECIPES, WORDPRESS } from "./testFixtures";
 import type { Inspection } from "./wizard";
@@ -188,6 +188,70 @@ describe("the first application of a server without a domain", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Address" })).toBeInTheDocument();
     expect(screen.getByLabelText("Domain")).toBeInTheDocument();
+  });
+});
+
+describe("a private repository over SSH", () => {
+  const KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJm3XHLbCqk8mP0nS0yv4Y1v8f0eJ3o0n7m0q8c1b2xP root@server";
+  const REFUSED = "git@github.com: Permission denied (publickey).\nfatal: Could not read from remote repository.";
+
+  function refusingServer(key: Record<string, unknown>) {
+    let reads = 0;
+    const made = emptyServer(NEXT, {
+      "GET /api/deploy-keys/server": () => json(200, key),
+      "POST /api/apps/inspect": () => {
+        reads += 1;
+        // The second read finds the key in place.
+        return reads === 1 ? problem(400, "sourceerror", "Could not fetch git@github.com:acme/private.git", { output: REFUSED, hint: "Add this server's key to the repository." }) : json(200, NEXT);
+      },
+    });
+    return made;
+  }
+
+  it("gives the server's key under git's own words, the page where it is added, and Check again", { timeout: 40_000 }, async () => {
+    const { backend, harness } = refusingServer({ public_key: KEY, fingerprint: "SHA256:abc" });
+    const { user } = harness;
+    await screen.findByRole("heading", { level: 1, name: "New application" });
+    await user.click(screen.getByLabelText("Repository or directory"));
+    await user.paste("git@github.com:acme/private.git");
+
+    // Git's words stay exactly as it printed them.
+    expect(await screen.findByText(/Permission denied \(publickey\)/, {}, { timeout: 5_000 })).toBeInTheDocument();
+    expect(await screen.findByText("This server's SSH key")).toBeInTheDocument();
+    expect(screen.getByText(KEY)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open the deploy keys on GitHub/ })).toHaveAttribute("href", "https://github.com/acme/private/settings/keys/new");
+    await expectNoAxeViolations(screen.getByRole("main"));
+
+    await user.click(screen.getByRole("button", { name: "Check again" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/apps/inspect")).toHaveLength(2);
+    });
+    expect(await screen.findByText(/Detected: Next\.js with npm/)).toBeInTheDocument();
+    expect(screen.queryByText("This server's SSH key")).not.toBeInTheDocument();
+  });
+
+  it("says how to make the key where the server has none, and names no page for a host it does not know", { timeout: 40_000 }, async () => {
+    const { harness } = refusingServer({ public_key: null, fingerprint: null });
+    const { user } = harness;
+    await screen.findByRole("heading", { level: 1, name: "New application" });
+    await user.click(screen.getByLabelText("Repository or directory"));
+    await user.paste("git@git.example.org:team/private.git");
+    expect(await screen.findByText(/This server has no SSH key yet/, {}, { timeout: 5_000 })).toBeInTheDocument();
+    expect(screen.getByText("noust setup ssh --generate")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Open the deploy keys/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check again" })).toBeInTheDocument();
+  });
+
+  it("shows no key block for an address that is not SSH", { timeout: 40_000 }, async () => {
+    const { harness } = emptyServer(NEXT, {
+      "POST /api/apps/inspect": () => problem(400, "sourceerror", "Could not fetch https://github.com/acme/private.git", { output: "fatal: could not read Username", hint: "Use a token in the URL." }),
+    });
+    const { user } = harness;
+    await screen.findByRole("heading", { level: 1, name: "New application" });
+    await user.click(screen.getByLabelText("Repository or directory"));
+    await user.paste("https://github.com/acme/private.git");
+    expect(await screen.findByText(/could not read Username/, {}, { timeout: 5_000 })).toBeInTheDocument();
+    expect(screen.queryByText("This server's SSH key")).not.toBeInTheDocument();
   });
 });
 

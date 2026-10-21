@@ -498,7 +498,7 @@ class DeployKeyManager:
                 and repository_identity(other.source) == identity
             )
         )
-        server_key, server_fingerprint = self._server_key()
+        server_key, server_fingerprint = self.server_key()
         return DeployKeyView(
             domain=app.domain,
             repository=identity,
@@ -511,9 +511,12 @@ class DeployKeyManager:
             warnings=tuple(warnings),
         )
 
-    def _server_key(self) -> tuple[str | None, str | None]:
+    def server_key(self) -> tuple[str | None, str | None]:
         """
         Read the server-wide key ``noust setup ssh`` manages.
+
+        It is what git signs in with for a repository that has no key of its own, so it is
+        also what a person is told to add at a code host before an application exists.
 
         Returns:
             Its public line and fingerprint, or None for both.

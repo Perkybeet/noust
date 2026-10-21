@@ -46760,6 +46760,35 @@
         "title": "ServerInfo",
         "type": "object"
       },
+      "ServerKeyResponse": {
+        "description": "The key git signs in with for a repository that has no deploy key of its own.\n\nAttributes:\n    public_key: The OpenSSH public key line to add at the code host; null when the server\n        has no such key (``noust setup ssh --generate`` makes one).\n    fingerprint: ``SHA256:...``; null when there is no key.",
+        "properties": {
+          "fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint"
+          },
+          "public_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Key"
+          }
+        },
+        "title": "ServerKeyResponse",
+        "type": "object"
+      },
       "ServerShellModel": {
         "description": "Whether the server's own shell may be opened, and what to do when it may not.",
         "properties": {
@@ -91773,6 +91802,29 @@
         ],
         "x-noust-permission": "server.host_access",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/deploy-keys/server": {
+      "get": {
+        "description": "Show the public half of the server-wide SSH key.\n\nA private repository over ssh fails to clone before an application exists, and the\nperson starting one needs the key to add at the code host. Only the public line is\never returned; there is nothing to create here (that is ``noust setup ssh``, which\nwrites into the home of the account Noust runs as).\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The key, or nothing when the server has none.",
+        "operationId": "get_server_key_api_deploy_keys_server_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerKeyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Server Key",
+        "tags": [
+          "Deploy keys"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/deployments": {

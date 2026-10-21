@@ -16728,6 +16728,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/deploy-keys/server": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Server Key
+         * @description Show the public half of the server-wide SSH key.
+         *
+         *     A private repository over ssh fails to clone before an application exists, and the
+         *     person starting one needs the key to add at the code host. Only the public line is
+         *     ever returned; there is nothing to create here (that is ``noust setup ssh``, which
+         *     writes into the home of the account Noust runs as).
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The key, or nothing when the server has none.
+         */
+        get: operations["get_server_key_api_deploy_keys_server_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/deployments": {
         parameters: {
             query?: never;
@@ -54120,6 +54151,21 @@ export interface components {
             version: string;
         };
         /**
+         * ServerKeyResponse
+         * @description The key git signs in with for a repository that has no deploy key of its own.
+         *
+         *     Attributes:
+         *         public_key: The OpenSSH public key line to add at the code host; null when the server
+         *             has no such key (``noust setup ssh --generate`` makes one).
+         *         fingerprint: ``SHA256:...``; null when there is no key.
+         */
+        ServerKeyResponse: {
+            /** Fingerprint */
+            fingerprint?: string | null;
+            /** Public Key */
+            public_key?: string | null;
+        };
+        /**
          * ServerShellModel
          * @description Whether the server's own shell may be opened, and what to do when it may not.
          */
@@ -81396,6 +81442,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_server_key_api_deploy_keys_server_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerKeyResponse"];
                 };
             };
         };

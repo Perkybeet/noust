@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useBlocker, useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -20,12 +20,11 @@ import { systemInfoQuery } from "../../api/queries/system";
 import { announce } from "../../app/Announcer";
 import { getLocale } from "../../app/locale";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
+import { LeaveGuard } from "../../components/page/LeaveGuard";
 import { Wizard } from "../../components/page/Wizard";
 import type { WizardActionsProps } from "../../components/page/Wizard";
-import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Mono } from "../../components/ui/Mono";
-import { Dialog } from "../../components/ui/Dialog";
 import { textLinkClassName } from "../../components/ui/TextLink";
 import { translate, useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -38,6 +37,7 @@ import { DeployStep, deploySummary } from "./DeployStep";
 import type { OpenSteps } from "./DeployStep";
 import type { DeployKind } from "./DeployStep";
 import { DetectedLine } from "./DetectedLine";
+import { clearDraft, readDraft } from "./draft";
 import { EnvironmentFields } from "./EnvironmentFields";
 import { exportFileProblem, importBody, importProblems, importRefusalOf, initialImportForm, readExport } from "./exportFile";
 import type { ImportForm } from "./exportFile";
@@ -236,10 +236,13 @@ export function NewAppWizard() {
     },
   });
   const [step, setStep] = useState<Step>(serverStep.startHere ? "server" : "source");
-  const [source, setSource] = useState<SourceForm>({ source: "", branch: "" });
   // The way in the link asked for (`/apps/new?start=recipe`, from the Applications page and the
   // palette): the wizard opens on it instead of on the default.
   const wizardSearch = useSearch({ from: "/_console/apps/new" });
+  // Back from connecting GitHub (`?resume=1`): where the operator was, from the draft this tab kept.
+  // Read, not taken: a render that runs twice must find it twice.
+  const [resumed] = useState(() => (wizardSearch.resume === 1 ? readDraft() : null));
+  const [source, setSource] = useState<SourceForm>(resumed !== null ? { source: resumed.source, branch: resumed.branch } : { source: "", branch: "" });
   const start = wizardStart(wizardSearch.start);
   // The recipe the link already chose (`&recipe=wordpress`, from the catalog): opened for the operator.
   const linkedRecipe = start === "recipe" ? wizardRecipe(wizardSearch.recipe) : undefined;
@@ -252,7 +255,7 @@ export function NewAppWizard() {
   });
   // Null until the operator acts: what the link asked for, GitHub when the App is connected,
   // the typed source otherwise.
-  const [chosenMode, setChosenMode] = useState<SourceMode | null>(start ?? null);
+  const [chosenMode, setChosenMode] = useState<SourceMode | null>(start ?? resumed?.mode ?? null);
   // The same page, asked again from where it already is (the palette, over the wizard): a new
   // start replaces the way in, settled while rendering rather than in an effect.
   const [seenStart, setSeenStart] = useState(start);
@@ -283,7 +286,8 @@ export function NewAppWizard() {
 
   // Set by a move between steps: the first step on arrival keeps focus on the page's title.
   const [moved, setMoved] = useState(false);
-  const leaving = useRef(false);
+  // Set once the wizard hands over to the deployment, so leaving for it asks nothing.
+  const [gone, setGone] = useState(false);
   const abort = useRef<AbortController | null>(null);
 
   const githubStatus = github.data ?? null;
@@ -501,15 +505,22 @@ export function NewAppWizard() {
 
   const chosen = kind === "recipe" ? recipe !== null : kind === "import" ? loaded !== null : sourceMode === "image" ? imageRef.trim() !== "" : sourceMode === "compose" ? composeDoc.document.trim() !== "" : source.source.trim() !== "";
   const dirty = chosen && target === null;
-  const blocker = useBlocker({
-    // Signing in again after the session expired is not leaving: nothing typed could be kept.
-    shouldBlockFn: ({ next }) => dirty && !leaving.current && next.pathname !== "/login",
-    enableBeforeUnload: () => dirty && !leaving.current,
-    withResolver: true,
-  });
   const onGone = useCallback(() => {
-    leaving.current = true;
+    setGone(true);
   }, []);
+
+  // The draft is for coming back from GitHub, once: it is spent when the wizard opens on it, and
+  // forgotten when the wizard is left, so it never outlives the visit that wrote it.
+  const resume = wizardSearch.resume;
+  useEffect(() => {
+    if (resume === 1) void navigate({ to: "/apps/new", search: (previous) => ({ ...previous, resume: undefined }), replace: true });
+  }, [resume, navigate]);
+  useEffect(
+    () => () => {
+      clearDraft();
+    },
+    [],
+  );
   const cancelInspection = (): void => {
     abort.current?.abort();
     inspect.reset();
@@ -721,7 +732,9 @@ export function NewAppWizard() {
       };
     }
     const found: SourceErrors =
-      sourceMode === "github" && githubStatus?.configured === true && source.installationId === undefined
+      sourceMode === "github" && githubStatus !== null && !githubStatus.configured
+        ? { source: t("newApp.github.needsApp") }
+        : sourceMode === "github" && githubStatus?.configured === true && source.installationId === undefined
         ? { source: t("newApp.source.chooseRepository") }
         : sourceMode === "gitlab" && source.source.trim() === ""
           ? { source: t("gitlab.picker.chooseProject") }
@@ -832,6 +845,9 @@ export function NewAppWizard() {
               inspecting={inspect.isPending ? { since: inspect.submittedAt } : null}
               onCancel={cancelInspection}
               failure={inspect.isError && !isAbort(inspect.error) ? inspect.error : null}
+              onRetry={() => {
+                inspect.mutate({ form: source, advance: false });
+              }}
               onManual={() => {
                 const inspection = manualInspection(source);
                 inspect.reset();
@@ -1191,23 +1207,7 @@ export function NewAppWizard() {
         {view?.content}
       </Wizard>
 
-      <Dialog
-        open={blocker.status === "blocked"}
-        onOpenChange={(open) => {
-          if (!open) blocker.reset?.();
-        }}
-        size="sm"
-        title={t("newApp.leave.title")}
-        description={t("newApp.leave.description")}
-        footer={
-          <>
-            <Button onClick={() => blocker.reset?.()}>{t("newApp.leave.stay")}</Button>
-            <Button variant="danger" onClick={() => blocker.proceed?.()}>
-              {t("newApp.leave.leave")}
-            </Button>
-          </>
-        }
-      />
+      <LeaveGuard changes={dirty && !gone ? 1 : 0} description={t("newApp.leave.description")} />
     </>
   );
 }

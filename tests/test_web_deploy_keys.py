@@ -25,6 +25,7 @@ from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app as build_app
 from noust.web.server import get_token_manager
 from tests.deploy_key_support import DeployKeyRunner, GitScript, private_key_text
+from tests.fleet_support import ed25519_line, fingerprint
 
 DOMAIN = "shop.example.com"
 SOURCE = "git@github.com:acme/shop.git"
@@ -282,6 +283,35 @@ class TestDelete:
         assert response.status_code == 200, response.text
         assert response.json()["key"] is None
         assert admin.get("/api/deploy-keys").json()["total"] == 0
+
+
+class TestServerKey:
+    """The public half of the key git signs in with before an application has one of its own."""
+
+    def test_it_is_the_public_line_and_its_fingerprint(
+        self, plain: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        line = ed25519_line(77, "root@server")
+        monkeypatch.setattr(
+            "noust.managers.source_keys.ssh_key_exists", lambda: (True, tmp_path / "id_ed25519")
+        )
+        monkeypatch.setattr("noust.managers.source_keys.get_public_key", lambda path: line)
+        response = plain.get("/api/deploy-keys/server")
+        assert response.status_code == 200, response.text
+        assert response.json() == {"public_key": line, "fingerprint": fingerprint(line)}
+        assert "PRIVATE" not in response.text
+
+    def test_a_server_without_a_key_says_so_with_nothing(
+        self, plain: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("noust.managers.source_keys.ssh_key_exists", lambda: (False, None))
+        response = plain.get("/api/deploy-keys/server")
+        assert response.status_code == 200, response.text
+        assert response.json() == {"public_key": None, "fingerprint": None}
+
+    def test_it_needs_a_session(self, app: FastAPI) -> None:
+        anonymous = TestClient(app, client=("testclient", 50002))
+        assert anonymous.get("/api/deploy-keys/server").status_code in (401, 403)
 
 
 class TestList:

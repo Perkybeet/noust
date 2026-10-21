@@ -279,6 +279,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/deploy-keys", SCOPED),
     # What the server's known_hosts has pinned is the server's own trust in the network.
     _rule("/api/deploy-keys/hosts/**", INSTANCE),
+    # The server-wide key is the server's own identity at the code hosts, not a team's.
+    _rule("/api/deploy-keys/server", INSTANCE),
     # --- history of an application -------------------------------------------
     _rule("/api/deployments", SCOPED),
     _rule(

@@ -245,6 +245,10 @@ describe("Settings > Integrations", () => {
     integrations({ ...CONFIGURED, hooks_active: false });
     renderConsole("/settings/integrations");
     expect(await screen.findByText("Not switched on at GitHub")).toBeInTheDocument();
+    // Created and installed, the App clones: what is left is a task with a state, not a step in the way.
+    expect(screen.getByText("Connected")).toHaveAttribute("data-state", "running");
+    expect(screen.getByText("Pushes will not deploy until this server is reachable.")).toBeInTheDocument();
+    expect(screen.queryByText("Create the App")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Let GitHub reach this server" })).toBeInTheDocument();
     expect(screen.getByText(/tick Active/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Open the App's settings on GitHub/ })).toHaveAttribute("href", CONFIGURED.settings_url);

@@ -17,13 +17,15 @@ import { Input } from "../../components/ui/Input";
 import { Menu, MenuItem } from "../../components/ui/Menu";
 import { Notice } from "../../components/ui/Notice";
 import { SystemOutput } from "../../components/ui/SystemOutput";
-import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
 import { ArchiveUpload } from "../app/upload/ArchiveUpload";
 import { PasteDockerfile } from "../app/upload/PasteDockerfile";
+import { ConnectGitHub } from "./ConnectGitHub";
 import { GitHubSource } from "./GitHubSource";
 import { GitLabSource } from "./GitLabSource";
+import { SshKeyHelp } from "./SshKeyHelp";
+import { sshRepository } from "./sshSource";
 import { Suggestion } from "./Suggestion";
 import { WorkspacesDialog } from "./WorkspacesDialog";
 import { SOURCE_WORDS, sourceKind } from "./wizard";
@@ -121,7 +123,7 @@ function VerdictFailure({ failure, source, onManual }: { failure: { detail: stri
  * what the fetch printed (git's own words) is shown here verbatim. A source that was fetched
  * but matched no type can still be deployed: the operator picks the type.
  */
-function InspectFailure({ failure, source, onManual }: { failure: unknown; source: string; onManual: () => void }) {
+function InspectFailure({ failure, source, onManual, onRetry }: { failure: unknown; source: string; onManual: () => void; onRetry: () => void }) {
   const t = useT();
   // For a repository read through the GitHub App, the usual cause is the installation, not a key.
   const fetchHint = t(sourceKind(source) === "github" ? "newApp.source.githubFetchHint" : "newApp.source.fetchHint");
@@ -131,9 +133,18 @@ function InspectFailure({ failure, source, onManual }: { failure: unknown; sourc
     // the backend carried them as `output` (a private repository's auth failure, for example).
     // An older or simpler SourceError has no output of its own; `hint` is what it printed then.
     const printed = failure.output ?? failure.hint;
-    if (printed === null) return null;
     const fix = failure.output !== null ? (failure.hint ?? fetchHint) : fetchHint;
-    return <ErrorBlock live error={{ detail: printed }} title={t("newApp.source.fetchReported", { source })} hint={fix} />;
+    // A private repository over SSH is the one fetch failure whose cure is a key, and the key is
+    // this server's: it is given here, under git's words, instead of in the settings of an
+    // application that does not exist yet.
+    const ssh = sshRepository(source) !== null;
+    if (printed === null && !ssh) return null;
+    return (
+      <div className="flex min-w-0 flex-col gap-3">
+        {printed !== null ? <ErrorBlock live error={{ detail: printed }} title={t("newApp.source.fetchReported", { source })} hint={fix} /> : null}
+        {ssh ? <SshKeyHelp source={source} onCheckAgain={onRetry} /> : null}
+      </div>
+    );
   }
   if (isApiError(failure) && VERDICT_ERRORS.has(failure.error) && failure.status === 400) {
     return <VerdictFailure failure={failure} source={source} onManual={onManual} />;
@@ -184,6 +195,8 @@ export interface SourceStepProps {
   failure: unknown;
   /** Go on without detection: the operator chooses the type. */
   onManual: () => void;
+  /** Read the source again, as it is: after the fix its failure asked for. */
+  onRetry: () => void;
   /** This server's GitHub integration; null while unknown or when it could not be read. */
   github: GitHubStatus | null;
   /** This server's GitLab connections; null while unknown or when they could not be read. */
@@ -224,6 +237,7 @@ export function SourceStep({
   onCancel,
   failure,
   onManual,
+  onRetry,
   github,
   gitlab,
   mode,
@@ -246,10 +260,11 @@ export function SourceStep({
   };
   const busy = inspecting !== null;
   const shown = form.source.trim();
-  // "From GitHub" is offered only where this server has a GitHub App to read repositories with.
-  // "From GitLab" likewise, where at least one connection exists.
+  // "From GitHub" is offered wherever the server can say whether it has an App: with one it lists
+  // the repositories, without one it is where GitHub is connected. "From GitLab" only where at
+  // least one connection exists.
   const modes: SegmentedOption<SourceMode>[] = MODES.filter(
-    (option) => (option.value !== "github" || github?.configured === true) && (option.value !== "gitlab" || (gitlab?.connections.length ?? 0) > 0),
+    (option) => (option.value !== "github" || github !== null) && (option.value !== "gitlab" || (gitlab?.connections.length ?? 0) > 0),
   ).map((option) => ({
     value: option.value,
     label: t(option.label),
@@ -307,30 +322,13 @@ export function SourceStep({
         <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
           {mode === "github" && github?.configured === true ? (
             <GitHubSource status={github} form={form} errors={errors} onChange={onChange} disabled={busy} />
+          ) : mode === "github" && github !== null ? (
+            <ConnectGitHub form={form} error={errors.source} />
           ) : mode === "gitlab" && gitlab !== null ? (
             <GitLabSource status={gitlab} form={form} errors={errors} onChange={onChange} disabled={busy} />
           ) : (
             <>
-              <Field
-                label={t("newApp.source.field")}
-                error={errors.source}
-                description={
-                  github !== null && !github.configured ? (
-                    <>
-                      {`${t(SOURCE_WORDS[kind])} `}
-                      {t.rich("newApp.source.githubPrompt", {
-                        link: (
-                          <TextLink to="/settings/integrations">
-                            {t("newApp.source.connect")}
-                          </TextLink>
-                        ),
-                      })}
-                    </>
-                  ) : (
-                    t(SOURCE_WORDS[kind])
-                  )
-                }
-              >
+              <Field label={t("newApp.source.field")} error={errors.source} description={t(SOURCE_WORDS[kind])}>
                 <Input
                   mono
                   icon={KIND_ICON[kind]}
@@ -411,7 +409,7 @@ export function SourceStep({
           {inspecting !== null ? (
             <Inspecting source={shown} branch={form.branch.trim()} since={inspecting.since} onCancel={onCancel} />
           ) : failure !== null && failure !== undefined ? (
-            <InspectFailure failure={failure} source={shown} onManual={onManual} />
+            <InspectFailure failure={failure} source={shown} onManual={onManual} onRetry={onRetry} />
           ) : (
             (detected ?? null)
           )}

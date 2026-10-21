@@ -8048,6 +8048,11 @@ ServerInfo = TypedDict("ServerInfo", {
     "version": NotRequired[str],
 })
 
+ServerKeyResponse = TypedDict("ServerKeyResponse", {
+    "fingerprint": NotRequired[Union[str, None]],
+    "public_key": NotRequired[Union[str, None]],
+})
+
 ServerShellModel = TypedDict("ServerShellModel", {
     "allowed": Required[bool],
     "enabled": Required[bool],

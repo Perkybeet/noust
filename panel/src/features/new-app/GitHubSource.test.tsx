@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import type { GitHubRepository, GitHubStatus } from "../../api/queries/github";
 import { expectNoAxeViolations } from "../../test/axe";
@@ -220,11 +220,14 @@ describe("the new-app wizard, from GitHub", () => {
     expect(screen.getByRole("link", { name: /Install on GitHub/ })).toHaveAttribute("href", STATUS.install_url);
   });
 
-  it("links to Settings > Integrations when no App is connected, and keeps the typed source", async () => {
+  it("offers From GitHub where no App is connected, and keeps the typed source until it is chosen", async () => {
     wizard({ configured: false, installations: [], hooks_url: null, hooks_active: false, host: "github.com" });
-    expect(await screen.findByRole("link", { name: "Connect a GitHub App" })).toHaveAttribute("href", "/settings/integrations");
-    expect(screen.getByLabelText("Repository or directory")).toBeInTheDocument();
-    expect(screen.queryByRole("radio", { name: "From GitHub" })).not.toBeInTheDocument();
+    expect(await screen.findByLabelText("Repository or directory")).toBeInTheDocument();
+    const modes = screen.getByRole("radiogroup", { name: "Where the code is" });
+    expect(within(modes).getByRole("radio", { name: "URL or path" })).toBeChecked();
+    expect(await within(modes).findByRole("radio", { name: "From GitHub" })).not.toBeChecked();
+    // The way to Settings is gone: connecting is done here.
+    expect(screen.queryByRole("link", { name: "Connect a GitHub App" })).not.toBeInTheDocument();
   });
 
   it("stays on the typed source when the integration cannot be read", async () => {
@@ -234,6 +237,91 @@ describe("the new-app wizard, from GitHub", () => {
       expect(backend.callsTo("GET /api/integrations/github")).toHaveLength(1);
     });
     expect(screen.queryByRole("radio", { name: "From GitHub" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Connect a GitHub App" })).not.toBeInTheDocument();
+  });
+});
+
+const NO_APP: GitHubStatus = { configured: false, installations: [], hooks_url: null, hooks_active: false, host: "github.com" };
+
+afterEach(() => {
+  window.sessionStorage.clear();
+});
+
+describe("connecting GitHub without leaving the wizard", () => {
+  it("is a card on From GitHub that keeps the draft when the browser goes to GitHub, and nothing the operator filled in", { timeout: 30_000 }, async () => {
+    const { user, backend } = (() => {
+      const made = wizard(NO_APP, {
+        // Not https: the console posts the manifest only to an https address, so this stays on the page.
+        "POST /api/integrations/github/manifest": () => json(200, { post_url: "http://github.test/settings/apps/new", manifest: {} }),
+      });
+      return { user: made.harness.user, backend: made.backend };
+    })();
+    await user.click(await screen.findByRole("radio", { name: "From GitHub" }));
+    const connect = await screen.findByRole("button", { name: "Connect GitHub" }, { timeout: 5_000 });
+    expect(screen.getByText("Connect GitHub with an App of your own")).toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole("main"));
+
+    await user.click(connect);
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/integrations/github/manifest")).toHaveLength(1);
+    });
+    expect(JSON.parse(window.sessionStorage.getItem("noust.newApp.draft") ?? "null")).toEqual({ mode: "github", source: "", branch: "", step: "source" });
+  });
+
+  it("asks to connect before Continue, in the words of what is missing", { timeout: 30_000 }, async () => {
+    const { user } = wizard(NO_APP).harness;
+    await user.click(await screen.findByRole("radio", { name: "From GitHub" }));
+    await screen.findByRole("button", { name: "Connect GitHub" }, { timeout: 5_000 });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findAllByText("Connect GitHub to choose a repository.")).not.toHaveLength(0);
+    expect(screen.queryByRole("heading", { level: 2, name: "Address" })).not.toBeInTheDocument();
+  });
+
+  it("comes back from GitHub on the repositories, with the address cleaned of the resume", { timeout: 30_000 }, async () => {
+    window.sessionStorage.setItem("noust.newApp.draft", JSON.stringify({ mode: "github", source: "", branch: "", step: "source" }));
+    const backend = fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/config/webserver": () => json(200, { webserver: "nginx" }),
+      "GET /api/apps/types": () => json(200, { types: [{ type: "nextjs", name: "Next.js", default_port: 3000 }] }),
+      "GET /api/integrations/github": () => json(200, STATUS),
+      "GET /api/integrations/github/repositories": () => json(200, { items: REPOSITORIES, total: REPOSITORIES.length }),
+    });
+    const harness = renderConsole("/apps/new?resume=1");
+    expect(await screen.findByRole("combobox", { name: "Repository" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "From GitHub" })).toBeChecked();
+    await waitFor(() => {
+      expect(harness.location().search).not.toContain("resume");
+    });
+    expect(backend.callsTo("GET /api/integrations/github/repositories")).toHaveLength(1);
+  });
+
+  it("forgets the draft when the wizard is left", { timeout: 30_000 }, async () => {
+    window.sessionStorage.setItem("noust.newApp.draft", JSON.stringify({ mode: "github", source: "", branch: "", step: "source" }));
+    const { user } = wizard(STATUS).harness;
+    await screen.findByRole("combobox", { name: "Repository" });
+    await user.click(screen.getByRole("link", { name: "Applications" }));
+    await waitFor(() => {
+      expect(window.sessionStorage.getItem("noust.newApp.draft")).toBeNull();
+    });
+  });
+
+  it("says no repositories yet, with the way to configure the installation on GitHub, in this tab", { timeout: 30_000 }, async () => {
+    wizard(STATUS, { "GET /api/integrations/github/repositories": () => json(200, { items: [], total: 0 }) });
+    expect(await screen.findByText("No repositories yet.")).toBeInTheDocument();
+    const configure = screen.getByRole("link", { name: "Configure GitHub" });
+    expect(configure).toHaveAttribute("href", STATUS.install_url);
+    expect(configure).not.toHaveAttribute("target");
+  });
+
+  it("installs the App in this tab and keeps the draft for the way back", { timeout: 30_000 }, async () => {
+    const { user } = wizard({ ...STATUS, installations: [] }).harness;
+    const install = await screen.findByRole("link", { name: "Install on GitHub" });
+    expect(install).toHaveAttribute("href", STATUS.install_url);
+    expect(install).not.toHaveAttribute("target");
+    // jsdom cannot navigate: the click is stopped where the browser would leave.
+    install.addEventListener("click", (event) => {
+      event.preventDefault();
+    });
+    await user.click(install);
+    expect(JSON.parse(window.sessionStorage.getItem("noust.newApp.draft") ?? "null")).toMatchObject({ mode: "github" });
   });
 });

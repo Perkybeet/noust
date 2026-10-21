@@ -48,6 +48,15 @@ describe("the wizard's search", () => {
     expect(Object.keys(validateNewAppSearch({ start: "recipe", recipe: "hello" }))).not.toContain("deploy");
   });
 
+  it("resumes only for the link GitHub's round trip ends on", () => {
+    expect(validateNewAppSearch({ resume: 1 }).resume).toBe(1);
+    expect(validateNewAppSearch({ resume: "1" }).resume).toBe(1);
+    for (const value of [0, 2, "yes", true, "", null]) {
+      expect(validateNewAppSearch({ resume: value }).resume, JSON.stringify(value)).toBeUndefined();
+    }
+    expect(Object.keys(validateNewAppSearch({}))).not.toContain("resume");
+  });
+
   it("reads where the new application goes, from a project's page, and drops anything that is not a short name", () => {
     expect(validateNewAppSearch({ team: "acme", project: "web", environment: "staging" })).toEqual({ start: undefined, team: "acme", project: "web", environment: "staging" });
     const bad = validateNewAppSearch({ team: "Acme Corp", project: "../web", environment: 3 });
