@@ -804,16 +804,27 @@ class TemporaryNameResponse(BaseModel):
 @dns_router.get("/temporary", response_model=TemporaryNameResponse)
 def get_temporary_name(
     session: Annotated[dict[str, Any], Depends(get_current_session)],
+    prefix: Annotated[
+        str | None,
+        Query(
+            max_length=120,
+            description="What the application is called, for a name of its own "
+            "(shop.203-0-113-10.sslip.io). Numbered when another application has it.",
+        ),
+    ] = None,
 ) -> TemporaryNameResponse:
     """
     Work out a temporary name for this server, to add to an application like any other.
 
     It is made of the server's public address (``203-0-113-10.sslip.io``), which sslip.io
     answers with that address, so the name resolves here and a certificate can be ordered.
-    Nothing is added: the caller adds it with ``POST /api/apps/{domain}/domains``.
+    With a prefix it is the name of one application (``shop.203-0-113-10.sslip.io``), free
+    among the names and the application names of the server. Nothing is added: the caller
+    adds it with ``POST /api/apps/{domain}/domains``, or deploys an application under it.
 
     Args:
         session: Authenticated session, injected.
+        prefix: What the application is called.
 
     Returns:
         The name and the address it is made of.
@@ -821,7 +832,7 @@ def get_temporary_name(
     Raises:
         DomainError: This server has no public address (400, saying how to declare one).
     """
-    found = suggest()
+    found = suggest(prefix or None)
     return TemporaryNameResponse(
         address=found.address, domain=found.domain, service=found.service, declared=found.declared
     )

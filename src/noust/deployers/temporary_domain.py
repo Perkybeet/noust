@@ -20,15 +20,26 @@ service that is not Noust's to promise.
 from __future__ import annotations
 
 import ipaddress
+import re
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from noust.core.config import Config
 from noust.core.exceptions import DomainError
+from noust.core.store import NoustStore, get_store
+from noust.core.utils import domain_to_app_name, sanitize_name
 from noust.deployers.domains import machine_addresses
 from noust.managers.dns.provider import is_public_address
 
 #: The service that answers a name made of an address with that address.
 SUFFIX = "sslip.io"
+
+#: The longest prefix kept. A host label holds 63 characters; the rest is room for the number
+#: that tells two applications of one name apart.
+MAX_PREFIX = 40
+
+#: How many applications of one name get a number before the search gives up.
+_MAX_NUMBER = 99
 
 
 @dataclass(frozen=True)
@@ -50,16 +61,82 @@ class TemporaryName:
     declared: bool = False
 
 
-def name_for(address: str) -> str:
+def label_of(prefix: str) -> str:
+    """
+    Make one host label of a name an application is called.
+
+    Args:
+        prefix: The name of a repository, a recipe or an application, as typed.
+
+    Returns:
+        Lower case letters, digits and single dashes, at most :data:`MAX_PREFIX` long; ``app``
+        when nothing is left. A label made only of digits and dashes gets ``app-`` before it:
+        sslip.io reads such a label as part of the address it is in front of.
+    """
+    label = sanitize_name(prefix)[:MAX_PREFIX].strip("-") or "app"
+    if re.fullmatch(r"[0-9-]+", label):
+        label = f"app-{label}"
+    return label
+
+
+#: What the last part of a source may end in without being part of the name.
+_SOURCE_SUFFIXES = (".git", ".tar.gz", ".tgz", ".tar.bz2", ".tar.xz", ".zip")
+
+
+def prefix_of_source(source: str | None) -> str | None:
+    """
+    Say what an application deployed from a source is called.
+
+    Args:
+        source: A repository URL (``https``, ``ssh`` or the ``user@host:team/name`` form), an
+            archive URL or a directory.
+
+    Returns:
+        The last part of it without ``.git`` or an archive extension, or None when there is
+        none (``.``, an address with no path).
+    """
+    text = (source or "").strip()
+    if "://" in text:
+        text = urlsplit(text).path
+    elif "@" in text:
+        text = text.split("#", 1)[0]
+    last = text.rstrip("/").rsplit("/", 1)[-1]
+    if "@" in last and ":" in last:
+        last = last.rsplit(":", 1)[-1]  # user@host:name.git, with no team in front of it
+    for suffix in _SOURCE_SUFFIXES:
+        if last.lower().endswith(suffix):
+            last = last[: -len(suffix)]
+            break
+    return None if last in ("", ".", "..") else last
+
+
+def prefix_of_image(image: str | None) -> str | None:
+    """
+    Say what an application deployed from a registry image is called.
+
+    Args:
+        image: ``ghcr.io/team/name:tag``, ``name@sha256:...`` or ``name``.
+
+    Returns:
+        The name without its registry, team, tag or digest, or None when there is none.
+    """
+    last = (image or "").strip().split("@", 1)[0].rstrip("/").rsplit("/", 1)[-1]
+    return last.split(":", 1)[0] or None
+
+
+def name_for(address: str, prefix: str | None = None) -> str:
     """
     Make the name that resolves to an address.
 
     Args:
         address: A public IPv4 or IPv6 address.
+        prefix: What the application is called. sslip.io answers any label in front of the
+            address with that address, so one server can name each application apart.
 
     Returns:
         ``203-0-113-10.sslip.io``, or ``2001-db8--1.sslip.io`` for an IPv6 address
-        (its colons are dashes, and ``::`` is ``--``).
+        (its colons are dashes, and ``::`` is ``--``); ``shop.203-0-113-10.sslip.io`` with
+        the prefix ``shop``.
 
     Raises:
         DomainError: It is not an address, or is not one that may be published.
@@ -85,7 +162,8 @@ def name_for(address: str) -> str:
         label = (
             ("0" if label.startswith("-") else "") + label + ("0" if label.endswith("-") else "")
         )
-    return f"{label}.{SUFFIX}"
+    host = f"{label}.{SUFFIX}"
+    return host if prefix is None else f"{label_of(prefix)}.{host}"
 
 
 def is_temporary(domain: str) -> bool:
@@ -99,23 +177,75 @@ def is_temporary(domain: str) -> bool:
     return domain.lower().endswith(f".{SUFFIX}")
 
 
-def suggest() -> TemporaryName:
+def suggest(prefix: str | None = None, *, store: NoustStore | None = None) -> TemporaryName:
     """
-    Work out the temporary name of this server.
+    Work out the temporary name of this server, or of an application on it.
 
     The address is the one declared as public (``dns.public_addresses``), else the first
     public one an interface holds.
+
+    Args:
+        prefix: What the application is called. With one, the name is
+            ``<prefix>.<address>.sslip.io`` and is free: when an application or a domain already
+            has it the next number is used (``shop-2``), because two applications of one name
+            would be one unit, one directory and one user.
+        store: The store the names are looked up in (the server's by default).
 
     Returns:
         The name and the address it is made of.
 
     Raises:
-        DomainError: This server has no public address (it is behind NAT, and none is declared).
+        DomainError: This server has no public address (it is behind NAT, and none is declared),
+            or ninety-nine applications already have the prefix.
+    """
+    address, declared = _public_address()
+    if prefix is None:
+        return TemporaryName(address=address, domain=name_for(address), declared=declared)
+    taken = _TakenNames(store or get_store())
+    label = label_of(prefix)
+    host = name_for(address)
+    for number in range(1, _MAX_NUMBER + 1):
+        # The number is added after the label was cut, so it is never the part that is lost.
+        domain = f"{label if number == 1 else f'{label}-{number}'}.{host}"
+        if not taken(domain):
+            return TemporaryName(address=address, domain=domain, declared=declared)
+    raise DomainError(
+        f"{_MAX_NUMBER} applications are already called {label!r}",
+        details="Give the application another name, or a domain of its own.",
+    )
+
+
+class _TakenNames:
+    """
+    The names an application cannot be given: a domain anything answers on, or one that makes
+    an application name another application already has.
+    """
+
+    def __init__(self, store: NoustStore) -> None:
+        self._store = store
+        self._app_names = {domain_to_app_name(app.domain) for app in store.list_apps()}
+
+    def __call__(self, domain: str) -> bool:
+        return (
+            self._store.domain_owner(domain) is not None
+            or domain_to_app_name(domain) in self._app_names
+        )
+
+
+def _public_address() -> tuple[str, bool]:
+    """
+    Pick the address a name is made of.
+
+    Returns:
+        The address, and whether it was declared rather than read from an interface.
+
+    Raises:
+        DomainError: This server has no public address.
     """
     declared = [str(address) for address in Config().get("dns.public_addresses") or []]
     for address in declared:
         if is_public_address(address):
-            return TemporaryName(address=address, domain=name_for(address), declared=True)
+            return address, True
     found = sorted(
         (address for address in machine_addresses() if is_public_address(address)),
         key=lambda address: (ipaddress.ip_address(address).version, address),
@@ -126,4 +256,4 @@ def suggest() -> TemporaryName:
             details="It is behind NAT, or its address is private. Declare the public one with: "
             "noust config set dns.public_addresses 203.0.113.10",
         )
-    return TemporaryName(address=found[0], domain=name_for(found[0]))
+    return found[0], False
