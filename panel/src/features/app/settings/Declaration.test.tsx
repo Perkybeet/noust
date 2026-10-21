@@ -109,7 +109,10 @@ describe("the declaration file", () => {
     expect(await within(dialog).findByText("Build command becomes npm run build:prod")).toBeInTheDocument();
     expect(within(dialog).getByText("Runs commands")).toBeInTheDocument();
     const apply = within(dialog).getByRole("button", { name: "Apply it" });
-    expect(apply).toBeDisabled();
+    // Pressed before the box is ticked it says what is missing, and applies nothing.
+    await user.click(apply);
+    expect(await within(dialog).findByText("Tick the box to say you have read what it runs.")).toBeInTheDocument();
+    expect(backend.callsTo(`POST /api/apps/${DOMAIN}/apply`).filter((call) => !(call.body as { check: boolean }).check)).toHaveLength(0);
 
     await user.click(within(dialog).getByRole("checkbox", { name: /I have read what it runs/ }));
     expect(apply).toBeEnabled();
@@ -292,6 +295,7 @@ describe("reviewing a set of changes", () => {
 
     // A new plan is a new reading: the box is cleared until it is read again.
     await waitFor(() => expect(within(dialog).getByRole("checkbox", { name: /I have read what it runs/ })).not.toBeChecked());
-    expect(within(dialog).getByRole("button", { name: "Apply it" })).toBeDisabled();
+    await user.click(within(dialog).getByRole("button", { name: "Apply it" }));
+    expect(await within(dialog).findByText("Tick the box to say you have read what it runs.")).toBeInTheDocument();
   });
 });

@@ -15,8 +15,8 @@ const CHOSEN_OFF = { domain: DOMAIN, required: false, explicit: true, default_re
 
 const ELEVATED_SESSION: Record<string, RouteHandler> = { "GET /api/auth/session": () => json(200, ELEVATED) };
 
-function deploys(read: object, routes: Record<string, RouteHandler> = {}) {
-  return renderSettings("/deploys", "Deploys", RELEASE_APP, {
+function automation(read: object, routes: Record<string, RouteHandler> = {}) {
+  return renderSettings("/automation", "Automation", RELEASE_APP, {
     ...ELEVATED_SESSION,
     [`GET ${ROUTE}`]: () => json(200, read),
     ...routes,
@@ -25,11 +25,11 @@ function deploys(read: object, routes: Record<string, RouteHandler> = {}) {
 
 describe("the backup an update cannot go without", { timeout: 20_000 }, () => {
   it("says it is required by default because the app has databases, and which", async () => {
-    await deploys(DEFAULT_ON);
+    await automation(DEFAULT_ON);
 
-    const heading = await screen.findByRole("heading", { name: "A backup before each update" });
+    const heading = await screen.findByRole("heading", { name: "Backups before an update" });
     const card = heading.closest<HTMLElement>("section, div");
-    if (card === null) throw new Error("the heading is in no card");
+    if (card === null) throw new Error("the heading is in no group");
     expect(await screen.findByRole("switch", { name: "Refuse an update when its backup fails" })).toBeChecked();
     expect(screen.getByTestId("backup-required-note")).toHaveTextContent("required because the app has databases (postgresql/shop_db)");
     expect(screen.queryByRole("button", { name: "Use the default" })).not.toBeInTheDocument();
@@ -37,14 +37,14 @@ describe("the backup an update cannot go without", { timeout: 20_000 }, () => {
   });
 
   it("says a failed backup is only a warning when the app has no database", async () => {
-    await deploys(DEFAULT_OFF);
+    await automation(DEFAULT_OFF);
 
     expect(await screen.findByRole("switch", { name: "Refuse an update when its backup fails" })).not.toBeChecked();
-    expect(screen.getByTestId("backup-required-note")).toHaveTextContent("the app has no database");
+    expect(screen.getByTestId("backup-required-note")).toHaveTextContent("with no database");
   });
 
   it("turns it on with PUT and announces it", async () => {
-    const { user, backend } = await deploys(DEFAULT_OFF, {
+    const { user, backend } = await automation(DEFAULT_OFF, {
       [`PUT ${ROUTE}`]: () => json(200, { ...DEFAULT_OFF, required: true, explicit: true }),
     });
 
@@ -57,7 +57,7 @@ describe("the backup an update cannot go without", { timeout: 20_000 }, () => {
   });
 
   it("asks once more before it goes off, and then says what that costs", async () => {
-    const { user, backend } = await deploys(DEFAULT_ON, {
+    const { user, backend } = await automation(DEFAULT_ON, {
       [`PUT ${ROUTE}`]: () => json(200, CHOSEN_OFF),
     });
 
@@ -69,11 +69,11 @@ describe("the backup an update cannot go without", { timeout: 20_000 }, () => {
     await waitFor(() => {
       expect(backend.callsTo(`PUT ${ROUTE}`)[0]?.body).toEqual({ required: false });
     });
-    expect(await screen.findByText(/cannot be undone from a backup that was not taken/)).toBeInTheDocument();
+    expect(await screen.findByText("A failed backup no longer stops an update.")).toBeInTheDocument();
   });
 
   it("goes back to the default with null", async () => {
-    const { user, backend } = await deploys(CHOSEN_OFF, {
+    const { user, backend } = await automation(CHOSEN_OFF, {
       [`PUT ${ROUTE}`]: () => json(200, DEFAULT_ON),
     });
 
@@ -85,15 +85,16 @@ describe("the backup an update cannot go without", { timeout: 20_000 }, () => {
   });
 
   it("is not shown by a server that has no such setting", async () => {
-    await renderSettings("/deploys", "Deploys", RELEASE_APP, {});
+    await renderSettings("/automation", "Automation", RELEASE_APP, {});
 
+    await screen.findByRole("heading", { name: "Backups before an update" });
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "A backup before each update" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("switch", { name: "Refuse an update when its backup fails" })).not.toBeInTheDocument();
     });
   });
 
   it("speaks Spanish", async () => {
-    await deploys(DEFAULT_ON);
+    await automation(DEFAULT_ON);
     await screen.findByRole("switch", { name: "Refuse an update when its backup fails" });
 
     await act(() => setLocale("es"));

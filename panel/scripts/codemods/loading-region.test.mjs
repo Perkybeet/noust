@@ -33,7 +33,7 @@ describe("the common pattern", () => {
       page(`    <LoadingRegion label={t("server.power.checksLoading")} className="flex flex-col gap-2">
       <Skeleton className="h-4 w-1/2" />
       <Skeleton className="h-24 w-full" />
-    </LoadingRegion>`).replace('import { Card, QueryState } from "../../components/page";', 'import { Card, LoadingRegion, QueryState } from "../../components/page";'),
+    </LoadingRegion>`).replace('import { Card, QueryState } from "../../components/page";', 'import { Card, QueryState } from "../../components/page";\nimport { LoadingRegion } from "../../components/page/LoadingRegion";'),
     );
   });
 
@@ -117,16 +117,9 @@ describe("the import", () => {
       <Skeleton />
     </div>`;
 
-  it("joins the import of components/page, in order, when there is one", () => {
+  it("imports it from its own module, never through the components/page index", () => {
     const { code } = transform(`import { Card, QueryState } from "../../components/page";\nexport const A = () => (\n${region}\n);\n`, FILE, { srcRoot: SRC });
-    expect(code.split("\n")[0]).toBe('import { Card, LoadingRegion, QueryState } from "../../components/page";');
-  });
-
-  it("keeps a multi-line import in lines, and appends to a list that is not sorted", () => {
-    const multi = transform(`import {\n  Card,\n  QueryState,\n} from "../../components/page";\nexport const A = () => (\n${region}\n);\n`, FILE, { srcRoot: SRC });
-    expect(multi.code.split("\n").slice(0, 6)).toEqual(["import {", "  Card,", "  LoadingRegion,", "  QueryState,", '} from "../../components/page";', "export const A = () => ("]);
-    const unsorted = transform(`import { QueryState, Card } from "../../components/page";\nexport const A = () => (\n${region}\n);\n`, FILE, { srcRoot: SRC });
-    expect(unsorted.code.split("\n")[0]).toBe('import { QueryState, Card, LoadingRegion } from "../../components/page";');
+    expect(code.split("\n").slice(0, 2)).toEqual(['import { Card, QueryState } from "../../components/page";', 'import { LoadingRegion } from "../../components/page/LoadingRegion";']);
   });
 
   it("does not import twice, whichever way it was imported", () => {
@@ -137,11 +130,11 @@ describe("the import", () => {
 
   it("adds a line of its own, with the path from the file to the kit, when the file has no import of it", () => {
     const { code } = transform(`import { Skeleton } from "../../components/ui";\nexport const A = () => (\n${region}\n);\n`, FILE, { srcRoot: SRC });
-    expect(code.split("\n").slice(0, 3)).toEqual(['import { Skeleton } from "../../components/ui";', 'import { LoadingRegion } from "../../components/page";', "export const A = () => ("]);
+    expect(code.split("\n").slice(0, 3)).toEqual(['import { Skeleton } from "../../components/ui";', 'import { LoadingRegion } from "../../components/page/LoadingRegion";', "export const A = () => ("]);
     const deep = transform(`export const A = () => (\n${region}\n);\n`, `${SRC}/features/app/settings/Deep.tsx`, { srcRoot: SRC });
-    expect(deep.code.startsWith('import { LoadingRegion } from "../../../components/page";\n\n')).toBe(true);
+    expect(deep.code.startsWith('import { LoadingRegion } from "../../../components/page/LoadingRegion";\n\n')).toBe(true);
     const shallow = transform(`export const A = () => (\n${region}\n);\n`, `${SRC}/Top.tsx`, { srcRoot: SRC });
-    expect(shallow.code.startsWith('import { LoadingRegion } from "./components/page";')).toBe(true);
+    expect(shallow.code.startsWith('import { LoadingRegion } from "./components/page/LoadingRegion";')).toBe(true);
   });
 });
 

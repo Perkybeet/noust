@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { useId } from "react";
 import type { ReactNode } from "react";
 
@@ -5,6 +6,8 @@ import { cx } from "../../lib/cx";
 
 export interface SectionProps {
   title: string;
+  /** The icon of the object the section is about, before the heading: decorative. */
+  icon?: LucideIcon;
   /** One sentence on what the section holds, when the title alone does not say it. */
   description?: ReactNode;
   /** Controls for the whole section (a range picker, "View all"), aligned with the title. */
@@ -24,24 +27,56 @@ export interface SectionProps {
  * actions, then the content 16px below. A landmark region named by its heading, so a screen
  * reader can jump between sections.
  */
-export function Section({ title, description, actions, children, level = 2, badge, loading = false, className }: SectionProps) {
+export function Section({
+  title,
+  icon: Icon,
+  description,
+  actions,
+  children,
+  level = 2,
+  badge,
+  loading = false,
+  className,
+}: SectionProps) {
   const headingId = useId();
   const Heading = `h${level}` as const;
   return (
-    <section aria-labelledby={headingId} {...(loading ? { "aria-busy": true } : {})} className={cx("flex min-w-0 flex-col gap-4", className)}>
+    <section
+      aria-labelledby={headingId}
+      {...(loading ? { "aria-busy": true } : {})}
+      className={cx("flex min-w-0 flex-col gap-4", className)}
+    >
       <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Heading id={headingId} className={cx("title text-fg", level === 2 ? "text-16" : "text-14")}>
+            {Icon !== undefined ? (
+              <Icon
+                aria-hidden="true"
+                className="size-icon-md shrink-0 text-fg-muted"
+              />
+            ) : null}
+            <Heading
+              id={headingId}
+              className={cx(
+                "title text-fg",
+                level === 2 ? "text-16" : "text-14",
+              )}
+            >
               {title}
             </Heading>
             {badge}
           </div>
           {description !== undefined ? (
-            <p className="mt-0.5 max-w-[68ch] text-13 text-pretty text-fg-muted">{description}</p>
+            <p className="mt-0.5 max-w-[68ch] text-13 text-pretty text-fg-muted">
+              {description}
+            </p>
           ) : null}
         </div>
-        {actions !== undefined ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions !== undefined ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {actions}
+          </div>
+        ) : null}
       </header>
       {children}
     </section>
@@ -52,6 +87,16 @@ export function Section({ title, description, actions, children, level = 2, badg
  * The body of a page: sections 32px apart. Pages use it right after the PageHeader so the
  * rhythm is the same everywhere.
  */
-export function Sections({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("flex min-w-0 flex-col gap-8", className)}>{children}</div>;
+export function Sections({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cx("flex min-w-0 flex-col gap-8", className)}>
+      {children}
+    </div>
+  );
 }

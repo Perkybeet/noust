@@ -106,13 +106,11 @@ test("the server's variables are referred to from an application's environment",
   await variable.getByLabel("Value").fill("{{server.REGION}}");
   await chooseOption(page, "Given to", "Build only");
   await variable.getByRole("button", { name: "Add variable" }).click();
-  await page.getByRole("button", { name: "Review and save" }).click();
-  const review = page.getByRole("dialog", { name: "Review changes" });
-  await expect(review.getByText("Save changes", { exact: true })).toBeVisible();
-  const saved = page.waitForResponse((r) => r.url().endsWith("/api/apps/blog.example.org/env") && r.request().method() === "PUT");
-  await review.getByRole("button", { name: "Save changes" }).click();
+  // One change is written from the bar, without restarting: the app keeps running with what it had.
+  const saved = page.waitForResponse((r) => r.url().endsWith("/api/apps/blog.example.org/env") && r.request().method() === "PATCH");
+  await page.getByRole("button", { name: "More options for Save and restart" }).click();
+  await page.getByRole("menuitem", { name: "Save only" }).click();
   expect((await saved).status()).toBe(200);
-  await page.getByRole("dialog", { name: "Environment saved" }).getByRole("button", { name: "Restart later" }).click();
 
   const table = page.getByRole("table", { name: "Environment variables of blog.example.org" });
   await expect(table.getByText("{{server.REGION}}", { exact: true })).toBeVisible();

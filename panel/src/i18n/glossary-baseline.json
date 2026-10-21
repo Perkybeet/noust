@@ -15,7 +15,6 @@
       "Backups": 2,
       "Branch": 3,
       "Build": 2,
-      "Build commands": 2,
       "By": 2,
       "Change": 2,
       "Changed": 3,
@@ -33,7 +32,7 @@
       "Delete {name}": 2,
       "Deleted {name}": 2,
       "Deploy": 2,
-      "Deploy hooks": 4,
+      "Deploy hooks": 2,
       "Details": 2,
       "Directory": 2,
       "Disable": 2,
@@ -57,7 +56,6 @@
       "Live": 3,
       "Missing": 2,
       "None": 2,
-      "None yet": 3,
       "Not checked yet": 2,
       "Not installed": 2,
       "Not known": 2,
@@ -81,7 +79,6 @@
       "Restart": 2,
       "Restore": 2,
       "Review": 2,
-      "Roll back": 3,
       "Running": 4,
       "Runs": 3,
       "Scheduled": 2,
@@ -111,7 +108,6 @@
     "en:confirm-or-ok": {
       "activity": 1,
       "alerts": 1,
-      "appSettings": 1,
       "auth": 1,
       "dumpImport": 1,
       "gitlab": 1,
@@ -119,7 +115,6 @@
       "settings": 2
     },
     "en:deliveries": {
-      "appSettings": 2,
       "notifyRouting": 1,
       "settings": 1
     },
@@ -128,7 +123,6 @@
     },
     "en:health-check": {
       "common": 1,
-      "declaration": 3,
       "fleet": 1,
       "manifestPreview": 1,
       "placements": 2,
@@ -139,17 +133,14 @@
       "databases": 1,
       "internalCa": 1,
       "metricsExport": 1,
-      "network": 4,
+      "network": 2,
       "nodeTools": 1,
-      "previewHand": 1,
       "publicAccess": 6,
       "rollout": 2,
       "runtime": 2,
       "server": 1
     },
     "en:old-names": {
-      "appPages": 1,
-      "appSettings": 1,
       "nav": 1,
       "runtime": 2
     },
@@ -160,38 +151,29 @@
     },
     "en:reading": {
       "appPages": 2,
-      "appSettings": 2,
       "appTraffic": 1,
       "backups": 1,
-      "buildExtras": 1,
       "catalog": 1,
       "cloud": 2,
       "common": 1,
       "complianceSetup": 1,
-      "composeSettings": 1,
       "consoleAccess": 1,
       "databases": 4,
       "domains": 3,
       "environment": 1,
       "internalCa": 1,
       "logSearch": 1,
-      "network": 4,
       "newApp": 5,
       "nodeTools": 1,
       "notifyRouting": 3,
       "overview": 1,
-      "previewHand": 1,
       "probes": 1,
       "promotion": 1,
-      "rollout": 4,
-      "runtime": 12,
+      "runtime": 1,
       "server": 5,
       "settings": 2,
       "ssoAdmin": 1,
       "teams": 4
-    },
-    "en:redeploy": {
-      "previewHand": 1
     },
     "en:retry-variants": {
       "apps": 1,
@@ -215,7 +197,7 @@
     "en:unit-label": {
       "appPages": 2,
       "newApp": 2,
-      "runtime": 5
+      "runtime": 2
     },
     "en:update-now": {
       "changeSource": 1
@@ -236,7 +218,6 @@
       "domains": 3,
       "dumpImport": 2,
       "fleet": 1,
-      "gitPush": 1,
       "logSearch": 1,
       "manifestPreview": 2,
       "network": 1,
@@ -250,8 +231,7 @@
     },
     "es:dueno": {
       "access": 4,
-      "accounts": 4,
-      "runtime": 1
+      "accounts": 4
     },
     "es:en-vivo": {
       "appPages": 2,
@@ -264,42 +244,33 @@
       "databases": 1,
       "fleet": 1,
       "gitlab": 1,
-      "registries": 1,
-      "rollout": 1,
       "selfBackup": 1
     },
     "es:ganchos": {
       "appPages": 4,
-      "appSettings": 16,
       "settings": 1
     },
     "es:leyendo": {
       "appPages": 2,
-      "appSettings": 2,
       "appTraffic": 1,
       "backups": 1,
-      "buildExtras": 1,
       "catalog": 1,
       "cloud": 2,
       "common": 1,
       "complianceSetup": 1,
-      "composeSettings": 1,
       "consoleAccess": 1,
       "databases": 4,
       "domains": 3,
       "environment": 1,
       "internalCa": 1,
       "logSearch": 1,
-      "network": 4,
       "newApp": 5,
       "nodeTools": 1,
       "notifyRouting": 3,
       "overview": 1,
-      "previewHand": 1,
       "probes": 1,
       "promotion": 1,
-      "rollout": 4,
-      "runtime": 12,
+      "runtime": 1,
       "server": 5,
       "settings": 2,
       "ssoAdmin": 1,
@@ -315,8 +286,6 @@
       "settings": 1
     },
     "es:old-names": {
-      "appPages": 1,
-      "appSettings": 1,
       "nav": 1,
       "runtime": 2
     },
@@ -327,8 +296,6 @@
       "services": 1
     },
     "es:reconstruir": {
-      "appPages": 1,
-      "buildExtras": 1,
       "placements": 1
     },
     "es:three-dots": {
@@ -345,7 +312,6 @@
       "services": 2
     },
     "es:trabajo-job": {
-      "appPackages": 1,
       "auth": 2,
       "consoleAccess": 1,
       "fleet": 10,
@@ -353,7 +319,7 @@
       "probes": 1
     },
     "es:volver-back": {
-      "appPages": 2,
+      "appPages": 1,
       "catalog": 1
     },
     "es:vuestro": {
@@ -367,9 +333,9 @@
       "Dismiss|Descartar": 3,
       "Done|Listo": 1,
       "Failed|Con fallo": 1,
-      "Failed|Falló": 7,
+      "Failed|Falló": 6,
       "Live|En vivo": 3,
-      "Remove|Eliminar": 2,
+      "Remove|Eliminar": 1,
       "Restart|Reinicio": 2,
       "Roll back|Reversión": 1,
       "Run again|Volver a ejecutar": 1,

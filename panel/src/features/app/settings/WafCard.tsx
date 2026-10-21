@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { request } from "../../../api/client";
 import { appWafEventsQuery, appWafQuery, networkKeys } from "../../../api/queries/network";
+import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -10,12 +11,14 @@ import { ChoiceCards } from "../../../components/ui/ChoiceCards";
 import { Field } from "../../../components/ui/Field";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
+import { RowList } from "../../../components/ui/RowList";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { Textarea } from "../../../components/ui/Textarea";
-import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { useOrganization } from "../../teams/useOrganization";
-import type { useAccessForm } from "./AccessSettings";
 import { listOf } from "./access";
+import type { AccessForm } from "./useAccessForm";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /**
  * The web application firewall (ModSecurity with the OWASP Core Rule Set): off, writing down what
@@ -23,7 +26,7 @@ import { listOf } from "./access";
  * saw lately is listed with the rules that matched most, and one that is wrong for this application
  * is added to the rules left out, which is saved with the rest of the form.
  */
-export function WafCard({ form, domain }: { form: ReturnType<typeof useAccessForm>; domain: string }) {
+export function WafCard({ form, domain }: { form: AccessForm; domain: string }) {
   const t = useT();
   const org = useOrganization();
   const queryClient = useQueryClient();
@@ -37,7 +40,7 @@ export function WafCard({ form, domain }: { form: ReturnType<typeof useAccessFor
     mutationFn: () => request("post", "/api/waf/install"),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: networkKeys.appWaf(domain) });
-      toast.success(t("network.access.waf.installedToast"));
+      announce(t("network.access.waf.installedToast"));
     },
   });
 
@@ -48,7 +51,7 @@ export function WafCard({ form, domain }: { form: ReturnType<typeof useAccessFor
   };
 
   return (
-    <Card title={t("network.access.waf.title")} description={t("network.access.waf.description")} loading={support.isPending}>
+    <Card title={t("network.access.waf.title")} icon={SETTINGS_ICONS.firewall} description={t("network.access.waf.description")} loading={support.isPending}>
       <div className="flex flex-col gap-4">
         {support.isError ? <ErrorBlock compact error={support.error} title={t("network.access.waf.readFailed")} /> : null}
         <ChoiceCards
@@ -60,15 +63,15 @@ export function WafCard({ form, domain }: { form: ReturnType<typeof useAccessFor
           ]}
           value={draft.waf}
           onValueChange={(value) => edit("waf", value)}
+          error={form.errorOf("waf")}
         />
-        {form.errorOf("waf") !== undefined ? <p className="text-13 text-fail">{form.errorOf("waf")}</p> : null}
         {unavailable ? (
           <Notice
             tone="warning"
             title={data.problem}
             action={
               data.installable && org.can("server.manage") ? (
-                <Button loading={install.isPending} onClick={() => install.mutate()}>
+                <Button icon={<SETTINGS_ICONS.install aria-hidden="true" />} loading={install.isPending} onClick={() => install.mutate()}>
                   {t("network.access.waf.install")}
                 </Button>
               ) : undefined
@@ -89,17 +92,19 @@ export function WafCard({ form, domain }: { form: ReturnType<typeof useAccessFor
             <p className="text-13 text-fg-muted">{t("network.access.waf.noEvents")}</p>
           ) : (
             <div className="flex flex-col gap-3">
-              <ul aria-label={t("network.access.waf.recent")} className="flex flex-col divide-y divide-border rounded-card border border-border">
+              <RowList aria-label={t("network.access.waf.recent")}>
                 {events.data.events.slice(0, 10).map((event, index) => (
-                  <li key={`${event.time}-${String(index)}`} className="flex flex-wrap items-center gap-2 px-3 py-2 text-13">
-                    <Mono>{`${event.method} ${event.uri}`}</Mono>
-                    <span className="text-fg-muted">{event.client}</span>
-                    {event.blocked ? <Badge tone="fail">{t("network.access.waf.blocked")}</Badge> : null}
-                    {event.would_block ? <Badge tone="warn">{t("network.access.waf.wouldBlock")}</Badge> : null}
-                    <span className="text-fg-muted">{event.rules.filter((rule) => rule.id !== "949110").map((rule) => rule.id).join(", ")}</span>
-                  </li>
+                  <RowList.Item key={`${event.time}-${String(index)}`}>
+                    <div className="flex flex-wrap items-center gap-2 text-13">
+                      <Mono>{`${event.method} ${event.uri}`}</Mono>
+                      <span className="text-fg-muted">{event.client}</span>
+                      {event.blocked ? <StatusPill state="failed" size="sm" label={t("network.access.waf.blocked")} /> : null}
+                      {event.would_block ? <StatusPill state="warning" size="sm" label={t("network.access.waf.wouldBlock")} /> : null}
+                      <span className="text-fg-muted">{event.rules.filter((rule) => rule.id !== "949110").map((rule) => rule.id).join(", ")}</span>
+                    </div>
+                  </RowList.Item>
                 ))}
-              </ul>
+              </RowList>
               {events.data.noisy.length > 0 ? (
                 <div className="flex flex-col gap-2">
                   <p className="text-13 text-fg-muted">{t("network.access.waf.noisy")}</p>

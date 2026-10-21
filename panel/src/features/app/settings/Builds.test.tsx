@@ -27,9 +27,26 @@ const ON = { ...LEGACY, mode: "on", enabled: true, warning: null, changed_by: "m
 
 const TEST_JOB = jobOf("s1", "sandbox_test");
 
+/** An application whose build commands say nothing: the sandbox is the card these tests are about. */
+const NO_COMMANDS = {
+  domain: DOMAIN,
+  source: "none",
+  base_directory: null,
+  install: null,
+  build: null,
+  start: null,
+  publish_directory: null,
+  runtime: null,
+  timeout: null,
+  document: null,
+  repository_error: null,
+  applied: null,
+};
+
 function builds(state: () => object, routes: Record<string, RouteHandler> = {}, app: object = RELEASE_APP) {
-  return renderSettings("/builds", "Builds", app, {
+  return renderSettings("/build", "Build", app, {
     "GET /api/auth/session": () => json(200, ELEVATED),
+    [`GET /api/apps/${DOMAIN}/build`]: () => json(200, NO_COMMANDS),
     [`GET /api/apps/${DOMAIN}/sandbox`]: () => json(200, state()),
     [`GET /api/jobs/${TEST_JOB.id}`]: () => json(200, TEST_JOB),
     ...routes,
@@ -43,11 +60,11 @@ describe("sandboxed builds", () => {
       [`POST /api/apps/${DOMAIN}/sandbox/test`]: () => json(202, accepted(TEST_JOB)),
       [`POST /api/apps/${DOMAIN}/sandbox/enable`]: () => json(200, ON),
     });
-    expect(screen.getByText(/as an account that cannot read this server's secrets or change the system/)).toBeInTheDocument();
     await screen.findByText("Its builds still run as root");
-    const card = part("Sandboxed builds");
-    // Off, at a glance: the grey state with a switch drawn off, not a notice to read.
-    expect(card.querySelector("[data-feature-state]")).toHaveAttribute("data-state", "off");
+    const card = part("Build sandbox");
+    // The state is a small pill beside the title, and nothing is tinted to say it.
+    expect(within(card).getByText("Not proven")).toBeInTheDocument();
+    expect(within(card).getByText(/a dependency's install script can read this server's secrets/)).toBeInTheDocument();
     expect(within(card).getByText("No test build yet.")).toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "Turn on sandboxed builds" })).not.toBeInTheDocument();
     expect(within(card).getByText("It can be turned on once a test build passes.")).toBeInTheDocument();
@@ -78,7 +95,7 @@ describe("sandboxed builds", () => {
     const output = "npm ERR! code EACCES\nnpm ERR! path /root/.npm";
     await builds(() => ({ ...LEGACY, trial: { ...PASSED, passed: false, detail: output } }));
     await screen.findByText("The last test build failed");
-    const card = part("Sandboxed builds");
+    const card = part("Build sandbox");
     expect(within(card).getByText(/npm ERR! code EACCES/)).toBeInTheDocument();
     expect(within(card).getByText("Fix what the build needs, or keep building as root and say why.")).toBeInTheDocument();
   });
@@ -92,7 +109,7 @@ describe("sandboxed builds", () => {
       },
     });
     await screen.findByRole("button", { name: "Build as root…" });
-    const card = part("Sandboxed builds");
+    const card = part("Build sandbox");
     await user.click(within(card).getByRole("button", { name: "Build as root…" }));
     const dialog = await screen.findByRole("dialog", { name: `Build ${DOMAIN} as root?` });
     await user.click(within(dialog).getByRole("button", { name: "Build as root" }));
@@ -111,7 +128,7 @@ describe("sandboxed builds", () => {
   it("reads a monorepo's regime from the sandbox like any app's, and says when it already builds there", async () => {
     const { backend } = await builds(() => ON, {}, { ...RELEASE_APP, app_type: "monorepo" });
     await screen.findByText("noust-build");
-    const card = part("Sandboxed builds");
+    const card = part("Build sandbox");
     expect(within(card).getByText("On")).toBeInTheDocument();
     expect(screen.queryByText("This monorepo still builds as root")).not.toBeInTheDocument();
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/sandbox`).length).toBeGreaterThan(0);
@@ -148,7 +165,7 @@ describe("sandboxed builds", () => {
     await screen.findByText("Its builds still run as root");
     await expectNoAxeViolations(screen.getByRole("main"));
     await act(() => setLocale("es"));
-    expect(await screen.findByRole("heading", { level: 2, name: "Compilaciones" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Compilación" })).toBeInTheDocument();
     expect(screen.getByText("Sus compilaciones todavía se ejecutan como root")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Activar las compilaciones aisladas" })).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));

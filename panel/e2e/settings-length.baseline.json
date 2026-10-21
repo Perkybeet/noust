@@ -62,48 +62,45 @@
       "reason": "The account, its second factors, passkeys and sessions, the compliance frameworks and the security profile in one page; the account moves to Account and the rest to Controls."
     },
     "app-settings-general": { "path": "/apps/shop.example.net/settings", "height": 907 },
-    "app-settings-source": {
-      "path": "/apps/taller.example.com/settings/source",
-      "height": 1541,
-      "reason": "The source, the deploy key, the change of source, the credential and the git options in one subsection; it becomes one form with a save bar and the git options as checkboxes in it."
-    },
-    "app-settings-deploys": {
-      "path": "/apps/tienda.example.org/settings/deploys",
-      "height": 2437,
-      "reason": "Twelve cards in one subsection, from instant rollback to registry logins; it splits into Releases and rollback, Automation and Compose."
-    },
+    "app-settings-source": { "path": "/apps/taller.example.com/settings/source", "height": 1212 },
+    "app-settings-deploys": { "path": "/apps/tienda.example.org/settings/deploys", "height": 1048 },
     "app-settings-deploy-on-push": {
       "path": "/apps/tienda.example.org/settings/deploy-on-push",
-      "height": 1547,
-      "reason": "A stepper drawn by hand inside the subsection; it uses the kit's Stepper, and the first step stops sending the operator to a terminal when the GitHub App covers the repository."
+      "height": 1432,
+      "reason": "The setup stepper, the pushes received and Push from your computer on one page; the git push card becomes a subsection of its own and the page drops under the limit."
     },
-    "app-settings-hooks": { "path": "/apps/tienda.example.org/settings/hooks", "height": 845 },
+    "app-settings-hooks": { "path": "/apps/tienda.example.org/settings/hooks", "height": 773 },
+    "app-settings-automation": { "path": "/apps/tienda.example.org/settings/automation", "height": 744 },
     "app-settings-access": {
       "path": "/apps/tienda.example.org/settings/access",
-      "height": 3967,
-      "reason": "Twelve cards in one subsection: who comes in (password, access service, addresses, users, private network, routes) and what is limited (limits, headers, HTTP/3, WAF, client certificates); it splits into Access and Protection."
+      "height": 1531,
+      "reason": "Who comes in (password, accounts, addresses, the visitor's address, a private network, a sign-in service and prefix routes) in one subsection; the sign-in service and the routes are the ones that can leave for a page of their own."
+    },
+    "app-settings-protection": {
+      "path": "/apps/tienda.example.org/settings/protection",
+      "height": 1647,
+      "reason": "Limits, headers, HTTP/3, the firewall and client certificates in one subsection, each a card with its own state; the firewall and the certificates are the ones that can leave for a page of their own."
     },
     "app-settings-build": {
       "path": "/apps/shop.example.net/settings/build",
-      "height": 2019,
-      "reason": "The build commands, the packages and the sandbox with five CLI hints and several notices; Build and Builds become one subsection, and the notices become help text and one risk line."
+      "height": 1783,
+      "reason": "The commands, the packages, the cache, the process types and the sandbox in one subsection (Build and Builds were two, 2019 and 400): the packages, the cache and the process types fold under the commands when the subsection is next split."
     },
-    "app-settings-builds": { "path": "/apps/tienda.example.org/settings/builds", "height": 400 },
     "app-settings-resources": { "path": "/apps/shop.example.net/settings/resources", "height": 971 },
     "app-settings-disk": { "path": "/apps/shop.example.net/settings/disk", "height": 499 },
     "app-settings-processes": { "path": "/apps/tienda.example.org/settings/processes", "height": 531 },
     "app-settings-security": {
       "path": "/apps/tienda.example.org/settings/security",
       "height": 1656,
-      "reason": "The sandbox of the service's unit in one form, with its notices; it is renamed Service security and its notices become help text."
+      "reason": "The sandbox of the service's unit in one form: the profile, the folders it may write to, the capabilities and how exposed systemd finds it; the exposure report and the capabilities can leave for a subsection of their own."
     },
     "app-settings-mounts": { "path": "/apps/shop.example.net/settings/mounts", "height": 245 },
     "app-settings-previews": {
       "path": "/apps/portal.example.org/settings/previews",
-      "height": 2357,
-      "reason": "A feature header, two stacked notices before the first field and a long form; the notices become the risk line of the option that is chosen."
+      "height": 2237,
+      "reason": "A feature header, three cards of settings (names and limits, search engines, what a preview is given), the previews themselves and the variables for previews on one page (2357 before); the previews and their variables become a subsection of their own, Previews, and the settings keep the form."
     },
-    "app-settings-export": { "path": "/apps/shop.example.net/settings/export", "height": 827 },
+    "app-settings-export": { "path": "/apps/shop.example.net/settings/export", "height": 727 },
     "app-settings-delete": { "path": "/apps/shop.example.net/settings/delete", "height": 237 }
   }
 }

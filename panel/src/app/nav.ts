@@ -125,9 +125,6 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
  * route appears without it, and when an entry lingers here after its route exists.
  */
 export const PLANNED: readonly { id: string; to: string; lane: string }[] = [
-  { id: "app.settings.automation", to: "/apps/$domain/settings/automation", lane: "P" },
-  { id: "app.settings.compose", to: "/apps/$domain/settings/compose", lane: "P" },
-  { id: "app.settings.protection", to: "/apps/$domain/settings/protection", lane: "P" },
 ];
 
 /**

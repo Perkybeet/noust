@@ -23,7 +23,7 @@ export const REDIRECT_ROWS = [
   { from: "/server/logs", to: "/logs", search: { source: "system" }, state: "pending", after: "D: Logs gains the System source" },
   { from: "/settings/security", to: "/account/security", state: "pending", after: "S2c: the account page holds what Security does" },
   { from: "/settings/servers", to: "/fleet/servers", state: "pending", after: "S2d: the fleet's servers list is the one list" },
-  { from: "/apps/$domain/settings/builds", to: "/apps/$domain/settings/build", state: "pending", after: "P: Build holds the sandbox card" },
+  { from: "/apps/$domain/settings/builds", to: "/apps/$domain/settings/build", state: "live" },
 ] as const;
 
 /**

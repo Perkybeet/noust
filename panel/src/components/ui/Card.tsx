@@ -1,9 +1,12 @@
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cx } from "../../lib/cx";
 
 export interface CardProps {
   title?: ReactNode;
+  /** The icon of the object the card is about, drawn before the title (docs/DESIGN.md, 2.8): decorative, in the colour of the text beside it. */
+  icon?: LucideIcon;
   /**
    * The state of the feature this card configures, a `StatusPill size="sm"`, right after the
    * title: "Instant rollback (*) On". It is not an action, so it never goes in `actions`; a
@@ -49,6 +52,7 @@ const PADDING = {
  */
 export function Card({
   title,
+  icon: Icon,
   status,
   description,
   actions,
@@ -78,11 +82,19 @@ export function Card({
           <div className="min-w-0">
             {status !== undefined ? (
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                {Icon !== undefined ? <Icon aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" /> : null}
                 {title !== undefined ? <Heading className="title text-14 text-fg">{title}</Heading> : null}
                 {status}
               </div>
             ) : title !== undefined ? (
-              <Heading className="title text-14 text-fg">{title}</Heading>
+              Icon !== undefined ? (
+                <div className="flex min-w-0 items-center gap-2">
+                  <Icon aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
+                  <Heading className="title text-14 text-fg">{title}</Heading>
+                </div>
+              ) : (
+                <Heading className="title text-14 text-fg">{title}</Heading>
+              )
             ) : null}
             {description !== undefined ? <p className="mt-0.5 text-13 text-pretty text-fg-muted">{description}</p> : null}
           </div>

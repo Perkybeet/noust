@@ -5056,6 +5056,7 @@ MemoryInfo = TypedDict("MemoryInfo", {
 })
 
 MergeAppEnvRequest = TypedDict("MergeAppEnvRequest", {
+    "audience": NotRequired[Union[dict[str, str], None]],
     "comments": NotRequired[Union[dict[str, str], None]],
     "dry_run": NotRequired[bool],
     "set": NotRequired[dict[str, str]],
@@ -6735,6 +6736,10 @@ RebootSummary = TypedDict("RebootSummary", {
     "reasons": NotRequired[list[str]],
     "required": NotRequired[Union[bool, None]],
     "since": NotRequired[Union[str, None]],
+})
+
+RebuildRequest = TypedDict("RebuildRequest", {
+    "no_cache": NotRequired[bool],
 })
 
 ReceiveRequest = TypedDict("ReceiveRequest", {

@@ -36,6 +36,7 @@ from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.env_variables import (
     AppEnvironment,
     EnvironmentPlan,
+    check_audience_request,
     plan_environment,
     read_environment,
     refresh_plan,
@@ -225,19 +226,25 @@ def check_comments(comments: Mapping[str, str], names: Collection[str]) -> dict[
 
 
 def check_app_env(
-    app: App, values: Mapping[str, str], *, manager: EnvManager | None = None
+    app: App,
+    values: Mapping[str, str],
+    *,
+    manager: EnvManager | None = None,
+    audience: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     """
     Check what :func:`write_app_env` would refuse, without writing anything.
 
-    The same two rules in the same order - every name and value safe to reach a
-    systemd unit, and neither PORT nor NODE_ENV added or changed - so a dry run
-    of a change and the change cannot disagree.
+    The same rules in the same order - every name and value safe to reach a
+    systemd unit, neither PORT nor NODE_ENV added or changed, and an audience only
+    for a variable that is there - so a dry run of a change and the change cannot
+    disagree.
 
     Args:
         app: The application.
         values: The complete set of variables that would be written.
         manager: Reader to use. Defaults to a new one.
+        audience: The audiences the write would be given.
 
     Returns:
         The validated variables.
@@ -250,6 +257,7 @@ def check_app_env(
     current = reader.read_env_file(env_file_for(app))
     clean = validate_environment(values, multiline=True)
     _reject_managed_vars(clean, current)
+    check_audience_request(clean, audience)
     return clean
 
 

@@ -1,7 +1,8 @@
 /**
  * An application's environment against the real backend: a messy `.env` pasted into the
- * bulk editor is saved as exactly the map EnvManager reads from the same file (the shared
- * fixture tests/fixtures/env/messy.env and its .json), and a secret is shown only after the
+ * bulk editor is saved as exactly the change that makes the file the map EnvManager reads from
+ * the same text (the shared fixture tests/fixtures/env/messy.env and its .json) - only the
+ * variables that differ, never the ones left alone - and a secret is shown only after the
  * operator confirms it's them. Runs in both themes with the CSP and console gates of the
  * `problems` fixture.
  *
@@ -31,14 +32,15 @@ function table(page: Page, domain: string) {
   return page.getByRole("table", { name: `Environment variables of ${domain}` });
 }
 
-test("a messy .env pasted in is saved as exactly what EnvManager reads from it", async ({ page, consoleServer, problems }, testInfo) => {
+test("a messy .env pasted in is saved as exactly the change that makes the file what EnvManager reads from it", async ({ page, consoleServer, problems }, testInfo) => {
   const domain = appFor(testInfo);
-  // Reading the values in clear is refused until the operator confirms it's them.
+  // Writing the variables is sudo mode's: the first attempt is refused until the operator confirms it's them.
   problems.expect(new RegExp(`status of 403 .*/api/apps/${domain.replace(/\./g, "\\.")}/env$`));
   await signIn(page, consoleServer, `/apps/${domain}/environment`);
   await expect(table(page, domain)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the environment tab");
+  const current = ((await (await page.request.get(`/api/apps/${domain}/env`)).json()) as { variables: Record<string, string> }).variables;
 
   await page.getByRole("button", { name: "Paste .env" }).click();
   const paste = page.getByRole("dialog", { name: "Paste a .env file" });
@@ -54,24 +56,24 @@ test("a messy .env pasted in is saved as exactly what EnvManager reads from it",
   // operator keeps the app's own before saving, which also proves a staged change can be undone.
   await page.getByRole("button", { name: "Actions for PORT" }).click();
   await page.getByRole("menuitem", { name: "Undo the change" }).click();
-  const { port } = (await (await page.request.get(`/api/apps/${domain}`)).json()) as { port: number };
 
-  await page.getByRole("button", { name: "Review and save" }).click();
-  await confirmItsYou(page, consoleServer);
+  // A pasted file is looked over whole first, over what the page knows: nothing is read in clear for it.
+  await page.getByRole("button", { name: "Save and restart", exact: true }).click();
   const review = page.getByRole("dialog", { name: "Review changes" });
   await expect(review).toBeVisible();
   await review.getByRole("switch", { name: "Show values" }).click();
   await expectNoA11yViolations(page, "the review dialog");
 
-  const put = page.waitForRequest((request) => request.method() === "PUT" && request.url().endsWith(`/api/apps/${domain}/env`));
-  await review.getByRole("button", { name: "Save changes" }).click();
+  const patch = page.waitForRequest((request) => request.method() === "PATCH" && request.url().endsWith(`/api/apps/${domain}/env`));
+  await review.getByRole("button", { name: "Save and restart" }).click();
+  await confirmItsYou(page, consoleServer);
+  // The variables whose value is not the one the page already holds, and the ones the file no longer has. PORT is neither.
+  const kept = { ...SAVED_MAP };
+  const set = Object.fromEntries(Object.entries(kept).filter(([name, value]) => current[name] !== value));
+  const unset = Object.keys(current).filter((name) => name !== "PORT" && !(name in kept));
   // The comment above JWT_SECRET in the pasted file is kept with it, as the file says it.
-  expect((await put).postDataJSON()).toEqual({ variables: { ...SAVED_MAP, PORT: String(port) }, comments: { JWT_SECRET: "Secrets" } });
+  expect((await patch).postDataJSON()).toEqual({ set, unset, dry_run: false, comments: { JWT_SECRET: "Secrets" } });
 
-  const saved = page.getByRole("dialog", { name: "Environment saved" });
-  await expect(saved).toBeVisible();
-  await saved.getByRole("button", { name: "Restart now" }).click();
-  await expect(saved).toBeHidden();
   await expect(toasts(page).getByText(`Restarted ${domain}`)).toBeVisible();
 
   // The file on disk now reads back as the pasted map: what the table shows comes from it.
@@ -79,6 +81,30 @@ test("a messy .env pasted in is saved as exactly what EnvManager reads from it",
   // A plain value is in view without asking.
   await expect(table(page, domain).getByText("hola # not a comment", { exact: true })).toBeVisible();
   await expect(table(page, domain).getByRole("cell", { name: "SESSION_SECRET", exact: true })).toHaveCount(0);
+});
+
+test("a hidden value is kept or replaced from its row, and is never read to be edited", async ({ page, consoleServer }) => {
+  const domain = "pedidos.example.org";
+  const unmasks: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes(`/api/apps/${domain}/env`) && request.url().includes("unmask=true")) unmasks.push(request.url());
+  });
+  await signIn(page, consoleServer, `/apps/${domain}/environment`);
+  await expect(table(page, domain)).toBeVisible();
+  // A row opens on press; a hidden value is not shown, not editable, and offers to be replaced.
+  await table(page, domain).getByText("JWT_SECRET", { exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Edit JWT_SECRET" });
+  await expect(dialog.getByLabel("Value")).toBeDisabled();
+  await expect(dialog.getByText("The value is hidden. It stays as it is unless you replace it.")).toBeVisible();
+  await expectNoA11yViolations(page, "a hidden value's dialog");
+  await dialog.getByRole("button", { name: "Replace value" }).click();
+  await expect(dialog.getByLabel("Value")).toBeFocused();
+  await dialog.getByRole("button", { name: "Keep current value" }).click();
+  await expect(dialog.getByLabel("Value")).toBeDisabled();
+  // Not confirmed: the worker's file keeps its value.
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+  expect(unmasks).toEqual([]);
 });
 
 test("a secret is shown only after confirming it's you", async ({ page, consoleServer, problems }) => {
@@ -103,8 +129,7 @@ test.describe("environment dialogs @screens", () => {
   const DESKTOP = { width: 1440, height: 900 };
   const PHONE = { width: 390, height: 844 };
 
-  test("app tab environment dialogs", async ({ page, consoleServer, problems }, testInfo) => {
-    problems.expect(/status of 403 .*\/api\/apps\/blog\.example\.org\/env$/);
+  test("app tab environment dialogs", async ({ page, consoleServer }, testInfo) => {
     const dir = path.join(SCREENS, testInfo.project.name);
     // Read only: the dialogs are photographed and cancelled, nothing is saved.
     const domain = "blog.example.org";
@@ -124,8 +149,7 @@ test.describe("environment dialogs @screens", () => {
     // `export` is read the way a shell reads it: nothing to fix before staging.
     await paste.getByRole("button", { name: /^Stage \d+ variables$/ }).click();
     await page.setViewportSize(DESKTOP);
-    await page.getByRole("button", { name: "Review and save" }).click();
-    await confirmItsYou(page, consoleServer);
+    await page.getByRole("button", { name: "Save and restart", exact: true }).click();
     const review = page.getByRole("dialog", { name: "Review changes" });
     await review.getByRole("switch", { name: "Show values" }).click();
     await settle(page);

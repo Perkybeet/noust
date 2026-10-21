@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { Boxes, HeartPulse } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
@@ -6,15 +7,56 @@ import { Button } from "../ui/Button";
 import { Section, Sections } from "./Section";
 
 describe("Section", () => {
-  it("is a region named by its heading, a level below the page title", () => {
+  it("draws the icon of its object before the heading, hidden from assistive technology, and the name stays the title", () => {
     render(
-      <Section title="Recent deployments" description="The last eight, across every app.">
+      <Section title="Automation" icon={Boxes}>
         <p>rows</p>
       </Section>,
     );
-    expect(screen.getByRole("region", { name: "Recent deployments" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Recent deployments" })).toBeInTheDocument();
-    expect(screen.getByText("The last eight, across every app.")).toBeInTheDocument();
+    const region = screen.getByRole("region", { name: "Automation" });
+    expect(region.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Automation" }),
+    ).toBeInTheDocument();
+  });
+
+  it("is a region named by its heading, a level below the page title", () => {
+    render(
+      <Section
+        title="Recent deployments"
+        description="The last eight, across every app."
+      >
+        <p>rows</p>
+      </Section>,
+    );
+    expect(
+      screen.getByRole("region", { name: "Recent deployments" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Recent deployments" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("The last eight, across every app."),
+    ).toBeInTheDocument();
+  });
+
+  it("draws the icon of the object it is about before the title, and leaves it out of the section's name", () => {
+    render(
+      <Section title="Health" icon={HeartPulse}>
+        <p>facts</p>
+      </Section>,
+    );
+    const icon = screen
+      .getByRole("region", { name: "Health" })
+      .querySelector("svg");
+    if (icon === null) throw new Error("no icon drawn");
+    // Decorative: a screen reader names the region by its heading alone.
+    expect(icon.closest("[aria-hidden='true']")).not.toBeNull();
+    expect(screen.getByRole("region", { name: "Health" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Health" })
+        .previousElementSibling,
+    ).toContainElement(icon);
   });
 
   it("nests one level deeper when asked", () => {
@@ -23,17 +65,27 @@ describe("Section", () => {
         <p>facts</p>
       </Section>,
     );
-    expect(screen.getByRole("heading", { level: 3, name: "Runtime" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Runtime" }),
+    ).toBeInTheDocument();
   });
 
   it("puts the section's actions beside its title", () => {
     render(
-      <Section title="Machine" actions={<Button>View server</Button>} badge={<span>live</span>}>
+      <Section
+        title="Machine"
+        actions={<Button>View server</Button>}
+        badge={<span>live</span>}
+      >
         <p>charts</p>
       </Section>,
     );
-    const header = screen.getByRole("heading", { name: "Machine" }).closest("header");
-    expect(header).toContainElement(screen.getByRole("button", { name: "View server" }));
+    const header = screen
+      .getByRole("heading", { name: "Machine" })
+      .closest("header");
+    expect(header).toContainElement(
+      screen.getByRole("button", { name: "View server" }),
+    );
     expect(header).toContainElement(screen.getByText("live"));
   });
 
@@ -57,19 +109,28 @@ describe("Section", () => {
         <p>placeholder</p>
       </Section>,
     );
-    expect(screen.getByRole("region", { name: "History" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("region", { name: "History" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
     rerender(
       <Section title="History">
         <p>rows</p>
       </Section>,
     );
-    expect(screen.getByRole("region", { name: "History" })).not.toHaveAttribute("aria-busy");
+    expect(screen.getByRole("region", { name: "History" })).not.toHaveAttribute(
+      "aria-busy",
+    );
   });
 
   it("has no accessibility violations", async () => {
     const { container } = render(
       <Sections>
-        <Section title="Needs attention" description="Problems first." actions={<Button>Refresh</Button>}>
+        <Section
+          title="Needs attention"
+          description="Problems first."
+          actions={<Button>Refresh</Button>}
+        >
           <p>Nothing needs attention.</p>
         </Section>
       </Sections>,

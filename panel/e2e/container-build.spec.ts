@@ -125,13 +125,10 @@ test("an application's build commands are saved behind confirming it is you, win
   test.setTimeout(120_000);
   const domain = "shop.example.net";
   await signIn(page, consoleServer, `/apps/${domain}/settings/build`);
-  await expect(page.getByRole("heading", { level: 2, name: "Build commands" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Build", exact: true })).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Application settings" }).first();
-  await expect(nav.getByRole("link", { name: "Build commands" })).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("link", { name: "Build", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("The commands of the application's type")).toBeVisible();
-  await expect(page.getByText("This application's own settings win, whole")).toBeVisible();
-  // The runtimes the server has are a command away: no endpoint says them.
-  await expect(page.getByText("noust runtime list")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "an application's build commands");
 
@@ -150,7 +147,6 @@ test("an application's build commands are saved behind confirming it is you, win
   await page.getByRole("region", { name: "Unsaved changes" }).getByRole("button", { name: "Save" }).click();
   await confirmItsYou(page, consoleServer);
   expect((await saved).postDataJSON()).toEqual({ build: "npm run build", start: "node dist/server.js --port ${PORT}", runtime: "node@22" });
-  await expect(page.getByText("Saved. It takes effect with the next update.")).toBeVisible();
   await expect(page.getByText("This application's own settings", { exact: true })).toBeVisible();
   const stored = (await (await page.request.get(`/api/apps/${domain}/build`)).json()) as { source: string; start: string; runtime: string };
   expect(stored).toMatchObject({ source: "operator", start: "node dist/server.js --port ${PORT}", runtime: "node@22" });

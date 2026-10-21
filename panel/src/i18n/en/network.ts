@@ -9,8 +9,8 @@ export const network = {
   access: {
     nav: "Access",
     title: "Access",
-    description: "Who can reach {domain}, and what the site asks of a visitor and sends back. Saved, tested by the web server and reloaded together.",
-    loading: "Reading the access settings",
+    description: "Who can reach {domain}: a password, addresses, a private network and what happens at prefixes of the site. Saved, tested by the web server and reloaded together.",
+    loading: "Loading the access settings",
     readFailed: "Could not read the access settings of {domain}",
     notSaved: "The access settings of {domain} were not saved",
     notApplicable: "This policy does not reach the site",
@@ -69,7 +69,6 @@ export const network = {
       removeLast: "It is the only account and the site asks for a password: turn the password off first, or nobody could sign in.",
       removed: "Removed {name}",
       addFailed: "Could not save the account {name}",
-      removeFailed: "Could not remove {name}",
     },
     addresses: {
       title: "Addresses",
@@ -124,6 +123,7 @@ export const network = {
       hiddenHelp: "One name per line.",
       sentNow: "The site sends now",
       sentNone: "No extra headers.",
+      more: "Custom and hidden headers",
     },
     waf: {
       title: "Web application firewall",
@@ -179,7 +179,7 @@ export const network = {
       enable: "Ask every visitor for a certificate",
       enableHelp: "Make at least one certificate first; without a valid one nobody could open the site.",
       enableNone: "No certificate is valid yet, so saving this would shut everybody out.",
-      issue: "Make a certificate",
+      issue: "Create a certificate",
       readFailed: "Could not read the client certificates",
       empty: "No certificates yet.",
       listLabel: "Client certificates of {domain}",
@@ -192,7 +192,7 @@ export const network = {
       revokeDescription: "{domain} refuses {name} from now on. Whoever holds it keeps the file, but it no longer opens the site.",
       revokeLast: "It is the last valid certificate: nobody could open the site afterwards.",
       revokedToast: "{name} is revoked",
-      issueTitle: "Make a certificate",
+      issueTitle: "Create a certificate",
       issueDescription: "It identifies one person or device to {domain}. Its private key is shown once and Noust keeps none.",
       name: "Name",
       nameHelp: "Who or what it is for. Letters, digits and . _ @ - only, up to 64.",
@@ -232,6 +232,7 @@ export const network = {
       signInHelp: "An address or a path on this site such as /oauth2/start?rd= ; the page they asked for is added. Empty answers 401.",
       headers: "Headers handed to the application",
       headersHelp: "Response headers of the service to pass on, one per line. They replace any a visitor sends with the same name.",
+      none: "Not set",
     },
     routes: {
       title: "Routes",
@@ -302,7 +303,7 @@ export const network = {
   unknownHosts: {
     title: "Names no site serves",
     description: "What the web server answers when a request names something none of the sites here serves: a name pointed at this address by someone else, or the bare address.",
-    loading: "Reading what answers unknown names",
+    loading: "Loading what answers unknown names",
     readFailed: "Could not read what answers unknown names",
     firstSite: "Nothing is set: the first site the web server loaded answers, so an application is shown on names that are not its own.",
     closes: "The connection is closed without an answer.",
@@ -392,7 +393,7 @@ export const network = {
   appDns: {
     title: "DNS records",
     description: "What each name of {domain} points at in the account that holds its zone, and the records Noust made for it.",
-    loading: "Reading the DNS of its names",
+    loading: "Loading the DNS of its names",
     readFailed: "Could not read the DNS of {domain}",
     noAccount: "No DNS account holds the zone of these names.",
     addAccount: "Add a DNS account",
@@ -639,7 +640,7 @@ export const network = {
     menu: "Certificate authority",
     title: "Certificate authority",
     description: "Which authority certificates are ordered from, and as whom. It applies to every order and renewal from now on.",
-    loading: "Reading the authority",
+    loading: "Loading the authority",
     readFailed: "Could not read the certificate authority",
     caLabel: "Authority",
     untrusted: "A staging authority issues certificates browsers do not trust, and its rate limits are generous: the place to try DNS, ports and hooks before spending the real ones.",
@@ -661,5 +662,13 @@ export const network = {
     registerRunning: "Registering the account",
     registerDone: "The account is registered",
     registerFailed: "The account was not registered",
+  },
+  protection: {
+    nav: "Protection",
+    title: "Protection",
+    description: "What {domain} limits and sends back: rates, response headers, HTTP/3, the firewall and client certificates. Saved, tested by the web server and reloaded together.",
+    loading: "Loading the protection settings",
+    readFailed: "Could not read the protection settings of {domain}",
+    notSaved: "The protection settings of {domain} were not saved",
   },
 } as const;

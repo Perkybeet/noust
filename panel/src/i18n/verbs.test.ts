@@ -91,7 +91,7 @@ const spanish = new Map(flatten({ ...es }));
  * lane that writes the first key that holds one of these takes it off this list, which pins the
  * pair from then on. A row not on the list has at least one key in both languages.
  */
-const NO_KEY_YET: ReadonlySet<string> = new Set(["Retry", "Try again", "Run again", "Clear", "Dismiss", "Acknowledge", "Reopen"]);
+const NO_KEY_YET: ReadonlySet<string> = new Set(["Try again", "Run again", "Clear", "Dismiss", "Acknowledge", "Reopen"]);
 
 /**
  * The glossary's verbs and states (README, "Actions" and "States"), one row at a time, in both

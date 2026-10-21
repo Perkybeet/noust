@@ -6,7 +6,6 @@ export const appPackages: Catalog<typeof en> = {
   description: "Librerías y herramientas del servidor que necesita esta aplicación, como libvips-dev, ffmpeg o una fuente. Noust las instala antes de la próxima compilación; un repositorio no puede pedir ninguna.",
   loading: "Cargando los paquetes del sistema",
   readFailed: "No se pudieron leer los paquetes del sistema",
-  fromTerminal: "Desde una terminal",
   listLabel: "Paquetes que necesita esta aplicación",
   none: "Esta aplicación no declara paquetes del sistema.",
   hasIt: "Instalado",
@@ -28,6 +27,7 @@ export const appPackages: Catalog<typeof en> = {
   installed: "Los paquetes del sistema de {domain} están instalados",
   notStarted: "No empezó la instalación para {domain}",
   notInstalled: "No se instalaron los paquetes del sistema de {domain}",
-  jobFailedSilently: "La instalación falló sin decir por qué. El registro del trabajo tiene lo que imprimió el gestor de paquetes.",
+  jobFailedSilently: "La instalación falló sin decir por qué. El registro de la tarea tiene lo que imprimió el gestor de paquetes.",
   when: "Guardar registra la lista. Los paquetes que faltan se instalan antes de que la próxima actualización compile, o ahora con el botón; si no se pueden instalar, la actualización se detiene y lo que sirve sigue sirviendo.",
+  edit: "Editar paquetes…",
 };

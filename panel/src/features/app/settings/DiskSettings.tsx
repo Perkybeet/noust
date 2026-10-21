@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { UseQueryResult } from "@tanstack/react-query";
 import { HardDrive } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { SyntheticEvent } from "react";
 
 import { isApiError, request } from "../../../api/client";
 import { diskKey, diskQuery } from "../../../api/queries/disk";
@@ -10,9 +10,11 @@ import type { App } from "../../../api/queries/apps";
 import { isJobFinished, useFollowedJob } from "../../../api/queries/jobs";
 import { announce } from "../../../app/Announcer";
 import { CommandHint } from "../../../components/page/CommandHint";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { ResourceMeter } from "../../../components/page/ResourceMeter";
+import { SaveBar } from "../../../components/page/SaveBar";
 import { Section } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -20,12 +22,14 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
 import { KernelQuota } from "./KernelQuota";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSaveBar } from "./formParts";
+import type { FormPart } from "./formParts";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 
 /** The least a limit can be (MB), the backend's own floor: a release has to fit in it. */
 const MIN_LIMIT_MB = 64;
@@ -95,28 +99,29 @@ function Usage({ disk, t }: { disk: AppDisk; t: T }) {
   );
 }
 
+export interface DiskLimitPart {
+  /** The save bar's part; null until the disk is read. */
+  part: FormPart | null;
+  /** The limit as typed, or as stored while untouched. */
+  shown: string;
+  edit: (value: string) => void;
+  error: string | undefined;
+  unplaced: unknown;
+}
+
 /**
- * What the app takes of the disk and the limit its deploys are held to (checklist B-63). The
- * measurement is a job, since walking a release tree takes a while: the figures are the last
- * one, with how old it is. The limit is Noust's and not the kernel's, and the section says so
- * and says whether the filesystem could hold a kernel quota.
+ * The limit its deploys are held to, as a part of the page's form: an empty field is no limit, and
+ * the server decides what it accepts. Saved from the save bar with the page's one Save.
  */
-function DiskCard({ app }: { app: App }) {
+export function useDiskLimit(domain: string, disk: AppDisk | undefined): DiskLimitPart {
   const t = useT();
-  const domain = app.domain;
   const queryClient = useQueryClient();
-  const disk = useQuery(diskQuery(domain));
-  const followed = useFollowedJob();
   const [text, setText] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const stored = disk === undefined ? null : disk.soft_mb === null ? "" : String(disk.soft_mb);
+  const shown = text ?? stored ?? "";
+  const parsed = parseDiskLimit(shown);
 
-  const measure = useMutation({
-    mutationFn: () => request("post", "/api/apps/{domain}/disk/measure", { params: { domain } }),
-    onSuccess: (queued) => {
-      followed.follow(queued.job_id);
-      announce(t("runtime.disk.measuring"));
-    },
-  });
   const save = useMutation({
     mutationFn: (softMb: number | null) => request("put", "/api/apps/{domain}/disk", { params: { domain }, body: { soft_mb: softMb } }),
     onSuccess: (answer) => {
@@ -124,6 +129,59 @@ function DiskCard({ app }: { app: App }) {
       setText(null);
       setSubmitted(false);
       announce(answer.soft_mb === null ? t("runtime.disk.limitRemoved") : t("runtime.disk.limitSaved", { limit: String(answer.soft_mb) }));
+    },
+  });
+  const fieldError = isApiError(save.error) ? save.error.fields?.["soft_mb"] : undefined;
+  const clientError = submitted && parsed === undefined ? t("runtime.disk.limitInvalid", { min: MIN_LIMIT_MB }) : undefined;
+
+  return {
+    part:
+      stored === null
+        ? null
+        : {
+            changes: shown.trim() !== stored ? 1 : 0,
+            elevated: false,
+            check: () => {
+              setSubmitted(true);
+              return parsed !== undefined;
+            },
+            save: async () => {
+              if (parsed === undefined) return;
+              await save.mutateAsync(parsed);
+            },
+            discard: () => {
+              setText(null);
+              setSubmitted(false);
+              save.reset();
+            },
+          },
+    shown,
+    edit: (value) => {
+      setText(value);
+      if (save.isError) save.reset();
+    },
+    error: clientError ?? fieldError,
+    unplaced: save.isError && fieldError === undefined ? save.error : null,
+  };
+}
+
+/**
+ * What the app takes of the disk and the limit its deploys are held to (checklist B-63). The
+ * measurement is a job, since walking a release tree takes a while: the figures are the last
+ * one, with how old it is. The limit is Noust's and not the kernel's, and the section says so
+ * and says whether the filesystem could hold a kernel quota.
+ */
+function DiskCard({ app, disk, limit }: { app: App; disk: UseQueryResult<AppDisk>; limit: DiskLimitPart }) {
+  const t = useT();
+  const domain = app.domain;
+  const queryClient = useQueryClient();
+  const followed = useFollowedJob();
+
+  const measure = useMutation({
+    mutationFn: () => request("post", "/api/apps/{domain}/disk/measure", { params: { domain } }),
+    onSuccess: (queued) => {
+      followed.follow(queued.job_id);
+      announce(t("runtime.disk.measuring"));
     },
   });
 
@@ -138,29 +196,14 @@ function DiskCard({ app }: { app: App }) {
 
   if (disk.isPending) {
     return (
-      <div aria-busy="true">
-        <span className="sr-only">{t("runtime.disk.loading")}</span>
-        <Skeleton className="h-40 w-full" />
-      </div>
+      <LoadingRegion label={t("runtime.disk.loading")}>
+        <SkeletonCard lines={4} />
+      </LoadingRegion>
     );
   }
   if (disk.isError) return <ErrorBlock compact error={disk.error} title={t("runtime.disk.loadFailed")} onRetry={() => void disk.refetch()} retrying={disk.isRefetching} />;
 
-  const stored = disk.data.soft_mb === null ? "" : String(disk.data.soft_mb);
-  const shown = text ?? stored;
-  const parsed = parseDiskLimit(shown);
-  const dirty = shown.trim() !== stored;
   const measuring = measure.isPending || (followed.job !== null && !finished);
-  const fieldError = isApiError(save.error) ? save.error.fields?.["soft_mb"] : undefined;
-  const clientError = submitted && parsed === undefined ? t("runtime.disk.limitInvalid", { min: MIN_LIMIT_MB }) : undefined;
-
-  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    setSubmitted(true);
-    if (parsed === undefined || !dirty) return;
-    save.mutate(parsed);
-  };
-
   const filesystem = disk.data.filesystem;
   return (
     <>
@@ -177,46 +220,29 @@ function DiskCard({ app }: { app: App }) {
             </Button>
           </div>
           {measure.isError ? <ErrorBlock live compact error={measure.error} title={t("runtime.disk.measureFailed")} /> : null}
-          <form onSubmit={submit} noValidate className="flex flex-col gap-3 border-t border-border pt-5">
-            <Field label={t("runtime.disk.limitLabel")} description={t("runtime.disk.limitDescription")} error={clientError ?? fieldError}>
+          <div className="flex flex-col gap-3 border-t border-border pt-5">
+            <Field label={t("runtime.disk.limitLabel")} description={t("runtime.disk.limitDescription")} error={limit.error}>
               <Input
                 mono
                 inputMode="numeric"
                 autoComplete="off"
                 placeholder={t("appSettings.limits.noLimitPlaceholder")}
                 suffix={t("runtime.disk.limitSuffix")}
-                value={shown}
-                onValueChange={(value: string) => {
-                  setText(value);
-                  if (save.isError) save.reset();
-                }}
+                value={limit.shown}
+                onValueChange={limit.edit}
               />
             </Field>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
-                {t("runtime.disk.saveLimit")}
-              </Button>
-              {stored !== "" ? (
-                <Button
-                  variant="ghost"
-                  loading={save.isPending}
-                  onClick={() => {
-                    setText("");
-                    save.mutate(null);
-                  }}
-                >
-                  {t("runtime.disk.removeLimit")}
-                </Button>
-              ) : null}
-            </div>
-            {save.isError && fieldError === undefined ? <ErrorBlock live compact error={save.error} title={t("runtime.disk.saveFailed")} /> : null}
-          </form>
-          <p className="max-w-measure text-12 text-pretty text-fg-muted">{t("runtime.disk.softNote")}</p>
-          <p className="max-w-measure text-12 text-pretty text-fg-muted">
-            {filesystem.fstype === null
-              ? t("runtime.disk.quota.unknown")
-              : t(`runtime.disk.quota.${filesystem.project_quota}`, { fstype: filesystem.fstype, mount: filesystem.mount ?? "/" })}
-          </p>
+            {limit.unplaced !== null ? <ErrorBlock live compact error={limit.unplaced} title={t("runtime.disk.saveFailed")} /> : null}
+          </div>
+          {/* What the limit is and what the filesystem could add to it are one note, not two blocks of the card. */}
+          <div className="flex flex-col gap-1">
+            <p className="max-w-measure text-12 text-pretty text-fg-muted">{t("runtime.disk.softNote")}</p>
+            <p className="max-w-measure text-12 text-pretty text-fg-muted">
+              {filesystem.fstype === null
+                ? t("runtime.disk.quota.unknown")
+                : t(`runtime.disk.quota.${filesystem.project_quota}`, { fstype: filesystem.fstype, mount: filesystem.mount ?? "/" })}
+            </p>
+          </div>
           <KernelQuota disk={disk.data} domain={domain} />
         </div>
       </Card>
@@ -225,14 +251,21 @@ function DiskCard({ app }: { app: App }) {
   );
 }
 
-/** Disk: what the app takes of it and the limit its deploys are held to, a subsection of its own. */
+/** Disk: what the app takes of it and the limit its deploys are held to, a subsection of its own with its save bar. */
 export function DiskSettings() {
   const t = useT();
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.disk", app.domain);
+  const headerIcon = useSubsectionIcon("runtime.nav.disk");
+  const disk = useQuery(diskQuery(app.domain));
+  const limit = useDiskLimit(app.domain, disk.data);
+  const bar = useSaveBar([limit.part], t("runtime.disk.saveFailed"));
   return (
-    <Section title={t("runtime.disk.title")} description={t("runtime.disk.description")}>
-      <DiskCard app={app} />
-    </Section>
+    <>
+      <Section title={t("runtime.disk.title")} {...headerIcon} description={t("runtime.disk.description")}>
+        <DiskCard app={app} disk={disk} limit={limit} />
+      </Section>
+      {disk.data !== undefined ? <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} /> : null}
+    </>
   );
 }

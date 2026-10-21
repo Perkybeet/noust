@@ -13,6 +13,7 @@ import { announce } from "../../../app/Announcer";
 import { getLocale } from "../../../app/locale";
 import type { Locale } from "../../../app/locale";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Stepper } from "../../../components/page/Stepper";
@@ -21,11 +22,13 @@ import { WizardActions } from "../../../components/page/Wizard";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Dialog } from "../../../components/ui/Dialog";
+import { Disclosure } from "../../../components/ui/Disclosure";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { FeatureState } from "../../../components/ui/FeatureState";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Notice } from "../../../components/ui/Notice";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
@@ -36,6 +39,7 @@ import { useConfirmItsYou } from "../useDeleteApp";
 import type { FormPart } from "./formParts";
 import { RETENTION_MAX, RETENTION_MIN, parseRetention } from "./healthCheck";
 import { MigrationPlanView } from "./MigrationPlanView";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 // ---------------------------------------------------------------------------------------------
 // How many versions are kept: a part of the Deploys form, on an app with instant rollback.
@@ -183,11 +187,13 @@ function Versions({ domain }: { domain: string }) {
 function RollbackOn({ app, retention }: { app: App; retention: RetentionPart }) {
   const t = useT();
   return (
-    <Card title={t("appSettings.releases.title")}>
+    <Card
+      icon={SETTINGS_ICONS.rollback}
+      title={t("appSettings.releases.title")}
+      status={<StatusPill state="running" size="sm" label={t("appSettings.releases.on")} />}
+      description={t("appSettings.releases.descriptionOn")}
+    >
       <div className="flex flex-col gap-4">
-        <FeatureState state="on" title={t("appSettings.releases.on")}>
-          {t("appSettings.releases.descriptionOn")}
-        </FeatureState>
         <Versions domain={app.domain} />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <Field
@@ -212,43 +218,39 @@ function RollbackOn({ app, retention }: { app: App; retention: RetentionPart }) 
           </TextLink>
         </div>
         {retention.unplaced !== null ? <ErrorBlock live compact error={retention.unplaced} title={t("appSettings.retention.saveFailed")} /> : null}
-        {retention.outcome !== null ? (
-          <Notice tone="success" live>
-            {retentionOutcome(retention.outcome, t.locale)}
-          </Notice>
-        ) : null}
+        {retention.outcome !== null ? <InlineMessage tone="success" live>{retentionOutcome(retention.outcome, t.locale)}</InlineMessage> : null}
       </div>
     </Card>
   );
 }
 
 /**
- * Off: the benefit first, then what changes on disk, that it restarts the app once, that it
- * undoes itself if anything fails, and the way in, whose first step is a dry run.
+ * Off: the benefit, and the way in, whose first step is a dry run. What changes on disk, that it
+ * restarts the app once and that it undoes itself if anything fails is one fold away, and said
+ * again in the dry run before anything changes.
  */
 function RollbackOff({ onTurnOn }: { onTurnOn: () => void }) {
   const t = useT();
   return (
-    <Card title={t("appSettings.releases.title")}>
-      <div className="flex flex-col gap-4">
-        <FeatureState
-          state="off"
-          title={t("appSettings.releases.off")}
-          action={
-            <Button size="sm" onClick={onTurnOn}>
-              {t("appSettings.releases.turnOn")}
-            </Button>
-          }
-        >
-          {t("appSettings.releases.benefit")}
-        </FeatureState>
+    <Card
+      icon={SETTINGS_ICONS.rollback}
+      title={t("appSettings.releases.title")}
+      status={<StatusPill state="stopped" size="sm" label={t("appSettings.releases.off")} />}
+      description={t("appSettings.releases.benefit")}
+      actions={
+        <Button icon={<SETTINGS_ICONS.turnOn aria-hidden="true" />} size="sm" onClick={onTurnOn}>
+          {t("appSettings.releases.turnOn")}
+        </Button>
+      }
+    >
+      <Disclosure label={t("appSettings.releases.whatTurningOnDoes")}>
         <ul className="flex max-w-measure list-disc flex-col gap-1.5 pl-5 text-13 text-pretty text-fg-muted marker:text-fg-faint">
           <li>{t.rich("appSettings.releases.onDiskChange", { releases: <Mono>releases/</Mono>, shared: <Mono>shared/</Mono> })}</li>
           <li>{t("appSettings.releases.restartOnce")}</li>
           <li>{t("appSettings.releases.undoesItself")}</li>
+          <li>{t("appSettings.releases.dryRunFirst")}</li>
         </ul>
-        <p className="text-12 text-fg-muted">{t("appSettings.releases.dryRunFirst")}</p>
-      </div>
+      </Disclosure>
     </Card>
   );
 }
@@ -303,11 +305,10 @@ function PlanStep({ plan, onRetry }: { plan: UseQueryResult<MigrationPlan | null
   const t = useT();
   if (plan.isPending) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-3">
-        <span className="text-13 text-fg-muted">{t("appSettings.releases.migrate.reading")}</span>
+      <LoadingRegion label={t("appSettings.releases.migrate.reading")}>
         <Skeleton className="h-10 w-full rounded-control" />
         <KeyValueListSkeleton rows={5} />
-      </div>
+      </LoadingRegion>
     );
   }
   if (plan.isError) {
@@ -315,7 +316,7 @@ function PlanStep({ plan, onRetry }: { plan: UseQueryResult<MigrationPlan | null
   }
   if (plan.data === null) {
     // Already on releases (a 409): the app's own detail catches up in a moment.
-    return <Notice>{t("appSettings.releases.migrate.alreadyOn")}</Notice>;
+    return <InlineMessage tone="info">{t("appSettings.releases.migrate.alreadyOn")}</InlineMessage>;
   }
   return (
     <div className="flex flex-col gap-3">
@@ -429,9 +430,8 @@ function TurnOnRollback({ app, open, onOpenChange }: { app: App; open: boolean; 
     body = (
       <>
         <p className="text-14 text-pretty text-fg">{plan.data ? confirmation(plan.data, t.locale) : null}</p>
-        <Notice tone="warning" title={t("appSettings.releases.migrate.restartTitle")}>
-          {t("appSettings.releases.migrate.restartBody")}
-        </Notice>
+        <InlineMessage>{t("appSettings.releases.migrate.restartTitle")}</InlineMessage>
+        <p className="text-13 text-pretty text-fg-muted">{t("appSettings.releases.migrate.restartBody")}</p>
         {moving ? (
           <p role="status" className="text-13 text-fg-muted">
             {t("appSettings.releases.migrate.moving")}
@@ -451,6 +451,7 @@ function TurnOnRollback({ app, open, onOpenChange }: { app: App; open: boolean; 
   } else {
     body =
       summary !== null ? (
+        // design-exception: notice-success it is in a dialog that stays open and offers the next step
         <Notice tone="success" title={t.rich("appSettings.releases.migrate.done", { release: <Mono>{summary.release_id}</Mono> })}>
           {t("appSettings.releases.migrate.doneFiles", {
             filesBefore: formatCount(summary.files_before),
