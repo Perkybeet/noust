@@ -6,6 +6,7 @@ import type { SyntheticEvent } from "react";
 import { isApiError, request } from "../../../api/client";
 import { mountsQuery, runtimeKeys } from "../../../api/queries/runtime";
 import type { Mount } from "../../../api/queries/runtime";
+import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section } from "../../../components/page/Section";
 import { Badge } from "../../../components/ui/Badge";
@@ -23,13 +24,14 @@ import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { Textarea } from "../../../components/ui/Textarea";
-import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
 import { hasUnit } from "../../apps/AppRowActions";
 import { reportActionError } from "../../apps/useAppActions";
-import { Notice } from "../../../components/ui/Notice";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { LoadingRegion } from "../../../components/page";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 const OCTAL_MODE = /^[0-7]{3,4}$/;
 
@@ -103,7 +105,7 @@ function MountDialog({
       }),
     onSuccess: () => {
       refresh(queryClient, domain);
-      toast.success(t("runtime.mounts.saved", { target: target.trim() }));
+      announce(t("runtime.mounts.saved", { target: target.trim() }));
       onOpenChange(false);
     },
   });
@@ -167,10 +169,9 @@ function MountDialog({
             {current.isError ? (
               <ErrorBlock compact error={current.error} title={t("runtime.mounts.contentFailed")} />
             ) : !loaded ? (
-              <div aria-busy="true" className="flex flex-col gap-2">
-                <span className="sr-only">{t("runtime.mounts.contentLoading")}</span>
+              <LoadingRegion label={t("runtime.mounts.contentLoading")} className="flex flex-col gap-2">
                 <Skeleton className="h-24 w-full" />
-              </div>
+              </LoadingRegion>
             ) : (
               <Field label={t("runtime.mounts.contentLabel")} error={serverError("content")}>
                 <Textarea
@@ -209,7 +210,7 @@ function MountRow({ domain, mount }: { domain: string; mount: Mount }) {
     mutationFn: () => request("delete", "/api/apps/{domain}/mounts", { params: { domain }, query: { target: mount.target } }),
     onSuccess: () => {
       refresh(queryClient, domain);
-      toast.success(t("runtime.mounts.removed", { target: mount.target }));
+      announce(t("runtime.mounts.removed", { target: mount.target }));
     },
     onError: (error) => {
       reportActionError(t("runtime.mounts.removeFailed", { target: mount.target }), error);
@@ -283,6 +284,7 @@ function MountsCard({ domain }: { domain: string }) {
   const data = mounts.data;
   return (
     <Card
+      icon={SETTINGS_ICONS.mounts}
       title={t("runtime.mounts.title")}
       description={t("runtime.mounts.description")}
       padding="none"
@@ -318,11 +320,10 @@ function MountsCard({ domain }: { domain: string }) {
             <ErrorBlock compact error={mounts.error} title={t("runtime.mounts.loadFailed")} onRetry={() => void mounts.refetch()} retrying={mounts.isRefetching} />
           </div>
         ) : (
-          <div aria-busy="true" className="flex flex-col gap-2 p-4">
-            <span className="sr-only">{t("runtime.mounts.loading")}</span>
+          <LoadingRegion label={t("runtime.mounts.loading")} className="flex flex-col gap-2 p-4">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
-          </div>
+          </LoadingRegion>
         )
       ) : data.mounts.length === 0 ? (
         <div className="p-4">
@@ -357,12 +358,13 @@ export function MountsSettings() {
   const t = useT();
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.mounts", app.domain);
+  const headerIcon = useSubsectionIcon("runtime.nav.mounts");
   return (
-    <Section title={t("runtime.nav.mounts")}>
+    <Section title={t("runtime.nav.mounts")} {...headerIcon}>
       {hasUnit(app) && app.app_type !== "docker-compose" ? (
         <MountsCard domain={app.domain} />
       ) : (
-        <Notice tone="info">{t("runtime.mounts.cannot")}</Notice>
+        <InlineMessage tone="info">{t("runtime.mounts.cannot")}</InlineMessage>
       )}
     </Section>
   );

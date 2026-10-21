@@ -35,7 +35,7 @@ function field(name: string): RegExp {
 }
 
 function buildOf(build: AppBuild, app: object = RELEASE_APP, extra: Record<string, RouteHandler> = {}) {
-  return renderSettings("/build", "Build commands", app, {
+  return renderSettings("/build", "Build", app, {
     "GET /api/auth/session": () => json(200, ELEVATED),
     [`GET /api/apps/${DOMAIN}/build`]: () => json(200, build),
     ...extra,
@@ -46,17 +46,18 @@ describe("the Build commands subsection", () => {
   it("is listed for a type that has a block, and says where the commands come from", { timeout: 30_000 }, async () => {
     const { container } = await buildOf(REPO);
     const nav = first(screen.getAllByRole("navigation", { name: "Application settings" }));
-    expect(within(nav).getByRole("link", { name: "Build commands" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/build`);
+    expect(within(nav).getByRole("link", { name: "Build" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/build`);
     const main = screen.getByRole("main");
     expect(await within(main).findByText("The repository's noust.yaml", { selector: "span" })).toBeInTheDocument();
-    // The precedence rule, said where it matters.
-    expect(within(main).getByText("This application's own settings win, whole")).toBeInTheDocument();
-    expect(within(main).getByText(/Saving them here makes them this application's own/)).toBeInTheDocument();
+    // The precedence rule is the hint of where they come from, and the repository's values say what saving does.
+    expect(within(main).getByText(/Read from the code that runs now, at every update\./)).toBeInTheDocument();
+    expect(within(main).getByText(/Saving them makes them this application's own/)).toBeInTheDocument();
     expect(within(main).getByLabelText(field("Base directory"))).toHaveValue("apps/web");
     expect(within(main).getByLabelText(field("Install command"))).toHaveValue("pnpm install --frozen-lockfile");
     expect(within(main).getByLabelText(field("Build command"))).toHaveValue("pnpm --filter web build");
     expect(within(main).getByLabelText(field("Start command"))).toHaveValue("node dist/server.js --port ${PORT}");
-    expect(within(main).getByLabelText(field("Runtime"))).toHaveValue("node@22");
+    // The group "Runtime" of the list beside it is a label too: the field is the text box.
+    expect(within(main).getByRole("textbox", { name: field("Runtime") })).toHaveValue("node@22");
     // A Next.js application serves no static output: no publish directory to offer.
     expect(within(main).queryByLabelText(field("Publish directory"))).not.toBeInTheDocument();
     expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
@@ -67,7 +68,7 @@ describe("the Build commands subsection", () => {
     await buildOf(NONE);
     expect(await screen.findByText("The commands of the application's type")).toBeInTheDocument();
     expect(screen.getByLabelText(field("Install command"))).toHaveValue("");
-    expect(screen.queryByText(/Saving them here makes them/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Saving them makes them/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Remove its own settings" })).not.toBeInTheDocument();
   });
 
@@ -87,7 +88,8 @@ describe("the Build commands subsection", () => {
     await waitFor(() => expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/build`)).toHaveLength(1));
     // Only what was said: a key left out is not set.
     expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/build`)[0]?.body).toEqual({ start: "node dist/server.js", runtime: "node@22" });
-    expect(await screen.findByText("Saved. It takes effect with the next update.")).toBeInTheDocument();
+    // No message says it was saved: the bar goes back to "No unsaved changes" and the hint says where the commands come from.
+    await waitFor(() => expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument());
     expect(await screen.findByText("This application's own settings", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove its own settings" })).toBeInTheDocument();
   });
@@ -143,7 +145,7 @@ describe("the Build commands subsection", () => {
   it("says what is wrong before it is sent, beside the field, and sends nothing", { timeout: 30_000 }, async () => {
     const { user, backend } = await buildOf(NONE);
     await user.type(await screen.findByLabelText(field("Base directory")), "../outside");
-    await user.type(screen.getByLabelText(field("Runtime")), "ruby@3");
+    await user.type(screen.getByRole("textbox", { name: field("Runtime") }), "ruby@3");
     await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("A path inside the repository: relative, without .., ~, spaces or quotes.")).toBeInTheDocument();
     expect(screen.getByText("A runtime is a language, @ and a version: node@22, python@3.12, php@8.3, or lts or latest.")).toBeInTheDocument();
@@ -210,15 +212,12 @@ describe("the Build commands subsection", () => {
   });
 
   it("has no block for what is built by its own configuration, and does not ask for one", { timeout: 30_000 }, async () => {
-    const { backend } = await renderSettings("/build", "Build commands", { ...RELEASE_APP, app_type: "docker-compose" });
+    const { backend } = await renderSettings("/build", "Build", { ...RELEASE_APP, app_type: "docker-compose" });
     expect(screen.getByText("A docker-compose application is built by its own configuration, so it has no build commands here.")).toBeInTheDocument();
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/build`)).toHaveLength(0);
+    // The page is still there: what is guarded about a stack's build is its card.
     const nav = first(screen.getAllByRole("navigation", { name: "Application settings" }));
-    expect(within(nav).queryByRole("link", { name: "Build commands" })).not.toBeInTheDocument();
-  });
-
-  it("points at the command that lists the runtimes a server has, as no endpoint says it", { timeout: 30_000 }, async () => {
-    await buildOf(REPO);
-    expect(await screen.findByText("noust runtime list")).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Build" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
   });
 });

@@ -40,6 +40,8 @@ import {
   sameExtras,
 } from "./healthExtras";
 import type { HealthExtrasDraft, HealthExtrasErrors, HealthKind } from "./healthExtras";
+import { LoadingRegion } from "../../../components/page";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 const EMPTY: HealthDraft = { path: "", expect: "", timeout: "" };
 
@@ -380,21 +382,21 @@ export function StartupCheckCard({ app, check }: { app: App; check: StartupCheck
   const kind = extras.draft.kind;
   return (
     <Card
+      icon={SETTINGS_ICONS.startupCheck}
       title={t("appSettings.healthCheck.title")}
       description={t("appSettings.healthCheck.description")}
       actions={
-        <Button size="sm" variant="ghost" disabled={sameHealth(draft, EMPTY) && !hasExtras(extras.draft)} onClick={check.toDefaults}>
+        <Button icon={<SETTINGS_ICONS.reset aria-hidden="true" />} size="sm" variant="ghost" disabled={sameHealth(draft, EMPTY) && !hasExtras(extras.draft)} onClick={check.toDefaults}>
           {t("appSettings.healthCheck.useDefaults")}
         </Button>
       }
     >
       <div className="flex flex-col gap-5">
         {extras.loading ? (
-          <div aria-busy="true" className="flex flex-col gap-3">
-            <span className="sr-only">{t("runtime.health.loading")}</span>
+          <LoadingRegion label={t("runtime.health.loading")} className="flex flex-col gap-3">
             <Skeleton className="h-6 w-56" />
             <Skeleton className="h-16 w-full" />
-          </div>
+          </LoadingRegion>
         ) : extras.failed !== null ? (
           <ErrorBlock compact error={extras.failed} title={t("runtime.health.readFailed")} />
         ) : (
@@ -502,7 +504,7 @@ function TimeoutField({ check }: { check: StartupCheckPart }) {
 export function StaticStartupNote() {
   const t = useT();
   return (
-    <Card title={t("appSettings.healthCheck.title")}>
+    <Card title={t("appSettings.healthCheck.title")} icon={SETTINGS_ICONS.startupCheck}>
       <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("appSettings.healthCheck.staticNote")}</p>
     </Card>
   );

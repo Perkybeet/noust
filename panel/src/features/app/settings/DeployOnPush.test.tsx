@@ -78,8 +78,22 @@ function step(title: string): HTMLElement {
   return part(title);
 }
 
+/** The table of deliveries once it has its rows: while loading, a skeleton table of the same name stands in its place. */
+async function receivedTable(): Promise<HTMLElement> {
+  return waitFor(() => {
+    const table = screen.getByRole("table", { name: `Pushes received for ${DOMAIN}, newest first` });
+    if (table.querySelector("[data-slot='skeleton']") !== null) throw new Error("still loading");
+    return table;
+  });
+}
+
+/** The rail of the setup: one word each, "Secret: done", and only a step that is done can be opened. */
+function rail(): HTMLElement {
+  return screen.getByRole("list", { name: "Steps" });
+}
+
 describe("deploy on push, off", () => {
-  it("says what it does, and sets it up in three steps, each saying whether it is done", async () => {
+  it("says what it does, and sets it up in three steps of which only the one the setup is at is drawn", async () => {
     await push(OFF);
     expect(screen.getByText(/When you push to the repository, GitHub, GitLab, Gitea or Bitbucket tells this server/)).toBeInTheDocument();
     expect(await screen.findByText("Off")).toBeInTheDocument();
@@ -89,18 +103,53 @@ describe("deploy on push, off", () => {
     expect(within(hooks).getByText(/Not done: GitHub cannot reach this console/)).toBeInTheDocument();
     expect(within(hooks).getByText("noust web expose-hooks hooks.example.com")).toBeInTheDocument();
 
-    const secret = step("This app's secret");
+    // The other two wait in the rail, not started, and cannot be opened before the first is done.
+    const steps = within(rail()).getAllByRole("listitem");
+    expect(steps.map((item) => item.textContent)).toEqual(["1Public addressPublic address: current step", "2SecretSecret: not started", "3GitHubGitHub: not started"]);
+    expect(within(rail()).queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "This app's secret" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Add the webhook in GitHub" })).not.toBeInTheDocument();
+    expect(screen.getByText(/This server's GitHub App deploys every repository it is installed on/)).toBeInTheDocument();
+  });
+
+  it("asks for the secret once the address is there, and lets the first step be opened again", async () => {
+    const { user } = await push({ ...OFF, hooks: EXPOSED });
+    const secret = await screen.findByRole("group", { name: "This app's secret" });
     expect(within(secret).getByText(/Not done: every delivery is refused/)).toBeInTheDocument();
     expect(within(secret).getByRole("button", { name: "Create secret" })).toBeInTheDocument();
 
-    const forge = step("Add the webhook in GitHub");
+    await user.click(within(rail()).getByRole("button", { name: "Public address: done" }));
+    const address = await screen.findByRole("group", { name: "A public address for webhooks" });
+    expect(within(address).getByText("https://hooks.example.com/hooks")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "This app's secret" })).not.toBeInTheDocument();
+    // And the way on from a step that is done is a button, since the rail only goes back.
+    await user.click(within(address).getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("group", { name: "This app's secret" })).toBeInTheDocument();
+  });
+
+  it("goes on without a public address when asked, to the secret or to what is pasted if the secret is there", async () => {
+    const first = await push(OFF);
+    await first.user.click(await screen.findByRole("button", { name: "Use the console's own address" }));
+    expect(await screen.findByRole("group", { name: "This app's secret" })).toBeInTheDocument();
+    expect(within(rail()).getByRole("button", { name: "Public address: done" })).toBeInTheDocument();
+    first.unmount();
+
+    const second = await push({ ...OFF, enabled: true, state: "waiting" });
+    await second.user.click(await screen.findByRole("button", { name: "Use the console's own address" }));
+    const forge = await screen.findByRole("group", { name: "Add the webhook in GitHub" });
+    expect(within(forge).getByText(`http://localhost:3000/hooks/deploy/${DOMAIN}`)).toBeInTheDocument();
+    expect(within(forge).getByText(/This is the console's own address/)).toBeInTheDocument();
+  });
+
+  it("says what to paste at GitHub, and that the address is the console's own when it is not public", async () => {
+    await push({ ...OFF, enabled: true, state: "waiting", hooks: { ...EXPOSED, hook_url_public: false, hook_url: `http://localhost:3000/hooks/deploy/${DOMAIN}` } });
+    const forge = await screen.findByRole("group", { name: "Add the webhook in GitHub" });
     expect(within(forge).getByText(/In the repository's Settings, open Webhooks/)).toBeInTheDocument();
     expect(within(forge).getByText(`http://localhost:3000/hooks/deploy/${DOMAIN}`)).toBeInTheDocument();
     expect(within(forge).getByText(/This is the console's own address/)).toBeInTheDocument();
     expect(within(forge).getByText("application/json")).toBeInTheDocument();
     expect(within(forge).getByText("Just the push event")).toBeInTheDocument();
     expect(within(forge).getByRole("link", { name: /Open the webhook settings on GitHub/ })).toHaveAttribute("href", OFF.forge.settings_url);
-    expect(screen.getByText(/This server's GitHub App deploys every repository it is installed on/)).toBeInTheDocument();
   });
 
   it("creates the secret and shows it where it is pasted, until hidden", async () => {
@@ -112,19 +161,25 @@ describe("deploy on push, off", () => {
         return json(200, SECRET);
       },
     });
-    expect(within(await screen.findByText(/^Done: webhooks arrive at/)).getByText("https://hooks.example.com/hooks")).toBeInTheDocument();
-    await user.click(within(step("This app's secret")).getByRole("button", { name: "Create secret" }));
+    const secret = await screen.findByRole("group", { name: "This app's secret" });
+    await user.click(within(secret).getByRole("button", { name: "Create secret" }));
     await waitFor(() => {
       expect(backend.callsTo(`POST /api/apps/${DOMAIN}/webhook-secret`)).toHaveLength(1);
     });
-    const forge = step("Add the webhook in GitHub");
+    // Done, the setup moves on to the step that pastes it.
+    const forge = await screen.findByRole("group", { name: "Add the webhook in GitHub" });
     expect(await within(forge).findByText(SECRET.secret)).toBeInTheDocument();
     expect(await screen.findByText("Waiting for the first push")).toBeInTheDocument();
-    expect(within(step("This app's secret")).getByText(/^Done: every delivery must be signed/)).toBeInTheDocument();
 
     await user.click(within(forge).getByRole("button", { name: "Hide the secret" }));
     expect(within(forge).queryByText(SECRET.secret)).not.toBeInTheDocument();
     expect(within(forge).getByText("Hidden")).toBeInTheDocument();
+
+    await user.click(within(rail()).getByRole("button", { name: "Secret: done" }));
+    const done = await screen.findByRole("group", { name: "This app's secret" });
+    expect(within(done).getByText(/^Done: every delivery must be signed/)).toBeInTheDocument();
+    await user.click(within(done).getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("group", { name: "Add the webhook in GitHub" })).toBeInTheDocument();
   });
 });
 
@@ -136,7 +191,7 @@ describe("deploy on push, on", () => {
     expect(screen.getByText(/Pushes to/)).toHaveTextContent("Pushes to main deploy this app.");
     expect(within(step("Add the webhook in GitHub")).getByText(/^Done: GitHub's last delivery arrived/)).toBeInTheDocument();
 
-    const received = await screen.findByRole("table", { name: `Deliveries received for ${DOMAIN}, newest first` });
+    const received = await receivedTable();
     expect(within(received).getByText("Deploy started")).toBeInTheDocument();
     expect(within(received).getByText("Other branch, ignored")).toBeInTheDocument();
     expect(within(received).getByText("feature/cart")).toBeInTheDocument();
@@ -179,7 +234,7 @@ describe("deploy on push, on", () => {
 
   it("says when deliveries are refused, and why", async () => {
     await push({ ...CONNECTED, state: "problem", deliveries: { ...CONNECTED.deliveries, refused_since_last_verified: 3 } });
-    expect(await screen.findByText("Deliveries refused")).toBeInTheDocument();
+    expect(await screen.findByText("Pushes refused")).toBeInTheDocument();
     expect(screen.getByText("3 deliveries were refused since the last good one: the secret at GitHub does not match this app's.")).toBeInTheDocument();
   });
 });
@@ -212,13 +267,18 @@ describe("the warnings of deploy on push", () => {
     expect(screen.getByRole("link", { name: "Turn on instant rollback" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/deploys`);
   });
 
-  it("says the GitHub App already deploys the app, so no webhook is needed", async () => {
-    await push({
+  it("says in the first step that the GitHub App already deploys the app, without sending anyone to a terminal", async () => {
+    const { user } = await push({
       ...OFF,
       github_app: { configured: true, hooks_active: true, covers_repository: true, account: "shop", repository_selection: "all", settings_url: "https://github.com/settings/installations/1" },
     });
-    expect(await screen.findByText("The GitHub App already deploys this app on push")).toBeInTheDocument();
-    expect(screen.getByText(/You do not need a webhook: with one too, each push would deploy twice\./)).toBeInTheDocument();
+    const first = await screen.findByRole("group", { name: "A public address for webhooks" });
+    expect(within(first).getByText("Not needed: this server's GitHub App already reaches shop/storefront through shop.")).toBeInTheDocument();
+    expect(within(first).getByText("A webhook as well would deploy each push twice.")).toBeInTheDocument();
+    expect(within(first).queryByText("noust web expose-hooks hooks.example.com")).not.toBeInTheDocument();
+    // It stays possible, said as what it costs and asked for.
+    await user.click(within(first).getByRole("button", { name: "Set up a webhook anyway" }));
+    expect(await screen.findByRole("group", { name: "This app's secret" })).toBeInTheDocument();
   });
 });
 
@@ -253,11 +313,15 @@ const BITBUCKET = {
 
 describe("deploy on push, from Bitbucket", () => {
   it("says where Bitbucket keeps its webhook form, which triggers to choose, and gives the URL and the secret to paste", async () => {
-    const { user } = await push({ ...BITBUCKET, hooks: { ...BITBUCKET.hooks, exposed: true, base_url: "https://hooks.example.com/hooks", hook_url: `https://hooks.example.com/hooks/deploy/${DOMAIN}`, hook_url_public: true } }, {
-      [`POST /api/apps/${DOMAIN}/webhook-secret`]: () => json(200, SECRET),
+    let status: object = { ...BITBUCKET, hooks: { ...BITBUCKET.hooks, exposed: true, base_url: "https://hooks.example.com/hooks", hook_url: `https://hooks.example.com/hooks/deploy/${DOMAIN}`, hook_url_public: true } };
+    const { user } = await push(() => status, {
+      [`POST /api/apps/${DOMAIN}/webhook-secret`]: () => {
+        status = { ...status, enabled: true, state: "waiting" };
+        return json(200, SECRET);
+      },
     });
     await user.click(await within(await screen.findByRole("group", { name: "This app's secret" })).findByRole("button", { name: "Create secret" }));
-    const forge = step("Add the webhook in Bitbucket");
+    const forge = await screen.findByRole("group", { name: "Add the webhook in Bitbucket" });
     expect(within(forge).getByText(/In the repository's Repository settings, open Webhooks, choose Add webhook, give it a title, paste the URL and the secret/)).toBeInTheDocument();
     expect(await within(forge).findByText(SECRET.secret)).toBeInTheDocument();
     expect(within(forge).getByText(`https://hooks.example.com/hooks/deploy/${DOMAIN}`)).toBeInTheDocument();
@@ -269,7 +333,7 @@ describe("deploy on push, from Bitbucket", () => {
   });
 
   it("asks for the pull request triggers too when the app builds previews", async () => {
-    await push({ ...BITBUCKET, hooks: { ...BITBUCKET.hooks, events: ["repo:push", "pullrequest:created", "pullrequest:updated", "pullrequest:fulfilled", "pullrequest:rejected"] } });
+    await push({ ...BITBUCKET, enabled: true, state: "waiting", hooks: { ...BITBUCKET.hooks, ...EXPOSED, events: ["repo:push", "pullrequest:created", "pullrequest:updated", "pullrequest:fulfilled", "pullrequest:rejected"] } });
     await screen.findByRole("heading", { name: "Add the webhook in Bitbucket" });
     expect(within(step("Add the webhook in Bitbucket")).getByText("Repository: Push, and Pull request: Created, Updated, Merged and Declined")).toBeInTheDocument();
   });
@@ -290,7 +354,7 @@ describe("deploy on push, from Bitbucket", () => {
           total: 4,
         }),
     });
-    const received = await screen.findByRole("table", { name: `Deliveries received for ${DOMAIN}, newest first` });
+    const received = await receivedTable();
     expect(within(received).getByRole("columnheader", { name: "Sent by" })).toBeInTheDocument();
     // The push the queue had no room for is said as what it is, in the working colour and not as a failure.
     const refused = (await within(received).findByText("Queue full, the host will retry")).closest("tr");
@@ -303,7 +367,7 @@ describe("deploy on push, from Bitbucket", () => {
   });
 
   it("speaks Spanish and has no accessibility violations", async () => {
-    await push(BITBUCKET);
+    await push({ ...BITBUCKET, enabled: true, state: "waiting", hooks: { ...BITBUCKET.hooks, ...EXPOSED } });
     await screen.findByRole("group", { name: "Add the webhook in Bitbucket" });
     await expectNoAxeViolations(screen.getByRole("main"));
     await act(() => setLocale("es"));
@@ -318,7 +382,7 @@ describe("the words of the setup", () => {
     expect(connectionView("disabled")).toEqual({ state: "stopped", label: "Off" });
     expect(connectionView("waiting")).toEqual({ state: "queued", label: "Waiting for the first push" });
     expect(connectionView("connected")).toEqual({ state: "running", label: "Connected" });
-    expect(connectionView("problem")).toEqual({ state: "failed", label: "Deliveries refused" });
+    expect(connectionView("problem")).toEqual({ state: "failed", label: "Pushes refused" });
     expect(connectionView("new")).toEqual({ state: "unknown", label: "new" });
     expect(outcomeView("deploy_started")).toEqual({ state: "running", label: "Deploy started" });
     expect(outcomeView("duplicate")).toEqual({ state: "stopped", label: "Repeat, ignored" });

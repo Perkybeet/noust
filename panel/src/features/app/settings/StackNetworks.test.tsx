@@ -42,7 +42,7 @@ const PROXY = {
 };
 
 function networks(body: object, routes: Record<string, RouteHandler> = {}) {
-  return renderSettings("/deploys", "Deploys", COMPOSE_APP, {
+  return renderSettings("/compose", "Compose", COMPOSE_APP, {
     "GET /api/auth/session": () => json(200, ELEVATED),
     [`GET /api/apps/${DOMAIN}/compose`]: () =>
       json(200, { domain: DOMAIN, compose_file: null, profiles: [], build_args: [], up_args: [], services: [], customised: false, allowed_build_args: [], allowed_up_args: [] }),
@@ -55,18 +55,20 @@ describe("the Docker networks of a stack", () => {
   it("says a stack alone on its own network is isolated", { timeout: 20_000 }, async () => {
     await networks({ app: DOMAIN, applicable: true, reason: "", containers: ["shop-db-1", "shop-web-1"], isolated: true, networks: [OWN] });
 
+    await screen.findByRole("heading", { name: "Docker networks" });
     const card = part("Docker networks");
     expect(await within(card).findByText(/Isolated: every network is the stack's own/)).toBeInTheDocument();
     const list = within(card).getByRole("list", { name: "Networks of the stack" });
     expect(within(list).getByText("shop_default")).toBeInTheDocument();
     expect(within(list).getByText("Address ranges: 172.18.0.0/16")).toBeInTheDocument();
-    expect(within(card).getByText("noust app networks " + DOMAIN)).toBeInTheDocument();
+    expect(screen.getByText("noust app compose show " + DOMAIN)).toBeInTheDocument();
     await expectNoAxeViolations(document.body);
   });
 
   it("names who else is on a shared network and what Docker reports about it", { timeout: 20_000 }, async () => {
     await networks({ app: DOMAIN, applicable: true, reason: "", containers: ["shop-web-1"], isolated: false, networks: [OWN, PROXY] });
 
+    await screen.findByRole("heading", { name: "Docker networks" });
     const card = part("Docker networks");
     expect(await within(card).findByText(/Not isolated: a network is shared/)).toBeInTheDocument();
     const members = within(card).getByRole("list", { name: "Containers on proxy" });
@@ -80,6 +82,7 @@ describe("the Docker networks of a stack", () => {
   it("says so when the containers are not running", async () => {
     await networks({ app: DOMAIN, applicable: true, reason: "", containers: [], isolated: true, networks: [] });
 
+    await screen.findByRole("heading", { name: "Docker networks" });
     expect(await within(part("Docker networks")).findByText(/The stack is on no Docker network now/)).toBeInTheDocument();
   });
 
@@ -88,6 +91,7 @@ describe("the Docker networks of a stack", () => {
       [`GET /api/apps/${DOMAIN}/networks`]: () => problem(500, "deployment_error", "Docker could not list its networks", { hint: "Is Docker running? Check: systemctl status docker" }),
     });
 
+    await screen.findByRole("heading", { name: "Docker networks" });
     expect(await within(part("Docker networks")).findByText("Docker could not list its networks")).toBeInTheDocument();
   });
 

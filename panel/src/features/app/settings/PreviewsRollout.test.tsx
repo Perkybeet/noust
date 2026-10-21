@@ -133,9 +133,9 @@ describe("pull requests from forks", () => {
     const { user, backend, section } = await previewsOf(() => ON, { [PUT]: () => json(200, { ...SETTINGS, fork_policy: "approve" }) });
 
     expect(await within(section).findByRole("radio", { name: "Refuse them" })).toBeChecked();
-    expect(within(section).queryByText("Approving runs a stranger's code")).not.toBeInTheDocument();
+    expect(within(section).queryByText(/An approved commit runs on this server with the variables previews are given/)).not.toBeInTheDocument();
     await user.click(within(section).getByRole("radio", { name: "Wait for my approval" }));
-    expect(within(section).getByText("Approving runs a stranger's code")).toBeInTheDocument();
+    expect(within(section).getByText(/An approved commit runs on this server with the variables previews are given/)).toBeInTheDocument();
     await user.click(await within(section).findByRole("button", { name: "Save" }));
 
     await waitFor(() => {

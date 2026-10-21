@@ -48,6 +48,7 @@ export function DeleteSettings() {
               : t("appSettings.danger.actionDescription")
         }
         action={
+          // design-exception: danger-button-outside-confirm the action of the DangerAction, which opens the one confirmation after sudo mode
           <Button variant="danger" icon={<Delete aria-hidden="true" />} onClick={start}>
             {adopted ? t("runtime.adopted.stopManagingButton") : t("appSettings.danger.deleteButton")}
           </Button>

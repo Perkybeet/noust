@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { Boxes } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
@@ -8,6 +9,17 @@ import { Skeleton } from "./Skeleton";
 import { StatusPill } from "./StatusPill";
 
 describe("Card", () => {
+  it("draws the icon of its object before the title, hidden from assistive technology, with or without a state", () => {
+    const { container, rerender } = render(<Card title="Zero-downtime deploys" icon={Boxes} />);
+    const icon = container.querySelector("svg");
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+    expect(icon?.nextElementSibling).toBe(screen.getByRole("heading", { name: "Zero-downtime deploys" }));
+    rerender(<Card title="Zero-downtime deploys" icon={Boxes} status={<StatusPill state="running" label="On" />} />);
+    expect(container.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    // The heading is still the title alone: the icon adds no words to the name.
+    expect(screen.getByRole("heading", { name: "Zero-downtime deploys" })).toBeInTheDocument();
+  });
+
   it("titles its content with a heading at the requested level", () => {
     render(
       <Card title="Resources" description="Against the limits set for this app" level={2}>

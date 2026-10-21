@@ -22,6 +22,7 @@ import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { useSudoFirst } from "./formParts";
 import { JobFailedError, identityQuery, olderServer, settingsKeys, waitForJob } from "./queries";
+import { LoadingRegion } from "../../../components/page";
 
 export function IdentityCard({ domain }: { domain: string }) {
   const t = useT();
@@ -35,10 +36,9 @@ export function IdentityCard({ domain }: { domain: string }) {
   if (identity.isPending) {
     return (
       <Card title={title}>
-        <div aria-busy="true">
-          <span className="sr-only">{t("appSettings.identity.loading")}</span>
+        <LoadingRegion label={t("appSettings.identity.loading")}>
           <Skeleton className="h-10 w-full rounded-control" />
-        </div>
+        </LoadingRegion>
       </Card>
     );
   }

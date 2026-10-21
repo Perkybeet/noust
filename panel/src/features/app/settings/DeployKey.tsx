@@ -8,6 +8,7 @@ import { deployKeyQuery, deployKeysQuery, sourceKeys } from "../../../api/querie
 import type { AppDeployKey, DeployKey } from "../../../api/queries/sources";
 import { announce } from "../../../app/Announcer";
 import { KeyValueList } from "../../../components/page/KeyValueList";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
@@ -17,14 +18,14 @@ import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { CopyValue } from "../../../components/ui/CopyValue";
 import { Dialog } from "../../../components/ui/Dialog";
+import { EmptyState } from "../../../components/ui/EmptyState";
 import { ExternalLink } from "../../../components/ui/ExternalLink";
-import { FeatureState } from "../../../components/ui/FeatureState";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
@@ -36,6 +37,7 @@ import { useSudoFirst } from "./formParts";
 import { webhookStatusQuery } from "./queries";
 import { deployKeysUrl } from "./sourceForge";
 import { forgeName } from "./webhook";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /** What an action on the key answers: the application's key as the API now sees it. */
 function useKeySettled(domain: string): (result: AppDeployKey) => void {
@@ -249,6 +251,7 @@ function ExistingKeyDialog({
 }) {
   const t = useT();
   const [chosen, setChosen] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const run = useMutation({
     mutationFn: (key: string) => request("post", "/api/apps/{domain}/deploy-key", { params: { domain }, body: { key } }),
     onSuccess: (result, key) => {
@@ -260,12 +263,14 @@ function ExistingKeyDialog({
 
   function close(): void {
     setChosen("");
+    setSubmitted(false);
     run.reset();
     onOpenChange(false);
   }
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
+    setSubmitted(true);
     if (chosen === "" || run.isPending) return;
     run.mutate(chosen);
   };
@@ -285,7 +290,7 @@ function ExistingKeyDialog({
           <Button disabled={run.isPending} onClick={close}>
             {t("appSettings.cancel")}
           </Button>
-          <Button type="submit" form="assign-deploy-key" variant="primary" loading={run.isPending} disabled={chosen === ""}>
+          <Button type="submit" form="assign-deploy-key" variant="primary" loading={run.isPending}>
             {t("sources.deployKey.existingDialog.submit")}
           </Button>
         </>
@@ -293,9 +298,9 @@ function ExistingKeyDialog({
     >
       <form id="assign-deploy-key" onSubmit={submit} noValidate className="flex flex-col gap-4">
         {keys.length === 0 ? (
-          <p className="text-13 text-fg-muted">{t("sources.deployKey.existingDialog.none")}</p>
+          <EmptyState variant="inline" title={t("sources.deployKey.existingDialog.none")} />
         ) : (
-          <Field label={t("sources.deployKey.existingDialog.keyLabel")} nativeLabel={false}>
+          <Field label={t("sources.deployKey.existingDialog.keyLabel")} nativeLabel={false} error={submitted && chosen === "" ? t("sources.deployKey.existingDialog.required") : undefined}>
             <Select
               mono
               placeholder={t("sources.deployKey.existingDialog.keyPlaceholder")}
@@ -379,15 +384,14 @@ export function DeployKeyCard({ domain, repository }: { domain: string; reposito
   const description = t("sources.deployKey.description");
   if (view.isPending) {
     return (
-      <Card title={title} description={description} loading>
-        <span className="sr-only">{t("sources.deployKey.loading")}</span>
-        <Skeleton className="h-16 w-full rounded-control" />
-      </Card>
+      <LoadingRegion label={t("sources.deployKey.loading")}>
+        <SkeletonCard lines={2} />
+      </LoadingRegion>
     );
   }
   if (view.isError) {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} icon={SETTINGS_ICONS.key} description={description}>
         <ErrorBlock compact error={view.error} title={t("sources.deployKey.readFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       </Card>
     );
@@ -403,32 +407,44 @@ export function DeployKeyCard({ domain, repository }: { domain: string; reposito
     sudoFirst(then, t("sources.deployKey.notChanged", { domain }));
   };
 
+  // The state of the key is the pill beside the title; the sentence under it says what it means for this repository.
+  const state =
+    key === null
+      ? { pill: <StatusPill state="stopped" size="sm" label={t("sources.deployKey.stateNone")} />, text: null }
+      : data.source_is_ssh
+        ? { pill: <StatusPill state="running" size="sm" label={t("sources.deployKey.stateOwn")} />, text: t.rich("sources.deployKey.ownBody", { repository: <Mono>{repository}</Mono> }) }
+        : { pill: <StatusPill state="warning" size="sm" label={t("sources.deployKey.stateUnused")} />, text: t.rich("sources.deployKey.unusedBody", { sshUrl: <Mono>{sshUrl}</Mono> }) };
+  const noneText = data.server_key_fingerprint
+    ? t.rich("sources.deployKey.noneBodyServerKey", {
+        repository: <Mono>{repository}</Mono>,
+        fingerprint: <Mono>{data.server_key_fingerprint}</Mono>,
+      })
+    : t("sources.deployKey.noneBodyNoKey");
+
   return (
-    <Card title={title} description={description}>
+    <Card
+      icon={SETTINGS_ICONS.key}
+      title={title}
+      status={state.pill}
+      description={key === null ? noneText : state.text}
+      {...(key === null
+        ? {
+            actions: (
+              <Button size="sm" icon={<KeyRound aria-hidden="true" />} loading={generate.isPending} onClick={() => generate.mutate()}>
+                {t("sources.deployKey.generate")}
+              </Button>
+            ),
+          }
+        : {})}
+    >
       <div className="flex flex-col gap-4">
         {key === null ? (
           <>
-            <FeatureState
-              state="off"
-              title={t("sources.deployKey.stateNone")}
-              action={
-                <Button size="sm" icon={<KeyRound aria-hidden="true" />} loading={generate.isPending} onClick={() => generate.mutate()}>
-                  {t("sources.deployKey.generate")}
-                </Button>
-              }
-            >
-              {data.server_key_fingerprint
-                ? t.rich("sources.deployKey.noneBodyServerKey", {
-                    repository: <Mono>{repository}</Mono>,
-                    fingerprint: <Mono>{data.server_key_fingerprint}</Mono>,
-                  })
-                : t("sources.deployKey.noneBodyNoKey")}
-            </FeatureState>
             {!data.source_is_ssh && sshUrl !== "" ? (
-              <Notice>{t.rich("sources.deployKey.httpsHint", { sshUrl: <Mono>{sshUrl}</Mono> })}</Notice>
+              <InlineMessage tone="info">{t.rich("sources.deployKey.httpsHint", { sshUrl: <Mono>{sshUrl}</Mono> })}</InlineMessage>
             ) : null}
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="ghost" onClick={() => elevated(() => setImporting(true))}>
+              <Button icon={<SETTINGS_ICONS.upload aria-hidden="true" />} size="sm" variant="ghost" onClick={() => elevated(() => setImporting(true))}>
                 {t("sources.deployKey.import")}
               </Button>
               {choices.length > 0 ? (
@@ -440,11 +456,6 @@ export function DeployKeyCard({ domain, repository }: { domain: string; reposito
           </>
         ) : (
           <>
-            <FeatureState state={data.source_is_ssh ? "on" : "problem"} title={data.source_is_ssh ? t("sources.deployKey.stateOwn") : t("sources.deployKey.stateUnused")}>
-              {data.source_is_ssh
-                ? t.rich("sources.deployKey.ownBody", { repository: <Mono>{repository}</Mono> })
-                : t.rich("sources.deployKey.unusedBody", { sshUrl: <Mono>{sshUrl}</Mono> })}
-            </FeatureState>
             <KeyValueList items={keyFacts(key, t)} />
             <Subsection level={4} title={t("sources.deployKey.publicKeyTitle")} description={t("sources.deployKey.publicKeyBody", { forge })}>
               <CopyValue
@@ -477,13 +488,13 @@ export function DeployKeyCard({ domain, repository }: { domain: string; reposito
               />
             ) : (
               <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" loading={test.isPending} onClick={() => test.mutate()}>
+                <Button icon={<SETTINGS_ICONS.test aria-hidden="true" />} size="sm" loading={test.isPending} onClick={() => test.mutate()}>
                   {t("sources.deployKey.test")}
                 </Button>
                 <Button size="sm" icon={<RefreshCw aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()}>
                   {t("sources.deployKey.rotate")}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => elevated(() => setRemoving(true))}>
+                <Button icon={<SETTINGS_ICONS.remove aria-hidden="true" />} size="sm" variant="ghost" onClick={() => elevated(() => setRemoving(true))}>
                   {t("sources.deployKey.remove")}
                 </Button>
               </div>
@@ -495,9 +506,9 @@ export function DeployKeyCard({ domain, repository }: { domain: string; reposito
             ) : test.isError ? (
               <ErrorBlock live compact error={test.error} title={t("sources.deployKey.testFailed")} />
             ) : answer !== null ? (
-              <Notice tone="success" live title={t("sources.deployKey.testedTitle")}>
-                {answer}
-              </Notice>
+              <InlineMessage tone="success" live>
+                <span className="font-medium">{t("sources.deployKey.testedTitle")}</span> <span>{answer}</span>
+              </InlineMessage>
             ) : null}
           </>
         )}

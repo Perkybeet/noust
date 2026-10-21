@@ -25,7 +25,7 @@ const BUILD: AppBuild = {
 const DECLARED = { ...PACKAGES_NONE, declared: ["libvips-dev", "ffmpeg"], installed: ["ffmpeg"], missing: ["libvips-dev"], updated_at: "2026-10-17T10:00:00", updated_by: "ana" };
 
 function page(state: object | (() => object), routes: Record<string, RouteHandler> = {}) {
-  return renderSettings("/build", "Build commands", RELEASE_APP, {
+  return renderSettings("/build", "Build", RELEASE_APP, {
     "GET /api/auth/session": () => json(200, ELEVATED),
     [`GET /api/apps/${DOMAIN}/build`]: () => json(200, BUILD),
     [`GET /api/apps/${DOMAIN}/packages`]: () => json(200, typeof state === "function" ? state() : state),
@@ -35,6 +35,12 @@ function page(state: object | (() => object), routes: Record<string, RouteHandle
 
 const card = () => part("System packages");
 
+/** The drawer the list is edited in, opened from the card; it has a footer of its own. */
+async function openDrawer(user: { click: (element: Element) => Promise<void> }): Promise<HTMLElement> {
+  await user.click(await within(card()).findByRole("button", { name: "Edit packages…" }));
+  return screen.findByRole("dialog", { name: "System packages" });
+}
+
 describe("the system packages an application needs", () => {
   it("says when it declares none, and that a repository cannot ask for any", { timeout: 40_000 }, async () => {
     const { container } = await page(PACKAGES_NONE);
@@ -43,17 +49,20 @@ describe("the system packages an application needs", () => {
 
     expect(await section.findByText("This application declares no system packages.")).toBeInTheDocument();
     expect(section.getByText(/a repository cannot ask for one/)).toBeInTheDocument();
-    expect(section.getByRole("button", { name: "Save the list" })).toBeDisabled();
+    expect(section.getByRole("button", { name: "Edit packages…" })).toBeEnabled();
     expect(section.getByRole("button", { name: "Install what is missing" })).toBeDisabled();
-    expect(section.getByText("noust app packages show shop.example.com")).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
-  it("saves with a secondary button: the application's header holds the page's one primary", { timeout: 40_000 }, async () => {
-    await page(DECLARED);
+  it("edits the list in a drawer whose footer holds the one primary, disabled until the list changes", { timeout: 40_000 }, async () => {
+    const { user } = await page(DECLARED);
     await screen.findByRole("heading", { name: "System packages" });
 
-    expect(await within(card()).findByRole("button", { name: "Save the list" })).toHaveAttribute("data-variant", "secondary");
+    const drawer = within(await openDrawer(user));
+    expect(drawer.getByRole("button", { name: "Save the list" })).toHaveAttribute("data-variant", "primary");
+    expect(drawer.getByRole("button", { name: "Save the list" })).toBeDisabled();
+    await user.type(drawer.getByRole("textbox", { name: /^Packages/ }), "{enter}fontconfig");
+    expect(drawer.getByRole("button", { name: "Save the list" })).toBeEnabled();
   });
 
   it("shows each package and whether the host has it", { timeout: 40_000 }, async () => {
@@ -63,8 +72,14 @@ describe("the system packages an application needs", () => {
 
     expect(within(list.getByText("ffmpeg").closest("li") as HTMLElement).getByText("Installed")).toBeInTheDocument();
     expect(within(list.getByText("libvips-dev").closest("li") as HTMLElement).getByText("Not installed yet")).toBeInTheDocument();
-    expect(within(card()).getByRole("textbox", { name: /^Packages/ })).toHaveValue("libvips-dev\nffmpeg");
     expect(within(card()).getByRole("button", { name: "Install what is missing" })).toBeEnabled();
+  });
+
+  it("opens the drawer with the list as it is recorded, one name per line", { timeout: 40_000 }, async () => {
+    const { user } = await page(DECLARED);
+    await screen.findByRole("heading", { name: "System packages" });
+
+    expect(within(await openDrawer(user)).getByRole("textbox", { name: /^Packages/ })).toHaveValue("libvips-dev\nffmpeg");
   });
 
   it("records the list as names, one per line, and nothing else", { timeout: 60_000 }, async () => {
@@ -76,10 +91,10 @@ describe("the system packages an application needs", () => {
       },
     });
     await screen.findByRole("heading", { name: "System packages" });
-    const section = within(card());
 
-    await user.type(await section.findByRole("textbox", { name: /^Packages/ }), "libvips-dev{enter}ffmpeg libvips-dev");
-    await user.click(section.getByRole("button", { name: "Save the list" }));
+    const drawer = within(await openDrawer(user));
+    await user.type(drawer.getByRole("textbox", { name: /^Packages/ }), "libvips-dev{enter}ffmpeg libvips-dev");
+    await user.click(drawer.getByRole("button", { name: "Save the list" }));
 
     await waitFor(() => expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/packages`)).toHaveLength(1));
     // Repeats once, whatever separated them; nothing is installed by saving.
@@ -93,13 +108,13 @@ describe("the system packages an application needs", () => {
       [`PUT /api/apps/${DOMAIN}/packages`]: () => problem(400, "validationerror", "'-y' is not a package name", { fields: { packages: "'-y' is not a package name" } }),
     });
     await screen.findByRole("heading", { name: "System packages" });
-    const section = within(card());
 
-    await user.type(await section.findByRole("textbox", { name: /^Packages/ }), "-y");
-    await user.click(section.getByRole("button", { name: "Save the list" }));
+    const drawer = within(await openDrawer(user));
+    await user.type(drawer.getByRole("textbox", { name: /^Packages/ }), "-y");
+    await user.click(drawer.getByRole("button", { name: "Save the list" }));
 
-    expect(await section.findByText("'-y' is not a package name")).toBeInTheDocument();
-    expect(section.getByRole("button", { name: "Save the list" })).toBeEnabled();
+    expect(await drawer.findByText("'-y' is not a package name")).toBeInTheDocument();
+    expect(drawer.getByRole("button", { name: "Save the list" })).toBeEnabled();
   });
 
   it("queues the installation and reads the host again when the job ends", { timeout: 60_000 }, async () => {
@@ -140,15 +155,16 @@ describe("the system packages an application needs", () => {
     expect(within(card()).getByText("The system packages of shop.example.com were not installed")).toBeInTheDocument();
   });
 
-  it("names the policy, and the packages the server no longer allows", { timeout: 40_000 }, async () => {
-    await page({ ...DECLARED, policy: ["libvips*", "fonts-*"], refused: ["ffmpeg"] });
+  it("names the policy where the list is written, and the packages the server no longer allows", { timeout: 40_000 }, async () => {
+    const { user } = await page({ ...DECLARED, policy: ["libvips*", "fonts-*"], refused: ["ffmpeg"] });
     await screen.findByRole("heading", { name: "System packages" });
     const section = within(card());
 
-    expect(await section.findByText("This server allows: libvips*, fonts-*.", { exact: false })).toBeInTheDocument();
-    expect(section.getByText("The server no longer allows these packages")).toBeInTheDocument();
+    expect(await section.findByText("The server no longer allows these packages")).toBeInTheDocument();
     expect(section.getByText(/ffmpeg fall outside the packages this server lets applications declare/)).toBeInTheDocument();
     expect(section.getByRole("button", { name: "Install what is missing" })).toBeDisabled();
+
+    expect(within(await openDrawer(user)).getByText("This server allows: libvips*, fonts-*.", { exact: false })).toBeInTheDocument();
   });
 
   it("says a server whose packages Noust does not manage keeps the list but installs nothing", { timeout: 40_000 }, async () => {

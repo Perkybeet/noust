@@ -3,21 +3,22 @@ import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { appPrivateQuery, networkKeys } from "../../../api/queries/network";
-import { CommandHint } from "../../../components/page/CommandHint";
+import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
-import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { splitErrors } from "../../settings/formErrors";
 import { useOrganization } from "../../teams/useOrganization";
 import { lockoutAddress } from "./access";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 /**
  * Answer a private network only: a tailnet or a WireGuard interface, named instead of its
@@ -48,7 +49,7 @@ export function PrivateCard({ domain }: { domain: string }) {
     onSuccess: (_, body) => {
       refresh();
       setLockout(null);
-      toast.success(t("network.access.private.enabledToast", { domain, network: body.network ?? "" }));
+      announce(t("network.access.private.enabledToast", { domain, network: body.network ?? "" }));
     },
     onError: (error, body) => {
       const address = lockoutAddress(splitErrors(error, ["allow_ips"]).fields.allow_ips);
@@ -59,14 +60,14 @@ export function PrivateCard({ domain }: { domain: string }) {
     mutationFn: () => request("delete", "/api/apps/{domain}/private", { params: { domain }, query: { accept_lockout: false } }),
     onSuccess: () => {
       refresh();
-      toast.success(t("network.access.private.disabledToast", { domain }));
+      announce(t("network.access.private.disabledToast", { domain }));
     },
   });
   const certificate = useMutation({
     mutationFn: () => request("post", "/api/apps/{domain}/private/certificate", { params: { domain } }),
     onSuccess: (issued) => {
       refresh();
-      toast.success(t("network.access.private.certificateToast", { name: issued.hostname }));
+      announce(t("network.access.private.certificateToast", { name: issued.hostname }));
     },
   });
 
@@ -74,7 +75,7 @@ export function PrivateCard({ domain }: { domain: string }) {
   const down = (data?.available ?? []).filter((candidate) => !candidate.up || candidate.cidrs.length === 0);
 
   return (
-    <Card title={t("network.access.private.title")} description={t("network.access.private.description")} loading={status.isPending}>
+    <Card title={t("network.access.private.title")} icon={SETTINGS_ICONS.privateNetwork} description={t("network.access.private.description")} loading={status.isPending}>
       <div className="flex flex-col gap-4">
         {status.isError ? <ErrorBlock compact error={status.error} title={t("network.access.private.readFailed")} /> : null}
         {data !== undefined ? (
@@ -96,19 +97,17 @@ export function PrivateCard({ domain }: { domain: string }) {
                     options={usable.map((candidate) => ({ value: candidate.name, label: `${candidate.name} (${candidate.cidrs.join(", ")})` }))}
                   />
                 </Field>
-                <Button variant="primary" loading={enable.isPending} onClick={() => enable.mutate({ network, accept_lockout: false })}>
+                <Button icon={<SETTINGS_ICONS.turnOn aria-hidden="true" />} variant="primary" loading={enable.isPending} onClick={() => enable.mutate({ network, accept_lockout: false })}>
                   {t("network.access.private.enable")}
                 </Button>
                 {data.private ? (
-                  <Button loading={disable.isPending} onClick={() => disable.mutate()}>
+                  <Button icon={<SETTINGS_ICONS.turnOff aria-hidden="true" />} loading={disable.isPending} onClick={() => disable.mutate()}>
                     {t("network.access.private.disable")}
                   </Button>
                 ) : null}
               </div>
             ) : (
-              <Notice tone="info" title={t("network.access.private.none")}>
-                {t("network.access.private.noneHelp")}
-              </Notice>
+              <EmptyState variant="inline" title={t("network.access.private.none")} description={t("network.access.private.noneHelp")} />
             )}
             {down.map((candidate) => (
               <Notice key={candidate.name} tone="warning" title={t("network.access.private.down", { name: candidate.name })}>
@@ -124,7 +123,7 @@ export function PrivateCard({ domain }: { domain: string }) {
                   <p className="text-13 text-fg-muted">{t("network.access.private.certificateServed", { name: data.tailnet_certificate })}</p>
                 ) : org.can("server.manage") ? (
                   <div>
-                    <Button loading={certificate.isPending} onClick={() => certificate.mutate()}>
+                    <Button icon={<SETTINGS_ICONS.certificate aria-hidden="true" />} loading={certificate.isPending} onClick={() => certificate.mutate()}>
                       {t("network.access.private.certificate")}
                     </Button>
                     <p className="mt-1 text-13 text-fg-muted">{t("network.access.private.certificateHelp")}</p>
@@ -135,7 +134,6 @@ export function PrivateCard({ domain }: { domain: string }) {
           </>
         ) : null}
         {failure !== undefined ? <ErrorBlock live compact error={failure.error} title={t("network.access.private.failed")} /> : null}
-        <CommandHint command={`noust app policy private show ${domain}`} label={t("appSettings.fromTerminal")} />
       </div>
       <ConfirmDialog
         open={lockout !== null}

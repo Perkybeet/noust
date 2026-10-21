@@ -38,7 +38,6 @@ test("the settings show previews on, and each preview in its state", async ({ pa
   const section = previewsSection(page);
   await expect(section.getByText("On", { exact: true })).toBeVisible();
   await expect(section.getByLabel("Base domain")).toHaveValue("previews.example.org");
-  await expect(section.getByText(/^Now: at most 5 previews under previews\.example\.org/)).toBeVisible();
   await expect(section.getByText("3 of at most 5", { exact: true })).toBeVisible();
 
   const ready = previewItem(page, 42);
@@ -103,7 +102,7 @@ test("the preview settings are saved and kept", async ({ page, consoleServer }) 
   await confirmItsYou(page, consoleServer);
   expect((await sent).postDataJSON()).toMatchObject({ base_domain: "previews.example.org", max_previews: 4, ttl_hours: 72 });
   await expect(section.getByText("No unsaved changes", { exact: true })).toBeVisible();
-  await expect(section.getByText(/^Now: at most 4 previews under previews\.example\.org, each removed after 3 days/)).toBeVisible();
+  await expect(section.getByLabel("At most")).toHaveValue("4");
 
   await page.reload();
   await expect(previewsSection(page).getByLabel("At most")).toHaveValue("4");
@@ -143,7 +142,7 @@ test("what a preview is given is chosen and said, and its variables are its own"
   const section = previewsSection(page);
   // The seeded settings are from before 3.4: every variable and the app's own databases, and the page says so.
   await expect(section.getByRole("radio", { name: "All of the app's" })).toBeChecked();
-  await expect(section.getByText("Previews get this app's variables", { exact: true })).toBeVisible();
+  await expect(section.getByText(/Every variable of the app, bar those never copied, reaches code written by pull request authors/)).toBeVisible();
 
   await section.getByRole("radio", { name: "Only the ones I choose" }).click();
   await section.getByLabel("Copied from the app").fill("NEXT_PUBLIC_API_URL");

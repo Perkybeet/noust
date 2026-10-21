@@ -13,6 +13,7 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
 import { Mono } from "../../../components/ui/Mono";
+import { RowList } from "../../../components/ui/RowList";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
@@ -25,7 +26,9 @@ import { useSaveBar } from "./formParts";
 import type { FormPart } from "./formParts";
 import { hooksQuery, olderServer, settingsKeys } from "./queries";
 import type { AppHooks } from "./queries";
-import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { LoadingRegion } from "../../../components/page";
+import { SETTINGS_ICONS } from "./objectIcons";
 
 type Hook = AppHooks["pre_deploy"][number];
 
@@ -45,13 +48,14 @@ function originWords(t: T, source: string): { badge: string; sentence: string } 
 }
 
 function HookList({ label, hooks, t }: { label: string; hooks: readonly Hook[]; t: T }) {
-  if (hooks.length === 0) return <p className="text-13 text-fg-muted">{t("appSettings.hooks.emptyPhase")}</p>;
+  if (hooks.length === 0) return <EmptyState variant="inline" title={t("appSettings.hooks.emptyPhase")} />;
   return (
-    <ol aria-label={label} className="flex flex-col divide-y divide-border rounded-control border border-border">
+    <RowList aria-label={label}>
       {hooks.map((hook, index) => {
         const run = hook.run.join(" ");
         return (
-          <li key={`${run}-${String(index)}`} className="flex min-w-0 flex-col gap-1 px-3 py-2">
+          <RowList.Item key={`${run}-${String(index)}`}>
+            <div className="flex min-w-0 flex-col gap-1">
             <Mono truncate title={run}>
               {run}
             </Mono>
@@ -60,11 +64,12 @@ function HookList({ label, hooks, t }: { label: string; hooks: readonly Hook[]; 
               {hook.workdir ? <span>{t.rich("appSettings.hooks.inDirectory", { path: <Mono>{hook.workdir}</Mono> })}</span> : null}
               <span>{t("appSettings.hooks.timeout", { count: hook.timeout })}</span>
               {hook.migrates ? <span>{t("appSettings.hooks.migrates")}</span> : null}
-            </span>
-          </li>
+              </span>
+            </div>
+          </RowList.Item>
         );
       })}
-    </ol>
+    </RowList>
   );
 }
 
@@ -119,11 +124,12 @@ function OperatorHooks({ domain, hooks, t }: { domain: string; hooks: AppHooks; 
   return (
     <>
       <Card
+        icon={SETTINGS_ICONS.hooks}
         title={t("appSettings.hooks.operatorTitle")}
         description={t("appSettings.hooks.operatorDescription")}
         actions={
           hooks.source === "operator" ? (
-            <Button size="sm" variant="ghost" onClick={() => setRemoving(true)}>
+            <Button icon={<SETTINGS_ICONS.remove aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setRemoving(true)}>
               {t("appSettings.hooks.remove")}
             </Button>
           ) : undefined
@@ -176,24 +182,24 @@ export function HooksSettings() {
   const app = useSettingsApp();
   const domain = app.domain;
   useSubsectionTitle("appSettings.nav.hooks", domain);
+  const headerIcon = useSubsectionIcon("appSettings.nav.hooks");
   const isStatic = app.app_type === "static";
   const hooks = useQuery({ ...hooksQuery(domain), enabled: !isStatic });
 
   if (isStatic) {
     return (
-      <Section title={t("appSettings.hooks.title")} description={t("appSettings.hooks.description")}>
+      <Section title={t("appSettings.hooks.title")} {...headerIcon} description={t("appSettings.hooks.description")}>
         <EmptyState variant="inline" title={t("appSettings.hooks.staticNone")} />
       </Section>
     );
   }
 
   return (
-    <Section title={t("appSettings.hooks.title")} description={t("appSettings.hooks.description")}>
+    <Section title={t("appSettings.hooks.title")} {...headerIcon} description={t("appSettings.hooks.description")}>
       {hooks.isPending ? (
-        <div aria-busy="true" className="flex flex-col gap-3">
-          <span className="sr-only">{t("appSettings.hooks.loading")}</span>
+        <LoadingRegion label={t("appSettings.hooks.loading")} className="flex flex-col gap-3">
           <Skeleton className="h-32 w-full rounded-card" />
-        </div>
+        </LoadingRegion>
       ) : hooks.isError && olderServer(hooks.error) ? (
         <EmptyState variant="inline" title={t("appSettings.hooks.olderServer")} />
       ) : hooks.isError ? (
@@ -201,6 +207,7 @@ export function HooksSettings() {
       ) : (
         <>
           <Card
+            icon={SETTINGS_ICONS.hooks}
             title={t("appSettings.hooks.inUseTitle")}
             actions={<Badge>{originWords(t, hooks.data.source).badge}</Badge>}
           >
@@ -214,14 +221,21 @@ export function HooksSettings() {
                   </div>
                 </Notice>
               ) : null}
-              <div className="flex flex-col gap-2">
-                <p className="text-13 font-medium text-fg">{t("appSettings.hooks.preDeploy")}</p>
-                <HookList label={t("appSettings.hooks.preDeploy")} hooks={hooks.data.pre_deploy} t={t} />
-              </div>
-              <div className="flex flex-col gap-2">
-                <p className="text-13 font-medium text-fg">{t("appSettings.hooks.postDeploy")}</p>
-                <HookList label={t("appSettings.hooks.postDeploy")} hooks={hooks.data.post_deploy} t={t} />
-              </div>
+              {/* Both phases empty is one line, not two headings over two lines of nothing. */}
+              {hooks.data.pre_deploy.length === 0 && hooks.data.post_deploy.length === 0 ? (
+                <EmptyState variant="inline" title={t("appSettings.hooks.noneRunning")} />
+              ) : (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-13 font-medium text-fg">{t("appSettings.hooks.preDeploy")}</p>
+                    <HookList label={t("appSettings.hooks.preDeploy")} hooks={hooks.data.pre_deploy} t={t} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-13 font-medium text-fg">{t("appSettings.hooks.postDeploy")}</p>
+                    <HookList label={t("appSettings.hooks.postDeploy")} hooks={hooks.data.post_deploy} t={t} />
+                  </div>
+                </>
+              )}
               {/* The phases of a preview are shown when there are hooks for them: most apps have none. */}
               {(hooks.data.preview_post_create ?? []).length > 0 ? (
                 <div className="flex flex-col gap-2">

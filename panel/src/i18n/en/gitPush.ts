@@ -7,7 +7,6 @@ export const gitPush = {
   description: "Deploy with git push to a repository on this server, with no code host in between. A push to the deployed branch updates the application behind the same startup check as any update, and the previous release stays one command away.",
   loading: "Loading the git push settings",
   readFailed: "The git push settings could not be read",
-  fromTerminal: "From a terminal",
   unsupportedInPlace: "Git push needs the release layout, and this application builds in place. Move it onto releases first.",
   unsupportedType: "A {type} application is built from its own files, so git push cannot deploy it. Use a code host and its webhook.",
   keyPerApplication: "A key serves one application: sshd reads the first line a key has. Make a key for each application (ssh-keygen -t ed25519) and choose it in ~/.ssh/config; the terminal command below prints the lines.",
@@ -48,7 +47,6 @@ export const gitPush = {
     removeDescription: "The key keeps working everywhere else. It can no longer push to this application.",
     removeAction: "Remove the key",
     keyRemoved: "The key {label} can no longer push",
-    keyRemoveFailed: "The key {label} was not removed",
     addKey: "Add a key",
     addKeyDescription: "Paste the .pub line of a key. It can push to this application and nothing else.",
     addKeyAction: "Add the key",
@@ -64,6 +62,5 @@ export const gitPush = {
     turnOffDescription: "Its source and its pinned branch go back to what they were before, and the keys that could push are removed. The repository is kept.",
     deleteRepository: "Also delete the repository, and the code pushed to it",
     turnedOff: "{domain} no longer deploys from git push",
-    turnOffFailed: "Git push was not turned off for {domain}",
   },
 } as const;

@@ -6,6 +6,7 @@ import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Field } from "../../components/ui/Field";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
@@ -212,7 +213,7 @@ function RegistryEditor({ draft, errors, onChange, existing }: Pick<ContainerFie
   return (
     <Subsection title={t("containers.registry.title")} description={t("containers.registry.description")}>
       <div className="flex flex-col gap-5">
-        {draft.clearRegistry ? <Notice tone="warning">{t("containers.registry.willClear")}</Notice> : null}
+        {draft.clearRegistry ? <InlineMessage>{t("containers.registry.willClear")}</InlineMessage> : null}
         <Field label={t("containers.registry.server")} optional error={errors["registry_server"]} description={t("containers.registry.serverDescription")} className="sm:max-w-96">
           <Input
             mono
