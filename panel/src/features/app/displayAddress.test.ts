@@ -37,6 +37,18 @@ describe("the address an application is said to answer on", () => {
     expect(displayAddress(TEMPORARY, names, list)).toEqual({ name: "shop.example.com", secure: true });
   });
 
+  it("reads the certificate a name holds of its own, not the application's, for the alias it says", () => {
+    const names = [
+      { domain: TEMPORARY, kind: "primary" },
+      { domain: "shop.example.com", kind: "alias", certificate: "own" },
+    ];
+    // The application's certificate does not cover the alias; the lineage kept under the alias does.
+    const list = certs({ domain: TEMPORARY, domains: [TEMPORARY] }, { domain: "shop.example.com", domains: ["shop.example.com"] });
+    expect(displayAddress(TEMPORARY, names, list)).toEqual({ name: "shop.example.com", secure: true });
+    // Its own certificate is not issued yet: the app's serves it and does not cover it, so the temporary name stays.
+    expect(displayAddress(TEMPORARY, names, certs({ domain: TEMPORARY, domains: [TEMPORARY] }))).toEqual({ name: TEMPORARY, secure: true });
+  });
+
   it("stays on the temporary name until the real one is covered, and says so over HTTP when nothing is", () => {
     const names = [
       { domain: TEMPORARY, kind: "primary" },
