@@ -7,13 +7,13 @@ import { PageHeader } from "../app/PageHeader";
 import {
   DashboardPage,
   ErrorBlock,
-  LoadingRegion,
   RowMenu,
   SaveBar,
   SettingsGroup,
   SettingsLayout,
   StatTile,
 } from "../components/page";
+import { LoadingRegion } from "../components/page/LoadingRegion";
 import type { SettingsNavItem } from "../components/page";
 import {
   Button,
@@ -52,7 +52,11 @@ function useFlag(initial: boolean): [boolean, (next: boolean) => void] {
 }
 
 /** The few seconds a change takes to apply, so a specimen can show its arc. */
-function useSlowFlag(initial: boolean): { checked: boolean; busy: boolean; change: (next: boolean) => void } {
+function useSlowFlag(initial: boolean): {
+  checked: boolean;
+  busy: boolean;
+  change: (next: boolean) => void;
+} {
   const [checked, setChecked] = useState(initial);
   const [busy, setBusy] = useState(false);
   return {
@@ -84,15 +88,36 @@ function Settings40() {
       description="A setting is a row: its name, one sentence of help, the control at the end. 44px without help, 60px with one line; nothing in a row is taller than its text. The state of a feature is a small pill in the header of its card; a risk is one line under the help; a tinted block never says that something is on. A switch applies the moment it is moved and never shares a surface with a Save button."
     >
       <Stage>
-        <div className="grid gap-6 lg:grid-cols-2" data-gallery-specimen="setting-sizes">
+        <div
+          className="grid gap-6 lg:grid-cols-2"
+          data-gallery-specimen="setting-sizes"
+        >
           <Item label="44px: a name and a switch" className="w-full">
-            <div data-gallery-specimen="setting-plain" className="w-full rounded-card border border-border bg-surface">
-              <Setting label="Send notifications" checked={notify} onCheckedChange={setNotify} />
+            <div
+              data-gallery-specimen="setting-plain"
+              className="w-full rounded-card border border-border bg-surface"
+            >
+              <Setting
+                label="Send notifications"
+                checked={notify}
+                onCheckedChange={setNotify}
+              />
             </div>
           </Item>
-          <Item label="60px: a name, one line of help and a switch" className="w-full">
-            <div data-gallery-specimen="setting-help" className="w-full rounded-card border border-border bg-surface">
-              <Setting label="Daily summary" help="Sends a copy to the team." checked={digest} onCheckedChange={setDigest} />
+          <Item
+            label="60px: a name, one line of help and a switch"
+            className="w-full"
+          >
+            <div
+              data-gallery-specimen="setting-help"
+              className="w-full rounded-card border border-border bg-surface"
+            >
+              <Setting
+                label="Daily summary"
+                help="Sends a copy to the team."
+                checked={digest}
+                onCheckedChange={setDigest}
+              />
             </div>
           </Item>
         </div>
@@ -104,7 +129,12 @@ function Settings40() {
             status={<StatusPill state="running" label="On" size="sm" />}
             command="noust notify status"
           >
-            <Setting label="Send notifications" help="Failed deploys and expiring certificates go to 2 channels." checked={notify} onCheckedChange={setNotify} />
+            <Setting
+              label="Send notifications"
+              help="Failed deploys and expiring certificates go to 2 channels."
+              checked={notify}
+              onCheckedChange={setNotify}
+            />
             <Setting
               label="Zero-downtime deploys"
               help="The new version starts beside the old one."
@@ -113,7 +143,9 @@ function Settings40() {
               checked={zero}
               onCheckedChange={setZero}
             >
-              <p className="text-13 text-fg-muted">Keep the old version for 30 seconds.</p>
+              <p className="text-13 text-fg-muted">
+                Keep the old version for 30 seconds.
+              </p>
             </Setting>
             <Setting
               label="Required backup"
@@ -123,30 +155,80 @@ function Settings40() {
               onCheckedChange={setBackup}
               confirmOff={{
                 title: "Turn off the required backup?",
-                description: "Updates will run without taking a backup of the database first.",
+                description:
+                  "Updates will run without taking a backup of the database first.",
                 actionLabel: "Turn off the backup",
               }}
             />
-            <Setting label="Allow SSH passwords" help="Signing in with a password stays possible." elevated checked={ssh} onCheckedChange={setSsh} />
-            <Setting label="Build sandbox" help="Builds run apart from the server's own files." status={<StatusPill state="warning" label="On, not proven" size="sm" />} checked={sandbox} onCheckedChange={setSandbox} />
+            <Setting
+              label="Allow SSH passwords"
+              help="Signing in with a password stays possible."
+              elevated
+              checked={ssh}
+              onCheckedChange={setSsh}
+            />
+            <Setting
+              label="Build sandbox"
+              help="Builds run apart from the server's own files."
+              status={
+                <StatusPill state="warning" label="On, not proven" size="sm" />
+              }
+              checked={sandbox}
+              onCheckedChange={setSandbox}
+            />
           </SettingsGroup>
-          <SettingsGroup title="States of a row" description="What a row can say besides on and off.">
-            <Setting label="Applying" help="Keeps its value and draws its arc." checked={slow.checked} busy={slow.busy} onCheckedChange={slow.change} />
-            <Setting label="Zero-downtime deploys" disabled reason="Needs instant rollback first." checked={false} onCheckedChange={() => undefined} />
-            <Setting label="Require two-factor sign-in" lockedBy="Set by the ENS profile." checked onCheckedChange={() => undefined} />
-            <Setting label="Instant rollback" help="Going back takes seconds." action={<Button size="sm">Turn on…</Button>} />
+          <SettingsGroup
+            title="States of a row"
+            description="What a row can say besides on and off."
+          >
+            <Setting
+              label="Applying"
+              help="Keeps its value and draws its arc."
+              checked={slow.checked}
+              busy={slow.busy}
+              onCheckedChange={slow.change}
+            />
+            <Setting
+              label="Zero-downtime deploys"
+              disabled
+              reason="Needs instant rollback first."
+              checked={false}
+              onCheckedChange={() => undefined}
+            />
+            <Setting
+              label="Require two-factor sign-in"
+              lockedBy="Set by the ENS profile."
+              checked
+              onCheckedChange={() => undefined}
+            />
+            <Setting
+              label="Instant rollback"
+              help="Going back takes seconds."
+              action={<Button size="sm">Turn on…</Button>}
+            />
           </SettingsGroup>
         </div>
       </BothThemes>
       <DoDont
         rule="A feature's state is a pill in its card's header, not a tinted block"
         doThis={
-          <Card title="Instant rollback" status={<StatusPill state="running" label="On" size="sm" />} actions={<Button size="sm">Turn off…</Button>} padding="sm">
-            <p className="text-13 text-fg-muted">Each deploy is kept apart; going back takes seconds.</p>
+          <Card
+            title="Instant rollback"
+            status={<StatusPill state="running" label="On" size="sm" />}
+            actions={<Button size="sm">Turn off…</Button>}
+            padding="sm"
+          >
+            <p className="text-13 text-fg-muted">
+              Each deploy is kept apart; going back takes seconds.
+            </p>
           </Card>
         }
         notThis={
-          <FeatureState state="on" title="Instant rollback is on" action={<Button size="sm">Turn off…</Button>}>
+          <FeatureState
+            state="on"
+            title="Instant rollback is on"
+            action={<Button size="sm">Turn off…</Button>}
+          >
             Each deploy is kept apart; going back takes seconds.
           </FeatureState>
         }
@@ -156,12 +238,20 @@ function Settings40() {
         rule="The name does not change with the state"
         doThis={
           <div className="rounded-card border border-border bg-surface">
-            <Setting label="Send notifications" checked={labelOn} onCheckedChange={setLabelOn} />
+            <Setting
+              label="Send notifications"
+              checked={labelOn}
+              onCheckedChange={setLabelOn}
+            />
           </div>
         }
         notThis={
           <div className="rounded-card border border-border bg-surface">
-            <Setting label={labelOn ? "Notifications are on" : "Notifications are off"} checked={labelOn} onCheckedChange={setLabelOn} />
+            <Setting
+              label={labelOn ? "Notifications are on" : "Notifications are off"}
+              checked={labelOn}
+              onCheckedChange={setLabelOn}
+            />
           </div>
         }
         why="The control already says the state. A label that flips has to be read again to find out what the switch does."
@@ -182,7 +272,10 @@ function Settings40() {
         }
         notThis={
           <Notice tone="warning" title="Two copies of the app run at once">
-            While the new version starts, the old one keeps answering, so both are alive for a few seconds. An app that writes to a SQLite database both copies share, that has a queue with a single consumer or a scheduler inside the process will do things twice or fail.
+            While the new version starts, the old one keeps answering, so both
+            are alive for a few seconds. An app that writes to a SQLite database
+            both copies share, that has a queue with a single consumer or a
+            scheduler inside the process will do things twice or fail.
           </Notice>
         }
         why="A notice states a condition that is true now; a hypothetical risk is a line next to the control it concerns."
@@ -191,7 +284,13 @@ function Settings40() {
         rule="A switch that cannot be pressed says why"
         doThis={
           <div className="rounded-card border border-border bg-surface">
-            <Setting label="Zero-downtime deploys" disabled reason="Needs instant rollback first." checked={false} onCheckedChange={() => undefined} />
+            <Setting
+              label="Zero-downtime deploys"
+              disabled
+              reason="Needs instant rollback first."
+              checked={false}
+              onCheckedChange={() => undefined}
+            />
           </div>
         }
         notThis={
@@ -214,17 +313,26 @@ function InlineMessages40() {
     >
       <BothThemes>
         <div className="flex flex-col gap-3">
-          <InlineMessage tone="warning" trailing={<TextLink to="/apps">What changes</TextLink>}>
+          <InlineMessage
+            tone="warning"
+            trailing={<TextLink to="/apps">What changes</TextLink>}
+          >
             Two copies of the app run at once for a few seconds.
           </InlineMessage>
-          <InlineMessage tone="error">Could not reach the host on port 22.</InlineMessage>
+          <InlineMessage tone="error">
+            Could not reach the host on port 22.
+          </InlineMessage>
           <InlineMessage tone="success">Saved to the repository.</InlineMessage>
-          <InlineMessage tone="info">Changes apply to the next deploy.</InlineMessage>
+          <InlineMessage tone="info">
+            Changes apply to the next deploy.
+          </InlineMessage>
         </div>
       </BothThemes>
       <DoDont
         rule="A line is a line, not a framed notice"
-        doThis={<InlineMessage tone="success">Saved to the repository.</InlineMessage>}
+        doThis={
+          <InlineMessage tone="success">Saved to the repository.</InlineMessage>
+        }
         notThis={<Notice tone="success" title="Saved to the repository" />}
         why="A notice is a framed condition with a fix, and it is one per section. A result that needs no more is a line, or nothing: the row that appears already says it."
       />
@@ -241,7 +349,10 @@ function Leave40() {
       description="A form with unsaved changes asks once before it is left: 'Discard unsaved changes?', with the focus on keeping the edits so Enter never loses anything. The save bar places the question, so no page writes its own. While the bar holds changes the header's primary steps aside and Save is the view's one primary: the header keeps its label and its size, and only the colour changes."
     >
       <Stage>
-        <div className="flex flex-col gap-4" data-gallery-specimen="primary-yield">
+        <div
+          className="flex flex-col gap-4"
+          data-gallery-specimen="primary-yield"
+        >
           <DemotePrimary active={changes > 0}>
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-surface px-5 py-3">
               <Mono>shop.example.com</Mono>
@@ -258,7 +369,13 @@ function Leave40() {
           </div>
           {/* A bar sticks to the bottom of its scroll box; in a box of its own it stays where the specimen is. */}
           <div className="overflow-y-auto">
-            <SaveBar changes={changes} onDiscard={() => setChanges(0)} onSave={() => setChanges(0)} guard={false} yieldPrimary={false} />
+            <SaveBar
+              changes={changes}
+              onDiscard={() => setChanges(0)}
+              onSave={() => setChanges(0)}
+              guard={false}
+              yieldPrimary={false}
+            />
           </div>
         </div>
       </Stage>
@@ -296,7 +413,14 @@ function Leave40() {
 }
 
 function Confirm40() {
-  const refuse = (): Promise<void> => Promise.reject(Object.assign(new Error("denied"), { hint: "Check the unit, then try again.", detail: "Job for ufw.service failed because the control process exited with error code." }));
+  const refuse = (): Promise<void> =>
+    Promise.reject(
+      Object.assign(new Error("denied"), {
+        hint: "Check the unit, then try again.",
+        detail:
+          "Job for ufw.service failed because the control process exited with error code.",
+      }),
+    );
   const plan = (
     <ul className="mono flex flex-col gap-1 text-12 text-fg-muted">
       <li>22/tcp ssh</li>
@@ -379,7 +503,10 @@ function Split40() {
               </SplitButton>
             </Item>
             <Item label="secondary">
-              <SplitButton name="Save and restart" menu={<MenuItem>Save only</MenuItem>}>
+              <SplitButton
+                name="Save and restart"
+                menu={<MenuItem>Save only</MenuItem>}
+              >
                 Save and restart
               </SplitButton>
             </Item>
@@ -398,19 +525,33 @@ function Split40() {
               </SplitButton>
             </Item>
             <Item label="disabled">
-              <SplitButton name="Retry" disabled menu={<MenuItem>Retry without cache</MenuItem>}>
+              <SplitButton
+                name="Retry"
+                disabled
+                menu={<MenuItem>Retry without cache</MenuItem>}
+              >
                 Retry
               </SplitButton>
             </Item>
           </Row>
           <Row>
             <Item label="size sm">
-              <SplitButton name="Update" size="sm" variant="primary" menu={menu}>
+              <SplitButton
+                name="Update"
+                size="sm"
+                variant="primary"
+                menu={menu}
+              >
                 Update
               </SplitButton>
             </Item>
             <Item label="size lg">
-              <SplitButton name="Deploy" size="lg" variant="primary" menu={menu}>
+              <SplitButton
+                name="Deploy"
+                size="lg"
+                variant="primary"
+                menu={menu}
+              >
                 Deploy
               </SplitButton>
             </Item>
@@ -480,8 +621,20 @@ function Rows40() {
           <LoadingRegion label="Loading variables">
             <SkeletonRows rows={3} />
           </LoadingRegion>
-          <EmptyState variant="inline" title="No variables yet." action={<Button size="sm">Add a variable</Button>} />
-          <ErrorBlock compact title="Could not load variables" error={Object.assign(new Error("x"), { hint: "Check that the application's directory exists.", detail: "ENOENT: no such file or directory, open '/var/www/apps/shop/shared/.env'" })} />
+          <EmptyState
+            variant="inline"
+            title="No variables yet."
+            action={<Button size="sm">Add a variable</Button>}
+          />
+          <ErrorBlock
+            compact
+            title="Could not load variables"
+            error={Object.assign(new Error("x"), {
+              hint: "Check that the application's directory exists.",
+              detail:
+                "ENOENT: no such file or directory, open '/var/www/apps/shop/shared/.env'",
+            })}
+          />
         </div>
       </BothThemes>
       <DoDont
@@ -513,18 +666,35 @@ function Fold40() {
     >
       <BothThemes>
         <div className="flex flex-col gap-3">
-          <Disclosure variant="card" label="Advanced options" summary="Using the defaults">
-            <p className="text-13 text-fg-muted">Keep the old version for 30 seconds.</p>
+          <Disclosure
+            variant="card"
+            label="Advanced options"
+            summary="Using the defaults"
+          >
+            <p className="text-13 text-fg-muted">
+              Keep the old version for 30 seconds.
+            </p>
           </Disclosure>
-          <Disclosure variant="card" label="Advanced options" summary="3 of 12 changed" defaultOpen>
-            <p className="text-13 text-fg-muted">Keep the old version for 30 seconds.</p>
+          <Disclosure
+            variant="card"
+            label="Advanced options"
+            summary="3 of 12 changed"
+            defaultOpen
+          >
+            <p className="text-13 text-fg-muted">
+              Keep the old version for 30 seconds.
+            </p>
           </Disclosure>
         </div>
       </BothThemes>
       <DoDont
         rule="Folded is a button with aria-expanded"
         doThis={
-          <Disclosure variant="card" label="Advanced options" summary="Using the defaults">
+          <Disclosure
+            variant="card"
+            label="Advanced options"
+            summary="Using the defaults"
+          >
             <p className="text-13 text-fg-muted">Body</p>
           </Disclosure>
         }
@@ -550,7 +720,11 @@ function Groups40() {
     >
       <BothThemes>
         <div className="flex flex-col gap-5">
-          <FieldGroup legend="Notify by" description="Email, Telegram or a webhook." error="Choose at least one channel.">
+          <FieldGroup
+            legend="Notify by"
+            description="Email, Telegram or a webhook."
+            error="Choose at least one channel."
+          >
             <Checkbox label="Email" />
             <Checkbox label="Telegram" />
           </FieldGroup>
@@ -564,8 +738,17 @@ function Groups40() {
             onValueChange={setVia}
             error="Choose how deploys work."
             options={[
-              { value: "releases", label: "Instant rollback", description: "Each deploy is kept apart; going back takes seconds." },
-              { value: "inplace", label: "Single folder", description: "Every deploy rebuilds the same folder." },
+              {
+                value: "releases",
+                label: "Instant rollback",
+                description:
+                  "Each deploy is kept apart; going back takes seconds.",
+              },
+              {
+                value: "inplace",
+                label: "Single folder",
+                description: "Every deploy rebuilds the same folder.",
+              },
             ]}
           />
         </div>
@@ -641,8 +824,20 @@ function Place40() {
           server="fra-1"
           place={[
             { label: "Acme", to: "/apps", search: { team: "acme" } },
-            { label: "Web", to: "/apps", search: { team: "acme", project: "web" } },
-            { label: "production", to: "/apps", search: { team: "acme", project: "web", environment: "production" } },
+            {
+              label: "Web",
+              to: "/apps",
+              search: { team: "acme", project: "web" },
+            },
+            {
+              label: "production",
+              to: "/apps",
+              search: {
+                team: "acme",
+                project: "web",
+                environment: "production",
+              },
+            },
           ]}
           status={<StatusPill state="running" />}
           statusExtras={
@@ -658,7 +853,14 @@ function Place40() {
 }
 
 const SETTINGS_SECTIONS: SettingsNavItem[] = [
-  ...["General", "Variables", "Secret managers", "Console address", "Integrations", "About Noust"].map((label, index) => ({
+  ...[
+    "General",
+    "Variables",
+    "Secret managers",
+    "Console address",
+    "Integrations",
+    "About Noust",
+  ].map((label, index) => ({
     to: `/settings/${label.toLowerCase().replaceAll(" ", "-")}`,
     label,
     exact: index === 0,
@@ -710,9 +912,16 @@ function LongSettings40() {
       description="Twenty-one sections under headings that say whose they are: on a fleet the server's name leads each heading of its block, and the instance's blocks say Central. From twelve sections a box narrows the list by name and by the old names a section keeps. A list taller than the screen scrolls inside it, below the top bar."
     >
       <Stage plain>
-        <SettingsLayout label="Settings (specimen)" items={SETTINGS_SECTIONS} index>
+        <SettingsLayout
+          label="Settings (specimen)"
+          items={SETTINGS_SECTIONS}
+          index
+        >
           <Card title="Channels" description="Where the notices go.">
-            <p className="text-13 text-fg-muted">Type in the box to narrow the list: try &quot;notif&quot;, the old name of Channels.</p>
+            <p className="text-13 text-fg-muted">
+              Type in the box to narrow the list: try &quot;notif&quot;, the old
+              name of Channels.
+            </p>
           </Card>
         </SettingsLayout>
       </Stage>
@@ -750,11 +959,32 @@ function DashboardTabs40() {
     >
       <Stage plain>
         <DashboardPage
-          header={{ title: "Overview", primaryAction: <Button variant="primary">New application</Button> }}
-          tabs={<LinkTabs label="Overview views" tabs={APP_TABS.slice(0, 2).map((tab) => ({ ...tab, params: { domain: "shop.example.com" } }))} />}
+          header={{
+            title: "Overview",
+            primaryAction: <Button variant="primary">New application</Button>,
+          }}
+          tabs={
+            <LinkTabs
+              label="Overview views"
+              tabs={APP_TABS.slice(0, 2).map((tab) => ({
+                ...tab,
+                params: { domain: "shop.example.com" },
+              }))}
+            />
+          }
           figures={[
-            <StatTile key="apps" label="Applications" value="14 of 17" detail="running" />,
-            <StatTile key="failed" label="Failed" value="2" detail="worker, labs" />,
+            <StatTile
+              key="apps"
+              label="Applications"
+              value="14 of 17"
+              detail="running"
+            />,
+            <StatTile
+              key="failed"
+              label="Failed"
+              value="2"
+              detail="worker, labs"
+            />,
             <StatTile key="disk" label="Disk" value="61%" detail="of 480 GB" />,
           ]}
         />
@@ -783,19 +1013,49 @@ function Tables40() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Item label="rows={undefined}: not loaded" className="w-full">
           <div className="w-full">
-            <DataTable caption="Backups, not loaded" columns={BACKUP_COLUMNS} rows={undefined} getRowId={(row) => row.name} skeletonRows={2} empty={<EmptyState variant="inline" title="No backups yet." />} />
+            <DataTable
+              caption="Backups, not loaded"
+              columns={BACKUP_COLUMNS}
+              rows={undefined}
+              getRowId={(row) => row.name}
+              skeletonRows={2}
+              empty={<EmptyState variant="inline" title="No backups yet." />}
+            />
           </div>
         </Item>
         <Item label="rows={[]}: none" className="w-full">
           <div className="w-full">
-            <DataTable caption="Backups, none" columns={BACKUP_COLUMNS} rows={[]} getRowId={(row) => row.name} empty={<EmptyState variant="inline" title="No backups yet." />} />
+            <DataTable
+              caption="Backups, none"
+              columns={BACKUP_COLUMNS}
+              rows={[]}
+              getRowId={(row) => row.name}
+              empty={<EmptyState variant="inline" title="No backups yet." />}
+            />
           </div>
         </Item>
       </div>
       <DoDont
         rule="No answer yet is not an empty answer"
-        doThis={<DataTable caption="Backups, waiting" columns={BACKUP_COLUMNS} rows={undefined} getRowId={(row) => row.name} skeletonRows={2} empty={<EmptyState variant="inline" title="No backups yet." />} />}
-        notThis={<DataTable caption="Backups, empty before the answer" columns={BACKUP_COLUMNS} rows={[]} getRowId={(row) => row.name} empty={<EmptyState variant="inline" title="No backups yet." />} />}
+        doThis={
+          <DataTable
+            caption="Backups, waiting"
+            columns={BACKUP_COLUMNS}
+            rows={undefined}
+            getRowId={(row) => row.name}
+            skeletonRows={2}
+            empty={<EmptyState variant="inline" title="No backups yet." />}
+          />
+        }
+        notThis={
+          <DataTable
+            caption="Backups, empty before the answer"
+            columns={BACKUP_COLUMNS}
+            rows={[]}
+            getRowId={(row) => row.name}
+            empty={<EmptyState variant="inline" title="No backups yet." />}
+          />
+        }
         why="A page that reads its rows with `?? []` says 'No backups yet' for a second and then shows eleven. Pass the data as it comes."
       />
     </Section>

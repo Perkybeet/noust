@@ -28,9 +28,13 @@ import { useAppActions } from "../../apps/useAppActions";
 import { changedFields, useSaveBar } from "./formParts";
 import { directives, draftOf, parseLimits } from "./limits";
 import type { LimitsDraft, LimitsErrors, LimitsValues } from "./limits";
-import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
+import {
+  useSettingsApp,
+  useSubsectionIcon,
+  useSubsectionTitle,
+} from "./settingsApp";
 import { AdvancedLimitsFields, useTuningPart } from "./TuningFields";
-import { LoadingRegion } from "../../../components/page";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 type LimitsResult = ResponseOf<"/api/apps/{domain}/limits", "patch">;
 
@@ -55,7 +59,12 @@ function Saved({ result, domain }: { result: LimitsResult; domain: string }) {
       tone="info"
       live
       action={
-        <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()}>
+        <Button
+          size="sm"
+          icon={<RotateCw aria-hidden="true" />}
+          loading={restart.isPending}
+          onClick={() => restart.mutate()}
+        >
           {t("appSettings.limits.restartNow")}
         </Button>
       }
@@ -76,18 +85,32 @@ function Saved({ result, domain }: { result: LimitsResult; domain: string }) {
  * here for a quick answer and again, authoritatively, by the backend, whose refusal is shown
  * verbatim.
  */
-function LimitsForm({ app, tuning, reading }: { app: App; tuning: UnitTuning | undefined; reading: boolean }) {
+function LimitsForm({
+  app,
+  tuning,
+  reading,
+}: {
+  app: App;
+  tuning: UnitTuning | undefined;
+  reading: boolean;
+}) {
   const t = useT();
   const domain = app.domain;
   const queryClient = useQueryClient();
-  const info = useQuery({ ...systemInfoQuery(), staleTime: 10 * 60_000, refetchOnWindowFocus: false });
+  const info = useQuery({
+    ...systemInfoQuery(),
+    staleTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+  });
   const cores = info.data?.cpu.cores ?? null;
 
   const current = draftOf(app);
   const [baseline, setBaseline] = useState(current);
   const [draft, setDraft] = useState(current);
   const [restart, setRestart] = useState(false);
-  const [touched, setTouched] = useState<Partial<Record<keyof LimitsDraft, boolean>>>({});
+  const [touched, setTouched] = useState<
+    Partial<Record<keyof LimitsDraft, boolean>>
+  >({});
   const [submitted, setSubmitted] = useState(false);
   const [saved, setSaved] = useState<LimitsResult | null>(null);
 
@@ -100,7 +123,11 @@ function LimitsForm({ app, tuning, reading }: { app: App; tuning: UnitTuning | u
   const parsed = parseLimits(draft, cores, t.locale);
   const advanced = useTuningPart(domain, tuning, "limits", restart);
   const save = useMutation({
-    mutationFn: (values: LimitsValues & { restart: boolean }) => request("patch", "/api/apps/{domain}/limits", { params: { domain }, body: values }),
+    mutationFn: (values: LimitsValues & { restart: boolean }) =>
+      request("patch", "/api/apps/{domain}/limits", {
+        params: { domain },
+        body: values,
+      }),
     onSuccess: (result) => {
       // What was saved is what the form now says, whatever the app's detail says next.
       const stored = draftOf(result);
@@ -112,11 +139,22 @@ function LimitsForm({ app, tuning, reading }: { app: App; tuning: UnitTuning | u
       setRestart(false);
       queryClient.setQueryData<App>(appKeys.detail(domain), (known) =>
         known
-          ? { ...known, memory_max_mb: result.memory_max_mb ?? null, cpu_quota_percent: result.cpu_quota_percent ?? null, tasks_max: result.tasks_max ?? null }
+          ? {
+              ...known,
+              memory_max_mb: result.memory_max_mb ?? null,
+              cpu_quota_percent: result.cpu_quota_percent ?? null,
+              tasks_max: result.tasks_max ?? null,
+            }
           : known,
       );
-      void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain), exact: true });
-      void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
+      void queryClient.invalidateQueries({
+        queryKey: appKeys.detail(domain),
+        exact: true,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: appKeys.list,
+        exact: true,
+      });
     },
   });
 
@@ -128,7 +166,8 @@ function LimitsForm({ app, tuning, reading }: { app: App; tuning: UnitTuning | u
     }
   }
   const errorOf = (field: keyof LimitsDraft): string | undefined =>
-    (submitted || touched[field] ? parsed.errors[field] : undefined) ?? serverFields[field];
+    (submitted || touched[field] ? parsed.errors[field] : undefined) ??
+    serverFields[field];
   const edit = (field: keyof LimitsDraft) => (value: string) => {
     setDraft((previous) => ({ ...previous, [field]: value }));
     setSaved(null);
@@ -169,7 +208,11 @@ function LimitsForm({ app, tuning, reading }: { app: App; tuning: UnitTuning | u
       <Card>
         <div className="flex flex-col gap-5">
           <div className="grid gap-5 sm:grid-cols-3">
-            <Field label={t("appSettings.limits.memoryLabel")} description={t("appSettings.limits.memoryDescription")} error={errorOf("memory")}>
+            <Field
+              label={t("appSettings.limits.memoryLabel")}
+              description={t("appSettings.limits.memoryDescription")}
+              error={errorOf("memory")}
+            >
               <Input
                 mono
                 inputMode="numeric"
@@ -183,7 +226,13 @@ function LimitsForm({ app, tuning, reading }: { app: App; tuning: UnitTuning | u
             </Field>
             <Field
               label={t("appSettings.limits.cpuLabel")}
-              description={cores === null ? t("appSettings.limits.cpuDescriptionUnknown") : t("appSettings.limits.cpuDescriptionKnown", { max: 100 * cores })}
+              description={
+                cores === null
+                  ? t("appSettings.limits.cpuDescriptionUnknown")
+                  : t("appSettings.limits.cpuDescriptionKnown", {
+                      max: 100 * cores,
+                    })
+              }
               error={errorOf("cpu")}
             >
               <Input
@@ -197,7 +246,11 @@ function LimitsForm({ app, tuning, reading }: { app: App; tuning: UnitTuning | u
                 onBlur={blur("cpu")}
               />
             </Field>
-            <Field label={t("appSettings.limits.tasksLabel")} description={t("appSettings.limits.tasksDescription")} error={errorOf("tasks")}>
+            <Field
+              label={t("appSettings.limits.tasksLabel")}
+              description={t("appSettings.limits.tasksDescription")}
+              error={errorOf("tasks")}
+            >
               <Input
                 mono
                 inputMode="numeric"
@@ -210,23 +263,51 @@ function LimitsForm({ app, tuning, reading }: { app: App; tuning: UnitTuning | u
             </Field>
           </div>
           {tuning?.eligible ? (
-            <AdvancedLimitsFields domain={domain} tuning={tuning} state={advanced} />
+            <AdvancedLimitsFields
+              domain={domain}
+              tuning={tuning}
+              state={advanced}
+            />
           ) : reading ? (
             // The place the folded section will take, so its arrival moves nothing.
             <LoadingRegion label={t("runtime.tuning.loading")}>
               <Skeleton className="h-control-sm w-32" />
             </LoadingRegion>
           ) : null}
-          <Checkbox label={t("appSettings.limits.restartLabel")} description={t("appSettings.limits.restartDescription")} checked={restart} onCheckedChange={setRestart} />
-          {save.isError && Object.keys(serverFields).length === 0 ? <ErrorBlock live compact error={save.error} title={t("appSettings.limits.saveFailed")} /> : null}
+          <Checkbox
+            label={t("appSettings.limits.restartLabel")}
+            description={t("appSettings.limits.restartDescription")}
+            checked={restart}
+            onCheckedChange={setRestart}
+          />
+          {save.isError && Object.keys(serverFields).length === 0 ? (
+            <ErrorBlock
+              live
+              compact
+              error={save.error}
+              title={t("appSettings.limits.saveFailed")}
+            />
+          ) : null}
           {saved !== null ? <Saved result={saved} domain={domain} /> : null}
           <p className="text-12 text-fg-muted">
-            {now.length > 0 ? t.rich("appSettings.limits.now", { directives: <Mono>{now.join(" ")}</Mono> }) : t("appSettings.limits.noLimits")}
+            {now.length > 0
+              ? t.rich("appSettings.limits.now", {
+                  directives: <Mono>{now.join(" ")}</Mono>,
+                })
+              : t("appSettings.limits.noLimits")}
           </p>
         </div>
       </Card>
-      <CommandHint command={`noust app limits ${domain} --memory 512M --cpu 50% --tasks 256`} label={t("appSettings.fromTerminal")} />
-      <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
+      <CommandHint
+        command={`noust app limits ${domain} --memory 512M --cpu 50% --tasks 256`}
+        label={t("appSettings.fromTerminal")}
+      />
+      <SaveBar
+        changes={bar.changes}
+        saving={bar.saving}
+        onSave={bar.onSave}
+        onDiscard={bar.onDiscard}
+      />
     </>
   );
 }
@@ -237,14 +318,23 @@ export function ResourcesSettings() {
   const app = useSettingsApp();
   useSubsectionTitle("appSettings.nav.resources", app.domain);
   const headerIcon = useSubsectionIcon("appSettings.nav.resources");
-  const tuning = useQuery({ ...tuningQuery(app.domain), enabled: hasUnit(app) });
+  const tuning = useQuery({
+    ...tuningQuery(app.domain),
+    enabled: hasUnit(app),
+  });
   return (
-    <Section title={t("appSettings.limits.title")} {...headerIcon} description={t("appSettings.limits.description")}>
+    <Section
+      title={t("appSettings.limits.title")}
+      {...headerIcon}
+      description={t("appSettings.limits.description")}
+    >
       {hasUnit(app) ? (
         <LimitsForm app={app} tuning={tuning.data} reading={tuning.isPending} />
       ) : (
         <Card>
-          <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("appSettings.limits.staticNote")}</p>
+          <p className="max-w-measure text-13 text-pretty text-fg-muted">
+            {t("appSettings.limits.staticNote")}
+          </p>
         </Card>
       )}
     </Section>

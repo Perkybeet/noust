@@ -81,6 +81,13 @@ Each release has up to four lists:
   asked for with the bastion the operator means to set, before setting it, as `noust node ssh NAME
   --bastion ... --show` does. Setting a bastion opens the tunnel through it, which cannot work until
   the bastion lets the central in; `GET .../ssh` gave the line only once the bastion was set.
+- `PATCH /api/apps/{domain}/env` takes `audience` (a name to `both`, `build` or `runtime`) for the
+  variables whose audience changes, as `PUT` does; a name that is not in the file after the merge, or an
+  audience that is not one of the three, is refused as `audience` before anything is written. Changing
+  only the audience of a variable names it in `changed` and sends no value.
+- `POST /api/apps/{domain}/deployments/{deployment_id}/rebuild` takes `no_cache` (off by default): the
+  commit is built from scratch, with an empty package manager cache and no release on disk reused. A
+  request with no body is unchanged.
 
 ## 3.4.0
 

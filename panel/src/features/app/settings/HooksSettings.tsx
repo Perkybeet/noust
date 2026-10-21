@@ -26,29 +26,63 @@ import { useSaveBar } from "./formParts";
 import type { FormPart } from "./formParts";
 import { hooksQuery, olderServer, settingsKeys } from "./queries";
 import type { AppHooks } from "./queries";
-import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
-import { LoadingRegion } from "../../../components/page";
+import {
+  useSettingsApp,
+  useSubsectionIcon,
+  useSubsectionTitle,
+} from "./settingsApp";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { SETTINGS_ICONS } from "./objectIcons";
 
 type Hook = AppHooks["pre_deploy"][number];
 
 /** An example of the document, for an empty field: the shape of a noust.yaml holding only hooks. */
-const EXAMPLE = ["hooks:", "  pre_deploy:", "    - run: npx prisma migrate deploy", "      migrates: true", "  post_deploy:", "    - run: ./scripts/purge-cache.sh"].join("\n");
+const EXAMPLE = [
+  "hooks:",
+  "  pre_deploy:",
+  "    - run: npx prisma migrate deploy",
+  "      migrates: true",
+  "  post_deploy:",
+  "    - run: ./scripts/purge-cache.sh",
+].join("\n");
 
 /** Where the hooks that apply come from, in words. */
-function originWords(t: T, source: string): { badge: string; sentence: string } {
+function originWords(
+  t: T,
+  source: string,
+): { badge: string; sentence: string } {
   switch (source) {
     case "operator":
-      return { badge: t("appSettings.hooks.fromOperator"), sentence: t("appSettings.hooks.fromOperatorBody") };
+      return {
+        badge: t("appSettings.hooks.fromOperator"),
+        sentence: t("appSettings.hooks.fromOperatorBody"),
+      };
     case "repo":
-      return { badge: t("appSettings.hooks.fromRepository"), sentence: t("appSettings.hooks.fromRepositoryBody") };
+      return {
+        badge: t("appSettings.hooks.fromRepository"),
+        sentence: t("appSettings.hooks.fromRepositoryBody"),
+      };
     default:
-      return { badge: t("appSettings.hooks.none"), sentence: t("appSettings.hooks.noneBody") };
+      return {
+        badge: t("appSettings.hooks.none"),
+        sentence: t("appSettings.hooks.noneBody"),
+      };
   }
 }
 
-function HookList({ label, hooks, t }: { label: string; hooks: readonly Hook[]; t: T }) {
-  if (hooks.length === 0) return <EmptyState variant="inline" title={t("appSettings.hooks.emptyPhase")} />;
+function HookList({
+  label,
+  hooks,
+  t,
+}: {
+  label: string;
+  hooks: readonly Hook[];
+  t: T;
+}) {
+  if (hooks.length === 0)
+    return (
+      <EmptyState variant="inline" title={t("appSettings.hooks.emptyPhase")} />
+    );
   return (
     <RowList aria-label={label}>
       {hooks.map((hook, index) => {
@@ -56,14 +90,30 @@ function HookList({ label, hooks, t }: { label: string; hooks: readonly Hook[]; 
         return (
           <RowList.Item key={`${run}-${String(index)}`}>
             <div className="flex min-w-0 flex-col gap-1">
-            <Mono truncate title={run}>
-              {run}
-            </Mono>
-            <span className="flex flex-wrap gap-x-3 text-12 text-fg-muted">
-              {hook.service ? <span>{t("appSettings.hooks.inService", { service: hook.service })}</span> : null}
-              {hook.workdir ? <span>{t.rich("appSettings.hooks.inDirectory", { path: <Mono>{hook.workdir}</Mono> })}</span> : null}
-              <span>{t("appSettings.hooks.timeout", { count: hook.timeout })}</span>
-              {hook.migrates ? <span>{t("appSettings.hooks.migrates")}</span> : null}
+              <Mono truncate title={run}>
+                {run}
+              </Mono>
+              <span className="flex flex-wrap gap-x-3 text-12 text-fg-muted">
+                {hook.service ? (
+                  <span>
+                    {t("appSettings.hooks.inService", {
+                      service: hook.service,
+                    })}
+                  </span>
+                ) : null}
+                {hook.workdir ? (
+                  <span>
+                    {t.rich("appSettings.hooks.inDirectory", {
+                      path: <Mono>{hook.workdir}</Mono>,
+                    })}
+                  </span>
+                ) : null}
+                <span>
+                  {t("appSettings.hooks.timeout", { count: hook.timeout })}
+                </span>
+                {hook.migrates ? (
+                  <span>{t("appSettings.hooks.migrates")}</span>
+                ) : null}
               </span>
             </div>
           </RowList.Item>
@@ -83,7 +133,11 @@ function useDocumentPart(domain: string, stored: string) {
     if (draft === baseline) setDraft(stored);
   }
   const save = useMutation({
-    mutationFn: (document: string) => request("put", "/api/apps/{domain}/hooks", { params: { domain }, body: { document } }),
+    mutationFn: (document: string) =>
+      request("put", "/api/apps/{domain}/hooks", {
+        params: { domain },
+        body: { document },
+      }),
     onSuccess: (saved) => {
       queryClient.setQueryData(settingsKeys.hooks(domain), saved);
       setDraft(saved.document ?? "");
@@ -115,12 +169,26 @@ function useDocumentPart(domain: string, stored: string) {
   };
 }
 
-function OperatorHooks({ domain, hooks, t }: { domain: string; hooks: AppHooks; t: T }) {
+function OperatorHooks({
+  domain,
+  hooks,
+  t,
+}: {
+  domain: string;
+  hooks: AppHooks;
+  t: T;
+}) {
   const queryClient = useQueryClient();
   const { node } = useNode();
   const [removing, setRemoving] = useState(false);
-  const document = useDocumentPart(domain, hooks.source === "operator" ? (hooks.document ?? "") : "");
-  const bar = useSaveBar([document.part], t("appSettings.hooks.notSaved", { domain }));
+  const document = useDocumentPart(
+    domain,
+    hooks.source === "operator" ? (hooks.document ?? "") : "",
+  );
+  const bar = useSaveBar(
+    [document.part],
+    t("appSettings.hooks.notSaved", { domain }),
+  );
   return (
     <>
       <Card
@@ -129,14 +197,23 @@ function OperatorHooks({ domain, hooks, t }: { domain: string; hooks: AppHooks; 
         description={t("appSettings.hooks.operatorDescription")}
         actions={
           hooks.source === "operator" ? (
-            <Button icon={<SETTINGS_ICONS.remove aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setRemoving(true)}>
+            <Button
+              icon={<SETTINGS_ICONS.remove aria-hidden="true" />}
+              size="sm"
+              variant="ghost"
+              onClick={() => setRemoving(true)}
+            >
               {t("appSettings.hooks.remove")}
             </Button>
           ) : undefined
         }
       >
         <div className="flex flex-col gap-3">
-          <Field label={t("appSettings.hooks.documentLabel")} description={t("appSettings.hooks.documentDescription")} error={document.error}>
+          <Field
+            label={t("appSettings.hooks.documentLabel")}
+            description={t("appSettings.hooks.documentDescription")}
+            error={document.error}
+          >
             <Textarea
               mono
               rows={10}
@@ -148,11 +225,26 @@ function OperatorHooks({ domain, hooks, t }: { domain: string; hooks: AppHooks; 
               onChange={(event) => document.edit(event.target.value)}
             />
           </Field>
-          {document.failure !== null ? <ErrorBlock live compact error={document.failure} title={t("appSettings.hooks.notSaved", { domain })} /> : null}
-          <CommandHint command={`noust app hooks set ${domain} --file hooks.yaml`} label={t("appSettings.fromTerminal")} />
+          {document.failure !== null ? (
+            <ErrorBlock
+              live
+              compact
+              error={document.failure}
+              title={t("appSettings.hooks.notSaved", { domain })}
+            />
+          ) : null}
+          <CommandHint
+            command={`noust app hooks set ${domain} --file hooks.yaml`}
+            label={t("appSettings.fromTerminal")}
+          />
         </div>
       </Card>
-      <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
+      <SaveBar
+        changes={bar.changes}
+        saving={bar.saving}
+        onSave={bar.onSave}
+        onDiscard={bar.onDiscard}
+      />
       <ConfirmDialog
         open={removing}
         onOpenChange={setRemoving}
@@ -162,7 +254,9 @@ function OperatorHooks({ domain, hooks, t }: { domain: string; hooks: AppHooks; 
         description={t("appSettings.hooks.removeDescription")}
         actionLabel={t("appSettings.hooks.remove")}
         onConfirm={async () => {
-          const result = await request("delete", "/api/apps/{domain}/hooks", { params: { domain } });
+          const result = await request("delete", "/api/apps/{domain}/hooks", {
+            params: { domain },
+          });
           queryClient.setQueryData(settingsKeys.hooks(domain), result);
         }}
       />
@@ -188,22 +282,44 @@ export function HooksSettings() {
 
   if (isStatic) {
     return (
-      <Section title={t("appSettings.hooks.title")} {...headerIcon} description={t("appSettings.hooks.description")}>
-        <EmptyState variant="inline" title={t("appSettings.hooks.staticNone")} />
+      <Section
+        title={t("appSettings.hooks.title")}
+        {...headerIcon}
+        description={t("appSettings.hooks.description")}
+      >
+        <EmptyState
+          variant="inline"
+          title={t("appSettings.hooks.staticNone")}
+        />
       </Section>
     );
   }
 
   return (
-    <Section title={t("appSettings.hooks.title")} {...headerIcon} description={t("appSettings.hooks.description")}>
+    <Section
+      title={t("appSettings.hooks.title")}
+      {...headerIcon}
+      description={t("appSettings.hooks.description")}
+    >
       {hooks.isPending ? (
-        <LoadingRegion label={t("appSettings.hooks.loading")} className="flex flex-col gap-3">
+        <LoadingRegion
+          label={t("appSettings.hooks.loading")}
+          className="flex flex-col gap-3"
+        >
           <Skeleton className="h-32 w-full rounded-card" />
         </LoadingRegion>
       ) : hooks.isError && olderServer(hooks.error) ? (
-        <EmptyState variant="inline" title={t("appSettings.hooks.olderServer")} />
+        <EmptyState
+          variant="inline"
+          title={t("appSettings.hooks.olderServer")}
+        />
       ) : hooks.isError ? (
-        <ErrorBlock error={hooks.error} title={t("appSettings.hooks.readFailed")} onRetry={() => void hooks.refetch()} retrying={hooks.isRefetching} />
+        <ErrorBlock
+          error={hooks.error}
+          title={t("appSettings.hooks.readFailed")}
+          onRetry={() => void hooks.refetch()}
+          retrying={hooks.isRefetching}
+        />
       ) : (
         <>
           <Card
@@ -212,41 +328,78 @@ export function HooksSettings() {
             actions={<Badge>{originWords(t, hooks.data.source).badge}</Badge>}
           >
             <div className="flex flex-col gap-4">
-              <p className="max-w-measure text-13 text-pretty text-fg-muted">{originWords(t, hooks.data.source).sentence}</p>
+              <p className="max-w-measure text-13 text-pretty text-fg-muted">
+                {originWords(t, hooks.data.source).sentence}
+              </p>
               {hooks.data.repository_error ? (
-                <Notice tone="error" title={t("appSettings.hooks.repositoryErrorTitle")}>
+                <Notice
+                  tone="error"
+                  title={t("appSettings.hooks.repositoryErrorTitle")}
+                >
                   <div className="flex flex-col gap-2">
                     <p>{t("appSettings.hooks.repositoryErrorBody")}</p>
-                    <SystemOutput label={t("appSettings.hooks.repositoryErrorLabel")}>{hooks.data.repository_error}</SystemOutput>
+                    <SystemOutput
+                      label={t("appSettings.hooks.repositoryErrorLabel")}
+                    >
+                      {hooks.data.repository_error}
+                    </SystemOutput>
                   </div>
                 </Notice>
               ) : null}
               {/* Both phases empty is one line, not two headings over two lines of nothing. */}
-              {hooks.data.pre_deploy.length === 0 && hooks.data.post_deploy.length === 0 ? (
-                <EmptyState variant="inline" title={t("appSettings.hooks.noneRunning")} />
+              {hooks.data.pre_deploy.length === 0 &&
+              hooks.data.post_deploy.length === 0 ? (
+                <EmptyState
+                  variant="inline"
+                  title={t("appSettings.hooks.noneRunning")}
+                />
               ) : (
                 <>
                   <div className="flex flex-col gap-2">
-                    <p className="text-13 font-medium text-fg">{t("appSettings.hooks.preDeploy")}</p>
-                    <HookList label={t("appSettings.hooks.preDeploy")} hooks={hooks.data.pre_deploy} t={t} />
+                    <p className="text-13 font-medium text-fg">
+                      {t("appSettings.hooks.preDeploy")}
+                    </p>
+                    <HookList
+                      label={t("appSettings.hooks.preDeploy")}
+                      hooks={hooks.data.pre_deploy}
+                      t={t}
+                    />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <p className="text-13 font-medium text-fg">{t("appSettings.hooks.postDeploy")}</p>
-                    <HookList label={t("appSettings.hooks.postDeploy")} hooks={hooks.data.post_deploy} t={t} />
+                    <p className="text-13 font-medium text-fg">
+                      {t("appSettings.hooks.postDeploy")}
+                    </p>
+                    <HookList
+                      label={t("appSettings.hooks.postDeploy")}
+                      hooks={hooks.data.post_deploy}
+                      t={t}
+                    />
                   </div>
                 </>
               )}
               {/* The phases of a preview are shown when there are hooks for them: most apps have none. */}
               {(hooks.data.preview_post_create ?? []).length > 0 ? (
                 <div className="flex flex-col gap-2">
-                  <p className="text-13 font-medium text-fg">{t("rollout.hooks.previewPostCreate")}</p>
-                  <HookList label={t("rollout.hooks.previewPostCreate")} hooks={hooks.data.preview_post_create ?? []} t={t} />
+                  <p className="text-13 font-medium text-fg">
+                    {t("rollout.hooks.previewPostCreate")}
+                  </p>
+                  <HookList
+                    label={t("rollout.hooks.previewPostCreate")}
+                    hooks={hooks.data.preview_post_create ?? []}
+                    t={t}
+                  />
                 </div>
               ) : null}
               {(hooks.data.preview_pre_destroy ?? []).length > 0 ? (
                 <div className="flex flex-col gap-2">
-                  <p className="text-13 font-medium text-fg">{t("rollout.hooks.previewPreDestroy")}</p>
-                  <HookList label={t("rollout.hooks.previewPreDestroy")} hooks={hooks.data.preview_pre_destroy ?? []} t={t} />
+                  <p className="text-13 font-medium text-fg">
+                    {t("rollout.hooks.previewPreDestroy")}
+                  </p>
+                  <HookList
+                    label={t("rollout.hooks.previewPreDestroy")}
+                    hooks={hooks.data.preview_pre_destroy ?? []}
+                    t={t}
+                  />
                 </div>
               ) : null}
             </div>

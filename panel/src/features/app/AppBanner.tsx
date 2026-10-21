@@ -160,7 +160,7 @@ export function AppBanner({ domain, condition, onDiagnose = false }: { domain: s
               params={{ domain, id: String(condition.deploy.id) }}
               className={buttonClassName("secondary", "sm")}
             >
-              {t("appPages.banner.viewLog")}
+              {t("appPages.common.viewLog")}
             </Link>
           }
         >

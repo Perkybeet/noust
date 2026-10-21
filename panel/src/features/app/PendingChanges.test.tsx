@@ -40,12 +40,21 @@ async function open(pending: object, extra: Parameters<typeof appRoutes>[1] = {}
 }
 
 describe("what an application is set to that it does not run with yet", { timeout: 20_000 }, () => {
-  it("says how many settings are not applied and what applying them takes, on the app's page", async () => {
+  it("says how many settings are not applied, as a chip on the header's state line", async () => {
     await open(RESTART);
 
-    const banner = await screen.findByText("2 settings are not applied yet");
-    expect(banner).toBeInTheDocument();
-    expect(screen.getByText(/Restart it to apply them\./)).toBeInTheDocument();
+    const chip = await screen.findByRole("button", { name: "2 not applied" });
+    expect(chip.closest("header")).not.toBeNull();
+    // Not a banner: the page keeps its first screen.
+    expect(screen.queryByText("2 settings are not applied yet")).not.toBeInTheDocument();
+  });
+
+  it("says what applying them takes when it is opened", async () => {
+    await open(RESTART);
+    await userEvent.click(await screen.findByRole("button", { name: "2 not applied" }));
+
+    const dialog = await screen.findByRole("dialog", { name: `Settings not applied to ${TAB_DOMAIN}` });
+    expect(within(dialog).getByText(/Restart it to apply them\./)).toBeInTheDocument();
   });
 
   it("says nothing when the application runs with what it is set to", async () => {
@@ -54,14 +63,14 @@ describe("what an application is set to that it does not run with yet", { timeou
     await waitFor(() => {
       expect(backend.callsTo(`GET /api/apps/${TAB_DOMAIN}/pending`)).not.toHaveLength(0);
     });
-    expect(screen.queryByText(/not applied yet/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /not applied/ })).not.toBeInTheDocument();
   });
 
   it("lists each setting with what it was and is, never a secret's value, and restarts from there", async () => {
     const { backend } = await open(RESTART, {
       [`POST /api/apps/${TAB_DOMAIN}/restart`]: () => json(200, { success: true, message: "Restarted", domain: TAB_DOMAIN }),
     });
-    await userEvent.click(await screen.findByRole("button", { name: "Review" }));
+    await userEvent.click(await screen.findByRole("button", { name: "2 not applied" }));
 
     const dialog = await screen.findByRole("dialog", { name: `Settings not applied to ${TAB_DOMAIN}` });
     const list = within(dialog).getByRole("list", { name: `Settings not applied to ${TAB_DOMAIN}` });
@@ -87,7 +96,7 @@ describe("what an application is set to that it does not run with yet", { timeou
       items: [{ area: "build", key: "", change: "changed", before: null, after: null, needs: "rebuild" }],
     };
     await open(rebuild);
-    await userEvent.click(await screen.findByRole("button", { name: "Review" }));
+    await userEvent.click(await screen.findByRole("button", { name: "1 not applied" }));
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("button", { name: "Build again now" })).toBeInTheDocument();
@@ -103,19 +112,17 @@ describe("what an application is set to that it does not run with yet", { timeou
     };
     await open(later);
 
-    expect(await screen.findByText("1 setting is not applied yet")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Review" }));
+    await userEvent.click(await screen.findByRole("button", { name: "1 not applied" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).queryByRole("button", { name: /now$/ })).not.toBeInTheDocument();
   });
 
   it("has no accessibility violations, and speaks Spanish", async () => {
     const { container } = await open(RESTART);
-    await screen.findByText("2 settings are not applied yet");
+    await screen.findByRole("button", { name: "2 not applied" });
     await expectNoAxeViolations(container);
 
     await act(() => setLocale("es"));
-    expect(await screen.findByText("2 ajustes todavía no se aplican")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Revisar" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "2 sin aplicar" })).toBeInTheDocument();
   });
 });

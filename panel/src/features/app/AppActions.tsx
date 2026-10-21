@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/Button";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { SplitButton } from "../../components/ui/SplitButton";
 import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { useT } from "../../i18n";
 import { hasUnit } from "../apps/AppRowActions";
@@ -20,7 +21,7 @@ import { FrozenDeployDialog } from "../apps/FrozenDeployDialog";
 import { NothingNewDialog } from "../apps/NothingNewDialog";
 import { reportActionError, useAppActions } from "../apps/useAppActions";
 import { DeleteAppDialog } from "./DeleteAppDialog";
-import { RollbackDialog } from "./RollbackDialog";
+import { useRollback } from "./RollbackHost";
 import { StopAppDialog } from "./StopAppDialog";
 import { useHasPermission } from "../terminal/queries";
 import { useConfirmItsYou } from "./useDeleteApp";
@@ -29,7 +30,7 @@ import { useStageRelease } from "./useStagedRelease";
 export interface AppHeaderActions {
   /** The daily verbs beside the primary action: Restart, Stop or Start, Roll back. */
   secondaryActions?: ReactNode;
-  /** Update: the one primary action of every tab of the app. */
+  /** Update, with its variations in its menu: the one primary action of every tab of the app. */
   primaryAction?: ReactNode;
   /** What is rare, behind "More actions": Diagnose, Terminal, and Delete last after a separator. */
   overflow?: ReactNode;
@@ -65,8 +66,9 @@ function Verb({ wide, label, icon, loading = false, onClick }: VerbProps) {
 /**
  * The app's actions, in the header's slots. The daily verbs are always on screen, in this order:
  * Restart (the same release, again), Stop or Start by state, Roll back (an earlier release),
- * then Update, the one primary (a new release). What is rare is in the overflow menu: Diagnose,
- * and Delete last after a separator. A static site has no service, so only Roll back. Stopping
+ * then Update, the one primary (a new release), whose menu holds the same action done another way:
+ * without the cache, or building only. What is rare is in the overflow menu: Diagnose, and Delete
+ * last after a separator. A static site has no service, so only Roll back. Stopping
  * asks once; deleting asks for the domain to be typed, after "Confirm it's you" when the
  * session is not in sudo mode. On a phone the verbs are icons with their names (`Verb`).
  */
@@ -82,7 +84,7 @@ export function useAppHeaderActions(
   const confirmItsYou = useConfirmItsYou();
   const navigate = useNavigate();
   const [confirmStop, setConfirmStop] = useState(false);
-  const [rollbackOpen, setRollbackOpen] = useState(false);
+  const { openRollback } = useRollback();
   const [deleteOpen, setDeleteOpen] = useState(false);
   // The terminal is offered to whoever may open it; the server decides again when it is asked.
   const canOpenTerminal = useHasPermission("apps.terminal") === true;
@@ -114,7 +116,7 @@ export function useAppHeaderActions(
           <Verb wide={wide} label={t("appPages.actions.start")} icon={<Play aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()} />
         )
       ) : null}
-      {adopted ? null : <Verb wide={wide} label={t("appPages.actions.rollBack")} icon={<History aria-hidden="true" />} onClick={() => setRollbackOpen(true)} />}
+      {adopted ? null : <Verb wide={wide} label={t("appPages.actions.rollBack")} icon={<History aria-hidden="true" />} onClick={() => openRollback()} />}
     </>
   );
 
@@ -124,17 +126,6 @@ export function useAppHeaderActions(
       <MenuItem icon={<Stethoscope />} onClick={() => void navigate({ to: "/apps/$domain/diagnose", params: { domain } })}>
         {t("appPages.actions.diagnose")}
       </MenuItem>
-      {adopted ? null : (
-        <MenuItem icon={<Hammer />} onClick={() => rebuildFresh.mutate()}>
-          {t("appPages.actions.rebuildFresh")}
-        </MenuItem>
-      )}
-      {/* Only an app with releases can keep a build waiting beside the one that serves. */}
-      {app.layout === "releases" && !adopted ? (
-        <MenuItem icon={<PackageCheck />} description={t("rollout.releases.buildOnlyHint")} disabled={stage.isPending} onClick={() => stage.mutate()}>
-          {t("rollout.releases.buildOnly")}
-        </MenuItem>
-      ) : null}
       {canOpenTerminal ? (
         <MenuItem icon={<SquareTerminal />} onClick={() => void navigate({ to: "/apps/$domain/terminal", params: { domain } })}>
           {t("appPages.actions.terminal")}
@@ -196,7 +187,6 @@ export function useAppHeaderActions(
         }}
         onClose={dismissFrozen}
       />
-      <RollbackDialog domain={domain} layout={app.layout} open={rollbackOpen} onOpenChange={setRollbackOpen} onJobQueued={onJobQueued} />
       <DeleteAppDialog app={app} open={deleteOpen} onOpenChange={setDeleteOpen} />
       {promote.dialog}
       {clone.dialog}
@@ -209,9 +199,28 @@ export function useAppHeaderActions(
       ? {}
       : {
           primaryAction: (
-            <Button variant="primary" icon={<CircleArrowUp aria-hidden="true" />} loading={update.isPending || busy} onClick={() => update.mutate()}>
+            <SplitButton
+              name={t("appPages.actions.update")}
+              variant="primary"
+              icon={<CircleArrowUp aria-hidden="true" />}
+              loading={update.isPending || busy}
+              onClick={() => update.mutate()}
+              menu={
+                <>
+                  <MenuItem icon={<Hammer />} onClick={() => rebuildFresh.mutate()}>
+                    {t("appPages.actions.updateFresh")}
+                  </MenuItem>
+                  {/* Only an app with releases can keep a build waiting beside the one that serves. */}
+                  {app.layout === "releases" ? (
+                    <MenuItem icon={<PackageCheck />} description={t("rollout.releases.buildOnlyHint")} disabled={stage.isPending} onClick={() => stage.mutate()}>
+                      {t("rollout.releases.buildOnly")}
+                    </MenuItem>
+                  ) : null}
+                </>
+              }
+            >
               {t("appPages.actions.update")}
-            </Button>
+            </SplitButton>
           ),
         }),
     overflow,

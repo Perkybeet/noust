@@ -1,24 +1,22 @@
-import { useMutation } from "@tanstack/react-query";
 import { Minus, Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import { request } from "../../../api/client";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
-import { ICONS } from "../../../components/ui/icons";
 import { Mono } from "../../../components/ui/Mono";
+import { RowList } from "../../../components/ui/RowList";
 import { Switch } from "../../../components/ui/Switch";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
-import { useAppActions } from "../../apps/useAppActions";
 import { audienceBody, audienceLabel } from "./audience";
 import type { AudienceChange } from "./audience";
-import type { EnvChange, EnvDiff } from "./draft";
+import type { EnvChange, EnvDiff, EnvMerge } from "./draft";
 import { describeCounts } from "./draft";
 import { nameProblem, oneLine } from "./dotenv";
+import { useSaveEnvironment } from "./useSaveEnvironment";
 
 function kindOf(t: T, kind: EnvChange["kind"]): { label: string; icon: ReactNode } {
   if (kind === "added") return { label: t("environment.added"), icon: <Plus aria-hidden="true" className="size-icon-sm" /> };
@@ -95,53 +93,52 @@ export interface ReviewDialogProps {
   isStatic: boolean;
   /** What saving changes, or null when the dialog is closed. */
   diff: EnvDiff | null;
+  /** What saving sends: the variables it sets and the ones it removes. */
+  merge: EnvMerge;
   /** Who gets which variable, where that changes: saved with the values. */
   audience?: readonly AudienceChange[];
   /** The notes above variables that change (name to text, empty to take one away): saved with the values. */
   comments?: ReadonlyMap<string, string>;
   onClose: () => void;
-  /** The file now holds `next`. */
-  onSaved: (next: Map<string, string>) => void;
+  /** The change was written. */
+  onSaved: () => void;
 }
 
 /**
- * The last look before the file is rewritten: what is added, changed and removed, over the
- * values the file really holds. Saving sends the complete map; afterwards the app is offered
- * a restart, since its process keeps the environment it started with.
+ * The last look before a large or pasted change is written: what is added, changed and removed,
+ * over the rows the table drew, with no value read in clear. A small change does not come here:
+ * it is saved from the bar, and its diff is in the table. Saving writes only the variables that
+ * change; "Save and restart" also restarts the app so it runs with them.
  */
-export function ReviewDialog({ domain, file, isStatic, diff, audience = [], comments, onClose, onSaved }: ReviewDialogProps) {
+export function ReviewDialog({ domain, file, isStatic, diff, merge, audience = [], comments, onClose, onSaved }: ReviewDialogProps) {
   const t = useT();
   const [shown, setShown] = useState(false);
-  const [saved, setSaved] = useState(false);
-  // The staged audiences are cleared once the file is written; the summary still counts them.
-  const [savedAudience, setSavedAudience] = useState(0);
-  const { restart } = useAppActions(domain);
   const commentCount = comments?.size ?? 0;
-
-  const save = useMutation({
-    mutationFn: (next: Map<string, string>) =>
-      request("put", "/api/apps/{domain}/env", {
-        params: { domain },
-        body: {
-          variables: Object.fromEntries(next),
-          ...(audience.length > 0 ? { audience: audienceBody(audience) } : {}),
-          ...(commentCount > 0 ? { comments: Object.fromEntries(comments ?? []) } : {}),
-        },
-      }),
-    onSuccess: (_result, next) => {
-      setSavedAudience(audience.length);
-      setSaved(true);
-      onSaved(next);
-    },
-  });
+  const save = useSaveEnvironment(domain);
 
   const close = (): void => {
     if (save.isPending) return;
     onClose();
-    setSaved(false);
-    setSavedAudience(0);
     setShown(false);
     save.reset();
+  };
+
+  const write = (restart: boolean): void => {
+    save.mutate(
+      {
+        merge,
+        ...(audience.length > 0 ? { audience: audienceBody(audience) } : {}),
+        ...(commentCount > 0 ? { comments: Object.fromEntries(comments ?? []) } : {}),
+        restart: restart && !isStatic,
+      },
+      {
+        onSuccess: () => {
+          onSaved();
+          onClose();
+          setShown(false);
+        },
+      },
+    );
   };
 
   const changes = diff?.changes ?? [];
@@ -151,51 +148,9 @@ export function ReviewDialog({ domain, file, isStatic, diff, audience = [], comm
     changed: changes.filter((c) => c.kind === "changed").length,
     removed: changes.filter((c) => c.kind === "removed").length,
   };
-  // A name the file already had that the API refuses blocks the whole save: it rewrites the file.
-  const invalid = diff === null ? [] : [...diff.next.keys()].filter((name) => nameProblem(name) !== null);
-
-  if (saved) {
-    return (
-      <Dialog
-        open={diff !== null}
-        onOpenChange={(open) => {
-          if (!open) close();
-        }}
-        size="sm"
-        title={t("environment.reviewDialog.savedTitle")}
-        description={
-          isStatic ? t("environment.reviewDialog.savedStatic", { file }) : t("environment.reviewDialog.savedDynamic", { file, domain })
-        }
-        footer={
-          isStatic ? (
-            <Button variant="primary" onClick={close}>
-              {t("environment.reviewDialog.done")}
-            </Button>
-          ) : (
-            <>
-              <Button disabled={restart.isPending} onClick={close}>
-                {t("environment.reviewDialog.restartLater")}
-              </Button>
-              <Button
-                variant="primary"
-                loading={restart.isPending}
-                onClick={() => {
-                  restart.mutate(undefined, { onSuccess: close });
-                }}
-              >
-                {t("environment.reviewDialog.restartNow")}
-              </Button>
-            </>
-          )
-        }
-      >
-        <p className="flex items-center gap-2 text-13 text-fg">
-          <ICONS.success aria-hidden="true" className="size-icon-md shrink-0 text-ok" />
-          {[describeCounts(counts, t.locale), savedAudience > 0 ? t("variables.review.audienceCount", { count: savedAudience }) : ""].filter((part) => part !== "").join(", ")}.
-        </p>
-      </Dialog>
-    );
-  }
+  // A name the API refuses blocks the whole save, so it is said before the button is pressed.
+  const invalid = Object.keys(merge.set).filter((name) => nameProblem(name) !== null);
+  const blocked = nothing || invalid.length > 0;
 
   return (
     <Dialog
@@ -213,16 +168,20 @@ export function ReviewDialog({ domain, file, isStatic, diff, audience = [], comm
           <Button disabled={save.isPending} onClick={close}>
             {t("environment.cancel")}
           </Button>
-          <Button
-            variant="primary"
-            loading={save.isPending}
-            disabled={nothing || invalid.length > 0}
-            onClick={() => {
-              if (diff !== null) save.mutate(diff.next);
-            }}
-          >
-            {t("environment.reviewDialog.saveChanges")}
-          </Button>
+          {isStatic ? (
+            <Button variant="primary" loading={save.isPending} disabled={blocked} onClick={() => write(false)}>
+              {t("environment.reviewDialog.saveChanges")}
+            </Button>
+          ) : (
+            <>
+              <Button loading={save.isPending && !save.variables.restart} disabled={blocked || save.isPending} onClick={() => write(false)}>
+                {t("environment.tab.saveOnly")}
+              </Button>
+              <Button variant="primary" loading={save.isPending && save.variables.restart} disabled={blocked || save.isPending} onClick={() => write(true)}>
+                {t("environment.tab.saveAndRestart")}
+              </Button>
+            </>
+          )}
         </>
       }
     >
@@ -235,7 +194,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, audience = [], comm
                 ? t("environment.reviewDialog.onlyComments", { count: commentCount })
                 : changes.length === 0
                   ? t("variables.review.onlyAudience")
-                : `${describeCounts(counts, t.locale)}. ${t("environment.reviewDialog.staySummary", { count: diff?.unchanged ?? 0 })}`}
+                  : `${describeCounts(counts, t.locale)}. ${t("environment.reviewDialog.staySummary", { count: diff?.unchanged ?? 0 })}`}
           </p>
           {changes.length > 0 ? <Switch label={t("environment.reviewDialog.showValues")} checked={shown} onCheckedChange={setShown} /> : null}
         </div>
@@ -268,39 +227,43 @@ export function ReviewDialog({ domain, file, isStatic, diff, audience = [], comm
         {commentCount > 0 ? (
           <div className="flex flex-col gap-2">
             <p className="text-13 font-medium text-fg">{t("environment.reviewDialog.commentsTitle")}</p>
-            <ul aria-label={t("environment.reviewDialog.commentsTitle")} className="divide-y divide-border rounded-control border border-border bg-bg-sunken">
+            <RowList aria-label={t("environment.reviewDialog.commentsTitle")}>
               {[...(comments ?? [])].map(([name, text]) => (
-                <li key={name} className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-12">
-                  <Mono truncate title={name}>
-                    {name}
-                  </Mono>
-                  <span className="min-w-0 text-fg-muted">{text === "" ? t("environment.reviewDialog.commentRemoved") : text}</span>
-                </li>
+                <RowList.Item key={name}>
+                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 text-12">
+                    <Mono truncate title={name}>
+                      {name}
+                    </Mono>
+                    <span className="min-w-0 text-fg-muted">{text === "" ? t("environment.reviewDialog.commentRemoved") : text}</span>
+                  </div>
+                </RowList.Item>
               ))}
-            </ul>
+            </RowList>
           </div>
         ) : null}
 
         {audience.length > 0 ? (
           <div className="flex flex-col gap-2">
             <p className="text-13 font-medium text-fg">{t("variables.review.audienceTitle")}</p>
-            <ul aria-label={t("variables.review.audienceTitle")} className="divide-y divide-border rounded-control border border-border bg-bg-sunken">
+            <RowList aria-label={t("variables.review.audienceTitle")}>
               {audience.map((change) => (
-                <li key={change.name} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-12">
-                  <span className="w-56 max-w-full min-w-0 shrink-0 font-medium">
-                    <Mono truncate title={change.name}>
-                      {change.name}
-                    </Mono>
-                  </span>
-                  <span className="text-fg-muted line-through">{audienceLabel(change.before, t.locale)}</span>
-                  <span aria-hidden="true" className="text-fg-faint">
-                    →
-                  </span>
-                  <span className="sr-only">{t("environment.reviewDialog.becomesSrOnly")}</span>
-                  <span className="text-fg">{audienceLabel(change.after, t.locale)}</span>
-                </li>
+                <RowList.Item key={change.name}>
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-12">
+                    <span className="w-56 max-w-full min-w-0 shrink-0 font-medium">
+                      <Mono truncate title={change.name}>
+                        {change.name}
+                      </Mono>
+                    </span>
+                    <span className="text-fg-muted line-through">{audienceLabel(change.before, t.locale)}</span>
+                    <span aria-hidden="true" className="text-fg-faint">
+                      →
+                    </span>
+                    <span className="sr-only">{t("environment.reviewDialog.becomesSrOnly")}</span>
+                    <span className="text-fg">{audienceLabel(change.after, t.locale)}</span>
+                  </div>
+                </RowList.Item>
               ))}
-            </ul>
+            </RowList>
           </div>
         ) : null}
 

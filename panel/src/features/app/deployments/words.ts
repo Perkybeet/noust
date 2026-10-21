@@ -6,7 +6,6 @@
 import { GitPullRequestArrow, MousePointerClick, SquareTerminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import type { BadgeTone } from "../../../components/ui/Badge";
 import type { T } from "../../../i18n";
 
 export interface TriggerWords {
@@ -27,32 +26,6 @@ export function triggerWords(t: T, trigger: string): TriggerWords {
       return { label: t("appPages.deployments.words.trigger.cli.label"), by: t("appPages.deployments.words.trigger.cli.by"), icon: SquareTerminal };
     default:
       return { label: trigger, by: trigger, icon: SquareTerminal };
-  }
-}
-
-export interface ReleaseBadge {
-  label: string;
-  tone: BadgeTone;
-}
-
-/**
- * `ReleaseStatus`, as a badge. Only the one serving and the one that failed are coloured:
- * they are the two an operator acts on; the rest are history.
- */
-export function releaseBadge(t: T, status: string): ReleaseBadge {
-  switch (status) {
-    case "active":
-      return { label: t("appPages.deployments.words.release.active"), tone: "ok" };
-    case "failed":
-      return { label: t("appPages.deployments.words.release.failed"), tone: "fail" };
-    case "rolled_back":
-      return { label: t("appPages.deployments.words.release.rolledBack"), tone: "neutral" };
-    case "superseded":
-      return { label: t("appPages.deployments.words.release.superseded"), tone: "neutral" };
-    case "built":
-      return { label: t("appPages.deployments.words.release.built"), tone: "neutral" };
-    default:
-      return { label: status.replace(/_/g, " "), tone: "neutral" };
   }
 }
 

@@ -28,7 +28,7 @@ resolved leaves the environment as it was (it fails closed).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 
 from noust.core.exceptions import ValidationError
@@ -205,6 +205,43 @@ def refuse_reserved(values: Mapping[str, str], previous: Mapping[str, str] | Non
         )
 
 
+def check_audience_request(
+    names: Collection[str], audience: Mapping[str, str] | None
+) -> dict[str, str]:
+    """
+    Check the audiences a caller asks for against the variables it is giving.
+
+    The one rule of the request, shared by the write and by the dry run that asks whether the
+    write would be refused: every audience is one of ``both``, ``build`` or ``runtime``, and each
+    is for a variable that will be in the environment.
+
+    Args:
+        names: The names of the complete set of variables.
+        audience: Names to ``both``, ``build`` or ``runtime``; None asks for none, and empty
+            text for a name keeps the audience it has.
+
+    Returns:
+        The audiences asked for.
+
+    Raises:
+        ValidationError: An audience for a variable that is not in the set, or one that is not an
+            audience.
+    """
+    wanted = dict(audience or {})
+    unknown = sorted(set(wanted) - set(names))
+    if unknown:
+        raise ValidationError(
+            f"An audience was given for variables that are not in the environment: "
+            f"{', '.join(unknown)}",
+            field="audience",
+        )
+    for kind in wanted.values():
+        # Empty text means "keep the one it has", as it always has in the write.
+        if kind:
+            validate_audience(kind)
+    return wanted
+
+
 def plan_environment(
     values: Mapping[str, object],
     *,
@@ -239,14 +276,7 @@ def plan_environment(
     """
     clean = validate_environment(values, multiline=True)
     refuse_reserved(clean, previous.values)
-    wanted = dict(audience or {})
-    unknown = sorted(set(wanted) - set(clean))
-    if unknown:
-        raise ValidationError(
-            f"An audience was given for variables that are not in the environment: "
-            f"{', '.join(unknown)}",
-            field="audience",
-        )
+    wanted = check_audience_request(clean, audience)
     resolved: dict[str, str] = {}
     exprs: dict[str, str] = {}
     chosen: dict[str, str] = {}

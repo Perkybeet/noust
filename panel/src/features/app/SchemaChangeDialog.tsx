@@ -11,6 +11,7 @@ import { RelativeTime } from "../../components/page/RelativeTime";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 import { Mono } from "../../components/ui/Mono";
+import { RowList } from "../../components/ui/RowList";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
@@ -41,7 +42,7 @@ function Migrations({ deployment, t }: { deployment: Deployment; t: T }) {
 function DeploymentRow({ domain, id, deployment, t }: { domain: string; id: number; deployment: Deployment | undefined; t: T }) {
   const commit = shortCommit(deployment?.git_commit);
   return (
-    <li className="flex min-w-0 flex-col gap-1.5 px-3 py-2.5">
+    <RowList.Item>
       <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-13">
         <TextLink to="/apps/$domain/deployments/$id" params={{ domain, id: String(id) }} size="ui">
           {t("appPages.deployments.page.heading", { id: String(id) })}
@@ -49,8 +50,8 @@ function DeploymentRow({ domain, id, deployment, t }: { domain: string; id: numb
         {commit ? <Mono tone="muted">{commit}</Mono> : null}
         {deployment?.started_at ? <RelativeTime value={deployment.started_at} className="text-12 text-fg-muted" /> : null}
       </span>
-      {deployment === undefined ? <Skeleton className="h-3 w-48" /> : <Migrations deployment={deployment} t={t} />}
-    </li>
+      <div className="mt-1.5">{deployment === undefined ? <Skeleton className="h-3 w-48" /> : <Migrations deployment={deployment} t={t} />}</div>
+    </RowList.Item>
   );
 }
 
@@ -88,11 +89,11 @@ function SchemaChangeDetails({ domain, refusal, t }: { domain: string; refusal: 
   return (
     <div className="flex flex-col gap-4">
       {ids.length > 0 ? (
-        <ul aria-label={t("appPages.schemaChange.listLabel")} className="flex flex-col divide-y divide-border rounded-control border border-border">
+        <RowList aria-label={t("appPages.schemaChange.listLabel")}>
           {ids.map((id, index) => (
             <DeploymentRow key={id} domain={domain} id={id} deployment={deployments[index]?.data} t={t} />
           ))}
-        </ul>
+        </RowList>
       ) : (
         <p className="text-13 text-pretty text-fg">{refusal.detail}</p>
       )}

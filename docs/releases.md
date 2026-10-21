@@ -360,7 +360,10 @@ noust update shop.example.com --commit 9f8e7d6     # full or abbreviated, at lea
 In the console, "Redeploy" on a deployment's page does the same:
 `POST /api/apps/{domain}/deployments/{id}/rebuild` queues the update job with that
 deployment's commit and answers `202` with the job. It needs `apps.deploy`, like an
-update, and answers `409 no_commit` for a deployment whose source is not git.
+update, and answers `409 no_commit` for a deployment whose source is not git. With
+`{"no_cache": true}` in the body (the console's "Retry without cache" on a failed deployment) the
+commit is built from scratch: no release on disk is switched to, and the package manager starts
+from an empty cache.
 
 The id must name exactly one commit. It is looked up in the clone first; one the clone does
 not have is fetched (a full id by name, an abbreviation by fetching every branch, with the

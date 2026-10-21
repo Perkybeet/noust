@@ -5385,13 +5385,13 @@ class Deployments:
     def __init__(self, call: Call) -> None:
         self._call = call
 
-    def rebuild_deployment(self, domain: str, deployment_id: int | str) -> "JobAcceptedResponse":
+    def rebuild_deployment(self, domain: str, deployment_id: int | str, *, body: Union["RebuildRequest", None] = None) -> "JobAcceptedResponse":
         """POST /api/apps/{domain}/deployments/{deployment_id}/rebuild
 
         Rebuild Deployment
 
         Needs: permission `apps.deploy`."""
-        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/deployments/{quote(str(deployment_id), safe='')}/rebuild", query=None, body=None)
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/deployments/{quote(str(deployment_id), safe='')}/rebuild", query=None, body=body)
 
     def rollback_deployment(self, domain: str, deployment_id: int | str, *, body: Union["NoustWebApiDeploymentsRollbackRequest", None] = None) -> "JobAcceptedResponse":
         """POST /api/apps/{domain}/deployments/{deployment_id}/rollback

@@ -14,6 +14,7 @@ import { formatBytes } from "../../../lib/format";
 import { DumpUploader } from "../../databases/import/uploader";
 import type { UploadSnapshot } from "../../databases/import/uploader";
 import { ARCHIVE_CHUNK_BYTES, ARCHIVE_ENDINGS, isArchiveName, makeSourceUploadApi } from "./sourceUploadApi";
+import { RotateCw, Upload } from "lucide-react";
 
 /** What a finished upload hands to the form that wanted a source. */
 export interface UploadedArchive {
@@ -95,7 +96,7 @@ export function ArchiveUpload({ onUploaded, onCleared, disabled = false }: { onU
         live
         title={t("archiveUpload.done", { name: upload.fileName })}
         action={
-          <Button size="sm" onClick={again}>
+          <Button size="sm" icon={<Upload aria-hidden="true" />} onClick={again}>
             {t("archiveUpload.another")}
           </Button>
         }
@@ -128,7 +129,7 @@ export function ArchiveUpload({ onUploaded, onCleared, disabled = false }: { onU
         ) : null}
         <div className="flex flex-wrap items-center gap-2">
           {upload.phase === "waiting" || upload.phase === "paused" ? (
-            <Button size="sm" onClick={() => session.uploader.retryNow()}>
+            <Button size="sm" icon={<RotateCw aria-hidden="true" />} onClick={() => session.uploader.retryNow()}>
               {t("archiveUpload.retry")}
             </Button>
           ) : null}
