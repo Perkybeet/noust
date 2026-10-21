@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Database, Search, ShieldQuestion } from "lucide-react";
+import { Search, ShieldQuestion } from "lucide-react";
 
 import { isApiError, request } from "../../../api/client";
 import { appSqliteQuery } from "../../../api/queries/databases";
@@ -15,6 +15,7 @@ import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
@@ -111,7 +112,7 @@ export function SqliteSection({ domain }: { domain: string }) {
   const data = found.data;
   if (data === undefined || data.files.length === 0) return null;
   return (
-    <Section icon={Database} title={t("databases.appTab.sqlite.title")} description={t("databases.appTab.sqlite.intro")}>
+    <Section icon={OBJECT_ICONS.database} title={t("databases.appTab.sqlite.title")} description={t("databases.appTab.sqlite.intro")}>
       {data.truncated ? <InlineMessage tone="info">{t("databases.appTab.sqlite.truncated")}</InlineMessage> : null}
       <ul className="grid gap-4 lg:grid-cols-2">
         {data.files.map((file) => (

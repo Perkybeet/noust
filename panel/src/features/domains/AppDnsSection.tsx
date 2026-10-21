@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Network, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../api/client";
@@ -15,6 +15,7 @@ import { RowList } from "../../components/ui/RowList";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
@@ -71,7 +72,7 @@ export function AppDnsSection({ domain }: { domain: string }) {
   });
 
   return (
-    <Section icon={Network} title={t("network.appDns.title")} description={t("network.appDns.description", { domain })}>
+    <Section icon={OBJECT_ICONS.dns} title={t("network.appDns.title")} description={t("network.appDns.description", { domain })}>
       {dns.isPending ? (
         <LoadingRegion label={t("network.appDns.loading")}>
           <Skeleton className="h-16 rounded-card" />

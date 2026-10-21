@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Boxes, Download, Play, Plus, Replace, RotateCw, ScrollText, Server, SlidersHorizontal, Square, Trash2 } from "lucide-react";
+import { Download, Play, Plus, Replace, RotateCw, ScrollText, SlidersHorizontal, Square, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -27,6 +27,7 @@ import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
@@ -461,14 +462,14 @@ export function EnginesPage() {
       ) : (
         <div className="flex min-w-0 flex-col gap-8">
           {containers.length > 0 ? (
-            <Section icon={Server} title={t("databases.instances.hostTitle")} description={t("databases.instances.hostDescription")}>
+            <Section icon={OBJECT_ICONS.server} title={t("databases.instances.hostTitle")} description={t("databases.instances.hostDescription")}>
               {hostEngines}
             </Section>
           ) : (
             hostEngines
           )}
           {containers.length > 0 ? (
-            <Section icon={Boxes} title={t("databases.instances.title")} description={t("databases.instances.description")}>
+            <Section icon={OBJECT_ICONS.container} title={t("databases.instances.title")} description={t("databases.instances.description")}>
               <DataTable
                 columns={containerColumns}
                 rows={containers}

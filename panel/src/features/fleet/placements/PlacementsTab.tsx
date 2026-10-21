@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRightLeft, Copy, Hammer, Network, Pencil, RefreshCw, Rocket, Server, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Copy, Hammer, Pencil, RefreshCw, Rocket, Server, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { CommandHint } from "../../../components/page/CommandHint";
@@ -22,6 +22,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatLabels } from "../data";
@@ -303,7 +304,7 @@ export function PlacementsTab() {
   }
 
   return (
-    <Section icon={Network} title={t("placements.title")} description={t("placements.description")} actions={placements.length > 0 ? place : undefined} loading={list.isPending}>
+    <Section icon={OBJECT_ICONS.server} title={t("placements.title")} description={t("placements.description")} actions={placements.length > 0 ? place : undefined} loading={list.isPending}>
       {list.isPending ? (
         <div className="flex flex-col gap-3">
           <span className="sr-only">{t("placements.card.comparing", { domain: "" })}</span>

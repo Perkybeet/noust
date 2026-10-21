@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { History, RotateCw } from "lucide-react";
+import { RotateCw } from "lucide-react";
 
 import { notificationDeliveriesQuery, notificationKeys, retryNotificationDelivery } from "../../api/queries/notifications";
 import type { NotificationDelivery } from "../../api/queries/notifications";
@@ -18,6 +18,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
@@ -124,7 +125,7 @@ export function DeliveryLog() {
   const items = deliveries.data?.items ?? [];
 
   return (
-    <Section icon={History} title={t("notifyRouting.deliveries.title")} description={t("notifyRouting.deliveries.description")}>
+    <Section icon={OBJECT_ICONS.activity} title={t("notifyRouting.deliveries.title")} description={t("notifyRouting.deliveries.description")}>
       {deliveries.data === undefined ? (
         <LoadingRegion label={t("notifyRouting.deliveries.loading")}>
           <Card padding="none">

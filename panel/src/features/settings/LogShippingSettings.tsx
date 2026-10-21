@@ -30,6 +30,7 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
 import { toast } from "../../components/ui/toast";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatCount } from "../../lib/format";
@@ -512,7 +513,7 @@ export function LogShippingSettings() {
   const data = drains.data;
   const notRunning = data !== undefined && data.drains.some((drain) => drain.enabled) && !data.service["active"];
   return (
-    <Section icon={Send} title={t("runtime.logShipping.title")} description={t("runtime.logShipping.description")}>
+    <Section icon={OBJECT_ICONS.logShipping} title={t("runtime.logShipping.title")} description={t("runtime.logShipping.description")}>
       {notRunning ? (
         <Notice tone="warning" title={t("runtime.logShipping.notRunningTitle")}>
           {t("runtime.logShipping.notRunningBody")}

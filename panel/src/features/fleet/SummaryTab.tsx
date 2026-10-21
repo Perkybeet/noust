@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Play, Server } from "lucide-react";
+import { Play } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -19,6 +19,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
@@ -438,7 +439,7 @@ export function SummaryTab() {
         <AttentionCard t={t} rows={rows} loading={loading} />
         <RecentActions t={t} />
       </div>
-      <Card icon={Server} as="section" level={2} padding="none" title={t("fleet.summary.servers.title")} description={t("fleet.summary.servers.description")}>
+      <Card icon={OBJECT_ICONS.server} as="section" level={2} padding="none" title={t("fleet.summary.servers.title")} description={t("fleet.summary.servers.description")}>
         <DataTable
           caption={t("fleet.summary.servers.caption")}
           columns={serverColumns(t, view.outcomes)}

@@ -15,6 +15,7 @@ import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
@@ -115,7 +116,7 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
 
   if (data === undefined) {
     return (
-      <Section icon={Globe} title={t("publicAccess.title")} description={t("publicAccess.description")}>
+      <Section icon={OBJECT_ICONS.addresses} title={t("publicAccess.title")} description={t("publicAccess.description")}>
         {detail.isError ? (
           <ErrorBlock compact error={detail.error} title={t("publicAccess.loadFailed")} onRetry={() => void detail.refetch()} retrying={detail.isRefetching} />
         ) : (

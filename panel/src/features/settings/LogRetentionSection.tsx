@@ -6,7 +6,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, RotateCcw, ScrollText } from "lucide-react";
+import { Pencil, RotateCcw } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -24,6 +24,7 @@ import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { SkeletonCard } from "../../components/ui/Skeleton";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import { formatBytes } from "../../lib/format";
 import { splitErrors } from "./formErrors";
@@ -247,7 +248,7 @@ export function LogRetentionSection() {
   const t = useT();
   const query = useQuery(logRetentionQuery());
   return (
-    <Section icon={ScrollText} title={t("logs.retention.title")} description={t("logs.retention.description")}>
+    <Section icon={OBJECT_ICONS.log} title={t("logs.retention.title")} description={t("logs.retention.description")}>
       <QueryState query={query} label={t("logs.retention.noun")} skeleton={<SkeletonCard lines={2} />}>
         {(current) => <Retention current={current} />}
       </QueryState>

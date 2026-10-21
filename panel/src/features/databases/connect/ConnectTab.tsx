@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
-import { Cable, EthernetPort, Eye, Link2 } from "lucide-react";
+import { Eye, Link2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
@@ -20,6 +20,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import { useServerList } from "../../../nodes/servers";
 import { useNode } from "../../../nodes/useNode";
@@ -167,7 +168,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
           )}
         </Section>
 
-        <Section icon={Cable} title={t("databases.connect.fromComputer")} description={t("databases.connect.fromComputerDescription")} loading={tunnel === undefined}>
+        <Section icon={OBJECT_ICONS.tunnel} title={t("databases.connect.fromComputer")} description={t("databases.connect.fromComputerDescription")} loading={tunnel === undefined}>
           <div className="flex min-w-0 flex-col gap-5">
             <div className="flex min-w-0 flex-wrap gap-4">
               <Field label={t("databases.connect.account")} nativeLabel={false} className="w-56">
@@ -238,7 +239,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
 
         <PublicAccessSection engine={engine} name={name} />
 
-        <Section icon={EthernetPort} title={t("databases.connect.exposure")} description={t("databases.connect.exposureDescription")} loading={data === undefined}>
+        <Section icon={OBJECT_ICONS.port} title={t("databases.connect.exposure")} description={t("databases.connect.exposureDescription")} loading={data === undefined}>
           {data === undefined ? (
             <Skeleton className="h-12 w-full rounded-card" />
           ) : (

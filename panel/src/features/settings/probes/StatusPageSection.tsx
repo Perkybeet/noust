@@ -24,6 +24,7 @@ import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Setting } from "../../../components/ui/Setting";
 import { toast } from "../../../components/ui/toast";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import { jobState } from "../../databases/jobs";
 import { JobLogPanel } from "../../jobs/JobLogPanel";
@@ -359,7 +360,7 @@ export function StatusPageSection() {
   const query = useQuery(probesQuery());
   if (query.data === undefined) return null;
   return (
-    <Section icon={FileText} title={t("probes.page.title")} description={t("probes.page.description")}>
+    <Section icon={OBJECT_ICONS.site} title={t("probes.page.title")} description={t("probes.page.description")}>
       <PageCard page={query.data.status_page} />
     </Section>
   );
