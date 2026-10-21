@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { CornerDownRight, FileX, History, Play, RotateCw, Square } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -15,10 +15,10 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
-import { Dialog } from "../../components/ui/Dialog";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
 import { MenuItem } from "../../components/ui/Menu";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
@@ -40,6 +40,7 @@ import { OlderNoust } from "./SiteViewStates";
 import { hasStructure } from "./siteViews";
 import type { SiteView } from "./siteViews";
 import { useSiteActions } from "./useSiteActions";
+import { LoadingRegion } from "../../components/page";
 
 type Outcome =
   | { kind: "saved"; webserver: string }
@@ -78,6 +79,7 @@ function Passed({ id, title, output, action }: { id: string; title: string; outp
   const t = useT();
   return (
     <div id={id}>
+      {/* design-exception: notice-success a passed test is told in the web server's own words, which is what pressing Test asked to see */}
       <Notice tone="success" live title={title} {...(action !== undefined ? { action } : {})}>
         {output !== undefined ? (
           <SystemOutput label={t("domains.siteConfigPage.whatTestSaid")} maxHeight="max-h-28">
@@ -152,15 +154,13 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
     { label: t("domains.page.sitesTab"), to: "/domains/sites" },
   ];
 
-  // Set once the site is deleted: there is nothing left to lose by leaving.
-  const gone = useRef(false);
-  const blocker = useBlocker({
-    // Signing in again after the session expired is not leaving: the draft could not be saved.
-    // Neither is switching between the views of this page: they share the draft.
-    shouldBlockFn: ({ current, next }) => dirty && !gone.current && next.pathname !== "/login" && next.pathname !== current.pathname,
-    enableBeforeUnload: () => dirty && !gone.current,
-    withResolver: true,
-  });
+  // The editor's bar asks before the page is left with changes (and not for the views of this page,
+  // which share the draft). A deleted site has nothing to lose: its draft is dropped first and the
+  // page moves on once the bar has seen it is clean.
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    if (leaving && !dirty) void navigate({ to: "/domains/sites" });
+  }, [leaving, dirty, navigate]);
 
   const save = useMutation({
     mutationFn: (next: string) => request("put", "/api/sites/{domain}/config", { params: { domain: site }, body: { config: next } }),
@@ -362,7 +362,6 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
         }}
         notice={
           <div className="flex flex-col gap-2">
-            <Notice>{t("domains.siteConfigPage.testedBefore", { command: webserver === "apache" ? "apache2ctl -t" : "nginx -t" })}</Notice>
             {info.data?.edited_outside ? (
               <Notice
                 tone="warning"
@@ -376,18 +375,17 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
                 {t("domains.siteHistory.editedBody")}
               </Notice>
             ) : null}
-            {info.data?.pending_reload ? (
-              <Notice
-                tone="warning"
-                title={t("domains.siteHistory.pendingTitle", { webserver })}
-                action={
+            {/* Saving offers the same reload in its own result, so the line waits for that to go. */}
+            {info.data?.pending_reload && outcome?.kind !== "saved" ? (
+              <InlineMessage
+                trailing={
                   <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={reload.isPending} onClick={() => reload.mutate()}>
                     {t("domains.siteConfigPage.reloadWebserver", { webserver })}
                   </Button>
                 }
               >
-                {t("domains.siteHistory.pendingBody", { webserver })}
-              </Notice>
+                {t("domains.siteHistory.pendingTitle", { webserver })}
+              </InlineMessage>
             ) : null}
           </div>
         }
@@ -427,13 +425,13 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
         }}
         footer={<CommandHint command={`noust site show ${site}`} label={t("domains.fromTerminal")} />}
       >
+        {/* design-exception: hand-error-ternary the editor keeps the screen's height while it loads, so the bar never jumps */}
         {config.isError && config.data === undefined ? (
           <ErrorBlock error={config.error} title={t("domains.siteConfigPage.couldNotReadConfig", { site })} onRetry={() => void config.refetch()} retrying={config.isRefetching} />
         ) : config.data === undefined ? (
-          <div aria-busy="true" className="h-full">
-            <span className="sr-only">{t("domains.siteConfigPage.loadingConfigurationSr")}</span>
+          <LoadingRegion label={t("domains.siteConfigPage.loadingConfigurationSr")} className="h-full">
             <Skeleton className="h-full rounded-control" />
-          </div>
+          </LoadingRegion>
         ) : (
           <div className="flex h-full min-h-0 flex-col gap-3">
             {structured ? (
@@ -503,6 +501,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
         />
       ) : null}
       <ConfirmDialog
+        friction="type"
         open={deleting}
         onOpenChange={setDeleting}
         title={t("domains.deleteNamedTitle", { name: site })}
@@ -511,28 +510,11 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
         actionLabel={t("domains.deleteSite")}
         onConfirm={async () => {
           await request("delete", "/api/sites/{domain}", { params: { domain: site } });
-          gone.current = true;
           refresh(site);
           toast.success(t("domains.sitesTab.deletedToast", { site }));
-          void navigate({ to: "/domains/sites" });
+          setDraft(null);
+          setLeaving(true);
         }}
-      />
-      <Dialog
-        open={blocker.status === "blocked"}
-        onOpenChange={(open) => {
-          if (!open) blocker.reset?.();
-        }}
-        size="sm"
-        title={t("domains.siteConfigPage.leaveDialogTitle")}
-        description={t("domains.siteConfigPage.leaveDialogDescription", { site })}
-        footer={
-          <>
-            <Button onClick={() => blocker.reset?.()}>{t("domains.siteConfigPage.keepEditing")}</Button>
-            <Button variant="danger" onClick={() => blocker.proceed?.()}>
-              {t("domains.discardChanges")}
-            </Button>
-          </>
-        }
       />
     </>
   );

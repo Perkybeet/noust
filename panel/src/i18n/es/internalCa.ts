@@ -9,8 +9,7 @@ export const internalCa: Catalog<typeof en> = {
   loading: "Leyendo la autoridad",
   readFailed: "No se pudo leer la autoridad privada",
   noneTitle: "Este servidor aún no tiene autoridad privada",
-  noneNote:
-    "Solo puede firmar lo que permitas, y el límite forma parte de su certificado: todo dispositivo que confía en ella lo hace cumplir, así que una clave filtrada no puede suplantar un nombre público. Se crea una vez; una nueva hay que volver a aceptarla en cada dispositivo.",
+  noneNote: "Solo firma lo que permitas, y los dispositivos hacen cumplir ese límite. Se crea una vez: una nueva hay que aceptarla de nuevo en cada dispositivo.",
   permitDnsLabel: "Más dominios que puede firmar",
   permitDnsHelp: "Separados por comas, por ejemplo corp.example.com. Ya firma lan, internal, home.arpa, local, localhost y test.",
   permitNetworksLabel: "Más rangos de direcciones privadas",
@@ -59,6 +58,7 @@ export const internalCa: Catalog<typeof en> = {
   renewFailed: "No se firmó {name} de nuevo",
   signTitle: "Firmar un certificado",
   signNameLabel: "Para qué es",
+  required: "Este campo es obligatorio.",
   signNameHelp: "Letras, cifras y guiones: wiki. Se guarda como internal-wiki.",
   signNamesLabel: "Nombres",
   signNamesHelp: "Separados por comas: wiki.home.arpa, 10.0.0.5. Al menos uno es un nombre, y todos están dentro de lo que la autoridad firma.",

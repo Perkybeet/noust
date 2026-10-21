@@ -34,7 +34,7 @@ export const domains = {
 
   page: {
     description: "Every HTTPS certificate on this server, and the web server sites that answer each name.",
-    tabsLabel: "Domains and certificates sections",
+    tabsLabel: "Domains sections",
     certificatesTab: "Certificates",
     sitesTab: "Web server sites",
   },
@@ -240,16 +240,12 @@ export const domains = {
     noSiteTitle: "No site with this name",
     noSiteDescription: "It may have been deleted, or the address has a typo. Every site on this machine is in the Sites tab.",
     allSites: "All sites",
-    testedBefore: "Tested with {command} before it is saved: what it rejects is never saved.",
     belongsTo: "Serves the application {app}",
     couldNotReadConfig: "Could not read the configuration of {site}",
     servesLabel: "Serves",
     fileLabel: "File",
     configNotSaved: "The configuration was not saved",
     configNotTested: "The configuration could not be tested",
-    leaveDialogTitle: "Leave without saving?",
-    leaveDialogDescription: "Your changes to the configuration of {site} have not been saved or tested. Leaving discards them.",
-    keepEditing: "Keep editing",
     configurationOfAriaLabel: "Configuration of {site}",
     webserverRejectedThisConfiguration: "{webserver} rejected this configuration",
   },
@@ -404,7 +400,6 @@ export const domains = {
     editedTitle: "Changed outside Noust",
     editedBody: "This file is not what Noust last wrote. A deploy would rewrite it; the text it holds now is kept in the history.",
     pendingTitle: "{webserver} has not loaded this file",
-    pendingBody: "The file was written after {webserver} last started its workers, so it still runs the previous text.",
     sources: {
       generated: "Rendered by Noust",
       edit: "Saved by a person",

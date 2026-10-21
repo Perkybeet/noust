@@ -117,6 +117,7 @@ export function SignForm({ authority }: { authority: InternalCaAuthority }) {
   const [label, setLabel] = useState("");
   const [names, setNames] = useState("");
   const [days, setDays] = useState("90");
+  const [pressed, setPressed] = useState(false);
   const sign = useMutation({
     mutationFn: () => request("post", "/api/certs/ca/issued", { body: { name: label.trim(), names: listOf(names), days: Number(days) || 90 } }),
     onSuccess: (made) => {
@@ -137,16 +138,17 @@ export function SignForm({ authority }: { authority: InternalCaAuthority }) {
       className="flex flex-col gap-3"
       onSubmit={(event: SyntheticEvent<HTMLFormElement>) => {
         event.preventDefault();
-        sign.mutate();
+        if (label.trim() === "" || listOf(names).length === 0) setPressed(true);
+        else sign.mutate();
       }}
     >
-      <Field label={t("internalCa.signNameLabel")} description={t("internalCa.signNameHelp")} error={fields?.["name"] ?? null}>
+      <Field label={t("internalCa.signNameLabel")} description={t("internalCa.signNameHelp")} error={fields?.["name"] ?? (pressed && label.trim() === "" ? t("internalCa.required") : null)}>
         <Input mono value={label} onValueChange={(next: string) => setLabel(next)} autoComplete="off" spellCheck={false} placeholder="wiki" />
       </Field>
       <Field
         label={t("internalCa.signNamesLabel")}
         description={`${t("internalCa.signNamesHelp")} ${[...authority.permitted_dns].slice(0, 4).join(", ")}`}
-        error={fields?.["names"] ?? null}
+        error={fields?.["names"] ?? (pressed && listOf(names).length === 0 ? t("internalCa.required") : null)}
       >
         <Input mono value={names} onValueChange={(next: string) => setNames(next)} autoComplete="off" spellCheck={false} placeholder="wiki.home.arpa" />
       </Field>
@@ -155,7 +157,7 @@ export function SignForm({ authority }: { authority: InternalCaAuthority }) {
       </Field>
       {sign.isError && fields === null ? <ErrorBlock live compact error={sign.error} title={t("internalCa.signFailed")} /> : null}
       <div className="flex justify-end">
-        <Button type="submit" form={formId} variant="primary" loading={sign.isPending} disabled={label.trim() === "" || listOf(names).length === 0}>
+        <Button type="submit" form={formId} variant="primary" loading={sign.isPending}>
           {t("internalCa.sign")}
         </Button>
       </div>

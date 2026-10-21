@@ -14,6 +14,7 @@ import { Checkbox } from "../../components/ui/Checkbox";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
+import { ICONS } from "../../components/ui/icons";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
@@ -23,6 +24,7 @@ import { downloadBase64, downloadText } from "../../lib/clipboard";
 import { formatDate } from "../../lib/format";
 import { reportActionError } from "../apps/useAppActions";
 import { IssuedList, SignForm, TrustSteps, listOf } from "./InternalAuthorityPanels";
+import { LoadingRegion } from "../../components/page";
 
 /** The base64 of a PEM certificate is the certificate itself in the binary form (DER). */
 function derOf(pem: string): string {
@@ -147,7 +149,7 @@ function Made({ overview, authority, onRemoved }: { overview: InternalCa; author
         <SignForm authority={authority} />
       </Subsection>
       <div className="flex justify-start">
-        <Button variant="danger" onClick={() => setRemoving(true)}>
+        <Button icon={<ICONS.delete aria-hidden="true" />} onClick={() => setRemoving(true)}>
           {t("internalCa.remove")}
         </Button>
       </div>
@@ -198,10 +200,9 @@ export function InternalAuthorityDialog({ open, onClose }: { open: boolean; onCl
       {overview.isError ? (
         <ErrorBlock compact error={overview.error} title={t("internalCa.readFailed")} onRetry={() => void overview.refetch()} retrying={overview.isRefetching} />
       ) : overview.data === undefined ? (
-        <div aria-busy="true">
-          <span className="sr-only">{t("internalCa.loading")}</span>
+        <LoadingRegion label={t("internalCa.loading")}>
           <Skeleton className="h-40 rounded-card" />
-        </div>
+        </LoadingRegion>
       ) : overview.data.authority === null ? (
         <MakeForm onMade={() => void overview.refetch()} />
       ) : (

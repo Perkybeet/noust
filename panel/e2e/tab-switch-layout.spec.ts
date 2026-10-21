@@ -61,7 +61,7 @@ const PAGES: readonly TabbedPage[] = [
   {
     name: "domains and certificates",
     long: "/domains/sites",
-    short: (page) => page.getByRole("navigation", { name: "Domains and certificates sections" }).getByRole("link", { name: /^Certificates/ }),
+    short: (page) => page.getByRole("navigation", { name: "Domains sections" }).getByRole("link", { name: /^Certificates/ }),
     shortUrl: /\/domains$/,
   },
 ];

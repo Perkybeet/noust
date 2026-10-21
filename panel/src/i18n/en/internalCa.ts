@@ -7,8 +7,7 @@ export const internalCa = {
   loading: "Reading the authority",
   readFailed: "Could not read the private authority",
   noneTitle: "This server has no private authority yet",
-  noneNote:
-    "It can only sign what you permit, and the limit is part of its certificate: every device that trusts it enforces it, so a leaked key cannot impersonate a public name. It is made once; a new one has to be trusted again on every device.",
+  noneNote: "It signs only what you permit, and devices enforce that limit. It is made once: a new one must be trusted again on every device.",
   permitDnsLabel: "More domains it may sign for",
   permitDnsHelp: "Separated by commas, for example corp.example.com. It already signs lan, internal, home.arpa, local, localhost and test.",
   permitNetworksLabel: "More private address ranges",
@@ -57,6 +56,7 @@ export const internalCa = {
   renewFailed: "{name} was not signed again",
   signTitle: "Sign a certificate",
   signNameLabel: "What it is for",
+  required: "This field is required.",
   signNameHelp: "Letters, digits and dashes: wiki. It is kept as internal-wiki.",
   signNamesLabel: "Names",
   signNamesHelp: "Separated by commas: wiki.home.arpa, 10.0.0.5. At least one is a name, and all are within what the authority signs for.",

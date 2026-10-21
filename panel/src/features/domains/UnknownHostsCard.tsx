@@ -19,6 +19,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { LoadingRegion } from "../../components/page";
 
 type Action = "close" | "refuse" | "redirect";
 
@@ -133,6 +134,7 @@ export function UnknownHostsCard() {
     },
   });
 
+  // design-exception: hand-error-ternary the card keeps its frame and a skeleton of its action while it loads, so the page below does not move
   if (status.isError && status.data === undefined) {
     return <ErrorBlock error={status.error} title={t("network.unknownHosts.readFailed")} onRetry={() => void status.refetch()} retrying={status.isRefetching} />;
   }
@@ -164,10 +166,9 @@ export function UnknownHostsCard() {
       }
     >
       {data === undefined ? (
-        <div aria-busy="true" className="flex flex-col gap-2">
-          <span className="sr-only">{t("network.unknownHosts.loading")}</span>
+        <LoadingRegion label={t("network.unknownHosts.loading")} className="flex flex-col gap-2">
           <Skeleton className="h-5 w-2/3" />
-        </div>
+        </LoadingRegion>
       ) : (
         <div className="flex flex-col gap-3">
           <p className="text-13 text-fg">{answer(data, t)}</p>
