@@ -9,10 +9,12 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Disclosure } from "../../../components/ui/Disclosure";
 import { Mono } from "../../../components/ui/Mono";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { ChangeDialog } from "./ChangeDialog";
 import { controlTitle, formatValue, frameworkSummary } from "./model";
+import { EmptyState } from "../../../components/ui/EmptyState";
 
 interface FrameworkRowProps {
   framework: ComplianceFramework;
@@ -36,7 +38,7 @@ function WhatItTurnsOn({ framework, state }: { framework: ComplianceFramework; s
   return (
     <div className="flex flex-col gap-4">
       {rows.length === 0 ? (
-        <p className="text-13 text-fg-muted">{t("complianceSetup.frameworks.nothingNew")}</p>
+        <EmptyState variant="inline" title={t("complianceSetup.frameworks.nothingNew")} />
       ) : (
         <ul className="flex flex-col gap-1.5">
           {rows.map((control) => {
@@ -83,6 +85,7 @@ function FrameworkRow({ framework, state, canManage, onChange }: FrameworkRowPro
       padding="sm"
       as="section"
       title={framework.name}
+      status={<StatusPill state={framework.enabled ? "running" : "stopped"} label={stateLabel(t, framework)} size="sm" />}
       description={frameworkSummary(t, framework)}
       actions={
         canManage ? (
@@ -100,7 +103,6 @@ function FrameworkRow({ framework, state, canManage, onChange }: FrameworkRowPro
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Badge tone={framework.enabled ? "ok" : "neutral"}>{stateLabel(t, framework)}</Badge>
           <Badge>{t("complianceSetup.frameworks.controlsCount", { count: framework.requirement_count })}</Badge>
           <span className="text-12 text-fg-muted">
             {framework.enabled

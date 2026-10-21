@@ -10,12 +10,12 @@ import { Checkbox } from "../../../components/ui/Checkbox";
 import { Disclosure } from "../../../components/ui/Disclosure";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
-import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
-import { splitErrors } from "../formErrors";
+import { focusFirstInvalid, splitErrors } from "../formErrors";
 import { ADMISSION_FOLDED, AdmissionFields } from "./AdmissionFields";
 import { NEW_DIRECTORY_DRAFT, TLS_MODES, directoryDraftOf, directorySettingsOf } from "./directoryForm";
 import type { DirectoryDraft, TlsMode } from "./directoryForm";
@@ -102,14 +102,23 @@ export function DirectoryDrawer({ directory, onClose }: DirectoryDrawerProps) {
       onClose();
     },
   });
+  const [tried, setTried] = useState(false);
+  const required = t("settings.shared.required");
   const errors = splitErrors(save.error, FIELDS);
   const hiddenMessage = FOLDED.map((name) => errors.fields[name]).find((message) => message !== undefined);
 
+  const ready = draft.host.trim() !== "" && draft.userBase.trim() !== "" && (!creating || draft.name.trim() !== "");
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (!save.isPending) save.mutate();
+    if (save.isPending) return;
+    // The button is never off for a missing value: it says what is missing, where, and goes there.
+    if (!ready) {
+      setTried(true);
+      focusFirstInvalid(formId);
+      return;
+    }
+    save.mutate();
   };
-  const ready = draft.host.trim() !== "" && draft.userBase.trim() !== "" && (!creating || draft.name.trim() !== "");
   const tlsOptions: { value: TlsMode; label: string }[] = [
     { value: "ldaps", label: t("ldapAdmin.form.tlsLdaps") },
     { value: "starttls", label: t("ldapAdmin.form.tlsStarttls") },
@@ -130,7 +139,7 @@ export function DirectoryDrawer({ directory, onClose }: DirectoryDrawerProps) {
           <Button disabled={save.isPending} onClick={onClose}>
             {t("ldapAdmin.form.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={!ready}>
+          <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {creating ? t("ldapAdmin.form.create") : t("ldapAdmin.form.save")}
           </Button>
         </>
@@ -139,18 +148,18 @@ export function DirectoryDrawer({ directory, onClose }: DirectoryDrawerProps) {
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
         {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("ldapAdmin.form.errorTitle")} /> : null}
         {hiddenMessage !== undefined ? (
-          <Notice tone="error" live title={t("ldapAdmin.form.errorTitle")}>
-            {hiddenMessage}
-          </Notice>
+          <InlineMessage tone="error" live>
+            <span className="font-medium">{t("ldapAdmin.form.errorTitle")}</span> {hiddenMessage}
+          </InlineMessage>
         ) : null}
         {badLine !== null ? (
-          <Notice tone="error" live title={t("ldapAdmin.form.errorTitle")}>
-            {t("ldapAdmin.form.mappingsLine", { line: badLine })}
-          </Notice>
+          <InlineMessage tone="error" live>
+            <span className="font-medium">{t("ldapAdmin.form.errorTitle")}</span> {t("ldapAdmin.form.mappingsLine", { line: badLine })}
+          </InlineMessage>
         ) : null}
 
         {creating ? (
-          <Field label={t("ldapAdmin.form.name")} description={t("ldapAdmin.form.nameHelp")}>
+          <Field label={t("ldapAdmin.form.name")} description={t("ldapAdmin.form.nameHelp")} error={tried && draft.name.trim() === "" ? required : undefined}>
             <Input
               mono
               autoComplete="off"
@@ -173,7 +182,7 @@ export function DirectoryDrawer({ directory, onClose }: DirectoryDrawerProps) {
             }}
           />
         </Field>
-        <Field label={t("ldapAdmin.form.host")} description={t("ldapAdmin.form.hostHelp")} error={errors.fields.host}>
+        <Field label={t("ldapAdmin.form.host")} description={t("ldapAdmin.form.hostHelp")} error={errors.fields.host ?? (tried && draft.host.trim() === "" ? required : undefined)}>
           <Input
             mono
             autoComplete="off"
@@ -274,7 +283,7 @@ export function DirectoryDrawer({ directory, onClose }: DirectoryDrawerProps) {
 
         <Disclosure label={t("ldapAdmin.form.people.title")} defaultOpen={creating}>
           <div className="flex flex-col gap-5">
-            <Field label={t("ldapAdmin.form.people.userBase")} description={t("ldapAdmin.form.people.userBaseHelp")} error={errors.fields.user_base}>
+            <Field label={t("ldapAdmin.form.people.userBase")} description={t("ldapAdmin.form.people.userBaseHelp")} error={errors.fields.user_base ?? (tried && draft.userBase.trim() === "" ? required : undefined)}>
               <Input
                 mono
                 autoComplete="off"

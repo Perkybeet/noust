@@ -16,7 +16,7 @@
 //     <Skeleton className="h-4 w-24" />
 //   </LoadingRegion>
 //
-// and adds LoadingRegion to the import of components/page (or a new import of it). The element
+// and adds an import of LoadingRegion from its own module (components/page/LoadingRegion). The element
 // keeps its className, which LoadingRegion puts on the wrapper of the skeleton; everything between
 // the tags stays as it was, byte for byte.
 //
@@ -105,27 +105,17 @@ function labelOf(span, file) {
   return { reason: "its label is not a plain message (t.rich, a template, a computed value)" };
 }
 
-/** Where to put a new import of LoadingRegion, and how it reads. @param {ts.SourceFile} file @param {string} filePath @param {string} srcRoot */
+/**
+ * Where to put a new import of LoadingRegion, and how it reads. Always its own module, never the
+ * components/page index: importing the index pulls every page template into the chunk of the screen
+ * that uses it (measured at 16 kB of first-screen script on an application's page).
+ * @param {ts.SourceFile} file @param {string} filePath @param {string} srcRoot
+ */
 function importEdit(file, filePath, srcRoot) {
   const imports = file.statements.filter(ts.isImportDeclaration);
-  for (const declaration of imports) {
-    const specifier = declaration.moduleSpecifier.getText(file).slice(1, -1);
-    const bindings = declaration.importClause?.namedBindings;
-    if (/(?:^|\/)components\/page$/.test(specifier) && bindings !== undefined && ts.isNamedImports(bindings)) {
-      if (bindings.elements.some((element) => element.name.text === "LoadingRegion")) return null;
-      const names = bindings.elements.map((element) => element.getText(file));
-      const sorted = names.every((name, index) => index === 0 || (names[index - 1] ?? "") <= name);
-      const next = [...names, "LoadingRegion"];
-      if (sorted) next.sort();
-      const braces = bindings.getText(file);
-      const oneLine = !braces.includes("\n");
-      const text = oneLine ? `{ ${next.join(", ")} }` : `{\n${next.map((name) => `  ${name},`).join("\n")}\n}`;
-      return { start: bindings.getStart(file), end: bindings.getEnd(), text };
-    }
-  }
   const already = imports.some((declaration) => declaration.importClause?.namedBindings !== undefined && ts.isNamedImports(declaration.importClause.namedBindings) && declaration.importClause.namedBindings.elements.some((element) => element.name.text === "LoadingRegion"));
   if (already) return null;
-  let relative = path.relative(path.dirname(filePath), path.join(srcRoot, "components", "page")).split(path.sep).join("/");
+  let relative = path.relative(path.dirname(filePath), path.join(srcRoot, "components", "page", "LoadingRegion")).split(path.sep).join("/");
   if (!relative.startsWith(".")) relative = `./${relative}`;
   const line = `import { LoadingRegion } from "${relative}";`;
   const last = imports[imports.length - 1];

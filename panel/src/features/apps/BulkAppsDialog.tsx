@@ -8,6 +8,7 @@ import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 import { Mono } from "../../components/ui/Mono";
+import { RowList } from "../../components/ui/RowList";
 import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
@@ -200,12 +201,12 @@ export function BulkAppsDialog({ apps, onClose }: BulkAppsDialogProps) {
         />
         {action === "update" ? <p className="text-13 text-fg-muted">{t("apps.bulk.updateNote")}</p> : null}
 
-        <ul aria-label={t("apps.bulk.plan")} className="flex flex-col divide-y divide-border rounded-card border border-border">
+        <RowList aria-label={t("apps.bulk.plan")}>
           {plan.map((entry) => {
             const skip = entry.skip;
             const view = skip === null ? outcomeWords(t, action, outcomeOf(entry.domain)) : null;
             return (
-              <li key={entry.domain} className="flex min-w-0 flex-col gap-0.5 px-3 py-2 text-13">
+              <RowList.Item key={entry.domain} className="text-13">
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1">
                   <Mono>{entry.domain}</Mono>
                   {skip !== null ? (
@@ -222,10 +223,10 @@ export function BulkAppsDialog({ apps, onClose }: BulkAppsDialogProps) {
                     <Mono tone="muted">{view.detail}</Mono>
                   </p>
                 ) : null}
-              </li>
+              </RowList.Item>
             );
           })}
-        </ul>
+        </RowList>
 
         <p role="status" className="text-13 text-fg-muted">
           {finished

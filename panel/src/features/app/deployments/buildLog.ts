@@ -8,7 +8,8 @@
 import { useState } from "react";
 
 import type { LogLine } from "../../../components/ui/LogViewer";
-import type { PhaseEvent } from "./phases";
+import { stripAnsi } from "../../../lib/ansi";
+import type { PhaseEvent, PhaseKey } from "./phases";
 import { phaseOf, stepOf } from "./phases";
 
 export interface BuildLogLine extends LogLine {
@@ -61,9 +62,6 @@ const JOB_LEVEL = /^\[(DEBUG|INFO|SUCCESS|WARNING|WARN|ERROR)\] ?(.*)$/;
 const ERROR =
   /npm err!|\berr!|\berror\b|✗|failed to compile|\btype error\b|\btraceback\b|\bexception\b|\bfatal\b|\bfailed with result\b|\/failure\b/i;
 const WARNING = /\bwarn(?:ing)?\b|⚠/i;
-// A terminal's control sequences, colours and cursor moves alike.
-// eslint-disable-next-line no-control-regex
-const ANSI = /\u001b\[[0-?]*[ -/]*[@-~]/g;
 
 /**
  * The level a line is drawn at. The tools do not say; the words do. Deliberately narrow: a
@@ -72,7 +70,7 @@ const ANSI = /\u001b\[[0-?]*[ -/]*[@-~]/g;
 export function levelOf(text: string): LogLine["level"] {
   // Colour codes sit against the words they colour ("\u001b[31mError"), which a word boundary
   // does not see through; the server reads the lines the same way (`deployers/logs.py`).
-  const plain = text.replace(ANSI, "");
+  const plain = stripAnsi(text);
   if (ERROR.test(plain)) return "error";
   if (WARNING.test(plain)) return "warn";
   return undefined;
@@ -168,4 +166,53 @@ export function mergeEvents(...sources: readonly PhaseEvent[][]): PhaseEvent[] {
       return at - bt || a.order - b.order;
     })
     .map(({ event }) => event);
+}
+
+/**
+ * What a deploy printed in one phase: the lines after the step that opened it, up to the step
+ * that opened another. A step that belongs to no phase (permissions, the site) closes the one
+ * before it, so what it printed is not read as the phase's. Lines before the first step belong to
+ * none.
+ */
+export function phaseLines(lines: readonly BuildLogLine[], phase: PhaseKey): BuildLogLine[] {
+  const found: BuildLogLine[] = [];
+  let inside = false;
+  for (const line of lines) {
+    const step = stepOf(line.text);
+    if (step !== null) inside = phaseOf(step) === phase;
+    if (inside) found.push(line);
+  }
+  return found;
+}
+
+/** How many of the last lines of the phase that failed the failure shows. */
+export const EXCERPT_LINES = 15;
+
+export interface FailureExcerpt {
+  /** The first line the log reads as an error, in the failed phase if it has one, else anywhere. */
+  firstError: BuildLogLine | null;
+  /** The last lines of the phase that failed, or of the log when no phase is known. */
+  tail: BuildLogLine[];
+}
+
+/**
+ * The part of a failed deploy's log worth reading first: where it first went wrong, and how the
+ * phase ended. "The first error is the cause. Everything after it is consequence."
+ */
+export function failureExcerpt(lines: readonly BuildLogLine[], phase: PhaseKey | null, max = EXCERPT_LINES): FailureExcerpt {
+  const inPhase = phase === null ? [] : phaseLines(lines, phase);
+  const scope = inPhase.length > 0 ? inPhase : lines;
+  const firstError = scope.find((line) => line.level === "error") ?? lines.find((line) => line.level === "error") ?? null;
+  return { firstError, tail: scope.slice(-max) };
+}
+
+/**
+ * The excerpt as text for a box that is not the log viewer: what the deployment recorded as its
+ * error (else the first error line) and the end of the phase, as a person would copy them from a
+ * terminal. The viewer turns a tool's colour codes into colour; a box has none, so it gets the
+ * same parse without them (`lib/ansi.ts`) and never `?[31m`.
+ */
+export function excerptText(excerpt: FailureExcerpt, recorded: string | null | undefined): { detail: string | null; output: string } {
+  const detail = recorded !== null && recorded !== undefined && recorded !== "" ? recorded : (excerpt.firstError?.text ?? null);
+  return { detail: detail === null ? null : stripAnsi(detail), output: excerpt.tail.map((line) => stripAnsi(line.text)).join("\n") };
 }

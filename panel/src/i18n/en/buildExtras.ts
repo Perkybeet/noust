@@ -19,17 +19,15 @@ export const buildExtras = {
     nothingFreed: "The build cache of {domain} was already empty",
     rebuild: "Rebuild without cache",
     rebuildDescription: "Builds the version that is live again from nothing: the cache is emptied, dependencies are installed again and images are built without their layers.",
-    fromTerminal: "The same, from a terminal",
   },
   processes: {
     title: "Process types",
     description: "What the repository says it runs, in processes: of noust.yaml or a Procfile.",
-    loading: "Reading the process types",
+    loading: "Loading the process types",
     readFailed: "Could not read the process types",
     used: "Used by deployments",
     declared: "Declared",
     problem: "A Procfile that cannot be used",
     source: "Declared in {source}",
-    fromTerminal: "The same, from a terminal",
   },
 } as const;

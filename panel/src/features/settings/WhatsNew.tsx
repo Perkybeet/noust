@@ -14,6 +14,7 @@ import { ICONS } from "../../components/ui/icons";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import { formatDate } from "../../lib/format";
+import { EmptyState } from "../../components/ui/EmptyState";
 
 /** Versions shown at first; the rest are one press away. */
 const FIRST = 3;
@@ -65,7 +66,7 @@ export function WhatsNew() {
       </div>
     </Card>
   ) : entries.length === 0 ? (
-    <p className="text-13 text-fg-muted">{t("settings.about.whatsNew.empty")}</p>
+    <EmptyState variant="inline" title={t("settings.about.whatsNew.empty")} />
   ) : (
     <div className="flex min-w-0 flex-col gap-3">
       <Card padding="none">
@@ -97,7 +98,7 @@ export function WhatsNew() {
     </div>
   );
   return (
-    <Section title={t("settings.about.whatsNew.title")} description={t("settings.about.whatsNew.description")} loading={notes.data === undefined && !notes.isError}>
+    <Section title={t("settings.about.whatsNew.title")} description={t("settings.about.whatsNew.description")} loading={notes.isPending}>
       {/* Folded: the notes are read while it is closed, so what arrives never moves what the page is showing. */}
       <Disclosure label={t("settings.about.whatsNew.show")}>{body}</Disclosure>
     </Section>

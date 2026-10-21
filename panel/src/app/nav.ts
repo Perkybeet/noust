@@ -26,8 +26,7 @@
 import type { LucideIcon } from "lucide-react";
 
 import { ACCOUNT_SCREENS } from "../features/nav/account";
-import { APP_SCREENS } from "../features/nav/app";
-import { APP_SETTINGS_SCREENS } from "../features/nav/appSettings";
+import { APP_SCREENS, APP_SETTINGS_SCREENS } from "../features/nav/app";
 import { APPS_SCREENS } from "../features/nav/apps";
 import { BACKUPS_SCREENS } from "../features/nav/backups";
 import { DATABASES_SCREENS, DATABASE_SCREENS } from "../features/nav/databases";
@@ -124,9 +123,6 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
  * route appears without it, and when an entry lingers here after its route exists.
  */
 export const PLANNED: readonly { id: string; to: string; lane: string }[] = [
-  { id: "app.settings.automation", to: "/apps/$domain/settings/automation", lane: "P" },
-  { id: "app.settings.compose", to: "/apps/$domain/settings/compose", lane: "P" },
-  { id: "app.settings.protection", to: "/apps/$domain/settings/protection", lane: "P" },
 ];
 
 /** An old address and where its screen is now (2.9 of the navigation design). */

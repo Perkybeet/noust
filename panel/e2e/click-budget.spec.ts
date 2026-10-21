@@ -194,12 +194,12 @@ test.describe("an application's daily verbs", () => {
   test("Restart is one click, Roll back one to reach its chooser, Stop two because it asks first", async ({ page, consoleServer }) => {
     await countClicks(page);
     await signIn(page, consoleServer, `/apps/${DOMAIN}`);
-    await expect(header(page).getByRole("button", { name: "Update" })).toBeVisible();
+    await expect(header(page).getByRole("button", { name: "Update", exact: true })).toBeVisible();
     await settle(page);
 
     await startCounting(page);
     await press(page, "Roll back", "Roll back…");
-    const chooser = page.getByRole("dialog", { name: `Roll back ${DOMAIN}` });
+    const chooser = page.getByRole("alertdialog", { name: `Roll back ${DOMAIN}` });
     await expect(chooser).toBeVisible();
     withinBudget("Roll back, to open its chooser", await clicks(page), 1);
     await page.keyboard.press("Escape");
@@ -238,7 +238,7 @@ test.describe("an application's logs", () => {
     await startCounting(page);
     await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Deployments" }).click();
     const table = page.getByRole("region", { name: `Deploys of ${APP}, newest first` });
-    await table.getByRole("link").first().click();
+    await table.getByRole("button", { name: /^Deployment \d+$/ }).first().click();
     await expect(page.getByRole("region", { name: /^Build log of deployment \d+ of / })).toBeVisible();
     withinBudget("the build log of the last deploy", await clicks(page), 2);
 
@@ -297,7 +297,7 @@ test.describe("on a phone, the incident verbs", () => {
 
     await startCounting(page);
     await header(page).getByRole("button", { name: "Roll back", exact: true }).click();
-    const chooser = page.getByRole("dialog", { name: `Roll back ${DOMAIN}` });
+    const chooser = page.getByRole("alertdialog", { name: `Roll back ${DOMAIN}` });
     await expect(chooser).toBeVisible();
     withinBudget("Roll back on a phone, to open its chooser", await clicks(page), 1);
     await page.keyboard.press("Escape");

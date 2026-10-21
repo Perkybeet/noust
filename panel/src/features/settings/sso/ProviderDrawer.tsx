@@ -10,11 +10,11 @@ import { Checkbox } from "../../../components/ui/Checkbox";
 import { Disclosure } from "../../../components/ui/Disclosure";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
-import { Notice } from "../../../components/ui/Notice";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
-import { splitErrors } from "../formErrors";
+import { focusFirstInvalid, splitErrors } from "../formErrors";
 import { ADMISSION_FOLDED, AdmissionFields } from "./AdmissionFields";
 import { ChoiceCards } from "../../../components/ui/ChoiceCards";
 import { KINDS, NEW_DRAFT, draftOf, settingsOf } from "./providerForm";
@@ -81,6 +81,8 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
       onClose();
     },
   });
+  const [tried, setTried] = useState(false);
+  const required = t("settings.shared.required");
   const errors = splitErrors(save.error, FIELDS);
   const folded: readonly (typeof FIELDS)[number][] = [
     ...ADMISSION_FOLDED,
@@ -90,13 +92,20 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
   ];
   const hiddenMessage = folded.map((name) => errors.fields[name]).find((message) => message !== undefined);
 
-  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    if (!save.isPending) save.mutate();
-  };
   const github = draft.kind === "github";
   // GitHub needs only the OAuth App's client id and secret; the issuer names an Enterprise Server.
   const ready = (github || draft.issuer.trim() !== "") && draft.clientId.trim() !== "" && (!creating || draft.name.trim() !== "");
+  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    if (save.isPending) return;
+    // The button is never off for a missing value: it says what is missing, where, and goes there.
+    if (!ready) {
+      setTried(true);
+      focusFirstInvalid(formId);
+      return;
+    }
+    save.mutate();
+  };
 
   return (
     <Drawer
@@ -112,7 +121,7 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
           <Button disabled={save.isPending} onClick={onClose}>
             {t("ssoAdmin.form.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={!ready}>
+          <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {creating ? t("ssoAdmin.form.create") : t("ssoAdmin.form.save")}
           </Button>
         </>
@@ -121,14 +130,14 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
         {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("ssoAdmin.form.errorTitle")} /> : null}
         {hiddenMessage !== undefined ? (
-          <Notice tone="error" live title={t("ssoAdmin.form.errorTitle")}>
-            {hiddenMessage}
-          </Notice>
+          <InlineMessage tone="error" live>
+            <span className="font-medium">{t("ssoAdmin.form.errorTitle")}</span> {hiddenMessage}
+          </InlineMessage>
         ) : null}
         {badLine !== null ? (
-          <Notice tone="error" live title={t("ssoAdmin.form.errorTitle")}>
-            {t("ssoAdmin.form.mappingsLine", { line: badLine })}
-          </Notice>
+          <InlineMessage tone="error" live>
+            <span className="font-medium">{t("ssoAdmin.form.errorTitle")}</span> {t("ssoAdmin.form.mappingsLine", { line: badLine })}
+          </InlineMessage>
         ) : null}
 
         {creating ? (
@@ -146,7 +155,7 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
           />
         ) : null}
         {creating ? (
-          <Field label={t("ssoAdmin.form.fields.name")} description={t("ssoAdmin.form.fields.nameHelp")}>
+          <Field label={t("ssoAdmin.form.fields.name")} description={t("ssoAdmin.form.fields.nameHelp")} error={tried && draft.name.trim() === "" ? required : undefined}>
             <Input
               mono
               autoComplete="off"
@@ -173,7 +182,7 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
           label={github ? t("ssoAdmin.form.fields.githubHost") : t("ssoAdmin.form.fields.issuer")}
           {...(github ? { optional: true } : {})}
           description={github ? t("ssoAdmin.form.fields.githubHostHelp") : t("ssoAdmin.form.fields.issuerHelp")}
-          error={errors.fields.issuer}
+          error={errors.fields.issuer ?? (tried && !github && draft.issuer.trim() === "" ? required : undefined)}
         >
           <Input
             mono
@@ -187,7 +196,7 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
             }}
           />
         </Field>
-        <Field label={t("ssoAdmin.form.fields.clientId")} error={errors.fields.client_id}>
+        <Field label={t("ssoAdmin.form.fields.clientId")} error={errors.fields.client_id ?? (tried && draft.clientId.trim() === "" ? required : undefined)}>
           <Input
             mono
             autoComplete="off"

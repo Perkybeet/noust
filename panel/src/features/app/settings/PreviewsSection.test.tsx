@@ -115,9 +115,8 @@ describe("pull request previews", () => {
     expect(within(needs).getByText("A wildcard DNS record")).toBeInTheDocument();
     expect(within(needs).getByText("Pull request events")).toBeInTheDocument();
     // By default a preview is given only what is chosen, and a database of its own: nothing to warn of.
-    expect(within(section).getByText("A preview runs code nobody has reviewed")).toBeInTheDocument();
-    expect(within(section).getByText(/from anyone but owners, members and collaborators, get none/)).toBeInTheDocument();
-    expect(within(section).queryByText("Previews get this app's variables")).not.toBeInTheDocument();
+    expect(within(section).queryByText(/reaches code written by pull request authors/)).not.toBeInTheDocument();
+    expect(within(section).queryByText(/connects to the app's databases and can change them/)).not.toBeInTheDocument();
     expect(within(section).getByRole("checkbox", { name: "Allow pull requests from bots" })).not.toBeChecked();
     expect(within(section).getByRole("radio", { name: "Only the ones I choose" })).toBeChecked();
     expect(within(section).getByRole("radio", { name: "A database of its own" })).toBeChecked();
@@ -146,7 +145,8 @@ describe("pull request previews", () => {
       });
     });
     expect(await within(section).findByText("On")).toBeInTheDocument();
-    expect(within(section).getByText("Now: at most 3 previews under previews.example.com, each removed after 7 days without a push.")).toBeInTheDocument();
+    // The form that was just saved is the summary: its fields keep what is in force.
+    expect(within(section).getByRole("textbox", { name: "Base domain" })).toHaveValue("previews.example.com");
     expect(within(section).getByRole("button", { name: "Turn off previews" })).toBeInTheDocument();
   });
 
@@ -307,7 +307,7 @@ describe("pull request previews", () => {
     const [ready] = within(list).getAllByRole("listitem");
     if (!ready) throw new Error("a preview expected");
     expect(await within(ready).findByText("Removing")).toBeInTheDocument();
-    expect(within(ready).getByRole("button", { name: "Redeploy #12" })).toBeDisabled();
+    expect(within(ready).getByRole("button", { name: "Update #12" })).toBeDisabled();
   });
 
   it("turns previews off after naming what is removed", async () => {

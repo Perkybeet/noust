@@ -52,7 +52,7 @@ test("going back typed in the palette opens the dialog the Roll back button open
   await page.getByRole("combobox", { name: SEARCH }).fill("roll back shop");
   await page.getByRole("option", { name: "Roll back shop.example.net" }).click();
 
-  const dialog = page.getByRole("dialog", { name: "Roll back shop.example.net" });
+  const dialog = page.getByRole("alertdialog", { name: "Roll back shop.example.net" });
   await expect(dialog).toBeVisible();
   await expectNoA11yViolations(page, "the choice of version from the palette");
   await page.keyboard.press("Escape");

@@ -123,7 +123,7 @@ test("a request behind a build waits, says what for, takes a repeat into itself,
     await expectNoA11yViolations(page, "a cancelled deploy in the history");
 
     // Its own page says so, in words, with no error under it.
-    await newest.getByRole("link").first().click();
+    await newest.getByRole("button", { name: /^Deployment \d+$/ }).click();
     await expect(page.getByText("This deploy was cancelled")).toBeVisible();
     await expect(page.getByText(/the build stopped, and what served before was not touched/)).toBeVisible();
     await expect(page.getByText("The deploy failed while building")).toHaveCount(0);

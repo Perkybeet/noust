@@ -18,7 +18,7 @@ export const registries: Catalog<typeof en> = {
   emptyDescription: "Añade una cuando una imagen o una imagen base sea privada. Las imágenes públicas no necesitan cuenta.",
   state: {
     ok: "Acceso correcto",
-    failed: "Falló",
+    failed: "Fallido",
     untested: "Sin probar",
   },
   kind: {
@@ -75,9 +75,7 @@ export const registries: Catalog<typeof en> = {
     readFailed: "No se pudieron leer las cuentas de registro",
     none: "Todavía no hay cuentas de registro.",
     manage: "Gestionar las cuentas",
-    save: "Guardar",
     saved: "Se guardaron las cuentas de {domain}",
-    saveFailed: "No se pudieron guardar las cuentas",
     fromTerminal: "Lo mismo, desde un terminal",
   },
 };

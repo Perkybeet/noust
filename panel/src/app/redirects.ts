@@ -24,7 +24,7 @@ export const REDIRECT_ROWS = [
   // The account page has no filters to carry: what the old address carried is dropped.
   { from: "/settings/security", to: "/account/security", state: "live", plain: true },
   { from: "/settings/servers", to: "/fleet/servers", state: "pending", after: "D: the fleet's servers list is the one list" },
-  { from: "/apps/$domain/settings/builds", to: "/apps/$domain/settings/build", state: "pending", after: "P: Build holds the sandbox card" },
+  { from: "/apps/$domain/settings/builds", to: "/apps/$domain/settings/build", state: "live" },
 ] as const;
 
 /**

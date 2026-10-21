@@ -86,7 +86,7 @@ async function pageAt(exposure: unknown, extra: Record<string, RouteHandler> = {
 describe("Settings > Console access", () => {
   it("says the console is private, and what is checked before it can be published, naming the accounts that stop it", async () => {
     await pageAt(PRIVATE);
-    expect(await screen.findByText("The console is private")).toBeInTheDocument();
+    expect(await screen.findByText("Private")).toBeInTheDocument();
     expect(screen.getByText("1 account signs in with a password alone")).toBeInTheDocument();
     expect(screen.getByText("dani")).toBeInTheDocument();
     expect(screen.queryByText("ana")).not.toBeInTheDocument();
@@ -166,7 +166,7 @@ describe("Settings > Console access", () => {
       "DELETE /api/console/exposure": () => json(202, { job_id: "unexpose-1", status: "pending", message: "Queued", job: { ...JOB, id: "unexpose-1", status: "running", result: null } }),
       "GET /api/jobs/unexpose-1": () => json(200, { ...JOB, id: "unexpose-1", status: "running", result: null }),
     });
-    expect(await screen.findByText("The console is published")).toBeInTheDocument();
+    expect(await screen.findByText("Published", { selector: "[data-state]" })).toHaveAttribute("data-state", "running");
     expect(screen.getByRole("link", { name: /https:\/\/console\.example\.com/ })).toBeInTheDocument();
     expect(screen.getAllByText("Written by Noust: it is removed when the console is unpublished")).toHaveLength(2);
     expect(screen.getByText("Added by Noust to the console's service: 127.0.0.1")).toBeInTheDocument();
@@ -187,7 +187,7 @@ describe("Settings > Console access", () => {
   it("is read in Spanish", async () => {
     await pageAt(PRIVATE);
     await act(() => setLocale("es"));
-    expect(await screen.findByText("La consola es privada")).toBeInTheDocument();
+    expect(await screen.findByText("Privada")).toBeInTheDocument();
     expect(screen.getByText("Un segundo factor en cada cuenta que pueda entrar")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });

@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Play } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { request } from "../../api/client";
@@ -12,6 +12,7 @@ import type { JobState } from "../../components/page/JobProgress";
 import { Button } from "../../components/ui/Button";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { LogViewer } from "../../components/ui/LogViewer";
 import { Mono } from "../../components/ui/Mono";
@@ -74,6 +75,9 @@ export function ExecPanel({ domain }: { domain: string }) {
   const [line, setLine] = useState("");
   const [service, setService] = useState("");
   const [seconds, setSeconds] = useState("");
+  // The button is never off for a value that is wrong or missing: it says what is wrong and goes there.
+  const [tried, setTried] = useState(false);
+  const commandRef = useRef<HTMLInputElement>(null);
 
   const parsed = useMemo(() => parseCommand(line), [line]);
   const syntax = useMemo(() => shellSyntaxIn(parsed.argv), [parsed.argv]);
@@ -117,7 +121,12 @@ export function ExecPanel({ domain }: { domain: string }) {
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (parsed.argv.length === 0 || parsed.unclosed !== null || timeoutInvalid || busy || run.isPending) return;
+    if (busy || run.isPending) return;
+    if (parsed.argv.length === 0 || parsed.unclosed !== null || timeoutInvalid) {
+      setTried(true);
+      commandRef.current?.focus();
+      return;
+    }
     run.mutate();
   };
 
@@ -126,7 +135,6 @@ export function ExecPanel({ domain }: { domain: string }) {
   }
 
   const code = job !== null ? exitCodeOf(job) : null;
-  const ready = parsed.argv.length > 0 && parsed.unclosed === null && !timeoutInvalid;
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -134,9 +142,10 @@ export function ExecPanel({ domain }: { domain: string }) {
         <Field
           label={t("terminal.exec.commandLabel")}
           description={t("terminal.exec.commandHelp")}
-          error={parsed.unclosed !== null ? t("terminal.exec.unclosed") : undefined}
+          error={parsed.unclosed !== null ? t("terminal.exec.unclosed") : tried && parsed.argv.length === 0 ? t("terminal.exec.required") : undefined}
         >
           <Input
+            ref={commandRef}
             mono
             autoComplete="off"
             spellCheck={false}
@@ -193,16 +202,12 @@ export function ExecPanel({ domain }: { domain: string }) {
             </Field>
           </div>
         </Disclosure>
-        <div>
-          <Button
-            type="submit"
-            variant="primary"
-            icon={<Play aria-hidden="true" />}
-            loading={run.isPending || busy}
-            disabled={permitted !== true || !ready}
-          >
+        <div className="flex flex-col items-start gap-2">
+          {/* The page's one primary is the shell above or the application's own Update: this is a secondary. */}
+          <Button type="submit" icon={<Play aria-hidden="true" />} loading={run.isPending || busy} disabled={permitted !== true}>
             {busy ? t("terminal.exec.running") : finished ? t("terminal.exec.again") : t("terminal.exec.run")}
           </Button>
+          {tried && timeoutInvalid ? <InlineMessage tone="error">{t("terminal.exec.timeoutInvalidForm")}</InlineMessage> : null}
         </div>
       </form>
 

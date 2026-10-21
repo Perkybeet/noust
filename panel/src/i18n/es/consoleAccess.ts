@@ -3,23 +3,24 @@ import type { Catalog } from "../types";
 
 export const consoleAccess: Catalog<typeof en> = {
   nav: {
-    label: "Acceso a la consola",
+    label: "Dirección de la consola",
     keywords: "publicar exponer consola dominio https certificado nombre público nginx túnel lista de permitidos",
-    command: "Ajustes del acceso a la consola",
+    command: "Ajustes de la dirección de la consola",
   },
-  documentTitle: "Acceso a la consola",
+  documentTitle: "Dirección de la consola",
   loadFailed: "No se pudo leer si la consola está publicada",
   loading: "Leyendo si la consola está publicada",
   state: {
-    on: "La consola está publicada",
-    onBody: "Responde en {url} por HTTPS. El token de acceso de emergencia sigue entrando ahí: guárdalo fuera de línea.",
-    off: "La consola es privada",
+    title: "Nombre público",
+    on: "Publicada",
+    onBody: "La consola responde en {url} por HTTPS. El token de acceso de emergencia sigue entrando ahí: guárdalo fuera de línea.",
+    off: "Privada",
     offBody:
-      "Escucha solo en este servidor, y se llega a ella por un túnel SSH. Publicarla le da un nombre propio y un certificado, y se abre desde un navegador sin túnel.",
+      "La consola escucha solo en este servidor, y se llega a ella por un túnel SSH. Publicarla le da un nombre y un certificado, y un navegador la abre sin túnel.",
     problem: "Publicada, con un problema",
     problemBody: "Está publicada en {url}, pero algo que Noust hizo para ella no está como lo dejó.",
-    unfinished: "Un intento anterior no terminó",
-    unfinishedBody: "Parte del trabajo para {domain} se hizo y el resto no. Despublicarla limpia exactamente lo que se hizo.",
+    unfinished: "Sin terminar",
+    unfinishedBody: "Un intento anterior hizo parte del trabajo para {domain} y el resto no. Despublicarla limpia exactamente lo que se hizo.",
   },
   actions: {
     publish: "Publicar la consola…",
@@ -27,7 +28,6 @@ export const consoleAccess: Catalog<typeof en> = {
     open: "Abrir {url}",
   },
   facts: {
-    title: "Lo que se publicó",
     address: "Dirección",
     allowList: "Accesible desde",
     anyone: "Cualquiera que conozca el nombre",
@@ -88,8 +88,6 @@ export const consoleAccess: Catalog<typeof en> = {
     jobSucceeded: "La consola está publicada en {domain}",
     jobFailed: "Falló la publicación de la consola en {domain}",
     logLabel: "Salida de la publicación de la consola",
-    logEmpty: "La tarea todavía no ha imprimido nada.",
-    notes: "Qué saber",
     restarting: "La consola se reinicia en unos segundos y responde en la nueva dirección.",
   },
   unpublish: {

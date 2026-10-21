@@ -50,7 +50,7 @@ test("log shipping adds a destination whose token is only written, lists it, and
 
 test("an application's unit security says which sandbox it runs in and how exposed systemd finds it", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${APP}/settings/security`);
-  await expect(page.getByRole("heading", { level: 2, name: "Unit security" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Service security" })).toBeVisible();
   // The three profiles are choices of the page, with what each takes away.
   await expect(page.getByRole("radio", { name: /Default/ })).toBeVisible();
   await expect(page.getByRole("radio", { name: /Strict/ })).toBeVisible();

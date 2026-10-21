@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
@@ -6,14 +7,13 @@ import { changeCompliance, complianceKeys, planCompliance } from "../../../api/q
 import type { ComplianceChange, ComplianceControl, CompliancePlan, ComplianceState } from "../../../api/queries/compliance";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section } from "../../../components/page/Section";
-import { Subsection } from "../../../components/page/Subsection";
+import { SettingsGroup } from "../../../components/page/SettingsGroup";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Select } from "../../../components/ui/Select";
-import { Switch } from "../../../components/ui/Switch";
+import { Setting } from "../../../components/ui/Setting";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { PlainKey } from "../../../i18n";
@@ -131,53 +131,62 @@ interface ControlRowProps {
   onEdit: (control: ComplianceControl) => void;
 }
 
+/** One control as a row of settings: a switch for a flag, its value and a button for a number or a choice. */
 function ControlRow({ control, state, canManage, busy, onFlag, onEdit }: ControlRowProps) {
   const t = useT();
   const title = controlTitle(t, control.id);
-  const locked = control.locked;
+  const help = (
+    <>
+      {controlSummary(t, control.id)}
+      {control.check_only ? <span className="block text-fg-faint">{t("complianceSetup.controls.checkOnly")}</span> : null}
+    </>
+  );
+  if (control.kind === "flag") {
+    // A framework that forces a control on keeps it on: the lock says who sets it.
+    const forcedOn = control.locked && control.value === true;
+    return (
+      <Setting
+        label={title}
+        help={help}
+        checked={control.value === true}
+        busy={busy}
+        onCheckedChange={(next) => {
+          onFlag(control, next);
+        }}
+        {...(forcedOn ? { lockedBy: t("complianceSetup.controls.lockedBy", { names: lockedBy(state.frameworks, control) }) } : {})}
+        {...(!canManage && !forcedOn ? { disabled: true as const, reason: t("complianceSetup.controls.noPermission") } : {})}
+      />
+    );
+  }
   return (
-    <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
-      <div className="min-w-0 flex-1">
-        <p className="text-13 font-medium text-fg">{title}</p>
-        <p className="max-w-measure text-12 text-pretty text-fg-muted">{controlSummary(t, control.id)}</p>
-        {locked ? (
-          <p className="mt-0.5 flex items-center gap-1 text-12 text-fg-muted">
-            <LockedMark />
-            {t("complianceSetup.controls.lockedBy", { names: lockedBy(state.frameworks, control) })}
-          </p>
-        ) : null}
-        {control.check_only ? <p className="mt-0.5 text-12 text-fg-faint">{t("complianceSetup.controls.checkOnly")}</p> : null}
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
-        {control.kind === "flag" ? (
-          <Switch
-            aria-label={title}
-            checked={control.value === true}
-            disabled={!canManage || busy || (locked && control.value === true)}
-            onCheckedChange={(next) => {
-              onFlag(control, next);
-            }}
-          />
-        ) : (
-          <>
-            <span className="text-13 text-fg">{formatValue(t, control, control.value)}</span>
-            {canManage ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                aria-label={`${t("complianceSetup.controls.change")} ${title}`}
-                disabled={busy}
-                onClick={() => {
-                  onEdit(control);
-                }}
-              >
-                {t("complianceSetup.controls.change")}
-              </Button>
-            ) : null}
-          </>
-        )}
-      </div>
-    </li>
+    <Setting
+      label={title}
+      help={help}
+      action={
+        <span className="flex items-center gap-3">
+          <span className="text-13 text-fg">{formatValue(t, control, control.value)}</span>
+          {canManage ? (
+            <Button icon={<Pencil aria-hidden="true" />}
+              size="sm"
+              aria-label={`${t("complianceSetup.controls.change")} ${title}`}
+              disabled={busy}
+              onClick={() => {
+                onEdit(control);
+              }}
+            >
+              {t("complianceSetup.controls.change")}
+            </Button>
+          ) : null}
+        </span>
+      }
+    >
+      {control.locked ? (
+        <p className="flex items-center gap-1 text-12 text-fg-muted">
+          <LockedMark />
+          {t("complianceSetup.controls.lockedBy", { names: lockedBy(state.frameworks, control) })}
+        </p>
+      ) : undefined}
+    </Setting>
   );
 }
 
@@ -218,25 +227,21 @@ export function ControlsSection({ state, canManage }: { state: ComplianceState; 
         const rows = inGroup(state.controls, group);
         if (rows.length === 0) return null;
         return (
-          <Subsection key={group} level={4} title={t(`complianceSetup.controls.group.${group}` as PlainKey)}>
-            <Card padding="sm">
-              <ul className="flex flex-col divide-y divide-border">
-                {rows.map((control) => (
-                  <ControlRow
-                    key={control.id}
-                    control={control}
-                    state={state}
-                    canManage={canManage}
-                    busy={flip.isPending}
-                    onFlag={(chosen, next) => {
-                      flip.mutate({ control: chosen, next });
-                    }}
-                    onEdit={setEditing}
-                  />
-                ))}
-              </ul>
-            </Card>
-          </Subsection>
+          <SettingsGroup key={group} level={4} title={t(`complianceSetup.controls.group.${group}` as PlainKey)}>
+            {rows.map((control) => (
+              <ControlRow
+                key={control.id}
+                control={control}
+                state={state}
+                canManage={canManage}
+                busy={flip.isPending && flip.variables.control.id === control.id}
+                onFlag={(chosen, next) => {
+                  if (!flip.isPending) flip.mutate({ control: chosen, next });
+                }}
+                onEdit={setEditing}
+              />
+            ))}
+          </SettingsGroup>
         );
       })}
       {editing !== null ? (

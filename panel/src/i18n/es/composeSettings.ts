@@ -27,7 +27,6 @@ export const composeSettings: Catalog<typeof en> = {
     label: "Servicios",
     description: "Compila e inicia solo estos (y de lo que dependen). Vacío significa todos los servicios.",
   },
-  save: "Guardar",
   saved: "Se guardaron los ajustes de Compose de {domain}. Se aplican en la próxima actualización.",
   notSaved: "No se guardaron los ajustes de Compose de {domain}",
   reset: "Olvidar estas elecciones",
@@ -38,7 +37,7 @@ export const composeSettings: Catalog<typeof en> = {
   networks: {
     title: "Redes de Docker",
     description: "Las redes en las que está la pila y quién más está en ellas, tal como las informa Docker. Solo lectura.",
-    loading: "Leyendo las redes de la pila",
+    loading: "Cargando las redes de la pila",
     readFailed: "No se pudieron leer las redes de la pila",
     none: "La pila no está en ninguna red de Docker ahora. Sus contenedores no están en marcha.",
     isolated: "Aislada: todas las redes son de la pila y no hay nada más en ellas.",
@@ -51,4 +50,8 @@ export const composeSettings: Catalog<typeof en> = {
     other: "Otra pila",
   },
   fromTerminal: "Lo mismo, desde un terminal",
+  page: {
+    title: "Compose",
+    description: "Con qué se construye y arranca la pila, las redes de Docker en las que está y las cuentas de registro con las que descarga.",
+  },
 };

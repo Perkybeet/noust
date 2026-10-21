@@ -109,9 +109,10 @@ const APPLICATION_SETTINGS: readonly Route[] = [
   { id: "app-settings-deploys", path: "/apps/tienda.example.org/settings/deploys" },
   { id: "app-settings-deploy-on-push", path: "/apps/tienda.example.org/settings/deploy-on-push" },
   { id: "app-settings-hooks", path: "/apps/tienda.example.org/settings/hooks" },
+  { id: "app-settings-automation", path: "/apps/tienda.example.org/settings/automation" },
   { id: "app-settings-access", path: "/apps/tienda.example.org/settings/access" },
+  { id: "app-settings-protection", path: "/apps/tienda.example.org/settings/protection" },
   { id: "app-settings-build", path: "/apps/shop.example.net/settings/build" },
-  { id: "app-settings-builds", path: "/apps/tienda.example.org/settings/builds" },
   { id: "app-settings-resources", path: "/apps/shop.example.net/settings/resources" },
   { id: "app-settings-disk", path: "/apps/shop.example.net/settings/disk" },
   { id: "app-settings-processes", path: "/apps/tienda.example.org/settings/processes" },
@@ -128,6 +129,8 @@ test.use({ viewport: { width: 1440, height: 900 } });
 const NOT_A_SUBSECTION: Readonly<Record<string, string>> = {
   "settings/security.tsx": "it redirects to /account/security, where the person's sign-in security is",
   "apps/$domain/settings/container.tsx": "only a container application has it, and the seeded machine has none",
+  "apps/$domain/settings/compose.tsx": "only a Compose stack has it, and the seeded machine has none",
+  "apps/$domain/settings/builds.tsx": "it redirects to Build: the sandbox is a card of that page since 4.0",
 };
 
 /** The route files under a settings directory of src/routes, as `settings/x.tsx` relative to _console. */

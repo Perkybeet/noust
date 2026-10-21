@@ -39,18 +39,20 @@ const OBJECT_OF: Readonly<Record<string, ObjectName>> = {
   "app.settings": "general",
   "app.settings.source": "source",
   "app.settings.build": "build",
-  "app.settings.builds": "builds",
   "app.settings.container": "container",
   "app.settings.deploys": "release",
-  "app.settings.deploy-on-push": "trigger",
-  "app.settings.hooks": "hook",
+  "app.settings.automation": "automaticDeploys",
+  "app.settings.compose": "compose",
+  "app.settings.deploy-on-push": "webhook",
+  "app.settings.hooks": "hooks",
   "app.settings.previews": "preview",
   "app.settings.resources": "resources",
+  "app.settings.processes": "processes",
+  "app.settings.mounts": "mounts",
   "app.settings.disk": "disk",
-  "app.settings.processes": "process",
-  "app.settings.mounts": "mount",
-  "app.settings.security": "security",
+  "app.settings.security": "serviceSecurity",
   "app.settings.access": "access",
+  "app.settings.protection": "protection",
   "app.settings.export": "export",
   "app.settings.delete": "delete",
   // Settings.
@@ -79,7 +81,7 @@ const OBJECT_OF: Readonly<Record<string, ObjectName>> = {
   "settings.central": "central",
   // The account.
   account: "account",
-  "account.security": "signIn",
+  "account.security": "signInSecurity",
 };
 
 /** The ids this table draws: a test holds them to the areas and the sections of the register, in both directions. */

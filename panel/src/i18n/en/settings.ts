@@ -6,6 +6,7 @@ export const settings = {
     description: "How Noust runs on this machine and who can reach the console.",
   },
   shared: {
+    required: "Required",
     cancel: "Cancel",
     done: "Done",
     save: "Save",
@@ -23,8 +24,7 @@ export const settings = {
 
   general: {
     documentTitle: "General settings",
-    loading: "Loading the general settings",
-    loadFailed: "Could not load the general settings",
+    what: "the general settings",
     notSaved: "The general settings were not saved",
     fromTerminal: "Every setting, from a terminal",
     notWritableTitle: "Saving will fail",
@@ -216,20 +216,15 @@ export const settings = {
       revoked: "Revoked",
     },
     columnName: "Name",
-    columnScope: "Scope",
     columnState: "State",
-    columnCreated: "Created",
     columnExpires: "Expires",
     columnLastUsed: "Last used",
     revokedNotApplicable: "Does not apply to a revoked token",
     never: "Never",
     createToken: "Create token",
-    sectionTitle: "Tokens for automation",
-    sectionDescription: "Named tokens for CI and scripts, each with a scope and an optional expiry. A token is shown once, when it is created; after that only its name and scope remain.",
     loadingLabel: "API tokens",
     tableCaption: "API tokens",
     emptyTitle: "No API tokens yet",
-    emptyDescription: "Create one for a CI pipeline or a script. It acts with the scope you choose, and you can revoke it at any time.",
     revokeLabel: "Revoke {name}",
     revokeText: "Revoke",
     usingTitle: "Using a token",
@@ -240,8 +235,8 @@ export const settings = {
     revokedToast: "Revoked token {name}",
     scopes: {
       read: { label: "Read", description: "Looks, never changes: applications, deployments, logs, metrics and the state of the machine." },
-      deploy: { label: "Deploy", description: "Read, plus create and update applications and roll them back. The one for CI." },
-      admin: { label: "Admin", description: "Everything the console can do, including deleting, editing configuration and managing tokens." },
+      deploy: { label: "Deploy" },
+      admin: { label: "Admin" },
     },
     expiry: {
       "7": "7 days",
@@ -256,6 +251,7 @@ export const settings = {
       title: "Create an API token",
       description: "For CI and scripts: sent as a Bearer token, it acts with its scope and nothing more.",
       errorTitle: "Could not create the token",
+      reachRequired: "Choose the team, project or environment the token reaches.",
       nameLabel: "Name",
       nameDescription: "After what will hold it, such as ci-deploy. Names are never reused.",
       scopeLegend: "Scope",
@@ -719,9 +715,12 @@ export const settings = {
       source: "a source checkout",
       unknown: "the package source",
     },
+    groups: {
+      updates: { title: "Version and updates", description: "Which Noust is running here, whether a newer one can be installed, and whether this server installs it by itself." },
+      support: { title: "This installation and support", description: "What this server runs, whether it is ready for deployments, and what to send when something goes wrong." },
+    },
     version: {
       title: "Version",
-      description: "The installed Noust, and whether a newer one can be installed on this server.",
       checkAgain: "Check again",
       installedLabel: "Installed",
       checkingLabel: "Checking for updates",
@@ -756,7 +755,6 @@ export const settings = {
       releasedOn: "Released {date}",
       current: "Installed",
       actionRequired: "Action required",
-      actionRequiredNote: "Do this when you update to this version.",
       show: "Show what changed",
       showEarlier: "Show earlier versions",
       showFewer: "Show fewer versions",
@@ -770,7 +768,6 @@ export const settings = {
     },
     installCheck: {
       title: "Installation check",
-      description: "What a deployment depends on, on this server, and the command that fixes what is missing.",
       recheck: "Run the check again",
       show: "Show the checks",
       loadFailed: "Could not run the installation check",
@@ -809,19 +806,23 @@ export const settings = {
       title: "Project",
     },
     rename: {
-      title: "Noust was called WASM",
       body: "Noust is the new name of WASM since version 3.0. The {wasm} command still works as {noust} throughout 3.x, and a server that ran WASM keeps its applications, settings and history.",
     },
-    license: {
-      label: "Licence",
-      description: "Free to use, study and change, commercially too. A modified version offered to others as a service must publish its source.",
+    legal: {
+      title: "Licence and warranty",
+      copyright: "© 2024-2026 Yago López Prado",
+      license:
+        "Noust is free software under the {license} ({id}). You may use, study, change and share it, commercially too; a modified version offered to others as a service must publish its source.",
+      licenseName: "GNU Affero General Public License, version 3 or later",
+      warranty: "There is no warranty for Noust, to the extent permitted by law.",
+      source: "The complete source code is at {repository}.",
+      repositoryName: "github.com/Perkybeet/noust",
     },
     links: {
       documentation: { label: "Documentation", description: "Installing, deploying and every command." },
       releaseNotes: { label: "Release notes", description: "What changed in each version." },
       reportProblem: { label: "Report a problem", description: "Include the output of noust support report." },
       getHelp: { label: "Getting help", description: "Where to ask, and what to include." },
-      source: { label: "Source code", description: "On GitHub." },
     },
     terminal: {
       title: "Commands for Noust itself",

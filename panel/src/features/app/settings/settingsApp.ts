@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { createContext, useContext } from "react";
 
 import type { App } from "../../../api/queries/apps";
@@ -25,3 +26,20 @@ export function useSubsectionTitle(section: PlainKey, domain: string): void {
   useDocumentTitle(t("appSettings.documentTitle", { section: t(section), domain }), 1);
 }
 
+
+/**
+ * The icons the register gives the subsections, by the label of each: the settings' layout provides
+ * them, so a page never imports the register (which names the strings of a dozen namespaces) to
+ * head itself with the icon its entry in the side list has.
+ */
+export const SettingsIconsContext = createContext<ReadonlyMap<PlainKey, LucideIcon>>(new Map());
+
+/**
+ * The icon of a subsection, as the props of the `Section` that heads its page: one object, one icon,
+ * so the heading draws the one its entry in the side list does (docs/DESIGN.md, 2.8). Nothing while
+ * the register gives none.
+ */
+export function useSubsectionIcon(section: PlainKey): { icon?: LucideIcon } {
+  const icon = useContext(SettingsIconsContext).get(section);
+  return icon === undefined ? {} : { icon };
+}

@@ -198,7 +198,6 @@ describe("an application's Domains tab, beyond its names", () => {
     await user.type(within(dialog).getByLabelText("Domain"), `api.${APP}`);
     await user.type(within(dialog).getByLabelText(/^Port/), "9200");
     await user.click(within(dialog).getByRole("checkbox", { name: /Make its DNS record/ }));
-    await user.click(within(dialog).getByRole("button", { name: "Check DNS" }));
     expect(await within(dialog).findByText(`api.${APP} points here`)).toBeInTheDocument();
     expect(within(dialog).getByText("Asked of 1.1.1.1, as the certificate authority will.")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
@@ -220,14 +219,14 @@ describe("an application's Domains tab, beyond its names", () => {
     await user.click(await screen.findByRole("button", { name: "Add domain" }));
     const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
     await user.type(within(dialog).getByLabelText("Domain"), `cdn.${APP}`);
-    await user.click(within(dialog).getByRole("button", { name: "Check DNS" }));
+    await user.tab();
     expect(await within(dialog).findByText(`cdn.${APP} is behind Cloudflare's proxy`)).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Add domain" })).toBeInTheDocument();
 
     const name = within(dialog).getByLabelText("Domain");
     await user.clear(name);
     await user.type(name, `nat.${APP}`);
-    await user.click(within(dialog).getByRole("button", { name: "Check DNS" }));
+    await user.tab();
     expect(await within(dialog).findByText(`nat.${APP} resolves, but this server cannot tell if that is its own address`)).toBeInTheDocument();
     expect(within(dialog).getByText("dns.public_addresses")).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Add domain" })).toBeInTheDocument();
@@ -250,7 +249,7 @@ describe("an application's Domains tab, beyond its names", () => {
     await user.click(await screen.findByRole("button", { name: "Add domain" }));
     const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
     await user.type(within(dialog).getByLabelText("Domain"), `legacy.${APP}`);
-    await user.click(within(dialog).getByRole("button", { name: "Check DNS" }));
+    await user.tab();
     await within(dialog).findByText(`legacy.${APP} points here`);
     await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
 
@@ -264,6 +263,48 @@ describe("an application's Domains tab, beyond its names", () => {
       expect(backend.callsTo(`POST /api/apps/${APP}/domains`)).toHaveLength(2);
     });
     expect(backend.callsTo(`POST /api/apps/${APP}/domains`)[1]?.body).toMatchObject({ force: true });
+  });
+
+  it("asks DNS when the field is left, and adds in one press once it points here", async () => {
+    const { user, backend } = tab({
+      [`GET /api/apps/${APP}/domains/shop2.${APP}/dns`]: () =>
+        json(200, { domain: `shop2.${APP}`, expected_addresses: ["203.0.113.10"], resolved_addresses: ["203.0.113.10"], points_here: true, verdict: "here", cdn: null, resolver: "" }),
+      [`POST /api/apps/${APP}/domains`]: () => json(201, change()),
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Add domain" }));
+    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
+    await user.type(within(dialog).getByLabelText("Domain"), `shop2.${APP}`);
+    // Nothing asked while typing; leaving the field asks, and the verdict is in view before any press.
+    expect(backend.calls.filter((call) => call.path.endsWith("/dns") && call.path.includes("shop2"))).toHaveLength(0);
+    await user.tab();
+    expect(await within(dialog).findByText(`shop2.${APP} points here`)).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Check DNS" })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
+    await waitFor(() => {
+      expect(backend.callsTo(`POST /api/apps/${APP}/domains`)).toHaveLength(1);
+    });
+  });
+
+  it("waits for DNS when Add is pressed straight from the field, and shows the verdict instead of adding a name that points elsewhere", async () => {
+    const { user, backend } = tab({
+      [`GET /api/apps/${APP}/domains/elsewhere.${APP}/dns`]: () =>
+        json(200, { domain: `elsewhere.${APP}`, expected_addresses: ["203.0.113.10"], resolved_addresses: ["198.51.100.23"], points_here: false, verdict: "elsewhere", cdn: null, resolver: "" }),
+      [`POST /api/apps/${APP}/domains`]: () => json(201, change()),
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Add domain" }));
+    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
+    await user.type(within(dialog).getByLabelText("Domain"), `elsewhere.${APP}`);
+    // The press that leaves the field is also the one that adds: DNS is still being asked when it lands.
+    await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
+    expect(await within(dialog).findByText(`elsewhere.${APP} points somewhere else`)).toBeInTheDocument();
+    expect(backend.callsTo(`POST /api/apps/${APP}/domains`)).toHaveLength(0);
+    // The button now says what pressing it does.
+    await user.click(within(dialog).getByRole("button", { name: "Add anyway" }));
+    await waitFor(() => {
+      expect(backend.callsTo(`POST /api/apps/${APP}/domains`)).toHaveLength(1);
+    });
   });
 
   it("follows the certificate job a removal starts", async () => {
@@ -280,7 +321,8 @@ describe("an application's Domains tab, beyond its names", () => {
     await user.click(within(row).getByRole("button", { name: `Actions for admin.${APP}` }));
     await user.click(await screen.findByRole("menuitem", { name: "Remove" }));
     const dialog = await screen.findByRole("alertdialog");
-    await user.type(within(dialog).getByRole("textbox"), `admin.${APP}`);
+    // A domain can be added again: one question with one button, the name is not typed.
+    expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Remove domain" }));
 
     await waitFor(() => {

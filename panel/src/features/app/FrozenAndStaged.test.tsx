@@ -87,21 +87,28 @@ async function open(path: string, app: Record<string, unknown>, extra: Record<st
   return { ...harness, backend };
 }
 
+/** The row of the build that waits, in the one list of the deployments tab. */
+async function waitingRow(): Promise<HTMLElement> {
+  const table = await screen.findByRole("region", { name: `Deploys of ${TAB_DOMAIN}, newest first` });
+  const row = (await within(table).findByText("Built, not serving")).closest("tr");
+  if (row === null) throw new Error("no row for the build that waits");
+  return row;
+}
+
 // Whole-console renders: generous under a loaded machine or a slow CI runner.
 describe("a release that was built and is waiting", { timeout: 20_000 }, () => {
   const releases = { [`GET /api/apps/${TAB_DOMAIN}/releases`]: () => json(200, RELEASES) };
 
-  it("is told apart and offered to serve, not to go back to", async () => {
-    await open("/deployments", { layout: "releases" }, releases);
+  it("is told apart in the one list, and offered to serve, not to go back to", async () => {
+    const { user } = await open("/deployments", { layout: "releases" }, releases);
 
-    const list = await screen.findByRole("list", { name: `Versions of ${TAB_DOMAIN}, newest first` });
-    const [waiting, serving] = within(list).getAllByRole("listitem");
-    if (waiting === undefined || serving === undefined) throw new Error("two versions should be listed");
-    expect(within(waiting).getByText("Built, not serving")).toBeInTheDocument();
-    expect(within(waiting).getByRole("button", { name: /Make it serve/ })).toBeInTheDocument();
-    expect(within(waiting).queryByRole("button", { name: /Go back/ })).not.toBeInTheDocument();
-    expect(within(serving).queryByRole("button")).not.toBeInTheDocument();
-    await expectNoAxeViolations(list);
+    const row = await waitingRow();
+    expect(within(row).getByText("bbbbbbb")).toBeInTheDocument();
+    await user.click(within(row).getByRole("button", { name: "Actions for Built, not serving" }));
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Make it serve"]);
+    await user.keyboard("{Escape}");
+    await expectNoAxeViolations(screen.getByRole("main"));
   });
 
   it("makes it serve after asking, with nothing built again", async () => {
@@ -111,7 +118,8 @@ describe("a release that was built and is waiting", { timeout: 20_000 }, () => {
       [`GET /api/jobs/${JOB.id}`]: () => json(200, { ...JOB, status: "running" }),
     });
 
-    await user.click(await screen.findByRole("button", { name: /Make it serve/ }));
+    await user.click(within(await waitingRow()).getByRole("button", { name: "Actions for Built, not serving" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Make it serve" }));
     const confirm = await screen.findByRole("alertdialog", { name: `Make release ${WAITING} serve?` });
     expect(within(confirm).getByText(/Commit bbbbbbb was built earlier and is not serving/)).toBeInTheDocument();
     expect(backend.callsTo(`POST /api/apps/${TAB_DOMAIN}/releases/${WAITING}/promote`)).toHaveLength(0);
@@ -130,7 +138,8 @@ describe("a release that was built and is waiting", { timeout: 20_000 }, () => {
       [`GET /api/jobs/${JOB.id}`]: () => json(200, { ...JOB, status: "running" }),
     });
 
-    await user.click(await screen.findByRole("button", { name: /Make it serve/ }));
+    await user.click(within(await waitingRow()).getByRole("button", { name: "Actions for Built, not serving" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Make it serve" }));
     const confirm = await screen.findByRole("alertdialog", { name: `Make release ${WAITING} serve?` });
     await user.click(within(confirm).getByRole("button", { name: "Make it serve" }));
 
@@ -156,7 +165,7 @@ describe("building without serving", { timeout: 20_000 }, () => {
       [`GET /api/jobs/${JOB.id}`]: () => json(200, { ...JOB, status: "running" }),
     });
 
-    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("button", { name: "More options for Update" }));
     const menu = await screen.findByRole("menu");
     await user.click(within(menu).getByRole("menuitem", { name: /Build without serving/ }));
 
@@ -168,7 +177,7 @@ describe("building without serving", { timeout: 20_000 }, () => {
   it("is not offered to an app kept in one folder", async () => {
     const { user } = await open("", { layout: "inplace" }, {});
 
-    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("button", { name: "More options for Update" }));
     const menu = await screen.findByRole("menu");
     expect(within(menu).queryByRole("menuitem", { name: /Build without serving/ })).not.toBeInTheDocument();
   });

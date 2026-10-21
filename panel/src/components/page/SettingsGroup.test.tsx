@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Archive } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
@@ -9,6 +10,16 @@ import { StatusPill } from "../ui/StatusPill";
 import { SettingsGroup } from "./SettingsGroup";
 
 describe("SettingsGroup", () => {
+  it("passes the icon of its object to the card, before the title", () => {
+    render(
+      <SettingsGroup title="Backups before an update" icon={Archive}>
+        <Setting label="Refuse an update when its backup fails" checked onCheckedChange={() => undefined} />
+      </SettingsGroup>,
+    );
+    const heading = screen.getByRole("heading", { name: "Backups before an update" });
+    expect(heading.previousElementSibling).toHaveAttribute("aria-hidden", "true");
+  });
+
   it("is a card whose rows are told apart by a hairline, not a card each", () => {
     render(
       <SettingsGroup title="Notifications">

@@ -302,7 +302,7 @@ withCatalogApps("a container application's settings show how its image is made a
   const saved = page.waitForRequest((request) => request.url().endsWith("/api/apps/crate.example.net/container") && request.method() === "PUT");
   await page.getByRole("region", { name: "Unsaved changes" }).getByRole("button", { name: "Save" }).click();
   expect((await saved).postDataJSON()).toEqual({ clear_registry: false, container_port: 3100, volumes: ["/data", "/uploads"] });
-  await expect(page.getByText("Saved. It takes effect with the next update.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Unsaved changes" }).getByText("No unsaved changes")).toBeVisible();
   const stored = (await (await page.request.get("/api/apps/crate.example.net/container")).json()) as { container_port: number; volumes: string[] };
   expect(stored).toMatchObject({ container_port: 3100, volumes: ["/data", "/uploads"] });
   // Put back, so the other theme's run finds the app as it was seeded.
@@ -327,13 +327,13 @@ withCatalogApps("an image's registry account is kept without its password coming
   await expectNoA11yViolations(page, "an image application's settings");
 });
 
-withCatalogApps("a Compose stack and a container have no build commands to set, and the navigation does not offer them", async ({ page, consoleServer }) => {
+withCatalogApps("a Compose stack and a container have no build commands to set, and the Build page says so and keeps only the sandbox", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/apps/vault.example.net/settings/build");
   for (const domain of ["vault.example.net", "crate.example.net"]) {
     await page.goto(`/apps/${domain}/settings/build`);
-    await expect(page.getByRole("heading", { level: 2, name: "Build commands" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Build", exact: true })).toBeVisible();
     await expect(page.getByText(/is built by its own configuration, so it has no build commands here/)).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Application settings" }).first().getByRole("link", { name: "Build commands" })).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: /^Build command/ })).toHaveCount(0);
   }
 });
 

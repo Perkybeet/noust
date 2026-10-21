@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, CircleArrowUp, CircleDashed, CircleHelp, RefreshCw, RotateCw } from "lucide-react";
+import { CircleArrowUp, CircleDashed, CircleHelp, RefreshCw, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -17,10 +17,10 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { Section, Sections } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { ExternalLink } from "../../components/ui/ExternalLink";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
-import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
@@ -44,7 +44,6 @@ function links(t: T): readonly { label: string; href: string; description: strin
     { label: t("settings.about.links.releaseNotes.label"), href: `${REPOSITORY}/releases`, description: t("settings.about.links.releaseNotes.description") },
     { label: t("settings.about.links.reportProblem.label"), href: `${REPOSITORY}/issues`, description: t("settings.about.links.reportProblem.description") },
     { label: t("settings.about.links.getHelp.label"), href: `${REPOSITORY}/blob/main/docs/SUPPORT.md`, description: t("settings.about.links.getHelp.description") },
-    { label: t("settings.about.links.source.label"), href: REPOSITORY, description: t("settings.about.links.source.description") },
   ];
 }
 
@@ -197,9 +196,9 @@ function VersionSection() {
   const version = useQuery(versionQuery());
   return (
     <Section
+      level={3}
       title={t("settings.about.version.title")}
-      description={t("settings.about.version.description")}
-      loading={version.data === undefined && !version.isError}
+      loading={version.isPending}
       actions={
         <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={version.isFetching} onClick={() => void version.refetch()}>
           {t("settings.about.version.checkAgain")}
@@ -227,11 +226,10 @@ function VersionSection() {
             ) : version.isError ? (
               <ErrorBlock compact error={version.error} title={t("settings.about.version.checkFailed")} className="w-full" />
             ) : (
-              <div aria-busy="true" className="flex flex-col gap-2">
-                <span className="sr-only">{t("settings.about.version.checkingLabel")}</span>
+              <LoadingRegion label={t("settings.about.version.checkingLabel")} className="flex flex-col gap-2">
                 <Skeleton className="h-4 w-56" />
                 <Skeleton className="h-3 w-40" />
-              </div>
+              </LoadingRegion>
             )}
           </div>
         </div>
@@ -250,7 +248,7 @@ function InstallationSection() {
   // A node's console is reached through this one; its own address is the one it says it has.
   const address = node === null ? window.location.origin : publicUrl;
   return (
-    <Section title={t("settings.about.installation.title")}>
+    <Section level={3} title={t("settings.about.installation.title")}>
       <Card padding="sm">
         <KeyValueList
           items={[
@@ -271,43 +269,66 @@ function InstallationSection() {
   );
 }
 
-/** Where the project lives, its licence, and the name it had before. */
+/**
+ * The notices the AGPL-3.0 asks an interactive interface to display (section 5, d): who holds the
+ * copyright, that the licence lets anyone use, change and share the work, that there is no
+ * warranty, where to read the licence, and (section 13) where the source of this version is.
+ */
+function LegalNotice() {
+  const t = useT();
+  return (
+    <Card level={4} title={t("settings.about.legal.title")} padding="sm">
+      <div className="flex max-w-measure min-w-0 flex-col gap-2 text-13 text-fg-muted">
+        <p className="font-medium text-fg">{t("settings.about.legal.copyright")}</p>
+        <p>
+          {t.rich("settings.about.legal.license", {
+            license: (
+              <ExternalLink key="license" inline href={`${REPOSITORY}/blob/main/LICENSE`}>
+                {t("settings.about.legal.licenseName")}
+              </ExternalLink>
+            ),
+            id: <Mono key="id">AGPL-3.0-or-later</Mono>,
+          })}
+        </p>
+        <p>{t("settings.about.legal.warranty")}</p>
+        <p>
+          {t.rich("settings.about.legal.source", {
+            repository: (
+              <ExternalLink key="repository" inline href={REPOSITORY}>
+                {t("settings.about.legal.repositoryName")}
+              </ExternalLink>
+            ),
+          })}
+        </p>
+      </div>
+    </Card>
+  );
+}
+
+/** Where the project lives, its legal notices, and the name it had before. */
 function ProjectSection() {
   const t = useT();
   return (
-    <Section title={t("settings.about.project.title")}>
-      <Notice title={t("settings.about.rename.title")}>
-        <p className="max-w-measure text-pretty">
-          {t.rich("settings.about.rename.body", { wasm: <Mono key="wasm">wasm</Mono>, noust: <Mono key="noust">noust</Mono> })}
-        </p>
-      </Notice>
-      <Card padding="none">
-        <ul className="flex flex-col divide-y divide-border">
+    <Section
+      level={3}
+      title={t("settings.about.project.title")}
+      description={t.rich("settings.about.rename.body", { wasm: <Mono key="wasm">wasm</Mono>, noust: <Mono key="noust">noust</Mono> })}
+    >
+      <Card padding="sm">
+        <ul className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
           {links(t).map((link) => (
-            <li key={link.href} className="flex min-w-0 flex-col gap-0.5 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-3 sm:px-5">
+            <li key={link.href} className="flex min-w-0 flex-col gap-0.5">
               <ExternalLink href={link.href} className="text-13">
                 {link.label}
               </ExternalLink>
               <span className="text-12 text-fg-muted">{link.description}</span>
             </li>
           ))}
-          <li className="flex min-w-0 flex-col gap-1 px-4 py-3 sm:px-5">
-            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <ExternalLink href={`${REPOSITORY}/blob/main/LICENSE`} className="text-13">
-                {t("settings.about.license.label")}
-              </ExternalLink>
-              <Mono tone="muted">AGPL-3.0-or-later</Mono>
-            </span>
-            <span className="max-w-measure text-12 text-pretty text-fg-muted">{t("settings.about.license.description")}</span>
-          </li>
         </ul>
       </Card>
-      <details className="group rounded-card border border-border">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 -outline-offset-2 hover:bg-surface-hover sm:px-5 [&::-webkit-details-marker]:hidden">
-          <span className="text-13 font-medium text-fg">{t("settings.about.terminal.title")}</span>
-          <ChevronDown aria-hidden="true" className="size-icon-sm text-fg-muted transition-transform duration-(--duration-fast) group-open:rotate-180" />
-        </summary>
-        <dl className="flex flex-col divide-y divide-border border-t border-border px-4 sm:px-5">
+      <LegalNotice />
+      <Disclosure variant="card" label={t("settings.about.terminal.title")}>
+        <dl className="flex flex-col divide-y divide-border">
           {terminalRows(t).map((row) => (
             <div key={row.command} className="flex min-w-0 flex-col gap-1 py-2.5 sm:flex-row sm:items-center sm:gap-6">
               <dt className="text-13 text-fg-muted sm:w-64 sm:shrink-0">{row.task}</dt>
@@ -317,7 +338,7 @@ function ProjectSection() {
             </div>
           ))}
         </dl>
-      </details>
+      </Disclosure>
     </Section>
   );
 }
@@ -358,7 +379,7 @@ function AboutSkeleton() {
   );
 }
 
-/** Settings > About: the version and whether a newer one can be installed, this installation, the project. */
+/** Settings > About, in three sections: the version and its updates, this installation and its support, and what is new. */
 export function AboutSettings() {
   const t = useT();
   useDocumentTitle(t("settings.about.documentTitle"), 1);
@@ -366,13 +387,21 @@ export function AboutSettings() {
   if (!read) return <AboutSkeleton />;
   return (
     <Sections>
-      <VersionSection />
-      <AutoUpdateSection />
+      <Section title={t("settings.about.groups.updates.title")} description={t("settings.about.groups.updates.description")}>
+        <div className="flex min-w-0 flex-col gap-6">
+          <VersionSection />
+          <AutoUpdateSection />
+        </div>
+      </Section>
+      <Section title={t("settings.about.groups.support.title")} description={t("settings.about.groups.support.description")}>
+        <div className="flex min-w-0 flex-col gap-6">
+          <InstallationSection />
+          <InstallCheck />
+          <SupportReport />
+          <ProjectSection />
+        </div>
+      </Section>
       <WhatsNew />
-      <InstallationSection />
-      <InstallCheck />
-      <SupportReport />
-      <ProjectSection />
     </Sections>
   );
 }

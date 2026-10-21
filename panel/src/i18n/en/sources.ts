@@ -100,6 +100,7 @@ export const sources = {
       assigned: "{domain} uses the key {name} now",
       notAssigned: "The key was not assigned",
       optionLine: "{name}, {fingerprint}",
+      required: "Choose a key.",
     },
     removeDialog: {
       title: "Remove the deploy key of {domain}?",

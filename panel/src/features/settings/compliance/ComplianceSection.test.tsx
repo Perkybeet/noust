@@ -76,7 +76,11 @@ describe("Settings > Controls > Compliance", () => {
     const { section, user, world } = await pageAt();
 
     await user.click(present(within(section).getAllByRole("button", { name: "What it turns on" })[1]));
-    const region = screen.getByText("Separation of duties", { selector: "span" }).closest("li");
+    // The control is named twice on the page: in what the framework turns on, and as a row of the controls.
+    const region = screen
+      .getAllByText("Separation of duties", { selector: "span" })
+      .map((span) => span.closest("li"))
+      .find((item) => item !== null);
     expect(region).not.toBeNull();
     expect(within(region as HTMLElement).getByText("A.5.3")).toBeInTheDocument();
     expect(within(section).getAllByText(/Stays organisational/).length).toBeGreaterThan(0);
@@ -87,7 +91,7 @@ describe("Settings > Controls > Compliance", () => {
     const { section, user, world } = await pageAt();
 
     await user.click(present(within(section).getAllByRole("button", { name: "Turn on…" })[1]));
-    const dialog = await screen.findByRole("dialog", { name: "Turn on ISO/IEC 27001:2022" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Turn on ISO/IEC 27001:2022" });
     await within(dialog).findByText("Separation of duties");
     expect(within(dialog).getByText("Session idle time")).toBeInTheDocument();
     expect(within(dialog).getByText("30 minutes")).toBeInTheDocument();
@@ -103,7 +107,7 @@ describe("Settings > Controls > Compliance", () => {
     });
     expect(world.changes[0]?.body).toMatchObject({ enable: ["iso-27001"], acknowledge: false });
     await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Turn on ISO/IEC 27001:2022" })).toBeNull();
+      expect(screen.queryByRole("alertdialog", { name: "Turn on ISO/IEC 27001:2022" })).toBeNull();
     });
     await within(section).findByText("Forces 2 of the controls below");
   });
@@ -114,7 +118,7 @@ describe("Settings > Controls > Compliance", () => {
     });
 
     await user.click(present(within(section).getAllByRole("button", { name: "Turn on…" })[0]));
-    const dialog = await screen.findByRole("dialog", { name: "Turn on ENS MEDIA" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Turn on ENS MEDIA" });
     await within(dialog).findByText(/No active account has the security role/);
     const go = within(dialog).getByRole("button", { name: "Turn on" });
     expect(go).toBeDisabled();
@@ -132,7 +136,7 @@ describe("Settings > Controls > Compliance", () => {
 
     await within(section).findByText("Forces 1 of the controls below");
     await user.click(within(section).getByRole("button", { name: "Turn off…" }));
-    const dialog = await screen.findByRole("dialog", { name: "Turn off NIS2" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Turn off NIS2" });
     expect(within(dialog).getByText(/Protection goes down/)).toBeInTheDocument();
 
     await user.click(within(dialog).getByRole("button", { name: "Turn off" }));
@@ -146,7 +150,8 @@ describe("Settings > Controls > Compliance", () => {
     const { section } = await pageAt(withFrameworksOn("ens-media"));
 
     const lock = await within(section).findByRole("switch", { name: "Approval by a second person" });
-    const approvals = lock.closest("li") as HTMLElement;
+    const approvals = lock.closest('[data-slot="setting"]');
+    if (!(approvals instanceof HTMLElement)) throw new Error("the switch is not in a setting row");
     expect(within(approvals).getByText("Required by ENS MEDIA")).toBeInTheDocument();
     expect(lock.hasAttribute("disabled") || lock.getAttribute("aria-disabled") === "true").toBe(true);
     const free = within(section).getByRole("switch", { name: "A reason for every change" });
@@ -164,7 +169,7 @@ describe("Settings > Controls > Compliance", () => {
     await waitFor(() => {
       expect(world.changes[0]?.body).toMatchObject({ controls: { change_reasons: true } });
     });
-    expect(screen.queryByRole("dialog", { name: /^(Change|Turn)/ })).toBeNull();
+    expect(screen.queryByRole("alertdialog", { name: /^(Change|Turn)/ })).toBeNull();
   });
 
   it("changes a number or a choice in a dialog and shows the server's refusal as it was worded", { timeout: 30_000 }, async () => {

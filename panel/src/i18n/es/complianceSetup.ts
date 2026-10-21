@@ -25,7 +25,6 @@ export const complianceSetup: Catalog<typeof en> = {
     show: "Qué activa",
     enable: "Activar…",
     disable: "Desactivar…",
-    clauses: "Cláusula",
     organisational: "Sigue siendo organizativo",
     notCovered: "Técnico, y no se aplica aquí",
     forcedHere: "Fuerza {count} de los controles de abajo",
@@ -64,7 +63,6 @@ export const complianceSetup: Catalog<typeof en> = {
     understood: "Lo he leído y quiero continuar",
     enableAction: "Activar",
     disableAction: "Desactivar",
-    failed: "No se pudo hacer el cambio",
     turnedOn: "{name} está activo",
     turnedOff: "{name} está inactivo",
   },
@@ -83,9 +81,8 @@ export const complianceSetup: Catalog<typeof en> = {
     description:
       "Cada control tiene su propio ajuste. Un marco activo bloquea los controles que pide en su valor o en uno más estricto; siempre puedes endurecer uno más.",
     lockedBy: "Lo exige {names}",
-    ownSetting: "Tu propio ajuste",
     change: "Cambiar…",
-    forced: "Forzado",
+    noPermission: "Tu rol no puede cambiar los ajustes de seguridad.",
     checkOnly: "Lo juzga la comprobación de cumplimiento: nada lo rechaza",
     changed: "{name} cambiado",
     group: {
@@ -128,8 +125,7 @@ export const complianceSetup: Catalog<typeof en> = {
   control: {
     roles_split: {
       title: "Separar las funciones del administrador",
-      summary:
-        "Los administradores no gestionan cuentas, ajustes de seguridad ni el registro de auditoría; lo hacen los responsables de seguridad y los auditores.",
+      summary: "Cuentas, seguridad y auditoría pasan a otros roles.",
     },
     separation_of_duties: {
       title: "Separación de funciones",
@@ -138,22 +134,19 @@ export const complianceSetup: Catalog<typeof en> = {
     },
     single_role_per_account: {
       title: "Un rol por cuenta",
-      summary:
-        "Los roles sobre todo el servidor no se suman al propio de la cuenta; una persona con dos funciones tiene dos cuentas.",
+      summary: "Una persona con dos funciones tiene dos cuentas.",
     },
     sso_no_admin: {
       title: "Los proveedores de identidad nunca dan admin",
-      summary: "El rol admin lo concede una persona, nunca el rol por defecto ni un grupo del proveedor.",
+      summary: "Admin lo concede una persona, nunca un proveedor.",
     },
     approvals: {
       title: "Aprobación de una segunda persona",
-      summary:
-        "Las acciones equivalentes a root, los servidores y los cambios de rol esperan a que una segunda persona los apruebe.",
+      summary: "Acciones de root y cambios de rol: una segunda persona.",
     },
     restricted_tokens: {
       title: "Tokens de API restringidos",
-      summary:
-        "Un token pertenece a una cuenta, no puede actuar en modo sudo y nunca tiene permisos equivalentes a root, de cuentas ni de seguridad.",
+      summary: "Un token tiene propietario y ningún permiso de nivel root.",
     },
     token_max_days: {
       title: "Vida máxima de un token de API",
@@ -173,7 +166,7 @@ export const complianceSetup: Catalog<typeof en> = {
     },
     sudo_max_minutes: {
       title: "Duración máxima del modo sudo",
-      summary: "Lo máximo que dura el modo sudo desde que se confirma, por activa que esté la sesión.",
+      summary: "Lo máximo que dura el modo sudo una vez confirmado.",
     },
     session_idle_minutes: {
       title: "Inactividad de la sesión",
@@ -205,7 +198,7 @@ export const complianceSetup: Catalog<typeof en> = {
     },
     change_reasons: {
       title: "Un motivo para cada cambio",
-      summary: "Cada cambio desde la línea de órdenes, y cada solicitud de aprobación, dice por qué.",
+      summary: "Cambios por línea de órdenes y solicitudes: dicen por qué.",
     },
     exception_reasons: {
       title: "Un motivo para cada excepción",

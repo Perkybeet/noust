@@ -3,13 +3,11 @@ import type { Catalog } from "../types";
 
 export const access: Catalog<typeof en> = {
   nav: {
-    label: "Roles y accesos",
+    label: "Roles",
     keywords: "roles permisos rol propio conceder vincular equipo proyecto entorno ámbito acceso mínimo privilegio",
-    command: "Ajustes de roles y accesos",
+    command: "Ajustes de roles",
   },
-  documentTitle: "Roles y accesos",
-  loadFailed: "No se pudieron leer los roles y las concesiones",
-  loading: "Leyendo los roles y las concesiones",
+  documentTitle: "Roles",
   loadingLabel: "roles y concesiones",
   scope: {
     instance: "Todo el servidor",
@@ -34,7 +32,6 @@ export const access: Catalog<typeof en> = {
       "Las cuentas tienen su propio rol en el servidor. Concede un rol en un equipo, un proyecto o un entorno para dar a alguien más o menos que eso, justo donde hace falta.",
     column: { account: "Cuenta", role: "Rol", where: "Dónde", granted: "Concedido" },
     custom: "Propio",
-    membership: "Pertenencia a un equipo",
     manageInTeam: "Se gestiona en el equipo",
     revoke: "Revocar",
     revokeLabel: "Revocar {role} a {account}",
@@ -95,6 +92,7 @@ export const access: Catalog<typeof en> = {
       labelHelp: "Lo que muestra la consola. Por defecto es el nombre.",
       descriptionField: "Para qué sirve",
       permissions: "Permisos",
+      permissionsRequired: "Elige al menos un permiso.",
       permissionsHelp:
         "Elige lo que el rol puede hacer. Mezclar lo que gobierna (cuentas, seguridad) con lo que opera el servidor se rechaza: una persona no debería tener ambos.",
       canBeHeld: "Se puede tener en: {places}",

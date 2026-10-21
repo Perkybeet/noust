@@ -106,8 +106,8 @@ describe("an application's Domains tab", () => {
     await user.click(screen.getByRole("button", { name: "Add domain" }));
     const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
     await user.type(within(dialog).getByLabelText("Domain"), `Blog.${APP}`);
+    // Choosing the kind leaves the field, which is what asks DNS: there is no button for it.
     await user.click(within(dialog).getByRole("radio", { name: /Redirect/ }));
-    await user.click(within(dialog).getByRole("button", { name: "Check DNS" }));
     expect(await within(dialog).findByText(`blog.${APP} points somewhere else`)).toBeInTheDocument();
     expect(within(dialog).getByText("198.51.100.23")).toBeInTheDocument();
     expect(backend.callsTo(`POST /api/apps/${APP}/domains`)).toHaveLength(0);

@@ -12,8 +12,9 @@ test("the automatic update is off, is set up in a drawer after confirming it is 
   await signIn(page, consoleServer, "/settings/about");
   await settle(page);
 
-  const section = page.getByRole("region", { name: "Automatic updates" });
-  await expect(section.getByText("Automatic updates are off")).toBeVisible();
+  // A card, not a region: it is found by its heading.
+  const section = page.getByRole("heading", { name: "Automatic updates", level: 3 }).locator("xpath=ancestor::section[1]");
+  await expect(section.getByText("Off", { exact: true })).toBeVisible();
   await expectNoA11yViolations(page, "the automatic update, off");
 
   await section.getByRole("button", { name: "Set up" }).click();

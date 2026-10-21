@@ -11,6 +11,7 @@ import { setLocale } from "../../app/locale";
 import { PageHeader } from "../../app/PageHeader";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "../ui/Button";
+import { MenuItem } from "../ui/Menu";
 import { SaveBar } from "./SaveBar";
 
 /** The page to leave for; the typed router knows the console's routes, not this test's. */
@@ -209,6 +210,34 @@ describe("SaveBar", () => {
     it("keeps the header's primary while no bar holds changes, even with a bar on the page", async () => {
       await routed(<Form />);
       expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("data-variant", "secondary");
+    });
+  });
+
+  describe("saving more than one way", () => {
+    it("draws Save as a split button whose arrow holds the other way, and does each", async () => {
+      const done: string[] = [];
+      render(
+        <SaveBar
+          changes={1}
+          onSave={() => done.push("main")}
+          onDiscard={() => undefined}
+          saveLabel="Save and restart"
+          saveMenu={<MenuItem onClick={() => done.push("only")}>Save only</MenuItem>}
+        />,
+      );
+      // One control of two buttons: the label presses the usual way, the arrow opens the variation.
+      expect(screen.getByRole("group", { name: "Save and restart" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save and restart" })).toHaveAttribute("data-variant", "primary");
+      await userEvent.click(screen.getByRole("button", { name: "More options for Save and restart" }));
+      await userEvent.click(await screen.findByRole("menuitem", { name: "Save only" }));
+      await userEvent.click(screen.getByRole("button", { name: "Save and restart" }));
+      expect(done).toEqual(["only", "main"]);
+    });
+
+    it("keeps both parts disabled while nothing is edited", () => {
+      render(<SaveBar changes={0} onSave={() => undefined} onDiscard={() => undefined} saveLabel="Save and restart" saveMenu={<MenuItem>Save only</MenuItem>} />);
+      expect(screen.getByRole("button", { name: "Save and restart" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "More options for Save and restart" })).toBeDisabled();
     });
   });
 

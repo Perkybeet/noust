@@ -18,7 +18,7 @@ export const services = {
   page: {
     description: "The workers and daemons Noust runs on this server, and on request every service of the system.",
     newService: "New service",
-    loadFailed: "Could not load services",
+    what: "the services",
     emptyTitle: "No services yet",
     emptyDescription: "A service runs a command under this machine's service user, restarted automatically and started at boot. Your applications' own services are managed from each application.",
     showSystem: "Show the system's services",
@@ -69,7 +69,6 @@ export const services = {
     actionsFor: "Actions for {name}",
     editTags: "Edit tags...",
     noun: "service",
-    moreActions: "More actions",
     startedToast: "Started {name}",
     stoppedToast: "Stopped {name}",
     restartedToast: "Restarted {name}",
@@ -124,7 +123,7 @@ export const services = {
   },
   unitFile: {
     checkedTitle: "Checked with systemd-analyze before it is saved. Restarting the service applies it.",
-    rejected: "Nothing was saved: systemd-analyze rejected the unit. Fix what it names and try again.",
+    rejected: "Nothing was saved: systemd-analyze rejected the service file. Fix what it names and try again.",
     passed: "systemd-analyze found no problem.",
     saved: "Saved.",
     savedHint: "Restart the service to apply the change.",
@@ -163,8 +162,7 @@ export const services = {
   },
   unitEditor: {
     label: "Configuration of {name}",
-    loading: "Loading the configuration",
-    loadFailed: "Could not load the configuration",
+    what: "the configuration",
     verifyFailed: "The configuration could not be checked",
     saveFailed: "The configuration was not saved",
   },

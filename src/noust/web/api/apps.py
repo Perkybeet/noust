@@ -65,7 +65,7 @@ from noust.deployers.helpers.app_env import (
 from noust.deployers.helpers.build_config import describe_build
 from noust.deployers.helpers.env_manager import redact_url_credentials
 from noust.deployers.helpers.env_sync import plan_sync, render_view
-from noust.deployers.helpers.env_variables import predefined_for
+from noust.deployers.helpers.env_variables import check_audience_request, predefined_for
 from noust.deployers.helpers.health_gate import HealthCheck
 from noust.deployers.helpers.layout import RELEASES, app_root
 from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
@@ -1993,6 +1993,8 @@ class MergeAppEnvRequest(BaseModel):
     Attributes:
         set: Variables to give a value, added or replaced.
         unset: Variables to remove.
+        comments: The comments to keep above variables.
+        audience: Who sees a variable: the build, the running application or both.
         dry_run: Say which variables would change and write nothing.
     """
 
@@ -2003,6 +2005,11 @@ class MergeAppEnvRequest(BaseModel):
         description="Name to the comment kept above the variable in the .env, over the ones "
         "it has; empty text takes one away",
     )
+    audience: dict[str, str] | None = Field(
+        default=None,
+        description="Name to 'both', 'build' or 'runtime' for the variables whose audience "
+        "changes, as on PUT; a name left out keeps the one it has",
+    )
     dry_run: bool = Field(default=False, description="Only say what would change")
 
 
@@ -2012,8 +2019,8 @@ class MergeAppEnvResponse(BaseModel):
 
     Attributes:
         domain: Domain of the application.
-        changed: The names whose value was added, replaced or removed. Never a
-            value.
+        changed: The names whose value or audience was added, replaced or removed.
+            Never a value.
         restart_required: Whether the running process needs a restart to pick
             the change up.
         dry_run: Whether nothing was written.
@@ -2065,20 +2072,30 @@ def merge_app_env(
     # The file holds what a reference resolved to, so a value made of references is compared with the text
     # it was written from: otherwise a client that sets the same expression again (a manifest, the
     # Terraform provider) is told it differs every time, and can never see its variables are in place.
-    changed = sorted(
+    valued = {
         key
         for key in set(before) | set(merged)
         if before.get(key) != merged.get(key)
         and not (key in merged and current.expressions.get(key) == merged[key])
-    )
+    }
+    # Asked before anything else: a merge that changes no value would otherwise take an audience
+    # for a variable that is not there as "nothing to do", and the write would never say so.
+    check_audience_request(merged, body.audience)
+    # An empty audience means "keep the one it has", as on PUT.
+    moved = {
+        name
+        for name, kind in (body.audience or {}).items()
+        if kind and name in merged and current.audience_of(name) != kind
+    }
+    changed = sorted(valued | moved)
     wanted = body.comments
     try:
         if body.dry_run:
-            check_app_env(app, merged)
+            check_app_env(app, merged, audience=body.audience)
             if wanted:
                 check_comments(wanted, merged)
         elif changed or wanted:
-            write_app_env(app, merged, comments=wanted)
+            write_app_env(app, merged, audience=body.audience, comments=wanted)
     except EnvironmentValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if changed and not body.dry_run:

@@ -7,6 +7,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, onNode, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { findLoadedRegion } from "../../test/regions";
 import { onDesktop, serverRoutes } from "../server/testing";
 
 const SERVICES: ServiceList["services"] = [
@@ -78,7 +79,7 @@ async function servicesAt(path = "/server/services", extra: Record<string, Route
   });
   const harness = renderConsole(path);
   await screen.findByRole("heading", { level: 1, name: "Server" });
-  const table = await screen.findByRole("region", { name: /Services/ });
+  const table = await findLoadedRegion(/Services/);
   return { ...harness, backend, table };
 }
 
@@ -231,8 +232,10 @@ describe("the services tab", () => {
     });
     expect(location().search).toEqual({ all: true });
 
-    const foreignRow = (await within(table).findByText("postgresql")).closest("tr");
-    expect(within(table).getByRole("columnheader", { name: /Managed/ })).toBeInTheDocument();
+    // The list of the other scope is a table of its own, drawn after a skeleton.
+    const whole = await findLoadedRegion(/Services/);
+    const foreignRow = (await within(whole).findByText("postgresql")).closest("tr");
+    expect(within(whole).getByRole("columnheader", { name: /Managed/ })).toBeInTheDocument();
     if (!foreignRow) throw new Error("no row");
     await user.click(within(foreignRow).getByRole("button", { name: "Actions for postgresql" }));
     expect(await screen.findByRole("menuitem", { name: "View logs" })).toBeInTheDocument();
@@ -280,7 +283,7 @@ describe("the services tab, in Spanish", () => {
     });
     renderConsole("/server/services");
     await screen.findByRole("heading", { level: 1, name: "Servidor" });
-    const table = await screen.findByRole("region", { name: /Servicios/ });
+    const table = await findLoadedRegion(/Servicios/);
     const running = await within(table).findByText("wasm-shop-example-com");
     const row = running.closest("tr");
     if (!row) throw new Error("no row");

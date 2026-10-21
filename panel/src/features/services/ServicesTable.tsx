@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { STATE_RANK } from "../../components/page/status";
@@ -7,6 +6,7 @@ import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { Mono } from "../../components/ui/Mono";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
@@ -42,14 +42,9 @@ function columnsFor(t: T, mixed: boolean, memory: boolean, appOf: ((service: Ser
         const app = appOf?.(row) ?? null;
         return (
           <span className="flex min-w-0 flex-col">
-            <Link
-              to="/server/services/$name"
-              params={{ name: row.name }}
-              translate="no"
-              className="-mx-1 w-fit max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2"
-            >
+            <TextLink variant="row" to="/server/services/$name" params={{ name: row.name }} translate="no" className="-mx-1 w-fit max-w-full truncate px-1 py-0.5">
               <Mono>{row.name}</Mono>
-            </Link>
+            </TextLink>
             {app !== null ? (
               <span className="truncate text-12 text-fg-muted">{t("services.table.runsApp", { domain: app })}</span>
             ) : !row.managed ? (

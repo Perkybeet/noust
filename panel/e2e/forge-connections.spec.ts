@@ -1,8 +1,8 @@
 /**
  * How code and images reach the server, against the real backend: container registry accounts
- * (Settings, Integrations, and an application's Deploys), GitLab connections and the project
+ * (Settings, Integrations, and an application's Compose page), GitLab connections and the project
  * picker, applications read from Coolify or Dokploy, the workspaces of a monorepo, the build
- * cache and process types of Build commands, and the declaration file of Export. Runs in both
+ * cache and process types of Build, and the declaration file of Export. Runs in both
  * themes, with the CSP and console gates of the `problems` fixture.
  *
  * The registry accounts and the declaration are the real backend's. GitLab, Coolify, Dokploy and
@@ -185,7 +185,7 @@ test("an application's Export settings write its declaration file and check a pa
   await expectNoA11yViolations(page, "the declaration dialog with a plan");
 });
 
-test("Build commands show the build cache, and process types only where the repository declares them", async ({ page, consoleServer }) => {
+test("Build shows the build cache, and process types only where the repository declares them", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${BUILD_APP}/settings/build`);
   const cache = card(page, "Build cache");
   await expect(cache).toBeVisible();
