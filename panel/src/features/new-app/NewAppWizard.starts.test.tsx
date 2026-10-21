@@ -441,3 +441,45 @@ describe("another platform's configuration", () => {
     expect(backend.callsTo("POST /api/apps")[1]?.body).not.toHaveProperty("health_path");
   });
 });
+
+describe("the row a recipe ends on", () => {
+  /** The wizard to the end of a WordPress deploy, with what the deployer recorded for the certificate. */
+  async function deployed(deployment: Record<string, unknown>) {
+    const { harness } = wizard(
+      "blog.example.com",
+      { result: { deployment_id: 12, recipe: "wordpress", notes: [] } },
+      {
+        "GET /api/deployments/12": () => json(200, { id: 12, domain: "blog.example.com", status: "success", triggered_by: "panel", has_log: true, ...deployment }),
+        "GET /api/apps/blog.example.com/domains": () => json(200, { domains: [{ domain: "blog.example.com", kind: "primary" }] }),
+      },
+    );
+    const { user } = harness;
+    await choose(user, "From a recipe");
+    await user.click(await screen.findByRole("button", { name: "Use WordPress" }));
+    await user.type(await screen.findByLabelText("Domain"), "blog.example.com");
+    await user.click(screen.getByRole("button", { name: "Deploy" }));
+    expect(await screen.findByText("blog.example.com is deployed", {}, { timeout: 5_000 })).toBeInTheDocument();
+    return harness;
+  }
+
+  it("says it is live, where, and that HTTPS is ready, with the three things to do next", { timeout: 30_000 }, async () => {
+    await deployed({ certificate_state: "issued", certificate_output: null });
+    expect(await screen.findByText("Live")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /blog\.example\.com, the live site/ })).toHaveAttribute("href", "https://blog.example.com");
+    expect(await screen.findByText("HTTPS is ready.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add your own domain" })).toHaveAttribute("href", "/apps/blog.example.com/domains");
+    expect(screen.getByRole("link", { name: "Add a database" })).toHaveAttribute("href", "/apps/blog.example.com/database");
+    expect(screen.getByRole("link", { name: "Schedule a backup" })).toHaveAttribute("href", "/backups");
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("serves over HTTP when the certificate was refused, and keeps the authority's words one press away", { timeout: 30_000 }, async () => {
+    const said = "An unexpected error occurred:\nToo many certificates (5) already issued for this exact set of domains";
+    const { user } = await deployed({ certificate_state: "failed", certificate_output: said });
+    expect(await screen.findByText(/Served over HTTP: the certificate could not be issued/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /blog\.example\.com, the live site/ })).toHaveAttribute("href", "http://blog.example.com");
+    await user.click(screen.getByRole("button", { name: "What certbot said" }));
+    expect(screen.getByText(/Too many certificates \(5\) already issued/)).toBeVisible();
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+});

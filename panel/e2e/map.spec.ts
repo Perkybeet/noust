@@ -59,7 +59,7 @@ test("on a phone each column is a list, and the page never scrolls sideways", as
   await expectNoA11yViolations(page, "the map on a phone");
 });
 
-test("the map is found from the palette and from the Overview's menu", async ({ page, consoleServer }) => {
+test("the map is found from the palette and from the Overview's tabs", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/");
   await settle(page);
   await page.keyboard.press("Control+k");
@@ -69,7 +69,6 @@ test("the map is found from the palette and from the Overview's menu", async ({ 
   await expect(page.getByRole("heading", { level: 1, name: "Map" })).toBeVisible();
 
   await page.goto("/");
-  await page.getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Map of this server" }).click();
+  await page.getByRole("navigation", { name: "Overview sections" }).getByRole("link", { name: "Map" }).click();
   await expect(page).toHaveURL(/\/map$/);
 });

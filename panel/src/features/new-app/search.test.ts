@@ -39,6 +39,15 @@ describe("the wizard's search", () => {
     expect(bad.recipe).toBeUndefined();
   });
 
+  it("deploys at once only when the link says exactly so", () => {
+    expect(validateNewAppSearch({ start: "recipe", recipe: "hello", deploy: "now" })).toEqual({ start: "recipe", recipe: "hello", deploy: "now" });
+    for (const value of ["", "yes", "NOW", "true", 1, true, ["now"]]) {
+      expect(validateNewAppSearch({ start: "recipe", recipe: "hello", deploy: value }).deploy, JSON.stringify(value)).toBeUndefined();
+    }
+    // A link without it names no key, so nothing is added to an address that never had it.
+    expect(Object.keys(validateNewAppSearch({ start: "recipe", recipe: "hello" }))).not.toContain("deploy");
+  });
+
   it("reads where the new application goes, from a project's page, and drops anything that is not a short name", () => {
     expect(validateNewAppSearch({ team: "acme", project: "web", environment: "staging" })).toEqual({ start: undefined, team: "acme", project: "web", environment: "staging" });
     const bad = validateNewAppSearch({ team: "Acme Corp", project: "../web", environment: 3 });

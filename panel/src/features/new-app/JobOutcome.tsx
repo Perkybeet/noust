@@ -16,6 +16,7 @@ import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { JobOutputDrawer } from "../databases/jobs";
 import { NoteText } from "./NoteText";
+import { SuccessRow } from "./SuccessRow";
 import { useDeploymentLanding } from "./useDeploymentLanding";
 import type { LandingTarget } from "./useDeploymentLanding";
 
@@ -190,6 +191,7 @@ export function JobOutcome({ kind, target, followedJob }: JobOutcomeProps) {
         title={t(kind === "import" ? "newApp.deploy.imported" : "newApp.deploy.deployed", { domain: target.domain })}
         {...(log !== undefined ? { action: log } : {})}
       />
+      <SuccessRow domain={target.domain} deploymentId={landing?.kind === "deployment" ? landing.id : (job.deployment_id ?? null)} />
       {notes.length > 0 ? <NextSteps notes={notes} /> : null}
       {report !== null ? <Report report={report} /> : null}
     </div>

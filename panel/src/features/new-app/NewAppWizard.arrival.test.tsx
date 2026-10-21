@@ -12,6 +12,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { RECIPES, WORDPRESS } from "./testFixtures";
 import type { Inspection } from "./wizard";
 
 const NEXT: Inspection = {
@@ -187,6 +188,49 @@ describe("the first application of a server without a domain", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Address" })).toBeInTheDocument();
     expect(screen.getByLabelText("Domain")).toBeInTheDocument();
+  });
+});
+
+describe("Try a demo", () => {
+  const HELLO = { ...WORDPRESS, name: "hello", title: "Hello", database: null, dependencies: [], requires: [], variables: [] };
+
+  function demoServer(extra: Record<string, RouteHandler> = {}) {
+    const backend = fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/apps": () => json(200, { total: 0, apps: [] }),
+      "GET /api/config/webserver": () => json(200, { webserver: "nginx" }),
+      "GET /api/apps/types": () => json(200, APP_TYPES),
+      "GET /api/domains/temporary": (call) => json(200, { domain: `${call.search.get("prefix") ?? "app"}.203-0-113-10.sslip.io`, address: "203.0.113.10" }),
+      "GET /api/recipes": () => json(200, RECIPES),
+      "GET /api/recipes/hello": () => json(200, HELLO),
+      "POST /api/apps": () => json(202, { job_id: JOB.id, status: "pending", message: "Queued", job: JOB }),
+      "GET /api/deployments": () => json(200, { items: [], total: 0, next_before_id: null }),
+      [`GET /api/jobs/${JOB.id}`]: () => json(200, JOB),
+      "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
+      ...extra,
+    });
+    return { backend, harness: renderConsole("/apps/new?start=recipe&recipe=hello&deploy=now") };
+  }
+
+  it("deploys the recipe on its temporary address without another press, once", { timeout: 30_000 }, async () => {
+    const { backend, harness } = demoServer();
+    expect(await screen.findByRole("heading", { level: 2, name: "Deploy" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/apps")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/apps")[0]?.body).toMatchObject({ recipe: "hello", domain: "hello.203-0-113-10.sslip.io", ssl: true, include_www: false });
+    // The link is spent: the address no longer asks for a deploy, so a reload does not repeat it.
+    await waitFor(() => {
+      expect(harness.location().search).not.toContain("deploy");
+    });
+  });
+
+  it("stays on the form when the server cannot make a temporary address", { timeout: 30_000 }, async () => {
+    const { backend } = demoServer({
+      "GET /api/domains/temporary": () => json(409, { error: "no_public_address", message: "This server's public address is not known", hint: "Declare it" }),
+    });
+    expect(await screen.findByRole("heading", { level: 2, name: "Address and variables" })).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/apps")).toHaveLength(0);
   });
 });
 

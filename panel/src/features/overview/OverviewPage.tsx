@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
 import { overviewQuery } from "../../api/queries/overview";
+import { LinkTabs } from "../../app/LinkTabs";
+import { tabsOf } from "../../app/navCore";
 import { CommandHint } from "../../components/page/CommandHint";
 import { DashboardPage } from "../../components/page/DashboardPage";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -14,6 +16,7 @@ import { MenuItem } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
+import { OVERVIEW_SCREENS } from "../nav/overview";
 import { FirstSteps } from "./FirstSteps";
 import { FleetSummary } from "./FleetSummary";
 import { useFleetSummary } from "./useFleetSummary";
@@ -48,7 +51,6 @@ function QuickActions({ central }: { central: boolean }) {
       <MenuItem onClick={() => void navigate({ to: "/backups" })}>{t("overview.quickActions.backUp")}</MenuItem>
       <MenuItem onClick={() => void navigate({ to: "/server" })}>{t("overview.quickActions.checkUpdates")}</MenuItem>
       <MenuItem onClick={() => void navigate({ to: "/activity" })}>{t("overview.quickActions.activity")}</MenuItem>
-      <MenuItem onClick={() => void navigate({ to: "/map" })}>{t("map.overflow")}</MenuItem>
       {central ? <MenuItem onClick={() => void navigate({ to: "/fleet" })}>{t("overview.quickActions.addServer")}</MenuItem> : null}
     </>
   );
@@ -118,10 +120,12 @@ export function OverviewPage({ range, onRangeChange }: OverviewPageProps) {
     primaryAction: <NewAppLink />,
     overflow: <QuickActions central={fleet !== null} />,
   };
+  // The Overview and its Map are two views of the same server: one strip, as on every other area.
+  const tabs = <LinkTabs label={t("overview.tabsLabel")} tabs={tabsOf(OVERVIEW_SCREENS)} />;
   const footer = (
     <CommandHint
       label={t("overview.command")}
-      command={empty ? "noust create -d example.com -s https://github.com/you/app" : "noust health"}
+      command={empty ? "noust create --temporary -s https://github.com/you/app" : "noust health"}
     />
   );
 
@@ -129,6 +133,7 @@ export function OverviewPage({ range, onRangeChange }: OverviewPageProps) {
     return (
       <DashboardPage
         header={header}
+        tabs={tabs}
         firstSteps={
           <ErrorBlock error={overview.error} title={t("overview.couldNotLoad")} onRetry={() => void overview.refetch()} retrying={overview.isRefetching} />
         }
@@ -141,6 +146,7 @@ export function OverviewPage({ range, onRangeChange }: OverviewPageProps) {
     return (
       <DashboardPage
         header={header}
+        tabs={tabs}
         firstSteps={
           <Sections>
             {fleet !== null ? <FleetSummary state={fleet} /> : null}
@@ -161,6 +167,7 @@ export function OverviewPage({ range, onRangeChange }: OverviewPageProps) {
   return (
     <DashboardPage
       header={header}
+      tabs={tabs}
       figures={
         <section aria-label={t("overview.figures.label")} className="contents">
           <KeyFigures overview={overview.data} />

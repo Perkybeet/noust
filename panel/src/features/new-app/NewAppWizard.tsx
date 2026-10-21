@@ -573,6 +573,21 @@ export function NewAppWizard() {
   const codeErrors = review !== null ? reviewProblems(review, context) : {};
   const requiredRecipeVariables = recipe !== null ? requiredVariables(recipe) : [];
   const recipeFound = recipeForm !== null ? recipeProblems(recipeForm, context.domains, requiredRecipeVariables) : {};
+
+  // "Try a demo" (the Overview of a server with nothing on it) is a recipe deployed on its
+  // temporary address from one press: once the recipe is open and has nothing left to ask, it
+  // deploys. The link is spent either way, so a reload or a Back never deploys a second time; a
+  // recipe with something to ask (a server that cannot make a temporary address) stays on its form.
+  const deployedFromLink = useRef(false);
+  useEffect(() => {
+    if (wizardSearch.deploy !== "now" || deployedFromLink.current) return;
+    if (kind !== "recipe" || recipe === null || recipeForm === null || recipe.name !== linkedRecipe) return;
+    deployedFromLink.current = true;
+    void navigate({ to: "/apps/new", search: (previous) => ({ ...previous, deploy: undefined }), replace: true });
+    if (Object.keys(recipeFound).length > 0) return;
+    go("deploy");
+    deploy();
+  });
   const importFound = importForm !== null ? importProblems(importForm, context.domains) : {};
 
   /** The step's Back, when it has one, going to the step before for this start. */

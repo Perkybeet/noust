@@ -5,7 +5,7 @@ import type { Namespace } from "./types";
 
 export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = {
   "/_console": [],
-  "/_console/": ["activity", "appPages", "auditEvents", "auth", "common", "fleet", "map", "overview", "servers", "settings", "timeline"],
+  "/_console/": ["activity", "appPages", "auditEvents", "auth", "common", "fleet", "map", "nav", "overview", "servers", "settings", "shell", "timeline"],
   "/_console/account/": [],
   "/_console/account/security": [],
   "/_console/activity": ["activity", "appPages", "auditEvents", "auth", "queue"],
@@ -43,7 +43,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/_console/apps/$domain/settings/security": ["appPages", "appSettings", "apps", "queue", "runtime"],
   "/_console/apps/$domain/settings/source": ["appPages", "appSettings", "apps", "archiveUpload", "changeSource", "queue", "sourceOptions", "sources"],
   "/_console/apps/$domain/terminal": ["appPages", "apps", "common", "queue", "server", "terminal"],
-  "/_console/apps/new": ["appSettings", "apps", "archiveUpload", "catalog", "containers", "databases", "domains", "fleet", "gitlab", "network", "newApp", "pasteDockerfile", "provisioning", "remoteImport", "runtime", "settings", "teams", "workspaces"],
+  "/_console/apps/new": ["appSettings", "apps", "archiveUpload", "catalog", "containers", "databases", "domains", "fleet", "gitlab", "network", "newApp", "pasteDockerfile", "provisioning", "remoteImport", "runtime", "services", "settings", "teams", "workspaces"],
   "/_console/backups/": ["appPages", "apps", "backups", "common", "cron", "nav", "queue", "selfBackup", "time", "volumeBackups"],
   "/_console/backups/destinations": ["appPages", "apps", "backups", "common", "nav", "notifyRouting", "queue", "runtime", "selfBackup", "settings", "volumeBackups"],
   "/_console/backups/noust": ["backups", "common", "cron", "databases", "nav", "selfBackup", "volumeBackups"],
