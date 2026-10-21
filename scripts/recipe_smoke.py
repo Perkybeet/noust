@@ -64,7 +64,7 @@ import yaml  # noqa: E402
 
 from noust.recipes import get_recipe, read_asset  # noqa: E402
 from noust.recipes.model import Recipe  # noqa: E402
-from noust.recipes.variables import DeploymentContext, resolve_variables  # noqa: E402
+from noust.recipes.variables import DeploymentContext, resolve_variables, substitute  # noqa: E402
 from noust.validators.health import parse_health_expect  # noqa: E402
 
 #: Lines of a log that look like a failure; a count, not a verdict: applications log
@@ -276,7 +276,13 @@ def write_project(
     for path, asset in recipe.files.items():
         target = directory / path
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(read_asset(recipe.name, asset), encoding="utf-8")
+        text = read_asset(recipe.name, asset)
+        if path in recipe.rendered_files:
+            # As a deployment writes it (recipes.deploy._recipe_files): the file the application
+            # reads has its ${NAME} filled in, and starting the stack on the raw asset tests a
+            # file nobody ever deploys.
+            text = substitute(text, values, what=f"{recipe.name}: {path}")
+        target.write_text(text, encoding="utf-8")
     (directory / ".env").write_text(
         "".join(f"{key}={value}\n" for key, value in values.items()), encoding="utf-8"
     )
