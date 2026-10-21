@@ -3,9 +3,24 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "../ui/Button";
+import { OBJECT_ICONS } from "../ui/objectIcons";
 import { Section, Sections } from "./Section";
 
 describe("Section", () => {
+  it("draws the icon of the object it is about before its title, decorative and quiet", () => {
+    render(
+      <Section title="API tokens" icon={OBJECT_ICONS.token}>
+        <p>rows</p>
+      </Section>,
+    );
+    const heading = screen.getByRole("heading", { level: 2, name: "API tokens" });
+    const icon = heading.parentElement?.querySelector("svg");
+    expect(icon).not.toBeNull();
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+    expect(icon).toHaveClass("size-icon-md", "text-fg-faint");
+    expect(screen.getByRole("region", { name: "API tokens" })).toBeInTheDocument();
+  });
+
   it("is a region named by its heading, a level below the page title", () => {
     render(
       <Section title="Recent deployments" description="The last eight, across every app.">

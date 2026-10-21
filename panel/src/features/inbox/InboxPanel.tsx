@@ -7,6 +7,7 @@ import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Mono } from "../../components/ui/Mono";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
@@ -21,6 +22,7 @@ import type { NoticeState, RecentNotice } from "../../realtime/notices";
 import { SeverityGlyph, reasonText, validUntilText } from "../overview/NeedsAttention";
 import { attentionTarget } from "../overview/attentionTarget";
 import { AttentionActionButton } from "./AttentionActionButton";
+import { attentionIcon } from "./attentionIcons";
 import { useAttention } from "./useAttention";
 
 type View = "needs" | "recent";
@@ -68,7 +70,7 @@ function NeedsRow({ t, item, onNavigate }: { t: T; item: OverviewAttentionItem; 
           </Link>
         )}
         <div className="flex justify-end">
-          <AttentionActionButton item={item} onNavigate={onNavigate} />
+          <AttentionActionButton item={item} onNavigate={onNavigate} iconFor={attentionIcon} />
         </div>
       </div>
     </li>
@@ -196,7 +198,8 @@ export default function InboxPanel({ onNavigate }: InboxPanelProps): ReactNode {
       </div>
       <div className="flex items-center justify-between gap-3 px-4 text-12 text-fg-muted">
         <span>{view === "recent" ? t("inbox.recent.footer") : null}</span>
-        <TextLink to="/activity" size="ui" onClick={onNavigate}>
+        <TextLink to="/activity" size="ui" onClick={onNavigate} className="inline-flex items-center gap-1.5">
+          <OBJECT_ICONS.activity aria-hidden="true" className="size-icon-sm shrink-0" />
           {t("inbox.history")}
         </TextLink>
       </div>

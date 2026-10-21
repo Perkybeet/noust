@@ -1,122 +1,99 @@
-import {
-  Anchor,
-  BadgeInfo,
-  Blocks,
-  BookCheck,
-  Bot,
-  Braces,
-  CloudCog,
-  CodeXml,
-  Computer,
-  DoorOpen,
-  FileClock,
-  FileDown,
-  FileJson,
-  FileOutput,
-  Fingerprint,
-  FolderSymlink,
-  GitFork,
-  HardDriveDownload,
-  IdCard,
-  Key,
-  ListTodo,
-  ListTree,
-  MemoryStick,
-  Megaphone,
-  MonitorCog,
-  Package,
-  RadioTower,
-  Radar,
-  ScanEye,
-  Ship,
-  ShieldHalf,
-  ShieldUser,
-  Siren,
-  Sliders,
-  Stamp,
-  Truck,
-  UserLock,
-  UserRoundCog,
-  Vault,
-  Wrench,
-  Zap,
-} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import type { Dest } from "../../app/navCore";
-import { ICONS } from "../../components/ui/icons";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import type { ObjectName } from "../../components/ui/objectIcons";
 
 /**
- * What each section of a list on the side is, drawn: Settings, an application's settings and the
- * account. An object, never a state (colour is for state), and not one icon twice in a list
- * (docs/DESIGN.md I-5, NV-19). The areas carry their own, where they are written (the sidebar draws
- * them); a tab has none of its own, because no strip draws one (its width is the budget) and the
- * palette shows the area's it is under.
+ * Which object each area and each section of a list on the side is about. The icon is the object's,
+ * from the kit's map (components/ui/objectIcons.ts), so a screen, a button and a menu of one thing
+ * look like one thing (docs/DESIGN.md I-5, NV-19). A tab has none of its own, because no strip
+ * draws one (its width is the budget): the palette shows the icon of its area.
  *
  * A table of its own, and not an argument of each entry, so that a page that draws a strip of tabs
- * reads the group of screens (features/nav/backups.ts) and not these. And the icons here are the
- * ones nothing else in the console draws (`icons.test.ts` holds it): an icon two places import
- * becomes a file of its own that every route which reaches it must list to preload, and forty of
- * them cost the first page more than the icons are worth; one nobody else imports stays in this
- * table's file, and a route lists that one.
+ * reads the group of screens (features/nav/backups.ts) and not the icons: the register, the
+ * sidebar, the palette and the lists on the side read this.
  */
-const BY_ID: Readonly<Record<string, LucideIcon>> = {
-  // General, the first entry of an application's settings: its own tab drawn as the head of the list.
-  "app.settings": Sliders,
-  "app.settings.source": GitFork,
-  "app.settings.build": Wrench,
-  "app.settings.builds": Package,
-  "app.settings.container": Ship,
-  "app.settings.deploys": Truck,
-  "app.settings.deploy-on-push": Zap,
-  "app.settings.hooks": Anchor,
-  "app.settings.previews": ScanEye,
-  "app.settings.resources": MemoryStick,
-  "app.settings.disk": HardDriveDownload,
-  "app.settings.processes": ListTree,
-  "app.settings.mounts": FolderSymlink,
-  "app.settings.security": ShieldHalf,
-  "app.settings.access": DoorOpen,
-  "app.settings.export": FileDown,
-  "app.settings.delete": ICONS.delete,
-  "settings.variables": Braces,
-  "settings.secret-managers": Vault,
-  "settings.console": MonitorCog,
-  "settings.integrations": Blocks,
-  "settings.about": BadgeInfo,
-  "settings.notifications": Megaphone,
-  "settings.alerts": Siren,
-  "settings.probes": Radar,
-  "settings.log-shipping": FileOutput,
-  "settings.tokens": Key,
-  "settings.api": CodeXml,
-  "settings.manifest": FileJson,
-  "settings.mcp": Bot,
-  "settings.accounts": IdCard,
-  "settings.access": UserLock,
-  "settings.sso": Fingerprint,
-  "settings.approvals": Stamp,
-  "settings.audit": FileClock,
-  "settings.controls": ListTodo,
-  "settings.compliance": BookCheck,
-  "settings.servers": Computer,
-  "settings.cloud": CloudCog,
-  "settings.central": RadioTower,
-  account: UserRoundCog,
-  "account.security": ShieldUser,
+const OBJECT_OF: Readonly<Record<string, ObjectName>> = {
+  // The bar of a server.
+  overview: "overview",
+  projects: "project",
+  apps: "app",
+  databases: "database",
+  domains: "domain",
+  backups: "backup",
+  cron: "cron",
+  logs: "log",
+  activity: "activity",
+  server: "server",
+  settings: "settings",
+  // The bar of the fleet.
+  fleet: "overview",
+  "fleet.servers": "node",
+  "fleet.apps": "app",
+  "fleet.certificates": "certificate",
+  "fleet.backups": "backup",
+  "fleet.updates": "update",
+  "fleet.activity": "activity",
+  // An application's settings: General is the head of the list, the tab they are under.
+  "app.settings": "general",
+  "app.settings.source": "source",
+  "app.settings.build": "build",
+  "app.settings.builds": "builds",
+  "app.settings.container": "container",
+  "app.settings.deploys": "release",
+  "app.settings.deploy-on-push": "trigger",
+  "app.settings.hooks": "hook",
+  "app.settings.previews": "preview",
+  "app.settings.resources": "resources",
+  "app.settings.disk": "disk",
+  "app.settings.processes": "process",
+  "app.settings.mounts": "mount",
+  "app.settings.security": "security",
+  "app.settings.access": "access",
+  "app.settings.export": "export",
+  "app.settings.delete": "delete",
+  // Settings.
+  "settings.variables": "variable",
+  "settings.secret-managers": "secretManager",
+  "settings.console": "console",
+  "settings.integrations": "integration",
+  "settings.about": "noust",
+  "settings.notifications": "channel",
+  "settings.alerts": "alert",
+  "settings.probes": "probe",
+  "settings.log-shipping": "logShipping",
+  "settings.tokens": "token",
+  "settings.api": "api",
+  "settings.manifest": "manifest",
+  "settings.mcp": "mcp",
+  "settings.accounts": "account",
+  "settings.access": "role",
+  "settings.sso": "identity",
+  "settings.approvals": "approval",
+  "settings.audit": "audit",
+  "settings.controls": "control",
+  "settings.compliance": "report",
+  "settings.servers": "node",
+  "settings.cloud": "cloud",
+  "settings.central": "central",
+  // The account.
+  account: "account",
+  "account.security": "signIn",
 };
 
-/** The ids this table draws: a test holds them to the sections of the register, in both directions. */
-export const ICON_IDS: readonly string[] = Object.keys(BY_ID);
+/** The ids this table draws: a test holds them to the areas and the sections of the register, in both directions. */
+export const ICON_IDS: readonly string[] = Object.keys(OBJECT_OF);
 
-/** What a section is, drawn: its own or the table's. A section with neither is a typo, and a test says so. */
-export function iconOf(entry: Pick<Dest, "id" | "icon">): LucideIcon {
-  const icon = entry.icon ?? BY_ID[entry.id];
-  if (icon === undefined) throw new Error(`the section "${entry.id}" has no icon: add it to features/nav/icons.ts`);
-  return icon;
+/** What an area or a section is, drawn. One with no object is a typo, and a test says so. */
+export function iconOf(entry: Pick<Dest, "id">): LucideIcon {
+  const object = OBJECT_OF[entry.id];
+  if (object === undefined) throw new Error(`the screen "${entry.id}" has no icon: add its object to features/nav/icons.ts`);
+  return OBJECT_ICONS[object];
 }
 
-/** The icon of a section, or none: for what draws a screen that may be a tab, which has no icon of its own. */
-export function sectionIcon(entry: Pick<Dest, "id" | "icon">): LucideIcon | undefined {
-  return entry.icon ?? BY_ID[entry.id];
+/** The icon of a screen, or none: for what draws a screen that may be a tab, which has no icon of its own. */
+export function sectionIcon(entry: Pick<Dest, "id">): LucideIcon | undefined {
+  const object = OBJECT_OF[entry.id];
+  return object === undefined ? undefined : OBJECT_ICONS[object];
 }

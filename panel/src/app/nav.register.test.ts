@@ -216,12 +216,12 @@ describe("4. the names", () => {
     for (const entry of DESTS) expect(label(entry).toLowerCase(), entry.id).not.toBe("advanced");
   });
 
-  it("draws every section of a list on the side as the object it is, and no two of one list as the same one (NV-19, I-5)", () => {
-    // The areas carry their own; the table of features/nav/icons.ts has the sections, and nothing else.
+  it("draws every area and every section of a list on the side as the object it is, and no two of one list as the same one (NV-19, I-5)", () => {
+    // The table of features/nav/icons.ts has the areas and the sections, and nothing else: a tab has no icon of its own.
     // Plus General, the first entry of an application's settings: the tab they are under, drawn as the head of the list.
-    const sections = [...DESTS.filter((entry) => entry.kind === "section").map((entry) => entry.id), "app.settings"];
-    expect([...ICON_IDS].sort(), "the table has an icon for every section, and nothing more").toEqual([...sections].sort());
-    for (const entry of DESTS.filter((candidate) => candidate.kind === "area" || candidate.kind === "section")) expect(iconOf(entry).displayName, `${entry.id} has no icon of lucide's`).toBeDefined();
+    const drawn = [...DESTS.filter((entry) => entry.kind === "area" || entry.kind === "section").map((entry) => entry.id), "app.settings"];
+    expect([...ICON_IDS].sort(), "the table has an object for every area and section, and nothing more").toEqual([...drawn].sort());
+    for (const id of drawn) expect(iconOf({ id }).displayName, `${id} has no icon of lucide's`).toBeDefined();
     // A list is the sidebar of a scope, or the sections under one entry.
     const lists = new Map<string, Dest[]>();
     for (const entry of DESTS) {
@@ -231,9 +231,9 @@ describe("4. the names", () => {
     for (const [key, entries] of lists) {
       // The first entry of a list on the side is the entry it is under (General, the account's profile): it is drawn too.
       const parent = key.startsWith("under ") ? DESTS.find((entry) => entry.id === key.slice(6)) : undefined;
-      const drawn = [...(parent !== undefined && parent.kind !== "hidden" ? [parent] : []), ...entries];
-      const names = drawn.map((entry) => iconOf(entry).displayName ?? "");
-      expect(new Set(names).size, `${key}: ${drawn.map((entry) => `${entry.id}=${iconOf(entry).displayName ?? "?"}`).join(", ")}`).toBe(names.length);
+      const inList = [...(parent !== undefined && parent.kind !== "hidden" ? [parent] : []), ...entries];
+      const names = inList.map((entry) => iconOf(entry).displayName ?? "");
+      expect(new Set(names).size, `${key}: ${inList.map((entry) => `${entry.id}=${iconOf(entry).displayName ?? "?"}`).join(", ")}`).toBe(names.length);
     }
   });
 

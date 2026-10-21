@@ -8,6 +8,7 @@ import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section } from "../../components/page/Section";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
@@ -261,6 +262,7 @@ export function PasskeysSection() {
   return (
     <Section
       title={t("auth.passkeys.title")}
+      icon={OBJECT_ICONS.passkey}
       description={t("auth.passkeys.description")}
       {...(available && passkeys.length > 0
         ? {

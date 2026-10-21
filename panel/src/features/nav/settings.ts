@@ -1,5 +1,3 @@
-import { Settings } from "lucide-react";
-
 import { area, section, shown } from "../../app/navCore";
 import type { Dest, More, NavContext, Owner, Strip } from "../../app/navCore";
 import type { PlainKey } from "../../i18n";
@@ -7,7 +5,7 @@ import type { PlainKey } from "../../i18n";
 /** The account's own section is in no group of Settings: it leaves them for /account. */
 const NO_GROUP = "";
 
-const settings = area("settings", "/settings", "nav.settings.label", Settings, {
+const settings = area("settings", "/settings", "nav.settings.label", {
   scope: "both",
   group: "pinned",
   shortcut: ["g", "s"],

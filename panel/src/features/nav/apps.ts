@@ -1,9 +1,7 @@
-import { Boxes } from "lucide-react";
-
 import { area, hidden, strip, tab } from "../../app/navCore";
 import type { Strip } from "../../app/navCore";
 
-const apps = area("apps", "/apps", "nav.apps.label", Boxes, { group: "runs", shortcut: ["g", "a"], goTo: "nav.apps.goTo", keywords: "nav.apps.keywords" });
+const apps = area("apps", "/apps", "nav.apps.label", { group: "runs", shortcut: ["g", "a"], goTo: "nav.apps.goTo", keywords: "nav.apps.keywords" });
 
 // The recipes are a view of what Applications makes (D-2), not a destination of the bar: they keep
 // the addresses they always had, `/catalog`, and are one click from the list that makes applications.

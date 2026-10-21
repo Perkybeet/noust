@@ -6,7 +6,7 @@ import type { Namespace } from "./types";
 export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = {
   "/_console": [],
   "/_console/": ["activity", "appPages", "apps", "auditEvents", "auth", "common", "fleet", "inbox", "map", "overview", "queue", "server", "servers", "settings", "timeline"],
-  "/_console/account": ["account", "auth", "nav", "settings"],
+  "/_console/account": ["account", "auth", "fleet", "nav", "settings"],
   "/_console/account/": ["account", "accounts", "auth", "settings"],
   "/_console/account/security": ["account", "appPages", "apps", "auth", "queue", "settings"],
   "/_console/activity": ["activity", "appPages", "auditEvents", "auth", "queue"],
@@ -22,7 +22,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/_console/apps/$domain/files": ["appPages", "apps", "queue", "runtime"],
   "/_console/apps/$domain/logs": ["appPages"],
   "/_console/apps/$domain/metrics": ["activity", "appPages", "appTraffic", "auditEvents", "auth", "common", "overview", "runtime", "timeline"],
-  "/_console/apps/$domain/settings": ["account", "appBuild", "appPages", "appSettings", "apps", "nav", "network", "promotion", "queue", "rollout", "runtime", "settings", "teams", "variables"],
+  "/_console/apps/$domain/settings": ["account", "appBuild", "appPages", "appSettings", "apps", "fleet", "nav", "network", "promotion", "queue", "rollout", "runtime", "settings", "teams", "variables"],
   "/_console/apps/$domain/settings/": ["appPages", "appSettings", "appTags", "apps", "promotion", "queue", "rollout", "runtime", "teams", "variables"],
   "/_console/apps/$domain/settings/access": ["appPages", "appSettings", "apps", "common", "network", "queue", "server"],
   "/_console/apps/$domain/settings/build": ["appBuild", "appPackages", "appPages", "appSettings", "apps", "buildExtras", "queue"],

@@ -1,4 +1,5 @@
 import { useId } from "react";
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cx } from "../../lib/cx";
@@ -12,6 +13,11 @@ export interface SectionProps {
   children: ReactNode;
   /** Heading level: 2 directly under the page's h1, 3 inside a section. */
   level?: 2 | 3;
+  /**
+   * The object the section is about, drawn before its title (an `OBJECT_ICONS` icon, `components/ui/objectIcons.ts`):
+   * decorative, in the quiet colour, so a section of an account and the button that acts on it look like one thing.
+   */
+  icon?: LucideIcon;
   /** A count or state shown right after the title ("Needs attention 3"). */
   badge?: ReactNode;
   /** The content (or an action) is a skeleton for now: the section is `aria-busy` meanwhile. */
@@ -24,7 +30,7 @@ export interface SectionProps {
  * actions, then the content 16px below. A landmark region named by its heading, so a screen
  * reader can jump between sections.
  */
-export function Section({ title, description, actions, children, level = 2, badge, loading = false, className }: SectionProps) {
+export function Section({ title, description, actions, children, level = 2, icon: Icon, badge, loading = false, className }: SectionProps) {
   const headingId = useId();
   const Heading = `h${level}` as const;
   return (
@@ -32,6 +38,7 @@ export function Section({ title, description, actions, children, level = 2, badg
       <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
+            {Icon !== undefined ? <Icon aria-hidden="true" className="size-icon-md shrink-0 text-fg-faint" /> : null}
             <Heading id={headingId} className={cx("title text-fg", level === 2 ? "text-16" : "text-14")}>
               {title}
             </Heading>

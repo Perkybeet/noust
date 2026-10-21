@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
 import { acknowledgeAlert, alertKeys, handBackAlert } from "../../api/queries/alerts";
 import type { OverviewAttentionItem } from "../../api/queries/overview";
@@ -8,7 +9,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { attentionAction } from "../overview/attentionTarget";
-import type { AlertAction, OpenAction } from "../overview/attentionTarget";
+import type { AlertAction, AttentionAction, OpenAction } from "../overview/attentionTarget";
 
 /** The button of an item that opens a screen: its word, and the same word read with what it is about. */
 function wordsOf(t: T, action: OpenAction): { label: string; aria: string } {
@@ -40,10 +41,11 @@ function wordsOf(t: T, action: OpenAction): { label: string; aria: string } {
  * is on it, and it never resolves the alert: the row changes in place, which is the answer, so
  * there is no toast for it (a toast is for what is not on screen).
  */
-function AlertButton({ action }: { action: AlertAction }) {
+function AlertButton({ action, iconFor }: { action: AlertAction; iconFor: ((action: AttentionAction) => ReactNode) | undefined }) {
   const t = useT();
   const queryClient = useQueryClient();
   const reopening = action.kind === "reopen";
+  const icon = iconFor?.(action);
   const change = useMutation({
     mutationFn: () => (reopening ? handBackAlert(action.rule, action.subject) : acknowledgeAlert(action.rule, action.subject)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: alertKeys.rules }),
@@ -55,6 +57,7 @@ function AlertButton({ action }: { action: AlertAction }) {
     <Button
       size="sm"
       variant={reopening ? "ghost" : "secondary"}
+      {...(icon !== undefined && icon !== null ? { icon } : {})}
       loading={change.isPending}
       aria-label={t(reopening ? "inbox.actions.reopenAria" : "inbox.actions.acknowledgeAria", { subject: action.name })}
       onClick={() => {
@@ -70,16 +73,19 @@ export interface AttentionActionButtonProps {
   item: OverviewAttentionItem;
   /** Called once the button's job is done: a link was followed. */
   onNavigate?: (() => void) | undefined;
+  /** What the button acts on, drawn before its word: given where icons are wanted (the inbox), left out where the card is dense. */
+  iconFor?: ((action: AttentionAction) => ReactNode) | undefined;
 }
 
 /** The one button of a row that needs attention: the fix, or the screen that fixes it (2.7). */
-export function AttentionActionButton({ item, onNavigate }: AttentionActionButtonProps) {
+export function AttentionActionButton({ item, onNavigate, iconFor }: AttentionActionButtonProps) {
   const t = useT();
   const action = attentionAction(item);
   if (action === null) return null;
-  if (action.mode === "alert") return <AlertButton action={action} />;
+  if (action.mode === "alert") return <AlertButton action={action} iconFor={iconFor} />;
   const { label, aria } = wordsOf(t, action);
   const { to, params, search } = action.target;
+  const icon = iconFor?.(action);
   return (
     <Link
       to={to as never}
@@ -89,6 +95,7 @@ export function AttentionActionButton({ item, onNavigate }: AttentionActionButto
       {...(onNavigate ? { onClick: onNavigate } : {})}
       className={buttonClassName("secondary", "sm")}
     >
+      {icon}
       {label}
     </Link>
   );

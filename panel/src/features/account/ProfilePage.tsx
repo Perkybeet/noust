@@ -12,6 +12,7 @@ import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section, Sections } from "../../components/page/Section";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
@@ -38,6 +39,7 @@ function ProfileSection({ t, session }: { t: T; session: SessionInfo }) {
   return (
     <Section
       title={t("auth.security.accountTitle")}
+      icon={OBJECT_ICONS.account}
       description={t("auth.security.accountDescription")}
       actions={
         <Button size="sm" icon={<KeyRound aria-hidden="true" />} onClick={() => setChanging(true)}>
@@ -64,7 +66,7 @@ export function ProfilePage() {
   return (
     <Sections>
       {session !== undefined ? <ProfileSection t={t} session={session} /> : null}
-      <Section title={t("account.tokens.title")} description={t("account.tokens.description")}>
+      <Section title={t("account.tokens.title")} icon={OBJECT_ICONS.token} description={t("account.tokens.description")}>
         <Link to="/settings/tokens" className={cx(buttonClassName("secondary", "md"), "self-start")}>
           {t("account.tokens.open")}
         </Link>

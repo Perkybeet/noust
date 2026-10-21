@@ -1,10 +1,8 @@
-import { Archive } from "lucide-react";
-
 import { area, strip, tab } from "../../app/navCore";
 
 /** Backups and its four tabs. The register is app/nav.ts; this is one group of it. */
 export const BACKUPS_SCREENS = strip(
-  area("backups", "/backups", "nav.backups.label", Archive, {
+  area("backups", "/backups", "nav.backups.label", {
     group: "runs",
     shortcut: ["g", "k"],
     goTo: "nav.backups.goTo",

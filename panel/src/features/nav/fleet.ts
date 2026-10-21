@@ -1,8 +1,5 @@
-import { Archive, Boxes, Gauge, History, RefreshCw, Server } from "lucide-react";
-
 import { area, tab, tabItem } from "../../app/navCore";
 import type { Dest, Strip, TabItem } from "../../app/navCore";
-import { ICONS } from "../../components/ui/icons";
 import type { PlainKey } from "../../i18n";
 
 // The fleet is a scope, not one destination of a server's bar (2.3 of the navigation design): its
@@ -11,35 +8,35 @@ import type { PlainKey } from "../../i18n";
 // has on a server's bar for the same noun (`g a` is Applications in both), because only one of the
 // two bars is ever on screen.
 
-const view = (id: string, to: Dest["to"], label: PlainKey, icon: NonNullable<Dest["icon"]>, shortcut: readonly [string, string], goTo: PlainKey, more: Partial<Dest>): Dest =>
-  area(id, to, label, icon, { scope: "fleet", group: "fleet", shortcut, goTo, ...more });
+const view = (id: string, to: Dest["to"], label: PlainKey, shortcut: readonly [string, string], goTo: PlainKey, more: Partial<Dest>): Dest =>
+  area(id, to, label, { scope: "fleet", group: "fleet", shortcut, goTo, ...more });
 
-const overview = view("fleet", "/fleet", "nav.fleetBar.overview.label", Gauge, ["g", "o"], "nav.fleetBar.overview.goTo", {
+const overview = view("fleet", "/fleet", "nav.fleetBar.overview.label", ["g", "o"], "nav.fleetBar.overview.goTo", {
   keywords: "servers.nav.fleet.keywords",
   command: "fleet.tabs.command.summary",
 });
-const servers = view("fleet.servers", "/fleet/servers", "nav.fleetBar.servers.label", Server, ["g", "v"], "nav.fleetBar.servers.goTo", {
+const servers = view("fleet.servers", "/fleet/servers", "nav.fleetBar.servers.label", ["g", "v"], "nav.fleetBar.servers.goTo", {
   keywords: "fleet.tabs.keywords.servers",
   command: "fleet.tabs.command.servers",
 });
-const apps = view("fleet.apps", "/fleet/apps", "nav.fleetBar.apps.label", Boxes, ["g", "a"], "nav.fleetBar.apps.goTo", {
+const apps = view("fleet.apps", "/fleet/apps", "nav.fleetBar.apps.label", ["g", "a"], "nav.fleetBar.apps.goTo", {
   keywords: "fleet.tabs.keywords.apps",
   command: "fleet.tabs.command.apps",
 });
 const placements = tab(apps, "placements", "placements.tab", { to: "/fleet/placements", scope: "fleet", exact: true, keywords: "placements.tabKeywords", command: "placements.tabCommand" });
-const certificates = view("fleet.certificates", "/fleet/certificates", "nav.fleetBar.certificates.label", ICONS.verified, ["g", "n"], "nav.fleetBar.certificates.goTo", {
+const certificates = view("fleet.certificates", "/fleet/certificates", "nav.fleetBar.certificates.label", ["g", "n"], "nav.fleetBar.certificates.goTo", {
   keywords: "fleet.tabs.keywords.certificates",
   command: "fleet.tabs.command.certificates",
 });
-const backups = view("fleet.backups", "/fleet/backups", "nav.fleetBar.backups.label", Archive, ["g", "k"], "nav.fleetBar.backups.goTo", {
+const backups = view("fleet.backups", "/fleet/backups", "nav.fleetBar.backups.label", ["g", "k"], "nav.fleetBar.backups.goTo", {
   keywords: "fleet.tabs.keywords.backups",
   command: "fleet.tabs.command.backups",
 });
-const updates = view("fleet.updates", "/fleet/updates", "nav.fleetBar.updates.label", RefreshCw, ["g", "u"], "nav.fleetBar.updates.goTo", {
+const updates = view("fleet.updates", "/fleet/updates", "nav.fleetBar.updates.label", ["g", "u"], "nav.fleetBar.updates.goTo", {
   keywords: "fleet.tabs.keywords.updates",
   command: "fleet.tabs.command.updates",
 });
-const activity = view("fleet.activity", "/fleet/activity", "nav.fleetBar.activity.label", History, ["g", "y"], "nav.fleetBar.activity.goTo", {
+const activity = view("fleet.activity", "/fleet/activity", "nav.fleetBar.activity.label", ["g", "y"], "nav.fleetBar.activity.goTo", {
   keywords: "fleet.tabs.keywords.activity",
   command: "fleet.tabs.command.activity",
 });

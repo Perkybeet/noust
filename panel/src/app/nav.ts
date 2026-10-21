@@ -33,7 +33,7 @@ import { BACKUPS_SCREENS } from "../features/nav/backups";
 import { DATABASES_SCREENS, DATABASE_SCREENS } from "../features/nav/databases";
 import { DOMAINS_SCREENS } from "../features/nav/domains";
 import { FLEET_SCREENS } from "../features/nav/fleet";
-import { sectionIcon } from "../features/nav/icons";
+import { iconOf, sectionIcon } from "../features/nav/icons";
 import { ACTIVITY_SCREENS, CRON_SCREENS, LOGS_SCREENS } from "../features/nav/machine";
 import { OVERVIEW_SCREENS } from "../features/nav/overview";
 import { PROJECTS_SCREENS } from "../features/nav/projects";
@@ -235,9 +235,7 @@ export function shortcuts(scope?: Scope): { id: string; keys: readonly string[];
 
 /** The icon of the area a screen is under: every area has one, and a screen that is not under one is a typo in the register. */
 function areaIcon(entry: Dest): LucideIcon {
-  const icon = rootOf(entry).icon;
-  if (icon === undefined) throw new Error(`app/nav.ts: the area of "${entry.id}" has no icon`);
-  return icon;
+  return iconOf(rootOf(entry));
 }
 
 export interface PaletteEntry {

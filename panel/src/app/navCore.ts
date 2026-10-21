@@ -6,8 +6,6 @@
  * sidebar and the tests read. docs/DESIGN.md, NV-1.
  */
 
-import type { LucideIcon } from "lucide-react";
-
 import type { PlainKey } from "../i18n";
 import type { FileRouteTypes } from "../routeTree.gen";
 import { INTERIM_ROWS } from "./redirects";
@@ -48,7 +46,6 @@ export interface Dest {
   command?: PlainKey;
   /** Other words an operator might type for it, the old names of a renamed screen apart (RENAMED). */
   keywords?: PlainKey;
-  icon?: LucideIcon;
   /** The two keys that open it, such as ["g", "a"]. */
   shortcut?: readonly string[];
   /** What the shortcut list calls the shortcut. */
@@ -81,13 +78,12 @@ function under(parent: Dest, name: string): ConsolePath {
 // build, and the order of the register is the order app/nav.ts lists the groups in.
 
 /** A destination of the sidebar. */
-export const area = /* @__NO_SIDE_EFFECTS__ */ (id: string, to: ConsolePath, label: PlainKey, icon: LucideIcon, more: More = {}): Dest => ({
+export const area = /* @__NO_SIDE_EFFECTS__ */ (id: string, to: ConsolePath, label: PlainKey, more: More = {}): Dest => ({
   id,
   to,
   kind: "area",
   scope: "server",
   label,
-  icon,
   ...more,
 });
 
