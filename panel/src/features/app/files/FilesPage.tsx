@@ -571,6 +571,7 @@ export function FilesPage({ domain, folder, onFolder }: FilesPageProps) {
   return (
     <Section
       title={t("runtime.files.title")}
+      icon={<Folder />}
       description={t("runtime.files.description", { domain })}
       actions={
         <>

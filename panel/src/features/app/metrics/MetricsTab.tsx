@@ -401,6 +401,7 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
   return (
     <Section
       title={traffic ? t("appPages.metrics.trafficTitle") : t("appPages.metrics.mainTitle")}
+      icon={<ChartLine />}
       description={<TruthLine read={read.data} range={range} reading={read.isPlaceholderData} />}
       actions={control}
     >

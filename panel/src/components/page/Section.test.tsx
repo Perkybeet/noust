@@ -17,6 +17,19 @@ describe("Section", () => {
     expect(screen.getByText("The last eight, across every app.")).toBeInTheDocument();
   });
 
+  it("draws the icon of the object it is about before the title, and leaves it out of the section's name", () => {
+    render(
+      <Section title="Health" icon={<svg data-testid="object-icon" />}>
+        <p>facts</p>
+      </Section>,
+    );
+    const icon = screen.getByTestId("object-icon");
+    // Decorative: a screen reader names the region by its heading alone.
+    expect(icon.closest("[aria-hidden='true']")).not.toBeNull();
+    expect(screen.getByRole("region", { name: "Health" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Health" }).previousElementSibling).toContainElement(icon);
+  });
+
   it("nests one level deeper when asked", () => {
     render(
       <Section title="Runtime" level={3}>

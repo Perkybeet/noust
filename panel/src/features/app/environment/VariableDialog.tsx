@@ -1,3 +1,4 @@
+import { Replace, Undo2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -104,6 +105,7 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
           ? {
               action: (
                 <Button
+                  icon={replacing ? <Undo2 aria-hidden="true" /> : <Replace aria-hidden="true" />}
                   onClick={() => {
                     setReplacing((current) => !current);
                   }}

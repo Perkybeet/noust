@@ -1,3 +1,4 @@
+import { ScrollText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
@@ -26,13 +27,14 @@ export function ViewJobLog({ domain, job }: { domain: string; job: Job }) {
   if (deployment !== undefined) {
     return (
       <Link to="/apps/$domain/deployments/$id" params={{ domain, id: String(deployment.id) }} className={buttonClassName("ghost", "sm")}>
+        <ScrollText aria-hidden="true" />
         {t("appPages.common.viewLog")}
       </Link>
     );
   }
   return (
     <>
-      <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+      <Button size="sm" variant="ghost" icon={<ScrollText aria-hidden="true" />} onClick={() => setOpen(true)}>
         {t("appPages.common.viewLog")}
       </Button>
       <JobOutputDrawer job={job} open={open} onOpenChange={setOpen} title={jobWords(job.type, domain, t.locale).title} />

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { FileX } from "lucide-react";
+import { FileX, Rocket, ScrollText, Webhook } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -163,6 +163,7 @@ function HooksSection({ deployment, t }: { deployment: Deployment; t: T }) {
   return (
     <Section
       title={t("appPages.deployments.hooks.title")}
+      icon={<Webhook />}
       level={3}
       description={deployment.schema_changed ? t("appPages.deployments.hooks.schemaChanged") : t("appPages.deployments.hooks.schemaUnchanged")}
     >
@@ -254,11 +255,12 @@ function LogSection({
     <div id={LOG_ANCHOR} className="scroll-mt-20">
       <Section
         title={t("appPages.deployments.page.buildLogTitle")}
+        icon={<ScrollText />}
         level={3}
         description={running ? t("appPages.deployments.page.buildLogFollowing") : undefined}
         actions={
           log.data?.truncated ? (
-            <Button size="sm" variant="ghost" loading={log.isFetching} onClick={wholeLog}>
+            <Button size="sm" variant="ghost" icon={<ScrollText aria-hidden="true" />} loading={log.isFetching} onClick={wholeLog}>
               {t("appPages.deployments.page.showWholeLog")}
             </Button>
           ) : undefined
@@ -525,6 +527,7 @@ function Deploy({ domain, deployment, t }: { domain: string; deployment: Deploym
     <div className="flex flex-col gap-4">
       <Section
         title={t("appPages.deployments.page.heading", { id: String(deployment.id) })}
+        icon={<Rocket />}
         badge={
           <span className="flex items-center gap-2">
             <DeployStatePill status={deploymentStatusWord(deployment)} />

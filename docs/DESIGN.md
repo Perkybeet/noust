@@ -977,9 +977,10 @@ list: a 288px box that `/` focuses, the filters, the count at the right. Filters
 framed block is kept only for pages not yet on a template, and the type makes the variant required
 when the last one has moved. A bare muted paragraph is not an empty state (ST-2).
 
-**`Section`** (`loading`), **`Sections`**, **`Subsection`**. A page's subjects (`h2`, 32px
+**`Section`** (`loading`, `icon`), **`Sections`**, **`Subsection`**. A page's subjects (`h2`, 32px
 apart) and their parts (`h3`, or `h4` inside a card). Headings are never written by hand in a
-feature.
+feature. A section about an object (a deployment, the health of an app, its domains) carries the
+object's icon before its title (`icon`, decorative, in the text colour: I-4 and I-6).
 
 **`PageHeader`** (`title`, `mono`, `status`, `statusExtras`, `meta`, `description`, `breadcrumbs`,
 `place`, `secondaryActions`, `primaryAction`, `overflow`, `server`, `flush`). The start of every page;

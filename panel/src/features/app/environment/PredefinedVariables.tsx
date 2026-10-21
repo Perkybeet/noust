@@ -1,3 +1,4 @@
+import { Variable } from "lucide-react";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { Section } from "../../../components/page/Section";
 import { useT } from "../../../i18n";
@@ -19,7 +20,7 @@ export function PredefinedVariables({ domain, predefined }: { domain: string; pr
   const t = useT();
   const entries = Object.entries(predefined ?? {}).sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
   return (
-    <Section title={t("variables.env.predefinedTitle")} description={t("variables.env.predefinedDescription")}>
+    <Section title={t("variables.env.predefinedTitle")} icon={<Variable />} description={t("variables.env.predefinedDescription")}>
       {entries.length === 0 ? (
         <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("variables.env.predefinedEmpty")}</p>
       ) : (

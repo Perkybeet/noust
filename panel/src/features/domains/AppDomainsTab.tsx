@@ -42,6 +42,7 @@ import { certificateJobFor, certificateView, coverageOf, covers, issuerName } fr
 import { JobBanner } from "./JobBanner";
 import { useCertificateRefresh } from "./useCertificateJobs";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { ICONS } from "../../components/ui/icons";
 
 function kindLabel(t: T, kind: string): string {
   if (kind === "primary") return t("domains.kindPrimary");
@@ -249,6 +250,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
     <Sections>
       <Section
         title={t("domains.appTab.domainsSectionTitle")}
+        icon={<Globe />}
         description={t("domains.appTab.domainsSectionDescription", { domain })}
         actions={
           <Button icon={<Plus aria-hidden="true" />} onClick={() => setAdding(true)}>
@@ -343,6 +345,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
 
       <Section
         title={t("domains.appTab.certificateSectionTitle")}
+        icon={<ICONS.verified />}
         description={t("domains.appTab.certificateSectionDescription")}
         loading={lineage === undefined}
         actions={

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, CircleHelp, CircleMinus, CircleX, History, RotateCw, ScrollText } from "lucide-react";
+import { ChevronDown, CircleHelp, CircleMinus, CircleX, History, RotateCw, ScrollText, Stethoscope } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { appQuery, diagnosisQuery } from "../../../api/queries/apps";
@@ -280,7 +280,7 @@ function Checks({ diagnosis, domain, t }: { diagnosis: Diagnosis; domain: string
   const problems = diagnosis.checks.filter(shown);
   const rest = diagnosis.checks.filter((check) => !shown(check));
   return (
-    <Section title={t("appPages.diagnose.checksTitle")} description={t("appPages.diagnose.checksDescription")}>
+    <Section title={t("appPages.diagnose.checksTitle")} icon={<Stethoscope />} description={t("appPages.diagnose.checksDescription")}>
       <Card padding="none">
         {/* Two lists side by side, never one inside the other: a check is one list item. */}
         <div className="flex min-w-0 flex-col divide-y divide-border">

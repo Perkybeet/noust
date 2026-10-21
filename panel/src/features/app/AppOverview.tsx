@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Globe, Webhook } from "lucide-react";
+import { GitPullRequest, Globe, HeartPulse, Rocket, ScrollText, Webhook } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -107,7 +107,7 @@ function Deploys({ app, t }: { app: App; t: T }) {
   const recent = items.slice(0, RECENT_APP_DEPLOYS);
   return (
     <>
-      <Section title={t("appPages.overview.liveNow")}>
+      <Section title={t("appPages.overview.liveNow")} icon={<Rocket />}>
         {serving !== null ? (
           <LiveRow deployment={serving} />
         ) : (
@@ -116,6 +116,7 @@ function Deploys({ app, t }: { app: App; t: T }) {
       </Section>
       <Section
         title={t("appPages.overview.lastDeployments")}
+        icon={<Rocket />}
         actions={
           <TextLink to="/apps/$domain/deployments" params={{ domain }} size="ui">
             {t("appPages.overview.viewAll")}
@@ -207,6 +208,7 @@ function Health({ app, t }: { app: App; t: T }) {
   return (
     <Section
       title={t("appPages.overview.healthTitle")}
+      icon={<HeartPulse />}
       actions={
         staticSite ? undefined : (
           <TextLink to="/apps/$domain/settings/resources" params={{ domain: app.domain }} size="ui">
@@ -257,6 +259,7 @@ function AdoptedResources({ app, t }: { app: App; t: T }) {
   return (
     <Section
       title={t("appPages.overview.resourcesTitle")}
+      icon={<HeartPulse />}
       actions={
         <TextLink to="/apps/$domain/metrics" params={{ domain: app.domain }} size="ui">
           {t("appPages.overview.openMetrics")}
@@ -285,7 +288,7 @@ function Previews({ domain, t }: { domain: string; t: T }) {
   // Only an app with previews on has anything to say, and one with none yet says it in its settings.
   if (data === undefined || data.settings === null || data.previews.length === 0) return null;
   return (
-    <Section title={t("appPages.overview.previewsTitle")}>
+    <Section title={t("appPages.overview.previewsTitle")} icon={<GitPullRequest />}>
       <RowList aria-label={t("appPages.overview.previewsLabel", { domain })}>
         {data.previews.map((preview) => {
           const view = previewStatus(preview.status, t.locale);
@@ -298,7 +301,7 @@ function Previews({ domain, t }: { domain: string; t: T }) {
                   <ExternalLink href={preview.url} label={t("appPages.overview.previewOpenAria", { name })}>
                     {t("appPages.overview.previewOpen")}
                   </ExternalLink>
-                  <Button size="sm" variant="ghost" aria-label={t("appPages.overview.previewLogsAria", { name })} onClick={() => setLogs(preview)}>
+                  <Button size="sm" variant="ghost" icon={<ScrollText aria-hidden="true" />} aria-label={t("appPages.overview.previewLogsAria", { name })} onClick={() => setLogs(preview)}>
                     {t("appPages.overview.previewLogs")}
                   </Button>
                 </>

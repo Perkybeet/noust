@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Copy, GitCommitHorizontal, History, Hammer, PackageCheck, RotateCw, ScrollText, X } from "lucide-react";
+import { ChevronDown, Copy, GitCommitHorizontal, Hammer, History, PackageCheck, Rocket, RotateCw, ScrollText, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { appQuery, releasesQuery } from "../../../api/queries/apps";
@@ -314,7 +314,7 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
       <EmptyState
         variant="firstUse"
         level={2}
-        icon={<History />}
+        icon={<Rocket />}
         title={t("appPages.deployments.tab.emptyTitle")}
         description={t("appPages.deployments.tab.emptyDescription")}
         command={`noust update ${domain}`}
@@ -426,7 +426,7 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
           ) : null}
           {pages.hasNextPage ? (
             <div className="flex flex-wrap items-center gap-3">
-              <Button size="sm" loading={pages.isFetchingNextPage} onClick={() => void pages.fetchNextPage()}>
+              <Button size="sm" icon={<ChevronDown aria-hidden="true" />} loading={pages.isFetchingNextPage} onClick={() => void pages.fetchNextPage()}>
                 {t("appPages.deployments.tab.loadOlder")}
               </Button>
               <span className="text-12 text-fg-muted">{t("appPages.deployments.tab.showing", { shown: history.length, total })}</span>

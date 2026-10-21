@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardPaste, Eye, EyeOff, Pencil, RefreshCw, Undo2, Variable } from "lucide-react";
+import { ClipboardPaste, Eye, EyeOff, Hammer, Layers, Pencil, Play, RefreshCw, Save, Undo2, Variable, WandSparkles } from "lucide-react";
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
 import { request } from "../../../api/client";
 import { appEnvQuery, appKeys, appQuery } from "../../../api/queries/apps";
@@ -71,6 +72,12 @@ function Masked() {
 }
 
 const SECRECY_CHOICES: readonly SecrecyChoice[] = ["secret", "not-secret", "auto"];
+
+/** What each way of deciding if a value is hidden looks like in the menu: hidden, shown, or left to Noust. */
+const SECRECY_ICON: Record<SecrecyChoice, ReactNode> = { secret: <EyeOff />, "not-secret": <Eye />, auto: <WandSparkles /> };
+
+/** Who gets a variable: both the build and the running app, the build only, the running app only. */
+const AUDIENCE_ICON: Record<VariableAudience, ReactNode> = { both: <Layers />, build: <Hammer />, runtime: <Play /> };
 
 /**
  * A variable's type: secret (hidden by the server) or plain, and in a few words what decided
@@ -429,7 +436,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
               {AUDIENCES.map((option) => {
                 const current = option === effectiveAudience(recordedAudience, staged, row.name);
                 return (
-                  <MenuItem key={option} description={audienceHelp(option, t.locale)} disabled={current} onClick={() => stageAudience(row.name, option)}>
+                  <MenuItem key={option} icon={AUDIENCE_ICON[option]} description={audienceHelp(option, t.locale)} disabled={current} onClick={() => stageAudience(row.name, option)}>
                     {audienceLabel(option, t.locale)}
                     {current ? " " : null}
                     {current ? <span className="sr-only">{t("variables.audience.currentSrOnly")}</span> : null}
@@ -446,6 +453,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
               {SECRECY_CHOICES.map((option) => (
                 <MenuItem
                   key={option}
+                  icon={SECRECY_ICON[option]}
                   disabled={option === choice || (mark.isPending && mark.variables.name === row.name)}
                   onClick={() => {
                     mark.mutate({ name: row.name, value: markFor(option) });
@@ -558,7 +566,9 @@ export function EnvironmentTab({ domain }: { domain: string }) {
               ? {}
               : {
                   saveMenu: (
-                    <MenuItem onClick={() => saveAs(false)}>{t("environment.tab.saveOnly")}</MenuItem>
+                    <MenuItem icon={<Save />} onClick={() => saveAs(false)}>
+                        {t("environment.tab.saveOnly")}
+                      </MenuItem>
                   ),
                 })}
           />

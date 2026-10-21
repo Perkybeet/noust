@@ -1,3 +1,4 @@
+import { Variable } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { composeVariablesQuery } from "../../../api/queries/runtime";
@@ -8,6 +9,7 @@ import { Section } from "../../../components/page/Section";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { ICONS } from "../../../components/ui/icons";
 import { Mono } from "../../../components/ui/Mono";
 import { RowList } from "../../../components/ui/RowList";
 import { Skeleton } from "../../../components/ui/Skeleton";
@@ -33,7 +35,7 @@ export function ComposeVariables({ domain, onAdd }: { domain: string; onAdd: (na
   const report = useQuery(composeVariablesQuery(domain));
   const variables = [...(report.data?.variables ?? [])].sort((a, b) => Number(b.status === "missing") - Number(a.status === "missing"));
   return (
-    <Section title={t("environment.compose.title")} description={t("environment.compose.description")}>
+    <Section title={t("environment.compose.title")} icon={<Variable />} description={t("environment.compose.description")}>
       {report.isError ? (
         <ErrorBlock compact error={report.error} title={t("environment.compose.readFailed")} onRetry={() => void report.refetch()} retrying={report.isRefetching} />
       ) : report.data === undefined ? (
@@ -57,6 +59,7 @@ export function ComposeVariables({ domain, onAdd }: { domain: string; onAdd: (na
                         <Button
                           size="sm"
                           variant="ghost"
+                          icon={<ICONS.add aria-hidden="true" />}
                           aria-label={t("environment.compose.addAria", { name: variable.name })}
                           onClick={() => {
                             onAdd(variable.name);

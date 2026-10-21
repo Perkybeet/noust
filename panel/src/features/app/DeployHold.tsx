@@ -8,6 +8,7 @@ import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import { formatDateTime, parseTimestamp } from "../../lib/format";
 import { useResumeDeploys } from "./useResumeDeploys";
+import { Play } from "lucide-react";
 
 /**
  * The freeze that holds an app's deploys, in the words the person who froze them gave. A freeze
@@ -51,7 +52,7 @@ export function DeployHold({ domain }: { domain: string }) {
         <Notice
           title={t("rollout.hold.pausedTitle")}
           action={
-            <Button size="sm" loading={resume.isPending} onClick={() => resume.mutate()}>
+            <Button size="sm" icon={<Play aria-hidden="true" />} loading={resume.isPending} onClick={() => resume.mutate()}>
               {t("rollout.auto.resume")}
             </Button>
           }
