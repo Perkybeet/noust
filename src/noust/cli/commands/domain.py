@@ -340,13 +340,21 @@ def add_command(
 @click.argument("app_domain", metavar="APP", required=False)
 @click.option("--show", is_flag=True, help="Only say the name, without adding it to anything.")
 @click.option(
+    "--prefix",
+    metavar="NAME",
+    help="Make the name of one application (shop.203-0-113-10.sslip.io) instead of the "
+    "server's own, numbered when another application has it.",
+)
+@click.option(
     "--no-cert",
     is_flag=True,
     help="Do not extend the certificate now. Run the same command again to extend it.",
 )
 @json_option("Print the name as JSON (with --show).")
 @pass_context
-def temporary_command(ctx: Context, app_domain: str | None, show: bool, no_cert: bool) -> None:
+def temporary_command(
+    ctx: Context, app_domain: str | None, show: bool, prefix: str | None, no_cert: bool
+) -> None:
     """
     Give APP a temporary name made of this server's address, for a server with no domain yet.
 
@@ -357,7 +365,7 @@ def temporary_command(ctx: Context, app_domain: str | None, show: bool, no_cert:
     sslip.io is everybody's, so use it to try things out. A server behind NAT declares its
     public address first: noust config set dns.public_addresses ADDRESS.
     """
-    found = suggest()
+    found = suggest(prefix)
     if show or app_domain is None:
         if ctx.json_output:
             click.echo(

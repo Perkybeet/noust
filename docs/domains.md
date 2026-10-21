@@ -145,6 +145,41 @@ moment, and the name belongs to a service that is not Noust's to promise. Remove
 suggestion, writing nothing) and the ordinary `POST /api/apps/{domain}/domains`. Console: **Add
 domain, Use a temporary address**.
 
+### An application deployed on a temporary address
+
+A server runs many applications, so the name of the server alone (`203-0-113-10.sslip.io`) is one
+name. sslip.io answers any label in front of the address with that address, so an application takes
+its own: `shop.203-0-113-10.sslip.io` for the repository `shop`, `uptime-kuma.203-0-113-10.sslip.io`
+for the recipe, `hello.203-0-113-10.sslip.io` for the demo. The label is what the repository, the
+recipe or the image is called, cut to a valid host label; when another application of the server
+already has it (or a domain that spells the same application name, because the unit, the directory
+and the user come from it) the next number is used, `shop-2`.
+
+```bash
+noust create --temporary -s https://github.com/you/shop.git     # shop.203-0-113-10.sslip.io
+noust create --temporary --recipe uptime-kuma
+noust domain temporary --show --prefix shop                     # the name, changing nothing
+```
+
+`--temporary` takes the place of `-d`; the two together, or with `--www`, are a usage error. In the
+console, the new-application wizard offers it as the **Temporary address, for trying out** beside
+**My own domain**, and skips the question altogether on a server that has no application with a
+domain of its own yet. API: `GET /api/domains/temporary?prefix=shop`.
+
+**A temporary name stays the application's name.** The domain an application is created on is
+its identity: the unit (`shop-203-0-113-10-sslip-io.service`), the directory and the account are
+made from it, and 158 places in the code derive them from the domain at the moment they are needed.
+Changing the primary domain without renaming all of it would touch the identity of every
+application, so it is not offered. Add your own domain as an alias (`noust domain add`) when it
+points here: the console shows the first alias that is not temporary and has a certificate as the
+address of the application, and the unit and the directory keep the technical name.
+
+**The certificate may be refused.** The authority limits certificates per registered domain, and
+sslip.io is everybody's. A refusal never fails the deployment: the application serves over HTTP,
+the deployment records `certificate_state: failed` with the authority's words in
+`certificate_output` (`GET /api/deployments/{id}`), and the console shows them under **What
+certbot said**. Run `noust domain add` again, or `noust cert create`, later.
+
 ## Certificates
 
 - When an application serves TLS, `noust domain add` extends its certificate to the new name

@@ -16,6 +16,7 @@ sslip.io answers any label before the address with that address. What is pinned 
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from typing import Any
 
@@ -182,6 +183,61 @@ def test_the_api_without_a_prefix_is_what_it_always_was(declared: None, client: 
         "service": "sslip.io",
         "declared": True,
     }
+
+
+def test_the_command_says_the_name_of_an_application_without_adding_it(
+    declared: None, store: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from click.testing import CliRunner
+
+    from noust.cli.app import cli as root_cli
+    from noust.cli.commands import domain as domain_cli
+
+    store.create_app(App(domain="shop.8-8-4-4.sslip.io", app_path="/b", port=3001))
+    monkeypatch.setattr(
+        domain_cli, "add_domain", lambda *a, **k: pytest.fail("--show added the name")
+    )
+
+    result = CliRunner().invoke(
+        root_cli, ["domain", "temporary", "--show", "--prefix", "shop", "--json"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["domain"] == "shop-2.8-8-4-4.sslip.io"
+
+
+def test_the_command_adds_the_name_of_an_application_to_it(
+    declared: None, store: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from click.testing import CliRunner
+
+    from noust.cli.app import cli as root_cli
+    from noust.cli.commands import domain as domain_cli
+
+    added: list[tuple[str, str]] = []
+
+    def fake_add(app: str, name: str, kind: str, **kwargs: Any) -> Any:
+        added.append((app, name))
+        return SimpleNamespace(
+            app=app,
+            domains=[],
+            adopted=(),
+            certificate_issued=False,
+            certificate_reduced=False,
+            lineage_removed=False,
+            certificate_error=None,
+            canonical="",
+            tls=False,
+        )
+
+    monkeypatch.setattr(domain_cli, "add_domain", fake_add)
+
+    result = CliRunner().invoke(
+        root_cli, ["domain", "temporary", "shop.example.com", "--prefix", "blog", "--no-cert"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert added == [("shop.example.com", "blog.8-8-4-4.sslip.io")]
 
 
 def test_a_prefix_that_is_too_long_for_the_api_is_refused_before_anything_is_looked_up(
