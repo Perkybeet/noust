@@ -805,23 +805,6 @@ class WebServerManager(BaseManager):
             return False
         return self._run([program, module], timeout=_CONTROL_TIMEOUT).success
 
-    def disable_module(self, module: str) -> bool:
-        """
-        Disable a web server module.
-
-        Args:
-            module: Module name.
-
-        Returns:
-            True when the module was disabled. False when the backend has no
-            runtime module system.
-        """
-        program = self.backend.module_disable_program
-        if program is None:
-            self.logger.debug(f"{self.backend.name} has no runtime modules; ignoring {module}")
-            return False
-        return self._run([program, module], timeout=_CONTROL_TIMEOUT).success
-
     # -- Paths -------------------------------------------------------------
 
     def config_path(self, domain: str) -> Path:

@@ -15,7 +15,7 @@ spelling, and writes the new one.
 The rule for every entry is the same: **accept the old name on input, emit the new one**.
 Where Noust itself holds the old name (an account, a unit, a file in an application's
 tree, a tag, a folder) it is renamed the next time that thing is used anyway, never
-in a step that restarts something outside a deployment; :mod:`noust.core.name_migration`
+in a step that restarts something outside a deployment; :mod:`noust.managers.name_migration`
 lists what is left.
 
 :data:`REGISTRY` is the same list as data, for ``noust setup doctor``, the documentation

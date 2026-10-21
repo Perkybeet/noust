@@ -38,7 +38,7 @@ import re
 import socket
 import struct
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -1342,22 +1342,3 @@ def fastcgi_probe(
         return False
 
     return probe
-
-
-def as_sequence(value: object, *, field_name: str) -> Sequence[str]:
-    """
-    Read a list of strings from settings that came off disk.
-
-    Args:
-        value: The value.
-        field_name: What it is, for the message.
-
-    Returns:
-        The strings.
-
-    Raises:
-        ValidationError: When it is not a list of strings.
-    """
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise ValidationError(f"{field_name} must be a list of strings", details=f"Got {value!r}.")
-    return value

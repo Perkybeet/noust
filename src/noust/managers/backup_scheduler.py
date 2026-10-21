@@ -805,15 +805,6 @@ class BackupScheduler:
         except BackupError as exc:
             self.logger.warning(f"The retention sweep's timer could not be made: {exc}")
 
-    def sweep_timer_state(self) -> dict[str, Any]:
-        """
-        Ask systemd about the retention sweep's timer.
-
-        Returns:
-            ``installed``, ``next_run`` and ``last_run``.
-        """
-        return self.unit_state(SWEEP_UNIT)
-
     def apply_priority(self) -> list[str]:
         """
         Give every backup service already on this server the priority the configuration asks for.

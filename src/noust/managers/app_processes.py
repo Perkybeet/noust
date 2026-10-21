@@ -821,25 +821,6 @@ class ProcessManager:
         self._after_last(app)
         return stopped
 
-    def apply_all(self, domain: str) -> list[ProcessChange]:
-        """
-        Make the units of every process match its definition.
-
-        What a deployment calls after it synchronised the repository's
-        definitions, with the application's lock held by the caller.
-
-        Args:
-            domain: The application.
-
-        Returns:
-            What was done for each process.
-        """
-        app = self._app(domain)
-        return [
-            self._apply(app, record.name)
-            for record in store_module.list_processes(domain, store=self.store)
-        ]
-
     def declare(self, domain: str, found: ProcessSet) -> Declaration:
         """
         Record the processes a repository declares and write their units, starting none.

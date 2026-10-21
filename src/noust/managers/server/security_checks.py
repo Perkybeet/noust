@@ -1581,19 +1581,6 @@ def run_checks(
     return report
 
 
-def hardening_checks(**kwargs: Any) -> list[Check]:
-    """
-    The list of checks, for a consumer that only wants the list (the ENS check).
-
-    Args:
-        **kwargs: Passed to :func:`run_checks`.
-
-    Returns:
-        The checks, in catalog order.
-    """
-    return run_checks(**kwargs).checks
-
-
 def cached_report() -> CheckReport | None:
     """
     The last report, without probing anything: this process's or the kept one, the newer.

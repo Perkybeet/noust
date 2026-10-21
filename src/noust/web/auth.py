@@ -4687,38 +4687,6 @@ def is_allowed_origin(connection: HTTPConnection, config: SecurityConfig | None 
     return any(_origin_host(value) == origin_host for value in allowed)
 
 
-def is_safe_path(path: str) -> bool:
-    """
-    Check that a path stays inside its base directory.
-
-    Args:
-        path: The path to check.
-
-    Returns:
-        True when the path is relative and contains no traversal.
-    """
-    normalized = os.path.normpath(path)
-    if ".." in normalized.split(os.sep):
-        return False
-    return not normalized.startswith("/")
-
-
-def sanitize_input(value: str, max_length: int = 1000) -> str:
-    """
-    Trim and de-fang a user supplied string.
-
-    Args:
-        value: The input value.
-        max_length: Maximum allowed length.
-
-    Returns:
-        The sanitized value.
-    """
-    if not value:
-        return ""
-    return value[:max_length].replace("\x00", "")
-
-
 def _unauthorized(detail: str) -> HTTPException:
     """
     Build a 401 response.

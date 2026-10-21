@@ -1438,37 +1438,6 @@ def tunnel_account_policy(user: str, console_port: int, keys_dir: Path) -> Accou
     )
 
 
-def plan_tunnel_policy(
-    user: str,
-    console_port: int,
-    *,
-    sshd_config: Path = SSHD_CONFIG,
-    dropin_dir: Path = SSHD_DROPIN_DIR,
-    keys_dir: Path = TUNNEL_KEYS_DIR,
-) -> SshdPolicy:
-    """
-    Decide where the tunnel account's ``Match`` block goes, and what the file becomes.
-
-    Args:
-        user: The tunnel account.
-        console_port: The console's loopback port.
-        sshd_config: sshd's main configuration file.
-        dropin_dir: sshd's fragment directory.
-        keys_dir: Where the account's key file is.
-
-    Returns:
-        The plan; nothing is written.
-
-    Raises:
-        NodeError: When a file on the way is a symlink.
-    """
-    return plan_account_policy(
-        tunnel_account_policy(user, console_port, keys_dir),
-        sshd_config=sshd_config,
-        dropin_dir=dropin_dir,
-    )
-
-
 def plan_account_policy(
     policy: AccountPolicy,
     *,

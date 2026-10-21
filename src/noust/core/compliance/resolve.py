@@ -142,19 +142,6 @@ def unknown_names(config: Any | None = None) -> list[str]:
     ]
 
 
-def legacy_profile_on(config: Any | None = None) -> bool:
-    """
-    Args:
-        config: The configuration; the process-wide one by default.
-
-    Returns:
-        Whether ``security.profile`` alone (the setting from before frameworks)
-        enables ENS MEDIA.
-    """
-    value = profile.read_config(config, "security.profile", profile.PROFILE_STANDARD)
-    return profile.normalise_profile(value) == profile.PROFILE_ENS_MEDIUM
-
-
 # ------------------------------------------------------------------------- floors
 
 

@@ -407,22 +407,3 @@ def pagerduty_request(
     if decided is None:
         return None
     return json_request(endpoint, pagerduty.render(notification, routing_key, decided))
-
-
-def pagerduty_acknowledge_request(routing_key: str, key: str, region: str = "us") -> Request:
-    """
-    Build the request that acknowledges an incident.
-
-    Args:
-        routing_key: The integration's key.
-        key: The incident's ``dedup_key``.
-        region: ``us`` or ``eu``.
-
-    Returns:
-        The request.
-
-    Raises:
-        ValueError: When the key or the region is not valid.
-    """
-    endpoint = _check_pagerduty(routing_key, region)
-    return json_request(endpoint, pagerduty.acknowledge(routing_key, key))

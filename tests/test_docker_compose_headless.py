@@ -207,7 +207,7 @@ def test_a_stack_registered_as_a_worker_that_publishes_a_port_later_has_it_recor
     """
     registered(store, root, port=None)
     (root / "docker-compose.yml").write_text(
-        "services:\n  web:\n    image: example/web:1\n    ports:\n      - \"8081:80\"\n"
+        'services:\n  web:\n    image: example/web:1\n    ports:\n      - "8081:80"\n'
     )
     probed: list[str] = []
     monkeypatch.setattr(

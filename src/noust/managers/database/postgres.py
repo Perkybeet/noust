@@ -1384,32 +1384,6 @@ class PostgresManager(BaseDatabaseManager):
         argv.append(database)
         return argv
 
-    def list_schemas(self, database: str) -> list[str]:
-        """
-        List the schemas a database holds, excluding the system ones.
-
-        Args:
-            database: Database name.
-
-        Returns:
-            Schema names, sorted.
-
-        Raises:
-            DatabaseNotFoundError: When the database does not exist.
-        """
-        if not self.database_exists(database):
-            raise DatabaseNotFoundError(f"Database '{database}' does not exist")
-
-        success, output = self._execute_sql(
-            "SELECT schema_name FROM information_schema.schemata "
-            "WHERE schema_name NOT LIKE 'pg\\_%' AND schema_name != 'information_schema' "
-            "ORDER BY schema_name;",
-            database=database,
-        )
-        if not success:
-            self._listing_failed("schemas", output)
-        return [line.strip() for line in output.strip().splitlines() if line.strip()]
-
     def backup_schema(
         self,
         database: str,
@@ -1450,47 +1424,6 @@ class PostgresManager(BaseDatabaseManager):
         )
         info.database = f"{database}/{schema}"
         return info
-
-    def backup_all_schemas(
-        self,
-        database: str,
-        output_dir: Path | None = None,
-        compress: bool = True,
-    ) -> list[BackupInfo]:
-        """
-        Dump every non-system schema of a database into its own file.
-
-        Args:
-            database: Database name.
-            output_dir: Directory for the backup files.
-            compress: Pipe each dump through gzip.
-
-        Returns:
-            One entry per schema that was dumped.
-
-        Raises:
-            DatabaseNotFoundError: When the database does not exist.
-        """
-        schemas = self.list_schemas(database)
-        if not schemas:
-            self.logger.info(f"No user schemas found in {database}")
-            return []
-
-        backups = []
-        for schema in schemas:
-            destination = None
-            if output_dir is not None:
-                base = self._backup_path(
-                    database, None, compress, label=f"{database}-{schema}", suffix=".sql"
-                )
-                destination = Path(output_dir) / base.name
-            try:
-                backups.append(
-                    self.backup_schema(database, schema, output_path=destination, compress=compress)
-                )
-            except DatabaseBackupError as exc:
-                self.logger.warning(f"Failed to backup schema {schema}: {exc}")
-        return backups
 
     # ==================== Roles of the server ====================
 

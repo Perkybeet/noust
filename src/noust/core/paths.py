@@ -419,19 +419,6 @@ def carries_unit_marker(content: str) -> bool:
     return any(marker in content for marker in UNIT_MARKERS)
 
 
-def user_state_dir(home: Path | None = None) -> Path:
-    """
-    Return the per-user state directory: ``~/.local/state/noust``.
-
-    Args:
-        home: Home directory, defaulting to the current user's.
-
-    Returns:
-        The directory; created by whoever writes to it.
-    """
-    return (home or Path.home()) / ".local" / "state" / NAME
-
-
 #: The web servers' configuration trees, by the label a bundle of Noust's state keeps them under.
 #: Debian and Ubuntu put Apache in ``apache2``, the RPM families in ``httpd``.
 WEBSERVER_CONFIG_DIRS: dict[str, Path] = {

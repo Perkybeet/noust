@@ -276,15 +276,3 @@ def plain_body(
     return fit(
         notification, build, len, limit, excerpt_lines=excerpt_lines, excerpt_chars=excerpt_chars
     )
-
-
-def with_lines(excerpt: Excerpt, lines: tuple[str, ...]) -> Excerpt:
-    """
-    Args:
-        excerpt: An excerpt.
-        lines: The lines to show instead of its own.
-
-    Returns:
-        The same excerpt showing those lines.
-    """
-    return replace(excerpt, lines=lines)

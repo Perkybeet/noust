@@ -628,6 +628,12 @@ Debian or Ubuntu, which is why interactive mode never worked there.
 Every model the API adds goes through `web/pydantic_compat.py`: Ubuntu 24.04 and Debian 12
 ship pydantic 1.10, and a CI job pins it.
 
+The packaging scripts and the specs say nothing about the product's names from before 3.0 except
+where an upgrade over data nobody moved has to be stopped (Debian's `preinst`, the RPM `%pre`) and
+in the `Conflicts` lines; `tests/test_no_legacy_name.py` holds them to that. A real customer's
+name is as unwelcome in a fixture as the old name is in a script: `tests/test_no_real_customers.py`
+fails on it, so examples use `example.com`, `example.net`, `example.org` or an invented name.
+
 ---
 
 ## The panel
