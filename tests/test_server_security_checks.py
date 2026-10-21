@@ -34,6 +34,7 @@ from noust.managers.server.security_pending import FAIL2BAN_JAIL
 from noust.managers.server.security_probe import SecurityProbe
 from noust.managers.server.security_risks import AcceptedRisks
 from tests.server_security_support import ED_FP, NOW, FakeHost, FakeSshd, accepted
+from tests.server_support import EmptyAptListsMixin
 
 NOW_DT = datetime.fromtimestamp(NOW, tz=timezone.utc)
 
@@ -67,9 +68,11 @@ def host(tmp_path: Path) -> FakeHost:
     return fake
 
 
-@pytest.fixture
-def runner(host: FakeHost) -> FakeSshd:
-    fake = FakeSshd(host)
+class EmptyListsSshd(EmptyAptListsMixin, FakeSshd):
+    """The same machine, on a fresh image: apt knows no package until it has updated."""
+
+
+def _scripted(fake: FakeSshd) -> FakeSshd:
     fake.only_knows("apt-get", "fail2ban-client", "ufw", "systemctl", "sshd")
     fake.script(["ufw", "status", "verbose"], stdout="Status: inactive\n")
     fake.script(["ufw", "show", "added"], stdout="")
@@ -81,6 +84,11 @@ def runner(host: FakeHost) -> FakeSshd:
     fake.script(["fail2ban-client", "status", "sshd"], stdout=F2B_SSHD)
     fake.script(["fail2ban-client", "status", "nginx-http-auth"], stdout="Status\n")
     return fake
+
+
+@pytest.fixture
+def runner(host: FakeHost) -> FakeSshd:
+    return _scripted(FakeSshd(host))
 
 
 @pytest.fixture
@@ -599,6 +607,17 @@ class TestFail2ban:
         steps = [call for call in runner.calls if call[0] in ("fail2ban-client", "systemctl")]
         assert ("fail2ban-client", "-t") in steps
         assert ("systemctl", "enable", "--now", "fail2ban") in steps
+
+    def test_install_on_a_server_with_empty_package_lists_updates_them_first(self, host):
+        runner = _scripted(EmptyListsSshd(host))
+
+        Fail2ban(_probe(runner, host)).install(ignore=[])
+
+        assert [call for call in runner.calls if call[0] == "apt-get"] == [
+            ("apt-get", "install", "-y", "fail2ban", "python3-systemd"),
+            ("apt-get", "update"),
+            ("apt-get", "install", "-y", "fail2ban", "python3-systemd"),
+        ]
 
     def test_install_waits_for_the_server_to_answer_before_it_reloads(self, runner, host):
         """

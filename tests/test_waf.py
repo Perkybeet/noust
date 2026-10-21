@@ -369,11 +369,12 @@ def test_the_packages_are_installed_through_the_package_manager(
     from noust.managers.server.host import Platform
 
     class Backend:
-        def install_argv(self, packages: Any) -> list[str]:
-            return ["apt-get", "install", "-y", *packages]
-
-        def env(self) -> dict[str, str]:
-            return {"DEBIAN_FRONTEND": "noninteractive"}
+        def install(self, packages: Any, *, timeout: int) -> Any:
+            return runner.run(
+                ["apt-get", "install", "-y", *packages],
+                env={"DEBIAN_FRONTEND": "noninteractive"},
+                timeout=timeout,
+            )
 
     monkeypatch.setattr(
         "noust.managers.waf.detect_platform", lambda *a, **k: Platform.__new__(Platform)
@@ -385,6 +386,33 @@ def test_the_packages_are_installed_through_the_package_manager(
     assert installed == list(PACKAGES)
     assert runner.calls[-1] == ("apt-get", "install", "-y", *PACKAGES)
     assert runner.envs[-1] == {"DEBIAN_FRONTEND": "noninteractive"}
+
+
+def test_a_server_with_empty_package_lists_updates_them_before_installing_the_waf(
+    waf: Waf, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from noust.core.fs import RecordingFileSystem
+    from noust.managers.server.pkg.apt import AptBackend
+    from tests.server_support import EmptyAptLists, make_host, platform_for
+
+    fresh_image = EmptyAptLists()
+    monkeypatch.setattr(Waf, "_installable", lambda self: True)
+    monkeypatch.setattr("noust.managers.waf.detect_platform", lambda *a, **k: platform_for("apt"))
+    monkeypatch.setattr(
+        "noust.managers.waf.backend_for",
+        lambda platform, **k: AptBackend(
+            platform, runner=fresh_image, fs=RecordingFileSystem(), host=make_host(tmp_path)
+        ),
+    )
+
+    installed = waf.install()
+
+    assert installed == list(PACKAGES)
+    assert fresh_image.calls == [
+        ("apt-get", "install", "-y", *PACKAGES),
+        ("apt-get", "update"),
+        ("apt-get", "install", "-y", *PACKAGES),
+    ]
 
 
 def test_installing_where_the_packages_are_not_known_is_refused(
@@ -402,11 +430,8 @@ def test_a_package_manager_that_fails_is_an_error_with_its_words(
     monkeypatch.setattr(Waf, "_installable", lambda self: True)
 
     class Backend:
-        def install_argv(self, packages: Any) -> list[str]:
-            return ["apt-get", "install", "-y", *packages]
-
-        def env(self) -> dict[str, str]:
-            return {}
+        def install(self, packages: Any, *, timeout: int) -> Any:
+            return runner.run(["apt-get", "install", "-y", *packages], timeout=timeout)
 
     monkeypatch.setattr("noust.managers.waf.detect_platform", lambda *a, **k: object())
     monkeypatch.setattr("noust.managers.waf.backend_for", lambda *a, **k: Backend())

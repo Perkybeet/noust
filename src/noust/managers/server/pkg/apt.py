@@ -23,6 +23,7 @@ import re
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 
+from noust.core.package_family import install_apt_packages
 from noust.core.runner import CommandResult
 from noust.managers.server.errors import ServerError
 from noust.managers.server.host import (
@@ -328,6 +329,9 @@ class AptBackend(PackageBackend):
 
     def install_argv(self, packages: Sequence[str]) -> list[str]:
         return ["apt-get", "install", "-y", *packages]
+
+    def install(self, packages: Sequence[str], *, timeout: int) -> CommandResult:
+        return install_apt_packages(self.runner, packages, timeout=timeout, env=self.env())
 
     def install_lean_argv(self, packages: Sequence[str]) -> list[str]:
         return [*self._apply_base(), "install", "--no-install-recommends", *packages]

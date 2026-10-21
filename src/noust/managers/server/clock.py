@@ -580,9 +580,7 @@ class ClockManager:
                     output=words,
                 )
             backend = backend_for(self.platform, runner=self._runner, fs=self._fs, host=self.host)
-            install_result = self.runner.run(
-                backend.install_argv([NTP_PACKAGE]), env=backend.env(), timeout=INSTALL_TIMEOUT
-            )
+            install_result = backend.install([NTP_PACKAGE], timeout=INSTALL_TIMEOUT)
             if not install_result.success:
                 raise ServerError(
                     f"Could not install {NTP_PACKAGE}",
