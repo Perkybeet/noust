@@ -9,6 +9,7 @@ import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Dialog } from "../../../components/ui/Dialog";
+import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
@@ -16,6 +17,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { Accepted } from "../jobs";
 import { engineFamily, instanceLabel, sortInstances } from "../engines";
+import { LoadingRegion } from "../../../components/page";
 
 export interface MoveDatabaseDialogProps {
   /** The engine key the database is on, and its name. */
@@ -82,7 +84,7 @@ export function MoveDatabaseDialog({ engine, name, onOpenChange, onQueued }: Mov
     >
       <div className="flex flex-col gap-5">
         {engines.isError ? <ErrorBlock compact error={engines.error} title={t("databases.engines.couldNotLoad")} onRetry={() => void engines.refetch()} /> : null}
-        {engines.data !== undefined && targets.length === 0 ? <Notice title={t("databases.moveDb.noTarget")}>{t("databases.moveDb.noTargetBody")}</Notice> : null}
+        {engines.data !== undefined && targets.length === 0 ? <EmptyState variant="inline" title={t("databases.moveDb.noTarget")} description={t("databases.moveDb.noTargetBody")} /> : null}
         {targets.length > 0 ? (
           <>
             <Field label={t("databases.moveDb.target")} nativeLabel={false} description={t("databases.moveDb.targetHelp")}>
@@ -93,10 +95,9 @@ export function MoveDatabaseDialog({ engine, name, onOpenChange, onQueued }: Mov
           </>
         ) : null}
         {plan.isPending && chosen !== null ? (
-          <div aria-busy="true">
-            <span className="sr-only">{t("databases.moveDb.planning")}</span>
+          <LoadingRegion label={t("databases.moveDb.planning")}>
             <Skeleton className="h-28 w-full rounded-control" />
-          </div>
+          </LoadingRegion>
         ) : null}
         {plan.isError ? <ErrorBlock compact error={plan.error} title={t("databases.moveDb.planFailed")} /> : null}
         {found !== undefined ? (

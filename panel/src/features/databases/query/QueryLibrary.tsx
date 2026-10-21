@@ -5,6 +5,7 @@ import { useState } from "react";
 import { request } from "../../../api/client";
 import { databaseKeys, historyQuery, savedQueriesQuery } from "../../../api/queries/databases";
 import type { HistoryEntry, SavedQuery } from "../../../api/queries/databases";
+import { LoadingRegion } from "../../../components/page";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Button } from "../../../components/ui/Button";
@@ -20,13 +21,13 @@ import type { T } from "../../../i18n";
 import { formatCount, formatDecimal } from "../../../lib/format";
 import { reportActionError } from "../../apps/useAppActions";
 
-function ListSkeleton() {
+function ListSkeleton({ label }: { label: string }) {
   return (
-    <div aria-busy="true" className="flex flex-col gap-2 pt-2">
+    <LoadingRegion label={label} className="flex flex-col gap-2 pt-2">
       {[0, 1, 2, 3].map((index) => (
         <Skeleton key={index} className="h-12 w-full" />
       ))}
-    </div>
+    </LoadingRegion>
   );
 }
 
@@ -103,7 +104,7 @@ export function QueryLibrary({ engine, name, onPick }: { engine: string; name: s
         {history.isError ? (
           <ErrorBlock compact error={history.error} title={t("databases.library.historyFailed")} onRetry={() => void history.refetch()} />
         ) : history.data === undefined ? (
-          <ListSkeleton />
+          <ListSkeleton label={t("databases.library.loading")} />
         ) : history.data.entries.length === 0 ? (
           <EmptyState variant="inline" title={t("databases.library.noHistory")} />
         ) : (
@@ -125,7 +126,7 @@ export function QueryLibrary({ engine, name, onPick }: { engine: string; name: s
         {saved.isError ? (
           <ErrorBlock compact error={saved.error} title={t("databases.library.savedFailed")} onRetry={() => void saved.refetch()} />
         ) : saved.data === undefined ? (
-          <ListSkeleton />
+          <ListSkeleton label={t("databases.library.loading")} />
         ) : saved.data.queries.length === 0 ? (
           <EmptyState variant="inline" title={t("databases.library.noSaved")} />
         ) : (

@@ -10,6 +10,7 @@ import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Select } from "../../../components/ui/Select";
 import { Textarea } from "../../../components/ui/Textarea";
@@ -203,7 +204,7 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
         {sends.length > 0 || remote ? (
           <div className="flex flex-col gap-1">
             <Checkbox checked={remote} onCheckedChange={setRemote} label={t("databases.policy.remoteOnly")} description={t("databases.policy.remoteOnlyHelp")} />
-            {errors.remote !== undefined ? <p className="text-12 text-fail">{errors.remote}</p> : null}
+            {errors.remote !== undefined ? <InlineMessage tone="error">{errors.remote}</InlineMessage> : null}
           </div>
         ) : null}
 

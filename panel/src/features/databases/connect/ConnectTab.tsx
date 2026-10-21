@@ -10,7 +10,7 @@ import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section, Sections } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
-import { CopyButton } from "../../../components/ui/CopyButton";
+import { CopyValue } from "../../../components/ui/CopyValue";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
 import { ICONS } from "../../../components/ui/icons";
@@ -40,18 +40,6 @@ const CLIENT_NAMES: Readonly<Record<string, string>> = {
   mongosh: "mongosh",
   jdbc: "JDBC / DBeaver",
 };
-
-/** A line to copy: a command or a connection string, whole, with its copy button. */
-function CopyLine({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="flex min-w-0 items-center gap-1 rounded-control border border-border bg-bg-sunken py-1 pr-1 pl-3">
-      <Mono tone="default" className="min-w-0 flex-1 overflow-x-auto py-1 whitespace-nowrap scroll-thin">
-        {value}
-      </Mono>
-      <CopyButton value={value} label={label} />
-    </div>
-  );
-}
 
 function useDebounced<T>(value: T, ms: number): T {
   const [settled, setSettled] = useState(value);
@@ -206,14 +194,14 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
               <ol className="flex min-w-0 flex-col gap-5">
                 <li className="flex min-w-0 flex-col gap-2">
                   <p className="text-13 font-medium text-fg">{t("databases.connect.step1")}</p>
-                  <CopyLine value={tunnel.command} label={t("databases.connect.copyTunnel")} />
+                  <CopyValue value={tunnel.command} label={t("databases.connect.copyTunnel")} />
                   <p className="max-w-measure text-12 text-fg-muted">
                     {unknownServer ? t("databases.connect.step1Unknown") : t("databases.connect.step1Help", { port: String(tunnel.remote_port), local: String(tunnel.local_port) })}
                   </p>
                 </li>
                 <li className="flex min-w-0 flex-col gap-2">
                   <p className="text-13 font-medium text-fg">{t("databases.connect.step2")}</p>
-                  <CopyLine value={tunnel.url} label={t("databases.connect.copyUrl")} />
+                  <CopyValue value={tunnel.url} label={t("databases.connect.copyUrl")} />
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-fg-muted">
                     <span>{t("databases.connect.passwordMasked")}</span>
                     {data?.password_known && data.username ? (
@@ -235,7 +223,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
                         <div key={client} className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
                           <dt className="w-32 shrink-0 text-12 text-fg-muted">{CLIENT_NAMES[client] ?? client}</dt>
                           <dd className="min-w-0 flex-1">
-                            <CopyLine value={command} label={t("databases.connect.copyClient", { client: CLIENT_NAMES[client] ?? client })} />
+                            <CopyValue value={command} label={t("databases.connect.copyClient", { client: CLIENT_NAMES[client] ?? client })} />
                           </dd>
                         </div>
                       ))}

@@ -5,6 +5,7 @@ import type { RelationSummary } from "../../../api/queries/databases";
 import { Input } from "../../../components/ui/Input";
 import { ICONS } from "../../../components/ui/icons";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { LoadingRegion } from "../../../components/page";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { useT } from "../../../i18n";
 import { cx } from "../../../lib/cx";
@@ -46,11 +47,11 @@ export function RelationList({ schemas, relations, selected, onSelect, className
         aria-label={t("databases.data.findTable")}
       />
       {relations === undefined ? (
-        <div aria-busy="true" className="flex flex-col gap-2 pt-1">
+        <LoadingRegion label={t("databases.data.loadingTables")} className="flex flex-col gap-2 pt-1">
           {[0, 1, 2, 3, 4].map((index) => (
             <Skeleton key={index} className="h-7 w-full" />
           ))}
-        </div>
+        </LoadingRegion>
       ) : groups.length === 0 ? (
         <EmptyState variant="inline" title={needle === "" ? t("databases.data.noTables") : t("databases.data.noTableMatches")} />
       ) : (

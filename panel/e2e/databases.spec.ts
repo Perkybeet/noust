@@ -206,7 +206,7 @@ test("backups: the schedule in plain words, and a restore into a new database fo
 
   await dumps.getByRole("button", { name: /^Actions for postgresql-example_production-/ }).first().click();
   await page.getByRole("menuitem", { name: "Restore…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Restore a dump" });
+  const dialog = page.getByRole("alertdialog", { name: "Restore a dump" });
   await expect(dialog.getByLabel("New database name")).not.toHaveValue("");
   await expectNoA11yViolations(page, "the restore dialog");
   await dialog.getByRole("button", { name: "Restore as new database" }).click();

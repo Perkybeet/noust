@@ -220,7 +220,7 @@ function rowOf(cell: HTMLElement): HTMLElement {
 }
 
 async function menuOf(user: ReturnType<typeof renderConsole>["user"], name: string) {
-  await user.click(await screen.findByRole("button", { name: `Actions for the instance ${name}` }));
+  await user.click(await screen.findByRole("button", { name: `Actions for ${name}` }));
 }
 
 describe("the instances Noust runs", { timeout: 60_000 }, () => {
@@ -468,7 +468,7 @@ describe("moving an engine to a newer version", { timeout: 60_000 }, () => {
     const moves = await screen.findByRole("group", { name: "Moves to a newer version" });
     expect(within(moves).getByText("postgresql17")).toBeInTheDocument();
     expect(within(moves).getByText("Done")).toBeInTheDocument();
-    await user.click(within(moves).getByRole("button", { name: "Actions for the move 3" }));
+    await user.click(within(moves).getByRole("button", { name: "Actions for #3" }));
     await user.click(await screen.findByRole("menuitem", { name: "Roll back…" }));
     const ask = await screen.findByRole("alertdialog", { name: "Roll back move 3?" });
     expect(within(ask).getByText(/not carried back/)).toBeInTheDocument();
@@ -583,7 +583,7 @@ describe("TLS of an instance", { timeout: 60_000 }, () => {
     await user.click(await screen.findByRole("menuitem", { name: "TLS…" }));
     const dialog = await screen.findByRole("dialog", { name: "TLS of pg16" });
 
-    expect(await within(dialog).findByText("It expires soon. Renew it.")).toBeInTheDocument();
+    expect(await within(dialog).findByText(/12 days left. It expires soon. Renew it./)).toBeInTheDocument();
   });
 });
 

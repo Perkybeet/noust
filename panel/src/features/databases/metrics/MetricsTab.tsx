@@ -154,6 +154,7 @@ export function MetricsTab({ engine, name, range, onRangeChange }: MetricsTabPro
     <SegmentedControl label={t("databases.metrics.rangeLabel")} options={RANGES.map((spec) => ({ value: spec.value, label: spec.label }))} value={range} onValueChange={onRangeChange} />
   );
 
+  // design-exception: hand-error-ternary the tiles below are drawn as skeletons of their real shape so the charts do not move
   if (metrics.isError && data === undefined) {
     return <ErrorBlock error={metrics.error} title={t("databases.metrics.couldNotLoad")} onRetry={() => void metrics.refetch()} retrying={metrics.isRefetching} />;
   }
@@ -262,7 +263,7 @@ export function MetricsTab({ engine, name, range, onRangeChange }: MetricsTabPro
         </Section>
       ) : null}
 
-      <Section title={t("databases.metrics.slow.title")} description={t("databases.metrics.slow.description")} loading={slow.data === undefined && !slow.isError}>
+      <Section title={t("databases.metrics.slow.title")} description={t("databases.metrics.slow.description")} loading={slow.isPending}>
         {slow.isError ? (
           <ErrorBlock compact error={slow.error} title={t("databases.metrics.slow.failed")} onRetry={() => void slow.refetch()} retrying={slow.isRefetching} />
         ) : slow.data === undefined ? (

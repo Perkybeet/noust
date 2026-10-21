@@ -7,7 +7,7 @@ import { isApiError, request } from "../../api/client";
 import { logDrainsQuery, runtimeKeys } from "../../api/queries/runtime";
 import type { LogDrain } from "../../api/queries/runtime";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { QueryState } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section } from "../../components/page/Section";
 import { Badge } from "../../components/ui/Badge";

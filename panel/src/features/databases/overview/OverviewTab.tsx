@@ -36,6 +36,7 @@ import { ALL_DATABASES, effectivePolicy, newestDumps, policyProtection, protecti
 import { TEXT_LINK } from "../ui";
 import { profileLabel } from "../users/profiles";
 import { VerifiedMark } from "../VerifiedMark";
+import { LoadingRegion } from "../../../components/page";
 
 /** How many accounts the overview names before sending to the Users tab. */
 const ACCESS_SHOWN = 5;
@@ -100,14 +101,13 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
   if (data === undefined) {
     if (overview.isError) return null; // The layout's banner says it, with Try again.
     return (
-      <div aria-busy="true" className="flex flex-col gap-8">
-        <span className="sr-only">{t("databases.overview.loading")}</span>
+      <LoadingRegion label={t("databases.overview.loading")} className="flex flex-col gap-8">
         <TilesSkeleton />
         <div className="grid gap-4 lg:grid-cols-2">
           <Skeleton className="h-48 rounded-card" />
           <Skeleton className="h-48 rounded-card" />
         </div>
-      </div>
+      </LoadingRegion>
     );
   }
 

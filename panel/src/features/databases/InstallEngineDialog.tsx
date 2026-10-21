@@ -6,8 +6,7 @@ import type { SyntheticEvent } from "react";
 import { request } from "../../api/client";
 import { engineCatalogQuery } from "../../api/queries/databases";
 import type { FlavourChoice, JobAccepted, VersionChoice } from "../../api/queries/databases";
-import { LoadingRegion } from "../../components/page/LoadingRegion";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
@@ -101,22 +100,26 @@ export function InstallEngineDialog({ open, onOpenChange, engine: preset, onQueu
       footer={
         <>
           <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
+          {/* design-exception: submit-disabled-invalid nothing on this server can be installed, which the dialog says above: there is no field to complete */}
           <Button type="submit" form={formId} variant="primary" icon={<Download aria-hidden="true" />} loading={install.isPending} disabled={chosen === undefined}>
             {chosen !== undefined ? t("databases.install.submit", { engine: chosen.display_name }) : t("databases.engines.install")}
           </Button>
         </>
       }
     >
-      {catalog.isError && catalog.data === undefined ? (
-        <ErrorBlock compact error={catalog.error} title={t("databases.install.catalogFailed")} onRetry={() => void catalog.refetch()} retrying={catalog.isRefetching} />
-      ) : catalog.data === undefined ? (
-        <LoadingRegion label={t("databases.install.loading")} className="flex flex-col gap-5">
-          <Skeleton className="h-control-md w-full" />
-          <Skeleton className="h-control-md w-full" />
-        </LoadingRegion>
-      ) : (
+      <QueryState
+        query={catalog}
+        label={t("databases.install.noun")}
+        skeleton={
+          <div className="flex flex-col gap-5">
+            <Skeleton className="h-control-md w-full" />
+            <Skeleton className="h-control-md w-full" />
+          </div>
+        }
+      >
+        {(catalogData) => (
         <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
-          <p className="text-13 text-fg-muted">{installSource(t, catalog.data.distribution.name, catalog.data.package_manager)}</p>
+          <p className="text-13 text-fg-muted">{installSource(t, catalogData.distribution.name, catalogData.package_manager)}</p>
           {chosen === undefined ? (
             <Notice title={t("databases.install.nothingTitle")}>{t("databases.install.nothing")}</Notice>
           ) : (
@@ -162,7 +165,8 @@ export function InstallEngineDialog({ open, onOpenChange, engine: preset, onQueu
             <ErrorBlock live compact error={install.error} title={t("databases.engines.installFailed", { engine: chosen?.display_name ?? "" })} />
           ) : null}
         </form>
-      )}
+        )}
+      </QueryState>
     </Dialog>
   );
 }

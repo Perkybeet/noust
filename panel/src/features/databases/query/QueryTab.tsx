@@ -14,12 +14,11 @@ import { Dialog } from "../../../components/ui/Dialog";
 import { Drawer } from "../../../components/ui/Drawer";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Kbd } from "../../../components/ui/Kbd";
 import { Menu, MenuItem } from "../../../components/ui/Menu";
-import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
-import { Switch } from "../../../components/ui/Switch";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { Tab, TabList, TabPanel, Tabs } from "../../../components/ui/Tabs";
 import { toast } from "../../../components/ui/toast";
@@ -204,11 +203,6 @@ export function QueryTab({ engine, name }: { engine: string; name: string }) {
     <div className="flex min-w-0 flex-col gap-6">
       <div className="flex min-w-0 flex-col gap-6 xl:flex-row xl:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
-          {mode === "write" ? (
-            <Notice tone="warning" title={readable ? t("databases.query.writeOnTitle") : t("databases.query.writeOnlyTitle")}>
-              {readable ? t("databases.query.writeOnBody") : t("databases.query.writeOnlyBody")}
-            </Notice>
-          ) : null}
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" icon={<Play aria-hidden="true" />} loading={run.isPending} onClick={execute}>
@@ -237,8 +231,12 @@ export function QueryTab({ engine, name }: { engine: string; name: string }) {
           </div>
           <SqlEditor ref={editor} value={text} onChange={setText} onRun={execute} label={t("databases.query.editorLabel", { name })} className="h-56 resize-y" />
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              {readable ? <Switch checked={write} onCheckedChange={setWrite} label={t("databases.query.allowChanges")} /> : <span />}
-              <div className="flex flex-wrap items-center gap-2">
+            {/* A mode of this run, not a setting (SW-1): a box, with its risk on the same line, so the editor above never moves. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+              {readable ? <Checkbox checked={write} onCheckedChange={setWrite} label={t("databases.query.allowChanges")} /> : null}
+              {mode === "write" ? <InlineMessage>{readable ? t("databases.query.writeOnLine") : t("databases.query.writeOnlyLine")}</InlineMessage> : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <Select
                 size="sm"
                 aria-label={t("databases.query.timeoutLabel")}

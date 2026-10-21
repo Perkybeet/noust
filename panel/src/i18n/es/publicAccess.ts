@@ -6,13 +6,14 @@ export const publicAccess: Catalog<typeof en> = {
   description:
     "Abre esta base de datos a un cliente de tu propio ordenador, en un puerto que elijas. Es privada hasta que lo hagas, y puedes volver a hacerla privada cuando quieras.",
   loadFailed: "No se pudo leer si esta base de datos es pública",
+  loading: "Cargando si esta base de datos es pública",
   state: {
     private: "Privada",
     privateBody: "El motor no escucha fuera de este servidor. Accedes a esta base de datos desde aquí, o a través de un túnel SSH.",
-    public: "Pública en el puerto {port}",
+    public: "Pública",
     publicBody:
       "Un cliente fuera de este servidor puede llegar a la base de datos con la cuenta que Noust creó para ella. Cualquiera que alcance el puerto puede probar su contraseña.",
-    notAnswering: "Pública, pero el puerto no responde",
+    notAnswering: "No responde",
     notAnsweringBody: "El proxy que reenvía el puerto no está escuchando. Haz la base de datos privada y ábrela de nuevo, o arranca el proxy otra vez.",
     closing: "Haciéndose privada",
     closingBody: "Un intento anterior de hacerla privada no terminó. Vuelve a hacerla privada para terminarlo.",

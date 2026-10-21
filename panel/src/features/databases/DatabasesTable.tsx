@@ -141,8 +141,8 @@ export function DatabasesTable({ databases, engines, policies, dumps, caption, r
         <span className="flex min-w-0 flex-col gap-1">
           <span className="flex min-w-0 items-center gap-2">
             <Mono tone="default">{database.name}</Mono>
-            {!database.tracked && !database.missing ? <Badge>{t("databases.table.untracked")}</Badge> : null}
-            {database.unverified ? <Badge>{t("databases.table.unverified")}</Badge> : null}
+            {!database.tracked && !database.missing ? <StatusPill state="unknown" size="sm" label={t("databases.table.untracked")} /> : null}
+            {database.unverified ? <StatusPill state="unknown" size="sm" label={t("databases.table.unverified")} /> : null}
           </span>
           <TagChips tags={database.tags} />
         </span>

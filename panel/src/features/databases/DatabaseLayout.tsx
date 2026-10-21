@@ -188,6 +188,7 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
           ...(dumps
             ? {
                 primaryAction: (
+                  // design-exception: submit-disabled-invalid a backup is already running, or the database is gone: nothing to back up, not a missing field
                   <Button
                     variant="primary"
                     icon={<Archive aria-hidden="true" />}

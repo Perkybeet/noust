@@ -10,6 +10,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { PlainKey } from "../../../i18n";
+import { LoadingRegion } from "../../../components/page";
 
 const CONSTRAINT_WORDS: Readonly<Record<string, PlainKey>> = {
   primary_key: "databases.structure.constraint.primaryKey",
@@ -30,10 +31,9 @@ export function StructureView({ detail }: { detail: RelationDetail | undefined }
   const t = useT();
   if (detail === undefined) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-2">
-        <span className="sr-only">{t("databases.structure.loading")}</span>
+      <LoadingRegion label={t("databases.structure.loading")} className="flex flex-col gap-2">
         <Skeleton className="h-56 w-full rounded-card" />
-      </div>
+      </LoadingRegion>
     );
   }
   return (

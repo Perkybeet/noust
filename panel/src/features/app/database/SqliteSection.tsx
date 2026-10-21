@@ -10,6 +10,7 @@ import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
@@ -32,15 +33,15 @@ function CheckResult({ result, t }: { result: SqliteCheck; t: T }) {
   }
   if (!result.complete) {
     return (
-      <Notice live tone="warning" title={t("databases.appTab.sqlite.checkPartialTitle")}>
-        {t("databases.appTab.sqlite.checkPartialBody")}
-      </Notice>
+      <InlineMessage live>
+        {t("databases.appTab.sqlite.checkPartialTitle")}. {t("databases.appTab.sqlite.checkPartialBody")}
+      </InlineMessage>
     );
   }
   return (
-    <Notice live tone="success" title={t("databases.appTab.sqlite.checkOk", { seconds: String(result.seconds) })}>
-      {t("databases.appTab.sqlite.checkOkBody", { path: result.path })}
-    </Notice>
+    <InlineMessage live tone="success">
+      {t("databases.appTab.sqlite.checkOk", { seconds: String(result.seconds) })}. {t("databases.appTab.sqlite.checkOkBody", { path: result.path })}
+    </InlineMessage>
   );
 }
 
@@ -109,7 +110,7 @@ export function SqliteSection({ domain }: { domain: string }) {
   if (data === undefined || data.files.length === 0) return null;
   return (
     <Section title={t("databases.appTab.sqlite.title")} description={t("databases.appTab.sqlite.intro")}>
-      {data.truncated ? <Notice tone="info">{t("databases.appTab.sqlite.truncated")}</Notice> : null}
+      {data.truncated ? <InlineMessage tone="info">{t("databases.appTab.sqlite.truncated")}</InlineMessage> : null}
       <ul className="grid gap-4 lg:grid-cols-2">
         {data.files.map((file) => (
           <FileCard key={file.path} domain={domain} file={file} t={t} />
