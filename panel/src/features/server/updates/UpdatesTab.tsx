@@ -7,6 +7,7 @@
  * here with its pre-checks in view.
  */
 
+import { Download, RotateCw, Wrench } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -245,7 +246,7 @@ function Reboot({ updates }: { updates: Updates }) {
         tone="warning"
         title={reboot.since ? t.rich("server.updates.reboot.titleSince", { when: <RelativeTime value={reboot.since} /> }) : t("server.updates.reboot.title")}
         action={
-          <Button size="sm" onClick={() => power.open("reboot")}>
+          <Button icon={<RotateCw aria-hidden="true" />} size="sm" onClick={() => power.open("reboot")}>
             {t("server.updates.reboot.schedule")}
           </Button>
         }
@@ -357,7 +358,7 @@ function StaleServices({ updates }: { updates: Updates }) {
       <div className="flex flex-col gap-3">
         <Names names={updates.stale_services} label={t("server.updates.stale.label")} />
         <div>
-          <Button size="sm" disabled={jobs.busy} onClick={() => setRestarting(true)}>
+          <Button icon={<RotateCw aria-hidden="true" />} size="sm" disabled={jobs.busy} onClick={() => setRestarting(true)}>
             {t("server.updates.stale.restart")}
           </Button>
         </div>
@@ -450,7 +451,7 @@ function UpdatesBody({ data }: { data: Updates }) {
 
   const busy = jobs.busy;
   const checkNow = (
-    <Button disabled={busy} loading={refresh.isPending} onClick={() => refresh.mutate()}>
+    <Button icon={<RotateCw aria-hidden="true" />} disabled={busy} loading={refresh.isPending} onClick={() => refresh.mutate()}>
       {t("server.updates.checkNow")}
     </Button>
   );
@@ -459,15 +460,15 @@ function UpdatesBody({ data }: { data: Updates }) {
       {checkNow}
       {data.pending > 0 && data.security > 0 ? (
         <>
-          <Button disabled={busy} onClick={() => setApplying("all")}>
+          <Button icon={<Download aria-hidden="true" />} disabled={busy} onClick={() => setApplying("all")}>
             {t("server.updates.installAll", { count: data.pending })}
           </Button>
-          <Button variant="primary" disabled={busy} onClick={() => setApplying("security")}>
+          <Button icon={<Download aria-hidden="true" />} variant="primary" disabled={busy} onClick={() => setApplying("security")}>
             {t("server.updates.installSecurity", { count: data.security })}
           </Button>
         </>
       ) : data.pending > 0 ? (
-        <Button variant="primary" disabled={busy} onClick={() => setApplying("all")}>
+        <Button icon={<Download aria-hidden="true" />} variant="primary" disabled={busy} onClick={() => setApplying("all")}>
           {t("server.updates.installAll", { count: data.pending })}
         </Button>
       ) : null}
@@ -484,7 +485,7 @@ function UpdatesBody({ data }: { data: Updates }) {
           tone="error"
           title={t("server.updates.brokenTitle")}
           action={
-            <Button size="sm" disabled={busy} loading={repair.isPending} onClick={() => repair.mutate()}>
+            <Button icon={<Wrench aria-hidden="true" />} size="sm" disabled={busy} loading={repair.isPending} onClick={() => repair.mutate()}>
               {t("server.updates.repair")}
             </Button>
           }

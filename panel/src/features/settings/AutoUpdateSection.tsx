@@ -6,6 +6,7 @@
  * same preflight, the same transient unit.
  */
 
+import { Settings2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
@@ -244,7 +245,7 @@ function AutoUpdateCard({ state }: { state: AutoUpdate }) {
                 : t("autoUpdate.onBody", { channel: t(`autoUpdate.channelWords.${settings.channel as Channel}`) })
         }
         actions={
-          <Button size="sm" onClick={() => setEditing(true)}>
+          <Button icon={<Settings2 aria-hidden="true" />} size="sm" onClick={() => setEditing(true)}>
             {settings.enabled || state.timer.installed ? t("autoUpdate.edit") : t("autoUpdate.set")}
           </Button>
         }

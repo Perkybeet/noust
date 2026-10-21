@@ -1,3 +1,4 @@
+import { FileKey, KeyRound, Pencil, Play, Users } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -270,13 +271,13 @@ export function ConnectionsSection() {
         </Button>
       }
     >
-      <MenuItem onClick={() => setEditing({ kind: "oidc", item: null })} description={t("ssoAdmin.connections.addOidcHelp")}>
+      <MenuItem icon={<KeyRound />} onClick={() => setEditing({ kind: "oidc", item: null })} description={t("ssoAdmin.connections.addOidcHelp")}>
         {t("ssoAdmin.connections.addOidc")}
       </MenuItem>
-      <MenuItem onClick={() => setEditing({ kind: "saml", item: null })} description={t("ssoAdmin.connections.addSamlHelp")}>
+      <MenuItem icon={<FileKey />} onClick={() => setEditing({ kind: "saml", item: null })} description={t("ssoAdmin.connections.addSamlHelp")}>
         {t("ssoAdmin.connections.addSaml")}
       </MenuItem>
-      <MenuItem onClick={() => setEditing({ kind: "directory", item: null })} description={t("ssoAdmin.connections.addDirectoryHelp")}>
+      <MenuItem icon={<Users />} onClick={() => setEditing({ kind: "directory", item: null })} description={t("ssoAdmin.connections.addDirectoryHelp")}>
         {t("ssoAdmin.connections.addDirectory")}
       </MenuItem>
     </Menu>
@@ -319,12 +320,12 @@ export function ConnectionsSection() {
               onRowActivate={edit}
               rowActions={(connection) => (
                 <RowMenu name={connection.name}>
-                  <MenuItem disabled={testing === connection.name} onClick={() => void runTest(connection)}>
+                  <MenuItem icon={<Play />} disabled={testing === connection.name} onClick={() => void runTest(connection)}>
                     {t("ssoAdmin.providers.test")}
                   </MenuItem>
-                  <MenuItem onClick={() => edit(connection)}>{t("ssoAdmin.providers.edit")}</MenuItem>
+                  <MenuItem icon={<Pencil />} onClick={() => edit(connection)}>{t("ssoAdmin.providers.edit")}</MenuItem>
                   <MenuSeparator />
-                  <MenuItem destructive onClick={() => setRemoving(connection)}>
+                  <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(connection)}>
                     {t("ssoAdmin.providers.remove")}
                   </MenuItem>
                 </RowMenu>

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Inbox } from "lucide-react";
+import { Inbox, Play, UserCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { sendApproved } from "../../api/client";
@@ -141,13 +141,13 @@ function ApprovalDrawer({ approval, onClose }: { approval: Approval; onClose: ()
               {withdrawing ? t("approvals.drawer.withdraw") : t("approvals.drawer.reject")}
             </Button>
             {deciding ? (
-              <Button variant="primary" loading={decide.isPending && decide.variables === "approve"} disabled={decide.isPending} onClick={() => decide.mutate("approve")}>
+              <Button icon={<UserCheck aria-hidden="true" />} variant="primary" loading={decide.isPending && decide.variables === "approve"} disabled={decide.isPending} onClick={() => decide.mutate("approve")}>
                 {t("approvals.drawer.approve")}
               </Button>
             ) : null}
           </>
         ) : canRun && call !== null ? (
-          <Button variant="primary" loading={run.isPending} onClick={() => run.mutate()}>
+          <Button icon={<Play aria-hidden="true" />} variant="primary" loading={run.isPending} onClick={() => run.mutate()}>
             {t("approvals.drawer.runNow")}
           </Button>
         ) : undefined

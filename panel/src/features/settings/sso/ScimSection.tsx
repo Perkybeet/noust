@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -115,9 +116,9 @@ export function ScimSection() {
               onRowActivate={(source) => setEditing(source)}
               rowActions={(source) => (
                 <RowMenu name={source.name}>
-                  <MenuItem onClick={() => setEditing(source)}>{t("scimAdmin.editText")}</MenuItem>
+                  <MenuItem icon={<Pencil />} onClick={() => setEditing(source)}>{t("scimAdmin.editText")}</MenuItem>
                   <MenuSeparator />
-                  <MenuItem destructive onClick={() => setRemoving(source)}>
+                  <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(source)}>
                     {t("scimAdmin.removeText")}
                   </MenuItem>
                 </RowMenu>

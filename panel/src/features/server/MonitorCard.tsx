@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Mail } from "lucide-react";
+import { Mail, Play, Power, Square } from "lucide-react";
 
 import { monitorConfigQuery, monitorStatusQuery, observationsQuery } from "../../api/queries/monitor";
 import type { MonitorStatus } from "../../api/queries/monitor";
@@ -89,20 +89,20 @@ function UnitRow({ t, status }: { t: T; status: MonitorStatus }) {
         ) : (
           <>
             {status.enabled ? (
-              <Button size="sm" disabled={disable.isPending} onClick={() => disable.mutate()}>
+              <Button icon={<Power aria-hidden="true" />} size="sm" disabled={disable.isPending} onClick={() => disable.mutate()}>
                 {t("server.monitor.disable")}
               </Button>
             ) : (
-              <Button size="sm" loading={enable.isPending} onClick={() => enable.mutate()}>
+              <Button icon={<Power aria-hidden="true" />} size="sm" loading={enable.isPending} onClick={() => enable.mutate()}>
                 {t("server.monitor.enable")}
               </Button>
             )}
             {status.active ? (
-              <Button size="sm" disabled={stop.isPending} onClick={() => stop.mutate()}>
+              <Button icon={<Square aria-hidden="true" />} size="sm" disabled={stop.isPending} onClick={() => stop.mutate()}>
                 {t("server.monitor.stop")}
               </Button>
             ) : (
-              <Button size="sm" loading={start.isPending} onClick={() => start.mutate()}>
+              <Button icon={<Play aria-hidden="true" />} size="sm" loading={start.isPending} onClick={() => start.mutate()}>
                 {t("server.monitor.start")}
               </Button>
             )}

@@ -1,3 +1,4 @@
+import { Eye } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
@@ -179,7 +180,7 @@ export function ManifestPreview() {
   return (
     <Sections>
       <SettingsPrimaryAction>
-        <Button type="submit" form={formId} variant="primary" loading={preview.isPending}>
+        <Button icon={<Eye aria-hidden="true" />} type="submit" form={formId} variant="primary" loading={preview.isPending}>
           {t("manifestPreview.form.preview")}
         </Button>
       </SettingsPrimaryAction>

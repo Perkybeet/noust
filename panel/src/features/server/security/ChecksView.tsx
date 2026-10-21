@@ -4,6 +4,7 @@
  * until when; the checks that passed folded into one line.
  */
 
+import { BookOpen, RotateCcw, RotateCw, ShieldQuestion, Wrench } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
@@ -47,7 +48,7 @@ function FindingActions({ check, open }: { check: SecurityCheck; open: (opened: 
   const power = usePowerDialog();
   const fix = check.fix;
   const accept = (
-    <Button size="sm" variant="ghost" onClick={() => open({ kind: "accept", check })}>
+    <Button icon={<ShieldQuestion aria-hidden="true" />} size="sm" variant="ghost" onClick={() => open({ kind: "accept", check })}>
       {t("server.checks.acceptRisk")}
     </Button>
   );
@@ -56,7 +57,7 @@ function FindingActions({ check, open }: { check: SecurityCheck; open: (opened: 
     return (
       <>
         {accept}
-        <Button size="sm" onClick={() => open({ kind: "fix", check })}>
+        <Button icon={<Wrench aria-hidden="true" />} size="sm" onClick={() => open({ kind: "fix", check })}>
           {t("server.checks.fix")}
         </Button>
       </>
@@ -68,7 +69,7 @@ function FindingActions({ check, open }: { check: SecurityCheck; open: (opened: 
       <>
         {accept}
         {target === "reboot" ? (
-          <Button size="sm" onClick={() => power.open("reboot")}>
+          <Button icon={<RotateCw aria-hidden="true" />} size="sm" onClick={() => power.open("reboot")}>
             {t("server.checks.scheduleReboot")}
           </Button>
         ) : target === "/server/services" ? (
@@ -80,7 +81,7 @@ function FindingActions({ check, open }: { check: SecurityCheck; open: (opened: 
             {t("server.checks.open")}
           </Link>
         ) : (
-          <Button size="sm" onClick={() => open({ kind: "guided", check })}>
+          <Button icon={<BookOpen aria-hidden="true" />} size="sm" onClick={() => open({ kind: "guided", check })}>
             {t("server.checks.howToFix")}
           </Button>
         )}
@@ -90,7 +91,7 @@ function FindingActions({ check, open }: { check: SecurityCheck; open: (opened: 
   return (
     <>
       {accept}
-      <Button size="sm" onClick={() => open({ kind: "guided", check })}>
+      <Button icon={<BookOpen aria-hidden="true" />} size="sm" onClick={() => open({ kind: "guided", check })}>
         {t("server.checks.howToFix")}
       </Button>
     </>
@@ -151,7 +152,7 @@ function AcceptedRow({ check }: { check: SecurityCheck }) {
         {/* The reason as the person who accepted it wrote it. */}
         {check.accepted?.reason ? <span className="text-13 text-pretty text-fg">{check.accepted.reason}</span> : null}
       </div>
-      <Button size="sm" variant="ghost" className="shrink-0" onClick={() => setConfirm(true)}>
+      <Button icon={<RotateCcw aria-hidden="true" />} size="sm" variant="ghost" className="shrink-0" onClick={() => setConfirm(true)}>
         {t("server.checks.withdraw")}
       </Button>
       <ConfirmDialog

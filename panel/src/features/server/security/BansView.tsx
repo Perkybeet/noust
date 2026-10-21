@@ -5,6 +5,7 @@
  * repository, which is a separate yes.
  */
 
+import { Download, Square } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -122,7 +123,7 @@ function Bans({ state }: { state: Fail2ban }) {
           )}
         </div>
         {!state.installed && state.install_supported ? (
-          <Button variant="primary" disabled={jobs.busy} onClick={() => setInstalling(true)}>
+          <Button icon={<Download aria-hidden="true" />} variant="primary" disabled={jobs.busy} onClick={() => setInstalling(true)}>
             {t("server.bans.install")}
           </Button>
         ) : null}
@@ -144,7 +145,7 @@ function Bans({ state }: { state: Fail2ban }) {
             <p className="text-14 font-medium">{t("server.bans.web.title")}</p>
             <p className="text-13 text-fg-muted">{state.web_jails ? t("server.bans.web.on") : t("server.bans.web.off")}</p>
           </div>
-          <Button disabled={jobs.busy} onClick={() => setWatching(true)}>
+          <Button icon={<Square aria-hidden="true" />} disabled={jobs.busy} onClick={() => setWatching(true)}>
             {state.web_jails ? t("server.bans.web.stop") : t("server.bans.web.start")}
           </Button>
         </div>

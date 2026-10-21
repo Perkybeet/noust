@@ -18,6 +18,7 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { ICONS } from "../../../components/ui/icons";
 import { useT } from "../../../i18n";
 import { formatBytes, formatBytesPair } from "../../../lib/format";
 import { useServerConfirm, ServerQueryState } from "../errors";
@@ -119,7 +120,7 @@ function SwapPanel({ data }: { data: Swap }) {
         ) : null}
         {data.noust_swapfile ? (
           <div>
-            <Button size="sm" variant="ghost" disabled={jobs.busy} onClick={() => setOpened("remove")}>
+            <Button icon={<ICONS.delete aria-hidden="true" />} size="sm" variant="ghost" disabled={jobs.busy} onClick={() => setOpened("remove")}>
               {t("server.swap.remove")}
             </Button>
           </div>

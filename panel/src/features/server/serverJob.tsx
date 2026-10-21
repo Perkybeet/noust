@@ -9,6 +9,7 @@
  * list, a cleanup the disks, a security change the checks and the pending changes.
  */
 
+import { ScrollText } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -221,7 +222,7 @@ export function ServerJobSlot() {
   const state = jobState(job.status);
   const title = state === "succeeded" ? words.succeeded : state === "failed" ? words.failed : words.running;
   const viewOutput = (
-    <Button size="sm" variant="ghost" onClick={() => setOutputOpen(true)}>
+    <Button icon={<ScrollText aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setOutputOpen(true)}>
       {t("server.job.viewOutput")}
     </Button>
   );

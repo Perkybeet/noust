@@ -5,6 +5,7 @@
  * runs them says so once, in a box the form will not let you skip.
  */
 
+import { Pencil, Play } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
@@ -255,11 +256,11 @@ function CleanupSchedulePanel({ schedule }: { schedule: CleanupSchedule }) {
       actions={
         <div className="flex items-center gap-2">
           {policy.enabled ? (
-            <Button size="sm" variant="ghost" disabled={jobs.busy} onClick={() => setRunning(true)}>
+            <Button icon={<Play aria-hidden="true" />} size="sm" variant="ghost" disabled={jobs.busy} onClick={() => setRunning(true)}>
               {t("server.storage.schedule.runNow")}
             </Button>
           ) : null}
-          <Button size="sm" onClick={() => setEditing(true)}>
+          <Button icon={<Pencil aria-hidden="true" />} size="sm" onClick={() => setEditing(true)}>
             {policy.enabled ? t("server.storage.schedule.edit") : t("server.storage.schedule.set")}
           </Button>
         </div>

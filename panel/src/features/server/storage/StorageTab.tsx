@@ -7,6 +7,7 @@
  * a job with a deadline per path, and the page says how old its answer is.
  */
 
+import { Eraser, RotateCw, Search } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -342,11 +343,11 @@ function Candidates({ storage, open }: { storage: Storage | undefined; open: (op
         empty={<EmptyState variant="inline" title={t("server.storage.noCandidates")} />}
         rowActions={(row) =>
           row.id === "docker-images" ? (
-            <Button size="sm" variant="ghost" onClick={() => open({ kind: "images" })}>
+            <Button icon={<Search aria-hidden="true" />} size="sm" variant="ghost" onClick={() => open({ kind: "images" })}>
               {t("server.storage.review")}
             </Button>
           ) : row.action != null && row.reclaimable_bytes !== 0 ? (
-            <Button size="sm" variant="ghost" onClick={() => open({ kind: "clean", candidate: row })}>
+            <Button icon={<Eraser aria-hidden="true" />} size="sm" variant="ghost" onClick={() => open({ kind: "clean", candidate: row })}>
               {t("server.storage.clean")}
             </Button>
           ) : null
@@ -405,7 +406,7 @@ function StorageView() {
               {t("server.storage.measureAgain")}
             </span>
           ) : (
-            <Button loading={analyze.isPending} disabled={jobs.busy} onClick={() => analyze.mutate()}>
+            <Button icon={<RotateCw aria-hidden="true" />} loading={analyze.isPending} disabled={jobs.busy} onClick={() => analyze.mutate()}>
               {data.analysis_at ? t("server.storage.measureAgain") : t("server.storage.measure")}
             </Button>
           )

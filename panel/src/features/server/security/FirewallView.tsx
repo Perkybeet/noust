@@ -8,6 +8,7 @@
  * the guard refuses any change that would close SSH or a public console.
  */
 
+import { Power } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -254,7 +255,7 @@ function FirewallPanel({ data }: { data: Firewall }) {
               </Button>
             </>
           ) : state.installed ? (
-            <Button variant="primary" onClick={() => setOpened({ kind: "enable" })}>
+            <Button icon={<Power aria-hidden="true" />} variant="primary" onClick={() => setOpened({ kind: "enable" })}>
               {t("server.firewall.enable")}
             </Button>
           ) : null}

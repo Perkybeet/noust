@@ -212,7 +212,7 @@ function ExceptionsSection({ t, canManage, onAdd }: { t: T; canManage: boolean; 
       {...(canManage
         ? {
             actions: (
-              <Button size="sm" onClick={onAdd}>
+              <Button icon={<ICONS.add aria-hidden="true" />} size="sm" onClick={onAdd}>
                 {t("accounts.exceptions.add")}
               </Button>
             ),

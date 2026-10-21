@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
@@ -165,7 +166,7 @@ function ControlRow({ control, state, canManage, busy, onFlag, onEdit }: Control
         <span className="flex items-center gap-3">
           <span className="text-13 text-fg">{formatValue(t, control, control.value)}</span>
           {canManage ? (
-            <Button
+            <Button icon={<Pencil aria-hidden="true" />}
               size="sm"
               aria-label={`${t("complianceSetup.controls.change")} ${title}`}
               disabled={busy}

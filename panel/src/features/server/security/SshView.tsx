@@ -7,6 +7,7 @@
  * confirmed from a new SSH login (see PendingChanges).
  */
 
+import { Wrench } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -150,7 +151,7 @@ function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
               <span className="text-13 font-medium text-fg">{fixLabel(t, fix, plan)}</span>
               {plan.allowed ? (
                 // design-exception: card-save applying a fix opens its own confirmation; nothing is saved from the card
-                <Button size="sm" onClick={() => setApplying({ fix, plan })}>
+                <Button icon={<Wrench aria-hidden="true" />} size="sm" onClick={() => setApplying({ fix, plan })}>
                   {t("server.ssh.apply")}
                 </Button>
               ) : null}
