@@ -2776,16 +2776,18 @@ def scenario_restore_server(sc: Scenario) -> None:
         )
         sc.evidence.append(f"(report) {json.dumps(report)[:1500]}")
         outcomes = {item["domain"]: item for item in report["apps"]}
-        # In the suite this container also holds the applications of other scenarios, which nobody
-        # backed up: the report says so ("no_backup") and is not ok for it, which is the true answer.
-        # What this scenario proves is that the application it lost is back and that nothing else
-        # failed for any other reason.
+        # In the suite this container also holds what the other scenarios left: applications nobody
+        # backed up ("no_backup") and ones restored from a copy taken at some earlier point of the
+        # run, whose state is not this scenario's business. The report is not ok for them, and says
+        # why for each. What this scenario proves is about the application it lost, and that the
+        # report is ok when it is the only one.
         others = {domain: item for domain, item in outcomes.items() if domain != DR_DOMAIN}
+        mine = outcomes.get(DR_DOMAIN, {})
         sc.check(
-            outcomes.get(DR_DOMAIN, {}).get("status") == "restored"
-            and all(item.get("status") == "no_backup" for item in others.values())
+            mine.get("status") == "restored"
+            and mine.get("healthy") is True
             and (report.get("ok") is True or bool(others)),
-            f"the server is not back: {json.dumps(report.get('apps'))[:600]}",
+            f"the server is not back: {json.dumps(mine)[:600]}",
         )
 
         # -- It is what was lost ----------------------------------------------------------------------
