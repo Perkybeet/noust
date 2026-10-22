@@ -66,6 +66,9 @@ export const nodeTools: Catalog<typeof en> = {
     authorizedDescription:
       "Añade esta línea al authorized_keys de {user} en el bastión. Permite un solo flujo hasta {name} y nada más: ni shell ni otro destino.",
     authorizedCopy: "la línea para el bastión",
+    showLine: "Mostrar la línea para el bastión",
+    showLineHelp: "El bastión tiene que dejar entrar a esta central antes de probar el cambio: añade primero la línea allí y guarda después.",
+    showLineFailed: "No se pudo obtener la línea para el bastión de {name}",
     save: "Guardar y probar",
     cancel: "Cancelar",
     close: "Cerrar",
