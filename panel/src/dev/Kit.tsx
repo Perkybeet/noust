@@ -1,4 +1,4 @@
-import { Boxes, DatabaseBackup, GitBranch, RotateCw } from "lucide-react";
+import { DatabaseBackup, RotateCw } from "lucide-react";
 import { useState } from "react";
 
 import { PageHeader } from "../app/PageHeader";
@@ -25,6 +25,7 @@ import type { Column } from "../components/ui";
 import { BothThemes, Item, Row, Section, Stage } from "./gallery";
 import type { SampleApp } from "./sample";
 import { SAMPLE_APPS } from "./sample";
+import { OBJECT_ICONS } from "../components/ui/objectIcons";
 
 function Notices() {
   return (
@@ -215,7 +216,7 @@ function Empties() {
           <Stage plain className="w-full">
             <EmptyState
               variant="firstUse"
-              icon={<Boxes />}
+              icon={<OBJECT_ICONS.app />}
               title="No applications yet"
               description="Deploy a repository and Noust builds it, runs it as a service and serves it over HTTPS."
               action={<Button variant="primary">New application</Button>}
@@ -302,7 +303,7 @@ function Surfaces() {
           >
             <Field
               label="Repository URL"
-              action={<Button icon={<GitBranch />}>Inspect</Button>}
+              action={<Button icon={<OBJECT_ICONS.source />}>Inspect</Button>}
               description="HTTPS or SSH."
             >
               <Input mono defaultValue="https://github.com/acme/shop" />

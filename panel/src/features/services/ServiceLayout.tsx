@@ -5,7 +5,7 @@
  */
 
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { Cog, FileCode, Play, RotateCw, ScrollText, Square } from "lucide-react";
+import { Cog, Play, RotateCw, Square } from "lucide-react";
 import { useState } from "react";
 
 import { LinkTabs } from "../../app/LinkTabs";
@@ -30,6 +30,7 @@ import { SERVICE_SCREENS } from "../nav/server";
 import { serviceState } from "./data";
 import { useServiceActions } from "./useServiceActions";
 import { useServiceRecord } from "./useServiceRecord";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** Where a service page sits: under the server, in its Services tab. */
 export function serviceBreadcrumbs(t: T): { label: string; to: string }[] {
@@ -145,7 +146,7 @@ export function ServiceLayout({ name }: { name: string }) {
                 secondaryActions: (
                   <>
                     <Link to="/server/services/$name/unit" params={{ name }} className={buttonClassName("secondary")}>
-                      <FileCode aria-hidden="true" className="size-icon-md" />
+                      <OBJECT_ICONS.file aria-hidden="true" className="size-icon-md" />
                       {t("services.actions.unitFile")}
                     </Link>
                     {service.active ? (
@@ -175,7 +176,7 @@ export function ServiceLayout({ name }: { name: string }) {
                         {t("services.actions.enableAtBoot")}
                       </MenuItem>
                     )}
-                    <MenuItem icon={<ScrollText />} onClick={() => void navigate({ to: "/server/logs", search: { unit: name } })}>
+                    <MenuItem icon={<OBJECT_ICONS.log />} onClick={() => void navigate({ to: "/server/logs", search: { unit: name } })}>
                       {t("services.actions.openInLogs")}
                     </MenuItem>
                     {record.app === null ? (

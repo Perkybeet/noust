@@ -1,8 +1,8 @@
 import { useState } from "react";
 
-import { Button, Combobox, FeatureState, Field, FlowDiagram, Mono, Notice, Switch } from "../components/ui";
+import { Combobox, Field, FlowDiagram, Mono, Switch } from "../components/ui";
 import type { ComboboxItem } from "../components/ui";
-import { BothThemes, DoDont, Item, Row, Section, Stage } from "./gallery";
+import { BothThemes, Item, Row, Section, Stage } from "./gallery";
 import {
   PROGGEST_EDGES,
   PROGGEST_LAYERS,
@@ -118,49 +118,6 @@ function Comboboxes() {
   );
 }
 
-function FeatureStates() {
-  const [on, setOn] = useState(false);
-  return (
-    <Section
-      id="feature-state"
-      title="Feature state"
-      description="Whether a feature is on, at the top of the place that configures it: a colour, a glyph and a word at once, so it is read without reading. Green with a switch drawn on; grey with a switch drawn off and the way to turn it on beside the title; amber with a warning when it is on but cannot do what it says. It pulses once when it changes, never with reduced motion."
-    >
-      <BothThemes>
-        <div className="flex flex-col gap-3">
-          <FeatureState state="on" title="Notifications are on">
-            Failed deploys, expiring certificates and down applications go to 2 channels.
-          </FeatureState>
-          <FeatureState state="off" title="Instant rollback is off" action={<Button size="sm">Turn on</Button>}>
-            Each deploy replaces the last one; going back means building the old version again.
-          </FeatureState>
-          <FeatureState state="problem" title="Notifications are on, but no channel is set up" action={<Button size="sm">Add a channel</Button>}>
-            Nothing is sent until a channel exists.
-          </FeatureState>
-        </div>
-      </BothThemes>
-      <Stage>
-        <div className="flex max-w-measure flex-col gap-4">
-          <Switch label="Scheduled backups" checked={on} onCheckedChange={setOn} />
-          <FeatureState state={on ? "on" : "off"} {...(on ? {} : { action: <Button size="sm" onClick={() => setOn(true)}>Enable</Button> })}>
-            {on ? "A backup runs every night at 03:00 and the last 7 are kept." : "No backup runs on its own; only the ones you start by hand exist."}
-          </FeatureState>
-        </div>
-      </Stage>
-      <DoDont
-        rule="The state of a feature is a FeatureState, never a neutral Notice"
-        doThis={
-          <FeatureState state="off" action={<Button size="sm">Enable</Button>}>
-            Pushes to the branch do not deploy by themselves.
-          </FeatureState>
-        }
-        notThis={<Notice title="Automatic deploys: off">Pushes to the branch do not deploy by themselves.</Notice>}
-        why="A neutral notice changes only a word between on and off: the operator has to read it to know. A FeatureState says it in colour, shape and word."
-      />
-    </Section>
-  );
-}
-
 function FlowDiagrams() {
   const [route, setRoute] = useState(false);
   return (
@@ -203,7 +160,6 @@ export function Kit32() {
   return (
     <>
       <Comboboxes />
-      <FeatureStates />
       <FlowDiagrams />
     </>
   );

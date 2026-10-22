@@ -25,7 +25,6 @@ import {
   DemotePrimary,
   Disclosure,
   EmptyState,
-  FeatureState,
   FieldGroup,
   InlineMessage,
   MenuItem,
@@ -224,13 +223,13 @@ function Settings40() {
           </Card>
         }
         notThis={
-          <FeatureState
-            state="on"
+          <Notice
+            tone="success"
             title="Instant rollback is on"
             action={<Button size="sm">Turn off…</Button>}
           >
             Each deploy is kept apart; going back takes seconds.
-          </FeatureState>
+          </Notice>
         }
         why="A block of 74 to 142px for a switch of 20: it spends the green of running on a ticked box and says three times what the title already says."
       />

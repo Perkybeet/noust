@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowDown, ArrowDownToLine, Bug, ChevronDown, ChevronUp, Clock, Download, Info, Maximize2, Search, WrapText } from "lucide-react";
+import { ArrowDown, ArrowDownToLine, Bug, ChevronDown, ChevronUp, Download, Info, Maximize2, Search, WrapText } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
@@ -14,6 +14,7 @@ import { CopyButton } from "./CopyButton";
 import { IconButton } from "./IconButton";
 import { Input } from "./Input";
 import { Kbd } from "./Kbd";
+import { VERB_ICONS } from "./objectIcons";
 import { Skeleton } from "./Skeleton";
 import { StatusGlyph, stateTextClass } from "./StatusPill";
 
@@ -628,7 +629,7 @@ export function LogViewer({
             <IconButton
               size="sm"
               label={t("common.logViewer.showTimes")}
-              icon={<Clock />}
+              icon={<VERB_ICONS.showTimes />}
               pressed={showTimes}
               onClick={() => setShowTimes((v) => !v)}
             />

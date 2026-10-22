@@ -1,4 +1,4 @@
-import { Replace, Undo2 } from "lucide-react";
+import { Replace } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -14,6 +14,7 @@ import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { audienceHelp, audienceLabel } from "./audience";
 import { commentProblem, nameProblem, valueProblem } from "./dotenv";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /**
  * Adding may start from a name the compose file asks for (`name`). Editing a variable whose value
@@ -105,7 +106,7 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
           ? {
               action: (
                 <Button
-                  icon={replacing ? <Undo2 aria-hidden="true" /> : <Replace aria-hidden="true" />}
+                  icon={replacing ? <OBJECT_ICONS.rollback aria-hidden="true" /> : <Replace aria-hidden="true" />}
                   onClick={() => {
                     setReplacing((current) => !current);
                   }}

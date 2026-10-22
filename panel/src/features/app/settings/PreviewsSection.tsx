@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Globe, Webhook } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
@@ -62,6 +61,7 @@ import {
 import type { DataMode, ForkPolicy, InheritMode, PreviewErrors, PreviewField, TtlUnit } from "./previews";
 import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 type Disabled = ResponseOf<"/api/apps/{domain}/previews/settings", "delete">;
 
@@ -86,13 +86,13 @@ function Needs({ domain, base }: { domain: string; base: string | null }) {
   const shownBase = base ?? t("appSettings.previews.baseDomainUnset");
   return (
     <ul aria-label={t("appSettings.previews.needsLabel")} className="grid gap-3 sm:grid-cols-2">
-      <Need icon={<Globe />} title={t("appSettings.previews.needWildcardTitle")}>
+      <Need icon={<OBJECT_ICONS.domain />} title={t("appSettings.previews.needWildcardTitle")}>
         {t.rich("appSettings.previews.needWildcardBody", {
           record: <Mono>{`*.${shownBase}`}</Mono>,
           example: <Mono className="break-all">{`pr-12-${appNameOf(domain)}.${shownBase}`}</Mono>,
         })}
       </Need>
-      <Need icon={<Webhook />} title={t("appSettings.previews.needPrTitle")}>
+      <Need icon={<OBJECT_ICONS.webhook />} title={t("appSettings.previews.needPrTitle")}>
         {t("appSettings.previews.needPrBody")}
       </Need>
     </ul>

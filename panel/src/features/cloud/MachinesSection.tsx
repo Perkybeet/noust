@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Power, Server, Unlink } from "lucide-react";
+import { Plus, Power, Unlink } from "lucide-react";
 import { useState } from "react";
 
 import { CommandHint } from "../../components/page/CommandHint";
@@ -23,6 +23,7 @@ import type { T } from "../../i18n";
 import { cloudMachinesQuery, machineStatus } from "./data";
 import type { CloudMachine } from "./data";
 import { useCloudActions } from "./useCloudActions";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function columnsFor(t: T): readonly Column<CloudMachine>[] {
   return [
@@ -119,7 +120,7 @@ export function MachinesSection({ canCreate, onCreate }: { canCreate: boolean; o
         isEmpty={(data) => data.length === 0}
         empty={
           <EmptyState
-            icon={<Server />}
+            icon={<OBJECT_ICONS.server />}
             title={t("cloud.machines.empty.title")}
             description={canCreate ? t("cloud.machines.empty.description") : t("cloud.machines.empty.needsAccount")}
             action={canCreate ? create : undefined}

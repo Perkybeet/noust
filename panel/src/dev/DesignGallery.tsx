@@ -58,7 +58,6 @@ const NAV: { title: string; links: [string, string][] }[] = [
     title: "Components (3.2)",
     links: [
       ["combobox", "Combobox"],
-      ["feature-state", "Feature state"],
       ["flow-diagram", "Flow diagram"],
     ],
   },

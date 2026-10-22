@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useId, useState } from "react";
 
 import { request } from "../../api/client";
@@ -16,6 +16,7 @@ import { Textarea } from "../../components/ui/Textarea";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { focusFirstInvalid } from "../settings/formErrors";
+import { ICONS } from "../../components/ui/icons";
 
 type Mode = "simple" | "advanced";
 
@@ -243,7 +244,7 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
                             ? t("services.createDialog.removeVariableNamed", { name: row.key })
                             : t("services.createDialog.removeVariable")
                         }
-                        icon={<Trash2 />}
+                        icon={<ICONS.delete />}
                         size="sm"
                         onClick={() => setEnv((rows) => rows.filter((r) => r.id !== row.id))}
                       />

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { LockOpen, Mail, MailPlus, ShieldOff, UserCheck, UserCog, UserPlus, UserX, Users } from "lucide-react";
+import { LockOpen, Mail, MailPlus, ShieldOff, UserCheck, UserCog, UserPlus, UserX } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { sessionQuery } from "../../../api/queries/auth";
@@ -37,6 +37,7 @@ import type { AccountStatus, AccountsSearch } from "./data";
 import { InviteDialog } from "./InviteDialog";
 import { ROLES, roleLabel } from "./roles";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 const ALL = "all";
 const STATE_FILTERS: readonly AccountStatus[] = ["active", "locked", "disabled", "invited"];
@@ -324,7 +325,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
       empty={
         <EmptyState
           variant="firstUse"
-          icon={<Users />}
+          icon={<OBJECT_ICONS.account />}
           title={t("accounts.page.emptyTitle")}
           description={t("accounts.page.emptyDescription")}
           action={

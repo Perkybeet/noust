@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, Boxes, X } from "lucide-react";
+import { BookOpen, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
@@ -26,6 +26,7 @@ import type { AppsSearch } from "./filters";
 import { RestartTaggedApps } from "./RestartTaggedApps";
 import { UpdateTaggedApps } from "./UpdateTaggedApps";
 import { useStateTransitions } from "./useStateTransitions";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const ALL = "all";
 
@@ -157,7 +158,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
       <ListPage header={header}>
         <EmptyState
           variant="firstUse"
-          icon={<Boxes />}
+          icon={<OBJECT_ICONS.app />}
           title={t("apps.page.emptyTitle")}
           description={t("apps.page.emptyDescription")}
           action={<NewAppLink variant="secondary" />}

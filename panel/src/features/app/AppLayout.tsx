@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { Link, Outlet, useMatchRoute } from "@tanstack/react-router";
-import { Boxes } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { isApiError } from "../../api/client";
@@ -45,6 +44,7 @@ import { appTabs } from "./tabs";
 import { jobStep, jobWords, useAppJob } from "./useAppJob";
 import type { AppJob } from "./useAppJob";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * The header's facts line: its type by name, its port, and the live site at the address a person
@@ -163,7 +163,7 @@ function NotFound({ domain, header, t }: { domain: string; header: PageHeaderPro
     <DetailPage header={header}>
       <EmptyState
         variant="firstUse"
-        icon={<Boxes />}
+        icon={<OBJECT_ICONS.app />}
         title={t("appPages.layout.notFoundTitle")}
         description={t("appPages.layout.notFoundDescription", { domain })}
         action={

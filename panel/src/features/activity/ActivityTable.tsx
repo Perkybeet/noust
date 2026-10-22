@@ -1,4 +1,3 @@
-import { ScrollText } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { RelativeTime } from "../../components/page/RelativeTime";
@@ -13,6 +12,7 @@ import { useT } from "../../i18n";
 import { parseTimestamp } from "../../lib/format";
 import { actionWords, actorSource, actorWords, detailOf, resourceWords, resultView, rowActor } from "./data";
 import type { ActivityJob, ActivityRow } from "./data";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * Rows drawn while the timeline loads: more than a desktop screen holds. A history's first
@@ -149,7 +149,7 @@ export function ActivityTable({ rows, caption, loading = false, empty, onOpenJob
       skeletonRows={SKELETON_ROWS}
       rowActions={(row) =>
         row.kind === "job" ? (
-          <IconButton label={t("activity.viewLogAria", { name: row.job.name })} icon={<ScrollText />} size="sm" onClick={() => onOpenJobLog(row.job)} />
+          <IconButton label={t("activity.viewLogAria", { name: row.job.name })} icon={<OBJECT_ICONS.log />} size="sm" onClick={() => onOpenJobLog(row.job)} />
         ) : null
       }
       {...(empty !== undefined ? { empty } : {})}

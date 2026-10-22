@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronDown, Copy, GitCommitHorizontal, Hammer, History, PackageCheck, Rocket, RotateCw, ScrollText, X } from "lucide-react";
+import { ChevronDown, Copy, GitCommitHorizontal, PackageCheck, RotateCw, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { appQuery, releasesQuery } from "../../../api/queries/apps";
@@ -41,6 +41,7 @@ import { usePromoteBuild } from "./PromoteBuild";
 import { DEPLOY_STATE_FILTERS, STARTED_BY_FILTERS, branchesOf, filterDeployments, isFiltered } from "./filters";
 import type { DeploymentsSearch } from "./filters";
 import { deploymentStatusWord, shortCommit, triggerWords } from "./words";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** Rows asked for at once: far more than the store keeps (twenty by default), so the history is whole and filters see all of it. */
 const HISTORY_PAGE = 200;
@@ -262,11 +263,11 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
     const name = `#${String(deployment.id)}`;
     return (
       <RowMenu name={name}>
-        <MenuItem icon={<ScrollText />} onClick={() => void navigate({ to: "/apps/$domain/deployments/$id", params: { domain, id: String(deployment.id) } })}>
+        <MenuItem icon={<OBJECT_ICONS.log />} onClick={() => void navigate({ to: "/apps/$domain/deployments/$id", params: { domain, id: String(deployment.id) } })}>
           {t("appPages.common.viewLog")}
         </MenuItem>
         {deployment.rollback_available ? (
-          <MenuItem icon={<History />} onClick={() => openRollback({ deployment: deployment.id })}>
+          <MenuItem icon={<OBJECT_ICONS.rollback />} onClick={() => openRollback({ deployment: deployment.id })}>
             {t("appPages.deployments.tab.rollBackToThis")}
           </MenuItem>
         ) : null}
@@ -282,7 +283,7 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
           </MenuItem>
         ) : null}
         {failed && commit === null ? (
-          <MenuItem icon={<Hammer />} onClick={() => update.mutate()}>
+          <MenuItem icon={<OBJECT_ICONS.update />} onClick={() => update.mutate()}>
             {t("appPages.actions.update")}
           </MenuItem>
         ) : null}
@@ -314,7 +315,7 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
       <EmptyState
         variant="firstUse"
         level={2}
-        icon={<Rocket />}
+        icon={<OBJECT_ICONS.deployment />}
         title={t("appPages.deployments.tab.emptyTitle")}
         description={t("appPages.deployments.tab.emptyDescription")}
         command={`noust update ${domain}`}

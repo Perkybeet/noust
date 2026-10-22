@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LogOut, UserMinus, UserPlus, Users } from "lucide-react";
+import { LogOut, UserMinus, UserPlus } from "lucide-react";
 import { useState } from "react";
 
 import { isTeamRole, removeMember, setMemberRole, teamMembersQuery, TEAM_ROLES } from "../../api/queries/teams";
@@ -33,6 +33,7 @@ import { refreshOrganization } from "./refresh";
 import { teamRoleDescription, teamRoleLabel } from "./roles";
 import { useTeam } from "./TeamLayout";
 import { useOrganization } from "./useOrganization";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** The role of one member, changed where it is read: a value saved the moment it is chosen. */
 function RoleSelect({ member, team, t }: { member: Member; team: string; t: T }) {
@@ -181,7 +182,7 @@ export function TeamMembers() {
       empty={
         <EmptyState
           variant="firstUse"
-          icon={<Users />}
+          icon={<OBJECT_ICONS.team />}
           title={t("teams.members.emptyTitle")}
           description={t("teams.members.emptyDescription")}
           command={`noust team add-member ${team.slug} <account> --role owner`}

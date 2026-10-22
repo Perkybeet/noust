@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardPaste, Eye, EyeOff, Hammer, Layers, Pencil, Play, RefreshCw, Save, Undo2, Variable, WandSparkles } from "lucide-react";
+import { ClipboardPaste, Combine, Eye, EyeOff, Pencil, Play, Save, Variable, WandSparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -43,6 +43,7 @@ import type { EnvSecrecy, SecrecyChoice } from "./secrecy";
 import { useSaveEnvironment } from "./useSaveEnvironment";
 import { VariableDialog } from "./VariableDialog";
 import type { VariableTarget } from "./VariableDialog";
+import { OBJECT_ICONS, VERB_ICONS } from "../../../components/ui/objectIcons";
 
 /** A change this large, or a pasted file, is looked over in full before it is written; anything smaller is already in the table. */
 const REVIEW_ABOVE = 6;
@@ -77,7 +78,7 @@ const SECRECY_CHOICES: readonly SecrecyChoice[] = ["secret", "not-secret", "auto
 const SECRECY_ICON: Record<SecrecyChoice, ReactNode> = { secret: <EyeOff />, "not-secret": <Eye />, auto: <WandSparkles /> };
 
 /** Who gets a variable: both the build and the running app, the build only, the running app only. */
-const AUDIENCE_ICON: Record<VariableAudience, ReactNode> = { both: <Layers />, build: <Hammer />, runtime: <Play /> };
+const AUDIENCE_ICON: Record<VariableAudience, ReactNode> = { both: <Combine />, build: <OBJECT_ICONS.build />, runtime: <Play /> };
 
 /**
  * A variable's type: secret (hidden by the server) or plain, and in a few words what decided
@@ -425,7 +426,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
             {t("environment.tab.remove")}
           </MenuItem>
         ) : (
-          <MenuItem icon={<Undo2 />} onClick={() => undo(row.name)}>
+          <MenuItem icon={<OBJECT_ICONS.rollback />} onClick={() => undo(row.name)}>
             {t("environment.tab.undo")}
           </MenuItem>
         )}
@@ -474,7 +475,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
   const actions = (
     <>
       {hasReferences ? (
-        <Button icon={<RefreshCw aria-hidden="true" />} loading={resolve.isPending} onClick={() => resolve.mutate()}>
+        <Button icon={<VERB_ICONS.refresh aria-hidden="true" />} loading={resolve.isPending} onClick={() => resolve.mutate()}>
           {t("variables.env.resolveAction")}
         </Button>
       ) : null}

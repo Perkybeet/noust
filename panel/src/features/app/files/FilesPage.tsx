@@ -1,15 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Download,
-  File as FileIcon,
-  FilePlus,
-  Folder,
-  FolderPlus,
-  Link2,
-  Pencil,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { Download, File as FileIcon, FilePlus, Folder, FolderPlus, Link2, Pencil, Upload } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import type { ChangeEvent, SyntheticEvent } from "react";
 
@@ -538,7 +528,7 @@ function EntryActions({
         )}
         <MenuSeparator />
         <MenuItem
-          icon={<Trash2 />}
+          icon={<ICONS.delete />}
           destructive
           onClick={() => {
             setRemoving(true);

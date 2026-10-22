@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, Pencil, Users, Variable } from "lucide-react";
+import { Eye, EyeOff, Pencil, Variable } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { sharedVariablesQuery, variableKeys, variableUsageQuery, variablesApi } from "../../api/queries/variables";
@@ -31,6 +31,7 @@ import { reportActionError } from "../apps/useAppActions";
 import { SettingsPrimaryAction } from "../settings/SettingsShell";
 import { SharedVariableDialog } from "./SharedVariableDialog";
 import type { SharedVariableDraft, SharedVariableTarget } from "./SharedVariableDialog";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** How an application refers to a scope's variable, as the server reads it. */
 export function referenceSyntax(scope: VariableScope): string {
@@ -298,7 +299,7 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
         </MenuItem>
       ) : null}
       {scope.kind === "preview" ? null : (
-        <MenuItem icon={<Users />} onClick={() => setUsing(variable.name)}>
+        <MenuItem icon={<OBJECT_ICONS.app />} onClick={() => setUsing(variable.name)}>
           {t("variables.shared.usage")}
         </MenuItem>
       )}

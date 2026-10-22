@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { GitPullRequest } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { MetricsSnapshot } from "../../api/queries/metrics";
@@ -19,6 +18,7 @@ import { inRows, ownerColumns } from "../teams/ownership";
 import type { Labels, Scope } from "../teams/organization";
 import type { AppInfo, Deployment, LastDeployment } from "./data";
 import { appReading, deployMoment, lastDeployOf, previewParentOf, readsApps, useTypeName } from "./data";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * A deployment's outcome as a glyph and when it happened, for dense rows. A deploy an operator
@@ -57,7 +57,7 @@ export function AppName({ t, app }: { t: T; app: AppInfo }) {
     <span className="flex max-w-full min-w-0 flex-col items-start">
       {link}
       <span className="inline-flex max-w-full min-w-0 items-center gap-1 text-12 text-fg-muted">
-        <GitPullRequest aria-hidden="true" className="size-icon-xs shrink-0 text-fg-faint" />
+        <OBJECT_ICONS.preview aria-hidden="true" className="size-icon-xs shrink-0 text-fg-faint" />
         <span className="truncate">{t.rich("apps.table.previewOf", { parent: <Mono tone="muted">{parent}</Mono> })}</span>
       </span>
     </span>

@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Archive, History } from "lucide-react";
 
 import { rollbackPointsQuery } from "../../../api/queries/apps";
 import type { RollbackPoint } from "../../../api/queries/apps";
@@ -17,6 +16,7 @@ import { formatBytes } from "../../../lib/format";
 import { useRollback } from "../RollbackHost";
 import { versionTitle } from "../versionTitle";
 import { shortCommit } from "./words";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 function PointRow({ point, t }: { point: RollbackPoint; t: T }) {
   const { openRollback } = useRollback();
@@ -27,7 +27,7 @@ function PointRow({ point, t }: { point: RollbackPoint; t: T }) {
       actions={
         <Button
           size="sm"
-          icon={<History aria-hidden="true" />}
+          icon={<OBJECT_ICONS.rollback aria-hidden="true" />}
           onClick={() => openRollback({ backup: point.id })}
         >
           {t("appPages.deployments.releases.goBack")}
@@ -58,7 +58,7 @@ export function BackupPoints({ domain }: { domain: string }) {
   return (
     <Section
       title={t("appPages.deployments.releases.rollbackPointsTitle")}
-      icon={Archive}
+      icon={OBJECT_ICONS.backup}
       description={t.rich(
         "appPages.deployments.releases.rollbackPointsDescription",
         {

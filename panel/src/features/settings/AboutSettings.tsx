@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleArrowUp, CircleDashed, CircleHelp, RefreshCw, RotateCw } from "lucide-react";
+import { CircleArrowUp, CircleDashed, CircleHelp, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -33,6 +33,7 @@ import { installMethodWords, readServerIdentity, selfUpdateQuery } from "./Gener
 import { InstallCheck } from "./InstallCheck";
 import { SupportReport } from "./SupportReport";
 import { UpdateNotes, WhatsNew } from "./WhatsNew";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 type UpdateInfo = ResponseOf<"/api/system/version", "get">;
 
@@ -106,7 +107,7 @@ function IndexBehind({ info, version }: { info: UpdateInfo; version: string }): 
     <StateLine icon={<CircleArrowUp aria-hidden="true" className="size-icon-md shrink-0" />} title={t("settings.about.version.indexBehind", { version })}>
       <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("settings.about.version.indexBehindDescription")}</p>
       <div className="flex flex-wrap items-center gap-3">
-        <Button size="sm" variant="primary" icon={<RefreshCw aria-hidden="true" />} loading={running} onClick={() => refresh.mutate()}>
+        <Button size="sm" variant="primary" icon={<OBJECT_ICONS.update aria-hidden="true" />} loading={running} onClick={() => refresh.mutate()}>
           {running ? t("settings.about.version.refreshingIndex") : t("settings.about.version.refreshIndex")}
         </Button>
         <ReleaseNotesLink url={info.release_url} version={version} />

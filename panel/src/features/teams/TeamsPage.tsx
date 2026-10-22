@@ -1,6 +1,6 @@
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { PanelTop, Users, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useState } from "react";
 
@@ -32,6 +32,7 @@ import { refreshOrganization } from "./refresh";
 import { teamRoleLabel } from "./roles";
 import type { TeamsSearch } from "./search";
 import { useOrganization } from "./useOrganization";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 export interface TeamsPageProps {
   search: TeamsSearch;
@@ -184,7 +185,7 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
       <ListPage header={header} tabs={tabs}>
         <EmptyState
           variant="firstUse"
-          icon={<Users />}
+          icon={<OBJECT_ICONS.team />}
           title={t("teams.list.emptyTitle")}
           description={t("teams.list.emptyDescription")}
           command="noust team list"
@@ -234,11 +235,11 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
         pagination="teams"
         rowActions={(team) => (
           <Menu align="end" trigger={<IconButton label={t("teams.list.actionsFor", { name: team.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
-            <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/teams/$team", params: { team: team.slug } })}>
+            <MenuItem icon={<OBJECT_ICONS.team />} onClick={() => void navigate({ to: "/teams/$team", params: { team: team.slug } })}>
               {t("teams.list.open")}
             </MenuItem>
             <MenuItem
-              icon={<Users />}
+              icon={<OBJECT_ICONS.team />}
               disabled={org.active === team.slug}
               onClick={() => {
                 org.choose(team.slug).then(

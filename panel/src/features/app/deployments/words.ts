@@ -3,10 +3,11 @@
  * are the operator's words too (a commit, a release id); the enum values are not.
  */
 
-import { GitPullRequestArrow, MousePointerClick, SquareTerminal } from "lucide-react";
+import { GitPullRequestArrow, MousePointerClick } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import type { T } from "../../../i18n";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 export interface TriggerWords {
   label: string;
@@ -23,9 +24,9 @@ export function triggerWords(t: T, trigger: string): TriggerWords {
     case "panel":
       return { label: t("appPages.deployments.words.trigger.panel.label"), by: t("appPages.deployments.words.trigger.panel.by"), icon: MousePointerClick };
     case "cli":
-      return { label: t("appPages.deployments.words.trigger.cli.label"), by: t("appPages.deployments.words.trigger.cli.by"), icon: SquareTerminal };
+      return { label: t("appPages.deployments.words.trigger.cli.label"), by: t("appPages.deployments.words.trigger.cli.by"), icon: OBJECT_ICONS.terminal };
     default:
-      return { label: trigger, by: trigger, icon: SquareTerminal };
+      return { label: trigger, by: trigger, icon: OBJECT_ICONS.terminal };
   }
 }
 

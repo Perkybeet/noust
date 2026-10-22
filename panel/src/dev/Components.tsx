@@ -1,21 +1,4 @@
-import {
-  Boxes,
-  ExternalLink,
-  GitBranch,
-  Info,
-  Link2,
-  Pencil,
-  Play,
-  Plus,
-  Power,
-  RefreshCw,
-  Rocket,
-  RotateCw,
-  Search,
-  Settings,
-  Trash2,
-  WrapText,
-} from "lucide-react";
+import { ExternalLink, Info, Link2, Pencil, Play, Plus, Power, RotateCw, Search, WrapText } from "lucide-react";
 import { Ellipsis } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -72,6 +55,8 @@ import { Terminal } from "../lib/terminal/terminal";
 import { Item, Row, Section, Stage } from "./gallery";
 import type { SampleApp } from "./sample";
 import { SAMPLE_APPS, SAMPLE_BUILD_LOG, ago, nextJournalLine, sampleDayWithGaps, sampleMetrics, sampleWeekMetrics } from "./sample";
+import { ICONS } from "../components/ui/icons";
+import { OBJECT_ICONS, VERB_ICONS } from "../components/ui/objectIcons";
 
 const STATES: Status[] = ["running", "deploying", "failed", "stopped", "static", "unknown"];
 
@@ -85,7 +70,7 @@ function Buttons() {
       <Stage>
         <Row>
           <Item label="Primary">
-            <Button variant="primary" icon={<Rocket />}>
+            <Button variant="primary" icon={<OBJECT_ICONS.deployment />}>
               Deploy
             </Button>
           </Item>
@@ -145,10 +130,10 @@ function IconButtons() {
       <Stage>
         <Row>
           <Item label="Ghost">
-            <IconButton label="Refresh" icon={<RefreshCw />} />
+            <IconButton label="Refresh" icon={<VERB_ICONS.refresh />} />
           </Item>
           <Item label="Secondary">
-            <IconButton label="Settings" icon={<Settings />} variant="secondary" />
+            <IconButton label="Settings" icon={<OBJECT_ICONS.settings />} variant="secondary" />
           </Item>
           <Item label="Pressed toggle">
             <IconButton label="Wrap lines" icon={<WrapText />} pressed={wrap} onClick={() => setWrap((v) => !v)} />
@@ -194,7 +179,7 @@ function Forms() {
             <Input mono defaultValue="3004" inputMode="numeric" />
           </Field>
           <Field label="Branch" optional>
-            <Input mono placeholder="main" icon={<GitBranch />} />
+            <Input mono placeholder="main" icon={<OBJECT_ICONS.source />} />
           </Field>
           <Field label="Runtime" nativeLabel={false} description="Detected from package.json. Change it if the guess is wrong.">
             <Select options={RUNTIMES} defaultValue="next" />
@@ -305,7 +290,7 @@ function Overlays() {
               actionLabel="Delete application"
               onConfirm={() => new Promise((resolve) => setTimeout(resolve, 900))}
               trigger={
-                <Button variant="danger" icon={<Trash2 />} data-testid="open-confirm">
+                <Button variant="danger" icon={<ICONS.delete />} data-testid="open-confirm">
                   Delete
                 </Button>
               }
@@ -319,7 +304,7 @@ function Overlays() {
               actionLabel="Delete application"
               onConfirm={() => new Promise((resolve) => setTimeout(resolve, 900))}
               trigger={
-                <Button variant="danger" icon={<Trash2 />} data-testid="open-confirm-options">
+                <Button variant="danger" icon={<ICONS.delete />} data-testid="open-confirm-options">
                   Delete with options
                 </Button>
               }
@@ -426,7 +411,7 @@ function Navigation() {
             <Tab value="domains">Domains</Tab>
             <Tab value="diagnose">Diagnose</Tab>
             <Tab value="settings" disabled>
-              Settings
+              OBJECT_ICONS.settings
             </Tab>
           </TabList>
           {["overview", "deployments", "logs", "metrics", "environment", "domains", "diagnose", "settings"].map((value) => (
@@ -469,7 +454,7 @@ function Navigation() {
                 <MenuItem icon={<RotateCw />} shortcut={["R"]}>
                   Restart
                 </MenuItem>
-                <MenuItem icon={<Rocket />} shortcut={["D"]}>
+                <MenuItem icon={<OBJECT_ICONS.deployment />} shortcut={["D"]}>
                   Redeploy
                 </MenuItem>
                 <MenuItem icon={<ExternalLink />}>Open site</MenuItem>
@@ -480,7 +465,7 @@ function Navigation() {
               </MenuItem>
               <MenuSeparator />
               <MenuItem icon={<Power />}>Stop</MenuItem>
-              <MenuItem icon={<Trash2 />} destructive>
+              <MenuItem icon={<ICONS.delete />} destructive>
                 Delete application
               </MenuItem>
             </Menu>
@@ -772,7 +757,7 @@ function Cards() {
       </Card>
       <EmptyState
         variant="firstUse"
-        icon={<Boxes />}
+        icon={<OBJECT_ICONS.app />}
         title="No applications yet"
         description="Deploy a repository and Noust builds it, runs it as a systemd unit and puts nginx and a certificate in front of it."
         action={
@@ -844,9 +829,9 @@ function Tables() {
         rowActions={(row) => (
           <Menu align="end" trigger={<IconButton label={`Actions for ${row.domain}`} icon={<Ellipsis />} size="sm" tooltip={false} />}>
             <MenuItem icon={<RotateCw />}>Restart</MenuItem>
-            <MenuItem icon={<Rocket />}>Redeploy</MenuItem>
+            <MenuItem icon={<OBJECT_ICONS.deployment />}>Redeploy</MenuItem>
             <MenuSeparator />
-            <MenuItem icon={<Trash2 />} destructive>
+            <MenuItem icon={<ICONS.delete />} destructive>
               Delete
             </MenuItem>
           </Menu>

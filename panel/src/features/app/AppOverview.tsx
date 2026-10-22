@@ -1,12 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  GitPullRequest,
-  Globe,
-  HeartPulse,
-  Rocket,
-  ScrollText,
-  Webhook,
-} from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -66,6 +58,7 @@ import { deploymentStatusWord, shortCommit } from "./deployments/words";
 import { keptServing, servingDeployment } from "./rollback";
 import { findCertificate } from "./lookups";
 import { displayAddress } from "./displayAddress";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** The deployments the overview reads: the store keeps twenty, and the live one may be older than the newest five. */
 const HISTORY = 20;
@@ -191,7 +184,7 @@ function Deploys({ app, t }: { app: App; t: T }) {
             ? t("appPages.overview.lastServed")
             : t("appPages.overview.liveNow")
         }
-        icon={Rocket}
+        icon={OBJECT_ICONS.deployment}
       >
         {serving !== null ? (
           <LiveRow deployment={serving} down={down} />
@@ -204,7 +197,7 @@ function Deploys({ app, t }: { app: App; t: T }) {
       </Section>
       <Section
         title={t("appPages.overview.lastDeployments")}
-        icon={Rocket}
+        icon={OBJECT_ICONS.deployment}
         actions={
           <TextLink
             to="/apps/$domain/deployments"
@@ -337,7 +330,7 @@ function Health({ app, t }: { app: App; t: T }) {
   return (
     <Section
       title={t("appPages.overview.healthTitle")}
-      icon={HeartPulse}
+      icon={OBJECT_ICONS.startupCheck}
       actions={
         staticSite ? undefined : (
           <TextLink
@@ -425,7 +418,7 @@ function AdoptedResources({ app, t }: { app: App; t: T }) {
   return (
     <Section
       title={t("appPages.overview.resourcesTitle")}
-      icon={HeartPulse}
+      icon={OBJECT_ICONS.startupCheck}
       actions={
         <TextLink
           to="/apps/$domain/metrics"
@@ -481,7 +474,7 @@ function Previews({ domain, t }: { domain: string; t: T }) {
   )
     return null;
   return (
-    <Section title={t("appPages.overview.previewsTitle")} icon={GitPullRequest}>
+    <Section title={t("appPages.overview.previewsTitle")} icon={OBJECT_ICONS.preview}>
       <RowList aria-label={t("appPages.overview.previewsLabel", { domain })}>
         {data.previews.map((preview) => {
           const view = previewStatus(preview.status, t.locale);
@@ -500,7 +493,7 @@ function Previews({ domain, t }: { domain: string; t: T }) {
                   <Button
                     size="sm"
                     variant="ghost"
-                    icon={<ScrollText aria-hidden="true" />}
+                    icon={<OBJECT_ICONS.log aria-hidden="true" />}
                     aria-label={t("appPages.overview.previewLogsAria", {
                       name,
                     })}
@@ -632,7 +625,7 @@ function Reach({ app, t }: { app: App; t: T }) {
     <RowList aria-label={t("appPages.overview.reachLabel", { domain })}>
       <RowList.Item
         leading={
-          <Globe aria-hidden="true" className="size-icon-md text-fg-muted" />
+          <OBJECT_ICONS.domain aria-hidden="true" className="size-icon-md text-fg-muted" />
         }
         actions={
           <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
@@ -644,7 +637,7 @@ function Reach({ app, t }: { app: App; t: T }) {
       </RowList.Item>
       <RowList.Item
         leading={
-          <Webhook aria-hidden="true" className="size-icon-md text-fg-muted" />
+          <OBJECT_ICONS.webhook aria-hidden="true" className="size-icon-md text-fg-muted" />
         }
         actions={
           <TextLink

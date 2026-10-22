@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, ScrollText } from "lucide-react";
+import { Download } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import { auditPagesQuery } from "../../api/queries/audit";
@@ -37,6 +37,7 @@ import { catalogQuery, recordReview, reviewsQuery, statusQuery, trailKeys, verif
 import { auditActionLabel } from "../activity/data";
 import { RESULTS, actorName, categoryLabel, isFiltered, matches, outcomeView } from "./data";
 import type { AuditSearch } from "./data";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const PAGE = 50;
 const ALL = "all";
@@ -389,7 +390,7 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
               {t("audit.page.export")}
             </a>
             {/* Secondary, as the access review's is: this page reads the log, it changes nothing. */}
-            <Button icon={<ScrollText aria-hidden="true" />} onClick={() => setReviewing(true)}>
+            <Button icon={<OBJECT_ICONS.audit aria-hidden="true" />} onClick={() => setReviewing(true)}>
               {t("audit.page.review")}
             </Button>
           </>

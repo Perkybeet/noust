@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
-import { ScrollText } from "lucide-react";
 
 import { appsQuery } from "../../api/queries/apps";
 import type { AppList } from "../../api/queries/apps";
@@ -23,6 +22,7 @@ import { useCancelJob } from "./useCancelJob";
 import type { CancelTarget } from "./useCancelJob";
 import { cancelReasonWords, cancelState, entryDomain, entryTitle, isWaiting, mergedRequests, placeOf } from "./words";
 import type { CancelState } from "./words";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 export interface QueuePanelProps {
   /** Only the jobs of this application: the Deployments tab's panel. Omitted, the server's. */
@@ -161,7 +161,7 @@ export function QueuePanelView({ queue, domain, onOpenLog }: QueuePanelProps & {
               <Button
                 size="sm"
                 variant="ghost"
-                icon={<ScrollText aria-hidden="true" />}
+                icon={<OBJECT_ICONS.log aria-hidden="true" />}
                 aria-label={t("activity.viewLogAria", { name: entryTitle(entry, t.locale) })}
                 onClick={() => onOpenLog(entry)}
               >

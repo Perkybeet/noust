@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowRightLeft, CircleArrowUp, Copy, FolderOpen, Hammer, History, PackageCheck, Play, RotateCw, Square, SquareTerminal, Stethoscope } from "lucide-react";
+import { ArrowRightLeft, CircleArrowUp, Copy, PackageCheck, Play, RotateCw, Square, Stethoscope } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -26,6 +26,7 @@ import { StopAppDialog } from "./StopAppDialog";
 import { useHasPermission } from "../terminal/queries";
 import { useConfirmItsYou } from "./useDeleteApp";
 import { useStageRelease } from "./useStagedRelease";
+import { OBJECT_ICONS, VERB_ICONS } from "../../components/ui/objectIcons";
 
 export interface AppHeaderActions {
   /** The daily verbs beside the primary action: Restart, Stop or Start, Roll back. */
@@ -116,7 +117,7 @@ export function useAppHeaderActions(
           <Verb wide={wide} label={t("appPages.actions.start")} icon={<Play aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()} />
         )
       ) : null}
-      {adopted ? null : <Verb wide={wide} label={t("appPages.actions.rollBack")} icon={<History aria-hidden="true" />} onClick={() => openRollback()} />}
+      {adopted ? null : <Verb wide={wide} label={t("appPages.actions.rollBack")} icon={<OBJECT_ICONS.rollback aria-hidden="true" />} onClick={() => openRollback()} />}
     </>
   );
 
@@ -127,13 +128,13 @@ export function useAppHeaderActions(
         {t("appPages.actions.diagnose")}
       </MenuItem>
       {canOpenTerminal ? (
-        <MenuItem icon={<SquareTerminal />} onClick={() => void navigate({ to: "/apps/$domain/terminal", params: { domain } })}>
+        <MenuItem icon={<OBJECT_ICONS.terminal />} onClick={() => void navigate({ to: "/apps/$domain/terminal", params: { domain } })}>
           {t("appPages.actions.terminal")}
         </MenuItem>
       ) : null}
       {/* The files are what a shell as the application is: the same permission. */}
       {canOpenTerminal && unit && !adopted ? (
-        <MenuItem icon={<FolderOpen />} onClick={() => void navigate({ to: "/apps/$domain/files", params: { domain } })}>
+        <MenuItem icon={<OBJECT_ICONS.file />} onClick={() => void navigate({ to: "/apps/$domain/files", params: { domain } })}>
           {t("runtime.files.title")}
         </MenuItem>
       ) : null}
@@ -207,7 +208,7 @@ export function useAppHeaderActions(
               onClick={() => update.mutate()}
               menu={
                 <>
-                  <MenuItem icon={<Hammer />} onClick={() => rebuildFresh.mutate()}>
+                  <MenuItem icon={<VERB_ICONS.rebuild />} onClick={() => rebuildFresh.mutate()}>
                     {t("appPages.actions.updateFresh")}
                   </MenuItem>
                   {/* Only an app with releases can keep a build waiting beside the one that serves. */}

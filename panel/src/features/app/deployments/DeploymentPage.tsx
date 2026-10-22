@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { FileX, Rocket, ScrollText, Webhook } from "lucide-react";
+import { FileX } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -65,6 +65,7 @@ import { currentPhase, logClockOffset, outcomeOf, timeline } from "./phases";
 import type { PhaseKey, PhaseView } from "./phases";
 import { useDeploymentJob } from "./useDeploymentJob";
 import { deploymentStatusWord, shortCommit, triggerWords } from "./words";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 const RUNNING = new Set(["queued", "running"]);
 
@@ -241,7 +242,7 @@ function HooksSection({ deployment, t }: { deployment: Deployment; t: T }) {
   return (
     <Section
       title={t("appPages.deployments.hooks.title")}
-      icon={Webhook}
+      icon={OBJECT_ICONS.webhook}
       level={3}
       description={
         deployment.schema_changed
@@ -373,7 +374,7 @@ function LogSection({
     <div id={LOG_ANCHOR} className="scroll-mt-20">
       <Section
         title={t("appPages.deployments.page.buildLogTitle")}
-        icon={ScrollText}
+        icon={OBJECT_ICONS.log}
         level={3}
         description={
           running ? t("appPages.deployments.page.buildLogFollowing") : undefined
@@ -383,7 +384,7 @@ function LogSection({
             <Button
               size="sm"
               variant="ghost"
-              icon={<ScrollText aria-hidden="true" />}
+              icon={<OBJECT_ICONS.log aria-hidden="true" />}
               loading={log.isFetching}
               onClick={wholeLog}
             >
@@ -786,7 +787,7 @@ function Deploy({
         title={t("appPages.deployments.page.heading", {
           id: String(deployment.id),
         })}
-        icon={Rocket}
+        icon={OBJECT_ICONS.deployment}
         badge={
           <span className="flex items-center gap-2">
             <DeployStatePill status={deploymentStatusWord(deployment)} />

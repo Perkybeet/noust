@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Eye, LogOut, Plus, Settings2, SquareTerminal } from "lucide-react";
+import { Eye, LogOut, Plus, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { announce } from "../../app/Announcer";
@@ -31,6 +31,7 @@ import { terminalStatusQuery, useHasPermission } from "./queries";
 import type { TerminalStatus } from "./queries";
 import { clock, endedSentence, secondsUntil } from "./words";
 import type { ReactNode } from "react";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** The commands that turn the server's shell on, verbatim: the ones the server's own refusal names. */
 export const SERVER_ENABLE_COMMAND = "noust config set terminal.server.enabled true";
@@ -118,7 +119,7 @@ function Off({ target, status, t }: { target: TerminalTarget; status: TerminalSt
     return (
       <EmptyState
         variant="firstUse"
-        icon={<SquareTerminal />}
+        icon={<OBJECT_ICONS.terminal />}
         title={t("terminal.off.title")}
         description={
           <>
@@ -132,7 +133,7 @@ function Off({ target, status, t }: { target: TerminalTarget; status: TerminalSt
   return (
     <EmptyState
       variant="firstUse"
-      icon={<SquareTerminal />}
+      icon={<OBJECT_ICONS.terminal />}
       title={t("terminal.disabled.title")}
       description={`${t("terminal.disabled.description")} ${t("terminal.disabled.enable")}`}
       command={TERMINALS_ENABLE_COMMAND}
@@ -198,7 +199,7 @@ function Start({ target, status, permitted, loading, onOpen, t }: StartProps) {
           <Button
             // The application's header already carries the page's primary action (Update).
             variant={app ? "secondary" : "primary"}
-            icon={<SquareTerminal aria-hidden="true" />}
+            icon={<OBJECT_ICONS.terminal aria-hidden="true" />}
             loading={loading}
             disabled={permitted !== true}
             onClick={() => {
@@ -313,7 +314,7 @@ export function TerminalPanel({ target, injected }: TerminalPanelProps) {
           <div>
             <Button
               variant="primary"
-              icon={<SquareTerminal aria-hidden="true" />}
+              icon={<OBJECT_ICONS.terminal aria-hidden="true" />}
               onClick={() => {
                 session.restart();
               }}
