@@ -335,7 +335,7 @@ function NotificationsSkeleton() {
   const t = useT();
   return (
     <div className="flex flex-col gap-8">
-      <Section title={t("settings.notifications.channels.title")} description={<Skeleton className="h-4 w-80 max-w-full" />}>
+      <Section title={t("settings.notifications.channels.title")} icon={OBJECT_ICONS.channel} description={<Skeleton className="h-4 w-80 max-w-full" />}>
         <Card padding="none">
           <ul aria-hidden="true" className="flex flex-col divide-y divide-border">
             {channels(t).map((spec) => (

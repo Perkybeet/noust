@@ -39,6 +39,7 @@ import { readServerIdentity, selfUpdateQuery, installMethodWords, wholeNumber } 
 import type { ServerIdentity } from "./GeneralSettings.model";
 import { FieldsSkeleton, FormFailure, useRefreshConfig } from "./SettingsForm";
 import { useSettingsForm } from "./useSettingsForm";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const WEBSERVERS: readonly SelectOption[] = [
   { value: "nginx", label: "Nginx" },
@@ -172,7 +173,7 @@ function GeneralForm({ loaded, hostname }: { loaded: Loaded; hostname: string | 
           {t.rich("settings.general.notWritable", { path: <Mono key="path">{loaded.config.path}</Mono> })}
         </Notice>
       )}
-      <Section title={t("settings.general.server.title")} description={t("settings.general.server.description")}>
+      <Section title={t("settings.general.server.title")} icon={OBJECT_ICONS.server} description={t("settings.general.server.description")}>
         <Card>
           <div className="flex flex-col gap-5">
             <FormFailure error={name.formError ?? publicUrl.formError ?? address.formError ?? certificates.formError ?? updates.formError} title={t("settings.general.server.failed")} />
@@ -272,7 +273,7 @@ function GeneralForm({ loaded, hostname }: { loaded: Loaded; hostname: string | 
           <p>{t("settings.general.hub.description")}</p>
         </div>
       ) : (
-        <Section title={t("settings.general.applications.title")} description={t("settings.general.applications.description")}>
+        <Section title={t("settings.general.applications.title")} icon={OBJECT_ICONS.app} description={t("settings.general.applications.description")}>
           <Card>
             <div className="flex flex-col gap-5">
               <FormFailure
@@ -427,10 +428,10 @@ function GeneralSkeleton() {
   const t = useT();
   return (
     <div className="flex flex-col gap-8">
-      <Section title={t("settings.general.server.title")} description={t("settings.general.server.description")}>
+      <Section title={t("settings.general.server.title")} icon={OBJECT_ICONS.server} description={t("settings.general.server.description")}>
         <FieldsSkeleton rows={[2, 2, 1]} />
       </Section>
-      <Section title={t("settings.general.applications.title")} description={t("settings.general.applications.description")}>
+      <Section title={t("settings.general.applications.title")} icon={OBJECT_ICONS.app} description={t("settings.general.applications.description")}>
         <FieldsSkeleton rows={[2, 2]} />
       </Section>
       <Section title={t("settings.general.details.title")} description={t("settings.general.details.description")}>

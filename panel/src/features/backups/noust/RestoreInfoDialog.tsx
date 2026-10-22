@@ -26,7 +26,7 @@ export function RestoreInfoDialog({ name, open, onOpenChange }: RestoreInfoDialo
       description={t("selfBackup.restore.description")}
       footer={
         <Button variant="primary" onClick={() => onOpenChange(false)}>
-          {t("selfBackup.restore.close")}
+          {t("common.words.close")}
         </Button>
       }
     >

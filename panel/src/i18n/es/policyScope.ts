@@ -8,11 +8,9 @@ export const policyScope: Catalog<typeof en> = {
     none: "Ninguna programación cubre todas las bases de datos de {engine}. Cada una se protege con su propia programación, o no se protege.",
     coveredBy: "La programación de todas las bases de datos de {engine} copia también esta. Pon una programación propia para cambiar cuándo o dónde.",
     set: "Copiar todas las bases de datos",
-    edit: "Editar",
     covers: "Cubre",
     coversThis: "Todas las bases de datos de {engine}, incluida {name}",
     leavesThisOut: "Todas las bases de datos de {engine}, menos {name}",
-    remove: "Quitar",
     removeTitle: "Quitar la programación de todas las bases de datos de {engine}",
     removeDescription:
       "Ninguna base de datos se copia ya con ella y la programación se detiene. Los volcados ya hechos se quedan. Las bases de datos con programación propia la conservan.",
@@ -42,7 +40,5 @@ export const policyScope: Catalog<typeof en> = {
     schemas: "esquemas {names}",
     tables: "tablas {names}",
     collections: "colecciones {names}",
-    nothing: "Nada",
-    scope: "Cubre",
   },
 };

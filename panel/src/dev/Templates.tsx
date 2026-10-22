@@ -1,4 +1,4 @@
-import { Boxes, Globe, Plus, Upload } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -42,6 +42,7 @@ import type { Column } from "../components/ui";
 import { Section } from "./gallery";
 import type { SampleApp } from "./sample";
 import { SAMPLE_APPS, ago, sampleMetrics } from "./sample";
+import { OBJECT_ICONS } from "../components/ui/objectIcons";
 
 /** A template drawn in a frame the size of a page, with its number and name. */
 function Frame({ id, name, children }: { id: string; name: string; children: ReactNode }) {
@@ -88,7 +89,6 @@ function ListDemo() {
       footer={<CommandHint command="noust list" label="From a terminal" />}
     >
       <DataTable
-        mobile="cards"
         caption="Applications"
         columns={APP_COLUMNS}
         rows={rows}
@@ -342,7 +342,7 @@ function EditorDemo() {
       meta={
         <>
           <span className="flex items-center gap-1">
-            <Globe aria-hidden="true" className="size-icon-sm" />
+            <OBJECT_ICONS.domain aria-hidden="true" className="size-icon-sm" />
             example.net, www.example.net
           </span>
           <span className="mono">/etc/nginx/sites-available/example.net</span>
@@ -438,7 +438,7 @@ export function Templates() {
           <ListPage header={{ title: "Backups", primaryAction: <Button variant="primary">Create backup</Button> }}>
             <EmptyState
               variant="firstUse"
-              icon={<Boxes />}
+              icon={<OBJECT_ICONS.app />}
               title="No backups yet"
               description="A backup copies an application's files, its .env and its databases."
               action={<Button>Create backup</Button>}

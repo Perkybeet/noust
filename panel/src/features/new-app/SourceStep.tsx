@@ -1,4 +1,4 @@
-import { Archive, ChevronDown, Container, FileUp, FolderGit2, FolderOpen, GitBranch, Layers, LibraryBig, Link2, Upload, X } from "lucide-react";
+import { ChevronDown, FileUp, FolderGit2, LibraryBig, Link2, Upload, X } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
@@ -30,12 +30,13 @@ import { Suggestion } from "./Suggestion";
 import { WorkspacesDialog } from "./WorkspacesDialog";
 import { SOURCE_WORDS, sourceKind } from "./wizard";
 import type { SourceErrors, SourceForm, SourceKind } from "./wizard";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const KIND_ICON: Record<SourceKind, ReactNode> = {
   github: <FolderGit2 />,
-  git: <GitBranch />,
-  archive: <Archive />,
-  local: <FolderOpen />,
+  git: <OBJECT_ICONS.source />,
+  archive: <OBJECT_ICONS.packages />,
+  local: <OBJECT_ICONS.file />,
   upload: <Upload />,
   unknown: <FolderGit2 />,
 };
@@ -77,7 +78,7 @@ function Inspecting({ source, branch, since, onCancel }: { source: string; branc
         description={t("newApp.source.elapsed", { seconds: String(seconds) })}
         action={
           <Button size="sm" variant="ghost" icon={<X aria-hidden="true" />} onClick={onCancel}>
-            {t("newApp.source.cancel")}
+            {t("common.words.cancel")}
           </Button>
         }
       />
@@ -176,7 +177,7 @@ const MODES: readonly { value: SourceMode; label: PlainKey }[] = [
 
 /** The rest, behind one button: each is a different idea, and four of them on the first screen read as eight choices. */
 const MORE_MODES: readonly { value: SourceMode; label: PlainKey; icon: ReactNode }[] = [
-  { value: "compose", label: "newApp.modes.compose", icon: <Layers /> },
+  { value: "compose", label: "newApp.modes.compose", icon: <OBJECT_ICONS.compose /> },
   { value: "recipe", label: "newApp.modes.recipe", icon: <LibraryBig /> },
   { value: "import", label: "newApp.modes.import", icon: <FileUp /> },
   { value: "adopt", label: "newApp.modes.adopt", icon: <Link2 /> },
@@ -315,7 +316,7 @@ export function SourceStep({
           <Field label={t("containers.source.image")} error={image.error} description={t("containers.source.imageDescription")}>
             <Input
               mono
-              icon={<Container />}
+              icon={<OBJECT_ICONS.container />}
               value={image.value}
               onValueChange={image.onChange}
               placeholder="ghcr.io/owner/app:1.4"
@@ -325,7 +326,7 @@ export function SourceStep({
             />
           </Field>
           <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("containers.source.privateRegistry")}</p>
-          <CommandHint command={`noust create --domain example.com --image ${image.value.trim() === "" ? "ghcr.io/owner/app:1.4" : image.value.trim()}`} label={t("newApp.source.terminal")} />
+          <CommandHint command={`noust create --domain example.com --image ${image.value.trim() === "" ? "ghcr.io/owner/app:1.4" : image.value.trim()}`} label={t("common.words.fromTerminal")} />
         </form>
       ) : (
         <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
@@ -391,7 +392,7 @@ export function SourceStep({
                 <Field label={t("newApp.source.branch")} optional error={errors.branch} description={t("newApp.source.branchDescription")} className="sm:max-w-80">
                   <Input
                     mono
-                    icon={<GitBranch />}
+                    icon={<OBJECT_ICONS.source />}
                     value={form.branch}
                     onValueChange={(value: string) => onChange({ source: form.source, branch: value })}
                     placeholder="main"
@@ -423,7 +424,7 @@ export function SourceStep({
             </div>
           ) : null}
 
-          <CommandHint command={`noust create --domain example.com --source ${shown === "" ? "https://github.com/you/app.git" : shown}`} label={t("newApp.source.terminal")} />
+          <CommandHint command={`noust create --domain example.com --source ${shown === "" ? "https://github.com/you/app.git" : shown}`} label={t("common.words.fromTerminal")} />
         </form>
       )}
       {workspaces ? (

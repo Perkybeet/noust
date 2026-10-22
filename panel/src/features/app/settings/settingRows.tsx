@@ -8,13 +8,23 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { isElevated } from "../useDeleteApp";
 
 /**
- * A row of a `SettingsGroup` while what it shows is read: the row's own height, so nothing moves
- * when the answer arrives. `label` is a sentence ("Loading the delivery settings").
+ * The rows of a `SettingsGroup` while what they show is read, at the height they will have: each
+ * entry of `rows` is a row and says how many lines of help it will carry (a row is 44px and every
+ * line of help adds 16), so the groups under it do not move when the answer arrives. Most rows
+ * carry a line or two (a sentence in Spanish wraps where English does not), and a row that says a
+ * risk or a list carries three. `label` is a sentence ("Loading the delivery settings").
  */
-export function RowLoading({ label }: { label: string }) {
+export function RowLoading({ label, rows = [1] }: { label: string; rows?: readonly number[] }) {
   return (
-    <LoadingRegion label={label} className="px-5 py-3">
-      <Skeleton className="h-5 w-1/3" />
+    <LoadingRegion label={label} className="flex flex-col divide-y divide-border">
+      {rows.map((lines, index) => (
+        <div key={index} className="flex flex-col px-5 py-3">
+          <Skeleton className="my-0.5 h-4 w-1/3" />
+          {Array.from({ length: lines }, (_, line) => (
+            <Skeleton key={line} className="my-0.5 h-3 w-2/3" />
+          ))}
+        </div>
+      ))}
     </LoadingRegion>
   );
 }

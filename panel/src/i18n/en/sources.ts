@@ -11,7 +11,6 @@ export const sources = {
     title: "Not built from a git repository",
     body: "A deploy key and a credential are for a repository an application is cloned from. This one is built from something else, so there is nothing to sign in to.",
   },
-  fromTerminal: "The same, from a terminal",
   allKeys: "Every deploy key on this server is listed in {link}.",
   allKeysLink: "Settings, Integrations",
   webhookNote: "A push to the repository can deploy this application: GitHub, GitLab, Gitea and Bitbucket are set up in {link}.",
@@ -35,7 +34,6 @@ export const sources = {
     generated: "A deploy key was made for {domain}",
     notGenerated: "The deploy key of {domain} was not made",
     facts: {
-      name: "Name",
       type: "Type",
       origin: "Made",
       fingerprint: "Fingerprint",
@@ -58,7 +56,6 @@ export const sources = {
     testedTitle: "The repository answered",
     testFailed: "The repository could not be read with this key",
     rotate: "Replace the key",
-    remove: "Remove",
     sharedNote: "{apps} are built from the same repository, so they use this key too.",
     rotation: {
       title: "Replacing the key",
@@ -84,7 +81,6 @@ export const sources = {
       keyLabel: "Private key",
       keyDescription: "The whole file, from the BEGIN line to the END line.",
       keyRequired: "Paste the private key.",
-      nameLabel: "Name",
       nameDescription: "How the key is listed. Leave it empty to use the application's name.",
       submit: "Import key",
       imported: "The key was imported for {domain}",
@@ -124,7 +120,6 @@ export const sources = {
     sshHint: "The source is SSH. A credential signs in over https; a deploy key is what an SSH source uses.",
     set: "Set credential…",
     replace: "Replace…",
-    remove: "Remove",
     dialog: {
       title: "Set the credential for {repository}",
       replaceTitle: "Replace the credential for {repository}",

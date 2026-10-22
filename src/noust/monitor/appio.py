@@ -15,7 +15,7 @@ but the one that asks systemd:
     Summed over the devices, it is the bytes the application's processes read and
     wrote, cumulative since the cgroup began. It exists while the ``io``
     controller is on for the cgroup, which ``IOAccounting=yes`` in the unit
-    (written since 3.4) and Docker's own containers both arrange.
+    (written since 4.0) and Docker's own containers both arrange.
 
 ``/proc/<pid>/net/dev``
     The interface counters of a *network namespace*. A container has its own, so

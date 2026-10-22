@@ -220,7 +220,7 @@ export function CreateServerDialog({ open, onClose, account: initialAccount, onA
           next("machine", ["name", "account"]);
         }}
       >
-        <Field label={t("cloud.create.name")} description={t("cloud.create.nameHelp")} error={problem === "name" ? words("name") : undefined}>
+        <Field label={t("common.words.name")} description={t("cloud.create.nameHelp")} error={problem === "name" ? words("name") : undefined}>
           <Input ref={nameRef} mono maxLength={32} value={form.name} onValueChange={(value: string) => set({ name: value })} placeholder="web-2" autoComplete="off" autoCapitalize="off" spellCheck={false} />
         </Field>
         {accounts.isError ? (
@@ -253,9 +253,9 @@ export function CreateServerDialog({ open, onClose, account: initialAccount, onA
     footer = (
       <WizardActions
         className="w-full"
-        back={{ label: t("cloud.common.cancel"), onClick: close }}
+        back={{ label: t("common.words.cancel"), onClick: close }}
         next={{
-          label: t("cloud.create.next"),
+          label: t("common.words.next"),
           onClick: () => {
             next("machine", ["name", "account"]);
           },
@@ -322,13 +322,13 @@ export function CreateServerDialog({ open, onClose, account: initialAccount, onA
       <WizardActions
         className="w-full"
         back={{
-          label: t("cloud.create.back"),
+          label: t("common.words.back"),
           onClick: () => {
             setStep("server");
           },
         }}
         next={{
-          label: t("cloud.create.next"),
+          label: t("common.words.next"),
           onClick: () => {
             next("options", ["location", "plan", "image"]);
           },
@@ -424,7 +424,7 @@ export function CreateServerDialog({ open, onClose, account: initialAccount, onA
       <WizardActions
         className="w-full"
         back={{
-          label: t("cloud.create.back"),
+          label: t("common.words.back"),
           onClick: () => {
             setStep("machine");
           },
@@ -443,7 +443,7 @@ export function CreateServerDialog({ open, onClose, account: initialAccount, onA
       <div className="flex min-w-0 flex-col gap-5">
         <KeyValueList
           items={[
-            { label: t("cloud.create.review.name"), value: name, mono: true },
+            { label: t("common.words.name"), value: name, mono: true },
             { label: t("cloud.create.review.provider"), value: `${provider === null ? "" : t(`cloud.provider.${provider}.name`)} · ${chosenAccount}`, copy: false, mono: false },
             { label: t("cloud.create.review.where"), value: data?.locations.find((choice) => choice.id === form.location)?.name ?? form.location, copy: false, mono: false },
             { label: t("cloud.create.review.plan"), value: plan === undefined ? form.plan : `${plan.name} · ${plan.detail}`, copy: false, mono: false },
@@ -475,7 +475,7 @@ export function CreateServerDialog({ open, onClose, account: initialAccount, onA
       <WizardActions
         className="w-full"
         back={{
-          label: t("cloud.create.back"),
+          label: t("common.words.back"),
           onClick: () => {
             if (!create.isPending) setStep("options");
           },
@@ -512,7 +512,7 @@ export function CreateServerDialog({ open, onClose, account: initialAccount, onA
           </Button>
         ) : null}
         <Button variant="primary" onClick={close}>
-          {finished ? t("cloud.create.done") : t("cloud.create.close")}
+          {finished ? t("common.words.done") : t("common.words.close")}
         </Button>
       </>
     );

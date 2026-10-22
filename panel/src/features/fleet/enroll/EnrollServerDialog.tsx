@@ -190,7 +190,7 @@ export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollSe
           toHostKey();
         }}
       >
-        <Field label={t("enroll.server.name")} description={t("enroll.server.nameHelp")} error={problem === "name" ? problemWords("name") : undefined}>
+        <Field label={t("common.words.name")} description={t("enroll.server.nameHelp")} error={problem === "name" ? problemWords("name") : undefined}>
           <Input ref={nameRef} mono maxLength={32} value={form.name} onValueChange={(value: string) => set({ name: value })} placeholder="web-2" autoComplete="off" autoCapitalize="off" spellCheck={false} />
         </Field>
         <div className="flex min-w-0 flex-wrap gap-4">
@@ -261,7 +261,7 @@ export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollSe
               {t("enroll.linkInstead")}
             </Button>
           ) : null}
-          <CommandHint command="noust fleet enroll web-2 --host 203.0.113.9" label={t("databases.common.fromTerminal")} />
+          <CommandHint command="noust fleet enroll web-2 --host 203.0.113.9" label={t("common.words.fromTerminal")} />
         </div>
         {scan.isError ? <ErrorBlock live compact error={scan.error} title={t("enroll.hostKey.scanFailed")} /> : null}
       </form>
@@ -269,7 +269,7 @@ export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollSe
     footer = (
       <WizardActions
         className="w-full"
-        back={{ label: t("enroll.cancel"), onClick: close }}
+        back={{ label: t("common.words.cancel"), onClick: close }}
         next={{ label: t("enroll.next"), loading: scan.isPending, onClick: toHostKey }}
       />
     );
@@ -298,7 +298,7 @@ export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollSe
       <WizardActions
         className="w-full"
         back={{
-          label: t("enroll.back"),
+          label: t("common.words.back"),
           onClick: () => {
             if (!enroll.isPending) setStep("server");
           },
@@ -336,7 +336,7 @@ export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollSe
           </Button>
         ) : null}
         <Button variant="primary" onClick={close}>
-          {finished ? t("enroll.done") : t("enroll.close")}
+          {finished ? t("common.words.done") : t("common.words.close")}
         </Button>
       </>
     );

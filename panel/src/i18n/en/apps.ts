@@ -1,8 +1,6 @@
 /** Strings of the console's applications area: the list, its filters and its row actions. */
 export const apps = {
-  area: "Applications",
   newApplication: "New application",
-  fromRecipe: "From a recipe",
   page: {
     title: "Applications",
     description: "Everything this server runs, and the state it is in.",
@@ -17,13 +15,11 @@ export const apps = {
     everyState: "Every state",
     typeLabel: "Type",
     everyType: "Every type",
-    clearFilters: "Clear filters",
     count: { one: "{count} application", other: "{count} applications" },
     countFiltered: "{shown} of {total} applications",
     caption: "Applications",
     captionFiltered: "Applications matching the filters",
-    noMatchTitle: "No application matches these filters.",
-    fromTerminal: "From a terminal",
+    noMatchTitle: "No application matches these filters",
   },
   table: {
     columnState: "State",
@@ -38,11 +34,8 @@ export const apps = {
     previewOf: "Preview of {parent}",
   },
   rowActions: {
-    aria: "Actions for {domain}",
     open: "Open",
     logs: "Logs",
-    restart: "Restart",
-    update: "Update",
   },
   bulk: {
     selectColumn: "Select",
@@ -66,7 +59,6 @@ export const apps = {
     updateNote: "Updates are queued and built one at a time.",
     working: "Working",
     nothingNew: "Nothing new to deploy",
-    failed: "Failed",
     held: "Not done",
     waitingApproval: "Waiting for a second person to approve it.",
     summary: "To do: {run} of {total}. Skipped: {skipped}.",
@@ -78,13 +70,27 @@ export const apps = {
       stop: { one: "Stop {count} application", other: "Stop {count} applications" },
       start: { one: "Start {count} application", other: "Start {count} applications" },
     },
-    retry: "Retry the failed",
-    close: "Close",
+    retry: "Retry failed",
   },
   nothingNew: {
     title: "Nothing new to deploy to {domain}",
-    cancel: "Cancel",
     rebuildAnyway: "Rebuild anyway",
+  },
+  /** The row a deploy that serves ends on: the wizard's last step and a deployment's page (features/app/ArrivalRow.tsx). */
+  arrival: {
+    live: "Live",
+    liveSite: "{domain}, the live site",
+    copy: "Copy the address",
+    httpsReady: "HTTPS is ready.",
+    httpOnly: "Served over HTTP: the certificate could not be issued.",
+    httpOnlyNone: "Served over HTTP: no certificate covers this address yet.",
+    temporaryHelp: "A temporary address is for trying things out.",
+    certbotSaid: "What certbot said",
+    certbotOutput: "What certbot said about {domain}",
+    openDomains: "Open Domains",
+    nextDomain: "Add your own domain",
+    nextDatabase: "Add a database",
+    nextBackup: "Schedule a backup",
   },
   actions: {
     restartedToast: "Restarted {domain}",

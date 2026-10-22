@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Database as DatabaseIcon, Eye, KeyRound, Link2, Plus, Unlink } from "lucide-react";
+import { Eye, KeyRound, Link2, Plus, Unlink } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -34,6 +34,7 @@ import { TEXT_LINK } from "../../databases/ui";
 import { forgetPending, pendingFor } from "../../databases/wizard/pending";
 import { CreateLinkDialog } from "./CreateLinkDialog";
 import { SqliteSection } from "./SqliteSection";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 type Kind = "provision" | "link" | "unlink" | "rotate" | "working";
 
@@ -232,7 +233,7 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
         empty={
           <EmptyState
             variant="firstUse"
-            icon={<DatabaseIcon />}
+            icon={<OBJECT_ICONS.database />}
             title={t("databases.appTab.emptyTitle")}
             description={t("databases.appTab.emptyDescription")}
             action={actions}
@@ -265,7 +266,7 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
         )}
       </QueryState>
 
-      {list.length > 0 ? <CommandHint command={`noust db links ${domain}`} label={t("databases.common.fromTerminal")} /> : null}
+      {list.length > 0 ? <CommandHint command={`noust db links ${domain}`} label={t("common.words.fromTerminal")} /> : null}
 
       <SqliteSection domain={domain} />
 

@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Cloud, Network } from "lucide-react";
+import { Cloud } from "lucide-react";
 import { useState } from "react";
 
 import { LinkTabs } from "../../app/LinkTabs";
@@ -17,6 +17,7 @@ import { useCentral } from "../central/central";
 import { CentralLockedNotice } from "../central/CentralLockedNotice";
 import { AddServer } from "./enroll/AddServer";
 import { FleetActionsProvider } from "./BulkActionDialog";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 export interface FleetLayoutProps {
   /** Set when a hub was asked for one of the pages it does not have. */
@@ -106,7 +107,7 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
         {empty ? (
           <EmptyState
             variant="firstUse"
-            icon={<Network />}
+            icon={<OBJECT_ICONS.node />}
             title={t("fleet.page.empty.title")}
             description={t("fleet.page.empty.description")}
             action={

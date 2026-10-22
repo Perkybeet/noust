@@ -11,7 +11,6 @@ export const autoUpdate: Catalog<typeof en> = {
   checkOffBody: "La comprobación de actualizaciones está desactivada (updates.check), así que este servidor no sabe qué hay que instalar. Activa la comprobación o desactiva esto.",
   notSupported: "Esta instalación no puede actualizarse desde aquí.",
   set: "Configurar",
-  edit: "Editar",
   channelWords: {
     security: "sus correcciones de seguridad",
     patch: "sus versiones de parche",
@@ -41,7 +40,6 @@ export const autoUpdate: Catalog<typeof en> = {
   },
   outcome: {
     updated: "Actualizado",
-    failed: "Falló",
     skipped: "No se instaló nada",
     updatedTo: "Actualizado de {from} a {to}",
   },
@@ -61,8 +59,6 @@ export const autoUpdate: Catalog<typeof en> = {
     everyDay: "Todos los días",
     chooseDays: "Solo algunos días",
     daysRequired: "Elige al menos un día.",
-    save: "Guardar",
-    cancel: "Cancelar",
     saveFailed: "No se pudo guardar la actualización automática",
     saved: "Actualizaciones automáticas guardadas",
   },

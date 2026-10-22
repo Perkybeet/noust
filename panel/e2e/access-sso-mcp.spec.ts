@@ -255,7 +255,7 @@ serial("a manifest is applied as the person who asks, and the server then matche
   await page.getByLabel("Manifest", { exact: true }).fill("version: 1\napplications:\n  - domain: shop.example.net\n    health:\n      path: /e2e-applied\n");
   await page.getByRole("button", { name: "Preview changes" }).click();
   const table = page.getByRole("region", { name: "Changes a manifest would make" });
-  await expect(table.getByText("Change health check")).toBeVisible();
+  await expect(table.getByText("Change startup check")).toBeVisible();
   await page.getByRole("button", { name: "Apply these changes" }).click();
   const confirm = page.getByRole("alertdialog", { name: "Apply the manifest?" });
   await expect(confirm.getByText(/1 change will be made on this server as you/)).toBeVisible();

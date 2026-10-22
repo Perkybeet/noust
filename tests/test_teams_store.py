@@ -4,7 +4,7 @@
 """
 Teams, projects, environments and who belongs where (I-01, I-02, I-10).
 
-The store of teams is the one reader and writer of what the 3.4 schema adds:
+The store of teams is the one reader and writer of what the 4.0 schema adds:
 what is refused (a name taken, the last owner leaving, a team that still holds
 something being deleted, a security officer joining a team) and what follows
 from what is done (every new project has its production environment, every new

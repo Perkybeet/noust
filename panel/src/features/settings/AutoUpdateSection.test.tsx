@@ -197,7 +197,7 @@ describe("Settings > About > Automatic updates", () => {
 
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     // The toast, not the announcer that says it again for assistive technology a moment later: a bare
     // lookup finds one element or two depending on how fast the machine is.

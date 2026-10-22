@@ -25,6 +25,7 @@ import { useServerConfirm, ServerQueryState } from "../errors";
 import { serverKeys, swapQuery } from "../queries";
 import { useServerJob } from "../serverJob";
 import type { Swap } from "../queries";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 const MIB = 1024 ** 2;
 
@@ -39,7 +40,7 @@ export function SwapCard() {
       label={t("server.swap.label")}
       skeleton={
         // The header keeps the room of its action, so the card's body does not drop when it lands.
-        <Card loading level={2} title={t("server.swap.title")} padding="sm" actions={<Skeleton className="h-control-sm w-32 rounded-control" />}>
+        <Card loading level={2} title={t("server.swap.title")} icon={OBJECT_ICONS.resources} padding="sm" actions={<Skeleton className="h-control-sm w-32 rounded-control" />}>
           <Skeleton className="h-32 w-full" />
         </Card>
       }
@@ -79,7 +80,7 @@ function SwapPanel({ data }: { data: Swap }) {
   ];
   return (
     <Card level={2}
-      title={t("server.swap.title")}
+      title={t("server.swap.title")} icon={OBJECT_ICONS.resources}
       padding="sm"
       actions={
         data.supported && data.swappiness != null ? (

@@ -163,7 +163,6 @@ export function KeysView({ engine, name, search, onSearchChange }: { engine: str
           loading={scan.isPending}
           skeletonRows={8}
           onRowActivate={setOpen}
-          mobile="cards"
           empty={<EmptyState variant="inline" title={search.match !== undefined || search.type !== undefined ? t("databases.keys.noMatch") : t("databases.keys.empty")} />}
           columns={[
             { id: "key", header: t("databases.keys.key"), card: "title", cell: (key) => <Mono truncate>{key.key}</Mono> },
@@ -187,7 +186,7 @@ export function KeysView({ engine, name, search, onSearchChange }: { engine: str
           </Button>
         </div>
       ) : null}
-      <CommandHint command={`noust db keys ${name}${search.match ? ` --match '${search.match}'` : ""}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db keys ${name}${search.match ? ` --match '${search.match}'` : ""}`} label={t("common.words.fromTerminal")} />
       {open !== null ? <KeyDrawer engine={engine} name={name} redisKey={open} onClose={() => setOpen(null)} /> : null}
     </div>
   );

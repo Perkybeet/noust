@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Moving to another server: ``prepare`` on the old one and ``check`` on the new one (3.4, H-30).
+Moving to another server: ``prepare`` on the old one and ``check`` on the new one (4.0, H-30).
 
 The managers that take and send the copies are replaced by recorders, so what is defended is the
 orchestration, which is where a move goes wrong at night:

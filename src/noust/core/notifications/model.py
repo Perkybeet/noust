@@ -74,7 +74,7 @@ EVENT_KINDS: tuple[str, ...] = (
     "server_back",
     "approval_requested",
     "approval_decided",
-    # 3.4: what the monitor now watches beyond units, certificates and disks.
+    # 4.0: what the monitor now watches beyond units, certificates and disks.
     "alert_firing",
     "alert_resolved",
     "alert_acknowledged",
@@ -83,7 +83,7 @@ EVENT_KINDS: tuple[str, ...] = (
     "cron_success",
     "os_patches",
     "token_expiring",
-    # 3.4, outside an application: the disk a policy cleaned, a task whose
+    # 4.0, outside an application: the disk a policy cleaned, a task whose
     # timer stopped, and an address that stopped answering a probe.
     "cleanup_success",
     "cleanup_failed",

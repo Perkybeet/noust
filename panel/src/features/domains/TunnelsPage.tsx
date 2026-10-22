@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Cable, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -37,6 +37,8 @@ import { DnsConflictDialog } from "./DnsConflictDialog";
 import { DomainsListPage } from "./DomainsListPage";
 import type { RecordConflict } from "./dnsConflict";
 import { conflictOf } from "./dnsConflict";
+import { ICONS } from "../../components/ui/icons";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
@@ -103,7 +105,7 @@ function CreateDialog({ open, accounts, onClose }: { open: boolean; accounts: re
       }
     >
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <Field label={t("network.tunnels.nameLabel")} description={t("network.tunnels.nameHelp")} error={problem !== null && !NAME.test(name) ? problem : (fields?.["name"] ?? null)}>
+        <Field label={t("common.words.name")} description={t("network.tunnels.nameHelp")} error={problem !== null && !NAME.test(name) ? problem : (fields?.["name"] ?? null)}>
           <Input mono value={name} onValueChange={setName} autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={40} />
         </Field>
         <Field label={t("network.tunnels.accountLabel")} description={t("network.tunnels.accountHelp")} nativeLabel={false} error={problem !== null && NAME.test(name) ? problem : (fields?.["account"] ?? null)}>
@@ -320,7 +322,7 @@ function TunnelDrawer({ tunnel, onClose, onAddRoute, onRemoveRoute }: { tunnel: 
               {routes.map((route) => (
                 <RowList.Item
                   key={route.hostname}
-                  actions={<IconButton label={t("network.tunnels.routeRemoveNamed", { name: route.hostname })} icon={<Trash2 />} size="sm" onClick={() => onRemoveRoute(tunnel, route.hostname)} />}
+                  actions={<IconButton label={t("network.tunnels.routeRemoveNamed", { name: route.hostname })} icon={<ICONS.delete />} size="sm" onClick={() => onRemoveRoute(tunnel, route.hostname)} />}
                 >
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <Mono truncate>{route.hostname}</Mono>
@@ -398,7 +400,7 @@ export function TunnelsPage() {
             ),
           }
         : {})}
-      footer={<CommandHint command="noust tunnel list" label={t("domains.fromTerminal")} />}
+      footer={<CommandHint command="noust tunnel list" label={t("common.words.fromTerminal")} />}
     >
       {/* design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed */}
       {tunnels.isError && tunnels.data === undefined ? (
@@ -406,7 +408,7 @@ export function TunnelsPage() {
       ) : empty ? (
         <EmptyState
           variant="firstUse"
-          icon={<Cable />}
+          icon={<OBJECT_ICONS.tunnel />}
           title={t("network.tunnels.emptyTitle")}
           description={t("network.tunnels.emptyDescription")}
           {...(support?.available === false
@@ -422,7 +424,6 @@ export function TunnelsPage() {
         />
       ) : (
         <DataTable
-          mobile="cards"
           caption={t("network.tunnels.tableCaption")}
           columns={columns}
           rows={rows}
@@ -434,7 +435,7 @@ export function TunnelsPage() {
               <MenuItem icon={<Plus />} disabled={row.state !== "ready"} onClick={() => setRouting(row)}>
                 {t("network.tunnels.routeAdd")}
               </MenuItem>
-              <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleting(row)}>
+              <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(row)}>
                 {t("network.tunnels.delete")}
               </MenuItem>
             </RowMenu>
@@ -471,7 +472,7 @@ export function TunnelsPage() {
         confirmText={deleting?.name ?? ""}
         server={node}
         destructive
-        title={t("network.tunnels.deleteTitle", { name: deleting?.name ?? "" })}
+        title={t("common.words.deleteNamed", { name: deleting?.name ?? "" })}
         description={t("network.tunnels.deleteDescription")}
         actionLabel={t("network.tunnels.delete")}
         onConfirm={async () => {

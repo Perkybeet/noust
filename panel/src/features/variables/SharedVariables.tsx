@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, Pencil, Users, Variable } from "lucide-react";
+import { Eye, EyeOff, Pencil, Variable } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { sharedVariablesQuery, variableKeys, variableUsageQuery, variablesApi } from "../../api/queries/variables";
@@ -31,6 +31,7 @@ import { reportActionError } from "../apps/useAppActions";
 import { SettingsPrimaryAction } from "../settings/SettingsShell";
 import { SharedVariableDialog } from "./SharedVariableDialog";
 import type { SharedVariableDraft, SharedVariableTarget } from "./SharedVariableDialog";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** How an application refers to a scope's variable, as the server reads it. */
 export function referenceSyntax(scope: VariableScope): string {
@@ -94,7 +95,7 @@ function UsageDialog({ scope, name, onClose }: { scope: VariableScope; name: str
       size="sm"
       title={t("variables.shared.usageDialog.title", { name: name ?? "" })}
       description={t("variables.shared.usageDialog.description")}
-      footer={<Button onClick={onClose}>{t("variables.shared.usageDialog.close")}</Button>}
+      footer={<Button onClick={onClose}>{t("common.words.close")}</Button>}
     >
       <QueryState
         query={usage}
@@ -226,7 +227,7 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
   const columns: Column<SharedVariable>[] = [
     {
       id: "name",
-      header: t("variables.shared.nameHeader"),
+      header: t("common.words.name"),
       width: "w-2/5",
       card: "title",
       sortValue: (variable) => variable.name,
@@ -291,14 +292,14 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
   ];
 
   const rowActions = (variable: SharedVariable) => (
-    <Menu align="end" trigger={<IconButton size="sm" label={t("variables.shared.actions", { name: variable.name })} icon={<ICONS.more />} tooltip={false} />}>
+    <Menu align="end" trigger={<IconButton size="sm" label={t("common.rowActions", { name: variable.name })} icon={<ICONS.more />} tooltip={false} />}>
       {canManage ? (
         <MenuItem icon={<Pencil />} disabled={unmask.isPending} onClick={() => void edit(variable)}>
-          {t("variables.shared.edit")}
+          {t("common.words.edit")}
         </MenuItem>
       ) : null}
       {scope.kind === "preview" ? null : (
-        <MenuItem icon={<Users />} onClick={() => setUsing(variable.name)}>
+        <MenuItem icon={<OBJECT_ICONS.app />} onClick={() => setUsing(variable.name)}>
           {t("variables.shared.usage")}
         </MenuItem>
       )}
@@ -306,7 +307,7 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
         <>
           <MenuSeparator />
           <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(variable.name)}>
-            {t("variables.shared.remove")}
+            {t("common.words.delete")}
           </MenuItem>
         </>
       ) : null}
@@ -324,12 +325,12 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
   const caption = scope.kind === "preview" ? t("variables.shared.tableCaptionPreview", { scope: text.of }) : t("variables.shared.tableCaption", { scope: text.of });
 
   return (
-    <Section title={text.title} description={text.description} level={level} {...(!primary && !firstUse && addButton !== null ? { actions: addButton } : {})}>
+    <Section title={text.title} icon={OBJECT_ICONS.variable} description={text.description} level={level} {...(!primary && !firstUse && addButton !== null ? { actions: addButton } : {})}>
       {primary && addButton !== null ? <SettingsPrimaryAction>{addButton}</SettingsPrimaryAction> : null}
       <QueryState
         query={query}
         label={t("variables.shared.queryLabel")}
-        skeleton={<DataTable caption={caption} columns={columns} rows={[]} getRowId={(variable) => variable.name} density="compact" mobile="cards" skeletonRows={3} loading />}
+        skeleton={<DataTable caption={caption} columns={columns} rows={[]} getRowId={(variable) => variable.name} density="compact" skeletonRows={3} loading />}
         isEmpty={(data) => data.variables.length === 0}
         empty={
           inlineEmpty ? (
@@ -356,7 +357,6 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
               getRowId={(variable) => variable.name}
               rowActions={rowActions}
               density="compact"
-              mobile="cards"
               defaultSort={{ column: "name", direction: "ascending" }}
             />
             <p className="max-w-measure text-12 text-pretty text-fg-muted">{scope.kind === "preview" ? t("variables.shared.notePreview") : t("variables.shared.note")}</p>

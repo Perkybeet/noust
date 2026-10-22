@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-How many copies of its web process an application runs (3.4, checklist B-68).
+How many copies of its web process an application runs (4.0, checklist B-68).
 
 A client of :mod:`noust.managers.app_replicas`, like ``noust app replicas``: ``GET``
 says how the application is scaled and how each copy is, ``PUT`` queues the change as

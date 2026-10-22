@@ -2,9 +2,7 @@ import type { apps as en } from "../en/apps";
 import type { Catalog } from "../types";
 
 export const apps: Catalog<typeof en> = {
-  area: "Aplicaciones",
   newApplication: "Nueva aplicación",
-  fromRecipe: "Desde una receta",
   page: {
     title: "Aplicaciones",
     description: "Todo lo que ejecuta este servidor, y en qué estado está.",
@@ -19,13 +17,11 @@ export const apps: Catalog<typeof en> = {
     everyState: "Cualquier estado",
     typeLabel: "Tipo",
     everyType: "Cualquier tipo",
-    clearFilters: "Borrar filtros",
     count: { one: "{count} aplicación", other: "{count} aplicaciones" },
     countFiltered: "{shown} de {total} aplicaciones",
     caption: "Aplicaciones",
     captionFiltered: "Aplicaciones que coinciden con los filtros",
-    noMatchTitle: "Ninguna aplicación coincide con estos filtros.",
-    fromTerminal: "Desde una terminal",
+    noMatchTitle: "Ninguna aplicación coincide con estos filtros",
   },
   table: {
     columnState: "Estado",
@@ -40,11 +36,8 @@ export const apps: Catalog<typeof en> = {
     previewOf: "Vista previa de {parent}",
   },
   rowActions: {
-    aria: "Acciones para {domain}",
     open: "Abrir",
     logs: "Registros",
-    restart: "Reiniciar",
-    update: "Actualizar",
   },
   bulk: {
     selectColumn: "Seleccionar",
@@ -68,7 +61,6 @@ export const apps: Catalog<typeof en> = {
     updateNote: "Las actualizaciones se encolan y se construyen de una en una.",
     working: "En curso",
     nothingNew: "Nada nuevo que desplegar",
-    failed: "Con fallo",
     held: "No hecha",
     waitingApproval: "Espera a que otra persona la apruebe.",
     summary: "Por hacer: {run} de {total}. Omitidas: {skipped}.",
@@ -80,13 +72,26 @@ export const apps: Catalog<typeof en> = {
       stop: { one: "Detener {count} aplicación", other: "Detener {count} aplicaciones" },
       start: { one: "Iniciar {count} aplicación", other: "Iniciar {count} aplicaciones" },
     },
-    retry: "Reintentar las que fallaron",
-    close: "Cerrar",
+    retry: "Reintentar las fallidas",
   },
   nothingNew: {
     title: "No hay nada nuevo que desplegar en {domain}",
-    cancel: "Cancelar",
     rebuildAnyway: "Recompilar de todos modos",
+  },
+  arrival: {
+    live: "En producción",
+    liveSite: "{domain}, el sitio en producción",
+    copy: "Copiar la dirección",
+    httpsReady: "HTTPS está listo.",
+    httpOnly: "Se sirve por HTTP: no se pudo emitir el certificado.",
+    httpOnlyNone: "Se sirve por HTTP: ningún certificado cubre todavía esta dirección.",
+    temporaryHelp: "Una dirección temporal sirve para probar cosas.",
+    certbotSaid: "Lo que dijo certbot",
+    certbotOutput: "Lo que dijo certbot sobre {domain}",
+    openDomains: "Abrir Dominios",
+    nextDomain: "Añadir tu propio dominio",
+    nextDatabase: "Añadir una base de datos",
+    nextBackup: "Programar una copia de seguridad",
   },
   actions: {
     restartedToast: "Se reinició {domain}",

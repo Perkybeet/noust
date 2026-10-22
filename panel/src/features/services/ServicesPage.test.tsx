@@ -12,7 +12,7 @@ import { onDesktop, serverRoutes } from "../server/testing";
 
 const SERVICES: ServiceList["services"] = [
   {
-    name: "wasm-shop-example-com",
+    name: "shop-example-com",
     description: "/usr/bin/node server.js",
     active: true,
     enabled: true,
@@ -26,7 +26,7 @@ const SERVICES: ServiceList["services"] = [
     result: "success",
   },
   {
-    name: "wasm-admin-example-com",
+    name: "admin-example-com",
     description: "/usr/bin/node server.js",
     active: false,
     enabled: false,
@@ -86,14 +86,14 @@ async function servicesAt(path = "/server/services", extra: Record<string, Route
 describe("the services tab", () => {
   it("lists every seeded service with its state and boot setting", async () => {
     const { table } = await servicesAt();
-    const running = await within(table).findByText("wasm-shop-example-com");
+    const running = await within(table).findByText("shop-example-com");
     const row = running.closest("tr");
     if (!row) throw new Error("no row");
     expect(within(row).getByText("Running")).toBeInTheDocument();
     // Starting at boot is an on/off at a glance: green with a dot, grey with a ring.
     expect(within(row).getByText("Starts")).toHaveAttribute("data-state", "running");
 
-    const stopped = within(table).getByText("wasm-admin-example-com").closest("tr");
+    const stopped = within(table).getByText("admin-example-com").closest("tr");
     if (!stopped) throw new Error("no row");
     expect(within(stopped).getByText("Stopped")).toBeInTheDocument();
     expect(within(stopped).getByText("Does not start")).toHaveAttribute("data-state", "stopped");
@@ -120,36 +120,36 @@ describe("the services tab", () => {
     await waitFor(() => {
       expect(history.location.pathname).toBe("/n/web-2/server/services");
     });
-    expect(await screen.findByText("wasm-shop-example-com")).toBeInTheDocument();
+    expect(await screen.findByText("shop-example-com")).toBeInTheDocument();
   });
 
   it("names the application a unit runs", async () => {
     const { table } = await servicesAt("/server/services", {
-      "GET /api/apps": () => json(200, { total: 1, apps: [{ domain: "shop.example.com", name: "shop", status: "running", active: true, enabled: true, layout: "inplace", keep_releases: 5, webhook_enabled: false, zero_downtime: false, unit: "wasm-shop-example-com.service" }] }),
+      "GET /api/apps": () => json(200, { total: 1, apps: [{ domain: "shop.example.com", name: "shop", status: "running", active: true, enabled: true, layout: "inplace", keep_releases: 5, webhook_enabled: false, zero_downtime: false, unit: "shop-example-com.service" }] }),
     });
-    const row = (await within(table).findByText("wasm-shop-example-com")).closest("tr");
+    const row = (await within(table).findByText("shop-example-com")).closest("tr");
     if (!row) throw new Error("no row");
     expect(within(row).getByText("Runs shop.example.com")).toBeInTheDocument();
   });
 
   it("filters by the search box, written into the URL", async () => {
     const { table, location, user } = await servicesAt();
-    await within(table).findByText("wasm-shop-example-com");
+    await within(table).findByText("shop-example-com");
     await user.type(screen.getByRole("searchbox", { name: "Search services" }), "admin");
     await waitFor(() => {
       expect(location().search).toEqual({ q: "admin" });
     });
-    expect(within(table).queryByText("wasm-shop-example-com")).not.toBeInTheDocument();
+    expect(within(table).queryByText("shop-example-com")).not.toBeInTheDocument();
   });
 
   it("filters by state from the address, and clears a filter that matches nothing", async () => {
     const { table, user, location } = await servicesAt("/server/services?state=stopped");
-    await within(table).findByText("wasm-admin-example-com");
-    expect(within(table).queryByText("wasm-shop-example-com")).not.toBeInTheDocument();
+    await within(table).findByText("admin-example-com");
+    expect(within(table).queryByText("shop-example-com")).not.toBeInTheDocument();
     expect(screen.getByText("1 of 2 services")).toBeInTheDocument();
 
     await user.type(screen.getByRole("searchbox", { name: "Search services" }), "shop");
-    expect(await screen.findByText("No service matches these filters.")).toBeInTheDocument();
+    expect(await screen.findByText("No service matches these filters")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
     await waitFor(() => {
       expect(location().search).toEqual({});
@@ -160,7 +160,7 @@ describe("the services tab", () => {
     const { user, backend, table } = await servicesAt("/server/services", {
       "POST /api/services": () => json(200, { success: true, message: "Service created: e2e-worker", service: "e2e-worker" }),
     });
-    await within(table).findByText("wasm-shop-example-com");
+    await within(table).findByText("shop-example-com");
     await user.click(screen.getByRole("button", { name: "New service" }));
     const dialog = await screen.findByRole("dialog", { name: "New service" });
     await user.type(within(dialog).getByLabelText("Name", { exact: true }), "e2e-worker");
@@ -185,7 +185,7 @@ describe("the services tab", () => {
         return json(200, { elevated_until: new Date(Date.now() + 600_000).toISOString() });
       },
     });
-    await within(table).findByText("wasm-shop-example-com");
+    await within(table).findByText("shop-example-com");
     await user.click(screen.getByRole("button", { name: "New service" }));
     const dialog = await screen.findByRole("dialog", { name: "New service" });
     await user.type(within(dialog).getByLabelText("Name", { exact: true }), "e2e-worker");
@@ -194,7 +194,7 @@ describe("the services tab", () => {
 
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     expect(await screen.findByText("Created e2e-worker")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/services")).toHaveLength(2);
@@ -212,7 +212,7 @@ describe("the services tab", () => {
 
   it("scopes the request to Noust's own units by default", async () => {
     const { backend, table } = await servicesAt("/server/services", { "GET /api/services": scopedServicesRoute() });
-    await within(table).findByText("wasm-shop-example-com");
+    await within(table).findByText("shop-example-com");
     await waitFor(() => {
       expect(backend.callsTo("GET /api/services").some((call) => call.search.get("noust_only") === "true")).toBe(true);
     });
@@ -223,7 +223,7 @@ describe("the services tab", () => {
 
   it("shows every unit, a foreign one read only, when the whole system is chosen", async () => {
     const { user, backend, table, location } = await servicesAt("/server/services", { "GET /api/services": scopedServicesRoute() });
-    await within(table).findByText("wasm-shop-example-com");
+    await within(table).findByText("shop-example-com");
 
     await user.click(screen.getByRole("radio", { name: "Whole system" }));
 
@@ -244,23 +244,23 @@ describe("the services tab", () => {
 
   it("asks before stopping a unit from its row", async () => {
     const { user, backend, table } = await servicesAt("/server/services", {
-      "POST /api/services/wasm-shop-example-com/stop": () => json(200, { success: true, message: "Stopped" }),
+      "POST /api/services/shop-example-com/stop": () => json(200, { success: true, message: "Stopped" }),
     });
-    const row = (await within(table).findByText("wasm-shop-example-com")).closest("tr");
+    const row = (await within(table).findByText("shop-example-com")).closest("tr");
     if (!row) throw new Error("no row");
-    await user.click(within(row).getByRole("button", { name: "Actions for wasm-shop-example-com" }));
+    await user.click(within(row).getByRole("button", { name: "Actions for shop-example-com" }));
     await user.click(await screen.findByRole("menuitem", { name: "Stop" }));
-    const dialog = await screen.findByRole("alertdialog", { name: "Stop wasm-shop-example-com?" });
-    expect(backend.callsTo("POST /api/services/wasm-shop-example-com/stop")).toHaveLength(0);
+    const dialog = await screen.findByRole("alertdialog", { name: "Stop shop-example-com?" });
+    expect(backend.callsTo("POST /api/services/shop-example-com/stop")).toHaveLength(0);
     await user.click(within(dialog).getByRole("button", { name: "Stop service" }));
     await waitFor(() => {
-      expect(backend.callsTo("POST /api/services/wasm-shop-example-com/stop")).toHaveLength(1);
+      expect(backend.callsTo("POST /api/services/shop-example-com/stop")).toHaveLength(1);
     });
   });
 
   it("has no accessibility violations", async () => {
     const { table } = await servicesAt();
-    await within(table).findByText("wasm-shop-example-com");
+    await within(table).findByText("shop-example-com");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
@@ -284,7 +284,7 @@ describe("the services tab, in Spanish", () => {
     renderConsole("/server/services");
     await screen.findByRole("heading", { level: 1, name: "Servidor" });
     const table = await findLoadedRegion(/Servicios/);
-    const running = await within(table).findByText("wasm-shop-example-com");
+    const running = await within(table).findByText("shop-example-com");
     const row = running.closest("tr");
     if (!row) throw new Error("no row");
     expect(within(row).getByText("En ejecución")).toBeInTheDocument();

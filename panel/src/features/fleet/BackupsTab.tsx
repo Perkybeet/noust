@@ -219,7 +219,6 @@ export function BackupsTab({ search, onSearchChange }: BackupsTabProps) {
         getRowId={(row) => `${originOf(row).node}:${field(row, "domain") ?? ""}`}
         loading={view.isPending}
         skeletonRows={6}
-        mobile="cards"
         pagination="fleet-backups"
         empty={
           rows.length === 0 && view.data !== undefined ? (
@@ -236,14 +235,14 @@ export function BackupsTab({ search, onSearchChange }: BackupsTabProps) {
                     onSearchChange({});
                   }}
                 >
-                  {t("fleet.filters.clear")}
+                  {t("common.words.clearFilters")}
                 </Button>
               }
             />
           )
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet backups" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet backups" />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-How an application runs and is operated (3.4): one router for the paths under
+How an application runs and is operated (4.0): one router for the paths under
 ``/api/apps/{domain}`` that the runtime area adds.
 
 Each part is its own module with its own router and permission map; this only

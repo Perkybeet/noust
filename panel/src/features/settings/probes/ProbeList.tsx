@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Pencil, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil } from "lucide-react";
 import { useState } from "react";
 
 import { checkProbe, probeHistoryQuery, probeKeys, probesQuery, removeProbe, saveProbe } from "../../../api/queries/probes";
@@ -29,6 +29,7 @@ import { useT } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { UPTIME_WINDOWS, lastAnswer, probeBody, probeFormFrom, standing, stretch, uptimeText } from "./data";
 import { ProbeDrawer } from "./ProbeDrawer";
+import { VERB_ICONS } from "../../../components/ui/objectIcons";
 
 /** What asking a probe now got, in one line under the row. */
 function CheckOutcome({ result }: { result: ProbeCheck }) {
@@ -130,7 +131,7 @@ function ProbeRow({ probe }: { probe: Probe }) {
       actions={
         <RowMenu name={probe.name}>
           <MenuItem
-            icon={<RefreshCw />}
+            icon={<VERB_ICONS.refresh />}
             disabled={!probe.enabled || check.isPending}
             onClick={() => {
               check.mutate();
@@ -144,7 +145,7 @@ function ProbeRow({ probe }: { probe: Probe }) {
               setEditing(true);
             }}
           >
-            {t("probes.edit")}
+            {t("common.words.edit")}
           </MenuItem>
           <MenuSeparator />
           <MenuItem
@@ -154,7 +155,7 @@ function ProbeRow({ probe }: { probe: Probe }) {
               setRemoving(true);
             }}
           >
-            {t("probes.remove")}
+            {t("common.words.remove")}
           </MenuItem>
         </RowMenu>
       }
@@ -226,9 +227,9 @@ function ProbeRow({ probe }: { probe: Probe }) {
         friction="simple"
         open={removing}
         onOpenChange={setRemoving}
-        title={t("probes.removeTitle", { name: probe.name })}
+        title={t("common.words.removeNamedQuestion", { name: probe.name })}
         description={t("probes.removeDescription")}
-        actionLabel={t("probes.remove")}
+        actionLabel={t("common.words.remove")}
         destructive
         onConfirm={async () => {
           await removeProbe(probe.name);

@@ -12,25 +12,21 @@ export const scimAdmin: Catalog<typeof en> = {
   endpoint: "Dirección SCIM",
   endpointHelp: "Dale al proveedor esta dirección y el token de la fuente.",
   column: {
-    source: "Fuente",
+    source: "Origen",
     state: "Estado",
     people: "Personas",
     starts: "Cuentas nuevas",
     lastUsed: "Último uso",
   },
   state: {
-    enabled: "Activa",
+    enabled: "Activado",
     disabled: "Desactivada",
   },
   neverUsed: "Nunca",
-  editText: "Editar",
-  removeText: "Quitar",
   form: {
     createTitle: "Añadir una fuente de aprovisionamiento",
-    editTitle: "Editar {name}",
     description:
       "El proveedor se autentica con un token propio, que se muestra una vez. Una cuenta nueva espera al primer inicio de sesión de la persona con uno de los proveedores de arriba.",
-    name: "Nombre",
     nameHelp: "Un nombre corto en minúsculas, como entra u okta. No se puede cambiar después.",
     label: "Etiqueta",
     labelHelp: "Lo que lee la gente sobre ella.",
@@ -41,7 +37,6 @@ export const scimAdmin: Catalog<typeof en> = {
     mappingsLine: "La línea {line} no es una asignación. Escribe GRUPO=ROL, GRUPO=EQUIPO:ROL o GRUPO=ROL@EQUIPO/PROYECTO.",
     create: "Añadir fuente",
     save: "Guardar fuente",
-    cancel: "Cancelar",
     errorTitle: "No se guardó la fuente",
   },
   token: {
@@ -51,10 +46,8 @@ export const scimAdmin: Catalog<typeof en> = {
     tokenLabel: "Token de {name}",
     copy: "Copiar token",
     endpointLabel: "Dirección SCIM",
-    done: "Hecho",
   },
   remove: {
-    title: "¿Quitar {name}?",
     description: "Su token deja de funcionar y el proveedor ya no puede crear ni apagar cuentas. Las cuentas que creó se quedan como están.",
     action: "Quitar fuente",
     toast: "Se quitó la fuente {name}",

@@ -271,7 +271,7 @@ describe("the Backups tab", () => {
 
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
       expect([...document.querySelectorAll(".toast")].some((toast) => toast.textContent.includes("Backup deleted: b-3"))).toBe(true);

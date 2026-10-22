@@ -5,7 +5,7 @@
 What installing a database engine becomes on a system that is not Debian's.
 
 :mod:`noust.managers.database.flavours` is the one answer to "which engine, in which versions,
-from which packages" (rule 3), and until 3.4 it knew apt alone. This module is the same answer
+from which packages" (rule 3), and until 4.0 it knew apt alone. This module is the same answer
 for the two RPM families, written beside it because the tables are another shape: a release is
 a major of the RHEL family or a Leap, not a codename, and a version comes from the distribution
 as a *module stream* or a package named after it more often than from a repository Noust adds.

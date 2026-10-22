@@ -299,7 +299,7 @@ describe("Delete", () => {
     await user.click(screen.getByRole("button", { name: "Delete application…" }));
     const elevate = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(elevate).getByRole("textbox"), "123456");
-    await user.click(within(elevate).getByRole("button", { name: "Confirm" }));
+    await user.click(within(elevate).getByRole("button", { name: "Continue" }));
 
     const confirm = await screen.findByRole("alertdialog", { name: `Delete ${DOMAIN}` });
     expect(within(confirm).getByRole("checkbox", { name: /Also delete its files/ })).not.toBeChecked();

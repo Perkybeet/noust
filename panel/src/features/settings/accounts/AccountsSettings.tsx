@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { LockOpen, Mail, MailPlus, ShieldOff, UserCheck, UserCog, UserPlus, UserX, Users } from "lucide-react";
+import { LockOpen, Mail, MailPlus, ShieldOff, UserCheck, UserCog, UserPlus, UserX } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { sessionQuery } from "../../../api/queries/auth";
@@ -37,6 +37,7 @@ import type { AccountStatus, AccountsSearch } from "./data";
 import { InviteDialog } from "./InviteDialog";
 import { ROLES, roleLabel } from "./roles";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 const ALL = "all";
 const STATE_FILTERS: readonly AccountStatus[] = ["active", "locked", "disabled", "invited"];
@@ -230,7 +231,6 @@ function ExceptionsSection({ t, canManage, onAdd }: { t: T; canManage: boolean; 
           rows={live}
           getRowId={(item) => String(item.id)}
           density="compact"
-          mobile="cards"
           loading={query.isPending}
           skeletonRows={1}
           empty={<EmptyState variant="inline" title={t("accounts.exceptions.none")} />}
@@ -317,14 +317,14 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
       skeleton={
         <div className="flex min-w-0 flex-col gap-4">
           <Skeleton className="h-control-md w-full max-w-md rounded-control" />
-          <DataTable caption={t("accounts.page.caption")} columns={columns} rows={[]} getRowId={(account) => account.username} mobile="cards" loading skeletonRows={3} />
+          <DataTable caption={t("accounts.page.caption")} columns={columns} rows={[]} getRowId={(account) => account.username} loading skeletonRows={3} />
         </div>
       }
       isEmpty={() => all.length === 0}
       empty={
         <EmptyState
           variant="firstUse"
-          icon={<Users />}
+          icon={<OBJECT_ICONS.account />}
           title={t("accounts.page.emptyTitle")}
           description={t("accounts.page.emptyDescription")}
           action={
@@ -379,7 +379,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
               ? {
                   actions: (
                     <Button variant="ghost" onClick={() => onSearchChange({})}>
-                      {t("accounts.page.clearFilters")}
+                      {t("common.words.clearFilters")}
                     </Button>
                   ),
                 }
@@ -391,7 +391,6 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
             columns={columns}
             rows={shown}
             getRowId={(account) => account.username}
-            mobile="cards"
             {...(canManage ? { rowActions: (account: Account) => <AccountActions t={t} account={account} self={account.username === me} onOpen={setPending} /> } : {})}
             empty={
               <EmptyState
@@ -399,7 +398,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
                 title={t("accounts.page.noMatch")}
                 action={
                   <Button size="sm" variant="ghost" onClick={() => onSearchChange({})}>
-                    {t("accounts.page.clearFilters")}
+                    {t("common.words.clearFilters")}
                   </Button>
                 }
               />
@@ -416,12 +415,12 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
         <ConflictsNotice t={t} conflicts={query.data.conflicts} canManage={canManage} onException={(person) => setPending({ kind: "exception", person })} />
       ) : null}
       {!empty ? <SettingsPrimaryAction>{inviteButton("primary")}</SettingsPrimaryAction> : null}
-      <Section title={t("accounts.page.title")} description={t("accounts.page.description")}>
+      <Section title={t("accounts.page.title")} icon={OBJECT_ICONS.account} description={t("accounts.page.description")}>
         {content}
       </Section>
       {!empty ? <ExceptionsSection t={t} canManage={canManage} onAdd={() => setPending({ kind: "exception", person: "" })} /> : null}
       {!empty ? <AccessReviewSection canManage={canManage} /> : null}
-      <CommandHint label={t("accounts.page.fromTerminal")} command="noust user list" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust user list" />
 
       {pending?.kind === "invite" ? <InviteDialog open accounts={all} recover={pending.recover} onClose={() => setPending(null)} /> : null}
       {pending?.kind === "email" ? <EmailDialog account={pending.account} onClose={() => setPending(null)} /> : null}
@@ -454,7 +453,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
           onOpenChange={(next) => {
             if (!next) setPending(null);
           }}
-          title={t("accounts.remove.title", { name: pending.account.username })}
+          title={t("common.words.removeNamedQuestion", { name: pending.account.username })}
           description={t("accounts.remove.description")}
           actionLabel={t("accounts.remove.action")}
           onConfirm={async () => {

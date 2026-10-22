@@ -108,7 +108,7 @@ test("an account that signs in with a password alone is named, and the server's 
     await signIn(page, server);
     await expect(page.getByText("1 account signs in with a password alone")).toBeVisible();
     await expect(page.getByText("ana", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Open Accounts" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open accounts" })).toBeVisible();
     await settle(page);
     await expectNoA11yViolations(page, "Console access, an account without a second factor");
 

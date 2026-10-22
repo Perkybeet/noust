@@ -76,7 +76,7 @@ test("an application with no reading says why, and how to fix it, instead of emp
   const reason = page.locator("[data-metrics-reason]");
   await expect(reason).toHaveAttribute("data-metrics-reason", "cgroup_missing");
   await expect(reason.getByRole("heading", { name: "Where the service is measured could not be found" })).toBeVisible();
-  await expect(reason.getByText("systemctl status wasm-example-com")).toBeVisible();
+  await expect(reason.getByText("systemctl status example-com")).toBeVisible();
   await expect(page.getByRole("img", { name: /^CPU/ })).toHaveCount(0);
   await settle(page);
   await expectNoA11yViolations(page, "an app's metrics with no reading");

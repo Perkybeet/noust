@@ -104,7 +104,7 @@ test("adding an SFTP destination lists it; one that cannot be reached says so in
   await dialog.getByRole("combobox", { name: "Backend" }).click();
   await page.getByRole("option", { name: /^SFTP server/ }).click();
   await dialog.getByLabel("Host", { exact: true }).fill("backup.old.invalid");
-  await dialog.getByLabel("User", { exact: true }).fill("wasm");
+  await dialog.getByLabel("User", { exact: true }).fill("backup");
   await dialog.getByLabel("Remote folder").fill("/volume1/backups");
   await settle(page);
   await expectNoA11yViolations(page, "the add destination dialog");
@@ -117,7 +117,7 @@ test("adding an SFTP destination lists it; one that cannot be reached says so in
     backend: "sftp",
     // Every field of the form, blank ones included (a blank secret alone is left out: it keeps
     // the stored value on an edit).
-    fields: { host: "backup.old.invalid", user: "wasm", port: "", key_file: "", path: "/volume1/backups" },
+    fields: { host: "backup.old.invalid", user: "backup", port: "", key_file: "", path: "/volume1/backups" },
     // A new destination is encrypted unless someone says otherwise (the dialog's box starts on).
     encrypted: true,
   });

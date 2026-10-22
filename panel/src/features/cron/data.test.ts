@@ -8,7 +8,7 @@ function job(name: string, command: string): CronJob {
   return {
     name,
     command,
-    user: "wasm",
+    user: "shop",
     working_directory: "/var/www",
     app_domain: "",
     service: "",

@@ -448,12 +448,11 @@ export function SummaryTab() {
           getRowId={(row) => originOf(row).node}
           loading={loading}
           skeletonRows={3}
-          mobile="cards"
           className="rounded-none border-0 shadow-none"
         />
       </Card>
       <FleetMetricsCard />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet status" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet status" />
     </div>
   );
 }

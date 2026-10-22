@@ -285,7 +285,7 @@ describe("the pending change banner in Spanish", () => {
 
     await user.click(within(notice).getByRole("button", { name: "Detalles" }));
     const details = await screen.findByRole("dialog", { name: "Conservar este cambio" });
-    expect(within(details).getByText(/Abre una sesión SSH nueva a este servidor desde otra terminal/)).toBeInTheDocument();
+    expect(within(details).getByText(/Abre una sesión SSH nueva a este servidor desde otro terminal/)).toBeInTheDocument();
   });
 
   it("names who logged in and when once the login is on record", async () => {

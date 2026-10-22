@@ -127,17 +127,17 @@ if (MODE !== undefined && MODE !== "") {
 describe("what the structural rules count", () => {
   it("counts an element and not the same words in a comment, a string or an import", () => {
     const source = [
-      'import { FeatureState } from "../../components/ui";',
-      "// <FeatureState state=\"on\" /> was here",
-      'const label = "<FeatureState>";',
-      'export const A = () => <FeatureState state="on" title="x" />;',
-      "export const B = () => <FeatureState state=\"off\">x</FeatureState>;",
+      'import { ConfirmDialog } from "../../components/ui";',
+      '// <Button variant="danger" /> was here',
+      'const label = \'<Button variant="danger">\';',
+      'export const A = () => <Button variant="danger">x</Button>;',
+      'export const B = () => <Button variant="danger" onClick={go}>y</Button>;',
     ].join("\n");
-    expect(countStructure("features/x/Page.tsx", source)["feature-state"]).toBe(2);
+    expect(countStructure("features/x/Page.tsx", source)["danger-button-outside-confirm"]).toBe(2);
   });
 
   it("does not count the kit's own definition, nor a rule where it does not apply", () => {
-    expect(countStructure("components/ui/FeatureState.tsx", "export const A = () => <FeatureState />;")["feature-state"]).toBeUndefined();
+    expect(countStructure("components/ui/ConfirmDialog.tsx", 'export const A = () => <Button variant="danger" />;')["danger-button-outside-confirm"]).toBeUndefined();
     expect(countStructure("features/x/Page.tsx", 'export const A = () => <div aria-busy="true" />;')["hand-aria-busy"]).toBe(1);
     expect(countStructure("components/page/LoadingRegion.tsx", 'export const A = () => <div aria-busy="true" />;')["hand-aria-busy"]).toBeUndefined();
   });
@@ -154,17 +154,17 @@ describe("what the structural rules count", () => {
 
   it("skips a line excused with a known rule and a reason, on that line or the one above", () => {
     const source = [
-      "// design-exception: action-dialog the old dialog stays until its page moves",
-      "export const A = () => <ActionDialog title=\"x\" />;",
-      "export const B = () => <ActionDialog title=\"y\" />;",
+      "// design-exception: hand-aria-busy the kit cannot draw this one yet",
+      'export const A = () => <div aria-busy="true" />;',
+      'export const B = () => <div aria-busy="true" />;',
     ].join("\n");
-    expect(countStructure("features/server/Page.tsx", source)["action-dialog"]).toBe(1);
+    expect(countStructure("features/server/Page.tsx", source)["hand-aria-busy"]).toBe(1);
   });
 
   it("tallies each component of the table once per use, and leaves out what is not the console's", () => {
     const source = 'export const A = () => (<><Notice /><Notice tone="warning" /><Switch /><div aria-busy={false} /></>);';
     const row = tallyUx("features/x/Page.tsx", source);
-    expect(row).toMatchObject({ Notice: 2, Switch: 1, "aria-busy": 1, FeatureState: 0 });
+    expect(row).toMatchObject({ Notice: 2, Switch: 1, "aria-busy": 1 });
     expect(Object.keys(row ?? {})).toEqual([...UX_COLUMNS]);
     expect(tallyUx("features/x/Page.test.tsx", source)).toBeNull();
     expect(tallyUx("dev/Kit.tsx", source)).toBeNull();

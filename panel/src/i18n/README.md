@@ -83,6 +83,17 @@ is as synchronous for whoever writes a test as it ever was. To test in Spanish:
 just arrived sees, `goCold()` from `test/coldCatalog` leaves English with its chrome alone and records every
 `t()` that finds its namespace missing; `drawnKeys()` finds message keys on screen.
 
+## Shared words
+
+A word the glossary names is one key, read from `common` by every screen (DESIGN 7, TX-4): `common.words.*` holds the
+verbs and the labels that came up in forty places (`name`, `cancel`, `close`, `save`, `edit`, `remove`, `delete`,
+`editNamed`, `removeNamed`, `clearFilters`, `fromTerminal`, `start`, `stop`, `restart`, `update`, `retry`, `yes`, `no`…), and
+the state words are `common.statusPill.*` and `common.deployState.*`. A row menu's label is `common.rowActions`. Write
+a new "Cancel" or "Name" as `t("common.words.cancel")`, and add a word to `common.words` when a third screen needs it.
+A word that is not quite the same (another Spanish gender, another meaning) keeps its own key, and a key a helper builds
+with a prefix (`apps.bulk.verb.${verb}`) keeps its own too. `glossary.test.ts` counts the texts that repeat a shared
+word, per namespace, and the count only goes down.
+
 ## Adding a namespace
 
 1. `en/myarea.ts`:
@@ -120,10 +131,10 @@ just arrived sees, `goCold()` from `test/coldCatalog` leaves English with its ch
   rendered with `t.rich`.
 - **Everything a person reads or hears**: visible text, `aria-label`, `sr-only` text, live
   region announcements, toasts, `title`s, document titles, placeholders, validation messages.
-- **System output is never translated.** What nginx, systemd, certbot, psql, git or WASM's
+- **System output is never translated.** What nginx, systemd, certbot, psql, git or Noust's
   server prints (errors, hints, diagnosis, journal lines) is shown verbatim. Only the words
   around it (a heading, "Suggested fix") come from the catalog.
-- **Not translated either**: commands (`wasm config set ...`), paths, unit names, product
+- **Not translated either**: commands (`noust config set ...`), paths, unit names, product
   names, and language autonyms ("English", "Español").
 - **Numbers, sizes, dates and times** go through `lib/format.ts`, never `toFixed` or a
   hard-coded `"en-US"`. A placeholder value is printed as given: format numbers first.
@@ -147,7 +158,7 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | application, app | aplicación | "app" only where space is tight |
 | deploy (verb) | desplegar | |
 | deploy, deployment (noun) | despliegue | |
-| release | release (la, las releases) | WASM's `releases/<id>` directory. Not "versión": that is WASM's own version and an app's |
+| release | release (la, las releases) | Noust's `releases/<id>` directory. Not "versión": that is Noust's own version and an app's |
 | rollback, roll back | reversión, revertir | "Revertir a esta release" |
 | startup check (was "health check"), health gate | comprobación de arranque, comprobación de salud | The interface says "Startup check" (DESIGN 7). "Health check" is the system's own phrase and stays where the system prints it |
 | unit (systemd) | unidad | A label says "Service" ("servicio", the unit name in mono): "Unit" and "Systemd unit" are jargon (DESIGN 7). "Unidad" stays where the unit file itself is meant |
@@ -160,7 +171,11 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | pull request, commit, push, branch | pull request, commit, push, rama | GitHub's own Spanish usage |
 | repository | repositorio | |
 | build (noun / verb) | compilación / compilar | |
-| logs | registros | the journal stays "journal" |
+| logs | registros | the journal stays "journal"; never "logs" |
+| file | archivo | Never "fichero": one word for the same thing in every text, "archivos", "el archivo Compose" |
+| terminal | terminal (el terminal, un terminal) | Masculine, as the RAE has it for the computing sense: "Desde un terminal", "Lo mismo, desde un terminal" |
+| tag (of an application, of a recipe) | etiqueta | A Git tag keeps "tag" (previews build from a branch, a pull request or a tag) |
+| owner | propietario, propietaria | Never "dueño" |
 | environment variables | variables de entorno | |
 | domain, certificate | dominio, certificado | |
 | settings | ajustes | |
@@ -274,7 +289,8 @@ With an article or without: the button of a page has none ("Add server") and the
 | Sign-in security | Seguridad de inicio de sesión | Security (the account's) | the server's "Security" (firewall, SSH) and "Service security" of an application do not change meaning |
 | Service security | Seguridad del servicio | Unit security | "unit" is jargon |
 | Cloud providers | Proveedores en la nube | Cloud | |
-| Logs and metrics export | Exportación de registros y métricas | Log shipping ("Envío de logs") | the only place where Spanish said "logs" in navigation |
+| Logs and metrics export | Registros y métricas (the command keeps "Exportación de registros y métricas") | Log shipping ("Envío de logs") | the only place where Spanish said "logs" in navigation. The list of settings is 200px and shows about 21 characters of a name: the long form was cut ("Exportación de registro…"), so the sidebar and the page say the short one |
+| Probes and status page | Sondas y estado | | "Sondas y página de estado" was cut at "Sondas y página de est…" |
 | About Noust | Acerca de Noust | About | |
 | Inbox, Needs you, Recent | Bandeja, Requiere tu atención, Recientes | (new) | |
 | Account | Cuenta | (new) | |
@@ -305,5 +321,6 @@ label, "propietario" (not "dueño"), "tarea" (not "trabajo") and "registro" (not
 |---|---|
 | The canonical verbs and states, in both languages | `i18n/verbs.test.ts`: every row of the tables above, in English and in Spanish |
 | A retired value does not come back | `i18n/glossary.test.ts`: a list of retired values with their documented exceptions (what the system prints, proper names, the palette keywords that keep an old name) over the English and the Spanish catalogs, with a baseline that only goes down (`npm run design:baseline`) |
-| One Spanish translation per English text | the same test, over the English texts of fewer than forty characters that appear four times or more |
+| One Spanish translation per English text | the same test, over the English texts of fewer than forty characters that appear four times or more. A gender or a number is not another translation (`agreementStem`: "Fallido", "Fallida" and "Fallidos" are one); the texts Spanish rightly says two ways (a noun and a verb, "Live" as a stream and as the version that serves) are listed with their reason in `glossary.table.ts`, and an entry whose text no longer diverges fails the test |
+| A shared word is read, not written again | the same test: a key outside `common` that says what `common.words.*`, `common.statusPill.*` or `common.deployState.*` already say, counted per namespace ("Shared words", above) |
 | Style | the same test: no title ending in a full stop or written with a capital on every word, no three dots where `…` goes |

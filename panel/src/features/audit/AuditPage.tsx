@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, ScrollText } from "lucide-react";
+import { Download } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import { auditPagesQuery } from "../../api/queries/audit";
@@ -37,6 +37,7 @@ import { catalogQuery, recordReview, reviewsQuery, statusQuery, trailKeys, verif
 import { auditActionLabel } from "../activity/data";
 import { RESULTS, actorName, categoryLabel, isFiltered, matches, outcomeView } from "./data";
 import type { AuditSearch } from "./data";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const PAGE = 50;
 const ALL = "all";
@@ -301,7 +302,7 @@ function ReviewsSection({ t }: { t: T }) {
   const query = useQuery(reviewsQuery());
   const items = query.data?.items ?? [];
   return (
-    <Section title={t("audit.reviews.title")} description={t("audit.reviews.description")}>
+    <Section title={t("audit.reviews.title")} icon={OBJECT_ICONS.report} description={t("audit.reviews.description")}>
       {query.isError ? (
         <ErrorBlock compact error={query.error} title={t("audit.reviews.loadFailed")} onRetry={() => void query.refetch()} />
       ) : (
@@ -335,7 +336,6 @@ function ReviewsSection({ t }: { t: T }) {
           rows={items}
           getRowId={(item) => item.timestamp}
           density="compact"
-          mobile="cards"
           loading={query.isPending}
           skeletonRows={1}
           empty={<EmptyState variant="inline" title={t("audit.reviews.none")} />}
@@ -380,7 +380,7 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
     <Sections>
       <TrailNotice t={t} />
       <Section
-        title={t("audit.page.title")}
+        title={t("audit.page.title")} icon={OBJECT_ICONS.audit}
         description={t("audit.page.description")}
         actions={
           <>
@@ -389,7 +389,7 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
               {t("audit.page.export")}
             </a>
             {/* Secondary, as the access review's is: this page reads the log, it changes nothing. */}
-            <Button icon={<ScrollText aria-hidden="true" />} onClick={() => setReviewing(true)}>
+            <Button icon={<OBJECT_ICONS.audit aria-hidden="true" />} onClick={() => setReviewing(true)}>
               {t("audit.page.review")}
             </Button>
           </>
@@ -428,7 +428,7 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
               ? {
                   actions: (
                     <Button variant="ghost" onClick={() => onSearchChange({})}>
-                      {t("audit.page.clearFilters")}
+                      {t("common.words.clearFilters")}
                     </Button>
                   ),
                 }
@@ -457,7 +457,6 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
                 getRowId={(entry) => entry.id ?? `${entry.timestamp}-${entry.action}-${entry.actor}`}
                 density="compact"
                 layout="fixed"
-                mobile="cards"
                 loading
                 skeletonRows={8}
               />
@@ -471,7 +470,6 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
                 getRowId={(entry) => entry.id ?? `${entry.timestamp}-${entry.action}-${entry.actor}`}
                 density="compact"
                 layout="fixed"
-                mobile="cards"
                 onRowActivate={setOpen}
                 empty={<EmptyState variant="inline" title={isFiltered(search) ? t("audit.page.noMatch") : t("audit.page.none")} />}
               />
@@ -485,7 +483,7 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
         </div>
       </Section>
       <ReviewsSection t={t} />
-      <CommandHint label={t("audit.page.fromTerminal")} command="noust audit verify && noust audit list" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust audit verify && noust audit list" />
       {open !== null ? (
         <EntryDrawer
           entry={open}

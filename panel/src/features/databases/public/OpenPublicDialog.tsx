@@ -150,7 +150,7 @@ export function OpenPublicDialog({ engine, database, open, onOpenChange, onOpene
         <WizardActions
           className="w-full"
           back={{
-            label: step === "choose" ? t("publicAccess.dialog.cancel") : t("publicAccess.dialog.back"),
+            label: step === "choose" ? t("common.words.cancel") : t("common.words.back"),
             onClick: () => {
               if (publish.isPending || review.isPending) return;
               if (step === "choose") onClose(false);

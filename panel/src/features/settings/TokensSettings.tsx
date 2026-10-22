@@ -29,6 +29,7 @@ import { RowAction } from "./RowAction";
 import { sortTokens, tokenState } from "./tokens";
 import type { TokenState } from "./tokens";
 import { SettingsPrimaryAction } from "./SettingsShell";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * A token's state, an on/off at a glance (item 56): an active token works, in the running
@@ -146,13 +147,13 @@ export function TokensSettings() {
     <Sections>
       {query.data !== undefined && query.data.tokens.length > 0 ? <SettingsPrimaryAction>{create}</SettingsPrimaryAction> : null}
       <Section
-        title={t("accounts.tokens.title")}
+        title={t("accounts.tokens.title")} icon={OBJECT_ICONS.token}
         description={t("accounts.tokens.description")}
       >
         <QueryState
           query={query}
           label={t("settings.tokens.loadingLabel")}
-          skeleton={<DataTable caption={t("settings.tokens.tableCaption")} columns={columns} rows={[]} getRowId={(token) => String(token.id)} loading mobile="cards" skeletonRows={2} />}
+          skeleton={<DataTable caption={t("settings.tokens.tableCaption")} columns={columns} rows={[]} getRowId={(token) => String(token.id)} loading skeletonRows={2} />}
           isEmpty={(data) => data.tokens.length === 0}
           empty={
             <EmptyState
@@ -172,7 +173,6 @@ export function TokensSettings() {
               columns={columns}
               rows={sortTokens(data.tokens)}
               getRowId={(token) => String(token.id)}
-              mobile="cards"
               rowActions={(token) =>
                 tokenState(token) === "active" ? (
                   <>

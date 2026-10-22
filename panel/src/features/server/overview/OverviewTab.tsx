@@ -33,6 +33,7 @@ import { usePowerDialog } from "../PowerDialog";
 import { SERVER_CAPABILITY, dayOf, securityOverviewQuery, summaryQuery } from "../queries";
 import type { SecurityOverview, ServerSummary } from "../queries";
 import { checkTitle } from "../security/data";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** Rows shown before "Show all": the three most serious and two more fit the card. */
 const SHOWN = 5;
@@ -133,7 +134,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
   return (
     <li className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-2.5">
       <StatusGlyph state={state} size={12} className={`shrink-0 ${stateTextClass(state)}`} />
-      <span className="sr-only">{item.severity === "critical" ? t("server.attention.critical") : t("server.attention.warning")}</span>
+      <span className="sr-only">{item.severity === "critical" ? t("server.attention.critical") : t("common.statusPill.warning")}</span>
       <div className="flex min-w-0 flex-1 basis-60 flex-col">
         <span className="text-13 text-fg">{attentionText(t, item)}</span>
         {/* A check's reason is the server's English prose: the Security tab shows it in full. */}
@@ -149,7 +150,7 @@ function NeedsAttention({ items, loading }: { items: readonly AttentionItem[]; l
   const shown = all ? items : items.slice(0, SHOWN);
   return (
     <Card level={2}
-      title={t("server.attention.title")}
+      title={t("server.attention.title")} icon={OBJECT_ICONS.alert}
       padding="none"
       className="lg:col-span-2"
       actions={
@@ -213,7 +214,7 @@ function Facts({ summary }: { summary: ServerSummary | undefined }) {
   const t = useT();
   if (summary === undefined) {
     return (
-      <Card level={2} title={t("server.overview.factsTitle")} padding="sm">
+      <Card level={2} title={t("server.overview.factsTitle")} icon={OBJECT_ICONS.server} padding="sm">
         <LoadingRegion label={t("server.overview.loading")}>
           <KeyValueListSkeleton rows={6} />
         </LoadingRegion>
@@ -259,7 +260,7 @@ function Facts({ summary }: { summary: ServerSummary | undefined }) {
     },
   ];
   return (
-    <Card level={2} title={t("server.overview.factsTitle")} padding="sm">
+    <Card level={2} title={t("server.overview.factsTitle")} icon={OBJECT_ICONS.server} padding="sm">
       <KeyValueList items={items} />
     </Card>
   );
@@ -371,7 +372,7 @@ function OverviewLayout({ summary, security }: { summary: ServerSummary | undefi
         <Facts summary={summary} />
       </div>
       <Readings summary={summary} security={security} />
-      <CommandHint command="noust server status" label={t("server.fromTerminal")} />
+      <CommandHint command="noust server status" label={t("common.words.fromTerminal")} />
     </div>
   );
 }

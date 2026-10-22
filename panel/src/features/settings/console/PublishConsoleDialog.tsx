@@ -128,7 +128,7 @@ export function PublishConsoleDialog({ open, onOpenChange, ensAllows }: PublishC
   const state = job === null ? "queued" : jobState(job.status);
   const result = job !== null && state === "succeeded" ? resultOf(job.result) : null;
   const steps = [
-    { id: "name", label: t("consoleAccess.dialog.steps.name") },
+    { id: "name", label: t("common.words.name") },
     { id: "review", label: t("consoleAccess.dialog.steps.review") },
     { id: "publish", label: t("consoleAccess.dialog.steps.publish") },
   ];
@@ -152,14 +152,14 @@ export function PublishConsoleDialog({ open, onOpenChange, ensAllows }: PublishC
               </ExternalLink>
             ) : null}
             <Button variant="primary" onClick={close}>
-              {finished ? t("consoleAccess.dialog.done") : t("consoleAccess.dialog.close")}
+              {finished ? t("common.words.done") : t("common.words.close")}
             </Button>
           </>
         ) : (
           <WizardActions
             className="w-full"
             back={{
-              label: step === "name" ? t("consoleAccess.dialog.cancel") : t("consoleAccess.dialog.back"),
+              label: step === "name" ? t("common.words.cancel") : t("common.words.back"),
               onClick: () => {
                 if (publish.isPending || preview.isPending) return;
                 if (step === "name") close();
@@ -185,7 +185,7 @@ export function PublishConsoleDialog({ open, onOpenChange, ensAllows }: PublishC
               next();
             }}
           >
-            <Field label={t("consoleAccess.dialog.domain")} description={t("consoleAccess.dialog.domainHelp")} error={fieldError?.field === "domain" ? fieldError.text : undefined}>
+            <Field label={t("common.words.name")} description={t("consoleAccess.dialog.domainHelp")} error={fieldError?.field === "domain" ? fieldError.text : undefined}>
               <Input ref={domainRef} mono value={form.domain} onValueChange={(domain: string) => change({ domain })} placeholder="console.example.com" autoComplete="off" autoCapitalize="off" spellCheck={false} />
             </Field>
             <Field label={t("consoleAccess.dialog.allow")} description={t("consoleAccess.dialog.allowHelp")} error={fieldError?.field === "allow" ? fieldError.text : undefined} optional>

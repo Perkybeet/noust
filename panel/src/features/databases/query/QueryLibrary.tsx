@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eraser, Trash2 } from "lucide-react";
+import { Eraser } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -20,6 +20,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatCount, formatDecimal } from "../../../lib/format";
 import { reportActionError } from "../../apps/useAppActions";
+import { ICONS } from "../../../components/ui/icons";
 
 function ListSkeleton({ label }: { label: string }) {
   return (
@@ -46,7 +47,7 @@ function HistoryItem({ entry, onPick, t }: { entry: HistoryEntry; onPick: (state
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-12 text-fg-muted">
           <span className="inline-flex items-center gap-1">
             <StatusGlyph state={failed ? "failed" : "running"} size={10} className={stateTextClass(failed ? "failed" : "running")} />
-            {failed ? t("databases.library.failed") : entry.mode === "write" ? t("databases.library.wrote") : t("databases.library.read")}
+            {failed ? t("common.words.failedFeminine") : entry.mode === "write" ? t("databases.library.wrote") : t("databases.library.read")}
           </span>
           {entry.row_count != null ? <span>{t("databases.library.rows", { count: entry.row_count, rows: formatCount(entry.row_count, t.locale) })}</span> : null}
           {entry.duration_ms != null ? <span>{t("databases.library.ms", { ms: formatDecimal(entry.duration_ms, t.locale) })}</span> : null}
@@ -67,7 +68,7 @@ function SavedItem({ saved, onPick, onDelete, t }: { saved: SavedQuery; onPick: 
         </Mono>
         {saved.database === "" ? <span className="text-12 text-fg-faint">{t("databases.library.anyDatabase")}</span> : null}
       </button>
-      <IconButton size="sm" label={t("databases.library.deleteSaved", { name: saved.name })} icon={<Trash2 />} onClick={onDelete} className="mt-1.5" />
+      <IconButton size="sm" label={t("common.words.deleteNamed", { name: saved.name })} icon={<ICONS.delete />} onClick={onDelete} className="mt-1.5" />
     </li>
   );
 }

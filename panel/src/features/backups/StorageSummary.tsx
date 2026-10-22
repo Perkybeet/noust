@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Archive, HardDrive } from "lucide-react";
 
 import { backupStorageQuery } from "../../api/queries/backups";
 import type { BackupStorage } from "../../api/queries/backups";
@@ -14,6 +13,7 @@ import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { formatBytes, formatBytesPair } from "../../lib/format";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** The Meter's own thresholds: the summary line turns amber and red with it. */
 const WARN = 0.75;
@@ -64,14 +64,14 @@ export function StorageSummary() {
   return (
     <>
       <span className="flex items-center gap-1.5">
-        <Archive aria-hidden="true" className="size-icon-sm text-fg-faint" />
+        <OBJECT_ICONS.backup aria-hidden="true" className="size-icon-sm text-fg-faint" />
         <span className="tabular-nums">
           {t("backups.storage.total", { count: data.backup_count, size: formatBytes(data.total_size, t.locale) })}
         </span>
       </span>
       <span className="flex items-center gap-1.5">
         {level === "normal" ? (
-          <HardDrive aria-hidden="true" className="size-icon-sm text-fg-faint" />
+          <OBJECT_ICONS.disk aria-hidden="true" className="size-icon-sm text-fg-faint" />
         ) : (
           <StatusGlyph state={level === "fail" ? "failed" : "warning"} className={stateTextClass(level === "fail" ? "failed" : "warning")} />
         )}

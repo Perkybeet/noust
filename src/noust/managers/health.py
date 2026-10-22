@@ -102,7 +102,7 @@ class HealthReport:
             leave unencrypted, a central's keys not sealed, a security release
             that is out. Warnings only, each with its fix.
         accounts: How many applications still share one system account, so a
-            compromised one could read the others' trees (3.4, B-59).
+            compromised one could read the others' trees (4.0, B-59).
         recipes: How many applications were installed from a recipe the catalogue has a newer
             version of (D-15); informational, an old recipe is a choice.
         names: What still has a name from before 4.0 and waits for the operator: a token a
@@ -600,7 +600,7 @@ def _check_updates() -> HealthCheck | None:
     """
     Say which applications could update without a cut and do not.
 
-    A new application that can run twice starts that way (3.4); one deployed
+    A new application that can run twice starts that way (4.0); one deployed
     before keeps restarting in place on every update until the operator turns
     it on, and this is where the server says which and how. Never a warning:
     restarting in place is a working way to update.

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, RefreshCw } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -38,6 +38,7 @@ import { webhookStatusQuery } from "./queries";
 import { deployKeysUrl } from "./sourceForge";
 import { forgeName } from "./webhook";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { VERB_ICONS } from "../../../components/ui/objectIcons";
 
 /** What an action on the key answers: the application's key as the API now sees it. */
 function useKeySettled(domain: string): (result: AppDeployKey) => void {
@@ -52,7 +53,7 @@ function useKeySettled(domain: string): (result: AppDeployKey) => void {
 /** The key's facts, one per row; the fingerprint is what to compare with the code host's. */
 function keyFacts(key: DeployKey, t: T): KeyValueItem[] {
   return [
-    { label: t("sources.deployKey.facts.name"), value: key.name },
+    { label: t("common.words.name"), value: key.name },
     { label: t("sources.deployKey.facts.type"), value: key.key_type },
     {
       label: t("sources.deployKey.facts.origin"),
@@ -202,7 +203,7 @@ function ImportKeyDialog({
       footer={
         <>
           <Button disabled={run.isPending} onClick={close}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form="import-deploy-key" variant="primary" loading={run.isPending}>
             {t("sources.deployKey.importDialog.submit")}
@@ -222,7 +223,7 @@ function ImportKeyDialog({
             placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
           />
         </Field>
-        <Field label={t("sources.deployKey.importDialog.nameLabel")} description={t("sources.deployKey.importDialog.nameDescription")} error={split.fields.name} optional>
+        <Field label={t("common.words.name")} description={t("sources.deployKey.importDialog.nameDescription")} error={split.fields.name} optional>
           <Input mono autoComplete="off" value={name} onValueChange={(value: string) => setName(value)} />
         </Field>
         {run.isError && split.form !== null ? (
@@ -288,7 +289,7 @@ function ExistingKeyDialog({
       footer={
         <>
           <Button disabled={run.isPending} onClick={close}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form="assign-deploy-key" variant="primary" loading={run.isPending}>
             {t("sources.deployKey.existingDialog.submit")}
@@ -491,11 +492,11 @@ export function DeployKeyCard({ domain, repository }: { domain: string; reposito
                 <Button icon={<SETTINGS_ICONS.test aria-hidden="true" />} size="sm" loading={test.isPending} onClick={() => test.mutate()}>
                   {t("sources.deployKey.test")}
                 </Button>
-                <Button size="sm" icon={<RefreshCw aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()}>
+                <Button size="sm" icon={<VERB_ICONS.refresh aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()}>
                   {t("sources.deployKey.rotate")}
                 </Button>
                 <Button icon={<SETTINGS_ICONS.remove aria-hidden="true" />} size="sm" variant="ghost" onClick={() => elevated(() => setRemoving(true))}>
-                  {t("sources.deployKey.remove")}
+                  {t("common.words.remove")}
                 </Button>
               </div>
             )}

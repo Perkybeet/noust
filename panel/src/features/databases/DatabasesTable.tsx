@@ -258,7 +258,6 @@ export function DatabasesTable({ databases, engines, policies, dumps, caption, r
       rowActions={rowActions}
       empty={empty}
       loading={loading}
-      mobile="cards"
       pagination="databases"
     />
   );

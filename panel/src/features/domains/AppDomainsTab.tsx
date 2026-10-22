@@ -1,16 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowRight,
-  BadgeCheck,
-  Globe,
-  MoreHorizontal,
-  Plug,
-  Plus,
-  Power,
-  RotateCw,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { ArrowRight, BadgeCheck, MoreHorizontal, Plug, Plus, Power, RotateCw, Search } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../api/client";
@@ -73,6 +62,7 @@ import { JobBanner } from "./JobBanner";
 import { useCertificateRefresh } from "./useCertificateJobs";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ICONS } from "../../components/ui/icons";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function kindLabel(t: T, kind: string): string {
   if (kind === "primary") return t("domains.kindPrimary");
@@ -182,7 +172,7 @@ function DnsDialog({
             {t("domains.checkAgain")}
           </Button>
           <Button variant="primary" onClick={onClose}>
-            {t("domains.appTab.done")}
+            {t("common.words.done")}
           </Button>
         </>
       }
@@ -431,7 +421,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
         entry.created_at ? (
           <RelativeTime value={entry.created_at} className="text-fg-muted" />
         ) : (
-          <span className="text-fg-faint">{t("domains.unknown")}</span>
+          <span className="text-fg-faint">{t("common.statusPill.unknown")}</span>
         ),
     },
   ];
@@ -440,7 +430,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
     <Sections>
       <Section
         title={t("domains.appTab.domainsSectionTitle")}
-        icon={Globe}
+        icon={OBJECT_ICONS.domain}
         description={t("domains.appTab.domainsSectionDescription", { domain })}
         actions={
           <Button
@@ -507,19 +497,14 @@ export function AppDomainsTab({ domain }: { domain: string }) {
             rows={list.data.domains}
             getRowId={(entry) => entry.domain}
             empty={
-              <EmptyState
-                icon={<Globe />}
-                title={t("domains.appTab.noDomainsTitle")}
-                description={t("domains.appTab.noDomainsDescription")}
-                className="border-0 py-8"
-              />
+              <EmptyState variant="inline" title={t("domains.appTab.noDomainsTitle")} description={t("domains.appTab.noDomainsDescription")} />
             }
             rowActions={(entry) => (
               <Menu
                 align="end"
                 trigger={
                   <IconButton
-                    label={t("domains.actionsFor", { name: entry.domain })}
+                    label={t("common.rowActions", { name: entry.domain })}
                     icon={<MoreHorizontal />}
                     size="sm"
                     tooltip={false}
@@ -545,7 +530,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
                     disabled={retry.isPending || extending}
                     onClick={() => retry.mutate(entry)}
                   >
-                    {t("domains.appTab.retryCertificate")}
+                    {t("common.words.retry")}
                   </MenuItem>
                 ) : null}
                 {entry.kind !== "primary" && lineage !== undefined ? (
@@ -582,11 +567,11 @@ export function AppDomainsTab({ domain }: { domain: string }) {
                   <>
                     <MenuSeparator />
                     <MenuItem
-                      icon={<Trash2 />}
+                      icon={<ICONS.delete />}
                       destructive
                       onClick={() => setRemoving(entry)}
                     >
-                      {t("domains.appTab.remove")}
+                      {t("common.words.remove")}
                     </MenuItem>
                   </>
                 ) : null}
@@ -684,7 +669,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
 
       <CommandHint
         command={`noust domain list ${domain}`}
-        label={t("domains.fromTerminal")}
+        label={t("common.words.fromTerminal")}
       />
 
       <AddDomainDialog

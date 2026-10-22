@@ -181,7 +181,7 @@ test("the bar says the stream is live in Spanish too, whole, whatever the readin
   await page.setViewportSize({ width: 1536, height: 900 });
   await signInSpanish(page, consoleServer, "/");
   const bar = page.getByRole("banner");
-  const live = bar.getByText("En vivo");
+  const live = bar.getByText("En directo");
   const search = bar.getByRole("button", { name: /^Buscar/ }).first();
   const strip = bar.getByRole("group").first();
   // Wide enough for the words of the services, the Spanish ones longer than any width assumed: the

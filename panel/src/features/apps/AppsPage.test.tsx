@@ -116,7 +116,7 @@ describe("the applications list", () => {
 
   it("says when nothing matches and clears the filters", async () => {
     const { user, location } = await appsAt("/apps?q=nothing-like-this");
-    expect(await screen.findByText("No application matches these filters.")).toBeInTheDocument();
+    expect(await screen.findByText("No application matches these filters")).toBeInTheDocument();
     const clear = screen.getAllByRole("button", { name: "Clear filters" });
     await user.click(clear[clear.length - 1] ?? clear[0] ?? document.body);
     await waitFor(() => {
@@ -206,12 +206,14 @@ describe("the applications list", () => {
     await expectNoAxeViolations(table);
   });
 
-  it("opens the recipes in one click from the header, beside the one primary action (checklist M-19)", async () => {
+  it("opens the recipes in one click, as a tab beside the list (checklist M-19)", async () => {
     await appsAt();
-    const recipes = screen.getByRole("link", { name: "From a recipe" });
-    expect(recipes).toHaveAttribute("href", "/apps/new?start=recipe");
-    // Not a second primary: "New application" stays the page's one.
-    expect(recipes.className).not.toContain("bg-accent");
+    const tabs = screen.getByRole("navigation", { name: "Applications sections" });
+    expect(within(tabs).getByRole("link", { name: /^Applications/ })).toHaveAttribute("href", "/apps");
+    expect(within(tabs).getByRole("link", { name: /^Recipes/ })).toHaveAttribute("href", "/catalog");
+    expect(within(tabs).getByRole("link", { name: /^Installed recipes/ })).toHaveAttribute("href", "/catalog/installed");
+    // The header keeps one primary action and no second link to the same recipes.
+    expect(screen.queryByRole("link", { name: "From a recipe" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New application" }).className).toContain("bg-accent");
   });
 
@@ -219,7 +221,8 @@ describe("the applications list", () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/apps": () => json(200, { total: 0, apps: [] }) });
     renderConsole("/apps");
     await screen.findByRole("heading", { level: 2, name: "No applications yet" });
-    expect(screen.getByRole("link", { name: "From a recipe" })).toHaveAttribute("href", "/apps/new?start=recipe");
+    const tabs = screen.getByRole("navigation", { name: "Applications sections" });
+    expect(within(tabs).getByRole("link", { name: /^Recipes/ })).toHaveAttribute("href", "/catalog");
   });
 
   it("invites the first deploy on an empty machine, without filters or a table", async () => {
@@ -253,7 +256,7 @@ describe("the applications list", () => {
     const shop = await within(table).findByRole("link", { name: "shop.example.com" });
     expect(screen.getByRole("searchbox", { name: "Buscar aplicaciones" })).toBeInTheDocument();
     expect(screen.getByText("2 aplicaciones")).toBeInTheDocument();
-    const menuButton = screen.getByRole("button", { name: "Acciones para shop.example.com" });
+    const menuButton = screen.getByRole("button", { name: "Acciones de shop.example.com" });
     const user = (await import("@testing-library/user-event")).default.setup();
     await user.click(menuButton);
     expect(await screen.findByRole("menuitem", { name: "Abrir" })).toBeInTheDocument();

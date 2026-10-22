@@ -13,7 +13,7 @@
  *   anything is adopted (the seeded machine has no Docker: the adoption's answers are the
  *   contract's, answered here);
  * - the sites list says who wrote each site and which application it serves;
- * - whether a feature is on is a FeatureState, not a neutral notice.
+ * - whether a feature is on is a pill in the head of its card, not a neutral notice.
  */
 
 import type { Page, Route } from "@playwright/test";

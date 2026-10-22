@@ -40,10 +40,10 @@ export const approvals = {
   held: {
     waitingTitle: "Waiting for approval",
     waitingDescription: "It runs once another person approves it. You can follow it in Approvals.",
-    openApprovals: "Open Approvals",
+    openApprovals: "Open approvals",
   },
   state: {
-    requested: "Waiting",
+    requested: "Pending",
     approved: "Approved",
     rejected: "Rejected",
     expired: "Expired",
@@ -57,7 +57,6 @@ export const approvals = {
     reasonHint: "Kept with the request and in the audit log.",
     reasonMissing: "Say why you need it.",
     ask: "Ask for approval",
-    cancel: "Cancel",
     waitingTitle: "Waiting for approval",
     waitingDescription: "Another person has to approve this before it runs: {approvers}. This dialog updates when they decide.",
     approvedTitle: "Approved",
@@ -69,8 +68,7 @@ export const approvals = {
     leaveWaiting: "Leave it waiting",
     later: "Later",
     runNow: "Run it now",
-    close: "Close",
-    openInbox: "Open Approvals",
+    openInbox: "Open approvals",
     loadFailed: "Could not check the request",
   },
   fields: {
@@ -98,7 +96,7 @@ export const approvals = {
     off: "Nothing waits for a second person here. They are on with approval.enabled in the configuration, or when a compliance framework such as ENS asks for them.",
     filterLabel: "Filter requests",
     viewLabel: "Show",
-    viewWaiting: "Waiting",
+    viewWaiting: "Pending",
     viewDecided: "Decided",
     viewAll: "All",
     onlyMine: "Only mine",
@@ -107,7 +105,6 @@ export const approvals = {
     noneWaiting: "Nothing waits for approval.",
     none: "No requests here.",
     what: "the requests",
-    fromTerminal: "From a terminal",
   },
   table: {
     request: "Request",

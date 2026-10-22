@@ -38,7 +38,6 @@ export const gitPush = {
     stepsDescription: "Add the remote once, then push the branch whenever you want it deployed.",
     keysTitle: "Who may push",
     noKeys: "No key may push yet. Add one below.",
-    columnName: "Name",
     columnType: "Type",
     columnFingerprint: "Fingerprint",
     keysCaption: "Keys that may push to this application",

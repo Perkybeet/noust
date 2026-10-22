@@ -93,7 +93,7 @@ export function RolesSection() {
       <QueryState
         query={query}
         label={t("access.loadingLabel")}
-        skeleton={<DataTable caption={t("access.roles.tableCaption")} columns={columns} rows={[]} getRowId={(role) => role.name} loading mobile="cards" skeletonRows={4} />}
+        skeleton={<DataTable caption={t("access.roles.tableCaption")} columns={columns} rows={[]} getRowId={(role) => role.name} loading skeletonRows={4} />}
       >
         {(data) => (
           <>
@@ -102,7 +102,6 @@ export function RolesSection() {
               columns={columns}
               rows={data.roles}
               getRowId={(role) => role.name}
-              mobile="cards"
               rowActions={(role) =>
                 role.built_in ? (
                   <RowAction
@@ -117,7 +116,7 @@ export function RolesSection() {
                   <span className="flex items-center gap-1">
                     <RowAction
                       label={t("access.roles.editLabel", { role: role.label })}
-                      text={t("access.roles.edit")}
+                      text={t("common.words.edit")}
                       icon={<Pencil />}
                       onClick={() => {
                         setOpen(role);
@@ -125,7 +124,7 @@ export function RolesSection() {
                     />
                     <RowAction
                       label={t("access.roles.deleteLabel", { role: role.label })}
-                      text={t("access.roles.delete")}
+                      text={t("common.words.delete")}
                       icon={<ICONS.delete />}
                       onClick={() => {
                         setDeleting(role);

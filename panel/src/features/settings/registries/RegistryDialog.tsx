@@ -85,12 +85,12 @@ export function RegistryDialog({ open, login, kinds, onClose }: RegistryDialogPr
       }}
       size="md"
       initialFocus={firstRef}
-      title={editing ? t("registries.dialog.editTitle", { name: login.name }) : t("registries.dialog.addTitle")}
+      title={editing ? t("common.words.editNamed", { name: login.name }) : t("registries.dialog.addTitle")}
       description={editing ? t("registries.dialog.editDescription") : t("registries.dialog.addDescription")}
       footer={
         <>
           <Button disabled={save.isPending} onClick={close}>
-            {t("registries.dialog.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={!ready}>
             {editing ? t("registries.dialog.saveEdit") : t("registries.dialog.save")}
@@ -101,7 +101,7 @@ export function RegistryDialog({ open, login, kinds, onClose }: RegistryDialogPr
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
         {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("registries.dialog.failed")} /> : null}
         {editing ? null : (
-          <Field label={t("registries.dialog.name")} description={t("registries.dialog.nameDescription")} error={errors.fields.name}>
+          <Field label={t("common.words.name")} description={t("registries.dialog.nameDescription")} error={errors.fields.name}>
             <Input ref={firstRef} mono autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={63} value={name} onValueChange={setName} />
           </Field>
         )}

@@ -23,7 +23,7 @@ if (!existsSync(committed)) {
   process.exit(1);
 }
 
-const dir = mkdtempSync(path.join(tmpdir(), "wasm-api-"));
+const dir = mkdtempSync(path.join(tmpdir(), "noust-api-"));
 try {
   const fresh = path.join(dir, "schema.gen.ts");
   const bin = path.join(root, "node_modules/.bin/openapi-typescript");

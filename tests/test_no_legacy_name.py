@@ -58,14 +58,24 @@ SCANNED_FILES = (
     ".gitignore",
 )
 
-#: UX-C adds ``"panel/src"`` here when the console no longer speaks the old names (its storage
-#: keys and the tests that pin them); the generated build in ``src/noust/web/static`` follows
-#: from it and is not scanned itself.
-CONSOLE_SOURCES: tuple[str, ...] = ()
+#: The console's own sources: what it stores in a browser, what its mock and its screenshot
+#: scripts pretend to be, and the names it invents for its fixtures. The build in
+#: ``src/noust/web/static`` follows from them and is not scanned itself.
+CONSOLE_SOURCES: tuple[str, ...] = ("panel/src", "panel/e2e", "panel/scripts", "panel/mock")
 
-#: Tracked and not read: the console's generated build is compiled from ``panel/``. What git
+#: The console's configuration files that sit beside those directories.
+CONSOLE_FILES: tuple[str, ...] = (
+    "panel/vite.config.ts",
+    "panel/playwright.config.ts",
+    "panel/eslint.config.js",
+)
+
+#: Tracked and not read: the console's generated build is compiled from ``panel/``, and its
+#: API types are generated from the OpenAPI document, which spells the two names the API still
+#: accepts from a client of before 3.0 (``legacy_names.ONLY_PARAMETER`` and
+#: ``legacy_names.EXPORT_VERSION_KEY``). The console never writes or reads them. What git
 #: ignores (a virtual environment, working material, a build directory) is never read either.
-SKIPPED_PATHS = ("src/noust/web/static",)
+SKIPPED_PATHS = ("src/noust/web/static", "panel/src/api/schema.gen.ts")
 
 OLD_NAME = re.compile("wasm", re.IGNORECASE)
 
@@ -143,7 +153,9 @@ HISTORY = re.compile(r"docs/CHANGELOG-[0-9.]+\.md")
 
 def _files() -> list[Path]:
     """Every text file the guard reads."""
-    root_files = [ROOT / name for name in SCANNED_FILES if (ROOT / name).is_file()]
+    root_files = [
+        ROOT / name for name in (*SCANNED_FILES, *CONSOLE_FILES) if (ROOT / name).is_file()
+    ]
     return [
         *root_files,
         *tree_files(ROOT, under=[*SCANNED_DIRECTORIES, *CONSOLE_SOURCES], skip=SKIPPED_PATHS),
@@ -215,6 +227,9 @@ def test_the_guard_reads_the_places_it_claims_to() -> None:
     assert "README.md" in files
     assert "docs/compose.md" in files
     assert "rpm/noust.spec" in files
+    assert "panel/src/app/theme.ts" in files
+    assert "panel/mock/backend.ts" in files
+    assert "panel/vite.config.ts" in files
     assert not any(name.startswith(SKIPPED_PATHS) for name in files)
 
 

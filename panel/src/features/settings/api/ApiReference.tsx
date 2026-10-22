@@ -151,7 +151,7 @@ export function ApiReference({ search, onSearchChange }: ApiReferenceProps) {
                         onSearchChange({});
                       }}
                     >
-                      {t("apiReference.filter.clear")}
+                      {t("common.words.clearFilters")}
                     </Button>
                   ) : undefined
                 }
@@ -162,7 +162,6 @@ export function ApiReference({ search, onSearchChange }: ApiReferenceProps) {
                 columns={columns}
                 rows={shown}
                 getRowId={(operation) => operation.id}
-                mobile="cards"
                 pagination="api-reference"
                 onRowActivate={(operation) => {
                   setOpen(operation);

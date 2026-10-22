@@ -5,11 +5,6 @@
  * the server refuses with, is shown as the server wrote it.
  */
 export const access = {
-  nav: {
-    label: "Roles",
-    keywords: "roles permissions custom role grant binding team project environment scope access least privilege",
-    command: "Roles settings",
-  },
   documentTitle: "Roles",
   loadingLabel: "roles and grants",
   scope: {
@@ -34,7 +29,6 @@ export const access = {
     column: { account: "Account", role: "Role", where: "Where", granted: "Granted" },
     custom: "Custom",
     manageInTeam: "Managed in the team",
-    revoke: "Revoke",
     revokeLabel: "Revoke {role} from {account}",
     revokeDialog: {
       title: "Revoke {role} from {account}",
@@ -69,9 +63,7 @@ export const access = {
     permissionCount: { one: "{count} permission", other: "{count} permissions" },
     view: "View",
     viewLabel: "View {role}",
-    edit: "Edit",
     editLabel: "Edit {role}",
-    delete: "Delete",
     deleteLabel: "Delete {role}",
     deleteDialog: {
       title: "Delete {role}",
@@ -86,7 +78,6 @@ export const access = {
       viewTitle: "{role}",
       description: "A role is a set of permissions that already exist. Where it can be held follows from them: a role that only runs applications can be held on one project; one that governs belongs to a team or the server.",
       viewDescription: "A built-in role cannot be changed. This is what it holds.",
-      name: "Name",
       nameHelp: "A short name in lower case, such as release-manager. It cannot change later.",
       label: "Label",
       labelHelp: "What the console shows. Defaults to the name.",
@@ -98,7 +89,6 @@ export const access = {
       noPermissions: "Choose at least one permission.",
       save: "Save role",
       create: "Define role",
-      cancel: "Cancel",
       errorTitle: "Could not save the role",
     },
   },

@@ -10,7 +10,7 @@ import { RowList } from "../../components/ui/RowList";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useAppActions } from "../apps/useAppActions";
-import { Hammer } from "lucide-react";
+import { VERB_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * What an application is set to that it does not run with yet. Read with the app, so a deploy
@@ -104,11 +104,11 @@ export function PendingDialog({ domain, pending, open, onOpenChange }: { domain:
       description={t("runtime.pending.dialogDescription", { domain })}
       footer={
         <>
-          <Button onClick={done}>{t("runtime.pending.close")}</Button>
+          <Button onClick={done}>{t("common.words.close")}</Button>
           {needs === "rebuild" ? (
             <Button
               variant="primary"
-              icon={<Hammer aria-hidden="true" />}
+              icon={<VERB_ICONS.rebuild aria-hidden="true" />}
               loading={rebuildAnyway.isPending}
               onClick={() => {
                 rebuildAnyway.mutate(undefined, { onSuccess: done });

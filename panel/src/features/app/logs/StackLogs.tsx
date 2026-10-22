@@ -1,5 +1,4 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -15,6 +14,7 @@ import { useT } from "../../../i18n";
 import { keeps, priorityOfViewerLevel } from "../../logs/query";
 import type { QueryNode } from "../../logs/query";
 import { withLevel } from "./journalLines";
+import { VERB_ICONS } from "../../../components/ui/objectIcons";
 
 /** Lines read from the containers each time. */
 const LINES = 500;
@@ -105,7 +105,7 @@ export function StackLogs({ domain, unit, filter }: { domain: string; unit: Reac
             <Button
               size="sm"
               variant="ghost"
-              icon={<RefreshCw aria-hidden="true" />}
+              icon={<VERB_ICONS.refresh aria-hidden="true" />}
               loading={query.isFetching}
               onClick={() => void query.refetch()}
             >
@@ -132,7 +132,7 @@ export function StackLogs({ domain, unit, filter }: { domain: string; unit: Reac
               emptyMessage={query.isPending ? t("appPages.logs.readingContainers") : t("appPages.logs.emptyContainers")}
             />
           </div>
-          <CommandHint command={`noust logs ${domain} --follow`} label={t("appPages.fromTerminal")} />
+          <CommandHint command={`noust logs ${domain} --follow`} label={t("common.words.fromTerminal")} />
         </div>
       )}
     </div>

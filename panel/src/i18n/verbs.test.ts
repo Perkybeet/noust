@@ -89,13 +89,6 @@ const english = new Map(flatten({ ...en }));
 const spanish = new Map(flatten({ ...es }));
 
 /**
- * The rows no key says yet, as the glossary words them (README, "The words of the interface"): the
- * lane that writes the first key that holds one of these takes it off this list, which pins the
- * pair from then on. A row not on the list has at least one key in both languages.
- */
-const NO_KEY_YET: ReadonlySet<string> = new Set(["Try again", "Run again", "Clear", "Dismiss"]);
-
-/**
  * The glossary's verbs and states (README, "Actions" and "States"), one row at a time, in both
  * languages. Where a key says exactly the English word, Spanish must be the glossary's; the keys
  * that still say it another way are counted by glossary.test.ts and go down to zero there.
@@ -108,14 +101,10 @@ describe("the glossary's verbs and states", () => {
     }
   });
 
-  it.each(GLOSSARY.map((row) => [row.en, row] as const))("%s has its Spanish word on at least one key, or none says it yet", (_, row) => {
+  it.each(GLOSSARY.map((row) => [row.en, row] as const))("%s has its Spanish word on at least one key", (_, row) => {
     const keys = [...english].filter(([, text]) => text === row.en).map(([key]) => key);
     const conforming = keys.filter((key) => row.es.includes(spanish.get(key) ?? ""));
-    if (NO_KEY_YET.has(row.en)) {
-      expect(conforming, `${row.en} has a key now: take it off NO_KEY_YET so the pair stays pinned`).toEqual([]);
-    } else {
-      expect(conforming.length, `no key says ${row.en} as ${row.es.join(" / ")}`).toBeGreaterThan(0);
-    }
+    expect(conforming.length, `no key says ${row.en} as ${row.es.join(" / ")}`).toBeGreaterThan(0);
   });
 
   it("keeps the daily verbs of an application on the same words as the glossary", () => {

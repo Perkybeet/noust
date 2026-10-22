@@ -188,7 +188,7 @@ export function useComposeDocument(): ComposeDocumentState {
       {converted !== null ? <Converted {...converted} /> : null}
       {analyze.isError ? <ErrorBlock live compact error={analyze.error} title={t("newApp.compose.notLooked")} /> : null}
       {analysis !== null ? <Found analysis={analysis} /> : null}
-      <CommandHint command="noust compose check FILE" label={t("newApp.source.terminal")} />
+      <CommandHint command="noust compose check FILE" label={t("common.words.fromTerminal")} />
     </div>
   );
 

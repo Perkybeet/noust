@@ -305,7 +305,7 @@ describe("a site's configuration editor", () => {
       [`GET /api/sites/${APP}/config`]: () => json(200, { site: APP, webserver: "nginx", config, path: `/etc/nginx/sites-available/${APP}` }),
       [`PUT /api/sites/${APP}/config`]: () =>
         problem(400, "validationerror", `nginx rejected the configuration for ${APP}`, {
-          output: `nginx: [emerg] unexpected "}" in /tmp/wasm-validate-1a2b/${APP}:4\nnginx: configuration file /tmp/wasm-validate-1a2b/wasm-validate.conf test failed\n`,
+          output: `nginx: [emerg] unexpected "}" in /tmp/noust-validate-1a2b/${APP}:4\nnginx: configuration file /tmp/noust-validate-1a2b/noust-validate.conf test failed\n`,
         }),
     });
     const { user } = renderConsole(`/domains/sites/${APP}`);
@@ -318,7 +318,7 @@ describe("a site's configuration editor", () => {
     const refusal = await screen.findByText("Nothing was saved: the configuration test failed.");
     const alert = refusal.closest<HTMLElement>("[role=alert]");
     if (!alert) throw new Error("the refusal is not announced");
-    expect(within(alert).getByText(/unexpected "}" in \/tmp\/wasm-validate-1a2b\/shop\.example\.com:4/)).toBeInTheDocument();
+    expect(within(alert).getByText(/unexpected "}" in \/tmp\/noust-validate-1a2b\/shop\.example\.com:4/)).toBeInTheDocument();
     expect(backend.callsTo(`PUT /api/sites/${APP}/config`)[0]?.body).toEqual({ config: `${config}# edited` });
     expect(editor).toHaveAttribute("aria-invalid", "true");
 
@@ -375,11 +375,11 @@ describe("a site's configuration editor", () => {
         return content.includes("bad-directive")
           ? json(200, {
               ok: false,
-              output: `nginx: [emerg] unknown directive "bad-directive" in /tmp/wasm-validate-9f/${APP}:4\nnginx: configuration file /tmp/wasm-validate-9f/wasm-validate.conf test failed\n`,
+              output: `nginx: [emerg] unknown directive "bad-directive" in /tmp/noust-validate-9f/${APP}:4\nnginx: configuration file /tmp/noust-validate-9f/noust-validate.conf test failed\n`,
             })
           : json(200, {
               ok: true,
-              output: "nginx: the configuration file /tmp/wasm-validate-9f/wasm-validate.conf syntax is ok\nnginx: configuration file /tmp/wasm-validate-9f/wasm-validate.conf test is successful\n",
+              output: "nginx: the configuration file /tmp/noust-validate-9f/noust-validate.conf syntax is ok\nnginx: configuration file /tmp/noust-validate-9f/noust-validate.conf test is successful\n",
             });
       },
     });

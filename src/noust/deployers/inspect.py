@@ -132,7 +132,7 @@ SECRET_NAME_MARKERS: tuple[str, ...] = ("SECRET", "KEY", "TOKEN", "PASSWORD", "P
 #: called. A container (a Dockerfile, or Railpack) is how they are deployed.
 _UNSUPPORTED_STACKS: tuple[tuple[str, str], ...] = RAILPACK_STACKS
 
-#: The stacks of those that Noust builds natively since 3.4 (Go, Rust, Ruby, Java and Kotlin,
+#: The stacks of those that Noust builds natively since 4.0 (Go, Rust, Ruby, Java and Kotlin,
 #: Elixir, Deno): a repository that still reaches the verdict with one of these markers has no
 #: program to run in it (a library, a gem), not "no deployer".
 _NATIVE_STACK_MARKERS = frozenset(
@@ -151,7 +151,7 @@ _NATIVE_STACK_MARKERS = frozenset(
 
 #: Framework dependencies NodeJSDeployer.detect turns away and nothing else
 #: deploys. None is left: Nuxt, SvelteKit, Astro, Remix and Angular have
-#: deployers of their own since 3.4 (an Angular package without its
+#: deployers of their own since 4.0 (an Angular package without its
 #: ``angular.json`` has nothing to build, and the generic verdict says so).
 _UNSUPPORTED_NODE_FRAMEWORKS: tuple[tuple[str, str], ...] = ()
 

@@ -39,7 +39,7 @@ export function canPush(app: { layout?: string | null; app_type?: string | null 
 
 function keyColumns(t: T): Column<PushKey>[] {
   return [
-    { id: "name", header: t("gitPush.on.columnName"), cell: (key) => key.label, card: "title" },
+    { id: "name", header: t("common.words.name"), cell: (key) => key.label, card: "title" },
     { id: "type", header: t("gitPush.on.columnType"), cell: (key) => key.key_type, mono: true },
     { id: "fingerprint", header: t("gitPush.on.columnFingerprint"), cell: (key) => key.fingerprint, mono: true },
   ];
@@ -221,7 +221,6 @@ function TurnedOn({ domain, info }: { domain: string; info: AppPush }) {
             rows={info.keys}
             getRowId={(key) => key.label}
             density="compact"
-            mobile="cards"
             rowActions={(key) => (
               <Button size="sm" variant="ghost" aria-label={t("gitPush.on.removeKey", { label: key.label })} onClick={() => setRemoving(key)}>
                 {t("gitPush.on.removeAction")}

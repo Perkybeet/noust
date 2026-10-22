@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The processes an application runs beside its web process (3.4, checklist B-67, B-68).
+The processes an application runs beside its web process (4.0, checklist B-67, B-68).
 
 A client of :mod:`noust.managers.app_processes`, like ``noust app process``:
 ``GET`` lists them with their copies, ``PUT`` defines or changes one, ``POST

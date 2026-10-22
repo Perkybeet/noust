@@ -4,7 +4,7 @@
 """
 Java and Kotlin applications built with Maven or Gradle, run as the unit (checklist A-40).
 
-Until 3.4 a repository with a ``pom.xml`` or a ``build.gradle`` was only ever a container. A JVM
+Until 4.0 a repository with a ``pom.xml`` or a ``build.gradle`` was only ever a container. A JVM
 application deploys like the compiled ones: the build tool packages it in the sandbox, the
 runnable result is put at a path that does not change from one release to the next, and
 systemd runs ``java -jar`` on it. A rollback is then a symlink to a release that carries its own

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArchiveRestore, CalendarClock, CloudUpload, Download, FlaskConical, ShieldQuestion, Trash2, Upload } from "lucide-react";
+import { ArchiveRestore, Download, ShieldQuestion, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -50,6 +50,7 @@ import type { RestoreSource } from "./RestoreDialog";
 import { policyScheduleWords, retentionWords } from "./schedule";
 import { coversEveryDatabase, leftOutLines } from "./scope";
 import type { PolicyScope } from "./scope";
+import { OBJECT_ICONS, VERB_ICONS } from "../../../components/ui/objectIcons";
 
 const KIND_WORDS: Readonly<Record<string, PlainKey>> = {
   manual: "databases.dumps.kind.manual",
@@ -126,11 +127,11 @@ function PolicyCard({
         data?.configured ? (
           <>
             <Button size="sm" onClick={onEdit}>
-              {t("databases.backups.policy.edit")}
+              {t("common.words.edit")}
             </Button>
             <Menu align="end" trigger={<IconButton size="sm" label={t("databases.backups.policy.more")} icon={<ICONS.more />} />}>
-              <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(true)}>
-                {all ? t("policyScope.card.remove") : t("databases.backups.policy.remove")}
+              <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(true)}>
+                {all ? t("common.words.remove") : t("databases.backups.policy.remove")}
               </MenuItem>
             </Menu>
           </>
@@ -154,7 +155,7 @@ function PolicyCard({
                 ? t("policyScope.card.coveredBy", { engine: display })
                 : t("databases.backups.policy.none")}
           </p>
-          <Button icon={<CalendarClock aria-hidden="true" />} size="sm" onClick={onEdit}>
+          <Button icon={<OBJECT_ICONS.schedule aria-hidden="true" />} size="sm" onClick={onEdit}>
             {all ? t("policyScope.card.set") : t("databases.backups.policy.set")}
           </Button>
         </div>
@@ -312,7 +313,7 @@ function PushDialog({ dump, onClose, onPush }: { dump: DatabaseBackup | null; on
       description={t.rich("databases.dumps.pushDescription", { dump: <Mono>{dump?.name ?? ""}</Mono> })}
       footer={
         <>
-          <Button onClick={onClose}>{t("databases.common.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           {/* design-exception: submit-disabled-invalid no destination exists, which the dialog says; with one, the first is already chosen */}
           <Button
             variant="primary"
@@ -364,7 +365,7 @@ function RemoteDumps({ engine, name, onRestore }: { engine: string; name: string
   if (destinations.data !== undefined && list.length === 0) return null;
   return (
     <Section
-      title={t("databases.remote.title")}
+      title={t("databases.remote.title")} icon={OBJECT_ICONS.destination}
       description={t("databases.remote.description")}
       actions={
         list.length > 1 ? (
@@ -384,7 +385,6 @@ function RemoteDumps({ engine, name, onRestore }: { engine: string; name: string
           loading={remote.data === undefined}
           skeletonRows={3}
           getRowId={(dump) => dump.name}
-          mobile="cards"
           empty={<EmptyState variant="inline" title={t("databases.remote.empty", { destination })} />}
           columns={[
             {
@@ -497,7 +497,6 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
             skeletonRows={4}
             getRowId={(dump) => dump.name}
             onRowActivate={setOpened}
-            mobile="cards"
             empty={<EmptyState variant="inline" title={t("databases.dumps.empty")} description={t("databases.dumps.emptyHint")} />}
             columns={[
               {
@@ -556,19 +555,19 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
                   {t("databases.dumps.verify")}
                 </MenuItem>
                 {!slot ? (
-                  <MenuItem icon={<FlaskConical />} disabled={job.busy} onClick={() => verify.mutate({ dump, restoreTest: true })}>
+                  <MenuItem icon={<VERB_ICONS.test />} disabled={job.busy} onClick={() => verify.mutate({ dump, restoreTest: true })}>
                     {t("databases.dumps.testRestoreAction")}
                   </MenuItem>
                 ) : null}
-                <MenuItem icon={<CloudUpload />} disabled={job.busy} onClick={() => setPushing(dump)}>
+                <MenuItem icon={<OBJECT_ICONS.destination />} disabled={job.busy} onClick={() => setPushing(dump)}>
                   {t("databases.dumps.push")}
                 </MenuItem>
                 <MenuItem icon={<Download />} onClick={() => download.mutate(dump)}>
                   {t("databases.dumps.download")}
                 </MenuItem>
                 <MenuSeparator />
-                <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleting(dump)}>
-                  {t("databases.dumps.delete")}
+                <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(dump)}>
+                  {t("common.words.delete")}
                 </MenuItem>
               </RowMenu>
             )}
@@ -578,7 +577,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
 
       <RemoteDumps engine={engine} name={name} onRestore={setRestoring} />
 
-      <CommandHint command={`noust db backup-schedule set ${name} -e ${engine} --schedule daily`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db backup-schedule set ${name} -e ${engine} --schedule daily`} label={t("common.words.fromTerminal")} />
 
       {editing !== null ? (
         <PolicyDrawer
@@ -623,7 +622,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
         }}
       />
       {deleting !== null ? (
-        <ConfirmDialog
+        <ConfirmDialog friction="type"
           open
           onOpenChange={(open) => (open ? undefined : setDeleting(null))}
           title={t("databases.dumps.deleteTitle")}

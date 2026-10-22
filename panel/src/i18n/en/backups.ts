@@ -3,14 +3,7 @@ export const backups = {
   area: "Backups",
 
   common: {
-    cancel: "Cancel",
-    save: "Save",
-    close: "Close",
-    edit: "Edit",
-    add: "Add",
     restore: "Restore",
-    clearFilters: "Clear filters",
-    fromTerminal: "From a terminal",
   },
 
   fields: {
@@ -29,7 +22,6 @@ export const backups = {
   page: {
     title: "Backups",
     description: "Copies of your apps' files, .env and databases, and when they are made.",
-    backUpNow: "Back up now",
     loadError: "Could not load backups",
   },
 
@@ -86,7 +78,6 @@ export const backups = {
       never: "No backups",
     },
     actions: {
-      backUpNow: "Back up now",
       viewBackups: "View backups",
       restoreLatest: "Restore the latest…",
       schedule: "Schedule backups…",
@@ -101,7 +92,7 @@ export const backups = {
 
   drills: {
     title: "Restore tests",
-    loading: "Reading the restore tests",
+    loading: "Loading the restore tests",
     readFailed: "Could not read the restore tests",
     descriptionEvery: { one: "A test loads the newest backup into temporary databases and drops them. A scheduled backup runs one every day.", other: "A test loads the newest backup into temporary databases and drops them. A scheduled backup runs one every {count} days." },
     descriptionOff: "A test loads the newest backup into temporary databases and drops them. Scheduled tests are off.",
@@ -111,14 +102,12 @@ export const backups = {
     notQueued: "The restore test of {domain} was not queued",
     empty: "No restore test has run yet. Run one to know the newest backup comes back.",
     passed: "Passed",
-    failed: "Failed",
     byTimer: "Scheduled",
     byHand: "By hand",
     steps: { one: "{count} step", other: "{count} steps" },
     stepOutput: "Output of the step {name}",
     stepsLabel: "What the test checked",
     stepOk: "Passed",
-    stepFailed: "Failed",
     skipped: "Not tried",
   },
   history: {
@@ -130,7 +119,6 @@ export const backups = {
     },
     caption: "Backups of {domain}",
     empty: "No backups of {domain} yet.",
-    backUpNow: "Back up now",
     columns: {
       created: "Created",
       size: "Size",
@@ -338,9 +326,7 @@ export const backups = {
       failed: "Could not encrypt the credentials",
     },
     showKey: "Show encryption key",
-    remove: "Remove",
     columns: {
-      name: "Name",
       connection: "Connection",
       backend: "Kind",
       encryption: "Encryption",
@@ -359,7 +345,6 @@ export const backups = {
       unreachable: "{name} could not be reached",
     },
     removeDialog: {
-      title: "Remove {name}",
       leftBehindKeyed: "Backups already copied there stay there, readable only with the key you saved.",
       leftBehind: "Backups already copied there stay there.",
       descriptionForce: "A schedule still copies backups here. Removing it anyway takes it out of those schedules. {leftBehind}",
@@ -375,10 +360,8 @@ export const backups = {
 
   destinationDialog: {
     titleNew: "Add backup destination",
-    titleEdit: "Edit {name}",
     description: "Another place backups are copied to, on a schedule or by hand.",
     add: "Add destination",
-    nameLabel: "Name",
     nameDescription: "Lowercase letters, digits and '-'. It also names the rclone remote.",
     backendLabel: "Backend",
     chooseBackend: "Choose a backend",
@@ -415,7 +398,6 @@ export const backups = {
     savedLabel: "I have saved this key somewhere safe",
     nudge: "Save the key and tick the box first. Losing it makes every backup on this destination unrecoverable.",
     continueToRemove: "Continue to remove",
-    done: "Done",
     error: "The key could not be read",
   },
 
@@ -423,13 +405,13 @@ export const backups = {
     title: "Browse a destination",
     description: "What a destination holds, and restoring straight from it, without a copy on this server first.",
     applicationDescription: "Leave blank to see every application found there.",
-    noDestinations: { title: "No destinations yet.", description: "Add one first." },
+    noDestinations: { title: "No destinations yet", description: "Add one first." },
     readError: "Could not read that destination",
     resultsCaption: "Backups on {name} for {app}",
     appsFoundHint: "Applications found at this destination. Choose one to see its backups.",
     appsFoundLabel: "Applications found",
-    noBackupsFound: { title: "No backups found.", description: "Nothing was found at that path." },
-    nothingFound: { title: "Nothing found there.", description: "No application folders were found at this destination's path." },
+    noBackupsFound: { title: "No backups found", description: "Nothing was found at that path." },
+    nothingFound: { title: "Nothing found there", description: "No application folders were found at this destination's path." },
     columns: {
       backup: "Backup",
       modified: "Modified",

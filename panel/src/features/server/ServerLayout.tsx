@@ -10,7 +10,7 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Outlet, useNavigate } from "@tanstack/react-router";
-import { ListChecks, Power, RefreshCw, RotateCw, SquareTerminal } from "lucide-react";
+import { ListChecks, Power, RotateCw } from "lucide-react";
 
 import { request } from "../../api/client";
 import { LinkTabs } from "../../app/LinkTabs";
@@ -38,6 +38,7 @@ import { PowerProvider, ScheduledPowerBanner, usePowerDialog } from "./PowerDial
 import { SERVER_CAPABILITY, changesQuery, securityOverviewQuery, summaryQuery } from "./queries";
 import type { ServerSummary } from "./queries";
 import { ServerJobProvider, ServerJobSlot, useHasServerJob, useServerJob } from "./serverJob";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function verdictLabel(t: T, verdict: Verdict): string {
   switch (verdict.label) {
@@ -125,14 +126,14 @@ function Layout() {
               ),
               overflow: (
                 <>
-                  <MenuItem icon={<RefreshCw />} disabled={jobs.busy || refresh.isPending} onClick={() => refresh.mutate()}>
+                  <MenuItem icon={<OBJECT_ICONS.update />} disabled={jobs.busy || refresh.isPending} onClick={() => refresh.mutate()}>
                     {t("server.header.checkUpdates")}
                   </MenuItem>
                   <MenuItem icon={<ListChecks />} disabled={runChecks.isPending} onClick={() => runChecks.mutate()}>
                     {t("server.header.runChecks")}
                   </MenuItem>
                   {canOpenTerminal ? (
-                    <MenuItem icon={<SquareTerminal />} onClick={() => void navigate({ to: "/server/terminal" })}>
+                    <MenuItem icon={<OBJECT_ICONS.terminal />} onClick={() => void navigate({ to: "/server/terminal" })}>
                       {t("server.header.terminal")}
                     </MenuItem>
                   ) : null}

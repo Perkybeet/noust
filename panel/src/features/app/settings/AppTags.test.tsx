@@ -219,8 +219,8 @@ describe("an app's tags in its settings", () => {
     const { user } = settings();
     await screen.findByRole("list", { name: "App tags" });
     await act(() => setLocale("es"));
-    await user.click(await screen.findByRole("button", { name: "Editar tags" }));
-    const dialog = await screen.findByRole("dialog", { name: `Tags de ${SHOP}` });
+    await user.click(await screen.findByRole("button", { name: "Editar etiquetas" }));
+    const dialog = await screen.findByRole("dialog", { name: `Etiquetas de ${SHOP}` });
     await expectNoAxeViolations(dialog);
   });
 });

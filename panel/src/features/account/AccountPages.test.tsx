@@ -1,11 +1,12 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { screenWidth } from "../app/testRoutes";
 
 const NOW = Date.now() / 1000;
 
@@ -44,6 +45,11 @@ async function expectToast(text: string): Promise<void> {
 }
 
 describe("Account > Sign-in security", () => {
+  // These lists are tables from 640px and cards below it: the tests read the table.
+  beforeEach(() => {
+    screenWidth(1440);
+  });
+
   it("sets up two-factor authentication: QR and key, a code, then the backup codes once", { timeout: 20_000 }, async () => {
     const twoFactor = { enabled: false };
     const backend = fakeBackend(
@@ -125,7 +131,7 @@ describe("Account > Sign-in security", () => {
     expect(confirm).toHaveAccessibleDescription(/access token/i);
     expect(screen.queryByRole("dialog", { name: "Set up two-factor authentication" })).not.toBeInTheDocument();
     await user.type(within(confirm).getByLabelText("Access token"), "noust_mastertoken");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     // Only once elevated does the enrolment dialog open, with the secret fetched after the retry.
     const dialog = await screen.findByRole("dialog", { name: "Set up two-factor authentication" });
@@ -158,7 +164,7 @@ describe("Account > Sign-in security", () => {
 
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "654321");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     await expectToast("Turned off two-factor authentication");
     expect(await screen.findByRole("button", { name: "Set up two-factor authentication" })).toBeInTheDocument();
@@ -189,7 +195,7 @@ describe("Account > Sign-in security", () => {
 
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "654321");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     const shown = await screen.findByRole("dialog", { name: "Save your backup codes" });
     const list = within(shown).getByRole("list", { name: "Backup codes" });

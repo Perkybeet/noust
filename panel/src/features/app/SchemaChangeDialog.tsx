@@ -142,7 +142,7 @@ export function SchemaChangeDialog({ domain, refusal, onConfirm, onClose }: Sche
       footer={
         <>
           <Button disabled={confirm.isPending} onClick={() => close(false)}>
-            {t("appPages.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button variant="primary" loading={confirm.isPending} onClick={() => confirm.mutate()}>
             {t("appPages.schemaChange.goBackAnyway")}

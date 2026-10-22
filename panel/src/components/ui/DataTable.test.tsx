@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import type { Column } from "./DataTable";
-import { DEFAULT_MOBILE, DataTable } from "./DataTable";
+import { DataTable } from "./DataTable";
 import { EmptyCell } from "./EmptyCell";
 import { IconButton } from "./IconButton";
 
@@ -159,7 +159,7 @@ describe("DataTable", () => {
 
     it("keep the skeleton of a phone's cards too", () => {
       stubWidth(false);
-      render(<DataTable mobile="cards" caption="Applications" columns={COLUMNS} rows={undefined} getRowId={(row) => row.domain} empty={<p>No applications yet</p>} />);
+      render(<DataTable caption="Applications" columns={COLUMNS} rows={undefined} getRowId={(row) => row.domain} empty={<p>No applications yet</p>} />);
       expect(screen.getByRole("list", { name: "Applications" })).toHaveAttribute("aria-busy", "true");
       expect(screen.queryByText("No applications yet")).not.toBeInTheDocument();
     });
@@ -249,7 +249,6 @@ describe("DataTable", () => {
       wide(false);
       render(
         <DataTable
-          mobile="cards"
           caption="Applications"
           columns={columns}
           rows={rows}
@@ -273,7 +272,6 @@ describe("DataTable", () => {
       wide(false);
       render(
         <DataTable
-          mobile="cards"
           caption="Applications"
           columns={[
             { id: "pick", header: "Choose", card: "control", cell: (row) => <input type="checkbox" aria-label={`Choose ${row.domain}`} /> },
@@ -304,7 +302,7 @@ describe("DataTable", () => {
       wide(false);
       const onRowActivate = vi.fn();
       render(
-        <DataTable mobile="cards" caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} onRowActivate={onRowActivate} />,
+        <DataTable caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} onRowActivate={onRowActivate} />,
       );
       await userEvent.click(screen.getByRole("button", { name: "api.example.com" }));
       expect(onRowActivate).toHaveBeenCalledWith(rows[1]);
@@ -312,7 +310,7 @@ describe("DataTable", () => {
 
     it("stays a table from 640px", () => {
       wide(true);
-      render(<DataTable mobile="cards" caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
+      render(<DataTable caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
       expect(screen.getByRole("table")).toBeInTheDocument();
       expect(screen.queryByRole("list")).not.toBeInTheDocument();
     });
@@ -320,10 +318,10 @@ describe("DataTable", () => {
     it("keeps its shape while loading and shows the empty state when there is nothing", () => {
       wide(false);
       const { rerender } = render(
-        <DataTable mobile="cards" caption="Applications" columns={columns} rows={[]} getRowId={(row) => row.domain} loading skeletonRows={3} />,
+        <DataTable caption="Applications" columns={columns} rows={[]} getRowId={(row) => row.domain} loading skeletonRows={3} />,
       );
       expect(screen.getByRole("list", { name: "Applications" })).toHaveAttribute("aria-busy", "true");
-      rerender(<DataTable mobile="cards" caption="Applications" columns={columns} rows={[]} getRowId={(row) => row.domain} empty={<p>Nothing here</p>} />);
+      rerender(<DataTable caption="Applications" columns={columns} rows={[]} getRowId={(row) => row.domain} empty={<p>Nothing here</p>} />);
       expect(screen.getByText("Nothing here")).toBeInTheDocument();
     });
 
@@ -333,12 +331,11 @@ describe("DataTable", () => {
       expect(screen.getByRole("table", { name: "Applications" })).toBeInTheDocument();
     });
 
-    it("says what a table does on a phone when it is not told, in one place", () => {
+    it("is cards on a phone when it is not told otherwise", () => {
       wide(false);
       render(<DataTable caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
-      const cards = DEFAULT_MOBILE === "cards";
-      expect(screen.queryByRole("table") === null).toBe(cards);
-      expect(screen.queryByRole("list", { name: "Applications" }) !== null).toBe(cards);
+      expect(screen.queryByRole("table")).not.toBeInTheDocument();
+      expect(screen.getByRole("list", { name: "Applications" })).toBeInTheDocument();
     });
 
     it("is a table from 640px, told or not", () => {
@@ -351,7 +348,6 @@ describe("DataTable", () => {
       wide(false);
       const { container } = render(
         <DataTable
-          mobile="cards"
           caption="Applications"
           columns={columns}
           rows={rows}

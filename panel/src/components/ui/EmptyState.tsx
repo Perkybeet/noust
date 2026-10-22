@@ -9,11 +9,9 @@ export interface EmptyStateProps {
    * `firstUse`: the page (or tab) has nothing yet; this takes the content's place, one per
    * page, with the one action that is possible now and its CLI command. `inline`: a list or
    * section inside a page is empty, or a filter matched nothing; one line with a link or small
-   * button, no heading, no icon, no frame, 56px at most. Without a variant, the framed block
-   * of 3.0 is drawn and, in development, said to be retired (the console log names it once):
-   * the variant is required, and the type says so when the last page without one has moved.
+   * button, no heading, no icon, no frame, 56px at most.
    */
-  variant?: "firstUse" | "inline";
+  variant: "firstUse" | "inline";
   /** A lucide icon element, drawn at 20px. Not drawn inline. */
   icon?: ReactNode;
   /** What this place is and what is missing ("No applications yet"). Inline: the whole line. */
@@ -43,15 +41,8 @@ function Command({ command }: { command: string }) {
   );
 }
 
-/** The empty states already named as variant-less, so a list that renders again says it once. */
-const NAMED = new Set<string>();
-
 /** What a list or page shows before it has anything in it. */
 export function EmptyState({ variant, icon, title, description, action, command, level, className }: EmptyStateProps) {
-  if (variant === undefined && import.meta.env.DEV && !NAMED.has(title)) {
-    NAMED.add(title);
-    console.warn(`EmptyState "${title}" has no variant: pass "firstUse" (one per page, in the content's place) or "inline" (inside a section or a filtered table). The framed block without one is retired.`);
-  }
   if (variant === "inline") {
     return (
       <div data-slot="empty-state" data-variant="inline" className={cx("flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 py-2 text-13", className)}>
@@ -62,27 +53,16 @@ export function EmptyState({ variant, icon, title, description, action, command,
     );
   }
 
-  const firstUse = variant === "firstUse";
-  const Heading = `h${level ?? (firstUse ? 2 : 3)}` as const;
+  const Heading = `h${level ?? 2}` as const;
   return (
-    <div
-      data-slot="empty-state"
-      {...(firstUse ? { "data-variant": "firstUse" } : {})}
-      className={cx(
-        "flex flex-col items-center text-center",
-        firstUse ? "px-4 py-12" : "rounded-card border border-dashed border-border px-6 py-12",
-        className,
-      )}
-    >
+    <div data-slot="empty-state" data-variant="firstUse" className={cx("flex flex-col items-center px-4 py-12 text-center", className)}>
       {icon !== undefined ? (
         <div className="mb-4 flex size-10 items-center justify-center rounded-control border border-border bg-surface text-fg-muted shadow-raised [&_svg]:size-icon-lg">
           {icon}
         </div>
       ) : null}
       <Heading className="title text-16 text-fg">{title}</Heading>
-      {description !== undefined ? (
-        <p className={cx("mt-1.5 text-14 text-pretty text-fg-muted", firstUse ? "max-w-measure-help" : "max-w-[46ch]")}>{description}</p>
-      ) : null}
+      {description !== undefined ? <p className="mt-1.5 max-w-measure-help text-14 text-pretty text-fg-muted">{description}</p> : null}
       {action !== undefined ? <div className="mt-5 flex flex-wrap justify-center gap-2">{action}</div> : null}
       {command !== undefined ? <Command command={command} /> : null}
     </div>

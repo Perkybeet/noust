@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookOpen, CircleUser, Keyboard, KeyRound, LogOut, Menu, Search, UserRound } from "lucide-react";
+import { BookOpen, CircleUser, Keyboard, KeyRound, LogOut, Menu, Search } from "lucide-react";
 import { useState } from "react";
 import type { Ref } from "react";
 
@@ -25,6 +25,7 @@ import { MachineStrip } from "./MachineStrip";
 import { modKeyLabel } from "./shortcuts";
 import { ThemeSwitch } from "./ThemeSwitch";
 import { useTheme } from "./theme";
+import { OBJECT_ICONS } from "../components/ui/objectIcons";
 
 export interface TopbarProps {
   onOpenPalette: () => void;
@@ -65,7 +66,7 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
         {/* Who is signed in and what is theirs: the account is two clicks from anywhere, and so is turning on the second factor. */}
         <div className="-mx-2 flex flex-col">
           <Link to="/account" onClick={close} className={cx(buttonClassName("ghost"), "justify-start")}>
-            <UserRound aria-hidden="true" className="size-icon-md shrink-0" />
+            <OBJECT_ICONS.account aria-hidden="true" className="size-icon-md shrink-0" />
             {t("shell.session.account")}
           </Link>
           <Link to="/account/security" onClick={close} className={cx(buttonClassName("ghost"), "justify-start")}>

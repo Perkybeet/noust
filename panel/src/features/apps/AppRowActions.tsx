@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowRightLeft, CircleArrowUp, Copy, FolderInput, PanelTop, RotateCw, ScrollText } from "lucide-react";
+import { ArrowRightLeft, CircleArrowUp, Copy, FolderInput, RotateCw } from "lucide-react";
 
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
@@ -12,6 +12,7 @@ import type { AppInfo } from "./data";
 import { FrozenDeployDialog } from "./FrozenDeployDialog";
 import { NothingNewDialog } from "./NothingNewDialog";
 import { useAppActions } from "./useAppActions";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 // Defined in `data` so the command palette can ask it without loading this menu.
 export { hasUnit } from "./data";
@@ -31,19 +32,19 @@ export function AppRowActions({ app }: { app: AppInfo }) {
   const unit = hasUnit(app);
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={t("apps.rowActions.aria", { domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
-        <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/apps/$domain", params: { domain } })}>
+      <Menu align="end" trigger={<IconButton label={t("common.words.actionsForDomain", { domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+        <MenuItem icon={<OBJECT_ICONS.app />} onClick={() => void navigate({ to: "/apps/$domain", params: { domain } })}>
           {t("apps.rowActions.open")}
         </MenuItem>
-        <MenuItem icon={<ScrollText />} onClick={() => void navigate({ to: "/apps/$domain/logs", params: { domain } })}>
+        <MenuItem icon={<OBJECT_ICONS.log />} onClick={() => void navigate({ to: "/apps/$domain/logs", params: { domain } })}>
           {t("apps.rowActions.logs")}
         </MenuItem>
         <MenuSeparator />
         <MenuItem icon={<RotateCw />} disabled={!unit || restart.isPending} onClick={() => restart.mutate()}>
-          {t("apps.rowActions.restart")}
+          {t("common.words.restart")}
         </MenuItem>
         <MenuItem icon={<CircleArrowUp />} disabled={update.isPending || app.app_type === "adopted"} onClick={() => update.mutate()}>
-          {t("apps.rowActions.update")}
+          {t("common.words.update")}
         </MenuItem>
         {move.available || promote.available || clone.available ? <MenuSeparator /> : null}
         {promote.available ? (

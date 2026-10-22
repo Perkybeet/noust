@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { SETTINGS_SECTIONS } from "../features/app/settings/sections";
 import { APPS_SCREENS } from "../features/nav/apps";
 import { BACKUPS_SCREENS } from "../features/nav/backups";
-import { CATALOG_SCREENS } from "../features/nav/catalog";
+import { APPS_TABS } from "../features/nav/appsTabs";
 import { DATABASES_SCREENS, DATABASE_SCREENS } from "../features/nav/databases";
 import { DOMAINS_SCREENS } from "../features/nav/domains";
 import { OVERVIEW_SCREENS } from "../features/nav/overview";
@@ -178,7 +178,8 @@ describe("3. the budgets", () => {
     // The catalog left the bar (D-2): it is the second and third view of Applications, at the addresses it always had.
     expect(sidebarFor("server").flat().map((entry) => entry.id)).not.toContain("catalog");
     expect(paths(tabsOf(APPS_SCREENS))).toEqual(["/apps", "/catalog", "/catalog/installed"]);
-    expect(paths(tabsOf(CATALOG_SCREENS))).toEqual(["/catalog", "/catalog/installed"]);
+    // What the list and the catalogue draw is the same three, without the wizard the register also names.
+    expect(paths(tabsOf(APPS_TABS))).toEqual(["/apps", "/catalog", "/catalog/installed"]);
     expect(dest("apps.recipes").parent).toBe("apps");
   });
 

@@ -185,14 +185,14 @@ export const DESIGN_RULES: readonly DesignRule[] = [
   },
   {
     id: "confirm-hand-rolled",
-    fix: "Use ConfirmDialog with the friction the action deserves (none, simple, type). Its twin ActionDialog and a danger Button written by hand in a dialog are counted by the structural rules action-dialog and danger-button-outside-confirm.",
+    fix: "Use ConfirmDialog with the friction the action deserves (none, simple, type). A danger Button written by hand in a dialog is counted by the structural rule danger-button-outside-confirm.",
     pattern: /\bAlertDialog\.Popup\b/g,
     applies: except("components/ui/ConfirmDialog.tsx"),
   },
   {
     // Owner item 56: whether a feature is on was a neutral notice in which only a word changed.
     id: "feature-state-notice",
-    fix: "Show whether a feature is on with FeatureState (on, off, problem), never a Notice whose title or text is an on/off word.",
+    fix: "Show whether a feature is on with a StatusPill in the head of its Card (Card status) or a Setting row, never a Notice whose title or text is an on/off word.",
     pattern: /<Notice\b[^>]*\btitle=\{t\("[\w.]+\.(?:on|off|onTitle|offTitle|enabled|disabled|stateOn|stateOff)"\)|<Notice\b[^>]*>\s*\{t\("[\w.]+\.(?:on|off|onTitle|offTitle|enabled|disabled|stateOn|stateOff)"\)/g,
     applies: outsideKit,
   },

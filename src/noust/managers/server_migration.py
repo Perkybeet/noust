@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Moving to another server: ``noust server migrate``, the three steps around ``noust restore-server`` (3.4, H-30).
+Moving to another server: ``noust server migrate``, the three steps around ``noust restore-server`` (4.0, H-30).
 
 ``noust restore-server`` brings a whole server back from a bundle of Noust's own state and the
 newest backup of every application. Moving *to another server* is that, with two things around

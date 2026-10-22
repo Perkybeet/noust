@@ -3,7 +3,6 @@ import type { Catalog } from "../types";
 
 export const fleet: Catalog<typeof en> = {
   selector: {
-    label: "Servidor",
     views: "Vistas",
     servers: "Servidores",
     trigger: "Servidor: {name}",
@@ -22,7 +21,7 @@ export const fleet: Catalog<typeof en> = {
       reachable: "Accesible",
       unreachable: "Inaccesible",
       refused: "Rechazado",
-      unknown: "Sin comprobar",
+      unknown: "Sin comprobar todavía",
     },
     listFailed: "No se pudieron listar los servidores",
     switched: "Ahora en {name}",
@@ -48,7 +47,7 @@ export const fleet: Catalog<typeof en> = {
     unknownNode: "Este servidor no tiene ningún nodo llamado {node}.",
     backToThisServer: "Ir a este servidor",
     readOnly: "{node} solo deja leer a esta central. Lo que cambie {node} desde aquí lo rechaza {node}, a propósito.",
-    deployOnly: "{node} deja a esta central operar, actualizar y volver atrás aplicaciones. Crear, borrar y configurar lo rechaza {node}, a propósito.",
+    deployOnly: "{node} deja a esta central operar, actualizar y volver atrás aplicaciones. Crear, eliminar y configurar lo rechaza {node}, a propósito.",
   },
   capability: {
     notAvailable: "No disponible en {node} (Noust {version})",
@@ -74,7 +73,6 @@ export const fleet: Catalog<typeof en> = {
       activity: "Actividad de todos los servidores",
     },
     keywords: {
-      summary: "flota resumen panel todos los servidores fleet dashboard",
       servers: "flota nodos etiquetas acceso versión fleet nodes labels",
       apps: "flota todas las aplicaciones sitios fleet apps",
       certificates: "flota ssl tls https caducidad renovar certificates",
@@ -90,7 +88,6 @@ export const fleet: Catalog<typeof en> = {
     tabsLabel: "Vistas de las aplicaciones de la flota",
     addServer: "Añadir un servidor",
     runAction: "Ejecutar una acción",
-    fromTerminal: "Desde una terminal",
     loadFailed: "No se pudo cargar la flota",
     empty: {
       title: "Esta flota aún no tiene servidores",
@@ -141,7 +138,6 @@ export const fleet: Catalog<typeof en> = {
     state: "Estado",
     everyState: "Todos los estados",
     noMatch: "Ninguna fila coincide con estos filtros",
-    clear: "Quitar filtros",
   },
   server: {
     open: "Abrir {name}",
@@ -154,7 +150,6 @@ export const fleet: Catalog<typeof en> = {
     unreachable: "No responde",
     unsupported: "Noust anterior",
     forbidden: "Rechazado",
-    error: "Falló",
   },
   partial: {
     title: {
@@ -206,8 +201,8 @@ export const fleet: Catalog<typeof en> = {
     olderNoust: "Su Noust es demasiado antiguo para decirlo",
     noAttention: "Nada",
     attentionCount: { one: "{count} requiere atención", other: "{count} requieren atención" },
-    appsRunning: { one: "{count} en marcha", other: "{count} en marcha" },
-    appsFailed: { one: "{count} con fallo", other: "{count} con fallo" },
+    appsRunning: { one: "{count} en ejecución", other: "{count} en ejecución" },
+    appsFailed: { one: "{count} fallida", other: "{count} fallidas" },
     appsUnmanaged: { one: "{count} fuera de Noust", other: "{count} fuera de Noust" },
     figures: {
       servers: "Servidores que responden",
@@ -219,7 +214,7 @@ export const fleet: Catalog<typeof en> = {
       appsRunningNoneFailed: { one: "{count} en marcha, ninguna con fallo", other: "{count} en marcha, ninguna con fallo" },
       noneFailed: "Ninguna con fallo",
       services: "Servicios",
-      servicesFailed: { one: "{count} con fallo", other: "{count} con fallo" },
+      servicesFailed: { one: "{count} fallido", other: "{count} fallidos" },
       servicesDetail: "En todos los servidores",
       certificates: "Certificados",
       certificatesExpiring: { one: "{count} por caducar", other: "{count} por caducar" },
@@ -245,8 +240,8 @@ export const fleet: Catalog<typeof en> = {
       on: "en {server}",
       failure: "Fallo:",
       warning: "Aviso:",
-      showAll: "Mostrar los {count}",
-      showFewer: "Mostrar menos",
+      showAll: "Ver los {count}",
+      showFewer: "Ver menos",
     },
     actions: {
       title: "Acciones recientes",
@@ -296,7 +291,6 @@ export const fleet: Catalog<typeof en> = {
     invalidFormat: "Escribe cada etiqueta como clave=valor, separadas por comas.",
     invalidCharacters: "Usa letras, dígitos, puntos, guiones y guiones bajos en claves y valores, empezando por una letra o un dígito.",
     save: "Guardar etiquetas",
-    cancel: "Cancelar",
     failed: "No se pudieron guardar las etiquetas de {name}",
     none: "Ninguna",
     notForCentral: "Las etiquetas agrupan los servidores de la central, no la central",
@@ -418,7 +412,7 @@ export const fleet: Catalog<typeof en> = {
       ok: "Correcto",
       failed: "Fallido o rechazado",
     },
-    noActor: "Sin registrar",
+    noActor: "No registrado",
   },
 
   actions: {
@@ -464,7 +458,7 @@ export const fleet: Catalog<typeof en> = {
     },
     placement_ship: {
       label: "Compilar en un servidor y ejecutar en otros",
-      description: "Un servidor compila la aplicación una sola vez; los demás reciben esa release y cambian a ella tras su comprobación de salud.",
+      description: "Un servidor compila la aplicación una sola vez; los demás reciben esa release y cambian a ella tras su comprobación de arranque.",
     },
   },
   bulk: {
@@ -475,8 +469,6 @@ export const fleet: Catalog<typeof en> = {
       servers: "Servidores",
       plan: "Plan",
     },
-    next: "Continuar",
-    back: "Atrás",
     showPlan: "Ver el plan",
     action: {
       legend: "Qué ejecutar",
@@ -519,7 +511,7 @@ export const fleet: Catalog<typeof en> = {
       serial: "A la vez",
       serialHelp: "Servidores a la vez, o una parte como 25%. {value} por defecto.",
       serialInvalid: "Escribe un número de servidores, 1 o más, o una parte del 1% al 100%.",
-      maxFailures: "Parar tras",
+      maxFailures: "Detener tras",
       maxFailuresHelp: "Servidores fallidos antes de saltarse el resto. {value} por defecto.",
       maxFailuresHelpNever: "Servidores fallidos antes de saltarse el resto. Por defecto no para nunca.",
       maxFailuresInvalid: "Escribe un número de servidores fallidos, 0 o más.",
@@ -528,7 +520,7 @@ export const fleet: Catalog<typeof en> = {
       noCanary: "Ninguno",
     },
     plan: {
-      alsoNoust: "También actualiza Noust: su consola se reinicia y el trabajo la espera",
+      alsoNoust: "También actualiza Noust: su consola se reinicia y la tarea la espera",
       noustFromTo: "Noust {current} a {target}",
       alsoNoustNote: {
         one: "{count} servidor también actualiza Noust con su sistema. Su consola se reinicia durante la actualización; la acción espera a que vuelva y lee cómo terminó.",
@@ -575,18 +567,18 @@ export const fleet: Catalog<typeof en> = {
       certificates: { one: "{count} certificado renovado.", other: "{count} certificados renovados." },
       certificateUntil: "{names}: válido hasta el {date}.",
       certificateRenewed: "{names}: renovado.",
-      logTitle: "El log del trabajo en el servidor",
-      logLabel: "Log del trabajo {job} en {name}",
-      logLoading: "Cargando el log del trabajo en {name}",
-      logFailed: "No se pudo leer el trabajo en {name}",
-      logEmpty: "El trabajo no escribió nada en su log.",
-      logWaiting: "Esperando la primera línea del trabajo.",
-      logTruncated: "Solo se muestra el final del log: completo está en el servidor.",
+      logTitle: "El registro de la tarea en el servidor",
+      logLabel: "Registro de la tarea {job} en {name}",
+      logLoading: "Cargando el registro de la tarea en {name}",
+      logFailed: "No se pudo leer la tarea en {name}",
+      logEmpty: "La tarea no escribió nada en su registro.",
+      logWaiting: "Esperando la primera línea de la tarea.",
+      logTruncated: "Solo se muestra el final del registro: completo está en el servidor.",
       live: "En directo",
-      connecting: "Conectando con el trabajo",
+      connecting: "Conectando con la tarea",
       noJobs: "Todavía no se ha ejecutado nada en este servidor.",
-      jobsLabel: "Trabajos en {name}",
-      jobTab: "Trabajo {number}",
+      jobsLabel: "Tareas en {name}",
+      jobTab: "Tarea {number}",
       deploymentLink: "Despliegue {id}",
       backupLink: "Copia {id}",
       openOnServer: "Abrir en {name}",
@@ -611,16 +603,11 @@ export const fleet: Catalog<typeof en> = {
     detailsFor: "Detalles de {name}",
     drawerTitle: "Esta acción en {name}",
     why: "Por qué",
-    started: "Empezó",
-    nodeJobs: "Tareas en el servidor",
+    started: "Iniciado",
     notYet: "Todavía no",
     output: "Lo que dijo {name}",
     items: "Cada aplicación",
     state: {
-      queued: "En cola",
-      running: "En curso",
-      succeeded: "Correcto",
-      failed: "Fallido",
       skipped: "Saltado",
       unreachable: "No responde",
       refused: "Rechazado",
@@ -641,13 +628,9 @@ export const fleet: Catalog<typeof en> = {
       rolled_back: { one: "{count} devuelto", other: "{count} devueltos" },
     },
     status: {
-      queued: "En cola",
-      running: "En curso",
       succeeded: "Correcta",
-      failed: "Fallida",
       aborted: "Parada tras demasiados fallos",
       interrupted: "Interrumpida",
-      unknown: "Desconocido",
     },
     reason: {
       policy: "Este servidor no deja a esta central hacer esto",

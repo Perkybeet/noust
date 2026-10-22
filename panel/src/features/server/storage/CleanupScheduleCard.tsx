@@ -36,6 +36,7 @@ import type { CleanupPolicy, CleanupSchedule } from "../queries";
 import { useServerJob } from "../serverJob";
 import { EMPTY_DRAFT, JOURNAL_MAX_MB, JOURNAL_MIN_MB, draftOf, policyBody, policyProblems, runsDocker } from "./cleanupPolicy";
 import type { PolicyDraft, PolicyProblem } from "./cleanupPolicy";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** What a scheduled action is called; an action this console does not know keeps its id. */
 export function cleanupActionLabel(t: T, action: string): string {
@@ -129,7 +130,7 @@ function PolicyEditor({ schedule, open, onOpenChange }: EditorProps) {
       description={t("server.storage.schedule.editDescription")}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("server.storage.schedule.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {t("server.storage.schedule.save")}
           </Button>
@@ -197,7 +198,7 @@ export function CleanupScheduleCard() {
       query={query}
       label={t("server.storage.schedule.label")}
       skeleton={
-        <Card loading level={2} title={t("server.storage.schedule.title")} padding="sm" actions={<Skeleton className="h-control-sm w-24 rounded-control" />}>
+        <Card loading level={2} title={t("server.storage.schedule.title")} icon={OBJECT_ICONS.schedule} padding="sm" actions={<Skeleton className="h-control-sm w-24 rounded-control" />}>
           <Skeleton className="h-32 w-full" />
         </Card>
       }
@@ -250,7 +251,7 @@ function CleanupSchedulePanel({ schedule }: { schedule: CleanupSchedule }) {
   return (
     <Card
       level={2}
-      title={t("server.storage.schedule.title")}
+      title={t("server.storage.schedule.title")} icon={OBJECT_ICONS.schedule}
       description={t("server.storage.schedule.description")}
       padding="sm"
       actions={
@@ -261,7 +262,7 @@ function CleanupSchedulePanel({ schedule }: { schedule: CleanupSchedule }) {
             </Button>
           ) : null}
           <Button icon={<Pencil aria-hidden="true" />} size="sm" onClick={() => setEditing(true)}>
-            {policy.enabled ? t("server.storage.schedule.edit") : t("server.storage.schedule.set")}
+            {policy.enabled ? t("common.words.edit") : t("server.storage.schedule.set")}
           </Button>
         </div>
       }

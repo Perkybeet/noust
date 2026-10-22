@@ -100,7 +100,7 @@ function CredentialDialog({
       footer={
         <>
           <Button disabled={run.isPending} onClick={close}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form="git-credential" variant="primary" loading={run.isPending}>
             {t("sources.credential.dialog.submit")}
@@ -199,7 +199,7 @@ export function GitCredentialCard({ domain, repository }: { domain: string; repo
               {t("sources.credential.replace")}
             </Button>
             <Button icon={<SETTINGS_ICONS.remove aria-hidden="true" />} size="sm" variant="ghost" onClick={() => elevated(() => setRemoving(true))}>
-              {t("sources.credential.remove")}
+              {t("common.words.remove")}
             </Button>
           </div>
         ) : null}

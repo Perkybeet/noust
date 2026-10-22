@@ -2582,7 +2582,7 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
     match = re.search(rf"({BK_APP}_\d{{8}}_\d{{6}})", pushed.stdout + pushed.stderr)
     sc.check(match is not None, "run-schedule did not name the backup it took")
     backup_id = match.group(1) if match else ""
-    # A destination is encrypted unless told otherwise (3.4): what lands on the server has
+    # A destination is encrypted unless told otherwise (4.0): what lands on the server has
     # neither the name nor the body of the backup, and the listing below is how it is found.
     arrived = sc.run(
         f"docker exec {sftp} find /home/{SFTP_USER}/upload/noust -type f",
@@ -7666,7 +7666,7 @@ def random_container_name() -> str:
 
 
 # ---------------------------------------------------------------------------
-# 3.4: container applications (a Dockerfile, an image from a registry, Railpack)
+# 4.0: container applications (a Dockerfile, an image from a registry, Railpack)
 # ---------------------------------------------------------------------------
 
 CONTAINER_DOMAIN = "ctr.test"
@@ -8123,7 +8123,7 @@ def parse_args() -> argparse.Namespace:
 
 
 # ---------------------------------------------------------------------------
-# 3.4: sites that were already running, and the disk an application takes
+# 4.0: sites that were already running, and the disk an application takes
 # ---------------------------------------------------------------------------
 
 NATIVE_ROOT = "/srv/native"

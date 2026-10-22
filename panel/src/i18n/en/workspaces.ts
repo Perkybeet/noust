@@ -17,7 +17,6 @@ export const workspaces = {
   problems: "What was found wrong",
   applications: "Applications",
   libraries: "Not applications",
-  type: "Type",
   dependsOn: "Depends on",
   watches: "Deploys when it changes",
   domainFor: "Domain for {name}",
@@ -29,7 +28,4 @@ export const workspaces = {
   queuedTitle: "The applications are being created",
   queuedBody: "Each one builds on its own. Follow it from its page.",
   open_app: "Open {domain}",
-  close: "Close",
-  cancel: "Cancel",
-  fromTerminal: "The same, from a terminal",
 } as const;

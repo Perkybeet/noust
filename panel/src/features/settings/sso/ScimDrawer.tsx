@@ -120,7 +120,7 @@ export function ScimDrawer({ source, onClose }: ScimDrawerProps) {
         size="md"
         title={t("scimAdmin.token.title")}
         description={t("scimAdmin.token.description", { name: issued.source.name })}
-        footer={<Button variant="primary" onClick={onClose}>{t("scimAdmin.token.done")}</Button>}
+        footer={<Button variant="primary" onClick={onClose}>{t("common.words.done")}</Button>}
       >
         <TokenOnce saved={issued} endpoint={issued.base_url} />
       </Drawer>
@@ -134,12 +134,12 @@ export function ScimDrawer({ source, onClose }: ScimDrawerProps) {
         if (!next && !save.isPending) onClose();
       }}
       size="md"
-      title={creating ? t("scimAdmin.form.createTitle") : t("scimAdmin.form.editTitle", { name: source.name })}
+      title={creating ? t("scimAdmin.form.createTitle") : t("common.words.editNamed", { name: source.name })}
       description={t("scimAdmin.form.description")}
       footer={
         <>
           <Button disabled={save.isPending} onClick={onClose}>
-            {t("scimAdmin.form.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {creating ? t("scimAdmin.form.create") : t("scimAdmin.form.save")}
@@ -160,7 +160,7 @@ export function ScimDrawer({ source, onClose }: ScimDrawerProps) {
           </InlineMessage>
         ) : null}
         {creating ? (
-          <Field label={t("scimAdmin.form.name")} description={t("scimAdmin.form.nameHelp")} error={tried && draft.name.trim() === "" ? required : undefined}>
+          <Field label={t("common.words.name")} description={t("scimAdmin.form.nameHelp")} error={tried && draft.name.trim() === "" ? required : undefined}>
             <Input
               mono
               autoComplete="off"

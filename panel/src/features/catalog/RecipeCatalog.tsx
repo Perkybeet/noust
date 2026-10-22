@@ -144,7 +144,7 @@ export function CatalogFilterBar({ search, onSearchChange, catalog }: CatalogFil
         ? {
             actions: (
               <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={() => onSearchChange({})}>
-                {t("catalog.filters.clear")}
+                {t("common.words.clearFilters")}
               </Button>
             ),
           }
@@ -226,7 +226,7 @@ export function CatalogResults({ catalog, search, onClear, onChoose, opening = n
             title={t("catalog.empty.noMatch")}
             action={
               <Button size="sm" variant="ghost" onClick={onClear}>
-                {t("catalog.filters.clear")}
+                {t("common.words.clearFilters")}
               </Button>
             }
           />

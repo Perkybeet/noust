@@ -36,6 +36,7 @@ import { WEEKDAYS, weekdayLabel } from "../databases/backups/schedule";
 import type { Weekday } from "../databases/backups/schedule";
 import { CHANNELS, EMPTY_DRAFT, bodyOf, crossesMidnight, daysWords, draftOf, problemsOf } from "./autoUpdate";
 import type { AutoUpdateDraft, Channel } from "./autoUpdate";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function channelOptions(t: T) {
   return CHANNELS.map((value) => ({
@@ -87,9 +88,9 @@ function Editor({ state, onClose }: { state: AutoUpdate; onClose: () => void }) 
       description={t("autoUpdate.editor.description")}
       footer={
         <>
-          <Button onClick={onClose}>{t("autoUpdate.editor.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
-            {t("autoUpdate.editor.save")}
+            {t("common.words.save")}
           </Button>
         </>
       }
@@ -141,7 +142,7 @@ function Editor({ state, onClose }: { state: AutoUpdate; onClose: () => void }) 
 
 /** What the last run did, as one line: the outcome, and the server's own sentence. */
 function lastRunItem(t: T, last: NonNullable<AutoUpdate["last_run"]>): KeyValueItem {
-  const outcome = last.outcome === "updated" ? t("autoUpdate.outcome.updated") : last.outcome === "failed" ? t("autoUpdate.outcome.failed") : t("autoUpdate.outcome.skipped");
+  const outcome = last.outcome === "updated" ? t("autoUpdate.outcome.updated") : last.outcome === "failed" ? t("common.statusPill.failed") : t("autoUpdate.outcome.skipped");
   return {
     label: t("autoUpdate.facts.lastRun"),
     value: (
@@ -176,7 +177,7 @@ export function AutoUpdateSection() {
       query={query}
       label={t("autoUpdate.what")}
       skeleton={
-        <Card loading level={3} title={t("autoUpdate.title")} description={t("autoUpdate.description")}>
+        <Card loading level={3} title={t("autoUpdate.title")} icon={OBJECT_ICONS.update} description={t("autoUpdate.description")}>
           <div className="flex flex-col gap-3">
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-24 w-full" />
@@ -227,7 +228,7 @@ function AutoUpdateCard({ state }: { state: AutoUpdate }) {
     <>
       <Card
         level={3}
-        title={t("autoUpdate.title")}
+        title={t("autoUpdate.title")} icon={OBJECT_ICONS.update}
         status={
           <StatusPill
             state={PILL[featureState]}
@@ -246,7 +247,7 @@ function AutoUpdateCard({ state }: { state: AutoUpdate }) {
         }
         actions={
           <Button icon={<Settings2 aria-hidden="true" />} size="sm" onClick={() => setEditing(true)}>
-            {settings.enabled || state.timer.installed ? t("autoUpdate.edit") : t("autoUpdate.set")}
+            {settings.enabled || state.timer.installed ? t("common.words.edit") : t("autoUpdate.set")}
           </Button>
         }
       >

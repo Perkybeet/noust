@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The native language recipes of 3.4, built with the real toolchains (checklist A-40).
+The native language recipes of 4.0, built with the real toolchains (checklist A-40).
 
 The JVM (Maven and Gradle, Java and Kotlin), .NET, Elixir/Mix and Deno deployers were written
 and unit-tested against a fake runner: they decide what to run, and a fake runner only ever

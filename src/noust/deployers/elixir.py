@@ -4,7 +4,7 @@
 """
 Elixir and Phoenix applications: a Mix release, run as the unit (checklist A-40).
 
-Until 3.4 a repository with a ``mix.exs`` was only ever a container. A Mix release is what the
+Until 4.0 a repository with a ``mix.exs`` was only ever a container. A Mix release is what the
 BEAM community deploys: a directory with the Erlang runtime inside, started by one script, so
 the server needs Elixir only to build it and a rollback is a symlink to a release that carries
 everything it runs on.

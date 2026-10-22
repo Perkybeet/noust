@@ -18,7 +18,7 @@ needs and everything else is built to survive. ``strict`` adds the privileged
 and resource system calls and, where the runtime has no JIT, a ban on writable
 executable memory; it is opt-in because a runtime that maps its own code (Node's
 V8, a Python with cffi) breaks under it. ``off`` is the unit as it was before
-3.4, for the application that cannot run any other way. The directives are one
+4.0, for the application that cannot run any other way. The directives are one
 list built here, which the unit template renders when a unit is created and
 :func:`with_hardening` writes into one that exists, so the two cannot disagree.
 

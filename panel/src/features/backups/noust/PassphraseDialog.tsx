@@ -67,7 +67,7 @@ export function PassphraseDialog({ open, onOpenChange, title, description, submi
       footer={
         <>
           <Button disabled={start.isPending} onClick={() => close(false)}>
-            {t("selfBackup.schedule.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={start.isPending}>
             {submit}

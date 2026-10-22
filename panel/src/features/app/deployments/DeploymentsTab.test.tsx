@@ -275,9 +275,9 @@ describe("an app with releases", { timeout: 20_000 }, () => {
     expect(within(table).getAllByRole("row")[1]).toBe(built);
 
     await user.click(within(built).getByRole("button", { name: "Actions for Built, not serving" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Make it serve" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Go live" }));
     const dialog = await screen.findByRole("alertdialog");
-    await user.click(within(dialog).getByRole("button", { name: "Make it serve" }));
+    await user.click(within(dialog).getByRole("button", { name: "Go live" }));
     await waitFor(() => {
       expect(backend.callsTo(`POST /api/apps/${TAB_DOMAIN}/releases/${waiting.id}/promote`)[0]?.body).toEqual({ schema_changed_ok: false, frozen_ok: false });
     });

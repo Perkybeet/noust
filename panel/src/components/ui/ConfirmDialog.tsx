@@ -89,8 +89,8 @@ interface ConfirmDialogBase {
 export type ConfirmDialogProps = ConfirmDialogBase &
   (
     | {
-        /** Defaults to `type` whenever `confirmText` is given, as every 3.0 call site does. */
-        friction?: "type";
+        /** Said at every call (FM-6): naming what to type is `type`. */
+        friction: "type";
         /** The exact text the operator must type, usually the resource name. */
         confirmText: string;
       }
@@ -155,7 +155,7 @@ function Confirmation({
   title,
   description,
   confirmText,
-  friction = "type",
+  friction,
   actionLabel,
   cancelLabel,
   destructive = true,
@@ -169,7 +169,7 @@ function Confirmation({
   size = "sm",
   explainError,
   failureAction,
-}: ConfirmDialogBase & { friction?: "simple" | "type"; confirmText?: string | undefined }) {
+}: ConfirmDialogBase & { friction: "simple" | "type"; confirmText?: string | undefined }) {
   const t = useT();
   const [internalOpen, setInternalOpen] = useState(false);
   const [typed, setTyped] = useState("");

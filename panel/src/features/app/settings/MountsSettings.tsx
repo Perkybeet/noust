@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, FolderInput, Pencil, Trash2 } from "lucide-react";
+import { FolderInput, Pencil } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -36,6 +36,7 @@ import {
 } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 const OCTAL_MODE = /^[0-7]{3,4}$/;
 
@@ -179,7 +180,7 @@ function MountDialog({
       footer={
         <>
           <Button disabled={save.isPending} onClick={() => close(false)}>
-            {t("appPages.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button
             type="submit"
@@ -188,7 +189,7 @@ function MountDialog({
             loading={save.isPending}
             disabled={!loaded}
           >
-            {t("runtime.mounts.save")}
+            {t("common.words.save")}
           </Button>
         </>
       }
@@ -335,7 +336,7 @@ function MountRow({ domain, mount }: { domain: string; mount: Mount }) {
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex min-w-0 items-baseline gap-2">
           {isFile ? (
-            <FileText
+            <OBJECT_ICONS.file
               aria-hidden="true"
               className="size-icon-sm shrink-0 self-center text-fg-muted"
             />
@@ -402,18 +403,18 @@ function MountRow({ domain, mount }: { domain: string; mount: Mount }) {
               setEditing(true);
             }}
           >
-            {t("runtime.mounts.edit")}
+            {t("common.words.edit")}
           </MenuItem>
         ) : null}
         {isFile ? <MenuSeparator /> : null}
         <MenuItem
-          icon={<Trash2 />}
+          icon={<ICONS.delete />}
           destructive
           onClick={() => {
             setRemoving(true);
           }}
         >
-          {t("runtime.mounts.remove")}
+          {t("common.words.remove")}
         </MenuItem>
       </Menu>
       {editing ? (
@@ -435,7 +436,7 @@ function MountRow({ domain, mount }: { domain: string; mount: Mount }) {
             ? t("runtime.mounts.removeFileDescription")
             : t("runtime.mounts.removePathDescription")
         }
-        actionLabel={t("runtime.mounts.remove")}
+        actionLabel={t("common.words.remove")}
         destructive
         onConfirm={async () => {
           await remove.mutateAsync();
@@ -472,7 +473,7 @@ function MountsCard({ domain }: { domain: string }) {
           <Button
             size="sm"
             variant="primary"
-            icon={<FileText aria-hidden="true" />}
+            icon={<OBJECT_ICONS.file aria-hidden="true" />}
             onClick={() => {
               setAdding("file");
             }}

@@ -5,7 +5,7 @@
 What an application's health check asks beyond its path, statuses and wait.
 
 The path, the accepted statuses and the wait are columns of ``apps`` since
-schema v9 and are written by ``NoustStore.set_app_health``. Everything 3.4 adds
+schema v9 and are written by ``NoustStore.set_app_health``. Everything 4.0 adds
 to the check lives here, in the ``app_health`` table (``schema_v14.RUNTIME_SQL``),
 one row per application: whether it asks over HTTP or by running a command, the
 method, scheme, host name and port of the request, the seconds between probes,
@@ -42,7 +42,7 @@ from noust.validators.health import (
 @dataclass(frozen=True)
 class HealthExtras:
     """
-    The part of a health check the 3.4 settings add.
+    The part of a health check the 4.0 settings add.
 
     Every field None is the gate's own behaviour: a GET over http to the
     application's port, a probe every two seconds, as many as fit in the wait,

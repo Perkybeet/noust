@@ -114,7 +114,7 @@ function Found({ preview, t }: { preview: Adoption; t: T }) {
       label: t("newApp.adopt.containers"),
       value: preview.containers.length > 0 ? preview.containers.join(", ") : t("newApp.adopt.noContainers"),
       ...(preview.containers.length > 0 ? {} : prose),
-      hint: preview.running ? t("newApp.adopt.running") : t("newApp.adopt.notRunning"),
+      hint: preview.running ? t("common.statusPill.running") : t("newApp.adopt.notRunning"),
     },
     preview.site !== null
       ? { label: t("newApp.adopt.site"), value: preview.site, hint: preview.site_name ? t("newApp.adopt.siteNamed", { name: preview.site_name }) : t("newApp.adopt.siteOperator") }
@@ -285,7 +285,7 @@ function useStackAdoption(): AdoptionState {
 
       {ready ? <Found preview={previewed.answer} t={t} /> : null}
 
-      <CommandHint command={`noust app adopt ${shownDomain} --path ${shownPath}`} label={t("newApp.source.terminal")} />
+      <CommandHint command={`noust app adopt ${shownDomain} --path ${shownPath}`} label={t("common.words.fromTerminal")} />
     </div>
   );
 

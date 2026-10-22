@@ -12,7 +12,7 @@ import { toast } from "./toast";
 
 function setup(onConfirm: () => Promise<void>) {
   render(
-    <ConfirmDialog
+    <ConfirmDialog friction="type"
       title="Delete example.com"
       description="Stops the service and removes the site. Backups are kept."
       confirmText="example.com"
@@ -218,7 +218,7 @@ describe("ConfirmDialog", () => {
   it("holds the options that change what the action does, between the question and the name, outside its description", async () => {
     const user = userEvent.setup();
     render(
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         title="Delete example.com"
         description="Stops the service and removes the site."
         confirmText="example.com"
@@ -292,7 +292,7 @@ describe("ConfirmDialog", () => {
       expect(info).toHaveBeenCalledOnce();
       const [title, options] = info.mock.calls[0] ?? [];
       expect(title).toBe("Waiting for approval");
-      expect(options?.action?.label).toBe("Open Approvals");
+      expect(options?.action?.label).toBe("Open approvals");
       expect(error).not.toHaveBeenCalled();
       info.mockRestore();
       error.mockRestore();

@@ -27,6 +27,7 @@ import { cleanupHistoryQuery } from "../queries";
 import type { CleanupRun } from "../queries";
 import { cleanupActionLabel } from "./CleanupScheduleCard";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** Runs the card keeps room for while they load. */
 const TYPICAL_RUNS = 4;
@@ -53,7 +54,7 @@ export function runStatus(t: T, status: string): { label: string; state: Status 
     case "partial":
       return { label: t("server.storage.history.status.partial"), state: "warning" };
     case "failed":
-      return { label: t("server.storage.history.status.failed"), state: "failed" };
+      return { label: t("common.words.failedFeminine"), state: "failed" };
     case "skipped":
       return { label: t("server.storage.history.status.skipped"), state: "stopped" };
     default:
@@ -189,13 +190,12 @@ function CleanupRuns({ runs }: { runs: CleanupRun[] }) {
     },
   ];
   return (
-    <Card level={2} title={t("server.storage.history.title")} description={t("server.storage.history.description")} padding="none">
+    <Card level={2} title={t("server.storage.history.title")} icon={OBJECT_ICONS.activity} description={t("server.storage.history.description")} padding="none">
       <DataTable
         columns={columns}
         rows={runs}
         getRowId={(row) => String(row.id)}
         caption={t("server.storage.history.caption")}
-        mobile="cards"
         empty={<EmptyState variant="inline" title={t("server.storage.history.empty")} />}
         rowActions={(row) => (
           <Button size="sm" variant="ghost" onClick={() => setOpened(row)} aria-label={t("server.storage.history.detailFor", { id: row.id })}>

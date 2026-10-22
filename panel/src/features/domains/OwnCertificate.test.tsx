@@ -196,7 +196,7 @@ describe("a name that holds a certificate of its own", () => {
     const admin = await rowOf(table, ADMIN);
 
     expect(within(admin).getByText("Certificado propio")).toBeInTheDocument();
-    await user.click(within(admin).getByRole("button", { name: `Acciones para ${ADMIN}` }));
+    await user.click(within(admin).getByRole("button", { name: `Acciones de ${ADMIN}` }));
     expect(await screen.findByRole("menuitem", { name: "Usar el certificado de la aplicación" })).toBeInTheDocument();
     await act(() => setLocale("en"));
   });

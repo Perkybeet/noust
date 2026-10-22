@@ -4,7 +4,7 @@
 """
 Calling the console's own API from inside the console, as the caller.
 
-The MCP server is a client of the API (rule 3 of the 3.4 design): it
+The MCP server is a client of the API (rule 3 of the 4.0 design): it
 re-implements nothing a route does. A tool call becomes an ordinary request to
 the very application that is serving it, carrying the caller's own bearer token,
 its address and the host it asked for, and travelling the whole stack -

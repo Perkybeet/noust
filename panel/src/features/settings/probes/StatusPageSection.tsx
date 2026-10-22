@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Globe, Pencil, Unlink } from "lucide-react";
+import { Pencil, Unlink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ElevationCancelledError } from "../../../api/client";
@@ -117,7 +117,7 @@ function PageJobDialog({ doing, open, onClose, domain }: { doing: Doing; open: b
               </ExternalLink>
             ) : null}
             <Button variant="primary" disabled={running} onClick={close}>
-              {finished ? t("probes.page.done") : t("probes.page.close")}
+              {finished ? t("common.words.done") : t("common.words.close")}
             </Button>
           </>
         )
@@ -134,7 +134,7 @@ function PageJobDialog({ doing, open, onClose, domain }: { doing: Doing; open: b
                 begin();
               }}
             >
-              <Field label={t("probes.page.publish.domainLabel")} description={t("probes.page.publish.domainDescription")} error={lacksName && name.trim() === "" ? t("probes.page.publish.nameMissing") : undefined}>
+              <Field label={t("common.words.name")} description={t("probes.page.publish.domainDescription")} error={lacksName && name.trim() === "" ? t("probes.page.publish.nameMissing") : undefined}>
                 <Input
                   ref={nameRef}
                   mono
@@ -311,7 +311,7 @@ function PageCard({ page }: { page: StatusPage }) {
             ) : (
               <Button
                 size="sm"
-                icon={<Globe aria-hidden="true" />}
+                icon={<OBJECT_ICONS.addresses aria-hidden="true" />}
                 onClick={() => {
                   setDoing("publish");
                 }}
@@ -325,7 +325,7 @@ function PageCard({ page }: { page: StatusPage }) {
           label={t("probes.page.writeLabel")}
           help={t("probes.page.writeHelp")}
           action={
-            <Button size="sm" icon={<FileText aria-hidden="true" />} loading={write.isPending} onClick={() => write.mutate()}>
+            <Button size="sm" icon={<OBJECT_ICONS.file aria-hidden="true" />} loading={write.isPending} onClick={() => write.mutate()}>
               {t("probes.page.write")}
             </Button>
           }

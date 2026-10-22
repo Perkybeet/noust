@@ -33,9 +33,9 @@ const PAGES: readonly { name: string; path: string }[] = [
   { name: "server-system", path: "/server/system" },
   { name: "server-system-network", path: "/server/system?view=network" },
   { name: "server-system-monitor", path: "/server/system?view=monitor" },
-  { name: "service", path: "/server/services/wasm-shop-example-net" },
-  { name: "service-logs", path: "/server/services/wasm-shop-example-net/logs" },
-  { name: "service-unit", path: "/server/services/wasm-shop-example-net/unit" },
+  { name: "service", path: "/server/services/shop-example-net" },
+  { name: "service-logs", path: "/server/services/shop-example-net/logs" },
+  { name: "service-unit", path: "/server/services/shop-example-net/unit" },
 ];
 
 /**

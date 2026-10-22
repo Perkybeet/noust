@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { Archive, BookOpen, BookText, Box, Database, FileCode, FileUp, FolderKanban, Keyboard, Landmark, LogOut, Monitor, Moon, Network, Plus, Server, ShieldCheck, Sun, Unplug, Users } from "lucide-react";
+import { BookOpen, BookText, Box, FileUp, Keyboard, Landmark, LogOut, Monitor, Moon, Plus, Sun, Unplug } from "lucide-react";
 import { useMemo } from "react";
 
 import { appQuery, appTypesQuery, appsQuery } from "../api/queries/apps";
@@ -30,6 +30,7 @@ import { useTheme } from "./theme";
 import type { ThemeChoice } from "./theme";
 import { appVerbCommands } from "./verbCommands";
 import type { AppVerb } from "./verbCommands";
+import { OBJECT_ICONS } from "../components/ui/objectIcons";
 
 const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const;
 
@@ -194,7 +195,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
         id: "action:new-database",
         group: "Actions",
         label: t("shell.commands.newDatabase"),
-        icon: <Database />,
+        icon: <OBJECT_ICONS.database />,
         keywords: t("shell.commands.newDatabaseKeywords"),
         kind: "navigate",
         run: () => {
@@ -205,7 +206,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
         id: "action:new-backup",
         group: "Actions",
         label: t("shell.commands.newBackup"),
-        icon: <Archive />,
+        icon: <OBJECT_ICONS.backup />,
         keywords: t("shell.commands.newBackupKeywords"),
         kind: "navigate",
         run: () => {
@@ -216,7 +217,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
         id: "action:new-site",
         group: "Actions",
         label: t("shell.commands.newSite"),
-        icon: <FileCode />,
+        icon: <OBJECT_ICONS.site />,
         keywords: t("shell.commands.newSiteKeywords"),
         kind: "navigate",
         run: () => {
@@ -227,7 +228,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
         id: "action:issue-certificate",
         group: "Actions",
         label: t("shell.commands.issueCertificate"),
-        icon: <ShieldCheck />,
+        icon: <OBJECT_ICONS.certificate />,
         keywords: t("shell.commands.issueCertificateKeywords"),
         kind: "navigate",
         run: () => {
@@ -240,7 +241,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
               id: "action:new-project",
               group: "Actions" as const,
               label: t("shell.commands.newProject"),
-              icon: <FolderKanban />,
+              icon: <OBJECT_ICONS.project />,
               keywords: t("shell.commands.newProjectKeywords"),
               kind: "navigate" as const,
               run: () => {
@@ -255,7 +256,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
               id: "action:new-team",
               group: "Actions" as const,
               label: t("shell.commands.newTeam"),
-              icon: <Users />,
+              icon: <OBJECT_ICONS.team />,
               keywords: t("shell.commands.newTeamKeywords"),
               kind: "navigate" as const,
               run: () => {
@@ -341,7 +342,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
                     id: "server:all",
                     group: "Servers" as const,
                     label: t("fleet.selector.viewAll"),
-                    icon: <Network />,
+                    icon: <OBJECT_ICONS.node />,
                     keywords: t("fleet.selector.keywords"),
                     kind: "navigate" as const,
                     run: () => {
@@ -375,7 +376,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
                     id: "server:this",
                     group: "Servers" as const,
                     label: t("fleet.selector.switchToThisServer", { name: thisServerName }),
-                    icon: <Server />,
+                    icon: <OBJECT_ICONS.server />,
                     keywords: t("fleet.selector.keywords"),
                     kind: "navigate" as const,
                     run: switchTo(null, thisServerName),
@@ -388,7 +389,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
                 id: `server:${candidate.name}`,
                 group: "Servers" as const,
                 label: t("fleet.selector.switchTo", { name: candidate.name }),
-                icon: <Server />,
+                icon: <OBJECT_ICONS.server />,
                 keywords: t("fleet.selector.keywords"),
                 kind: "navigate" as const,
                 run: switchTo(candidate.name, candidate.name),

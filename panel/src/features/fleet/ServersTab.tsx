@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { BellOff, BellRing, Cable, Download, FileUp, KeyRound, Link2, PanelTop, Play, RotateCw, Tags, Trash2, UsersRound, X } from "lucide-react";
+import { BellOff, BellRing, Download, FileUp, KeyRound, Link2, Play, RotateCw, Tags, UsersRound, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
@@ -40,6 +40,8 @@ import { NodeTeamDialog, RekeyDialog } from "./NodeAccessDialogs";
 import { ConnectionDialog, InventoryDialog, LinkMachineDialog } from "./NodeToolsDialogs";
 import { fetchInventory } from "./nodeTools";
 import { OutcomePill, PartialNotice, ServerCell, StateFilter, useFleetView } from "./parts";
+import { ICONS } from "../../components/ui/icons";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** The Servers view's own states, for its filter. */
 const SERVER_STATES = ["answering", "down", "older"] as const;
@@ -244,7 +246,7 @@ function ServerMenu({
   });
   return (
     <RowMenu name={origin.node}>
-      <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/", search: { node: origin.local ? undefined : origin.node } })}>
+      <MenuItem icon={<OBJECT_ICONS.server />} onClick={() => void navigate({ to: "/", search: { node: origin.local ? undefined : origin.node } })}>
         {t("fleet.servers.open")}
       </MenuItem>
       {origin.local ? null : (
@@ -274,7 +276,7 @@ function ServerMenu({
           </MenuItem>
           <MenuSeparator />
           <MenuItem
-            icon={<Cable />}
+            icon={<OBJECT_ICONS.tunnel />}
             onClick={() => {
               onTool("connection");
             }}
@@ -317,7 +319,7 @@ function ServerMenu({
             {t("nodeTools.menu.applyInventory")}
           </MenuItem>
           <MenuSeparator />
-          <MenuItem icon={<Trash2 />} destructive onClick={onRemove}>
+          <MenuItem icon={<ICONS.delete />} destructive onClick={onRemove}>
             {t("fleet.servers.remove")}
           </MenuItem>
         </>
@@ -458,7 +460,6 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
         getRowId={(row) => originOf(row).node}
         loading={view.isPending}
         skeletonRows={3}
-        mobile="cards"
         pagination="fleet-servers"
         rowActions={(row) => (
           <ServerMenu
@@ -495,13 +496,13 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
                   onSearchChange({});
                 }}
               >
-                {t("fleet.filters.clear")}
+                {t("common.words.clearFilters")}
               </Button>
             }
           />
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust node list" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust node list" />
       {labelling !== null ? (
         <LabelsDialog
           node={originOf(labelling).node}

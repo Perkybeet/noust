@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { CircleMinus, ScrollText } from "lucide-react";
+import { CircleMinus } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 
 import { importReportOf } from "../../api/queries/appImport";
@@ -16,16 +16,17 @@ import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { JobOutputDrawer } from "../databases/jobs";
 import { NoteText } from "./NoteText";
-import { SuccessRow } from "./SuccessRow";
 import { useDeploymentLanding } from "./useDeploymentLanding";
 import type { LandingTarget } from "./useDeploymentLanding";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import { ArrivalRow } from "../app/ArrivalRow";
 
 /** The deployment this job's build is recorded as, once the deployer wrote its row. */
 function BuildLogLink({ domain, id }: { domain: string; id: number }) {
   const t = useT();
   return (
     <TextLink to="/apps/$domain/deployments/$id" params={{ domain, id: String(id) }} size="ui" className="inline-flex w-fit items-center gap-1.5">
-      <ScrollText aria-hidden="true" className="size-icon-sm" />
+      <OBJECT_ICONS.log aria-hidden="true" className="size-icon-sm" />
       {t("newApp.deploy.buildLog")}
     </TextLink>
   );
@@ -186,8 +187,9 @@ export function JobOutcome({ kind, target, followedJob }: JobOutcomeProps) {
   const report = kind === "import" ? importReportOf(job.result) : null;
   return (
     <div className="flex flex-col gap-5">
-      <SuccessRow
+      <ArrivalRow
         domain={target.domain}
+        next
         deploymentId={landing?.kind === "deployment" ? landing.id : (job.deployment_id ?? null)}
         title={t(kind === "import" ? "newApp.deploy.imported" : "newApp.deploy.deployed", { domain: target.domain })}
         {...(log !== undefined ? { actions: log } : {})}

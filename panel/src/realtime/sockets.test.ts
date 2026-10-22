@@ -115,7 +115,7 @@ describe("useLogStream", () => {
     const socket = FakeWebSocket.latest();
     act(() => {
       socket.open();
-      socket.frame({ type: "connected", domain: "shop.example.com", service: "wasm-shop" });
+      socket.frame({ type: "connected", domain: "shop.example.com", service: "shop-web" });
       socket.frame({ type: "log", data: "2026-09-25T10:00:00 shop[1]: listening on :3000" });
       socket.frame({ type: "warning", data: "journalctl: some lines were rotated" });
     });

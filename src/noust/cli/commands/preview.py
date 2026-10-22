@@ -85,7 +85,7 @@ def cli() -> None:
     default=None,
     help="Which of the application's variables a preview is given: 'allowlist' (only "
     "--allow-env, the default for previews turned on now) or 'all' (every one less "
-    "--exclude-env, as before 3.4).",
+    "--exclude-env, as before 4.0).",
 )
 @click.option(
     "--allow-env",
@@ -166,7 +166,7 @@ def enable(
     are given only the variables you name with --allow-env, and those defined for
     previews ('noust preview vars'), and a database of their own; with '--env-mode
     all' they are given every variable of the application, production secrets
-    included, as before 3.4. Only people trusted with the repository get a preview:
+    included, as before 4.0. Only people trusted with the repository get a preview:
     pull requests from forks do not unless --forks approve makes them wait for an
     operator to approve each commit, on GitHub the author must be an owner, member
     or collaborator, and bots only with --allow-bots.

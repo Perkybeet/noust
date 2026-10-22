@@ -5,14 +5,9 @@
  * shown as it wrote it.
  */
 export const consoleAccess = {
-  nav: {
-    label: "Console address",
-    keywords: "publish expose console domain https certificate public name nginx tunnel allow list",
-    command: "Console address settings",
-  },
   documentTitle: "Console address",
   loadFailed: "Could not read whether the console is published",
-  loading: "Reading whether the console is published",
+  loading: "Loading whether the console is published",
   state: {
     title: "Public name",
     on: "Published",
@@ -51,7 +46,7 @@ export const consoleAccess = {
     twoFactorLacking: { one: "{count} account signs in with a password alone", other: "{count} accounts sign in with a password alone" },
     twoFactorFix: "Each owner enrols an authenticator or a passkey in Security after signing in, or the account is disabled.",
     twoFactorUnknown: "Noust checks it again when you preview, and says which accounts lack one.",
-    accountsLink: "Open Accounts",
+    accountsLink: "Open accounts",
     ens: "The ENS profile",
     ensOk: "It allows publishing the console.",
     ensBlocked: "The ENS profile keeps the console on loopback. Publishing needs the override, an allow-list and a confirmation, and is audited.",
@@ -61,14 +56,9 @@ export const consoleAccess = {
   dialog: {
     title: "Publish the console",
     description: "An nginx site for a name of its own, a certificate, the console told to trust nginx, and optionally an allow-list. Nothing is changed until the last button.",
-    steps: { name: "Name", review: "Review", publish: "Publish" },
-    cancel: "Cancel",
-    back: "Back",
+    steps: { review: "Review", publish: "Publish" },
     preview: "Preview",
     submit: "Publish the console",
-    close: "Close",
-    done: "Done",
-    domain: "Name",
     domainHelp: "A name that already points at this server and that no application uses, for example console.example.com.",
     domainRequired: "Enter the name the console is published at.",
     allow: "Reachable from",

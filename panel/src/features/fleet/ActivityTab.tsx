@@ -166,7 +166,6 @@ export function ActivityTab({ search, onSearchChange }: ActivityTabProps) {
         loading={view.isPending}
         skeletonRows={8}
         density="compact"
-        mobile="cards"
         empty={
           rows.length === 0 && view.data !== undefined ? (
             <EmptyState variant="inline" title={t("fleet.activity.empty")} />
@@ -182,14 +181,14 @@ export function ActivityTab({ search, onSearchChange }: ActivityTabProps) {
                     onSearchChange({});
                   }}
                 >
-                  {t("fleet.filters.clear")}
+                  {t("common.words.clearFilters")}
                 </Button>
               }
             />
           )
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet activity" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet activity" />
     </div>
   );
 }

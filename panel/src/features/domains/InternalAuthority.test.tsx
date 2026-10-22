@@ -92,7 +92,7 @@ describe("the private certificate authority", () => {
     await user.type(within(dialog).getByLabelText(/More private address ranges/), "10.20.0.0/16");
     await user.click(within(dialog).getByRole("checkbox", { name: "Trust it on this server too" }));
     await expectNoAxeViolations(dialog);
-    await user.click(within(dialog).getByRole("button", { name: "Make the authority" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create authority" }));
 
     await waitFor(() => {
       expect(backend.callsTo("POST /api/certs/ca")).toHaveLength(1);
@@ -115,7 +115,7 @@ describe("the private certificate authority", () => {
 
     const dialog = await open(user);
     await user.type(await within(dialog).findByLabelText(/More domains it may sign for/), "com");
-    await user.click(within(dialog).getByRole("button", { name: "Make the authority" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create authority" }));
 
     expect(await within(dialog).findByText(/top-level domain: the authority would sign for every name under it/)).toBeInTheDocument();
   });

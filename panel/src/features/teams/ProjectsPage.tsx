@@ -1,4 +1,4 @@
-import { FolderKanban, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 
 import { CommandHint } from "../../components/page/CommandHint";
@@ -17,6 +17,7 @@ import type { ProjectsSearch } from "./search";
 import { useOrganization } from "./useOrganization";
 import { useProjectActions } from "./useProjectActions";
 import { useResources } from "./useResources";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const ALL = "all";
 
@@ -88,7 +89,7 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
       <ListPage header={header} tabs={tabs}>
         <EmptyState
           variant="firstUse"
-          icon={<FolderKanban />}
+          icon={<OBJECT_ICONS.project />}
           title={t("teams.projects.emptyTitle")}
           description={t("teams.projects.emptyDescription")}
           {...(actions.teams.length > 0
@@ -145,7 +146,7 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
             ? {
                 actions: (
                   <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={clear}>
-                    {t("teams.clearFilters")}
+                    {t("common.words.clearFilters")}
                   </Button>
                 ),
               }
@@ -168,7 +169,7 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
             title={t("teams.projects.noMatch")}
             action={
               <Button size="sm" variant="ghost" onClick={clear}>
-                {t("teams.clearFilters")}
+                {t("common.words.clearFilters")}
               </Button>
             }
           />

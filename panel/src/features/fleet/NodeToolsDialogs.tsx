@@ -13,6 +13,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { toast } from "../../components/ui/toast";
@@ -22,6 +23,7 @@ import { fleetKeys } from "./data";
 import {
   BASTION,
   applyInventory,
+  askBastionLine,
   connectionKey,
   connectionQuery,
   isInventoryPart,
@@ -30,7 +32,7 @@ import {
   parseTimeout,
   saveConnection,
 } from "./nodeTools";
-import type { ConnectionBody, ConnectionOptions, InventoryReport } from "./nodeTools";
+import type { BastionBody, ConnectionBody, ConnectionOptions, InventoryReport } from "./nodeTools";
 import { nodeKeys } from "./nodes";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 
@@ -60,27 +62,40 @@ function ConnectionForm({ node, options, onClose }: { node: string; options: Con
   const saved = save.data;
   const current = saved ?? options;
 
+  const ask = useMutation({ mutationFn: (body: BastionBody) => askBastionLine(node, body) });
+
+  /** What was typed for the bastion, or what is wrong with it: one judgement for asking and for saving. */
+  const bastionTyped = (): { ok: true; body: BastionBody } | { ok: false; found: typeof errors } => {
+    const found: typeof errors = {};
+    const parsedKey = parseBastionKey(key);
+    if (!BASTION.test(address.trim())) found.address = t("nodeTools.connection.bastionAddressInvalid");
+    // The pinned key is kept only for the bastion it was pinned for: any other is never trusted on first use.
+    const keptFor = options.bastion?.address;
+    if (parsedKey === undefined || (parsedKey === null && keptFor !== address.trim())) found.key = t("nodeTools.connection.bastionKeyRequired");
+    return Object.keys(found).length > 0 ? { ok: false, found } : { ok: true, body: { address: address.trim(), ...(parsedKey ?? {}) } };
+  };
+
+  const showLine = (): void => {
+    if (ask.isPending) return;
+    const typed = bastionTyped();
+    setErrors(typed.ok ? {} : typed.found);
+    if (typed.ok) ask.mutate(typed.body);
+  };
+
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (save.isPending) return;
     const found: typeof errors = {};
     const wait = parseTimeout(timeout);
-    const parsedKey = parseBastionKey(key);
     if (wait === undefined) found.timeout = t("nodeTools.connection.timeoutInvalid");
-    if (through && !BASTION.test(address.trim())) found.address = t("nodeTools.connection.bastionAddressInvalid");
-    // The pinned key is kept only for the bastion it was pinned for: any other is never trusted on first use.
-    const keptFor = options.bastion?.address;
-    if (through && (parsedKey === undefined || (parsedKey === null && keptFor !== address.trim()))) found.key = t("nodeTools.connection.bastionKeyRequired");
+    const typed = through ? bastionTyped() : null;
+    if (typed !== null && !typed.ok) Object.assign(found, typed.found);
     setErrors(found);
     if (Object.keys(found).length > 0 || wait === undefined) {
       firstRef.current?.focus();
       return;
     }
-    save.mutate({
-      connect_timeout: wait,
-      bastion: through ? { address: address.trim(), ...(parsedKey ?? {}) } : null,
-      test: true,
-    });
+    save.mutate({ connect_timeout: wait, bastion: typed?.ok === true ? typed.body : null, test: true });
   };
 
   return (
@@ -96,12 +111,12 @@ function ConnectionForm({ node, options, onClose }: { node: string; options: Con
       footer={
         saved !== undefined ? (
           <Button variant="primary" onClick={onClose}>
-            {t("nodeTools.connection.close")}
+            {t("common.words.close")}
           </Button>
         ) : (
           <>
             <Button disabled={save.isPending} onClick={onClose}>
-              {t("nodeTools.connection.cancel")}
+              {t("common.words.cancel")}
             </Button>
             <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
               {t("nodeTools.connection.save")}
@@ -148,6 +163,7 @@ function ConnectionForm({ node, options, onClose }: { node: string; options: Con
                 value={address}
                 onValueChange={(value: string) => {
                   setAddress(value);
+                  ask.reset();
                 }}
               />
             </Field>
@@ -169,9 +185,29 @@ function ConnectionForm({ node, options, onClose }: { node: string; options: Con
                 value={key}
                 onValueChange={(value: string) => {
                   setKey(value);
+                  ask.reset();
                 }}
               />
             </Field>
+          </div>
+        ) : null}
+        {through && saved === undefined ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button size="sm" icon={<OBJECT_ICONS.key aria-hidden="true" />} loading={ask.isPending} onClick={showLine}>
+                {t("nodeTools.connection.showLine")}
+              </Button>
+              <p className="min-w-0 flex-1 text-12 text-fg-muted">{t("nodeTools.connection.showLineHelp")}</p>
+            </div>
+            {ask.isError ? <ErrorBlock live compact error={ask.error} title={t("nodeTools.connection.showLineFailed", { name: node })} /> : null}
+            {ask.data !== undefined ? (
+              <Subsection
+                title={t("nodeTools.connection.authorizedTitle")}
+                description={t("nodeTools.connection.authorizedDescription", { user: address.split("@")[0] ?? "", name: node })}
+              >
+                <CopyValue value={ask.data.authorized_key_line} label={t("nodeTools.connection.authorizedCopy")} />
+              </Subsection>
+            ) : null}
           </div>
         ) : null}
         {save.isError ? <ErrorBlock live compact error={save.error} title={t("nodeTools.connection.failed", { name: node })} /> : null}
@@ -205,7 +241,7 @@ export function ConnectionDialog({ node, onClose }: { node: string; onClose: () 
       size="lg"
       title={t("nodeTools.connection.title", { name: node })}
       description={t("nodeTools.connection.description", { name: node })}
-      footer={<Button onClick={onClose}>{t("nodeTools.connection.close")}</Button>}
+      footer={<Button onClick={onClose}>{t("common.words.close")}</Button>}
     >
       {query.isError ? (
         <ErrorBlock live error={query.error} title={t("nodeTools.connection.loadFailed", { name: node })} onRetry={() => void query.refetch()} />
@@ -316,12 +352,12 @@ export function InventoryDialog({ node, onClose }: { node: string; onClose: () =
       footer={
         apply.isSuccess ? (
           <Button variant="primary" onClick={onClose}>
-            {t("nodeTools.inventory.close")}
+            {t("common.words.close")}
           </Button>
         ) : (
           <>
             <Button disabled={apply.isPending} onClick={onClose}>
-              {t("nodeTools.inventory.cancel")}
+              {t("common.words.cancel")}
             </Button>
             <Button type="submit" form={formId} variant="primary" loading={apply.isPending}>
               {t("nodeTools.inventory.apply")}
@@ -396,7 +432,7 @@ export function LinkMachineDialog({ node, onClose }: { node: string; onClose: ()
       footer={
         <>
           <Button disabled={link.isPending} onClick={onClose}>
-            {t("nodeTools.link.cancel")}
+            {t("common.words.cancel")}
           </Button>
           {/* design-exception: submit-disabled-invalid the central holds no provider account to link with, which the dialog says: there is no field to complete */}
           <Button type="submit" form={formId} variant="primary" loading={link.isPending} disabled={names.length === 0}>

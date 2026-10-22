@@ -102,7 +102,7 @@ function LimitsDrawer({ domain, data, open, onOpenChange }: DrawerProps) {
       footer={
         <>
           <Button disabled={save.isPending} onClick={() => onOpenChange(false)}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={changes === 0}>
             {t("rollout.limits.save")}
@@ -164,7 +164,7 @@ export function RolloutLimitsSetting({ domain }: { domain: string }) {
   const query = useQuery({ ...rolloutQuery(domain), retry: false });
   const [editing, setEditing] = useState(false);
 
-  if (query.isPending) return <RowLoading label={t("rollout.limits.loading")} />;
+  if (query.isPending) return <RowLoading label={t("rollout.limits.loading")} rows={[3]} />;
   if (query.isError && olderServer(query.error)) return null;
   if (query.isError) return <RowError title={t("rollout.limits.readFailed")} error={query.error} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
 

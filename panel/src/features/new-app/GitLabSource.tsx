@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { FolderGit2, GitBranch, Search } from "lucide-react";
+import { FolderGit2, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { gitlabBranchesQuery, gitlabGroupsQuery, gitlabProjectsQuery } from "../../api/queries/gitlab";
@@ -20,6 +20,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { SourceErrors, SourceForm } from "./wizard";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** How long typing pauses before GitLab is asked, so a name is not searched letter by letter. */
 const SEARCH_DELAY_MS = 300;
@@ -48,7 +49,7 @@ function ProjectList({ projects, onChoose, disabled }: { projects: readonly GitL
               </span>
               {project.default_branch ? (
                 <span className="hidden shrink-0 items-center gap-1 text-12 text-fg-muted sm:flex">
-                  <GitBranch aria-hidden="true" className="size-icon-xs" />
+                  <OBJECT_ICONS.source aria-hidden="true" className="size-icon-xs" />
                   <Mono tone="muted">{project.default_branch}</Mono>
                 </span>
               ) : null}
@@ -89,7 +90,7 @@ function BranchField({
         <Field label={t("gitlab.picker.branch")} error={error} className="sm:max-w-80">
           <Input
             mono
-            icon={<GitBranch />}
+            icon={<OBJECT_ICONS.source />}
             value={form.branch}
             onValueChange={(value: string) => {
               onChange({ ...form, branch: value });

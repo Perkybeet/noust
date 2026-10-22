@@ -822,7 +822,7 @@ class TestDeploy:
         parent = store.get_app(PARENT)
         assert parent is not None
 
-        # Previews turned on before 3.4 copy every variable but the ones the unit sets.
+        # Previews turned on before 4.0 copy every variable but the ones the unit sets.
         settings = previews.enable_previews(PARENT, BASE, inherit_env="all")
         assert preview_env.compose(parent, settings).values == {"A": "1"}
 

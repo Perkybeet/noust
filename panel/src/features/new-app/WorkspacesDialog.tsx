@@ -141,7 +141,7 @@ export function WorkspacesDialog({ open, source: initialSource, branch: initialB
       footer={
         <>
           <Button disabled={busy} onClick={close}>
-            {queued ? t("workspaces.close") : t("workspaces.cancel")}
+            {queued ? t("common.words.close") : t("common.words.cancel")}
           </Button>
           {queued ? null : (
             <Button
@@ -270,7 +270,7 @@ export function WorkspacesDialog({ open, source: initialSource, branch: initialB
             </ul>
           </Notice>
         ) : null}
-        <CommandHint command={`noust workspace create ${source.trim() === "" ? "https://github.com/acme/monorepo.git" : source.trim()} --app WORKSPACE=DOMAIN`} label={t("workspaces.fromTerminal")} />
+        <CommandHint command={`noust workspace create ${source.trim() === "" ? "https://github.com/acme/monorepo.git" : source.trim()} --app WORKSPACE=DOMAIN`} label={t("common.words.sameFromTerminal")} />
       </div>
     </Dialog>
   );

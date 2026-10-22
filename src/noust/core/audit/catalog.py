@@ -570,7 +570,7 @@ EVENTS: dict[str, EventSpec] = {
             "incident.lockdown": "The console was locked down for an incident.",
         },
     ),
-    # The console's reach, and how a server joins a fleet (3.4).
+    # The console's reach, and how a server joins a fleet (4.0).
     **_events(
         "change",
         NOTICE,
@@ -593,7 +593,7 @@ EVENTS: dict[str, EventSpec] = {
             "fleet.provision.power": "A machine created at a cloud provider was powered on there.",
         },
     ),
-    # The console's terminal and one-off commands (3.4): a shell as an application,
+    # The console's terminal and one-off commands (4.0): a shell as an application,
     # or as root, is the most root-equivalent thing the console opens.
     **_events(
         "access",

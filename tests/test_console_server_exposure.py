@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-What the console server's modelled machine answers for what leaves the server (3.4).
+What the console server's modelled machine answers for what leaves the server (4.0).
 
 ``scripts/console_server.py`` is the backend the console is developed and tested against, and
 the console's pages for a database opened to the network, Noust's own backup, the console

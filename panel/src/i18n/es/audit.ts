@@ -8,10 +8,7 @@ export const audit: Catalog<typeof en> = {
     command: "Registro de auditoría",
   },
   outcome: {
-    ok: "Hecho",
-    failure: "Falló",
     denied: "Rechazado",
-    warning: "Aviso",
   },
   trail: {
     intactTitle: "El registro de auditoría está íntegro",
@@ -42,7 +39,6 @@ export const audit: Catalog<typeof en> = {
     everyCategory: "Todas las categorías",
     everyOutcome: "Todos los resultados",
     count: { one: "{count} evento", other: "{count} eventos" },
-    clearFilters: "Quitar filtros",
     caption: "Eventos de auditoría",
     none: "Aún no hay eventos.",
     noMatch: "Ningún evento coincide con estos filtros.",
@@ -51,7 +47,6 @@ export const audit: Catalog<typeof en> = {
     correlationTitle: "Una petición",
     correlation: "Solo los eventos de {id}: lo que hizo una petición, una orden o una tarea.",
     correlationClear: "Mostrar todos",
-    fromTerminal: "Desde una terminal",
   },
   table: {
     event: "Evento",

@@ -127,7 +127,7 @@ export function PromoteDialog({ domain, open, onOpenChange }: PromoteDialogProps
       footer={
         <>
           <Button disabled={pending} onClick={() => onOpenChange(false)}>
-            {t("variables.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={pending} disabled={!ready}>
             {t("promotion.promote.submit")}

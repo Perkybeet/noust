@@ -120,7 +120,7 @@ class DeploymentOut(BaseModel):
             warnings: a ``post_deploy`` hook failed once it served).
         cancelled: An operator cancelled it while it was building. Its status is
             ``failed`` (the column cannot say anything else on a store from
-            before 3.4) but nothing went wrong and nothing that served was touched.
+            before 4.0) but nothing went wrong and nothing that served was touched.
         cancelled_at: When it was cancelled.
         cancelled_by: Who cancelled it.
         certificate_state: How the certificate ordered for it ended: ``issued`` or ``failed``.

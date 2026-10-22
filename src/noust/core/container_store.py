@@ -5,7 +5,7 @@
 What the store keeps of a container application, and the secrets kept apart from it.
 
 A container application is built from a Dockerfile, built by Railpack, or an
-image from a registry (decision D1 of the 3.4 design). How, and how it runs
+image from a registry (decision D1 of the 4.0 design). How, and how it runs
 (its port, its volumes, its restart policy, the account its registry knows it
 by), is one row of ``app_container`` (schema v14, :mod:`noust.core.schema_v14`),
 keyed by the application and removed with it. A table of its own and not

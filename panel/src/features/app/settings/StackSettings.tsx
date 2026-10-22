@@ -27,6 +27,7 @@ import { reportActionError } from "../../apps/useAppActions";
 import { headlessQuery, olderServer, settingsKeys } from "./queries";
 import { useAsksItsYou } from "./settingRows";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** Whether the app is a Compose stack, the only kind these settings are about. */
 export function isComposeStack(app: Pick<App, "app_type">): boolean {
@@ -36,11 +37,9 @@ export function isComposeStack(app: Pick<App, "app_type">): boolean {
 /** The copy of a stack's databases before each update: a row of Automation, asked about again to turn off. */
 export function BackupBeforeUpdateRow({ app }: { app: App }) {
   const t = useT();
-  const { node } = useNode();
   const queryClient = useQueryClient();
   const asksItsYou = useAsksItsYou();
   const domain = app.domain;
-  const [confirmOff, setConfirmOff] = useState(false);
   const change = useMutation({
     mutationFn: (enabled: boolean) =>
       request("patch", "/api/apps/{domain}/backup-before-update", {
@@ -70,41 +69,29 @@ export function BackupBeforeUpdateRow({ app }: { app: App }) {
     ? change.variables
     : app.backup_before_update;
   return (
-    <>
-      <Setting
-        label={t("appSettings.stack.copyLabel")}
-        help={t("appSettings.stack.copyDescription")}
-        {...(enabled ? {} : { risk: t("appSettings.stack.copyOffRisk") })}
-        elevated={asksItsYou}
-        checked={enabled}
-        busy={change.isPending}
-        onCheckedChange={(next) => {
-          if (!next) {
-            setConfirmOff(true);
-            return;
-          }
-          change.mutate(true, {
-            onError: (error) =>
-              reportActionError(
-                t("appSettings.stack.copyNotSaved", { domain }),
-                error,
-              ),
-          });
-        }}
-      />
-      <ConfirmDialog
-        open={confirmOff}
-        onOpenChange={setConfirmOff}
-        friction="simple"
-        server={node}
-        title={t("appSettings.stack.copyOffTitle", { domain })}
-        description={t("appSettings.stack.copyOffDescription")}
-        actionLabel={t("appSettings.stack.copyOffAction")}
-        onConfirm={async () => {
+    <Setting
+      label={t("appSettings.stack.copyLabel")}
+      help={t("appSettings.stack.copyDescription")}
+      {...(enabled ? {} : { risk: t("appSettings.stack.copyOffRisk") })}
+      elevated={asksItsYou}
+      checked={enabled}
+      busy={change.isPending}
+      confirmOff={{
+        title: t("appSettings.stack.copyOffTitle", { domain }),
+        description: t("appSettings.stack.copyOffDescription"),
+        actionLabel: t("appSettings.stack.copyOffAction"),
+      }}
+      onCheckedChange={async (next) => {
+        // Turning it off waits for the question, which shows a refusal in its own place.
+        if (!next) {
           await change.mutateAsync(false);
-        }}
-      />
-    </>
+          return;
+        }
+        change.mutate(true, {
+          onError: (error) => reportActionError(t("appSettings.stack.copyNotSaved", { domain }), error),
+        });
+      }}
+    />
   );
 }
 
@@ -124,7 +111,7 @@ export function WorkerCard({ app }: { app: App }) {
 
   if (check.isPending) {
     return (
-      <Card title={title}>
+      <Card title={title} icon={OBJECT_ICONS.compose}>
         <LoadingRegion label={t("appSettings.stack.workerLoading")}>
           <Skeleton className="h-10 w-full rounded-control" />
         </LoadingRegion>
@@ -135,7 +122,7 @@ export function WorkerCard({ app }: { app: App }) {
   if (check.isError && olderServer(check.error)) return null;
   if (check.isError) {
     return (
-      <Card title={title}>
+      <Card title={title} icon={OBJECT_ICONS.compose}>
         <ErrorBlock
           compact
           error={check.error}
@@ -150,7 +137,7 @@ export function WorkerCard({ app }: { app: App }) {
   const port = data.recorded_port ?? null;
   if (!data.headless || port === null) return null;
   return (
-    <Card title={title}>
+    <Card title={title} icon={OBJECT_ICONS.compose}>
       <div className="flex flex-col gap-3">
         <p className="max-w-measure text-13 text-pretty text-fg">
           {t("appSettings.stack.workerDescription", { port })}

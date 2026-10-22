@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { CornerDownRight, FileX, History, Play, RotateCw, Square } from "lucide-react";
+import { CornerDownRight, FileX, Play, RotateCw, Square } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -41,6 +41,7 @@ import { hasStructure } from "./siteViews";
 import type { SiteView } from "./siteViews";
 import { useSiteActions } from "./useSiteActions";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 type Outcome =
   | { kind: "saved"; webserver: string }
@@ -338,7 +339,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
             ? {
                 secondaryActions: (
                   <>
-                    <Button icon={<History aria-hidden="true" />} onClick={() => setHistory(true)}>
+                    <Button icon={<OBJECT_ICONS.activity aria-hidden="true" />} onClick={() => setHistory(true)}>
                       {t("domains.siteHistory.open")}
                     </Button>
                     {info.data.enabled ? (
@@ -367,7 +368,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
                 tone="warning"
                 title={t("domains.siteHistory.editedTitle")}
                 action={
-                  <Button size="sm" icon={<History aria-hidden="true" />} onClick={() => setHistory(true)}>
+                  <Button size="sm" icon={<OBJECT_ICONS.activity aria-hidden="true" />} onClick={() => setHistory(true)}>
                     {t("domains.siteHistory.open")}
                   </Button>
                 }
@@ -423,7 +424,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
           saving: save.isPending,
           busy: edit.isPending,
         }}
-        footer={<CommandHint command={`noust site show ${site}`} label={t("domains.fromTerminal")} />}
+        footer={<CommandHint command={`noust site show ${site}`} label={t("common.words.fromTerminal")} />}
       >
         {/* design-exception: hand-error-ternary the editor keeps the screen's height while it loads, so the bar never jumps */}
         {config.isError && config.data === undefined ? (
@@ -504,7 +505,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
         friction="type"
         open={deleting}
         onOpenChange={setDeleting}
-        title={t("domains.deleteNamedTitle", { name: site })}
+        title={t("common.words.deleteNamed", { name: site })}
         description={t("domains.deleteSiteDescription")}
         confirmText={site}
         actionLabel={t("domains.deleteSite")}

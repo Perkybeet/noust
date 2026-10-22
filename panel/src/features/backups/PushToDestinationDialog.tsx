@@ -70,7 +70,7 @@ export function PushToDestinationDialog({ open, onOpenChange, words, onPush }: P
       footer={
         <>
           <Button disabled={push.isPending} onClick={() => close(false)}>
-            {t("backups.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={push.isPending}>
             {words.action}

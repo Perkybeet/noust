@@ -186,7 +186,6 @@ export function AppsTab({ search, onSearchChange }: AppsTabProps) {
         getRowId={(row) => `${originOf(row).node}:${field(row, "domain") ?? ""}`}
         loading={view.isPending}
         skeletonRows={6}
-        mobile="cards"
         pagination="fleet-apps"
         empty={
           rows.length === 0 && view.data !== undefined ? (
@@ -203,14 +202,14 @@ export function AppsTab({ search, onSearchChange }: AppsTabProps) {
                     onSearchChange({});
                   }}
                 >
-                  {t("fleet.filters.clear")}
+                  {t("common.words.clearFilters")}
                 </Button>
               }
             />
           )
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet apps" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet apps" />
     </div>
   );
 }

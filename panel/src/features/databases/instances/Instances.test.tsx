@@ -258,7 +258,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     await user.type(within(dialog).getByLabelText("Name"), "pg18");
     await user.type(within(dialog).getByLabelText(/^Memory limit/), "1024");
     await expectNoAxeViolations(dialog);
-    await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create instance" }));
 
     await waitFor(() => expect(backend.callsTo("POST /api/databases/instances")).toHaveLength(1));
     expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({ name: "pg18", engine: "postgresql", version: "18", memory_mb: 1024, accept_untested: false });
@@ -279,7 +279,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     expect(within(dialog).getByText("Vector similarity search: the vector type and its indexes.")).toBeInTheDocument();
     await user.type(within(dialog).getByLabelText("Name"), "vec");
     await user.type(within(dialog).getByLabelText(/^Memory limit/), "1024");
-    await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create instance" }));
 
     await waitFor(() => expect(backend.callsTo("POST /api/databases/instances")).toHaveLength(1));
     expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({ name: "vec", engine: "postgresql", version: "18", variant: "pgvector", memory_mb: 1024, accept_untested: false });
@@ -297,7 +297,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     await user.type(within(dialog).getByLabelText(/^Initialization script/), "CREATE TABLE t (id int);");
     await user.type(within(dialog).getByLabelText("Name"), "pg18");
     await user.type(within(dialog).getByLabelText(/^Memory limit/), "1024");
-    await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create instance" }));
 
     await waitFor(() => expect(backend.callsTo("POST /api/databases/instances")).toHaveLength(1));
     expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({
@@ -349,7 +349,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     await user.click(await screen.findByRole("option", { name: "PostgreSQL" }));
     await user.type(within(dialog).getByLabelText("Name"), "Bad Name");
     await user.type(within(dialog).getByLabelText(/^Memory limit/), "100");
-    await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create instance" }));
 
     expect(await within(dialog).findByText(/Use lower-case letters, digits and single dashes/)).toBeInTheDocument();
     expect(within(dialog).getByText("This engine needs at least 256 MB.")).toBeInTheDocument();
@@ -368,7 +368,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     await user.click(await screen.findByRole("option", { name: "PostgreSQL" }));
     await user.type(within(dialog).getByLabelText("Name"), "pg18");
     await user.type(within(dialog).getByLabelText(/^Memory limit/), "1024");
-    await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create instance" }));
 
     expect(await within(dialog).findByText("Docker is not installed")).toBeInTheDocument();
     expect(within(dialog).getByText("Install docker.io with its Compose plugin.")).toBeInTheDocument();

@@ -108,14 +108,14 @@ function IssueDialog({ domain, open, onOpenChange }: IssueDialogProps) {
           </>
         ) : (
           <Button variant="primary" onClick={() => close(false)}>
-            {t("network.access.clients.done")}
+            {t("common.words.done")}
           </Button>
         )
       }
     >
       {made === undefined ? (
         <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
-          <Field label={t("network.access.clients.name")} description={t("network.access.clients.nameHelp")} error={nameError}>
+          <Field label={t("common.words.name")} description={t("network.access.clients.nameHelp")} error={nameError}>
             <Input mono value={name} onValueChange={setName} autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={64} />
           </Field>
           <Field label={t("network.access.clients.days")} description={t("network.access.clients.daysHelp", { max: MAX_DAYS })} error={daysError}>
@@ -213,7 +213,7 @@ export function ClientCertsCard({ form, domain }: { form: AccessForm; domain: st
                         <StatusPill state="warning" size="sm" label={t("network.access.clients.expired")} />
                       )}
                       {certificate.revoked ? null : (
-                        <IconButton label={`${t("network.access.clients.revoke")}: ${certificate.name}`} icon={<ShieldOff />} size="sm" onClick={() => setRevoking(certificate)} />
+                        <IconButton label={`${t("common.words.revoke")}: ${certificate.name}`} icon={<ShieldOff />} size="sm" onClick={() => setRevoking(certificate)} />
                       )}
                     </>
                   }
@@ -247,7 +247,7 @@ export function ClientCertsCard({ form, domain }: { form: AccessForm; domain: st
             {revoking !== null && lastValid(revoking) ? <> {t("network.access.clients.revokeLast")}</> : null}
           </>
         }
-        actionLabel={t("network.access.clients.revoke")}
+        actionLabel={t("common.words.revoke")}
         onConfirm={async () => {
           if (revoking === null) return;
           await request("delete", "/api/apps/{domain}/client-certs/{serial}", {

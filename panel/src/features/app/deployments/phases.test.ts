@@ -193,8 +193,8 @@ describe("the logs", () => {
     expect(levelOf("Type error: Property 'total' does not exist on type 'Order'.")).toBe("error");
     expect(levelOf("npm warn deprecated glob@7.2.3")).toBe("warn");
     expect(levelOf("found 0 vulnerabilities")).toBeUndefined();
-    expect(levelOf("wasm-shop.service: Failed with result 'exit-code'.")).toBe("error");
-    expect(levelOf("wasm-shop.service: Main process exited, code=exited, status=1/FAILURE")).toBe("error");
+    expect(levelOf("shop-web.service: Failed with result 'exit-code'.")).toBe("error");
+    expect(levelOf("shop-web.service: Main process exited, code=exited, status=1/FAILURE")).toBe("error");
     expect(levelOf("Checked 3 files, 0 errors")).toBeUndefined();
   });
 

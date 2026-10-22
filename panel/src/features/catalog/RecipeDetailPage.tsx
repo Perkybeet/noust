@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Container } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -33,6 +32,7 @@ import { RecipeLogo } from "./RecipeLogo";
 import { RecipeRequirements } from "./RecipeRequirements";
 import { announce } from "../../app/Announcer";
 import { categoryWords, dependencyWords } from "./RecipeCard";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** Where a recipe's code comes from, or what it runs, as the rows of the facts card. */
 function runsItems(t: T, recipe: Recipe): KeyValueItem[] {
@@ -170,7 +170,7 @@ export function RecipeDetailPage({ name }: { name: string }) {
               {recipe.origin === "catalog" ? <Badge>{t("catalog.card.package")}</Badge> : null}
               {recipe.runs_in_docker ? (
                 <Badge>
-                  <Container aria-hidden="true" className="size-icon-xs" />
+                  <OBJECT_ICONS.container aria-hidden="true" className="size-icon-xs" />
                   {t("catalog.card.docker")}
                 </Badge>
               ) : null}
@@ -270,7 +270,6 @@ export function RecipeDetailPage({ name }: { name: string }) {
               caption={t("catalog.detail.images.caption")}
               rows={recipe.images}
               getRowId={(row) => row.service}
-              mobile="cards"
               columns={[
                 { id: "service", header: t("catalog.detail.images.service"), cell: (row) => <Mono>{row.service}</Mono>, card: "title" },
                 { id: "image", header: t("catalog.detail.images.image"), cell: (row) => <Mono truncate>{`${row.repository}:${row.tag}`}</Mono> },
@@ -302,7 +301,7 @@ export function RecipeDetailPage({ name }: { name: string }) {
         ) : null}
 
         {recipe.public_ports.length > 0 ? (
-          <Section title={t("catalog.detail.ports")}>
+          <Section title={t("catalog.detail.ports")} icon={OBJECT_ICONS.port}>
             <Notice tone="warning" title={t("catalog.detail.portsTitle")}>
               <div className="flex flex-col gap-2">
                 <p>{t("catalog.detail.portsDescription")}</p>
@@ -320,13 +319,12 @@ export function RecipeDetailPage({ name }: { name: string }) {
         ) : null}
 
         {recipe.variables.length > 0 ? (
-          <Section title={t("catalog.detail.variables.title")} description={t("catalog.detail.variables.intro")}>
+          <Section title={t("catalog.detail.variables.title")} icon={OBJECT_ICONS.variable} description={t("catalog.detail.variables.intro")}>
             <DataTable
               caption={t("catalog.detail.variables.caption")}
               rows={recipe.variables}
               getRowId={(row) => row.name}
               columns={variableColumns(t)}
-              mobile="cards"
               pagination="recipe-variables"
             />
           </Section>

@@ -50,7 +50,7 @@ function ReasonStep({ prompt }: { prompt: Extract<ApprovalPrompt, { kind: "reaso
       description={t("approvals.dialog.reasonDescription", { approvers: approversOf(t, policy?.approvers) })}
       footer={
         <>
-          <Button onClick={() => dismiss("approval_cancelled")}>{t("approvals.dialog.cancel")}</Button>
+          <Button onClick={() => dismiss("approval_cancelled")}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary">
             {t("approvals.dialog.ask")}
           </Button>
@@ -142,7 +142,7 @@ function RequestedStep({ prompt }: { prompt: Extract<ApprovalPrompt, { kind: "re
             </>
           ) : (
             <Button variant={closed ? "primary" : "secondary"} onClick={close}>
-              {closed ? t("approvals.dialog.close") : t("approvals.dialog.leaveWaiting")}
+              {closed ? t("common.words.close") : t("approvals.dialog.leaveWaiting")}
             </Button>
           )}
         </>

@@ -121,7 +121,7 @@ export function GeneralSettings() {
           // Whether it starts at boot is an on/off, told at a glance (item 56).
           fact(
             t("appSettings.general.startsAtBoot"),
-            <StatusPill state={app.enabled ? "running" : "stopped"} label={app.enabled ? t("appSettings.general.yes") : t("appSettings.general.no")} size="sm" />,
+            <StatusPill state={app.enabled ? "running" : "stopped"} label={app.enabled ? t("common.words.yes") : t("common.words.no")} size="sm" />,
             prose,
           ),
         ]
@@ -136,7 +136,7 @@ export function GeneralSettings() {
       <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("appSettings.general.readOnlyNote")}</p>
       {isComposeStack(app) && app.port !== null && app.port !== undefined ? <WorkerCard app={app} /> : null}
       {unit ? <IdentityCard domain={app.domain} /> : null}
-      <CommandHint command={`noust app branch ${app.domain} <branch>`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={`noust app branch ${app.domain} <branch>`} label={t("common.words.fromTerminal")} />
       {move.dialog}
     </Section>
   );

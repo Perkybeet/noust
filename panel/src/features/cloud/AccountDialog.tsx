@@ -99,7 +99,7 @@ export function AccountDialog({ existing, open, onOpenChange }: AccountDialogPro
               close(false);
             }}
           >
-            {t("cloud.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button variant="primary" type="submit" form={formId} loading={saving}>
             {existing === undefined ? t("cloud.account.add") : t("cloud.account.replace")}
@@ -110,7 +110,7 @@ export function AccountDialog({ existing, open, onOpenChange }: AccountDialogPro
       <form id={formId} noValidate className="flex min-w-0 flex-col gap-5" onSubmit={submit}>
         {existing === undefined ? (
           <>
-            <Field label={t("cloud.account.name")} description={t("cloud.account.nameHelp")} error={tried && !nameOk ? t("cloud.account.nameInvalid") : undefined}>
+            <Field label={t("common.words.name")} description={t("cloud.account.nameHelp")} error={tried && !nameOk ? t("cloud.account.nameInvalid") : undefined}>
               <Input ref={nameRef} mono maxLength={32} value={name} onValueChange={(value: string) => setName(value)} placeholder="hetzner-prod" autoComplete="off" autoCapitalize="off" spellCheck={false} />
             </Field>
             <Field label={t("cloud.account.provider")} nativeLabel={false} error={tried && !providerOk ? t("cloud.account.providerRequired") : undefined}>

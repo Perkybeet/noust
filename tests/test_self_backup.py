@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``noust self-backup``: Noust's own state in one encrypted file (3.4, checklist H-27).
+``noust self-backup``: Noust's own state in one encrypted file (4.0, checklist H-27).
 
 Over real openssl, because the whole point is a file nobody opens without its
 passphrase. What is pinned here is what an operator learns on the worst day:

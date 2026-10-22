@@ -139,7 +139,6 @@ export function ChangeDialog({ request, title, lead, action, loosens = false, do
             rows={plan.effects}
             getRowId={(effect: Effect) => effect.control}
             density="compact"
-            mobile="cards"
           />
         )}
         {warnings.length > 0 ? (

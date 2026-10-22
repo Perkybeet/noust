@@ -62,7 +62,7 @@ export function ExportSettings() {
             </div>
           </div>
         </Card>
-        <CommandHint command={`noust app export ${domain} -o ${domain}.noust-app.json`} label={t("appSettings.fromTerminal")} />
+        <CommandHint command={`noust app export ${domain} -o ${domain}.noust-app.json`} label={t("common.words.fromTerminal")} />
         <DeclarationCard domain={domain} />
       </Section>
       <ReplicationCard domain={domain} />

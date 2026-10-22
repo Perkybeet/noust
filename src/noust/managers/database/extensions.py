@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-PostgreSQL extensions of a database: what the server offers, what is installed, add and remove (3.4, C-10).
+PostgreSQL extensions of a database: what the server offers, what is installed, add and remove (4.0, C-10).
 
 PostGIS, pgvector, TimescaleDB and the rest of PostgreSQL's extensions are loaded into **one
 database** with ``CREATE EXTENSION``. Whether one *can* be loaded depends on what the server has

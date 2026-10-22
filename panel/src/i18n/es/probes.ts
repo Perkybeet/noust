@@ -2,14 +2,8 @@ import type { probes as en } from "../en/probes";
 import type { Catalog } from "../types";
 
 export const probes: Catalog<typeof en> = {
-  nav: {
-    label: "Sondas",
-    keywords: "sondas disponibilidad monitor página de estado comprobación externa dirección http caída ping sitio web",
-    command: "Ajustes de sondas",
-  },
   documentTitle: "Sondas",
   loadingLabel: "las sondas",
-  fromTerminal: "Desde un terminal",
   title: "Sondas",
   description:
     "Direcciones que Noust consulta con un reloj, desde donde se ejecuta: si el nombre resuelve, si el certificado vale, si la página dice lo que debe. Si una deja de responder, se avisa por los canales de notificación.",
@@ -19,7 +13,7 @@ export const probes: Catalog<typeof en> = {
   emptyTitle: "Aún no hay sondas",
   emptyDescription: "Una sonda consulta una dirección cada minuto y te avisa cuando deja de responder. Las que marques como públicas forman una página de estado.",
   listLabel: "Sondas",
-  state: { up: "Activa", down: "Caída", off: "Apagada", waiting: "En espera" },
+  state: { up: "Activa", down: "Caída", off: "Desactivada", waiting: "Esperando" },
   public: "En la página de estado",
   lastAsked: "Consultada {when}",
   neverAsked: "Aún no consultada",
@@ -32,15 +26,9 @@ export const probes: Catalog<typeof en> = {
   },
   switchLabel: "Consultar {name}",
   switchFailed: "No se pudo cambiar la sonda",
-  edit: "Editar",
-  editLabel: "Editar {name}",
-  remove: "Quitar",
-  removeLabel: "Quitar {name}",
-  removeTitle: "¿Quitar {name}?",
   removeDescription: "Nada consulta ya esta dirección y su historial se va con ella. Lo que ya se envió no se retira.",
   check: {
     button: "Consultar ahora",
-    label: "Consultar {name} ahora",
     good: "Respondió bien {detail}",
     bad: "No respondió bien {detail}",
     failed: "No se pudo consultar la dirección",
@@ -55,13 +43,11 @@ export const probes: Catalog<typeof en> = {
   },
   form: {
     newTitle: "Nueva sonda",
-    editTitle: "Editar {name}",
     description: "Una dirección, y cómo es una buena respuesta.",
     save: "Guardar sonda",
     saveErrorTitle: "No se pudo guardar la sonda",
     nameMissing: "Dale un nombre a la sonda.",
     urlMissing: "Escribe la dirección que preguntar.",
-    nameLabel: "Nombre",
     nameDescription: "Minúsculas, dígitos, - y _. La línea de comandos se refiere a ella por este nombre.",
     urlLabel: "Dirección",
     urlDescription: "http:// o https://. Sin usuario ni contraseña, y sin ninguna clave: la dirección se muestra en listas y en mensajes.",
@@ -103,14 +89,11 @@ export const probes: Catalog<typeof en> = {
     notPublished: "No tiene un nombre propio: sirve tú la carpeta de arriba, o dale uno.",
     publishedOn: "Publicada en {domain}.",
     open: "Abrir la página",
-    done: "Hecho",
-    close: "Cerrar",
     publish: {
       button: "Publicar en un nombre",
       title: "Publicar la página de estado",
       description: "Crea un sitio del servidor web y un certificado para un nombre propio, y los anota para que al retirar la página se quite eso y nada más.",
       nameMissing: "Escribe el nombre en el que va la página.",
-      domainLabel: "Nombre",
       domainDescription: "Un nombre que apunte a este servidor y no sea el de una aplicación.",
       skipDns: "No comprobar que el nombre apunte aquí",
       skipDnsDescription: "Para un servidor tras NAT, donde el nombre resuelve al router.",
@@ -130,7 +113,7 @@ export const probes: Catalog<typeof en> = {
       published: "{domain} muestra la página de estado",
       unpublished: "{domain} ya no muestra la página de estado",
       failed: "No terminó para {domain}",
-      logLabel: "Salida del trabajo de la página de estado",
+      logLabel: "Salida de la tarea de la página de estado",
     },
   },
 };

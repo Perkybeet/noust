@@ -10,7 +10,7 @@
  * screens use. Everything else answers 404 in the contract's shape, so a page that needs a
  * real endpoint says so instead of pretending.
  *
- * Credentials: access token `wasm_mock_token`, two-factor code `123456` (set MOCK_TOTP=0 to
+ * Credentials: access token `noust_mock_token`, two-factor code `123456` (set MOCK_TOTP=0 to
  * turn two-factor off). POST /api/__mock/expire ends every session, to watch the console
  * handle an expiry.
  */
@@ -20,7 +20,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 import type { Plugin } from "vite";
 
-const TOKEN = "wasm_mock_token";
+const TOKEN = "noust_mock_token";
 const CODE = "123456";
 const HOSTNAME = "web-01";
 const VERSION = "2.0.0.dev0";
@@ -106,7 +106,7 @@ export function mockBackend(): Plugin {
   const now = (): number => Date.now() / 1000;
 
   const current = (req: IncomingMessage): [string, Session] | null => {
-    const sid = cookies(req).wasm_session;
+    const sid = cookies(req).noust_session;
     if (sid === undefined) return null;
     const session = sessions.get(sid);
     if (!session || session.expiresAt < now()) return null;
@@ -161,8 +161,8 @@ export function mockBackend(): Plugin {
         totp_enabled: totp,
         hostname: HOSTNAME,
         version: VERSION,
-        csrf_header: "X-WASM-CSRF",
-        csrf_cookie: "wasm_csrf",
+        csrf_header: "X-Noust-CSRF",
+        csrf_cookie: "noust_csrf",
       });
       return true;
     }
@@ -204,8 +204,8 @@ export function mockBackend(): Plugin {
       const csrf = randomBytes(24).toString("base64url");
       sessions.set(sid, { csrf, expiresAt: now() + SESSION_SECONDS, elevatedUntil: null });
       res.setHeader("Set-Cookie", [
-        `wasm_session=${sid}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${String(SESSION_SECONDS)}`,
-        `wasm_csrf=${csrf}; Path=/; SameSite=Strict; Max-Age=${String(SESSION_SECONDS)}`,
+        `noust_session=${sid}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${String(SESSION_SECONDS)}`,
+        `noust_csrf=${csrf}; Path=/; SameSite=Strict; Max-Age=${String(SESSION_SECONDS)}`,
       ]);
       json(res, 200, { success: true, expires_in: SESSION_SECONDS, csrf_token: csrf, session_token: null });
       return true;
@@ -228,12 +228,12 @@ export function mockBackend(): Plugin {
     }
     const [sid, session] = found;
 
-    if (method !== "GET" && req.headers["x-wasm-csrf"] !== session.csrf) {
+    if (method !== "GET" && req.headers["x-noust-csrf"] !== session.csrf) {
       fail(
         res,
         403,
         "forbidden",
-        "Missing or invalid CSRF token. Send the wasm_csrf cookie value in the X-WASM-CSRF header, or authenticate with a Bearer token.",
+        "Missing or invalid CSRF token. Send the noust_csrf cookie value in the X-Noust-CSRF header, or authenticate with a Bearer token.",
       );
       return true;
     }
@@ -264,7 +264,7 @@ export function mockBackend(): Plugin {
 
     if (path === "/api/auth/logout" && method === "POST") {
       sessions.delete(sid);
-      res.setHeader("Set-Cookie", ["wasm_session=; Path=/; Max-Age=0", "wasm_csrf=; Path=/; Max-Age=0"]);
+      res.setHeader("Set-Cookie", ["noust_session=; Path=/; Max-Age=0", "noust_csrf=; Path=/; Max-Age=0"]);
       json(res, 200, { success: true, message: "Logged out successfully" });
       return true;
     }
@@ -326,15 +326,15 @@ export function mockBackend(): Plugin {
       }
     }
 
-    fail(res, 404, "not_found", `The mock backend does not implement ${method} ${path}.`, "Run the console against a real `wasm web` instance for this page.");
+    fail(res, 404, "not_found", `The mock backend does not implement ${method} ${path}.`, "Run the console against a real `noust web` instance for this page.");
     return true;
   };
 
   return {
-    name: "wasm-mock-backend",
+    name: "noust-mock-backend",
     apply: "serve",
     configureServer(server) {
-      server.config.logger.info("\n  WASM mock backend: token wasm_mock_token, two-factor code 123456\n");
+      server.config.logger.info("\n  Noust mock backend: token noust_mock_token, two-factor code 123456\n");
       server.middlewares.use((req, res, next) => {
         handle(req, res)
           .then((handled) => {

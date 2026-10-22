@@ -75,7 +75,7 @@ export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: 
       footer={
         removing ? (
           <>
-            <Button onClick={() => close(false)}>{t("backups.common.cancel")}</Button>
+            <Button onClick={() => close(false)}>{t("common.words.cancel")}</Button>
             {/* design-exception: submit-disabled-invalid the box that says the key was written down is the point of this dialog: there is no field to complete */}
             <Button
               variant="primary"
@@ -91,7 +91,7 @@ export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: 
         ) : (
           // design-exception: submit-disabled-invalid the box that says the key was written down is the point of this dialog
           <Button variant="primary" disabled={showKey.data === undefined || !saved} onClick={() => close(false)}>
-            {t("backups.showKeyDialog.done")}
+            {t("common.words.done")}
           </Button>
         )
       }

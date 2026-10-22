@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Custom roles and role bindings (I-03, I-07 of the 3.4 checklist).
+Custom roles and role bindings (I-03, I-07 of the 4.0 checklist).
 
 A role is held at a scope: the whole server, a team, a project or an
 environment. The same person can administer one project and only read another,

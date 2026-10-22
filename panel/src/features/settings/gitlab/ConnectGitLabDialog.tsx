@@ -98,7 +98,7 @@ export function ConnectGitLabDialog({ open, status, onClose }: ConnectGitLabDial
       footer={
         <>
           <Button disabled={run.isPending} onClick={close}>
-            {t("gitlab.dialog.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={pending} disabled={!ready}>
             {way === "token" ? t("gitlab.dialog.tokenAction") : registered === undefined ? t("gitlab.dialog.registerAndSignIn") : t("gitlab.dialog.signInAction")}
@@ -125,7 +125,7 @@ export function ConnectGitLabDialog({ open, status, onClose }: ConnectGitLabDial
           />
         </div>
         {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("gitlab.dialog.failed")} /> : null}
-        <Field label={t("gitlab.dialog.name")} description={t("gitlab.dialog.nameDescription")} error={errors.fields.name}>
+        <Field label={t("common.words.name")} description={t("gitlab.dialog.nameDescription")} error={errors.fields.name}>
           <Input ref={nameRef} mono autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={63} value={name} onValueChange={setName} />
         </Field>
         <Field label={t("gitlab.dialog.host")} description={t("gitlab.dialog.hostDescription")} error={errors.fields.host}>

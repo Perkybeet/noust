@@ -10,7 +10,7 @@ console's business and lives in :mod:`noust.web.permissions.team_roles`; this
 module only knows the names and which accounts may join a team at all.
 
 The shape is Coolify's (team, project, environment, resources), with one
-difference the 3.4 design sets down: the instance roles of
+difference the 4.0 design sets down: the instance roles of
 :mod:`noust.core.accounts.model` stay what they were, and some of them see
 every team. ``admin`` does (it is the instance's administrator), and so do
 ``security`` and ``auditor``, which are instance-only roles and never join a

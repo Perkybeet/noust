@@ -142,7 +142,7 @@ export interface Redirect {
 }
 
 /**
- * The URLs that change in 4.0, each redirecting to its new place (docs/MIGRATING-4.0.md carries
+ * The URLs that change in 4.0, each redirecting to its new place (docs/UPGRADING-4.0.md carries
  * this table as "where it is now"). The rows are data in app/redirects.ts, typed here: a path
  * that is not a route fails the build. `routes/redirects.test.tsx` walks it through the real router.
  */

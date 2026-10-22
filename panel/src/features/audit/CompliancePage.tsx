@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, RefreshCw } from "lucide-react";
+import { Download } from "lucide-react";
 import { useState } from "react";
 
 import { useDocumentTitle } from "../../app/documentTitle";
@@ -23,6 +23,7 @@ import type { T } from "../../i18n";
 import { profileLabel } from "../settings/SecuritySettings";
 import { checkQuery, incidentQuery, trailKeys } from "./api";
 import type { EnsFinding } from "./api";
+import { OBJECT_ICONS, VERB_ICONS } from "../../components/ui/objectIcons";
 
 /** A finding's state: failing, a warning, met, or not applicable here. */
 export function findingView(t: T, status: string): { status: Status; label: string } {
@@ -241,12 +242,12 @@ export function CompliancePage() {
     <Sections>
       <LockdownNotice />
       <Section
-        title={t("compliance.page.title")}
+        title={t("compliance.page.title")} icon={OBJECT_ICONS.control}
         description={t("compliance.page.description")}
         actions={
           <>
             <Button
-              icon={<RefreshCw aria-hidden="true" />}
+              icon={<VERB_ICONS.refresh aria-hidden="true" />}
               loading={query.isFetching && refresh}
               onClick={() => {
                 if (refresh) void queryClient.invalidateQueries({ queryKey: trailKeys.check });
@@ -318,7 +319,7 @@ export function CompliancePage() {
           </div>
         )}
       </Section>
-      <CommandHint label={t("compliance.page.fromTerminal")} command="noust ens check && noust ens report" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust ens check && noust ens report" />
     </Sections>
   );
 }

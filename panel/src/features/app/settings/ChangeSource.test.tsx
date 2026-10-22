@@ -198,7 +198,7 @@ describe("changing the source", () => {
     await user.click(dialog.getByRole("button", { name: "Check the new source" }));
     await user.click(await dialog.findByRole("button", { name: "Change the source" }));
 
-    await user.click(await within(card()).findByRole("button", { name: "Update now" }));
+    await user.click(await within(card()).findByRole("button", { name: "Update" }));
 
     await waitFor(() => expect(backend.callsTo("POST /api/jobs/update")).toHaveLength(1));
     expect(backend.callsTo("POST /api/jobs/update")[0]?.body).toEqual({ domain: DOMAIN, force: true });

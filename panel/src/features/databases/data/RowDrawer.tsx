@@ -161,7 +161,7 @@ export function RowDrawer({ engine, name, schema, relation, columns, editable, m
   if (mode === "delete" && row !== null) {
     const typed = Object.values(row.key ?? {}).join(", ");
     return (
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         open
         onOpenChange={(open) => (open ? undefined : onClose())}
         title={t("databases.row.deleteTitle", { name: `${schema}.${relation}` })}
@@ -195,21 +195,21 @@ export function RowDrawer({ engine, name, schema, relation, columns, editable, m
       footer={
         result !== null ? (
           <Button variant="primary" onClick={onClose}>
-            {t("databases.row.done")}
+            {t("common.words.done")}
           </Button>
         ) : editing ? (
           <>
-            <Button onClick={() => (mode === "edit" ? onModeChange("view") : onClose())}>{t("databases.common.cancel")}</Button>
+            <Button onClick={() => (mode === "edit" ? onModeChange("view") : onClose())}>{t("common.words.cancel")}</Button>
             <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={mode === "edit" && changes === 0}>
               {mode === "insert" ? t("databases.row.insertAction") : t("databases.row.saveAction")}
             </Button>
           </>
         ) : (
           <>
-            <Button onClick={onClose}>{t("databases.row.close")}</Button>
+            <Button onClick={onClose}>{t("common.words.close")}</Button>
             {editable ? (
               <Button icon={<Pencil aria-hidden="true" />} variant="primary" onClick={() => onModeChange("edit")}>
-                {t("databases.row.edit")}
+                {t("common.words.edit")}
               </Button>
             ) : null}
           </>

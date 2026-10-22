@@ -47,7 +47,7 @@ export function StructureView({ detail }: { detail: RelationDetail | undefined }
           columns={[
             {
               id: "name",
-              header: t("databases.structure.name"),
+              header: t("common.words.name"),
               cell: (column) => (
                 <span className="flex items-center gap-1.5">
                   {column.primary_key != null ? <KeyRound aria-label={t("databases.grid.primaryKey")} className="size-icon-xs text-fg-muted" /> : null}
@@ -59,7 +59,7 @@ export function StructureView({ detail }: { detail: RelationDetail | undefined }
             {
               id: "nullable",
               header: t("databases.structure.nullable"),
-              cell: (column) => (column.nullable ? t("databases.structure.yes") : t("databases.structure.no")),
+              cell: (column) => (column.nullable ? t("common.words.yes") : t("common.words.no")),
             },
             {
               id: "default",
@@ -90,7 +90,7 @@ export function StructureView({ detail }: { detail: RelationDetail | undefined }
             columns={[
               {
                 id: "name",
-                header: t("databases.structure.name"),
+                header: t("common.words.name"),
                 cell: (index) => (
                   <span className="flex items-center gap-2">
                     <Mono>{index.name}</Mono>
@@ -126,7 +126,7 @@ export function StructureView({ detail }: { detail: RelationDetail | undefined }
             rows={detail.constraints ?? []}
             getRowId={(constraint) => constraint.name}
             columns={[
-              { id: "name", header: t("databases.structure.name"), cell: (constraint) => <Mono>{constraint.name}</Mono> },
+              { id: "name", header: t("common.words.name"), cell: (constraint) => <Mono>{constraint.name}</Mono> },
               { id: "type", header: t("databases.structure.kind"), cell: (constraint) => t(CONSTRAINT_WORDS[constraint.type] ?? "databases.structure.constraint.other") },
               {
                 id: "definition",

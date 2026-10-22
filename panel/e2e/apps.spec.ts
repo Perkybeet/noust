@@ -69,7 +69,7 @@ test("/ focuses the search, and the search lives in the URL", async ({ page, con
 
   // A shared link opens the same view.
   await page.goto("/apps?q=nothing-matches-this");
-  await expect(page.getByText("No application matches these filters.")).toBeVisible();
+  await expect(page.getByText("No application matches these filters")).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).last().click();
   await expect(page).toHaveURL(/\/apps$/);
   await expect(rows(page)).toHaveCount(total);

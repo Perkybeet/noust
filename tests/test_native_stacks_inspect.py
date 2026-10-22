@@ -4,7 +4,7 @@
 """
 What ``noust inspect`` says about Go, Rust and Ruby repositories (checklist A-38, A-39).
 
-They are deployed natively since 3.4: the verdict names the type and the commands, says how to
+They are deployed natively since 4.0: the verdict names the type and the commands, says how to
 install the toolchain when the server lacks it, and says "no program" (not "no deployer") for a
 repository of the language that has nothing to run.
 """

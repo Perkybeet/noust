@@ -6,10 +6,8 @@
 export const ldapAdmin = {
   form: {
     createTitle: "Add a directory",
-    editTitle: "Edit {name}",
     description:
       "The connection is encrypted and the certificate verified. A directory on a private network is allowed by naming its address in security.allow_private_hosts.",
-    name: "Name",
     nameHelp: "A short name in lower case, such as corp or ad. It cannot change later.",
     label: "Label",
     labelHelp: "What the sign-in page says.",
@@ -26,7 +24,6 @@ export const ldapAdmin = {
     mappingsLine: "Line {line} is not a mapping. Write GROUP=ROLE, GROUP=TEAM:ROLE or GROUP=ROLE@TEAM/PROJECT.",
     create: "Add directory",
     save: "Save directory",
-    cancel: "Cancel",
     errorTitle: "The directory was not saved",
     service: {
       title: "The account that searches",
@@ -61,7 +58,6 @@ export const ldapAdmin = {
     },
   },
   removeDialog: {
-    title: "Remove {name}?",
     description: "Its password is forgotten and people linked to it can no longer sign in with it. Their accounts stay as they are.",
     action: "Remove directory",
   },

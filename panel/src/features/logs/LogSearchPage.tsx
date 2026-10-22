@@ -36,7 +36,7 @@ export function LogSearchPage({ search, onSearchChange }: LogSearchPageProps) {
         description: t("logs.description"),
         secondaryActions: <TextLink to="/settings/log-shipping">{t("logs.retentionLink")}</TextLink>,
       }}
-      footer={<CommandHint command={searchCommand(search)} label={t("logs.fromTerminal")} />}
+      footer={<CommandHint command={searchCommand(search)} label={t("common.words.fromTerminal")} />}
     >
       {search.source === "system" ? (
         <Suspense

@@ -38,6 +38,7 @@ import { TEXT_LINK } from "../ui";
 import { profileLabel } from "../users/profiles";
 import { VerifiedMark } from "../VerifiedMark";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** How many accounts the overview names before sending to the Users tab. */
 const ACCESS_SHOWN = 5;
@@ -260,7 +261,7 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
           </Card>
 
           <Card
-            title={t("databases.overview.access")}
+            title={t("databases.overview.access")} icon={OBJECT_ICONS.access}
             level={2}
             padding="sm"
             actions={
@@ -292,7 +293,7 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
         <div className="flex min-w-0 flex-col gap-4">
           {can({ capabilities }, "dump") ? (
             <Card
-              title={t("databases.overview.backups")}
+              title={t("databases.overview.backups")} icon={OBJECT_ICONS.backup}
               level={2}
               padding="sm"
               actions={
@@ -351,7 +352,7 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
         </div>
       </div>
 
-      <CommandHint command={`noust db info ${name} -e ${engine}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db info ${name} -e ${engine}`} label={t("common.words.fromTerminal")} />
 
       <LinkDialog
         open={linking}

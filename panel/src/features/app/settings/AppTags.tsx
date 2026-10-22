@@ -91,7 +91,7 @@ export function AppTagsActions({ app }: { app: App }) {
           footer={
             <>
               <Button disabled={pending} onClick={() => setOpen(false)}>
-                {t("variables.cancel")}
+                {t("common.words.cancel")}
               </Button>
               <Button type="submit" form={formId} variant="primary" loading={pending}>
                 {t("appTags.dialog.submit")}

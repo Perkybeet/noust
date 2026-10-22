@@ -9,7 +9,6 @@
  * list, a cleanup the disks, a security change the checks and the pending changes.
  */
 
-import { ScrollText } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -28,6 +27,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { serverKeys } from "./queries";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** What a job of this area does, which names it while it runs and once it ends. */
 export type ServerJobKind = "update" | "refresh" | "repair" | "auto" | "cleanup" | "analyze" | "swap" | "security" | "checks" | "restarts";
@@ -222,7 +222,7 @@ export function ServerJobSlot() {
   const state = jobState(job.status);
   const title = state === "succeeded" ? words.succeeded : state === "failed" ? words.failed : words.running;
   const viewOutput = (
-    <Button icon={<ScrollText aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setOutputOpen(true)}>
+    <Button icon={<OBJECT_ICONS.log aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setOutputOpen(true)}>
       {t("server.job.viewOutput")}
     </Button>
   );

@@ -112,7 +112,7 @@ test("restoring the latest backup is confirmed by typing the target domain", asy
   const requested = page.waitForRequest(
     (request) => request.url().includes("/api/backups/") && request.url().endsWith("/restore") && request.method() === "POST",
   );
-  await elevate.getByRole("button", { name: "Confirm" }).click();
+  await elevate.getByRole("button", { name: "Continue" }).click();
   const body = (await requested).postDataJSON() as { target_domain: string | null; restore_env: boolean; verify: boolean };
   expect(body).toEqual({ target_domain: null, restore_env: false, verify: true, schema_changed_ok: false });
   await expect(elevate).toBeHidden();

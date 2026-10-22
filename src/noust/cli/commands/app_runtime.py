@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The commands of the runtime area under ``noust app`` (3.4), gathered in one place.
+The commands of the runtime area under ``noust app`` (4.0), gathered in one place.
 
 ``noust app`` mounts each of these once, so the area adds its commands without
 touching the shared group's list in more than one line.

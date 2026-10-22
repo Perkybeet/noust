@@ -8744,6 +8744,227 @@ Never emit colour.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust deploy
+Follow the deploy queue, cancel a build, and hold, freeze or release deploys.
+
+.SS noust deploy cancel
+Cancel a deployment: a job that waits, or the build that runs.
+.TP
+.B Arguments
+.br
+\fItarget\fR
+.TP
+.B \-\-all
+With an application: also cancel what waits in the queue for it.
+.TP
+.B \-\-wait
+Seconds to wait for the build to stop (0 to ask and return). Default: 30.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust deploy freeze
+Freeze deploys: nothing is deployed, of DOMAIN or of the whole server, for a while.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-reason, \-m
+Why; whoever tries to deploy is told it.
+.TP
+.B \-\-from
+When it starts (2026\-12\-24T18:00); now when left out.
+.TP
+.B \-\-until
+When it ends; none lasts until lifted.
+.TP
+.B \-\-hours
+Instead of \-\-until: how long from its start.
+.TP
+.B \-\-json
+Print the freeze as JSON.
+
+.SS noust deploy freezes
+List the freezes that hold deploys now, or will.
+.TP
+.B \-\-all
+Also the ones that ended or were lifted.
+.TP
+.B \-\-json
+Print the freezes as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust deploy held
+Say what holds the deploys of an application, if anything: a pause or a freeze.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the answer as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust deploy keep
+Show or set how many deployments of an application's history are kept.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIcount\fR
+.TP
+.B \-\-json
+Print the setting as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust deploy pause
+Hold what deploys an application by itself: its pushes, its tags and its schedules.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-reason, \-m
+Why, for whoever meets it ('rolled back to 20261001').
+.TP
+.B \-\-json
+Print the settings now in force as JSON.
+
+.SS noust deploy pause\-on\-rollback
+Show or set whether going back pauses what deploys the application by itself.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIchoice\fR
+.TP
+.B \-\-json
+Print the setting as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust deploy queue
+Show what is deploying and what is waiting to.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the queue as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust deploy resume
+Let an application's pushes, tags and schedules deploy it again.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print what resuming did as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust deploy schedule
+Update an application by itself, on a schedule.
+
+.SS noust deploy schedule list
+List the applications that update themselves.
+.TP
+.B \-\-json
+Print the schedules as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust deploy schedule remove
+Stop an application updating itself: the timer and the schedule go.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust deploy schedule run
+Run an application's scheduled update now, once, exactly as its timer does.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust deploy schedule set
+Make an application update itself at a time, with a backup first.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-at
+daily, weekly or monthly (at 03:00, Sunday for a week), or a systemd calendar expression such as 'Sun *\-*\-* 03:00' or '*\-*\-* 04:30'.
+.TP
+.B \-\-backup, \-\-no\-backup
+Refuse the update when the backup before it does not happen.
+.TP
+.B \-\-only\-if\-new, \-\-always
+Do nothing when the branch (or the tags it follows) has nothing new.
+.TP
+.B \-\-off
+Keep the schedule and stop its timer.
+.TP
+.B \-\-json
+Print the schedule as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust deploy schedule show
+Show when an application updates itself, and how its last run ended.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the schedule as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust deploy unfreeze
+Lift the freeze of an application, or of the whole server without DOMAIN.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-id
+Lift this freeze, by its number.
+.TP
+.B \-\-json
+Print the freezes that were lifted as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust diagnose
 Explain why an application is down.
 .TP
@@ -12043,7 +12264,7 @@ A variable never copied to previews; repeat for more. Replaces the current list;
 Copy every variable again (clear the excluded list).
 .TP
 .B \-\-env\-mode
-Which of the application's variables a preview is given: 'allowlist' (only \-\-allow\-env, the default for previews turned on now) or 'all' (every one less \-\-exclude\-env, as before 3.4).
+Which of the application's variables a preview is given: 'allowlist' (only \-\-allow\-env, the default for previews turned on now) or 'all' (every one less \-\-exclude\-env, as before 4.0).
 .TP
 .B \-\-allow\-env
 A variable an 'allowlist' preview copies; repeat for more. Replaces the current list.

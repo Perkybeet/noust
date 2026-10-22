@@ -1,4 +1,4 @@
-import { CalendarClock, History, Play, RotateCcw } from "lucide-react";
+import { Play, RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { RelativeTime } from "../../components/page/RelativeTime";
@@ -17,6 +17,7 @@ import { calendarWords } from "../cron/data";
 import { COVERAGE_RANK } from "./coverage";
 import type { Coverage, CoverageRow } from "./coverage";
 import type { BackupRow } from "./BackupsTable";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const STATE: Readonly<Record<Coverage, Status>> = { current: "running", stale: "warning", never: "warning" };
 
@@ -39,10 +40,10 @@ function CoverageMenu({ row, actions }: { row: CoverageRow; actions: CoverageAct
     <RowMenu name={row.domain}>
       {row.deployed ? (
         <MenuItem icon={<Play />} onClick={() => actions.onBackUp(row.domain)}>
-          {t("backups.coverage.actions.backUpNow")}
+          {t("common.words.backUpNow")}
         </MenuItem>
       ) : null}
-      <MenuItem icon={<History />} onClick={() => actions.onOpen(row)}>
+      <MenuItem icon={<OBJECT_ICONS.backup />} onClick={() => actions.onOpen(row)}>
         {t("backups.coverage.actions.viewBackups")}
       </MenuItem>
       {row.latest !== null ? (
@@ -53,7 +54,7 @@ function CoverageMenu({ row, actions }: { row: CoverageRow; actions: CoverageAct
       {row.deployed ? (
         <>
           <MenuSeparator />
-          <MenuItem icon={<CalendarClock />} onClick={() => actions.onSchedule(row)}>
+          <MenuItem icon={<OBJECT_ICONS.schedule />} onClick={() => actions.onSchedule(row)}>
             {row.schedule !== null ? t("backups.coverage.actions.editSchedule") : t("backups.coverage.actions.schedule")}
           </MenuItem>
         </>
@@ -153,7 +154,6 @@ export function CoverageTable({ rows, caption, loading = false, skeletonRows, em
 
   return (
     <DataTable
-      mobile="cards"
       columns={columns}
       rows={rows}
       getRowId={(row) => row.domain}

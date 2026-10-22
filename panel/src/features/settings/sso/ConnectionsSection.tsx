@@ -1,4 +1,4 @@
-import { FileKey, KeyRound, Pencil, Play, Users } from "lucide-react";
+import { FileKey, KeyRound, Pencil, Play } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -34,6 +34,7 @@ import { DirectoryDrawer } from "./DirectoryDrawer";
 import { ProviderDrawer } from "./ProviderDrawer";
 import { TestResultDialog } from "./TestResultDialog";
 import { SamlDrawer } from "./SamlDrawer";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 type Kind = "oidc" | "saml" | "directory";
 
@@ -247,18 +248,18 @@ export function ConnectionsSection() {
   const removeWords = (connection: Connection): { title: string; description: string; action: string } =>
     connection.kind === "oidc"
       ? {
-          title: t("ssoAdmin.providers.removeDialog.title", { name: connection.name }),
+          title: t("common.words.removeNamed", { name: connection.name }),
           description: t("ssoAdmin.providers.removeDialog.description"),
           action: t("ssoAdmin.providers.removeDialog.action"),
         }
       : connection.kind === "saml"
         ? {
-            title: t("samlAdmin.removeDialog.title", { name: connection.name }),
+            title: t("common.words.removeNamedQuestion", { name: connection.name }),
             description: t("samlAdmin.removeDialog.description"),
             action: t("samlAdmin.removeDialog.action"),
           }
         : {
-            title: t("ldapAdmin.removeDialog.title", { name: connection.name }),
+            title: t("common.words.removeNamedQuestion", { name: connection.name }),
             description: t("ldapAdmin.removeDialog.description"),
             action: t("ldapAdmin.removeDialog.action"),
           };
@@ -277,7 +278,7 @@ export function ConnectionsSection() {
       <MenuItem icon={<FileKey />} onClick={() => setEditing({ kind: "saml", item: null })} description={t("ssoAdmin.connections.addSamlHelp")}>
         {t("ssoAdmin.connections.addSaml")}
       </MenuItem>
-      <MenuItem icon={<Users />} onClick={() => setEditing({ kind: "directory", item: null })} description={t("ssoAdmin.connections.addDirectoryHelp")}>
+      <MenuItem icon={<OBJECT_ICONS.identity />} onClick={() => setEditing({ kind: "directory", item: null })} description={t("ssoAdmin.connections.addDirectoryHelp")}>
         {t("ssoAdmin.connections.addDirectory")}
       </MenuItem>
     </Menu>
@@ -285,7 +286,7 @@ export function ConnectionsSection() {
   const columns = columnsFor(t);
 
   return (
-    <Section title={t("ssoAdmin.connections.title")} description={t("ssoAdmin.connections.description")}>
+    <Section title={t("ssoAdmin.connections.title")} icon={OBJECT_ICONS.identity} description={t("ssoAdmin.connections.description")}>
       {!pending && rows.length > 0 ? <SettingsPrimaryAction>{add}</SettingsPrimaryAction> : null}
       {plainHttp ? (
         <Notice tone="warning" title={t("samlAdmin.plainHttpTitle")}>
@@ -297,7 +298,7 @@ export function ConnectionsSection() {
         query={list}
         label={t("ssoAdmin.connections.what")}
         skeleton={
-          <DataTable caption={t("ssoAdmin.connections.tableCaption")} columns={columns} rows={[]} getRowId={(connection) => `${connection.kind}:${connection.name}`} loading mobile="cards" skeletonRows={2} />
+          <DataTable caption={t("ssoAdmin.connections.tableCaption")} columns={columns} rows={[]} getRowId={(connection) => `${connection.kind}:${connection.name}`} loading skeletonRows={2} />
         }
         isEmpty={(connections) => connections.length === 0}
         empty={
@@ -316,17 +317,16 @@ export function ConnectionsSection() {
               columns={columns}
               rows={rows}
               getRowId={(connection) => `${connection.kind}:${connection.name}`}
-              mobile="cards"
               onRowActivate={edit}
               rowActions={(connection) => (
                 <RowMenu name={connection.name}>
                   <MenuItem icon={<Play />} disabled={testing === connection.name} onClick={() => void runTest(connection)}>
                     {t("ssoAdmin.providers.test")}
                   </MenuItem>
-                  <MenuItem icon={<Pencil />} onClick={() => edit(connection)}>{t("ssoAdmin.providers.edit")}</MenuItem>
+                  <MenuItem icon={<Pencil />} onClick={() => edit(connection)}>{t("common.words.edit")}</MenuItem>
                   <MenuSeparator />
                   <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(connection)}>
-                    {t("ssoAdmin.providers.remove")}
+                    {t("common.words.remove")}
                   </MenuItem>
                 </RowMenu>
               )}

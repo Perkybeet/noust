@@ -119,7 +119,7 @@ export function SiteHistoryDialog({ site, dirty, onClose, onUse }: SiteHistoryDi
       size="lg"
       title={t("domains.siteHistory.title", { site })}
       description={t("domains.siteHistory.description")}
-      footer={<Button onClick={onClose}>{t("domains.siteHistory.close")}</Button>}
+      footer={<Button onClick={onClose}>{t("common.words.close")}</Button>}
     >
       <div className="flex flex-col gap-3">
         {versions.data?.edited_outside ? <p className="text-13 text-warn">{t("domains.siteHistory.editedOutside")}</p> : null}

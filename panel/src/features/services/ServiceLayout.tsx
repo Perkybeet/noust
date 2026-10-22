@@ -5,7 +5,7 @@
  */
 
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { Cog, FileCode, Play, RotateCw, ScrollText, Square } from "lucide-react";
+import { Cog, Play, RotateCw, Square } from "lucide-react";
 import { useState } from "react";
 
 import { LinkTabs } from "../../app/LinkTabs";
@@ -30,6 +30,7 @@ import { SERVICE_SCREENS } from "../nav/server";
 import { serviceState } from "./data";
 import { useServiceActions } from "./useServiceActions";
 import { useServiceRecord } from "./useServiceRecord";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** Where a service page sits: under the server, in its Services tab. */
 export function serviceBreadcrumbs(t: T): { label: string; to: string }[] {
@@ -145,23 +146,23 @@ export function ServiceLayout({ name }: { name: string }) {
                 secondaryActions: (
                   <>
                     <Link to="/server/services/$name/unit" params={{ name }} className={buttonClassName("secondary")}>
-                      <FileCode aria-hidden="true" className="size-icon-md" />
+                      <OBJECT_ICONS.file aria-hidden="true" className="size-icon-md" />
                       {t("services.actions.unitFile")}
                     </Link>
                     {service.active ? (
                       <Button icon={<Square aria-hidden="true" />} disabled={stop.isPending} onClick={() => setConfirmStop(true)}>
-                        {t("services.actions.stop")}
+                        {t("common.words.stop")}
                       </Button>
                     ) : (
                       <Button icon={<Play aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()}>
-                        {t("services.actions.start")}
+                        {t("common.words.start")}
                       </Button>
                     )}
                   </>
                 ),
                 primaryAction: (
                   <Button variant="primary" icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()}>
-                    {t("services.actions.restart")}
+                    {t("common.words.restart")}
                   </Button>
                 ),
                 overflow: (
@@ -175,7 +176,7 @@ export function ServiceLayout({ name }: { name: string }) {
                         {t("services.actions.enableAtBoot")}
                       </MenuItem>
                     )}
-                    <MenuItem icon={<ScrollText />} onClick={() => void navigate({ to: "/server/logs", search: { unit: name } })}>
+                    <MenuItem icon={<OBJECT_ICONS.log />} onClick={() => void navigate({ to: "/server/logs", search: { unit: name } })}>
                       {t("services.actions.openInLogs")}
                     </MenuItem>
                     {record.app === null ? (
@@ -217,7 +218,7 @@ export function ServiceLayout({ name }: { name: string }) {
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         server={node}
-        title={t("services.detail.deleteDialogTitle", { name })}
+        title={t("common.words.deleteNamed", { name })}
         description={t("services.detail.deleteDescription")}
         confirmText={name}
         actionLabel={t("services.detail.deleteService")}

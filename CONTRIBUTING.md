@@ -179,7 +179,7 @@ terraform-provider-noust/   the Terraform and OpenTofu provider (Go, Plugin Fram
                             (docs/terraform-registry.md, scripts/prepare_terraform_registry.py)
 scripts/reproducible_build.py   the wheel and the sdist of a commit, byte for byte
                             (docs/reproducible-builds.md); CI and the release workflow build with it
-tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest. The 3.4
+tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest. The 4.0
                             features' scenarios are in scenarios_34.py (loaded by run.py), and
                             `--upgrade-from-3.3` (scenarios_upgrade.py) upgrades a 3.3.1 server that
                             carries every legacy name; `--downgrade-to-3.3` goes back over a store the
@@ -405,7 +405,7 @@ stream and the log and job WebSockets over that tunnel; nothing runs twice.
 See `docs/CENTRAL.md` for running a central, sealing its secrets and adding a server, and
 `docs/PLATFORMS.md` for the platforms and the installer.
 
-## Teams (3.4)
+## Teams (4.0)
 
 Teams, projects and environments (`docs/teams.md`) are one more instance of rule 4. Applications,
 sites, databases and backup schedules belong to a project, and what a principal sees of them is

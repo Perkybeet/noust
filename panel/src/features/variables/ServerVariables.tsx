@@ -16,7 +16,7 @@ export function ServerVariables() {
   return (
     <div className="flex flex-col gap-6">
       <SharedVariables scope={{ kind: "server" }} canManage={canManage} primary command={false} />
-      <CommandHint command="noust variables list server" label={t("variables.shared.fromTerminal")} />
+      <CommandHint command="noust variables list server" label={t("common.words.fromTerminal")} />
     </div>
   );
 }

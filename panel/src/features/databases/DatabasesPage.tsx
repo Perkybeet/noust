@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Archive, Database as DatabaseIcon, Link2, PanelTop, Plug, SquareTerminal, Tags, X } from "lucide-react";
+import { Link2, Plug, Tags, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { request } from "../../api/client";
@@ -32,6 +32,7 @@ import { filterDatabases, isFiltered } from "./filters";
 import type { DatabasesSearch } from "./filters";
 import { useDatabasesHeader } from "./listHeader";
 import { newestDumps, policiesById } from "./protection";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const ALL = "all";
 
@@ -75,11 +76,11 @@ function DatabaseMenu({ database, engines, t }: { database: Database; engines: r
   return (
     <>
     <RowMenu name={database.name}>
-      <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/databases/$engine/$name", params })}>
+      <MenuItem icon={<OBJECT_ICONS.database />} onClick={() => void navigate({ to: "/databases/$engine/$name", params })}>
         {t("databases.list.open")}
       </MenuItem>
       {can(engine, "sql") ? (
-        <MenuItem icon={<SquareTerminal />} disabled={database.missing} onClick={() => void navigate({ to: "/databases/$engine/$name/query", params })}>
+        <MenuItem icon={<OBJECT_ICONS.terminal />} disabled={database.missing} onClick={() => void navigate({ to: "/databases/$engine/$name/query", params })}>
           {t("databases.list.query")}
         </MenuItem>
       ) : null}
@@ -92,8 +93,8 @@ function DatabaseMenu({ database, engines, t }: { database: Database; engines: r
       {can(engine, "dump") ? (
         <>
           <MenuSeparator />
-          <MenuItem icon={<Archive />} disabled={database.missing || backup.isPending} onClick={() => backup.mutate()}>
-            {t("databases.list.backUpNow")}
+          <MenuItem icon={<OBJECT_ICONS.backup />} disabled={database.missing || backup.isPending} onClick={() => backup.mutate()}>
+            {t("common.words.backUpNow")}
           </MenuItem>
         </>
       ) : null}
@@ -279,7 +280,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
         ? {
             actions: (
               <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={clear}>
-                {t("databases.list.clearFilters")}
+                {t("common.words.clearFilters")}
               </Button>
             ),
           }
@@ -298,7 +299,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   if (!loading && all.length === 0 && problems.length > 0) {
     return (
       <>
-        <ListPage header={header} tabs={tabs} notice={notice} arrival={ANSWERED} footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}>
+        <ListPage header={header} tabs={tabs} notice={notice} arrival={ANSWERED} footer={<CommandHint command="noust db list" label={t("common.words.fromTerminal")} />}>
           {null}
         </ListPage>
         {dialogs}
@@ -309,10 +310,10 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   if (!loading && all.length === 0) {
     return (
       <>
-        <ListPage header={header} tabs={tabs} arrival={ANSWERED} footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}>
+        <ListPage header={header} tabs={tabs} arrival={ANSWERED} footer={<CommandHint command="noust db list" label={t("common.words.fromTerminal")} />}>
           <EmptyState
             variant="firstUse"
-            icon={<DatabaseIcon />}
+            icon={<OBJECT_ICONS.database />}
             title={t("databases.list.emptyTitle")}
             description={running ? t("databases.list.emptyDescription") : t("databases.list.emptyNoEngine")}
             action={
@@ -345,7 +346,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
         {...(loading ? {} : { filters: filterBar(count) })}
         // Drawn with the rows, not before: under a list of unknown length it would only be pushed
         // down the page when they arrive.
-        {...(loading ? {} : { footer: <CommandHint command="noust db list" label={t("databases.common.fromTerminal")} /> })}
+        {...(loading ? {} : { footer: <CommandHint command="noust db list" label={t("common.words.fromTerminal")} /> })}
       >
         <DatabasesTable
           loading={loading}
@@ -362,7 +363,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
               title={t("databases.list.noMatch")}
               action={
                 <Button size="sm" variant="ghost" onClick={clear}>
-                  {t("databases.list.clearFilters")}
+                  {t("common.words.clearFilters")}
                 </Button>
               }
             />

@@ -1,4 +1,4 @@
-import { CirclePause, CirclePlay, History, Pencil, Play } from "lucide-react";
+import { CirclePause, CirclePlay, Pencil, Play } from "lucide-react";
 import { useState } from "react";
 
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
@@ -8,6 +8,7 @@ import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { useT } from "../../i18n";
 import type { CronJob } from "./data";
 import { useCronActions } from "./useCronActions";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 export interface CronJobRowActionsProps {
   job: CronJob;
@@ -24,15 +25,15 @@ export function CronJobRowActions({ job, onEdit, onViewRuns }: CronJobRowActions
 
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={t("cron.table.actionsFor", { name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
         <MenuItem icon={<Play />} disabled={run.isPending} onClick={() => run.mutate(name)}>
           {t("cron.actions.runNow")}
         </MenuItem>
-        <MenuItem icon={<History />} onClick={() => onViewRuns(name)}>
+        <MenuItem icon={<OBJECT_ICONS.activity />} onClick={() => onViewRuns(name)}>
           {t("cron.actions.viewRuns")}
         </MenuItem>
         <MenuItem icon={<Pencil />} onClick={() => onEdit(job)}>
-          {t("cron.common.edit")}
+          {t("common.words.edit")}
         </MenuItem>
         <MenuSeparator />
         {job.enabled ? (
@@ -55,7 +56,7 @@ export function CronJobRowActions({ job, onEdit, onViewRuns }: CronJobRowActions
         friction="simple"
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={t("cron.deleteDialog.title", { name })}
+        title={t("common.words.deleteNamed", { name })}
         description={t("cron.deleteDialog.description")}
         actionLabel={t("cron.actions.deleteJob")}
         onConfirm={async () => {

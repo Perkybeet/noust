@@ -9,7 +9,7 @@ export const appTraffic = {
     description: "From the web server's access log, by the hour. No query string is kept, and a visitor is their network, not their address.",
     windowLabel: "Traffic window",
     window: { "24h": "24 hours", "7d": "7 days", "30d": "30 days", "90d": "90 days" },
-    loading: "Reading the traffic",
+    loading: "Loading the traffic",
     loadFailed: "Could not read the traffic",
     requests: "Requests",
     requestsDetail: "{ok} answered well",

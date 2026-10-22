@@ -43,6 +43,7 @@ import type { UpdatePackage, UpdateRun, UpdateScope, Updates } from "../queries"
 import { useServerJob } from "../serverJob";
 import { TabToolbar } from "../TabToolbar";
 import { ApplyDialog, Names } from "./ApplyDialog";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** Rows before "Show all": enough to see every security update on most days. */
 const SHOWN_PACKAGES = 8;
@@ -155,7 +156,7 @@ function RecentRuns() {
     { id: "actor", header: t("server.updates.runs.actor"), hideBelow: "md", cell: (row) => (row.actor ? <Mono tone="muted">{row.actor}</Mono> : <EmptyCell />) },
   ];
   return (
-    <Card level={2} title={t("server.updates.runs.title")} padding="none">
+    <Card level={2} title={t("server.updates.runs.title")} icon={OBJECT_ICONS.activity} padding="none">
       <DataTable
         columns={columns}
         rows={runs.data ?? []}
@@ -164,7 +165,6 @@ function RecentRuns() {
         loading={runs.isPending}
         skeletonRows={3}
         density="compact"
-        mobile="cards"
         onRowActivate={setOpen}
       />
       <Drawer
@@ -205,7 +205,7 @@ function AutoUpdates({ updates }: { updates: Updates }) {
   return (
     <SettingsGroup
       level={2}
-      title={t("server.updates.auto.title")}
+      title={t("server.updates.auto.title")} icon={OBJECT_ICONS.update}
       status={<StatusPill state={auto.enabled ? "running" : "stopped"} label={auto.enabled ? t("server.updates.auto.on") : t("server.updates.auto.off")} size="sm" />}
     >
       <Setting
@@ -397,7 +397,6 @@ function Packages({ updates }: { updates: Updates }) {
         rows={shown}
         getRowId={(row) => row.name}
         caption={t("server.updates.table.caption")}
-        mobile="cards"
         density="compact"
       />
       {sorted.length > SHOWN_PACKAGES ? (
@@ -519,7 +518,7 @@ function UpdatesBody({ data }: { data: Updates }) {
         </div>
       </div>
       <RecentRuns />
-      <CommandHint command="noust server updates apply --security-only" label={t("server.fromTerminal")} />
+      <CommandHint command="noust server updates apply --security-only" label={t("common.words.fromTerminal")} />
       {applying !== null ? <ApplyDialog scope={applying} keptBack={data.kept_back} onClose={() => setApplying(null)} /> : null}
     </div>
   );

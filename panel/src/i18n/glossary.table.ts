@@ -91,6 +91,39 @@ export const OLD_NAMES_KEPT: readonly { key: RegExp; why: string }[] = [
 
 
 
+/**
+ * A Spanish text with the endings of agreement taken off its words ("Fallido", "Fallida", "Fallidos" and
+ * "Fallidas" are one stem, "Pendiente" and "Pendientes" too): a gender or a number is not a different
+ * translation (README, rule 7 of "The words of the interface").
+ */
+export function agreementStem(text: string): string {
+  return text.trim().toLowerCase().replace(/(?<=\p{L})[oae]s?(?!\p{L})/gu, "");
+}
+
+/**
+ * English texts that Spanish rightly says more than one way, each with why. Everything else that diverges is
+ * a breach: one English text, one Spanish translation. An entry whose text no longer diverges fails
+ * `glossary.test.ts`, so this list cannot go stale.
+ */
+export const DIVERGENCE_EXCEPTIONS: Readonly<Record<string, string>> = {
+  "Audit log": "the settings entry is \"Auditoría\" and the log itself \"Registro de auditoría\" (README, glossary)",
+  Backups: "a tab or a column header says \"Copias\"; the name of the place says \"Copias de seguridad\"",
+  Branch: "an option that completes \"Crearla desde\" or \"Desde\" takes the article (\"Una rama\", \"Desde una rama\"); a field label does not (\"Rama\")",
+  Build: "a noun (\"Compilación\", a section) and a verb (\"Compilar\", the label of a command)",
+  Change: "a noun (\"Cambio\", a column) and a verb (\"Cambiar\", a button)",
+  Check: "a noun (\"Comprobación\", a column or a constraint) and a verb (\"Comprobar\", a button)",
+  Kind: "\"Tipo\" is what a thing is; \"Clase\" is a relation's kind, next to its data type, which is \"Tipo\"",
+  Live: "two senses the glossary keeps apart: \"En producción\" (the version that serves) and \"En directo\" (a stream)",
+  Open: "a verb (\"Abrir\", a button) and a firewall verdict (\"Abierto\")",
+  Reboot: "a noun (\"Reinicio\", a column) and a verb (\"Reiniciar\", a button)",
+  "Removed {name}": "a person takes the personal a (\"Se quitó a {name}\"), a thing does not",
+  Runs: "\"Se ejecuta\" (when it runs) and \"Ejecuciones\" (the runs, a plural noun)",
+  Search: "a noun (\"Búsqueda\", a category) and a verb (\"Buscar\", a placeholder)",
+  Tag: "a Git tag keeps \"tag\" and an application's label is \"etiqueta\" (README, glossary)",
+  To: "a limit in time is \"Hasta\"; a direction in a diagram is \"Hacia\"",
+  View: "a verb (\"Ver\", a button) and a noun (\"Vista\", a view of a database)",
+};
+
 export const RETIRED: readonly Retired[] = [
   // English
   { id: "redeploy", language: "en", pattern: /\bRedeploy\b/, instead: "Update (pulls the code and builds) or Rebuild (the same commit again)" },
@@ -127,7 +160,12 @@ export const RETIRED: readonly Retired[] = [
     language: "es",
     pattern: /(?<!\bde )(?<!\bmismo )\btrabajos?\b/i,
     instead: "tarea (a job); \"directorio de trabajo\" and \"espacio de trabajo\" are not jobs",
-    except: [{ key: /^gitlab\.dialog\.nameDescription$/, why: "\"trabajo\" is the example name the sentence offers, not the word for a job" }],
+    except: [
+      { key: /^gitlab\.dialog\.nameDescription$/, why: "\"trabajo\" is the example name the sentence offers, not the word for a job" },
+      { key: /^auth\.passkeys\.nameHint$/, why: "\"Portátil del trabajo\" is the example name of a passkey: work, not a job" },
+      { key: /^auth\.security\.masterBreakGlass$/, why: "\"el trabajo diario\" is everyday work, not a job" },
+      { key: /^consoleAccess\.state\.unfinishedBody$/, why: "\"parte del trabajo\" is part of the work to do, not a job" },
+    ],
   },
   {
     id: "log-word",

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, Globe, Lock } from "lucide-react";
+import { Eye, Lock } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -89,7 +89,7 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
   const unreachable = exposure !== null && exposure.state === "exposed" && !exposure.listening;
   const stuck = exposure !== null && exposure.state !== "exposed";
   const open = (
-    <Button size="sm" variant="secondary" icon={<Globe aria-hidden="true" />} onClick={() => setOpening(true)}>
+    <Button size="sm" variant="secondary" icon={<OBJECT_ICONS.addresses aria-hidden="true" />} onClick={() => setOpening(true)}>
       {t("publicAccess.actions.open")}
     </Button>
   );
@@ -131,7 +131,7 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
   return (
     <>
       <Section
-        title={t("publicAccess.title")}
+        title={t("publicAccess.title")} icon={OBJECT_ICONS.addresses}
         badge={status}
         description={sentence}
         actions={

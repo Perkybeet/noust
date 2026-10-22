@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GitHubStatus } from "../../api/queries/github";
 import { setLocale } from "../../app/locale";
@@ -8,6 +8,7 @@ import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { EXPORT_PATH, scrapeConfig } from "./MetricsExportSection";
+import { screenWidth } from "../app/testRoutes";
 
 const NOT_CONFIGURED: GitHubStatus = { configured: false, installations: [], hooks_url: null, hooks_active: false, host: "github.com" };
 
@@ -79,7 +80,7 @@ function integrations(status: GitHubStatus, extra: Record<string, RouteHandler> 
 async function confirmItsMe(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
   const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
   await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-  await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+  await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 }
 
 async function expectToast(text: string): Promise<void> {
@@ -108,6 +109,11 @@ describe("the scrape entry", () => {
 });
 
 describe("Settings > Integrations", () => {
+  // These lists are tables from 640px and cards below it: the tests read the table.
+  beforeEach(() => {
+    screenWidth(1440);
+  });
+
   it("is a settings tab", async () => {
     integrations(NOT_CONFIGURED);
     renderConsole("/settings/integrations");
@@ -300,6 +306,11 @@ describe("Settings > Integrations", () => {
 });
 
 describe("Settings > Integrations in Spanish", () => {
+  // These lists are tables from 640px and cards below it: the tests read the table.
+  beforeEach(() => {
+    screenWidth(1440);
+  });
+
   it("explains the App and the webhook state in Spanish, with no accessibility violations", { timeout: 20_000 }, async () => {
     await act(() => setLocale("es"));
     integrations(NOT_CONFIGURED);

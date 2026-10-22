@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
-import { HardDrive } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { isApiError, request } from "../../../api/client";
@@ -30,6 +29,7 @@ import { KernelQuota } from "./KernelQuota";
 import { useSaveBar } from "./formParts";
 import type { FormPart } from "./formParts";
 import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** The least a limit can be (MB), the backend's own floor: a release has to fit in it. */
 const MIN_LIMIT_MB = 64;
@@ -215,7 +215,7 @@ function DiskCard({ app, disk, limit }: { app: App; disk: UseQueryResult<AppDisk
             <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("runtime.disk.neverMeasured")}</p>
           )}
           <div>
-            <Button variant="secondary" icon={<HardDrive aria-hidden="true" />} loading={measuring} onClick={() => measure.mutate()}>
+            <Button variant="secondary" icon={<OBJECT_ICONS.disk aria-hidden="true" />} loading={measuring} onClick={() => measure.mutate()}>
               {disk.data.usage ? t("runtime.disk.measureAgain") : t("runtime.disk.measure")}
             </Button>
           </div>
@@ -246,7 +246,7 @@ function DiskCard({ app, disk, limit }: { app: App; disk: UseQueryResult<AppDisk
           <KernelQuota disk={disk.data} domain={domain} />
         </div>
       </Card>
-      <CommandHint command={`noust app disk ${domain} --measure --limit 2048`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={`noust app disk ${domain} --measure --limit 2048`} label={t("common.words.fromTerminal")} />
     </>
   );
 }

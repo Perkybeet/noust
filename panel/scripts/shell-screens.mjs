@@ -22,7 +22,7 @@ const { values } = parseArgs({
   },
 });
 
-const TOKEN = "wasm_mock_token";
+const TOKEN = "noust_mock_token";
 const CODE = "123456";
 const THEMES = /** @type {const} */ (["light", "dark"]);
 const WIDTHS = [1440, 390];
@@ -40,15 +40,15 @@ function check(ok, message) {
 
 /**
  * Fires a request through the console's own API client (main.tsx exposes it as
- * window.__wasmDev in development), so the real error paths run: elevation, expiry. Passed to
+ * window.__noustDev in development), so the real error paths run: elevation, expiry. Passed to
  * page.evaluate as is: Playwright serialises it into the page, where it declares its own type.
  *
  * @param {{ method: string, path: string }} request
  */
 function callDevApi({ method, path }) {
-  const dev = /** @type {{ __wasmDev?: { api: (method: string, path: string) => Promise<unknown> } }} */ (
+  const dev = /** @type {{ __noustDev?: { api: (method: string, path: string) => Promise<unknown> } }} */ (
     /** @type {unknown} */ (window)
-  ).__wasmDev;
+  ).__noustDev;
   void dev?.api(method, path).catch(() => undefined);
 }
 

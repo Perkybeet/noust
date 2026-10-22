@@ -66,7 +66,7 @@ export function EngineAccountDialog({
       description={t("databases.access.dialogDescription", { engine: displayName })}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form="engine-account-form" variant="primary" loading={save.isPending}>
             {t("databases.access.save")}
           </Button>

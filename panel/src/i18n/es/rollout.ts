@@ -194,13 +194,12 @@ export const rollout: Catalog<typeof en> = {
   },
   releases: {
     waiting: "Compilada, sin servir",
-    promote: "Ponerla en servicio",
-    promoteAria: "Poner en servicio la release {id}",
+    promote: "Poner en producción",
     promoteTitle: "¿Poner en servicio la release {id}?",
     promoteDescription:
-      "Se compiló antes y no está sirviendo. Entra en producción tras la misma comprobación de salud; sus migraciones se ejecutan ahora y no se compila nada de nuevo.",
+      "Se compiló antes y no está sirviendo. Entra en producción tras la misma comprobación de arranque; sus migraciones se ejecutan ahora y no se compila nada de nuevo.",
     promoteDescriptionCommit:
-      "El commit {commit} se compiló antes y no está sirviendo. Entra en producción tras la misma comprobación de salud; sus migraciones se ejecutan ahora y no se compila nada de nuevo.",
+      "El commit {commit} se compiló antes y no está sirviendo. Entra en producción tras la misma comprobación de arranque; sus migraciones se ejecutan ahora y no se compila nada de nuevo.",
     promoteQueued: "Poniendo en servicio la release {id} de {domain}",
     promoteFailed: "No se pudo poner en servicio la release {id}",
     buildOnly: "Compilar sin servir",

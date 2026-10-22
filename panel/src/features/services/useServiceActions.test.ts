@@ -16,18 +16,18 @@ function wrapper(client = createQueryClient()) {
 describe("useServiceActions", () => {
   it("drops the deleted unit's cached detail (and its logs and config) rather than leaving it stale", async () => {
     fakeBackend({
-      "DELETE /api/services/wasm-shop": () => json(200, { success: true, message: "Deleted wasm-shop" }),
+      "DELETE /api/services/shop-web": () => json(200, { success: true, message: "Deleted shop-web" }),
     });
     const { client, Wrapper } = wrapper();
-    client.setQueryData(serviceKeys.detail("wasm-shop"), { name: "wasm-shop", active: true });
-    client.setQueryData(serviceKeys.config("wasm-shop"), { config: "[Unit]" });
+    client.setQueryData(serviceKeys.detail("shop-web"), { name: "shop-web", active: true });
+    client.setQueryData(serviceKeys.config("shop-web"), { config: "[Unit]" });
 
-    const { result } = renderHook(() => useServiceActions("wasm-shop"), { wrapper: Wrapper });
+    const { result } = renderHook(() => useServiceActions("shop-web"), { wrapper: Wrapper });
     await act(async () => {
       await result.current.remove.mutateAsync();
     });
 
-    expect(client.getQueryData(serviceKeys.detail("wasm-shop"))).toBeUndefined();
-    expect(client.getQueryData(serviceKeys.config("wasm-shop"))).toBeUndefined();
+    expect(client.getQueryData(serviceKeys.detail("shop-web"))).toBeUndefined();
+    expect(client.getQueryData(serviceKeys.config("shop-web"))).toBeUndefined();
   });
 });

@@ -237,7 +237,7 @@ export function TlsDialog({ instance, onOpenChange, onQueued }: TlsDialogProps) 
           </>
         ) : null}
         {apply.isError ? <ErrorBlock live compact error={apply.error} title={t("databases.tls.failed")} /> : null}
-        <CommandHint command={`noust db instance tls ${instance.name} --mode ${chosen}`} label={t("databases.common.fromTerminal")} />
+        <CommandHint command={`noust db instance tls ${instance.name} --mode ${chosen}`} label={t("common.words.fromTerminal")} />
       </div>
       {renewing ? (
         <ConfirmDialog

@@ -1,5 +1,4 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { FolderKanban } from "lucide-react";
 import { useMemo } from "react";
 
 import type { ProjectEnvironment } from "../../api/queries/teams";
@@ -33,6 +32,7 @@ import { useOrganization } from "./useOrganization";
 import { useProjectActions } from "./useProjectActions";
 import { useResources } from "./useResources";
 import { SharedVariables } from "../variables/SharedVariables";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const NO_DEPLOYS: ReadonlyMap<string, Deployment> = new Map();
 
@@ -103,7 +103,7 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
       <DetailPage header={{ title: slug, mono: true, breadcrumbs, server: node }}>
         <EmptyState
           variant="firstUse"
-          icon={<FolderKanban />}
+          icon={<OBJECT_ICONS.project />}
           title={t("teams.project.notFoundTitle")}
           description={t("teams.project.notFoundDescription", { project: slug, team })}
           action={
@@ -138,7 +138,7 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
   const databaseColumns: Column<(typeof databases)[number]>[] = [
     {
       id: "name",
-      header: t("teams.project.columnName"),
+      header: t("common.words.name"),
       card: "title",
       sortValue: (database) => database.name,
       cell: (database) => (
@@ -160,7 +160,7 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
   const siteColumns: Column<(typeof sites)[number]>[] = [
     {
       id: "name",
-      header: t("teams.project.columnName"),
+      header: t("common.words.name"),
       card: "title",
       sortValue: (site) => site.name,
       cell: (site) => (
@@ -219,7 +219,7 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
         ) : empty && current !== undefined ? (
           <EmptyState
             variant="firstUse"
-            icon={<FolderKanban />}
+            icon={<OBJECT_ICONS.project />}
             title={t("teams.project.emptyTitle", { name: current.name })}
             description={t("teams.project.emptyDescription")}
             {...(canCreateApps ? { action: newApp("secondary") } : {})}
@@ -227,7 +227,7 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
           />
         ) : (
           <>
-            <Section title={t("teams.project.applications")} badge={<Badge>{apps.length}</Badge>}>
+            <Section title={t("teams.project.applications")} icon={OBJECT_ICONS.app} badge={<Badge>{apps.length}</Badge>}>
               {apps.length === 0 ? (
                 <EmptyState variant="inline" title={t("teams.project.noApps")} />
               ) : (
@@ -235,13 +235,13 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
               )}
             </Section>
             {databases.length > 0 ? (
-              <Section title={t("teams.project.databases")} badge={<Badge>{databases.length}</Badge>}>
-                <DataTable columns={databaseColumns} rows={databases} getRowId={(database) => `${database.engine}:${database.name}`} caption={t("teams.project.databasesCaption", { name: current?.name ?? slug })} mobile="cards" pagination="databases" defaultSort={{ column: "name", direction: "ascending" }} />
+              <Section title={t("teams.project.databases")} icon={OBJECT_ICONS.database} badge={<Badge>{databases.length}</Badge>}>
+                <DataTable columns={databaseColumns} rows={databases} getRowId={(database) => `${database.engine}:${database.name}`} caption={t("teams.project.databasesCaption", { name: current?.name ?? slug })} pagination="databases" defaultSort={{ column: "name", direction: "ascending" }} />
               </Section>
             ) : null}
             {sites.length > 0 ? (
-              <Section title={t("teams.project.sites")} badge={<Badge>{sites.length}</Badge>}>
-                <DataTable columns={siteColumns} rows={sites} getRowId={(site) => `${site.webserver}:${site.name}`} caption={t("teams.project.sitesCaption", { name: current?.name ?? slug })} mobile="cards" pagination="sites" defaultSort={{ column: "name", direction: "ascending" }} />
+              <Section title={t("teams.project.sites")} icon={OBJECT_ICONS.site} badge={<Badge>{sites.length}</Badge>}>
+                <DataTable columns={siteColumns} rows={sites} getRowId={(site) => `${site.webserver}:${site.name}`} caption={t("teams.project.sitesCaption", { name: current?.name ?? slug })} pagination="sites" defaultSort={{ column: "name", direction: "ascending" }} />
               </Section>
             ) : null}
           </>

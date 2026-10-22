@@ -4,7 +4,7 @@
 """
 Teams, their members, projects and environments, and what belongs to them.
 
-:class:`TeamStore` is the one reader and writer of the five tables the 3.4
+:class:`TeamStore` is the one reader and writer of the five tables the 4.0
 schema adds for this (``teams``, ``team_members``, ``projects``,
 ``environments``, ``account_active_team``) and of the ownership columns of
 applications, sites, databases and backup schedules. It works on the store's

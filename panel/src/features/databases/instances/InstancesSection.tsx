@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpFromLine, Boxes, Gauge, Lock, Play, Plus, Replace, Square, Trash2, Undo2 } from "lucide-react";
+import { ArrowUpFromLine, Lock, Play, Plus, Replace, Square } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -29,11 +29,13 @@ import { olderServer } from "../../app/settings/queries";
 import { reportActionError } from "../../apps/useAppActions";
 import { modeWord } from "./TlsDialog";
 import type { InstanceActions } from "./useInstanceActions";
+import { ICONS } from "../../../components/ui/icons";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** What Docker says of an instance, as the state the console draws and its word. */
 function stateOf(t: T, instance: DbInstance): { state: "running" | "stopped" | "deploying" | "unknown"; word: string } {
   if (instance.state !== "ready") return { state: "deploying", word: t("databases.instances.states.changing") };
-  if (instance.running) return { state: "running", word: t("databases.instances.states.running") };
+  if (instance.running) return { state: "running", word: t("common.statusPill.running") };
   if (instance.status === "stopped") return { state: "stopped", word: t("databases.instances.states.stopped") };
   return { state: "unknown", word: t("databases.instances.states.other") };
 }
@@ -56,7 +58,7 @@ function moveStatus(state: string): Status {
 function moveState(t: T, state: string): string {
   switch (state) {
     case "done":
-      return t("databases.moves.states.done");
+      return t("common.words.done");
     case "failed":
       return t("databases.moves.states.failed");
     case "rolled_back":
@@ -123,11 +125,10 @@ function Moves({ actions }: { actions: InstanceActions }) {
         caption={t("databases.moves.caption")}
         loading={query.isPending}
         skeletonRows={2}
-        mobile="cards"
         rowActions={(row) =>
           row.can_roll_back ? (
             <RowMenu name={`#${String(row.id)}`}>
-              <MenuItem icon={<Undo2 />} disabled={actions.busy} onClick={() => setRollingBack(row)}>
+              <MenuItem icon={<OBJECT_ICONS.rollback />} disabled={actions.busy} onClick={() => setRollingBack(row)}>
                 {t("databases.moves.rollback")}
               </MenuItem>
             </RowMenu>
@@ -202,7 +203,7 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
   const budget = query.data?.budget;
 
   const columns: Column<DbInstance>[] = [
-    { id: "name", header: t("databases.instances.name"), card: "title", cell: (row) => <Mono tone="default">{row.name}</Mono> },
+    { id: "name", header: t("common.words.name"), card: "title", cell: (row) => <Mono tone="default">{row.name}</Mono> },
     {
       id: "state",
       header: t("databases.engines.state"),
@@ -253,7 +254,7 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
 
   return (
     <Section
-      icon={Boxes}
+      icon={OBJECT_ICONS.container}
       title={t("databases.instances.runTitle")}
       description={t("databases.instances.runDescription")}
       actions={
@@ -273,17 +274,16 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
             caption={t("databases.instances.runCaption")}
             loading={query.isPending}
             skeletonRows={2}
-            mobile="cards"
             empty={<EmptyState variant="inline" title={t("databases.instances.runEmpty")} />}
             rowActions={(row) => (
               <RowMenu name={row.name}>
                 {row.running ? (
                   <MenuItem icon={<Square />} disabled={stop.isPending} onClick={() => stop.mutate(row)}>
-                    {t("databases.engines.stop")}
+                    {t("common.words.stop")}
                   </MenuItem>
                 ) : (
                   <MenuItem icon={<Play />} disabled={start.isPending || row.state !== "ready"} onClick={() => start.mutate(row)}>
-                    {t("databases.engines.start")}
+                    {t("common.words.start")}
                   </MenuItem>
                 )}
                 <MenuItem icon={<ArrowUpFromLine />} disabled={actions.busy || !row.running} onClick={() => setUpgrading(row)}>
@@ -299,11 +299,11 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
                 <MenuItem icon={<Lock />} disabled={actions.busy || !row.running} onClick={() => actions.openTls(row)}>
                   {t("databases.tls.open")}
                 </MenuItem>
-                <MenuItem icon={<Gauge />} disabled={actions.busy || !row.running} onClick={() => actions.openTuning(row)}>
+                <MenuItem icon={<OBJECT_ICONS.limits />} disabled={actions.busy || !row.running} onClick={() => actions.openTuning(row)}>
                   {t("databases.tuning.open")}
                 </MenuItem>
                 <MenuSeparator />
-                <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(row)}>
+                <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(row)}>
                   {t("databases.instances.remove")}
                 </MenuItem>
               </RowMenu>
@@ -337,11 +337,11 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
         />
       ) : null}
       {removing !== null ? (
-        <ConfirmDialog
+        <ConfirmDialog friction="type"
           open
           onOpenChange={(open) => (open ? undefined : setRemoving(null))}
           server={node}
-          title={t("databases.instances.removeTitle", { name: removing.name })}
+          title={t("common.words.removeNamedQuestion", { name: removing.name })}
           description={t("databases.instances.removeDescription")}
           actionLabel={t("databases.instances.removeAction")}
           confirmText={removing.name}

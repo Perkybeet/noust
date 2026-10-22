@@ -4,7 +4,7 @@
 
 Every command of `noust`, with its options. Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compliance`](#noust-compliance), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`log`](#noust-log), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`map`](#noust-map), [`mcp`](#noust-mcp), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`push`](#noust-push), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`self-update`](#noust-self-update), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`upload`](#noust-upload), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
+Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compliance`](#noust-compliance), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`deploy`](#noust-deploy), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`log`](#noust-log), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`map`](#noust-map), [`mcp`](#noust-mcp), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`push`](#noust-push), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`self-update`](#noust-self-update), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`upload`](#noust-upload), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
 
 ### noust 2fa
 
@@ -7950,6 +7950,255 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
+### noust deploy
+
+Follow the deploy queue, cancel a build, and hold, freeze or release deploys.
+
+```
+noust deploy [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`cancel`](#noust-deploy-cancel), [`freeze`](#noust-deploy-freeze), [`freezes`](#noust-deploy-freezes), [`held`](#noust-deploy-held), [`keep`](#noust-deploy-keep), [`pause`](#noust-deploy-pause), [`pause-on-rollback`](#noust-deploy-pause-on-rollback), [`queue`](#noust-deploy-queue), [`resume`](#noust-deploy-resume), [`schedule`](#noust-deploy-schedule), [`unfreeze`](#noust-deploy-unfreeze)
+
+### noust deploy cancel
+
+Cancel a deployment: a job that waits, or the build that runs.
+
+```
+noust deploy cancel [OPTIONS] TARGET
+```
+
+Arguments: `target`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--all` | With an application: also cancel what waits in the queue for it. |  |
+| `--wait` | Seconds to wait for the build to stop (0 to ask and return). | `30` |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust deploy freeze
+
+Freeze deploys: nothing is deployed, of DOMAIN or of the whole server, for a while.
+
+```
+noust deploy freeze [OPTIONS] [DOMAIN]
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason`, `-m` | Why; whoever tries to deploy is told it. |  |
+| `--from` | When it starts (2026-12-24T18:00); now when left out. |  |
+| `--until` | When it ends; none lasts until lifted. |  |
+| `--hours` | Instead of --until: how long from its start. |  |
+| `--json` | Print the freeze as JSON. |  |
+
+### noust deploy freezes
+
+List the freezes that hold deploys now, or will.
+
+```
+noust deploy freezes [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--all` | Also the ones that ended or were lifted. |  |
+| `--json` | Print the freezes as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust deploy held
+
+Say what holds the deploys of an application, if anything: a pause or a freeze.
+
+```
+noust deploy held [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the answer as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust deploy keep
+
+Show or set how many deployments of an application's history are kept.
+
+```
+noust deploy keep [OPTIONS] DOMAIN [N|default]
+```
+
+Arguments: `domain`, `count`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the setting as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust deploy pause
+
+Hold what deploys an application by itself: its pushes, its tags and its schedules.
+
+```
+noust deploy pause [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason`, `-m` | Why, for whoever meets it ('rolled back to 20261001'). |  |
+| `--json` | Print the settings now in force as JSON. |  |
+
+### noust deploy pause-on-rollback
+
+Show or set whether going back pauses what deploys the application by itself.
+
+```
+noust deploy pause-on-rollback [OPTIONS] DOMAIN [on|off]
+```
+
+Arguments: `domain`, `choice`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the setting as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust deploy queue
+
+Show what is deploying and what is waiting to.
+
+```
+noust deploy queue [OPTIONS] [DOMAIN]
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the queue as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust deploy resume
+
+Let an application's pushes, tags and schedules deploy it again.
+
+```
+noust deploy resume [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what resuming did as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust deploy schedule
+
+Update an application by itself, on a schedule.
+
+```
+noust deploy schedule [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`list`](#noust-deploy-schedule-list), [`remove`](#noust-deploy-schedule-remove), [`run`](#noust-deploy-schedule-run), [`set`](#noust-deploy-schedule-set), [`show`](#noust-deploy-schedule-show)
+
+### noust deploy schedule list
+
+List the applications that update themselves.
+
+```
+noust deploy schedule list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the schedules as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust deploy schedule remove
+
+Stop an application updating itself: the timer and the schedule go.
+
+```
+noust deploy schedule remove [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust deploy schedule run
+
+Run an application's scheduled update now, once, exactly as its timer does.
+
+```
+noust deploy schedule run [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust deploy schedule set
+
+Make an application update itself at a time, with a backup first.
+
+```
+noust deploy schedule set [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--at` | daily, weekly or monthly (at 03:00, Sunday for a week), or a systemd calendar expression such as 'Sun *-*-* 03:00' or '*-*-* 04:30'. |  |
+| `--backup`, `--no-backup` | Refuse the update when the backup before it does not happen. |  |
+| `--only-if-new`, `--always` | Do nothing when the branch (or the tags it follows) has nothing new. |  |
+| `--off` | Keep the schedule and stop its timer. |  |
+| `--json` | Print the schedule as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust deploy schedule show
+
+Show when an application updates itself, and how its last run ended.
+
+```
+noust deploy schedule show [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the schedule as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust deploy unfreeze
+
+Lift the freeze of an application, or of the whole server without DOMAIN.
+
+```
+noust deploy unfreeze [OPTIONS] [DOMAIN]
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--id` | Lift this freeze, by its number. |  |
+| `--json` | Print the freezes that were lifted as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
 ### noust diagnose
 
 Explain why an application is down.
@@ -11281,7 +11530,7 @@ Arguments: `domain`
 | `--allow-bots`, `--no-allow-bots` | Build previews of pull requests opened or pushed to by bot accounts (Dependabot, Renovate). [default: no, or the current value] |  |
 | `--exclude-env` | A variable never copied to previews; repeat for more. Replaces the current list; existing previews lose them at their next push. |  |
 | `--no-exclude-env` | Copy every variable again (clear the excluded list). |  |
-| `--env-mode` | Which of the application's variables a preview is given: 'allowlist' (only --allow-env, the default for previews turned on now) or 'all' (every one less --exclude-env, as before 3.4). |  |
+| `--env-mode` | Which of the application's variables a preview is given: 'allowlist' (only --allow-env, the default for previews turned on now) or 'all' (every one less --exclude-env, as before 4.0). |  |
 | `--allow-env` | A variable an 'allowlist' preview copies; repeat for more. Replaces the current list. |  |
 | `--no-allow-env` | Copy no variable of the application's (clear the allowed list). |  |
 | `--data` | 'empty' gives each preview a database of its own, 'clone' a database of its own that starts as a copy of the application's, 'shared' lets it use the application's (a pull request can then write into production's). Default for previews turned on now: empty, when the application has a database. |  |

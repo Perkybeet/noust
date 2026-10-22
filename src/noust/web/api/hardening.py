@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-How hardened an application's unit is (3.4): see it, or change it behind the health gate.
+How hardened an application's unit is (4.0): see it, or change it behind the health gate.
 
 A client of :mod:`noust.deployers.hardening`, like ``noust app hardening``:
 ``GET`` says the profile, the directories the unit may write to, its directives
@@ -43,7 +43,7 @@ class HardeningResponse(BaseModel):
     domain: str
     profile: str = Field(description="off, default or strict")
     configured: bool = Field(
-        description="Whether the application has a profile at all; one from before 3.4 has not"
+        description="Whether the application has a profile at all; one from before 4.0 has not"
     )
     eligible: bool = Field(description="Whether its unit can be hardened")
     reason: str | None = Field(default=None, description="Why it cannot, when it cannot")
@@ -64,7 +64,7 @@ class HardeningRequest(BaseModel):
     """The sandbox an application's unit must run in."""
 
     profile: str = Field(
-        ..., description="off (the unit as before 3.4), default, or strict (adds privileged calls)"
+        ..., description="off (the unit as before 4.0), default, or strict (adds privileged calls)"
     )
     writable_paths: list[str] | None = Field(
         default=None,

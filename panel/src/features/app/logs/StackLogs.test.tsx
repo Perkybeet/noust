@@ -78,7 +78,7 @@ describe("the logs of a Compose stack", () => {
 
     await user.click(await screen.findByRole("combobox", { name: "Output of" }));
     const options = (await screen.findAllByRole("option")).map((option) => option.textContent);
-    expect(options).toEqual(["All services", "web", "db", "Systemd unit"]);
+    expect(options).toEqual(["All services", "web", "db", "Service"]);
     await user.click(screen.getByRole("option", { name: "db" }));
 
     const output = screen.getByRole("region", { name: `Logs of ${TAB_DOMAIN}` });
@@ -102,7 +102,7 @@ describe("the logs of a Compose stack", () => {
     const { user } = await stackAt();
     await printed();
 
-    await chooseOutput(user, "Systemd unit");
+    await chooseOutput(user, "Service");
 
     await waitFor(() => {
       expect(FakeWebSocket.instances.some((socket) => socket.url.includes(`/ws/logs/${TAB_DOMAIN}`))).toBe(true);

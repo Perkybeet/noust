@@ -257,9 +257,9 @@ export function previewFieldOf(detail: string): PreviewField | null {
 
 const PREVIEW_STATES: Readonly<Record<string, { state: StatusView["state"]; labelKey: MessageKey; attention: boolean }>> = {
   pending: { state: "deploying", labelKey: "appSettings.previews.statusPending", attention: false },
-  deploying: { state: "deploying", labelKey: "appSettings.previews.statusDeploying", attention: false },
+  deploying: { state: "deploying", labelKey: "common.statusPill.deploying", attention: false },
   ready: { state: "running", labelKey: "appSettings.previews.statusReady", attention: false },
-  failed: { state: "failed", labelKey: "appSettings.previews.statusFailed", attention: true },
+  failed: { state: "failed", labelKey: "common.words.failedFeminine", attention: true },
   stopped: { state: "stopped", labelKey: "previewHand.statusStopped", attention: false },
   removing: { state: "deploying", labelKey: "appSettings.previews.statusRemoving", attention: false },
   // Waiting for a person, not for the machine: it needs the operator, so it is told apart from "in progress".
@@ -273,7 +273,7 @@ export function previewStatus(status: string, locale: Locale = getLocale()): Sta
   const word = status.trim();
   return {
     state: "unknown",
-    label: word === "" ? translate(locale, "appSettings.previews.statusUnknown") : `${word.charAt(0).toUpperCase()}${word.slice(1)}`,
+    label: word === "" ? translate(locale, "common.statusPill.unknown") : `${word.charAt(0).toUpperCase()}${word.slice(1)}`,
     attention: false,
   };
 }

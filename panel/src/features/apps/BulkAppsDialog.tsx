@@ -74,7 +74,7 @@ function outcomeWords(t: T, action: BulkAction, outcome: Outcome): { state: Stat
     case "nothingNew":
       return { state: "stopped", words: t("apps.bulk.nothingNew") };
     case "failed":
-      return { state: "failed", words: t("apps.bulk.failed"), detail: outcome.hint === null ? outcome.detail : `${outcome.detail} ${outcome.hint}` };
+      return { state: "failed", words: t("common.words.failedFeminine"), detail: outcome.hint === null ? outcome.detail : `${outcome.detail} ${outcome.hint}` };
     case "held":
       return { state: "queued", words: t("apps.bulk.held"), detail: outcome.detail };
   }
@@ -165,7 +165,7 @@ export function BulkAppsDialog({ apps, onClose }: BulkAppsDialogProps) {
       footer={
         <>
           <Button variant="ghost" disabled={running} onClick={onClose}>
-            {t("apps.bulk.close")}
+            {t("common.words.close")}
           </Button>
           {finished && unfinished.length > 0 ? (
             <Button

@@ -96,7 +96,7 @@ export function ScimSection() {
       <QueryState
         query={query}
         label={t("scimAdmin.loadingLabel")}
-        skeleton={<DataTable caption={t("scimAdmin.tableCaption")} columns={columns} rows={[]} getRowId={(source) => source.name} loading mobile="cards" skeletonRows={1} />}
+        skeleton={<DataTable caption={t("scimAdmin.tableCaption")} columns={columns} rows={[]} getRowId={(source) => source.name} loading skeletonRows={1} />}
         isEmpty={(data) => data.sources.length === 0}
         empty={
           <div className="flex flex-col gap-3">
@@ -112,14 +112,13 @@ export function ScimSection() {
               columns={columns}
               rows={data.sources}
               getRowId={(source) => source.name}
-              mobile="cards"
               onRowActivate={(source) => setEditing(source)}
               rowActions={(source) => (
                 <RowMenu name={source.name}>
-                  <MenuItem icon={<Pencil />} onClick={() => setEditing(source)}>{t("scimAdmin.editText")}</MenuItem>
+                  <MenuItem icon={<Pencil />} onClick={() => setEditing(source)}>{t("common.words.edit")}</MenuItem>
                   <MenuSeparator />
                   <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(source)}>
-                    {t("scimAdmin.removeText")}
+                    {t("common.words.remove")}
                   </MenuItem>
                 </RowMenu>
               )}
@@ -148,7 +147,7 @@ export function ScimSection() {
           onOpenChange={(next) => {
             if (!next) setRemoving(null);
           }}
-          title={t("scimAdmin.remove.title", { name: removing.name })}
+          title={t("common.words.removeNamedQuestion", { name: removing.name })}
           description={t("scimAdmin.remove.description")}
           actionLabel={t("scimAdmin.remove.action")}
           destructive

@@ -46,7 +46,7 @@ export function BackupHistoryDrawer({ row, domain, loading, onClose, onBackUp, .
         ? {
             footer: (
               <Button icon={<Play aria-hidden="true" />} onClick={() => onBackUp(name)}>
-                {t("backups.history.backUpNow")}
+                {t("common.words.backUpNow")}
               </Button>
             ),
           }
@@ -63,7 +63,7 @@ export function BackupHistoryDrawer({ row, domain, loading, onClose, onBackUp, .
             {...handlers}
           />
           {row?.deployed === true ? <RestoreDrillsSection domain={name} /> : null}
-          <CommandHint command={`noust backup list ${name}`} label={t("backups.common.fromTerminal")} />
+          <CommandHint command={`noust backup list ${name}`} label={t("common.words.fromTerminal")} />
         </div>
       )}
     </Drawer>

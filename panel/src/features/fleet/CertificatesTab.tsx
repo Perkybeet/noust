@@ -200,7 +200,6 @@ export function CertificatesTab({ search, onSearchChange }: CertificatesTabProps
         getRowId={(row) => `${originOf(row).node}:${field(row, "domain") ?? ""}`}
         loading={view.isPending}
         skeletonRows={5}
-        mobile="cards"
         pagination="fleet-certificates"
         empty={
           rows.length === 0 && view.data !== undefined ? (
@@ -217,14 +216,14 @@ export function CertificatesTab({ search, onSearchChange }: CertificatesTabProps
                     onSearchChange({});
                   }}
                 >
-                  {t("fleet.filters.clear")}
+                  {t("common.words.clearFilters")}
                 </Button>
               }
             />
           )
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet certs" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet certs" />
     </div>
   );
 }

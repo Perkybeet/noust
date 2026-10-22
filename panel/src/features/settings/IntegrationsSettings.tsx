@@ -18,6 +18,7 @@ import { GitLabIntegration } from "./gitlab/GitLabIntegration";
 import { MetricsExportSection } from "./MetricsExportSection";
 import { RegistriesSection } from "./registries/RegistriesSection";
 import { readServerIdentity } from "./GeneralSettings.model";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * Where GitHub, GitLab, Gitea and Bitbucket deliver pushes: the public hooks address every integration
@@ -27,7 +28,7 @@ function HooksAddress() {
   const t = useT();
   const query = useQuery(configQuery());
   return (
-    <Section title={t("settings.integrations.hooks.title")} description={t("settings.integrations.hooks.description")}>
+    <Section title={t("settings.integrations.hooks.title")} icon={OBJECT_ICONS.webhook} description={t("settings.integrations.hooks.description")}>
       <Card>
         <QueryState
           query={query}
@@ -69,7 +70,7 @@ function HooksAddress() {
 function OtherHosts() {
   const t = useT();
   return (
-    <Section title={t("settings.integrations.others.title")} description={t("settings.integrations.others.description")}>
+    <Section title={t("settings.integrations.others.title")} icon={OBJECT_ICONS.integration} description={t("settings.integrations.others.description")}>
       <Card>
         <p className="max-w-measure text-13 text-pretty text-fg-muted">
           {t.rich("settings.integrations.others.body", {

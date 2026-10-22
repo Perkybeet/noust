@@ -179,7 +179,7 @@ test("Delete stays disabled until the domain is typed", async ({ page, consoleSe
   const elevate = page.getByRole("dialog", { name: "Confirm it's you" });
   await expect(elevate).toBeVisible();
   await elevate.getByLabel("Authentication code").fill(consoleServer.secondFactor());
-  await elevate.getByRole("button", { name: "Confirm" }).click();
+  await elevate.getByRole("button", { name: "Continue" }).click();
   await expect(elevate).toBeHidden();
 
   const dialog = page.getByRole("alertdialog", { name: `Delete ${DOMAIN}` });

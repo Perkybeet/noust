@@ -211,14 +211,14 @@ if (MODE !== undefined && MODE !== "") {
 }
 
 describe("feature-state-notice (owner item 56)", () => {
-  it("counts a neutral notice that says on or off, and not the FeatureState that replaces it", () => {
+  it("counts a neutral notice that says on or off, and not the pill in a card's head that replaces it", () => {
     const before = [
       '<Notice title={t("approvals.page.offTitle")}>{t("approvals.page.off")}</Notice>',
       '<Notice>{t("appSettings.builds.on")}</Notice>',
       '<Notice tone="warning" title={t("server.ssh.passwordsTitle")}>{t("server.ssh.passwordsDescription")}</Notice>',
     ].join("\n");
     expect(countRules("features/x/Page.tsx", before)["feature-state-notice"]).toBe(2);
-    const after = '<FeatureState state="off" title={t("approvals.page.offTitle")}>{t("approvals.page.off")}</FeatureState>';
+    const after = '<Card title={t("approvals.page.title")} status={<StatusPill state="stopped" label={t("approvals.page.offTitle")} size="sm" />} />';
     expect(countRules("features/x/Page.tsx", after)["feature-state-notice"] ?? 0).toBe(0);
   });
 });

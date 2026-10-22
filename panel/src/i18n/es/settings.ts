@@ -2,7 +2,6 @@ import type { settings as en } from "../en/settings";
 import type { Catalog } from "../types";
 
 export const settings: Catalog<typeof en> = {
-  area: "Ajustes",
   page: {
     title: "Ajustes",
     description: "Cómo funciona Noust en esta máquina y quién puede acceder a la consola.",
@@ -12,13 +11,7 @@ export const settings: Catalog<typeof en> = {
     cancel: "Cancelar",
     done: "Hecho",
     save: "Guardar",
-    saveChanges: "Guardar cambios",
-    discard: "Descartar",
-    unsavedChanges: "Cambios sin guardar",
     loading: "Cargando {label}",
-    loadFailed: "No se pudo cargar {label}",
-    fromTerminal: "Desde un terminal",
-    opensInNewTab: "(se abre en una pestaña nueva)",
   },
 
   general: {
@@ -80,7 +73,6 @@ export const settings: Catalog<typeof en> = {
   },
 
   security: {
-    documentTitle: "Ajustes de seguridad",
     duration: {
       days: { one: "{count} día", other: "{count} días" },
       hours: { one: "{count} hora", other: "{count} horas" },
@@ -103,7 +95,6 @@ export const settings: Catalog<typeof en> = {
       status: {
         onTitle: "Activada",
         onDescription: "El inicio de sesión pide un código de tu app de autenticación después del token de acceso.",
-        codesLeft: "Quedan {left} de {total} códigos de respaldo",
         codesLow: "Sustitúyelos por un nuevo conjunto antes de que se agoten.",
         offTitle: "Desactivada",
         offDescription: "Cualquiera que tenga el token de acceso puede iniciar sesión y actuar como root en este servidor.",
@@ -180,22 +171,10 @@ export const settings: Catalog<typeof en> = {
       signedOutCount: { one: "Se cerró {count} otra sesión", other: "Se cerraron {count} otras sesiones" },
       tokenCredentialHint: "Esta consola inició sesión con un token de API, no con una sesión de navegador. Inicia sesión desde el navegador para usar esto.",
       revokeOthersFailed: "No se pudieron cerrar las demás sesiones",
-      serverSaidLabel: "Qué dijo el servidor",
     },
     lockout: {
-      title: "Política de bloqueo",
-      description: "Cómo responde la consola a los inicios de sesión fallidos repetidos. Se define bajo web en config.yaml y se lee al iniciar la consola, así que un cambio se aplica tras un reinicio.",
-      loadingLabel: "la política de bloqueo",
-      notSet: "Sin definir",
-      maxFailedAttemptsLabel: "Inicios de sesión fallidos antes del bloqueo",
-      maxFailedAttemptsHint: "Por dirección del cliente. Los códigos incorrectos al desactivar la verificación en dos pasos también cuentan.",
-      lockoutLastsLabel: "Duración del bloqueo",
       requestLimitLabel: "Límite de solicitudes",
-      requestLimitOff: "Desactivado",
       requestLimitValue: "{count} solicitudes {window}",
-      requestLimitHint: "Se cuentan por dirección del cliente.",
-      sessionLifetimeLabel: "Duración de la sesión",
-      sessionLifetimeHint: "Se renueva mientras la sesión está en uso.",
       allowedAddressesLabel: "Direcciones permitidas",
       anyAddress: "Cualquier dirección",
     },
@@ -228,7 +207,7 @@ export const settings: Catalog<typeof en> = {
     revokedToast: "Se revocó el token {name}",
     scopes: {
       read: { label: "Lectura", description: "Solo consulta, nunca cambia nada: aplicaciones, despliegues, registros, métricas y el estado de la máquina." },
-      deploy: { label: "Despliegue" },
+      deploy: { label: "Desplegar" },
       admin: { label: "Administración" },
     },
     expiry: {
@@ -315,7 +294,7 @@ export const settings: Catalog<typeof en> = {
         generatedHint: "Cópialo ahora en tu endpoint: una vez guardado no se vuelve a mostrar.",
         stopSigning: "Dejar de firmar los envíos",
         signed: "Firmado con un secreto.",
-        unsigned: "Los envíos no van firmados.",
+        unsigned: "Los mensajes no van firmados.",
       },
       slack: {
         label: "Slack",
@@ -504,14 +483,14 @@ export const settings: Catalog<typeof en> = {
         deployStarted: { label: "Despliegue iniciado", description: "Un mensaje por intento, pase lo que pase después. Ruidoso." },
         deploySuccess: { label: "Despliegue terminado", description: "Un despliegue, actualización o reversión terminó." },
         deployFailed: { label: "Despliegue fallido", description: "Con el error de la propia herramienta." },
-        deployHookFailed: { label: "Desplegado con avisos", description: "Falló un gancho que se ejecuta después de arrancar la versión nueva: sirve, y no se deshizo nada." },
+        deployHookFailed: { label: "Desplegado con avisos", description: "Falló un hook que se ejecuta después de arrancar la versión nueva: sirve, y no se deshizo nada." },
         deployRolledBack: { label: "Despliegue revertido", description: "Una versión nueva no arrancó y la anterior vuelve a servir." },
         restoreSuccess: { label: "Restauración terminada", description: "Se restauró una copia de seguridad." },
         restoreFailed: { label: "Restauración fallida", description: "No se pudo restaurar una copia de seguridad." },
         certExpiring: { label: "Certificado a punto de caducar o caducado", description: "Antes de que caduque un certificado, y cuando ya ha caducado." },
         unitFailed: { label: "Servicio caído, y de vuelta", description: "Un servicio vigilado dejó de funcionar, y cuando se recupera." },
-        appUnreachable: { label: "Aplicación sin respuesta", description: "Su servicio está en marcha pero no pasa su comprobación de salud: tres sondas seguidas durante al menos un minuto, una vez por caída. Un stack sin web se juzga por sus contenedores." },
-        appRecovered: { label: "Aplicación de nuevo operativa", description: "Vuelve a pasar su comprobación de salud tras una caída." },
+        appUnreachable: { label: "Aplicación sin respuesta", description: "Su servicio está en marcha pero no pasa su comprobación de arranque: tres sondas seguidas durante al menos un minuto, una vez por caída. Un stack sin web se juzga por sus contenedores." },
+        appRecovered: { label: "Aplicación de nuevo operativa", description: "Vuelve a pasar su comprobación de arranque tras una caída." },
         diskThreshold: { label: "Disco casi lleno, y de vuelta", description: "Un disco superó su umbral, y cuando baja de él." },
         backupFailed: { label: "Copia de seguridad fallida", description: "Falló una copia programada o manual." },
         destinationUnreachable: { label: "Un destino dejó de responder", description: "Un lugar al que se envían copias dejó de responder, así que las copias de allí no se están haciendo." },
@@ -676,7 +655,7 @@ export const settings: Catalog<typeof en> = {
       failedInstallation: "La instalación no se registró",
       conversionHint: "El código de GitHub funciona una vez y durante una hora, y la creación debe terminar en los diez minutos siguientes a empezar. Empieza de nuevo desde Ajustes, Integraciones.",
       installationHint: "Comprueba que la App se instaló desde la página de Apps de este servidor y luego sincroniza las instalaciones.",
-      confirmAndContinue: "Confirmar y continuar",
+      confirmAndContinue: "Continuar con GitHub",
       createdToast: "Se creó la GitHub App {name}",
       installedToast: "Se instaló la GitHub App en {account}",
       updatedToast: "Se actualizó la instalación en {account}",
@@ -689,7 +668,7 @@ export const settings: Catalog<typeof en> = {
 
   about: {
     documentTitle: "Acerca de",
-    loading: "Leyendo la versión y las actualizaciones automáticas",
+    loading: "Cargando la versión y las actualizaciones automáticas",
     method: {
       apt: "el repositorio apt",
       rpm: "el repositorio RPM ({tool})",
@@ -744,7 +723,7 @@ export const settings: Catalog<typeof en> = {
     },
     updateNotes: {
       summary: "Qué cambia {version}",
-      loading: "Leyendo las notas de la versión",
+      loading: "Cargando las notas de la versión",
       unavailable: "No se pudieron leer las notas de la versión desde aquí.",
       openRelease: "Abrir la versión en GitHub",
       actionNeeded: { one: "{count} línea necesita que actúes.", other: "{count} líneas necesitan que actúes." },
@@ -758,9 +737,9 @@ export const settings: Catalog<typeof en> = {
       readyWithWarnings: { one: "Listo, con {count} aviso", other: "Listo, con {count} avisos" },
       notReady: { one: "Falta {count} cosa que un despliegue necesita", other: "Faltan {count} cosas que un despliegue necesita" },
       listLabel: "Comprobaciones de {section}",
-      status: { ok: "Bien", info: "Opcional", warn: "Aviso", fail: "Falta" },
+      status: { ok: "Superada", info: "Opcional", warn: "Aviso", fail: "Falta" },
       fix: "Arreglo",
-      fromTerminal: "Desde una terminal",
+      fromTerminal: "Desde un terminal",
     },
     supportReport: {
       title: "Informe de soporte",
@@ -775,11 +754,11 @@ export const settings: Catalog<typeof en> = {
       journalLeftOut: "El diario queda fuera: leerlo requiere el derecho de revelar secretos.",
       copy: "Copiar el informe",
       download: "Descargar el informe",
-      fromTerminal: "Desde una terminal",
+      fromTerminal: "Desde un terminal",
     },
     installation: {
       title: "Esta instalación",
-      notKnown: "No se sabe",
+      notKnown: "Desconocido",
       machine: "Máquina",
       method: "Actualizaciones desde",
       consoleAddress: "Dirección de la consola",
@@ -787,9 +766,6 @@ export const settings: Catalog<typeof en> = {
     },
     project: {
       title: "Proyecto",
-    },
-    rename: {
-      body: "Noust es el nuevo nombre de WASM desde la versión 3.0. El comando {wasm} sigue funcionando como {noust} durante toda la serie 3.x, y un servidor que usaba WASM conserva sus aplicaciones, ajustes e historial.",
     },
     legal: {
       title: "Licencia y garantía",

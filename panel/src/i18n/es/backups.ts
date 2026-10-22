@@ -5,14 +5,7 @@ export const backups: Catalog<typeof en> = {
   area: "Copias de seguridad",
 
   common: {
-    cancel: "Cancelar",
-    save: "Guardar",
-    close: "Cerrar",
-    edit: "Editar",
-    add: "Añadir",
     restore: "Restaurar",
-    clearFilters: "Borrar filtros",
-    fromTerminal: "Desde una terminal",
   },
 
   fields: {
@@ -31,7 +24,6 @@ export const backups: Catalog<typeof en> = {
   page: {
     title: "Copias de seguridad",
     description: "Copias de los archivos, el .env y las bases de datos de tus apps, y cuándo se hacen.",
-    backUpNow: "Hacer copia ahora",
     loadError: "No se pudieron cargar las copias de seguridad",
   },
 
@@ -86,7 +78,6 @@ export const backups: Catalog<typeof en> = {
       never: "Sin copias",
     },
     actions: {
-      backUpNow: "Hacer copia ahora",
       viewBackups: "Ver copias",
       restoreLatest: "Restaurar la última…",
       schedule: "Programar copias…",
@@ -101,24 +92,22 @@ export const backups: Catalog<typeof en> = {
 
   drills: {
     title: "Pruebas de restauración",
-    loading: "Leyendo las pruebas de restauración",
+    loading: "Cargando las pruebas de restauración",
     readFailed: "No se pudieron leer las pruebas de restauración",
-    descriptionEvery: { one: "Una prueba carga la última copia en bases de datos temporales y las borra. Una copia programada hace una cada día.", other: "Una prueba carga la última copia en bases de datos temporales y las borra. Una copia programada hace una cada {count} días." },
-    descriptionOff: "Una prueba carga la última copia en bases de datos temporales y las borra. Las pruebas programadas están desactivadas.",
+    descriptionEvery: { one: "Una prueba carga la última copia en bases de datos temporales y las elimina. Una copia programada hace una cada día.", other: "Una prueba carga la última copia en bases de datos temporales y las elimina. Una copia programada hace una cada {count} días." },
+    descriptionOff: "Una prueba carga la última copia en bases de datos temporales y las elimina. Las pruebas programadas están desactivadas.",
     run: "Hacer una prueba de restauración",
     queued: "Prueba de restauración de {domain} en cola",
     queuedDescription: "No se toca nada de la aplicación.",
     notQueued: "No se puso en cola la prueba de restauración de {domain}",
     empty: "Todavía no se ha hecho ninguna prueba. Haz una para saber que la última copia se recupera.",
     passed: "Superada",
-    failed: "Fallida",
     byTimer: "Programada",
     byHand: "A mano",
     steps: { one: "{count} paso", other: "{count} pasos" },
     stepOutput: "Salida del paso {name}",
     stepsLabel: "Lo que comprobó la prueba",
     stepOk: "Superado",
-    stepFailed: "Fallido",
     skipped: "No se intentó",
   },
   history: {
@@ -130,7 +119,6 @@ export const backups: Catalog<typeof en> = {
     },
     caption: "Copias de {domain}",
     empty: "Todavía no hay copias de {domain}.",
-    backUpNow: "Hacer copia ahora",
     columns: {
       created: "Creada",
       size: "Tamaño",
@@ -241,7 +229,7 @@ export const backups: Catalog<typeof en> = {
     both: { one: "La última copia, hasta {days} días", other: "Las últimas {count} copias, hasta {days} días" },
     count: { one: "La última copia", other: "Las últimas {count} copias" },
     days: { one: "Todas las copias, durante {count} día", other: "Todas las copias, durante {count} días" },
-    all: "Todas las copias, hasta que las borres",
+    all: "Todas las copias, hasta que las elimines",
   },
   limit: {
     count: "Cuántas",
@@ -252,7 +240,7 @@ export const backups: Catalog<typeof en> = {
     newSchedule: "Nueva programación",
     loadError: "No se pudieron cargar las programaciones",
     caption: "Programaciones de copias de seguridad",
-    removeAction: "Eliminar programación",
+    removeAction: "Quitar programación",
     pending: "Pendiente",
     serverDefault: "Valor del servidor: las {count} más recientes",
     serverDefaultUnknown: "Valor del servidor",
@@ -306,14 +294,15 @@ export const backups: Catalog<typeof en> = {
     keepOn: "Conservar en {name}",
     maxAgeLabel: "Eliminar las copias tras unos días",
     maxAgeDescription: "Sin esto se conservan tengan la antigüedad que tengan.",
-    maxAgeOn: "Borrar pasados (días) en {name}",
+    maxAgeOn: "Eliminar tras (días) en {name}",
     dumpDatabases: "Incluir sus bases de datos",
     destinationsLegend: "Copiar también a",
     noDestinations: "Todavía no hay destinos",
     noDestinationsHint: "Añade uno en la pestaña Destinos para copiar las copias fuera de este servidor.",
     backupsSuffix: "copias",
     remoteOnly: "No guardar nada en este servidor",
-    remoteOnlyHelp: "Cada copia que hace esta programación se borra de aquí cuando todos los destinos la tienen y se comprobó su subida, y la que no se pudo enviar se queda.",
+    remoteOnlyHelp:
+      "Cada copia que hace esta programación se elimina de aquí cuando todos los destinos la tienen y se comprobó su subida, y la que no se pudo enviar se queda.",
     remoteOnlyNeedsDestination: "Añade al menos un destino para activarlo; sin ninguno, las copias se quedan en este servidor.",
     error: "La programación no se guardó",
     someFailed: "Algunas programaciones no se crearon",
@@ -338,9 +327,7 @@ export const backups: Catalog<typeof en> = {
       failed: "No se pudieron cifrar las credenciales",
     },
     showKey: "Mostrar clave de cifrado",
-    remove: "Quitar",
     columns: {
-      name: "Nombre",
       connection: "Conexión",
       backend: "Tipo",
       encryption: "Cifrado",
@@ -359,7 +346,6 @@ export const backups: Catalog<typeof en> = {
       unreachable: "No se pudo contactar con {name}",
     },
     removeDialog: {
-      title: "Quitar {name}",
       leftBehindKeyed: "Las copias ya enviadas allí se quedan allí, legibles solo con la clave que guardaste.",
       leftBehind: "Las copias ya enviadas allí se quedan allí.",
       descriptionForce: "Una programación todavía copia aquí. Quitarlo de todas formas lo saca de esas programaciones. {leftBehind}",
@@ -375,10 +361,8 @@ export const backups: Catalog<typeof en> = {
 
   destinationDialog: {
     titleNew: "Añadir destino de copias de seguridad",
-    titleEdit: "Editar {name}",
     description: "Otro sitio al que se copian las copias de seguridad, con una programación o a mano.",
     add: "Añadir destino",
-    nameLabel: "Nombre",
     nameDescription: "Letras minúsculas, dígitos y '-'. También da nombre al remoto de rclone.",
     backendLabel: "Backend",
     chooseBackend: "Elige un backend",
@@ -408,14 +392,13 @@ export const backups: Catalog<typeof en> = {
     descriptionShow:
       "Dos frases de contraseña envuelven cada copia de seguridad enviada a este destino. Noust las guarda, pero imprimirlas aquí es la única forma de tener tu propia copia, y la única forma de recuperar las copias de seguridad si este servidor se pierde alguna vez.",
     descriptionRemove:
-      "Las copias de seguridad ya enviadas a {name} permanecen allí, cifradas. Sin esta clave nadie puede leerlas, ni siquiera Noust, y quitar el destino borra la única copia que tiene Noust.",
+      "Las copias de seguridad ya enviadas a {name} permanecen allí, cifradas. Sin esta clave nadie puede leerlas, ni siquiera Noust, y quitar el destino elimina la única copia que tiene Noust.",
     passwordLabel: "Contraseña",
     password2Label: "Contraseña 2 (sal)",
     copyBoth: "Copiar ambas",
     savedLabel: "He guardado esta clave en un lugar seguro",
     nudge: "Guarda la clave y marca la casilla primero. Perderla hace que todas las copias de seguridad de este destino queden irrecuperables.",
     continueToRemove: "Continuar para quitarlo",
-    done: "Hecho",
     error: "No se pudo leer la clave",
   },
 
@@ -423,13 +406,13 @@ export const backups: Catalog<typeof en> = {
     title: "Explorar un destino",
     description: "Qué contiene un destino, y cómo restaurar directamente desde él, sin una copia previa en este servidor.",
     applicationDescription: "Déjalo en blanco para ver todas las aplicaciones encontradas allí.",
-    noDestinations: { title: "Todavía no hay destinos.", description: "Añade uno primero." },
+    noDestinations: { title: "Todavía no hay destinos", description: "Añade uno primero." },
     readError: "No se pudo leer ese destino",
     resultsCaption: "Copias de seguridad en {name} para {app}",
     appsFoundHint: "Aplicaciones encontradas en este destino. Elige una para ver sus copias de seguridad.",
     appsFoundLabel: "Aplicaciones encontradas",
-    noBackupsFound: { title: "No se encontraron copias de seguridad.", description: "No se encontró nada en esa ruta." },
-    nothingFound: { title: "No se encontró nada allí.", description: "No se encontró ninguna carpeta de aplicación en la ruta de este destino." },
+    noBackupsFound: { title: "No se encontraron copias de seguridad", description: "No se encontró nada en esa ruta." },
+    nothingFound: { title: "No se encontró nada allí", description: "No se encontró ninguna carpeta de aplicación en la ruta de este destino." },
     columns: {
       backup: "Copia de seguridad",
       modified: "Modificada",

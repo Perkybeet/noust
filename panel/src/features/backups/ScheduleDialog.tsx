@@ -168,10 +168,10 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
       footer={
         <>
           <Button disabled={save.isPending} onClick={() => close(false)}>
-            {t("backups.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
-            {existing ? t("backups.common.save") : t("backups.scheduleDialog.create")}
+            {existing ? t("common.words.save") : t("backups.scheduleDialog.create")}
           </Button>
         </>
       }

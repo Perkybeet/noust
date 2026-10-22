@@ -23,7 +23,7 @@ that was.
 What it asks is the application's own :class:`HealthCheck`: the path, the
 statuses that mean up and how long to wait, as the operator set them with
 ``noust app health`` or the console, and 2.0's rule for whatever they did not.
-Since 3.4 the check may also name the method, scheme, host name and port of the
+Since 4.0 the check may also name the method, scheme, host name and port of the
 request, how often to ask, how many times, and a start period during which a
 failure does not count; or be a command run as the application instead of a
 request (checklist B-12).

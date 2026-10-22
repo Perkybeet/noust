@@ -62,7 +62,7 @@ function NameCard({ editable }: { editable: boolean }) {
   return (
     <form id={formId} noValidate onSubmit={save} className="flex flex-col gap-4">
       {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("teams.settings.renameFailed")} /> : null}
-      <Card title={t("teams.settings.nameTitle")} description={t.rich("teams.settings.nameDescription", { slug: <Mono>{team.slug}</Mono> })}>
+      <Card title={t("common.words.name")} description={t.rich("teams.settings.nameDescription", { slug: <Mono>{team.slug}</Mono> })}>
         <Field label={t("teams.settings.nameLabel")} error={errors.fields.name} disabled={!editable}>
           <Input
             autoComplete="off"
@@ -116,7 +116,7 @@ export function TeamSettings() {
     <Sections>
       <NameCard editable={governs} />
       {governs ? (
-        <DangerZone title={t("teams.settings.dangerTitle")} description={t("teams.settings.dangerDescription")}>
+        <DangerZone title={t("common.words.delete")} description={t("teams.settings.dangerDescription")}>
           <DangerAction
             title={t("teams.settings.deleteActionTitle")}
             description={reason ?? t("teams.settings.deleteActionDescription")}
@@ -135,11 +135,11 @@ export function TeamSettings() {
         </DangerZone>
       ) : null}
       <CommandHint command={`noust team rename ${team.slug} "New name"`} label={t("teams.fromTerminal")} />
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         open={deleting}
         onOpenChange={setDeleting}
         server={node}
-        title={t("teams.settings.deleteTitle", { name: team.name })}
+        title={t("common.words.deleteNamed", { name: team.name })}
         description={t("teams.settings.deleteDescription", { name: team.name })}
         actionLabel={t("teams.settings.deleteAction")}
         confirmText={team.slug}

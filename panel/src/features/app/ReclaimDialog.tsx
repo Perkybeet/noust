@@ -138,7 +138,7 @@ export function ReclaimDialog({ domain, open, onOpenChange }: { domain: string; 
 
         {handBackError !== null ? <ErrorBlock live compact error={handBackError} title={t("appPages.reclaim.failed", { domain })} /> : null}
 
-        <CommandHint command={`noust app reclaim ${domain}`} label={t("appPages.reclaim.terminal")} />
+        <CommandHint command={`noust app reclaim ${domain}`} label={t("common.words.fromTerminal")} />
       </div>
     </Dialog>
   );

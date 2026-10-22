@@ -127,7 +127,7 @@ function ChangeDialog({
       footer={
         <>
           <Button disabled={busy} onClick={() => onOpenChange(false)}>
-            {t("changeSource.dialog.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form="change-source" variant="primary" loading={busy} disabled={plan !== null && !plan.changed}>
             {plan === null ? t("changeSource.dialog.check") : t("changeSource.dialog.apply")}
@@ -259,7 +259,7 @@ export function ChangeSourceCard({
           title={t("changeSource.done.title", { domain })}
           action={
             <Button size="sm" loading={build.isPending} onClick={() => build.mutate()}>
-              {t("changeSource.done.build")}
+              {t("common.words.update")}
             </Button>
           }
         >

@@ -165,7 +165,6 @@ export function InstalledRecipesPage() {
       rows={installed.data?.items ?? []}
       getRowId={(row) => row.domain}
       caption={t("catalog.installed.caption")}
-      mobile="cards"
       loading={installed.data === undefined}
       skeletonRows={4}
       defaultSort={{ column: "state", direction: "ascending" }}
@@ -173,7 +172,7 @@ export function InstalledRecipesPage() {
       rowActions={(row) =>
         installedState(row) === "behind" ? (
           <Button size="sm" disabled={busy} onClick={() => setUpdating(row)} aria-label={t("catalog.installed.updateNamed", { domain: row.domain })}>
-            {t("catalog.installed.update")}
+            {t("common.words.update")}
           </Button>
         ) : null
       }

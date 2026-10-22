@@ -190,7 +190,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
             />
           </Field>
         ) : null}
-        <Field label={t("databases.newInstance.name")} error={errors.name} description={t("databases.newInstance.nameHelp")}>
+        <Field label={t("common.words.name")} error={errors.name} description={t("databases.newInstance.nameHelp")}>
           <Input mono value={name} onValueChange={setName} placeholder="pg17" autoComplete="off" autoCapitalize="off" spellCheck={false} />
         </Field>
         <Field
@@ -210,7 +210,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
         ) : null}
         <Notice title={t("databases.newInstance.privateTitle")}>{t("databases.newInstance.privateBody")}</Notice>
         {failure !== null ? <ErrorBlock live compact error={failure} title={t("databases.newInstance.failed")} /> : null}
-        <CommandHint command="noust db instance create NAME --engine ENGINE --memory 1g" label={t("databases.common.fromTerminal")} />
+        <CommandHint command="noust db instance create NAME --engine ENGINE --memory 1g" label={t("common.words.fromTerminal")} />
       </form>
     </Dialog>
   );

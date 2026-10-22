@@ -1,4 +1,4 @@
-import { Replace, Undo2 } from "lucide-react";
+import { Replace } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -14,6 +14,7 @@ import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { audienceHelp, audienceLabel } from "./audience";
 import { commentProblem, nameProblem, valueProblem } from "./dotenv";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /**
  * Adding may start from a name the compose file asks for (`name`). Editing a variable whose value
@@ -81,7 +82,7 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
   return (
     <form ref={formRef} id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
       <Field
-        label={t("environment.variableDialog.nameLabel")}
+        label={t("common.words.name")}
         error={nameError}
         {...(editing ? {} : { description: t("environment.variableDialog.nameDescription") })}
       >
@@ -105,7 +106,7 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
           ? {
               action: (
                 <Button
-                  icon={replacing ? <Undo2 aria-hidden="true" /> : <Replace aria-hidden="true" />}
+                  icon={replacing ? <OBJECT_ICONS.rollback aria-hidden="true" /> : <Replace aria-hidden="true" />}
                   onClick={() => {
                     setReplacing((current) => !current);
                   }}
@@ -191,11 +192,11 @@ export function VariableDialog({ target, existing, onClose, onSubmit }: Variable
         if (!open) onClose();
       }}
       size="sm"
-      title={current?.mode === "edit" ? t("environment.variableDialog.editTitle", { name: current.name }) : t("environment.variableDialog.addTitle")}
+      title={current?.mode === "edit" ? t("common.words.editNamed", { name: current.name }) : t("environment.variableDialog.addTitle")}
       description={t("environment.variableDialog.description")}
       footer={
         <>
-          <Button onClick={onClose}>{t("environment.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary">
             {editing ? t("environment.variableDialog.updateButton") : t("environment.addVariable")}
           </Button>

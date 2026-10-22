@@ -4,7 +4,7 @@
 """
 .NET applications: ``dotnet publish`` in the sandbox, ``dotnet app.dll`` as the unit (A-40).
 
-Until 3.4 a repository with a ``.csproj`` was only ever a container. ASP.NET Core publishes to
+Until 4.0 a repository with a ``.csproj`` was only ever a container. ASP.NET Core publishes to
 a directory of its own (the program, its dependencies, ``appsettings.json`` and ``wwwroot``), so
 a native deployment is the directory in the release and a rollback is a symlink to it.
 

@@ -97,12 +97,13 @@ def walk(
     Yields:
         ``(path, command)`` for the command and then each descendant.
     """
+    from noust.cli.app import documented_commands
+
     yield path, command
     if isinstance(command, click.Group):
         context = click.Context(command)
-        for name in command.list_commands(context):
-            child = command.get_command(context, name)
-            if child is not None and not child.hidden:
+        for name, child in documented_commands(command, context):
+            if not child.hidden:
                 yield from walk(child, (*path, name))
 
 
@@ -146,12 +147,10 @@ def command_section(path: tuple[str, ...], command: click.Command) -> list[str]:
             lines.append(f"| {flags} | {cell(option.help or '')} | {default} |")
         lines.append("")
     if isinstance(command, click.Group):
+        from noust.cli.app import documented_commands
+
         context = click.Context(command)
-        names = [
-            n
-            for n in command.list_commands(context)
-            if (c := command.get_command(context, n)) is not None and not c.hidden
-        ]
+        names = [n for n, c in documented_commands(command, context) if not c.hidden]
         if names:
             lines += [
                 "Subcommands: " + ", ".join(f"[`{n}`](#{anchor_of((*path, n))})" for n in names),
