@@ -559,7 +559,7 @@ class LazyGroup(click.Group):
             return None
 
         module = importlib.import_module(module_path)
-        command = getattr(module, "cli", None)
+        command: click.Command | None = getattr(module, "cli", None)
         if command is None:
             raise click.ClickException(
                 f"{module_path} does not expose a 'cli' command. This is a bug in Noust."

@@ -115,7 +115,8 @@ def export(transport: Transport) -> str:
     ):
         if entries:
             document[key] = entries
-    return HEADER + yaml.safe_dump(document, sort_keys=False, default_flow_style=False)
+    body: str = yaml.safe_dump(document, sort_keys=False, default_flow_style=False)
+    return HEADER + body
 
 
 def _read(transport: Transport, path: str) -> dict[str, Any] | None:

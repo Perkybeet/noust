@@ -149,7 +149,8 @@ def render(isolated: IsolatedStack, *, domain: str, original: str) -> str:
         "every update.\n"
         f"{MARKER} {original}\n"
     )
-    return header + yaml.safe_dump(isolated.document, sort_keys=False, default_flow_style=False)
+    body: str = yaml.safe_dump(isolated.document, sort_keys=False, default_flow_style=False)
+    return header + body
 
 
 def isolate(

@@ -362,7 +362,8 @@ def _document(key: str, value: object) -> str:
     Returns:
         The one-key YAML document the setters read.
     """
-    return yaml.safe_dump({key: value}, sort_keys=False, default_flow_style=False)
+    text: str = yaml.safe_dump({key: value}, sort_keys=False, default_flow_style=False)
+    return text
 
 
 def _env(value: object) -> dict[str, str]:

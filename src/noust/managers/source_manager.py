@@ -1295,7 +1295,7 @@ def _open_url(url: str, timeout: int = DOWNLOAD_TIMEOUT) -> IO[bytes]:
             this machine's own networks (see :func:`_require_public_host`).
     """
     _require_public_host(url)
-    response = _build_opener().open(url, timeout=timeout)
+    response: IO[bytes] | None = _build_opener().open(url, timeout=timeout)
     if response is None:
         raise SourceError(
             f"No handler could open the URL: {redact_git_text(url)}",

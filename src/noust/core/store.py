@@ -1734,7 +1734,8 @@ class NoustStore:
         """
         if getattr(self._local, "connection", None) is None:
             self._local.connection = self._connect()
-        return self._local.connection
+        connection: sqlite3.Connection = self._local.connection
+        return connection
 
     def _connect(self) -> sqlite3.Connection:
         """
