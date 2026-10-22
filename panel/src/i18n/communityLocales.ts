@@ -6,13 +6,14 @@
  * switch or picked from the browser's languages; a maintainer makes it `released` once at least 95%
  * of English is translated and a speaker has read it.
  *
- * Empty until somebody brings a language: the mechanism is ready, and nothing ships half translated.
+ * Nothing ships half translated: a released language has at least 95% of English (most have all of it).
  */
 
 import type { CommunityLocale } from "./community";
 
 const REGISTERED = [
   // `npm run i18n:new -- <code> <Name>` adds a line here, and the file it names.
+  { code: "zh-CN", autonym: "简体中文", status: "released" },
 ] as const satisfies readonly CommunityLocale[];
 
 /** The codes, as literals: they are what makes `Locale` a closed union that includes them. */
