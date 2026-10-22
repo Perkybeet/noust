@@ -22,10 +22,10 @@ version-specific names from pydantic anywhere else.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pydantic
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 #: True under pydantic 2. Version detection has to work on both majors, and
 #: ``pydantic.VERSION`` is the one spelling they share.
@@ -113,36 +113,28 @@ def iso_offset_validator(*fields: str) -> Any:
     return field_validator(*fields, mode="before")(_convert)
 
 
-def max_items_validator(field: str, limit: int) -> Any:
+def bounded_list(limit: int) -> Any:
     """
-    A field_validator that holds a list of models to at most ``limit`` items.
+    A list field, empty by default, that holds at most ``limit`` items, in this pydantic's spelling.
 
-    ``Field(max_length=...)`` bounds a list in pydantic 2, but pydantic 1 reads it as a bound on
+    pydantic 2 spells the bound ``max_length``; pydantic 1 reads ``max_length`` as a bound on
     strings and refuses to build a model whose list holds models ("field constraints are set but
-    not enforced"), so the whole API would not import on Debian 12 or Ubuntu 24.04. The bound is
-    checked here instead, the same on both:
+    not enforced"), which kept the whole API from importing on Debian 12 and Ubuntu 24.04. Its
+    spelling is ``max_items``. Both enforce it and publish it as ``maxItems``:
 
     .. code-block:: python
 
-        class InstanceRequest(BaseModel):
-            init_scripts: list[InitScript] = Field(default_factory=list)
-
-            _init_scripts_bound = max_items_validator("init_scripts", 10)
+        init_scripts: list[InitScript] = bounded_list(10)
 
     Args:
-        field: The list's field name.
-        limit: The most items it may hold.
+        limit: The most items the list may hold.
 
     Returns:
-        The validator, ready for assignment to a class attribute.
+        The field.
     """
-
-    def _bound(cls: Any, value: Any) -> Any:
-        if value is not None and len(value) > limit:
-            raise ValueError(f"at most {limit} items")
-        return value
-
-    return field_validator(field)(_bound)
+    if PYDANTIC_V2:
+        return Field(default_factory=list, max_length=limit)
+    return cast(Any, Field)(default_factory=list, max_items=limit)
 
 
 def dump_model(model: BaseModel) -> dict[str, Any]:
