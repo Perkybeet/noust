@@ -45,7 +45,6 @@ export const newApp: Catalog<typeof en> = {
     willAnswer: "Responderá en",
     copy: "dirección",
     temporaryHelp: "Una dirección temporal sirve para probar cosas.",
-    temporaryTag: "temporal",
   },
   compose: {
     field: "Archivo Compose",

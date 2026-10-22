@@ -44,7 +44,6 @@ export const newApp = {
     willAnswer: "It will answer on",
     copy: "address",
     temporaryHelp: "A temporary address is for trying things out.",
-    temporaryTag: "temporary",
   },
   compose: {
     field: "Compose file",

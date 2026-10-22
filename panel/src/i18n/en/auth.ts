@@ -158,7 +158,6 @@ export const auth = {
     securityDescription: "Your security framework separates duties: a second account manages accounts and reads the audit log.",
     protectTitle: "Protect your account",
     protectDescription: "Add an authenticator app or a passkey, so a stolen password is not enough. It takes a minute, and you can do it later from your account.",
-    turnOn: "Turn on",
     later: "Set up later",
     whyTitle: "Why a separate account",
     why: "An administrator cannot invite people, change roles or read the whole audit log: a security officer does. Give it to a different person if you can; one person holding both needs a documented exception.",

@@ -115,7 +115,6 @@ export const catalog = {
     docs: "Docs",
     docsOf: "Documentation of {title}",
     details: "Details",
-    detailsOf: "Details of {title}",
     updated: "Updated {date}",
     yours: "Yours",
     package: "From a package",

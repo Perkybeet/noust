@@ -23,5 +23,4 @@ export const map = {
   emptyTitle: "Nothing to map yet",
   emptyDescription: "Deploy an application and its names, databases, scheduled work and data appear here, connected.",
   fromTerminal: "Read it from a terminal",
-  overflow: "Map of this server",
 } as const;

@@ -156,7 +156,6 @@ export const auth: Catalog<typeof en> = {
     securityDescription: "Tu marco de seguridad separa las funciones: una segunda cuenta gestiona las cuentas y lee el registro de auditoría.",
     protectTitle: "Protege tu cuenta",
     protectDescription: "Añade una app de autenticación o una llave de acceso, para que una contraseña robada no baste. Lleva un minuto, y puedes hacerlo más tarde desde tu cuenta.",
-    turnOn: "Activar",
     later: "Configurar más tarde",
     moreAbout: "Nombre y correo (opcional)",
     whyTitle: "Por qué una cuenta aparte",

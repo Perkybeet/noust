@@ -158,8 +158,8 @@ describe("the new-app wizard in Spanish", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "Nueva aplicación" });
     await chooseWay(user, "Importar aplicación");
-    await user.upload(screen.getByLabelText("Fichero de exportación"), new File(["{"], "x.json", { type: "application/json" }));
-    expect(await screen.findByText(/^Este fichero no es JSON\./)).toBeInTheDocument();
+    await user.upload(screen.getByLabelText("Archivo de exportación"), new File(["{"], "x.json", { type: "application/json" }));
+    expect(await screen.findByText(/^Este archivo no es JSON\./)).toBeInTheDocument();
 
     await user.upload(screen.getByLabelText("Archivo de exportación"), new File([JSON.stringify(EXPORT)], "shop.noust-app.json", { type: "application/json" }));
     expect(await screen.findByText("Una exportación de shop.example.com, una aplicación Next.js.")).toBeInTheDocument();

@@ -119,7 +119,6 @@ export const catalog: Catalog<typeof en> = {
     docs: "Documentación",
     docsOf: "Documentación de {title}",
     details: "Detalles",
-    detailsOf: "Detalles de {title}",
     updated: "Actualizada el {date}",
     yours: "Tuya",
     package: "De un paquete",

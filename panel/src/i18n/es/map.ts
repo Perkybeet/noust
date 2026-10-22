@@ -25,5 +25,4 @@ export const map: Catalog<typeof en> = {
   emptyTitle: "Todavía no hay nada que mapear",
   emptyDescription: "Despliega una aplicación y sus nombres, bases de datos, tareas programadas y datos aparecen aquí, conectados.",
   fromTerminal: "Léelo desde un terminal",
-  overflow: "Mapa de este servidor",
 };
