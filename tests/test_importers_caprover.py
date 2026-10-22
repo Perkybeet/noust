@@ -319,7 +319,10 @@ def test_the_database_the_application_connects_to_is_found_by_its_service_name()
         True,
     )
     assert db.dump is not None and db.restore is not None
-    assert "docker exec $(docker ps -qf name=^srv-captain--shop-db\\.)" in db.dump
+    # Current CapRover names the service after the application, older ones put srv-captain-- first.
+    assert (
+        "docker exec $(docker ps -qf name=^shop-db\\. -f name=^srv-captain--shop-db\\.)" in db.dump
+    )
     assert db.restore == "noust db import shop_db shop_db.dump -e postgresql"
     assert linked["cache"].dump is None
     assert proposal.databases == ["postgresql", "redis"]

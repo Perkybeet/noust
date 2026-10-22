@@ -78,7 +78,8 @@ _ASKS_FOR_MORE = re.compile(
     r"|only roles with"
     r"|only superusers"
     r"|is not a trusted extension"
-    r"|must have privileges of role",
+    r"|must have privileges of role"
+    r"|must be able to set role",
     re.IGNORECASE,
 )
 

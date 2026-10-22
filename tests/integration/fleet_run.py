@@ -2637,8 +2637,10 @@ def scenario_link(env: FleetEnv) -> None:
             24000 <= remote_port <= 24999, f"the link's port {remote_port} is not in 24000-24999"
         )
 
-        # -- the node's half: it dials out; the code it prints carries the key and the token
-        ran = docker_exec(NODE_NAME, command, timeout=180, check=False)
+        # -- the node's half: it dials out; the code it prints carries the key and the token.
+        # --yes: the scenario before this one (the bastion) enrolled the same central, so the node
+        # asks whether to revoke its token, which is right for a person and a hang for a harness.
+        ran = docker_exec(NODE_NAME, f"{command} --yes", timeout=180, check=False)
         redact(node, command, "the link code (a one-time fleet token and the public key)")
         node.check(
             ran.returncode == 0, f"noust fleet link failed:\n{(ran.stdout + ran.stderr)[-2500:]}"

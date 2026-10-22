@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 import yaml
 
-from noust.recipes import get_recipe, list_recipes
+from noust.recipes import get_recipe, list_recipes, read_asset
 from noust.recipes.variables import scan_references
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "recipe_smoke.py"
@@ -100,6 +100,27 @@ def test_every_variable_a_document_names_has_a_value_in_the_env_file_it_writes(
     assert written == values and written["PORT"] == "18080"
     for reference in scan_references(recipe.compose or ""):
         assert reference.name in values or reference.operator is not None, (name, reference.name)
+
+
+@pytest.mark.parametrize("name", [n for n in COMPOSE if get_recipe(n).rendered_files])
+def test_a_file_the_recipe_renders_is_written_with_its_variables_filled_in(
+    smoke: ModuleType, tmp_path: Path, name: str
+) -> None:
+    """A deployment fills a rendered file's references; a smoke test that wrote them as they are
+    (Gatus's ``${GATUS_PUBLIC_URL}/health``) started the stack on a file no deployment writes."""
+    recipe = get_recipe(name)
+
+    values = smoke.write_project(
+        recipe, tmp_path, port=18080, domain="smoke.example.com", ssl=True, given={}
+    )
+
+    for path in recipe.rendered_files:
+        written = (tmp_path / path).read_text()
+        for reference in scan_references(read_asset(recipe.name, recipe.files[path])):
+            if reference.name in values:
+                assert f"${{{reference.name}}}" not in written, (name, path, reference.name)
+    if name == "gatus":
+        assert 'url: "https://smoke.example.com/health"' in (tmp_path / "config.yaml").read_text()
 
 
 def test_a_required_variable_gets_a_value_so_the_stack_can_be_written(
@@ -253,6 +274,45 @@ def test_a_restart_loop_and_an_out_of_memory_kill_are_problems(
         "db-1 was killed for memory",
         "cache-1 is restarting",
     ]
+
+
+def test_one_clean_restart_is_a_note_and_a_crash_is_still_a_problem(
+    smoke: ModuleType, fake_docker: type[FakeProject], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hoppscotch's backend stops itself once after filling its settings table: the policy restarts
+    it and it serves. The same single restart with a status is a crash, and two restarts are a loop."""
+    monkeypatch.setattr(smoke, "ask", lambda url, *, follow, headers=None: (200, ""))
+    fake_docker.containers = [
+        {
+            "name": "app-1",
+            "state": "running",
+            "restarts": 1,
+            "oom_killed": False,
+            "exit_code": 0,
+            "health": None,
+        },
+        {
+            "name": "worker-1",
+            "state": "running",
+            "restarts": 1,
+            "oom_killed": False,
+            "exit_code": 2,
+            "health": None,
+        },
+        {
+            "name": "cron-1",
+            "state": "running",
+            "restarts": 2,
+            "oom_killed": False,
+            "exit_code": 0,
+            "health": None,
+        },
+    ]
+
+    report = run_smoke(smoke)
+
+    assert report.notes == ["app-1 restarted once, leaving with status 0"]
+    assert report.problems == ["worker-1 restarted 1 times", "cron-1 restarted 2 times"]
 
 
 def test_the_extra_lines_reach_the_env_file_as_an_operator_editing_it_would(

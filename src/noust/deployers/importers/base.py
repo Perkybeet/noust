@@ -240,8 +240,11 @@ DUMP_SCRIPTS: dict[str, tuple[str, str]] = {
 _PLAIN_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
 
 #: The one expression that finds a Swarm or Compose service's container, built only by
-#: :func:`service_container`.
-_SERVICE_CONTAINER = re.compile(r"\$\(docker ps -qf name=\^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\\\.\)")
+#: :func:`service_container`: a name, and up to three more the same service has been called.
+_SERVICE_NAME = r"\^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\\\."
+_SERVICE_CONTAINER = re.compile(
+    rf"\$\(docker ps -qf name={_SERVICE_NAME}(?: -f name={_SERVICE_NAME}){{0,3}}\)"
+)
 
 
 def is_plain_name(value: str | None) -> bool:
@@ -255,19 +258,24 @@ def is_plain_name(value: str | None) -> bool:
     return value is not None and _PLAIN_NAME.fullmatch(value) is not None
 
 
-def service_container(service: str) -> str | None:
+def service_container(service: str, *also: str) -> str | None:
     """
     Write the expression a shell turns into the container of a Swarm service.
 
     Args:
         service: The service's name, as the other platform gave it.
+        also: Other names the same service has had in other versions of the platform (CapRover
+            names it after the application now and put ``srv-captain--`` in front before): its
+            container is found under any of them.
 
     Returns:
-        ``$(docker ps -qf name=^SERVICE\\.)``, or None when the name is not a plain one.
+        ``$(docker ps -qf name=^SERVICE\\.)``, with ``-f name=^ALSO\\.`` for each other name, or
+        None when a name is not a plain one.
     """
-    if not is_plain_name(service):
+    names = (service, *also)
+    if len(names) > 4 or not all(is_plain_name(name) for name in names):
         return None
-    return f"$(docker ps -qf name=^{service}\\.)"
+    return "$(docker ps -qf " + " -f ".join(f"name=^{name}\\." for name in names) + ")"
 
 
 def database_commands(engine: str, container: str, name: str, label: str) -> tuple[str, str] | None:

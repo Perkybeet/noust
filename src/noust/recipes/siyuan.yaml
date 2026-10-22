@@ -1,6 +1,8 @@
 # SiYuan from the image the project publishes (b3log/siyuan on Docker Hub), run as its Docker
-# documentation describes (github.com/siyuan-note/siyuan, "Docker Deployment", read 2026-10-20):
-# `--workspace=/siyuan/workspace/` puts the notes, the configuration and the database under
+# documentation describes (github.com/siyuan-note/siyuan, "Docker Deployment", read 2026-10-20),
+# with the subcommand v3.8 needs: the kernel is a command line now, the image's own default is
+# `serve`, and a command that replaces it must say so (without it the kernel prints its help and
+# exits). `--workspace=/siyuan/workspace/` puts the notes, the configuration and the database under
 # one directory, `--accessAuthCode` is the password that protects the interface (without it
 # whoever opens the page owns the workspace), PUID and PGID are the account the process runs as
 # (the entrypoint changes the ownership of the workspace to it), and the server listens on 6806.
@@ -46,6 +48,7 @@ compose: |
       image: b3log/siyuan:v3.8.7@sha256:aced5ce847dc0a6bd33033176533e7c0954a0f043c95806f6831b7a351a952c9
       restart: unless-stopped
       command:
+        - serve
         - --workspace=/siyuan/workspace/
         - --accessAuthCode=${SIYUAN_ACCESS_CODE}
       environment:

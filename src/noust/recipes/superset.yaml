@@ -8,7 +8,10 @@
 # to nginx. The container runs the project's initialisation before it serves: `superset db
 # upgrade`, `superset fab create-admin` (which fails, harmlessly, once the administrator exists, so
 # no visitor can claim it) and `superset init`, then run-server.sh, the image's own
-# command. /health answers OK without a sign-in. It needs about 2 GB of memory.
+# command. The image carries no PostgreSQL driver (the project's own compose file installs one at
+# every start), so the first start installs psycopg2-binary from PyPI into the volume
+# superset-home, which the superset user owns because the image's /app/superset_home is its, and
+# the later ones find it there. /health answers OK without a sign-in. It needs about 2 GB of memory.
 #
 # Pinned to the release tag and to the digests Docker Hub serves for it.
 schema: 2
@@ -69,6 +72,10 @@ compose: |
         - sh
         - -c
         - >-
+          export PYTHONPATH="/app/superset_home/pylib:$${PYTHONPATH}" &&
+          (python -c "import psycopg2" 2>/dev/null ||
+          uv pip install --quiet --python /app/.venv/bin/python --target /app/superset_home/pylib
+          psycopg2-binary==2.9.10) &&
           superset db upgrade &&
           (superset fab create-admin --username "$${SUPERSET_ADMIN_USER}" --firstname Admin
           --lastname User --email "$${SUPERSET_ADMIN_EMAIL}" --password "$${SUPERSET_ADMIN_PASSWORD}"
@@ -85,6 +92,7 @@ compose: |
         SUPERSET_LOAD_EXAMPLES: "no"
       volumes:
         - ./superset_config.py:/app/pythonpath/superset_config.py:ro
+        - superset-home:/app/superset_home
       ports:
         - "127.0.0.1:${PORT}:8088"
     db:
@@ -113,8 +121,9 @@ compose: |
       volumes:
         - superset-cache:/data
   volumes:
+    superset-home:
     superset-db:
     superset-cache:
 notes:
-  - "The first start initialises the database, which takes a few minutes. Then sign in at {{ url }} as {{ vars.SUPERSET_ADMIN_USER }}; the password is SUPERSET_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It is read only when the account is created: change it in Superset afterwards."
+  - "The first start installs the PostgreSQL driver from PyPI (the image has none) and initialises the database, which takes a few minutes and needs outbound HTTPS. Then sign in at {{ url }} as {{ vars.SUPERSET_ADMIN_USER }}; the password is SUPERSET_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It is read only when the account is created: change it in Superset afterwards."
   - "Superset runs in a container, so 127.0.0.1 there is the container itself: add the databases you analyse by their address. Its own metadata is in the Docker volume superset-db (PostgreSQL, dumped by Noust before every update): back it up before updating."

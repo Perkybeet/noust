@@ -176,7 +176,8 @@ def scenario_procfile(sc: Scenario) -> None:
             f"the worker is not the repository's, running once: {started['worker']!r}",
         )
         log = sc.run(
-            f"cat $(ls -1t /root/.local/share/noust/deploy-logs/{PROC_DOMAIN}/*.log | head -1)",
+            f"cat $(ls -1t /var/lib/noust/deploy-logs/{PROC_DOMAIN}/*.log "
+            f"/root/.local/share/noust/deploy-logs/{PROC_DOMAIN}/*.log 2>/dev/null | head -1)",
             timeout=15,
             check=False,
             label="the deployment's log",
@@ -1256,6 +1257,14 @@ def scenario_s3_backups(sc: Scenario) -> None:
     create = f"noust create -d {S3_DOMAIN} -s /root/fixtures/static-site -t static --no-ssl"
     findings: list[str] = []
     try:
+        # A container kept from an earlier run still has the decision this scenario takes below.
+        sc.run(
+            "noust config set security.allow_private_hosts '' --list; "
+            "noust backup destination remove itminio -f; true",
+            timeout=60,
+            check=False,
+            label="(clean start) no allow-list, no destination of an earlier run",
+        )
         sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
         start_minio(
             sc,
@@ -1285,11 +1294,30 @@ def scenario_s3_backups(sc: Scenario) -> None:
             timeout=30,
             label="noust config set security.allow_private_hosts 127.0.0.1 --list",
         )
+        # A bucket that does not exist is an error, not a bucket made on the way: a mistyped name
+        # must not become a new bucket in the operator's account, and nothing of the destination
+        # stays (no row, no secret).
+        missing = sc.run(
+            add, timeout=60, check=False, label=shown + "  (the bucket does not exist)"
+        )
+        sc.check(
+            missing.returncode != 0 and "was not saved" in missing.stdout + missing.stderr,
+            f"a destination whose bucket does not exist was kept: {missing.stdout!r}",
+        )
+        listed = sc.run(
+            "noust backup destination list", timeout=30, label="noust backup destination list"
+        )
+        sc.check("itminio" not in listed.stdout, "a destination that was not saved is listed")
+        sc.run(
+            f"docker exec {S3_NAME} mkdir -p {S3_DATA}/{S3_BUCKET}",
+            timeout=30,
+            label=f"make the bucket {S3_BUCKET} (a directory MinIO lists as one)",
+        )
         sc.run(add, timeout=60, label=shown)
         sc.run(
             "noust backup destination test itminio",
             timeout=120,
-            label="noust backup destination test itminio (the bucket does not exist yet)",
+            label="noust backup destination test itminio (the bucket exists)",
         )
         stored = sc.run(
             f"grep -rl '{secret}' /var/lib/noust /root/.local/share/noust /etc/noust 2>/dev/null; "
@@ -1376,7 +1404,8 @@ def scenario_s3_backups(sc: Scenario) -> None:
         sc.run(
             f"noust backup schedule delete {S3_DOMAIN}; "
             "noust backup destination remove itminio -f; "
-            f"noust delete {S3_DOMAIN} -f; docker rm -f {S3_NAME}",
+            f"noust delete {S3_DOMAIN} -f; docker rm -f {S3_NAME}; "
+            "noust config set security.allow_private_hosts '' --list",
             timeout=180,
             check=False,
             label="cleanup",
@@ -1540,11 +1569,25 @@ def scenario_database_instances(sc: Scenario) -> None:
             timeout=120,
             label="noust db backup shop",
         )
-        sc.run(
+        # A file outside Noust's own folder is loaded as the database's owner, who cannot hand
+        # objects to the dump's owner (postgres): the refusal says to repeat with --as-superuser,
+        # which is right for a dump the operator made a moment ago.
+        refused = sc.run(
             f"noust db restore {DBI_DATABASE} /root/it-shop.dump --engine {DBI_ENGINE} "
             f"--as-new shop_copy --force",
             timeout=120,
-            label="noust db restore --as-new shop_copy",
+            check=False,
+            label="noust db restore --as-new shop_copy (a dump outside Noust's folder)",
+        )
+        sc.check(
+            refused.returncode != 0 and "--as-superuser" in refused.stdout + refused.stderr,
+            f"the refusal does not say how to load a dump you made: {refused.stdout!r}",
+        )
+        sc.run(
+            f"noust db restore {DBI_DATABASE} /root/it-shop.dump --engine {DBI_ENGINE} "
+            f"--as-new shop_copy --as-superuser --force",
+            timeout=120,
+            label="noust db restore --as-new shop_copy --as-superuser",
         )
         copy = orders(sc, DBI_ENGINE, "shop_copy", "the orders of the copy")
         sc.check("10" in copy and "20" in copy, f"the restored copy lacks the data: {copy!r}")
@@ -2733,9 +2776,18 @@ def scenario_restore_server(sc: Scenario) -> None:
         )
         sc.evidence.append(f"(report) {json.dumps(report)[:1500]}")
         outcomes = {item["domain"]: item for item in report["apps"]}
+        # In the suite this container also holds what the other scenarios left: applications nobody
+        # backed up ("no_backup") and ones restored from a copy taken at some earlier point of the
+        # run, whose state is not this scenario's business. The report is not ok for them, and says
+        # why for each. What this scenario proves is about the application it lost, and that the
+        # report is ok when it is the only one.
+        others = {domain: item for domain, item in outcomes.items() if domain != DR_DOMAIN}
+        mine = outcomes.get(DR_DOMAIN, {})
         sc.check(
-            report.get("ok") is True and outcomes.get(DR_DOMAIN, {}).get("status") == "restored",
-            f"the server is not back: {json.dumps(report.get('apps'))[:600]}",
+            mine.get("status") == "restored"
+            and mine.get("healthy") is True
+            and (report.get("ok") is True or bool(others)),
+            f"the server is not back: {json.dumps(mine)[:600]}",
         )
 
         # -- It is what was lost ----------------------------------------------------------------------

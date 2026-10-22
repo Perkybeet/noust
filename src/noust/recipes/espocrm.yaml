@@ -2,10 +2,13 @@
 # with MariaDB and the daemon the project's compose file runs, as its installation guide describes
 # (docs.espocrm.com "Installation with Docker", read 2026-10-20): ESPOCRM_DATABASE_* for the
 # database, ESPOCRM_ADMIN_USERNAME and ESPOCRM_ADMIN_PASSWORD (the administrator, made by the
-# installation on the first start, so no visitor can claim it), ESPOCRM_SITE_URL, and the
-# application under /var/www/html, shared with the daemon (the same image, started as
-# docker-daemon.sh, which runs scheduled jobs, workflows and e-mail). The WebSocket service of
-# the project's file is left out: live updates are optional.
+# installation on the first start, so no visitor can claim it), ESPOCRM_SITE_URL, and the three
+# directories of EspoCRM 10 that hold what is yours (data, custom, client/custom) as volumes shared with
+# the daemon (the same image, started as docker-daemon.sh, which runs scheduled jobs, workflows and
+# e-mail; it exits until the installation is done, so it waits for the check the image itself uses,
+# `bin/command app-check`, instead of restarting). /var/www/html itself is not mounted: with it mounted the image takes the installation
+# for a legacy one, installs nothing and sends every request to the web installer. The WebSocket
+# service of the project's file is left out: live updates are optional.
 #
 # Pinned to the release tag and to the digests Docker Hub serves for it.
 schema: 2
@@ -66,8 +69,16 @@ compose: |
         ESPOCRM_ADMIN_USERNAME: "${ESPOCRM_ADMIN_USERNAME}"
         ESPOCRM_ADMIN_PASSWORD: "${ESPOCRM_ADMIN_PASSWORD}"
         ESPOCRM_SITE_URL: "${ESPOCRM_SITE_URL}"
+      healthcheck:
+        test: ["CMD-SHELL", "cd /var/www/html && bin/command app-check >/dev/null 2>&1"]
+        interval: 15s
+        timeout: 10s
+        retries: 40
+        start_period: 30s
       volumes:
-        - espocrm-html:/var/www/html
+        - espocrm-custom:/var/www/html/custom
+        - espocrm-data:/var/www/html/data
+        - espocrm-client-custom:/var/www/html/client/custom
       ports:
         - "127.0.0.1:${PORT}:80"
     daemon:
@@ -76,11 +87,13 @@ compose: |
       entrypoint: docker-daemon.sh
       depends_on:
         espocrm:
-          condition: service_started
+          condition: service_healthy
       volumes:
-        - espocrm-html:/var/www/html
+        - espocrm-custom:/var/www/html/custom
+        - espocrm-data:/var/www/html/data
+        - espocrm-client-custom:/var/www/html/client/custom
     db:
-      image: mariadb:11.8.9@sha256:6422478cb8e159f080fb1d8ccf65101e26fe51385787fde7d16c3b165a331f15
+      image: mariadb:11.8.9@sha256:f16d7a344413e519dff518f27bdb221388f84b0d274c97c4fb5f2cb0dc1b34fa
       restart: unless-stopped
       environment:
         MARIADB_ROOT_PASSWORD: "${MARIADB_ROOT_PASSWORD}"
@@ -96,8 +109,10 @@ compose: |
       volumes:
         - espocrm-db:/var/lib/mysql
   volumes:
-    espocrm-html:
+    espocrm-custom:
+    espocrm-data:
+    espocrm-client-custom:
     espocrm-db:
 notes:
   - "The first start installs EspoCRM, which takes a few minutes. Then sign in at {{ url }} as {{ vars.ESPOCRM_ADMIN_USERNAME }}; the password is ESPOCRM_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It is read only when EspoCRM installs: change it in EspoCRM afterwards."
-  - "Its code, configuration, uploads and extensions are in the Docker volume espocrm-html and the database in espocrm-db (MariaDB, dumped by Noust before every update). Back both up before updating: the uploaded files are not in the database dump."
+  - "Its configuration and uploads are in the Docker volume espocrm-data, your extensions and customisations in espocrm-custom and espocrm-client-custom, and the database in espocrm-db (MariaDB, dumped by Noust before every update). Back them up before updating: the uploaded files are not in the database dump."

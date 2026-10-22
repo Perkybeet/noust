@@ -64,7 +64,7 @@ import yaml  # noqa: E402
 
 from noust.recipes import get_recipe, read_asset  # noqa: E402
 from noust.recipes.model import Recipe  # noqa: E402
-from noust.recipes.variables import DeploymentContext, resolve_variables  # noqa: E402
+from noust.recipes.variables import DeploymentContext, resolve_variables, substitute  # noqa: E402
 from noust.validators.health import parse_health_expect  # noqa: E402
 
 #: Lines of a log that look like a failure; a count, not a verdict: applications log
@@ -197,6 +197,9 @@ class SmokeReport:
         log_tail: The end of the stack's log, kept when the gate was not answered, so that the
             report says why.
         problems: What stops the recipe from being accepted; empty when it passes.
+        notes: What was seen and is not held against the recipe: a container that restarted once
+            and left with status 0 (an application that applies its first-run configuration and
+            stops itself, as Hoppscotch's backend does after filling its settings table).
     """
 
     recipe: str
@@ -211,6 +214,7 @@ class SmokeReport:
     error_lines: dict[str, Any] = field(default_factory=dict)
     log_tail: str = ""
     problems: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
 
 def gate_accepts(expect: str | None, status: int) -> bool:
@@ -276,7 +280,13 @@ def write_project(
     for path, asset in recipe.files.items():
         target = directory / path
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(read_asset(recipe.name, asset), encoding="utf-8")
+        text = read_asset(recipe.name, asset)
+        if path in recipe.rendered_files:
+            # As a deployment writes it (recipes.deploy._recipe_files): the file the application
+            # reads has its ${NAME} filled in, and starting the stack on the raw asset tests a
+            # file nobody ever deploys.
+            text = substitute(text, values, what=f"{recipe.name}: {path}")
+        target.write_text(text, encoding="utf-8")
     (directory / ".env").write_text(
         "".join(f"{key}={value}\n" for key, value in values.items()), encoding="utf-8"
     )
@@ -474,7 +484,11 @@ def smoke(
         for container in report.containers:
             if container["state"] != "running" and container["state"] != "exited":
                 report.problems.append(f"{container['name']} is {container['state']}")
-            if container["restarts"]:
+            if container["restarts"] == 1 and not container.get("exit_code"):
+                # One clean restart is the application's own doing, not a crash: more of them, or
+                # a status other than 0, are what a crash loop and a failed migration look like.
+                report.notes.append(f"{container['name']} restarted once, leaving with status 0")
+            elif container["restarts"]:
                 report.problems.append(
                     f"{container['name']} restarted {container['restarts']} times"
                 )
@@ -561,6 +575,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         for problem in report.problems:
             print(f"  {problem}")
+        for note in report.notes:
+            print(f"  note: {note}")
         if report.problems and report.log_tail:
             tail = report.log_tail.splitlines()[-25:]
             print("  log tail:\n" + "\n".join(f"    {line}" for line in tail))

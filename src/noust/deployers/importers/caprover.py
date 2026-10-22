@@ -453,7 +453,9 @@ def _databases(
             continue
         engine = match.engine
         label = database_name_for(name)
-        container = service_container(service)
+        # The service is named after the application in current CapRover and srv-captain--NAME in
+        # older ones (the name an application reaches it by either way): found under both.
+        container = service_container(name, service)
         commands = (
             database_commands(engine, container, label, label) if container is not None else None
         )

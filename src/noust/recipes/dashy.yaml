@@ -1,7 +1,7 @@
 # Dashy from the image the project publishes (lissy93/dashy on Docker Hub, the same release as
 # ghcr.io/lissy93/dashy). Configuration is what the project documents (docs/configuring.md,
 # docs/management.md): the dashboard is the file /app/user-data/conf.yml, the image listens on
-# 8080, and /status answers without a login. Dashy has no accounts of its own until the file
+# 8080, and the page answers without a login (/status is not a path of this release: it gave 404). Dashy has no accounts of its own until the file
 # lists users with a hashed password, so the file this recipe ships is read-only for the
 # browser (preventWriteToDisk, preventLocalSave): the page is public and can only be changed by
 # editing the file on the server.
@@ -28,7 +28,7 @@ needs:
   - Docker Engine with the Compose plugin
 port: 8480
 health:
-  path: /status
+  path: /
   expect: "200"
   timeout: 120
 files: {conf.yml: {asset: conf.yml, mode: "0644"}}

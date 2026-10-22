@@ -15,7 +15,7 @@ Noust in it, and for each platform:
 * ``dokku``: Dokku's own image, with the Postgres plugin; an application with a database linked, a
   storage mount, a domain and a variable. The importer asks the ``dokku`` command (a one-line wrapper
   that enters the container, as the command would on a Dokku host) and the printed export is run.
-* ``caprover``: CapRover's own image on a swarm of one node; its root domain set, an application
+* ``caprover``: CapRover's own image, which makes its swarm of one node; its root domain set, an application
   with a persistent directory and a variable, and a database application from an image. The importer
   signs in to its API.
 
@@ -191,6 +191,23 @@ def secret_file(name: str, content: str) -> None:
         local.chmod(0o600)
         sh(["docker", "cp", str(local), f"{CONTAINER_NAME}:{name}"], timeout=30)
     docker_exec(CONTAINER_NAME, f"chown root:root {name} && chmod 600 {name}", timeout=15)
+
+
+def allow_the_platform(sc: Scenario) -> None:
+    """
+    List the platform's address as one Noust may contact, as its refusal says to.
+
+    The platform runs in this machine's own Docker and answers on the loopback address, and an
+    importer only contacts a host on the machine's own network when the operator has listed it.
+
+    Args:
+        sc: The scenario.
+    """
+    sc.run(
+        f"noust config set notifications.allow_private_hosts {LOOPBACK} --list",
+        timeout=30,
+        label=f"noust config set notifications.allow_private_hosts {LOOPBACK} --list",
+    )
 
 
 def import_proposal(sc: Scenario, arguments: str, label: str) -> dict[str, Any]:
@@ -493,6 +510,7 @@ def scenario_coolify(sc: Scenario) -> None:
             label="the variable that connects the application to the database",
         )
 
+        allow_the_platform(sc)
         listed = sc.run(
             f"noust import --from coolify --url {COOLIFY_URL} --token-file {COOLIFY_WORK}/api-token --json",
             timeout=120,
@@ -509,8 +527,13 @@ def scenario_coolify(sc: Scenario) -> None:
         sc.check(password not in json.dumps(proposal), "the proposal carries the database password")
         volume = storage_of(sc, proposal, "/data/uploads")
         sc.check(bool(volume.get("export")), "the volume has no export command")
-        file_mount = storage_of(sc, proposal, "/etc/shop/app.conf")
-        sc.check(file_mount is not None, "the file mount is not listed")
+        # A file Coolify writes itself (file_storages) is not data to copy: the proposal says what
+        # to do with it, and does not list it among the storage.
+        said = [text for text in proposal["warnings"] if "/etc/shop/app.conf" in text]
+        sc.check(
+            len(said) == 1 and "noust app mount file" in said[0],
+            f"the file mount is not explained as a file to keep: {said}",
+        )
         pg = database_of(sc, proposal, "postgresql")
         sc.check(pg["database"] == "shop" and pg["user"] == "shop", f"the database: {pg}")
         sc.check(pg["linked"] is True, "the database is not marked as linked by DATABASE_URL")
@@ -653,7 +676,7 @@ def scenario_dokku(sc: Scenario) -> None:
 
 CAPROVER_IMAGE = "caprover/caprover:latest"
 CAPROVER_URL = f"http://{LOOPBACK}:3000"
-CAPROVER_ROOT = "onb.localtest.me"
+CAPROVER_ROOT = "sslip.io"
 
 
 def caprover_api(
@@ -718,14 +741,18 @@ def scenario_caprover(sc: Scenario) -> None:
     )
     try:
         sc.run(
-            "systemctl disable --now nginx; docker swarm init --advertise-addr 127.0.0.1",
+            # CapRover makes the swarm itself, and refuses a Docker that is already part of one.
+            "systemctl disable --now nginx",
             timeout=120,
             check=False,
-            label="(a CapRover server) no nginx; a swarm of one node",
+            label="(a CapRover server) no nginx, and no swarm: CapRover makes its own",
         )
         started = sc.run(
             "mkdir -p /captain && docker run -d --name captain-boot -p 80:80 -p 443:443 -p 3000:3000 "
-            "-e ACCEPTED_TERMS=true -v /var/run/docker.sock:/var/run/docker.sock "
+            # MAIN_NODE_IP_ADDRESS is CapRover's own answer for "a local machine or a machine
+            # without a public IP": without it the install tests port 80 from outside and times out.
+            "-e ACCEPTED_TERMS=true -e MAIN_NODE_IP_ADDRESS=127.0.0.1 "
+            "-v /var/run/docker.sock:/var/run/docker.sock "
             f"-v /captain:/captain {CAPROVER_IMAGE}",
             timeout=900,
             check=False,
@@ -733,18 +760,32 @@ def scenario_caprover(sc: Scenario) -> None:
         )
         if started.returncode != 0:
             raise ScenarioSkipped(f"CapRover's image did not start here: {started.stderr[-300:]}")
+        # CapRover's first start answers on :3000 with the text "firewall-passed" (seen on /login)
+        # before its API is up, and with status 1001 (not initialised) while it finishes installing
+        # its nginx, its registry and its certificate tool: only a sign-in that succeeds is the API.
         up = sc.run(
             wait_script(
-                f"curl -fsS -m 5 -H 'x-namespace: captain' {CAPROVER_URL}/api/v2/user/system/info "
-                ">/dev/null 2>&1 || curl -sS -m 5 "
-                f"{CAPROVER_URL}/api/v2/login -d '{{}}' -H 'Content-Type: application/json' | grep -q status",
-                within=300,
+                f"curl -sS -m 5 -H 'x-namespace: captain' {CAPROVER_URL}/api/v2/login "
+                f"-H 'Content-Type: application/json' -d '{{\"password\": \"{password}\"}}' "
+                "| grep -q '\"status\": *100[,}]'",
+                within=480,
             ),
-            timeout=400,
+            timeout=560,
             check=False,
-            label="wait for CapRover to answer on :3000",
+            label="wait for CapRover to take the first-run sign-in on :3000",
         )
         if up.returncode != 0:
+            # What a person would look at first: the containers, the boot container's own words
+            # and the service CapRover starts in its place.
+            sc.run(
+                "docker ps -a --format '{{.Names}} {{.Status}} {{.Ports}}'; echo ---; "
+                "docker logs --tail 60 captain-boot 2>&1; echo ---; docker service ls; echo ---; "
+                "docker service ps --no-trunc captain-captain 2>&1 | cut -c1-300; echo ---; "
+                "docker service logs --tail 40 captain-captain 2>&1 | cut -c1-300",
+                timeout=120,
+                check=False,
+                label="why CapRover did not answer: containers, boot log, service",
+            )
             raise ScenarioSkipped("CapRover did not answer on :3000 in five minutes")
         login = caprover_api(
             sc,
@@ -758,24 +799,32 @@ def scenario_caprover(sc: Scenario) -> None:
                 f"CapRover refused the first-run sign-in: status {login.get('status')}"
             )
         token = str(login["data"]["token"])
+        # CapRover proves it owns the root domain by asking for a file through it from inside its own
+        # container, so the name must resolve to an address that container can reach port 80 on:
+        # this machine's address under a wildcard name, not 127.0.0.1 (that is the container itself).
+        address = sc.run(
+            "hostname -I | awk '{print $1}'", timeout=15, label="this machine's address"
+        ).stdout.strip()
+        root = f"{address}.{CAPROVER_ROOT}"
         changed = caprover_api(
             sc,
             "POST",
             "/user/system/changerootdomain",
-            body={"rootDomain": CAPROVER_ROOT},
+            body={"rootDomain": root},
             token=token,
-            label="the root domain (a name that resolves to this machine)",
+            label=f"the root domain ({root}, a name that resolves to this machine)",
         )
         if changed.get("status") != 100:
             raise ScenarioSkipped(
-                f"CapRover would not take the root domain {CAPROVER_ROOT}: status {changed.get('status')}"
+                f"CapRover would not take the root domain {root}: status {changed.get('status')}: "
+                f"{changed.get('description')}"
             )
         for name in ("shop", "shopdb"):
             registered = caprover_api(
                 sc,
                 "POST",
                 "/user/apps/appDefinitions/register",
-                body={"appName": name, "hasPersistentData": name == "shopdb"},
+                body={"appName": name, "hasPersistentData": True},
                 token=token,
                 label=f"register the app {name}",
             )
@@ -834,18 +883,33 @@ def scenario_caprover(sc: Scenario) -> None:
             token=token,
             label="deploy postgres:16-alpine as the app shopdb",
         )
-        sc.check(deployed.get("status") == 100, f"deploying shopdb: {deployed.get('status')}")
-        sc.run(
+        sc.check(
+            deployed.get("status") in (100, 101),  # 101: the detached deploy started
+            f"deploying shopdb: {deployed.get('status')}",
+        )
+        service = sc.run(
             wait_script(
-                "docker ps --filter name=srv-captain--shopdb --format '{{.Names}}' | grep -q srv-captain--shopdb",
+                "docker ps --filter name=^shopdb\\. --format '{{.Names}}' | grep -q shopdb",
                 within=400,
             ),
             timeout=500,
+            check=False,
             label="wait for the service of shopdb",
         )
+        if service.returncode != 0:
+            sc.run(
+                "docker ps -a --format '{{.Names}} {{.Status}}'; echo ---; docker service ls; echo ---; docker service ps --no-trunc shopdb 2>&1 "
+                "| cut -c1-400; echo ---; docker service logs --tail 30 shopdb 2>&1 "
+                "| cut -c1-300; echo ---; docker service logs --tail 40 captain-captain 2>&1 "
+                "| cut -c1-300",
+                timeout=120,
+                check=False,
+                label="why shopdb has no container: the services and what they say",
+            )
+            sc.check(False, "CapRover did not start the service of shopdb in the time given")
         sc.run(
             wait_script(
-                "docker exec $(docker ps -qf name=^srv-captain--shopdb\\.) pg_isready -U shop -d shop "
+                "docker exec $(docker ps -qf name=^shopdb\\.) pg_isready -U shop -d shop "
                 ">/dev/null 2>&1",
                 within=200,
             ),
@@ -853,12 +917,13 @@ def scenario_caprover(sc: Scenario) -> None:
             label="wait for CapRover's Postgres to accept connections",
         )
         sc.run(
-            "docker exec $(docker ps -qf name=^srv-captain--shopdb\\.) psql -U shop -d shop -c "
+            "docker exec $(docker ps -qf name=^shopdb\\.) psql -U shop -d shop -c "
             '"create table orders(id int); insert into orders values (1), (2), (3);"',
             timeout=60,
             label="three rows in the database",
         )
         secret_file(f"{WORK}/caprover-password", password)
+        allow_the_platform(sc)
         proposal = import_proposal(
             sc,
             f"--from caprover --url {CAPROVER_URL} --token-file {WORK}/caprover-password --app shop",
@@ -872,7 +937,7 @@ def scenario_caprover(sc: Scenario) -> None:
         sc.check(pg["linked"] is True, "the database is not marked as linked by DATABASE_URL")
         dumped = run_printed_dump(sc, str(pg["dump"]), "run on the CapRover server")
         contents = sc.run(
-            f"docker exec -i $(docker ps -qf name=^srv-captain--shopdb\\.) pg_restore --list < {dumped} "
+            f"docker exec -i $(docker ps -qf name=^shopdb\\.) pg_restore --list < {dumped} "
             "| grep -i orders",
             timeout=60,
             label="pg_restore --list of that dump (it names the table)",
