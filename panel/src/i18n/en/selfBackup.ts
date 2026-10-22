@@ -150,7 +150,7 @@ export const selfBackup = {
     passphraseKept: "This server keeps one. Leave it empty to keep it, or type another to replace it.",
     passphraseRequired: "Type the passphrase bundles are sealed with.",
     enabled: "Run it on its schedule",
-    enabledHelp: "Off, the schedule keeps its settings and nothing runs.",
+    enabledHelp: "The schedule keeps its settings when it is turned off; nothing runs until it is on again.",
     save: "Save schedule",
     saveFailed: "Could not save the schedule",
     cancel: "Cancel",

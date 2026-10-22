@@ -138,7 +138,7 @@ export const volumeBackups: Catalog<typeof en> = {
     remoteOnlyHelp: "Cada copia programada se borra de aquí cuando todos los destinos la tienen y se comprobó su subida, y la que no se pudo enviar se queda.",
     remoteOnlyNeedsDestination: "Añade al menos un destino para activarlo; sin ninguno, las copias se quedan en este servidor.",
     enabled: "Ejecutarla en su programación",
-    enabledHelp: "Desactivada, la programación conserva sus ajustes y no corre nada.",
+    enabledHelp: "La programación conserva sus ajustes mientras está desactivada; no corre nada hasta que la actives.",
     save: "Guardar programación",
     saveFailed: "No se pudo guardar la programación",
     cancel: "Cancelar",

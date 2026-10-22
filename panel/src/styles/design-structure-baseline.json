@@ -27,7 +27,6 @@
       "i18n/en/alerts.ts": 1,
       "i18n/en/changeSource.ts": 1,
       "i18n/en/composeSettings.ts": 1,
-      "i18n/en/databases.ts": 1,
       "i18n/en/network.ts": 1,
       "i18n/en/newApp.ts": 1,
       "i18n/en/notifyRouting.ts": 3,
@@ -80,11 +79,8 @@
     },
     "help-starts-with-state": {
       "i18n/en/autoUpdate.ts": 1,
-      "i18n/en/dumpImport.ts": 1,
       "i18n/en/runtime.ts": 1,
-      "i18n/en/scimAdmin.ts": 1,
-      "i18n/en/selfBackup.ts": 1,
-      "i18n/en/volumeBackups.ts": 1
+      "i18n/en/scimAdmin.ts": 1
     },
     "inline-empty-by-hand": {
       "features/app/environment/PredefinedVariables.tsx": 1,

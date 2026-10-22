@@ -138,7 +138,7 @@ export const volumeBackups = {
     remoteOnlyHelp: "Each scheduled backup is deleted here once every destination holds it and its upload was checked, and one that could not be sent stays.",
     remoteOnlyNeedsDestination: "Add at least one destination to turn this on; with none, the backups stay on this server.",
     enabled: "Run it on its schedule",
-    enabledHelp: "Off, the schedule keeps its settings and nothing runs.",
+    enabledHelp: "The schedule keeps its settings when it is turned off; nothing runs until it is on again.",
     save: "Save schedule",
     saveFailed: "Could not save the schedule",
     cancel: "Cancel",

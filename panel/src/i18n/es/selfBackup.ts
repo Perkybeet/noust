@@ -152,7 +152,7 @@ export const selfBackup: Catalog<typeof en> = {
     passphraseKept: "Este servidor guarda una. Déjalo vacío para conservarla, o escribe otra para reemplazarla.",
     passphraseRequired: "Escribe la frase de paso con la que se sellan los paquetes.",
     enabled: "Ejecutarla en su programación",
-    enabledHelp: "Desactivada, la programación conserva sus ajustes y no corre nada.",
+    enabledHelp: "La programación conserva sus ajustes mientras está desactivada; no corre nada hasta que la actives.",
     save: "Guardar programación",
     saveFailed: "No se pudo guardar la programación",
     cancel: "Cancelar",

@@ -167,7 +167,7 @@ export function MigrateDialog({ source, onOpenChange, onQueued }: MigrateDialogP
                 <Input mono value={name} onValueChange={setName} autoComplete="off" autoCapitalize="off" spellCheck={false} />
               </Field>
               <Field label={t("databases.migrate.memoryField")} optional description={t("databases.migrate.memoryHelp")} error={memoryValid ? undefined : t("databases.newInstance.memoryInvalid")} className="w-44">
-                <Input mono inputMode="numeric" value={memory} onValueChange={setMemory} suffix="MB" />
+                <Input mono inputMode="numeric" value={memory} placeholder={t("databases.migrate.memoryPlaceholder")} onValueChange={setMemory} suffix="MB" />
               </Field>
             </div>
           </>

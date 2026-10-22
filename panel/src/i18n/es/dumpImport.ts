@@ -93,7 +93,7 @@ export const dumpImport: Catalog<typeof en> = {
       "Todo lo que hay en {name} se borra antes de cargar el volcado, así que lo que el volcado no tenga desaparece. Antes se hace una copia, y se devuelve si la carga falla.",
     keepOwners: "Conservar los propietarios y privilegios que nombra el volcado",
     keepOwnersHelp:
-      "Desactivado, todo pertenece a la cuenta de la propia base de datos: los roles de un volcado son los del servidor de donde viene, y aquí no existen.",
+      "Sin esto, todo pertenece a la cuenta de la propia base de datos: los roles de un volcado son los del servidor de donde viene, y aquí no existen.",
     safety: "Hacer antes una copia de {name}",
     safetyHelp: "Se guarda con sus copias de seguridad, y se devuelve si la carga falla.",
     safetyAlways: "Se hace antes una copia de {name}, porque se borra.",
