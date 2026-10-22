@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Download, FolderGit2, GitBranch, Globe, Lock, Search, SlidersHorizontal } from "lucide-react";
+import { Download, FolderGit2, Lock, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
@@ -24,6 +24,7 @@ import { cx } from "../../lib/cx";
 import { splitFullName } from "../settings/github/github";
 import { saveDraft } from "./draft";
 import type { SourceErrors, SourceForm } from "./wizard";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** Repositories whose name holds what was typed, those whose name starts with it first. */
 export function filterRepositories(repositories: readonly GitHubRepository[], query: string): GitHubRepository[] {
@@ -51,7 +52,7 @@ function Visibility({ repository }: { repository: Pick<GitHubRepository, "privat
     </span>
   ) : (
     <span className="flex shrink-0 items-center gap-1 text-12 text-fg-muted">
-      <Globe aria-hidden="true" className="size-icon-xs" />
+      <OBJECT_ICONS.addresses aria-hidden="true" className="size-icon-xs" />
       {t("newApp.github.public")}
     </span>
   );
@@ -196,7 +197,7 @@ function RepositoryPicker({
               <Visibility repository={repository} />
               {repository.default_branch ? (
                 <span className="hidden shrink-0 items-center gap-1 text-12 text-fg-muted sm:flex">
-                  <GitBranch aria-hidden="true" className="size-icon-xs" />
+                  <OBJECT_ICONS.source aria-hidden="true" className="size-icon-xs" />
                   <span className="sr-only">{t("newApp.github.defaultBranchOf", { branch: repository.default_branch })}</span>
                   <span aria-hidden="true">
                     <Mono tone="muted">{repository.default_branch}</Mono>
@@ -219,7 +220,7 @@ function RepositoryPicker({
                 ? {
                     action: (
                       <a href={configure.href} onClick={configure.onLeave} className={buttonClassName("secondary", "sm")}>
-                        <SlidersHorizontal aria-hidden="true" />
+                        <OBJECT_ICONS.settings aria-hidden="true" />
                         {t("newApp.github.configure")}
                       </a>
                     ),
@@ -268,7 +269,7 @@ function BranchField({
         <Field label={t("newApp.github.branch")} error={error} description={t("newApp.github.branchTypeIt")} className="sm:max-w-80">
           <Input
             mono
-            icon={<GitBranch />}
+            icon={<OBJECT_ICONS.source />}
             value={form.branch}
             onValueChange={(value: string) => onChange({ ...form, branch: value })}
             autoComplete="off"

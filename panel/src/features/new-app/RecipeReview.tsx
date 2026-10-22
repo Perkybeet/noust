@@ -1,4 +1,4 @@
-import { Container, Eye, EyeOff, KeyRound } from "lucide-react";
+import { Eye, EyeOff, KeyRound } from "lucide-react";
 import { useState } from "react";
 
 import type { Recipe, RecipeVariableInfo } from "../../api/queries/recipes";
@@ -27,6 +27,7 @@ import { editableVariables, generatedVariables, recipeVariableField, requiredVar
 import type { RecipeForm } from "./recipe";
 import { joinList, typeName } from "./wizard";
 import type { AppTypeOption } from "./wizard";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** What each SQL engine a recipe may offer is called. */
 const ENGINE_NAMES: Readonly<Record<string, string>> = { mysql: "MySQL", mariadb: "MariaDB", postgresql: "PostgreSQL", postgres: "PostgreSQL" };
@@ -146,7 +147,7 @@ export function RecipeFacts({ recipe, types }: { recipe: Recipe; types: readonly
               <Badge>{categoryWords(t, recipe.category)}</Badge>
               {recipe.runs_in_docker ? (
                 <Badge>
-                  <Container aria-hidden="true" className="size-icon-xs" />
+                  <OBJECT_ICONS.container aria-hidden="true" className="size-icon-xs" />
                   {t("catalog.card.docker")}
                 </Badge>
               ) : null}

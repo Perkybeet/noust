@@ -132,7 +132,7 @@ export function FirstSteps({ overview }: { overview: Overview }) {
           {t("overview.firstSteps.check.message")}
         </InlineMessage>
       ) : null}
-      <Card as="section" title={t("overview.firstSteps.title")} description={t("overview.firstSteps.description")} level={2} padding="none">
+      <Card as="section" title={t("overview.firstSteps.title")} icon={OBJECT_ICONS.app} description={t("overview.firstSteps.description")} level={2} padding="none">
         <ul className="divide-y divide-border">
           <Row icon={<OBJECT_ICONS.recipe />} title={t("overview.firstSteps.demo.title")} description={t("overview.firstSteps.demo.description")}>
             <Link to="/apps/new" search={{ start: "recipe", recipe: "hello", deploy: "now" }} className={buttonClassName("secondary", "sm")}>

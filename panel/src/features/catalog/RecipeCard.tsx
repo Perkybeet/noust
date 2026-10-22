@@ -1,4 +1,4 @@
-import { Ban, Container } from "lucide-react";
+import { Ban } from "lucide-react";
 
 import type { RecipeSummary } from "../../api/queries/recipes";
 import { Badge } from "../../components/ui/Badge";
@@ -12,6 +12,7 @@ import type { T } from "../../i18n";
 import { formatDate } from "../../lib/format";
 import { DEPENDENCY_LABELS, categoryLabelKey, dayOf, versionLabel } from "./model";
 import { RecipeLogo } from "./RecipeLogo";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** The host of a project's website, as the link's text: "wordpress.org". */
 function hostOf(url: string): string {
@@ -75,7 +76,7 @@ function RecipeFacts({ recipe }: { recipe: RecipeSummary }) {
         <Badge>{categoryWords(t, recipe.category)}</Badge>
         {recipe.runs_in_docker ? (
           <Badge>
-            <Container aria-hidden="true" className="size-icon-xs" />
+            <OBJECT_ICONS.container aria-hidden="true" className="size-icon-xs" />
             {t("catalog.card.docker")}
           </Badge>
         ) : null}

@@ -8,6 +8,7 @@ import { CatalogFilterBar, CatalogResults, useRecipeCatalog } from "./RecipeCata
 import { isNarrowed } from "./model";
 import type { CatalogSearch } from "./model";
 import { POPULAR_SHOWN, popularRecipes } from "./popular";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 export interface CatalogPageProps {
   search: CatalogSearch;
@@ -46,14 +47,14 @@ export function CatalogPage({ search, onSearchChange }: CatalogPageProps) {
     <CatalogFrame command="noust recipe list" filters={<CatalogFilterBar search={search} onSearchChange={onSearchChange} catalog={catalog} />}>
       {popular.length > 0 ? (
         <Sections>
-          <Section title={t("catalog.popular.title")}>
+          <Section title={t("catalog.popular.title")} icon={OBJECT_ICONS.recipe}>
             <ul aria-label={t("catalog.popular.title")} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {popular.map((recipe) => (
                 <RecipeCard key={recipe.name} recipe={recipe} detail level={3} onChoose={() => choose(recipe.name)} />
               ))}
             </ul>
           </Section>
-          <Section title={t("catalog.all.title")}>{results}</Section>
+          <Section title={t("catalog.all.title")} icon={OBJECT_ICONS.recipe}>{results}</Section>
         </Sections>
       ) : (
         results

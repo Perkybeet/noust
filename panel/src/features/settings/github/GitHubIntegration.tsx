@@ -30,6 +30,7 @@ import { reportActionError } from "../../apps/useAppActions";
 import { CreateGitHubApp } from "./CreateGitHubApp";
 import { GitHubHost, statusHost } from "./GitHubHost";
 import { accountTypeWords, hooksState, repositorySelectionWords } from "./github";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 const EXPOSE_COMMAND = "noust web expose-hooks hooks.example.com";
 
@@ -227,7 +228,7 @@ function Installations({ status }: { status: GitHubStatus }) {
   return (
     <Card
       padding="none"
-      title={t("settings.integrations.github.installations.title")}
+      title={t("settings.integrations.github.installations.title")} icon={OBJECT_ICONS.integration}
       description={t("settings.integrations.github.installations.description")}
       footer={
         <div className="flex flex-wrap items-center gap-2">
@@ -320,7 +321,7 @@ export function GitHubIntegration() {
 
   return (
     <Section
-      title={t("settings.integrations.github.title")}
+      title={t("settings.integrations.github.title")} icon={OBJECT_ICONS.integration}
       description={t("settings.integrations.github.description")}
       badge={<GitHubState status={status} />}
       actions={

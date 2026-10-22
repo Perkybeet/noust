@@ -16,6 +16,7 @@ import { formatClock, formatDate, formatDateTime } from "../../lib/format";
 import { jobActionLabel } from "../activity/data";
 import { activityDays } from "./overviewData";
 import type { ActivityDay } from "./overviewData";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** As many as sit beside five attention items at 1440 without making the row taller. */
 export const ACTIVITY_SHOWN = 7;
@@ -79,7 +80,7 @@ export function RecentActivity({ entries }: RecentActivityProps) {
       level={2}
       padding="none"
       className="h-full"
-      title={t("overview.activity.title")}
+      title={t("overview.activity.title")} icon={OBJECT_ICONS.activity}
       actions={
         <TextLink to="/activity" size="ui">
           {t("overview.activity.all")}
