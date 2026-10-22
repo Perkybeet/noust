@@ -53,6 +53,19 @@ describe("Notice", () => {
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 
+  it("puts the action under the text on a phone and beside it from sm up", () => {
+    render(
+      <Notice tone="warning" title="Unsaved" action={<Button size="sm">Review</Button>}>
+        Two settings changed.
+      </Notice>,
+    );
+    const row = screen.getByRole("button", { name: "Review" }).parentElement?.parentElement;
+    expect(row).toHaveClass("flex-col", "sm:flex-row");
+    // The text and the action are siblings, so a long Spanish sentence never shares a line with it.
+    expect(row).toHaveTextContent("Two settings changed.");
+    expect(row).toContainElement(screen.getByRole("button", { name: "Review" }));
+  });
+
   it("says which variant it is, for the contract that allows one banner per page", () => {
     const { container, rerender } = render(<Notice title="Inline" />);
     expect(container.firstElementChild).toHaveAttribute("data-variant", "inline");
