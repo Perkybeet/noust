@@ -103,12 +103,12 @@ export const nav: Catalog<typeof en> = {
       command: "Ajustes de integraciones",
     },
     probes: {
-      label: "Sondas y página de estado",
+      label: "Sondas y estado",
       keywords: "sondas disponibilidad monitor página de estado comprobación externa dirección http caída ping sitio web probes uptime status page",
       command: "Ajustes de sondas y página de estado",
     },
     logShipping: {
-      label: "Exportación de registros y métricas",
+      label: "Registros y métricas",
       keywords: "envío de logs registros métricas prometheus loki axiom grafana fluent bit syslog opentelemetry otlp destino log shipping metrics export",
       command: "Ajustes de exportación de registros y métricas",
     },

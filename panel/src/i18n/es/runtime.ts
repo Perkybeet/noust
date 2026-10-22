@@ -372,7 +372,7 @@ export const runtime: Catalog<typeof en> = {
     removeFailed: "No se eliminó {name}",
   },
   logShipping: {
-    title: "Exportación de registros y métricas",
+    title: "Registros y métricas",
     description:
       "Envía los registros de las aplicaciones a Grafana Loki, Axiom, un endpoint HTTP (Fluent Bit, Vector, Logstash), un colector OpenTelemetry o un syslog remoto, además del journal. A cada línea se le quitan los secretos de su aplicación antes de salir.",
     destinations: "Destinos",

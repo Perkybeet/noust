@@ -278,7 +278,8 @@ With an article or without: the button of a page has none ("Add server") and the
 | Sign-in security | Seguridad de inicio de sesión | Security (the account's) | the server's "Security" (firewall, SSH) and "Service security" of an application do not change meaning |
 | Service security | Seguridad del servicio | Unit security | "unit" is jargon |
 | Cloud providers | Proveedores en la nube | Cloud | |
-| Logs and metrics export | Exportación de registros y métricas | Log shipping ("Envío de logs") | the only place where Spanish said "logs" in navigation |
+| Logs and metrics export | Registros y métricas (the command keeps "Exportación de registros y métricas") | Log shipping ("Envío de logs") | the only place where Spanish said "logs" in navigation. The list of settings is 200px and shows about 21 characters of a name: the long form was cut ("Exportación de registro…"), so the sidebar and the page say the short one |
+| Probes and status page | Sondas y estado | | "Sondas y página de estado" was cut at "Sondas y página de est…" |
 | About Noust | Acerca de Noust | About | |
 | Inbox, Needs you, Recent | Bandeja, Requiere tu atención, Recientes | (new) | |
 | Account | Cuenta | (new) | |
