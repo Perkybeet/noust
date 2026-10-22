@@ -22,7 +22,7 @@ import { describe, expect, it } from "vitest";
 import * as en from "./en";
 import * as es from "./es";
 import baseline from "./glossary-baseline.json";
-import { GLOSSARY, OLD_NAMES_KEPT, RETIRED } from "./glossary.table";
+import { DIVERGENCE_EXCEPTIONS, GLOSSARY, OLD_NAMES_KEPT, RETIRED, agreementStem } from "./glossary.table";
 import type { Retired } from "./glossary.table";
 
 type Node = string | { readonly [key: string]: Node };
@@ -103,19 +103,24 @@ function divergentPairs(): Section {
   return section;
 }
 
-/** The English texts of fewer than forty characters, four times or more, that Spanish translates more than one way. */
-function divergentTranslations(): Section {
+/**
+ * The English texts of fewer than forty characters, four times or more, that Spanish translates more than one way.
+ * Two translations that differ only in gender or number are one (`agreementStem`), and a text with a documented
+ * exception (glossary.table.ts) is left out unless `withExceptions` asks for it.
+ */
+function divergentTranslations(withExceptions = false): Section {
   const byText = new Map<string, Set<string>>();
   const copies = new Map<string, number>();
   for (const [key, text] of TEXT.en) {
     if (text.length >= 40) continue;
     copies.set(text, (copies.get(text) ?? 0) + 1);
     const set = byText.get(text) ?? new Set<string>();
-    set.add((TEXT.es.get(key) ?? "").trim());
+    set.add(agreementStem(TEXT.es.get(key) ?? ""));
     byText.set(text, set);
   }
   const section: Section = { divergence: {} };
   for (const [text, spanish] of byText) {
+    if (!withExceptions && text in DIVERGENCE_EXCEPTIONS) continue;
     if ((copies.get(text) ?? 0) >= 4 && spanish.size > 1) (section["divergence"] ??= {})[text] = spanish.size;
   }
   return section;
@@ -141,10 +146,11 @@ function isTitleCase(text: string): boolean {
 function style(): Section {
   const section: Section = {};
   const proper = /^settings\.integrations\.others\.title$/;
+  const tooltip = /^services\.unitFile\.checkedTitle$/; // a title attribute of two sentences, not a title
   const placeholder = /^nodeTools\.connection\.bastionKeyDescription$/;
   for (const language of ["en", "es"] as const) {
     for (const [key, text] of TEXT[language]) {
-      if (isTitleKey(key) && text.endsWith(".") && !text.endsWith("...")) bump(section, `${language}:title-stop`, namespaceOf(key));
+      if (isTitleKey(key) && !tooltip.test(key) && text.endsWith(".") && !text.endsWith("...")) bump(section, `${language}:title-stop`, namespaceOf(key));
       if (text.includes("...") && !placeholder.test(key)) bump(section, `${language}:three-dots`, namespaceOf(key));
       if (language === "en" && isTitleKey(key) && isTitleCase(text) && !proper.test(key)) bump(section, "en:title-case", namespaceOf(key));
     }
@@ -236,6 +242,11 @@ if (MODE !== undefined && MODE !== "") {
       expect(improvements(), "Counts went down: run `npm run design:baseline` and commit i18n/glossary-baseline.json").toEqual([]);
     });
 
+    it("keeps a documented exception only for an English text that still diverges", () => {
+      const diverging = new Set(Object.keys(divergentTranslations(true)["divergence"] ?? {}));
+      expect(Object.keys(DIVERGENCE_EXCEPTIONS).filter((text) => !diverging.has(text))).toEqual([]);
+    });
+
     it("has a baseline entry for no rule that does not exist", () => {
       expect(Object.keys(BASE.rules).filter((rule) => !KNOWN_RULES.has(rule))).toEqual([]);
     });
@@ -297,6 +308,18 @@ describe("what the retired values catch", () => {
     expect(counts(rule, "settings.title", "Log shipping")).toBe(true);
     expect(counts(emergency, "auditEvents.action.auth_break_glass", "Emergency access used")).toBe(false);
     expect(counts(emergency, "auth.emergency.title", "Emergency access")).toBe(true);
+  });
+});
+
+describe("what counts as one translation", () => {
+  it("merges the genders and the numbers of one word, and keeps two words apart", () => {
+    expect(agreementStem("Fallido")).toBe(agreementStem("Fallida"));
+    expect(agreementStem("Fallidos")).toBe(agreementStem("Fallidas"));
+    expect(agreementStem("Pendiente")).toBe(agreementStem("Pendientes"));
+    expect(agreementStem("Con fallos")).toBe(agreementStem("con fallo"));
+    expect(agreementStem("Desactivado")).not.toBe(agreementStem("Apagado"));
+    expect(agreementStem("Quitar filtros")).not.toBe(agreementStem("Borrar filtros"));
+    expect(agreementStem("Se quitó a {name}")).not.toBe(agreementStem("Se quitó {name}"));
   });
 });
 

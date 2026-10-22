@@ -160,7 +160,11 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | pull request, commit, push, branch | pull request, commit, push, rama | GitHub's own Spanish usage |
 | repository | repositorio | |
 | build (noun / verb) | compilación / compilar | |
-| logs | registros | the journal stays "journal" |
+| logs | registros | the journal stays "journal"; never "logs" |
+| file | archivo | Never "fichero": one word for the same thing in every text, "archivos", "el archivo Compose" |
+| terminal | terminal (el terminal, un terminal) | Masculine, as the RAE has it for the computing sense: "Desde un terminal", "Lo mismo, desde un terminal" |
+| tag (of an application, of a recipe) | etiqueta | A Git tag keeps "tag" (previews build from a branch, a pull request or a tag) |
+| owner | propietario, propietaria | Never "dueño" |
 | environment variables | variables de entorno | |
 | domain, certificate | dominio, certificado | |
 | settings | ajustes | |
@@ -305,5 +309,5 @@ label, "propietario" (not "dueño"), "tarea" (not "trabajo") and "registro" (not
 |---|---|
 | The canonical verbs and states, in both languages | `i18n/verbs.test.ts`: every row of the tables above, in English and in Spanish |
 | A retired value does not come back | `i18n/glossary.test.ts`: a list of retired values with their documented exceptions (what the system prints, proper names, the palette keywords that keep an old name) over the English and the Spanish catalogs, with a baseline that only goes down (`npm run design:baseline`) |
-| One Spanish translation per English text | the same test, over the English texts of fewer than forty characters that appear four times or more |
+| One Spanish translation per English text | the same test, over the English texts of fewer than forty characters that appear four times or more. A gender or a number is not another translation (`agreementStem`: "Fallido", "Fallida" and "Fallidos" are one); the texts Spanish rightly says two ways (a noun and a verb, "Live" as a stream and as the version that serves) are listed with their reason in `glossary.table.ts`, and an entry whose text no longer diverges fails the test |
 | Style | the same test: no title ending in a full stop or written with a capital on every word, no three dots where `…` goes |
