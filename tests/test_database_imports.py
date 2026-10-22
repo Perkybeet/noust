@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Importing a dump (3.4, checklist H-18): the uploads, and the import that follows.
+Importing a dump (4.0, checklist H-18): the uploads, and the import that follows.
 
 What is pinned here is what an operator moving from another provider depends
 on when something goes wrong:

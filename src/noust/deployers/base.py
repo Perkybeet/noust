@@ -239,7 +239,7 @@ class BaseDeployer(AppDeployer):
     #: until asked (see deploy_hooks), for the instances tests assemble
     #: without __init__.
     _deploy_hooks_state: DeploymentHooks | None = None
-    #: The build block (3.4) that applies to the tree being deployed, the tree
+    #: The build block (4.0) that applies to the tree being deployed, the tree
     #: it was read from, and the runtime chosen for it. None until asked (see
     #: build_config), for the same instances.
     _build_block: BuildConfig | None = None
@@ -946,7 +946,7 @@ class BaseDeployer(AppDeployer):
 
         Returns:
             None when it runs on the server's own, as every deployment did
-            before 3.4.
+            before 4.0.
         """
         choice = self.runtime_choice()
         runtime = choice.runtime if choice is not None else None
@@ -2971,7 +2971,7 @@ class BaseDeployer(AppDeployer):
         Returns:
             The command, the working directory, the ``PATH`` and the runtime;
             None for an application the build block does not touch, which is
-            every application from before 3.4 until its operator says
+            every application from before 4.0 until its operator says
             otherwise.
         """
         runtime = self._pinned_runtime()
@@ -3118,7 +3118,7 @@ class BaseDeployer(AppDeployer):
 
     def _attach_release_env(self) -> Callable[[], None] | None:
         """
-        Make a unit written before 3.4 load the variables Noust says about a deployment.
+        Make a unit written before 4.0 load the variables Noust says about a deployment.
 
         An update does not write the unit again, so an application created
         earlier gets the line the first time it is updated, as a text edit that
@@ -4892,7 +4892,7 @@ class BaseDeployer(AppDeployer):
         )
 
         if is_new_deployment:
-            # Created from 3.4: its unit is written hardened from the first
+            # Created from 4.0: its unit is written hardened from the first
             # deployment (a read-only filesystem but for its own directories,
             # no capability); the unit asks for the directives when it is made.
             unit_hardening.adopt_new_app(self.domain, store=self.store)

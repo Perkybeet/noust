@@ -474,7 +474,7 @@ OWNER_COLUMNS = frozenset({"app_id", "app_domain", "domain", "db_name", "databas
 #: The fragment of the teams themselves: its tables are the model, not something it owns.
 TEAMS_FRAGMENT = "TEAMS"
 
-#: How a team's scope reaches what each table of the 3.4 fragments holds for an application or a
+#: How a team's scope reaches what each table of the 4.0 fragments holds for an application or a
 #: database: ``(method, route, how the route is classified)``. Each route must be served and must
 #: be classified as said, so a route that drifts to "open" or loses its resource fails here.
 OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
@@ -841,7 +841,7 @@ OWNED_PREFIXES = (
 
 def fragment_tables() -> dict[str, set[str]]:
     """
-    Read the tables the 3.4 fragments create, and the columns each declares.
+    Read the tables the 4.0 fragments create, and the columns each declares.
 
     Returns:
         ``{table: columns}`` for every ``CREATE TABLE`` of a fragment other

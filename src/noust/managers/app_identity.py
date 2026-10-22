@@ -27,7 +27,7 @@ health gate. When it does not answer, everything is put back exactly - the
 files' owners (only those it changed), the unit or the pool, the store - and
 restarted as it was.
 
-**A monorepo** gets one account for all its workspaces' units (3.4, checklist
+**A monorepo** gets one account for all its workspaces' units (4.0, checklist
 L-14): its workspaces are one application, and what separates it from the other
 applications is that account.
 
@@ -36,7 +36,7 @@ processes are the containers', kept to its own files by the compose check) and a
 site with nothing running (a static site, which the web server serves and no
 account can write).
 
-**Finishing the move** (3.4, checklist B-59): an application in zero-downtime
+**Finishing the move** (4.0, checklist B-59): an application in zero-downtime
 mode moves too, its template rewritten and the idle instance started under the
 new account and switched to like an activation, so nothing is cut;
 :func:`migrate_all` moves every application that can, one at a time, and

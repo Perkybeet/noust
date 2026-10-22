@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-What 3.4 adds to previews without touching the 2.2 tables.
+What 4.0 adds to previews without touching the 2.2 tables.
 
 Two small tables of ``schema_v14.ENVIRONMENTS_SQL``, keyed by domain like the
 tables they sit beside (the managers that own previews remove their rows with
@@ -13,8 +13,8 @@ harmless and visible):
   its variables a preview is given (``inherit_env``: ``all`` as 2.2 did, minus
   ``exclude_env``, or ``allowlist``, only ``allow_env``) and whether a preview
   shares its application's databases (``data_mode``: ``shared`` or ``empty``).
-  An application whose previews were turned on before 3.4 has no
-  row and reads as the 2.2 behaviour; one turned on from 3.4 gets the safe one.
+  An application whose previews were turned on before 4.0 has no
+  row and reads as the 2.2 behaviour; one turned on from 4.0 gets the safe one.
 - ``preview_policy``, one row beside it: what the previews are called (a domain template),
   whether they tell search engines to leave them alone, what happens to a pull request
   from a fork or from someone not trusted with the repository (refused, or held for an
@@ -279,7 +279,7 @@ class PreviewStore:
             app_domain: The application previewed.
 
         Returns:
-            Whether it was given options (previews turned on from 3.4).
+            Whether it was given options (previews turned on from 4.0).
         """
         with self.store._transaction() as cursor:
             cursor.execute("SELECT 1 FROM preview_options WHERE app_domain = ?", (app_domain,))
@@ -378,7 +378,7 @@ class PreviewStore:
 
         Returns:
             What it was made from; a pull request when nothing says otherwise
-            (every preview before 3.4 was).
+            (every preview before 4.0 was).
         """
         with self.store._transaction() as cursor:
             cursor.execute(

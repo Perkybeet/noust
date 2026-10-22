@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``/api/self-backup`` (3.4, checklist H-27): looking after Noust's own state over HTTP.
+``/api/self-backup`` (4.0, checklist H-27): looking after Noust's own state over HTTP.
 
 What the console builds on:
 

@@ -59,7 +59,7 @@ class PreviewSettingsOut(BaseModel):
             of the application's.
         inherit_env: ``allowlist`` (a preview is given only ``allow_env`` and
             the set defined for previews) or ``all`` (every variable less
-            ``exclude_env``, as before 3.4).
+            ``exclude_env``, as before 4.0).
         allow_env: The variables an ``allowlist`` preview copies.
         data_mode: ``shared`` (a preview uses the application's databases),
             ``empty`` (a database of its own) or ``clone`` (a database of its own

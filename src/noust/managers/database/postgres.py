@@ -1616,7 +1616,7 @@ class PostgresManager(BaseDatabaseManager):
 
         The dump is the loader's stdin, on the host and inside a container alike: the
         runner opens the 0600 root-owned file and hands it over, so a plain file is used
-        where it is and a gzipped one is decompressed on the host. (Until 3.4 the host's
+        where it is and a gzipped one is decompressed on the host. (Until 4.0 the host's
         psql and pg_restore opened a copy of their own, staged for the postgres account in
         a directory under the backups, which that account could not reach whenever
         ``/var/backups/noust`` was not world-traversable: a restore on a fresh Ubuntu

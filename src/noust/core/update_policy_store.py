@@ -4,7 +4,7 @@
 """
 Whether an update must have its backup first: the per-application setting.
 
-An update takes a backup first so there is a way back from it. Until 3.4 a
+An update takes a backup first so there is a way back from it. Until 4.0 a
 backup that failed was a warning and the update went on, which is the right call
 for an application that holds nothing but code and the wrong one for an
 application with a database: a migration that runs after a backup that did not

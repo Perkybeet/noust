@@ -215,7 +215,7 @@ router.include_router(apps_router, prefix="/apps", tags=["Applications"])
 router.include_router(services_router, prefix="/services", tags=["Services"])
 # The machine itself: updates, power, disks, swap, clock, journal. /services stays as it is.
 router.include_router(server_router, prefix="/server", tags=["Server"])
-# Moving this server's applications, data and state to another server (3.4).
+# Moving this server's applications, data and state to another server (4.0).
 router.include_router(server_migration_router, prefix="/server/migration", tags=["Server"])
 router.include_router(server_restore_router, prefix="/server/restore", tags=["Server"])
 router.include_router(sites_router, prefix="/sites", tags=["Sites"])
@@ -230,12 +230,12 @@ router.include_router(certs_router, prefix="/certs", tags=["Certificates"])
 router.include_router(system_router, prefix="/system", tags=["System"])
 router.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
 router.include_router(metrics_router, prefix="/metrics", tags=["Metrics"])
-# Rules on the recorded metrics (3.4), and the channels their messages leave by.
+# Rules on the recorded metrics (4.0), and the channels their messages leave by.
 router.include_router(probes_router, prefix="/probes", tags=["Probes"])
 router.include_router(alerts_router, prefix="/alerts", tags=["Alerts"])
 router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 router.include_router(overview_router, prefix="/overview", tags=["Overview"])
-# How the server fits together, as a graph read from it (3.4).
+# How the server fits together, as a graph read from it (4.0).
 router.include_router(map_router, prefix="/map", tags=["Map"])
 router.include_router(timeline_router, prefix="/timeline", tags=["Timeline"])
 # Same composition as diagnose: one path under "/{domain}/metrics" that apps.py
@@ -244,7 +244,7 @@ router.include_router(app_metrics_router, prefix="/apps", tags=["Metrics"])
 # The jobs router carries its own "/jobs" prefix.
 router.include_router(jobs_router, tags=["Jobs"])
 router.include_router(config_router, prefix="/config", tags=["Configuration"])
-# The console's own reach: published on a name of its own, over TLS (3.4).
+# The console's own reach: published on a name of its own, over TLS (4.0).
 router.include_router(console_exposure_router, prefix="/console", tags=["Console"])
 # Before the backups router: its "/{backup_id}" would take "failures" and "encryption" for a
 # backup.
@@ -273,7 +273,7 @@ router.include_router(domains_router, prefix="/apps", tags=["Domains"])
 # domains.py's second router: a DNS check with no application yet, for the
 # new-app wizard. GET /api/domains/dns.
 router.include_router(dns_router, prefix="/domains", tags=["Domains"])
-# Networking (3.4). site_policy.py owns only paths under "/{domain}/policy"; its second
+# Networking (4.0). site_policy.py owns only paths under "/{domain}/policy"; its second
 # router the server's list of Cloudflare ranges.
 router.include_router(site_policy_router, prefix="/apps", tags=["Domains"])
 router.include_router(policy_ranges_router, prefix="/policy", tags=["Domains"])
@@ -409,7 +409,7 @@ router.include_router(central_router, prefix="/central", tags=["Central"])
 router.include_router(fleet_self_router, prefix="/auth/fleet", tags=["Fleet"])
 # Under /auth like the rest of one's own credentials, so no fleet token reaches it.
 router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"])
-# Single sign-in through an identity provider (3.4): the same place, for the same reason.
+# Single sign-in through an identity provider (4.0): the same place, for the same reason.
 router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
 router.include_router(ldap_router, prefix="/auth/ldap", tags=["Single sign-on"])
 router.include_router(saml_router, prefix="/auth/saml", tags=["Single sign-on"])

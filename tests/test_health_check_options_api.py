@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The health check's 3.4 settings through the API and the command line (checklist B-12).
+The health check's 4.0 settings through the API and the command line (checklist B-12).
 
 ``tests/test_health_check_options.py`` pins what the settings mean; here, how
 they travel: ``PATCH /api/apps/{domain}/health`` sets all of it together and

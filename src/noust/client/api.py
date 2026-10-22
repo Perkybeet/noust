@@ -7,7 +7,7 @@ A client of a Noust server's JSON API.
 The one way a program other than the console talks to a server over HTTP: the
 remote command line (``noust --context prod update shop``), manifests applied
 to another server, anything a script wants. It is a client in the strict sense
-of the 3.4 design (rule 3): it re-implements nothing the server does, so the
+of the 4.0 design (rule 3): it re-implements nothing the server does, so the
 role the token holds, the sudo mode it lacks, the team it is bound to and the
 audit trail the call leaves are the server's, exactly as for the console.
 

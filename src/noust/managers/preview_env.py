@@ -5,12 +5,12 @@
 What a preview is given to run with: variables, and a database of its own.
 
 A preview runs code nobody reviewed yet, on the same server as the application
-it previews. Until 3.4 it was given a copy of every variable that application
+it previews. Until 4.0 it was given a copy of every variable that application
 had, production secrets included, and talked to its databases. Two things
 change it.
 
 **Variables.** A preview is given the variables its application's settings name
-(``inherit_env``: ``allowlist``, the default for previews turned on from 3.4, or
+(``inherit_env``: ``allowlist``, the default for previews turned on from 4.0, or
 ``all`` less the excluded ones, as before) and then the preview set: the
 variables an operator defined for previews alone (scope ``preview`` of
 :mod:`noust.core.variables`), which win. A variable that is made of references

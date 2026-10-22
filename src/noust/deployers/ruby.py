@@ -4,7 +4,7 @@
 """
 Ruby on Rails and Rack applications: Bundler, Puma and precompiled assets (checklist A-39).
 
-Until 3.4 a repository with a ``Gemfile`` was only ever a container. Rails is the framework a
+Until 4.0 a repository with a ``Gemfile`` was only ever a container. Rails is the framework a
 good part of the people who look for a self-hosted PaaS write, and it deploys the way every
 other type here does: dependencies are installed in the release by the unprivileged build
 account (``vendor/bundle``, so a rollback is the release's own gems and not a shared set), the

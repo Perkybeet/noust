@@ -5,7 +5,7 @@
 The access and error logs of a site, read for the console and ``noust site logs``.
 
 The site templates write ``<domain>.access.log`` and ``<domain>.error.log`` for
-nginx and for Apache. Until 3.4 the first fed the traffic chart of a static site
+nginx and for Apache. Until 4.0 the first fed the traffic chart of a static site
 and the second was read by ``noust diagnose``, but nobody could *look* at either
 from Noust: the question "what did that 502 look like in nginx's own words" meant
 an SSH session. This is the reader (checklist G-11).

@@ -4,7 +4,7 @@
 """
 GitLab (gitlab.com or self-hosted) as a source: connect, pick a project and a branch, clone it (A-06).
 
-Before 3.4 GitLab was a webhook sender and a URL to paste. A *connection* is a GitLab user's access
+Before 4.0 GitLab was a webhook sender and a URL to paste. A *connection* is a GitLab user's access
 to one host, made one of two ways:
 
 - **A token** the operator creates (personal, group or project access token with ``read_api`` and

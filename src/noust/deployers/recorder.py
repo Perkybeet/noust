@@ -443,7 +443,7 @@ class DeploymentRecorder:
         Close the recording of a deployment an operator cancelled.
 
         The row ends ``failed`` (its status column cannot say anything else
-        on a store older than 3.4) and carries when and by whom it was
+        on a store older than 4.0) and carries when and by whom it was
         cancelled; the error is the cancellation's own sentence, not the
         runner's "command cancelled".
 

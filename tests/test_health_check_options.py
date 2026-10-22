@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The health check beyond the path: what 3.4 lets an application say (checklist B-12).
+The health check beyond the path: what 4.0 lets an application say (checklist B-12).
 
 Pinned here:
 

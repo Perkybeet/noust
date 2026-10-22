@@ -37484,7 +37484,7 @@ export interface components {
          *             warnings: a ``post_deploy`` hook failed once it served).
          *         cancelled: An operator cancelled it while it was building. Its status is
          *             ``failed`` (the column cannot say anything else on a store from
-         *             before 3.4) but nothing went wrong and nothing that served was touched.
+         *             before 4.0) but nothing went wrong and nothing that served was touched.
          *         cancelled_at: When it was cancelled.
          *         cancelled_by: Who cancelled it.
          *         certificate_state: How the certificate ordered for it ended: ``issued`` or ``failed``.
@@ -41521,7 +41521,7 @@ export interface components {
         HardeningRequest: {
             /**
              * Profile
-             * @description off (the unit as before 3.4), default, or strict (adds privileged calls)
+             * @description off (the unit as before 4.0), default, or strict (adds privileged calls)
              */
             profile: string;
             /**
@@ -41543,7 +41543,7 @@ export interface components {
         HardeningResponse: {
             /**
              * Configured
-             * @description Whether the application has a profile at all; one from before 3.4 has not
+             * @description Whether the application has a profile at all; one from before 4.0 has not
              */
             configured: boolean;
             /**
@@ -43753,7 +43753,7 @@ export interface components {
          *             None while it is still running.
          *         git_commit: Short commit it deployed, when the source is git.
          *         cancelled: An operator cancelled it while it was being built. Its
-         *             ``status`` is ``failed`` (a store from before 3.4 cannot say
+         *             ``status`` is ``failed`` (a store from before 4.0 cannot say
          *             anything else), but nothing failed and what served before still
          *             serves: a list that draws the status alone paints it red.
          */
@@ -47839,7 +47839,7 @@ export interface components {
          *             of the application's.
          *         inherit_env: ``allowlist`` (a preview is given only ``allow_env`` and
          *             the set defined for previews) or ``all`` (every variable less
-         *             ``exclude_env``, as before 3.4).
+         *             ``exclude_env``, as before 4.0).
          *         allow_env: The variables an ``allowlist`` preview copies.
          *         data_mode: ``shared`` (a preview uses the application's databases),
          *             ``empty`` (a database of its own) or ``clone`` (a database of its own

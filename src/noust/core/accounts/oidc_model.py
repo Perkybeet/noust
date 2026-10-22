@@ -46,7 +46,7 @@ PROVISIONING: tuple[str, ...] = (PROVISIONING_OFF, PROVISIONING_INVITE, PROVISIO
 #: separation-of-duties roles: a person gives them, never a group claim.
 PROVIDER_ROLES: tuple[str, ...] = (ROLE_VIEWER, ROLE_OPERATOR, ROLE_ADMIN)
 
-#: The one identity protocol of 3.4. The column exists so SAML is a row too.
+#: The one identity protocol of 4.0. The column exists so SAML is a row too.
 PROTOCOL_OIDC = "oidc"
 
 #: What a provider speaks. ``oidc`` has a discovery document and signs an ID token;

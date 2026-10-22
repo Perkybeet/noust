@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Real-machine scenarios for what Noust 3.4 added, which nothing had deployed for real.
+Real-machine scenarios for what Noust 4.0 added, which nothing had deployed for real.
 
 They are scenarios of :mod:`run` (same container, same helpers, same report): ``run.py`` imports this
 module before it picks what to run, so ``--scenario procfile`` selects one here like any other.
@@ -2544,7 +2544,7 @@ def scenario_build_time_limit(sc: Scenario) -> None:
 
 
 # ---------------------------------------------------------------------------------------------
-# A native build pack added in 3.4: Deno
+# A native build pack added in 4.0: Deno
 # ---------------------------------------------------------------------------------------------
 
 DENO_DOMAIN = "deno.test"

@@ -635,7 +635,7 @@ def validate_document(data: Any) -> dict[str, Any]:
         check_number(previews, "ttl_hours", "previews")
         check_flag(previews, "allow_bots", "previews")
         check_names(previews, "exclude_env", "previews")
-        # What a preview is given and how it is named came in 3.4: an older document says none.
+        # What a preview is given and how it is named came in 4.0: an older document says none.
         for key in ("inherit_env", "data_mode", "domain_template", "fork_policy"):
             check_text(previews, key, "previews")
         check_names(previews, "allow_env", "previews")
@@ -1284,7 +1284,7 @@ def _inherits_everything(previews: Mapping[str, Any]) -> bool:
 
     Returns:
         Whether a preview is given every variable of the application, less the excluded
-        ones. A document that does not say (one made before 3.4) means what it meant
+        ones. A document that does not say (one made before 4.0) means what it meant
         then, and the plan says so and asks for a yes, because the import does the same.
     """
     return (previews.get("inherit_env") or "all") == "all"

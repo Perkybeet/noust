@@ -4,7 +4,7 @@
 """
 What ``noust health`` and ``noust diagnose`` say about zero downtime.
 
-An application deployed before 3.4 keeps restarting in place on every update
+An application deployed before 4.0 keeps restarting in place on every update
 until its operator turns the mode on; the server says which ones could, and
 how, without ever counting it as a problem.
 """

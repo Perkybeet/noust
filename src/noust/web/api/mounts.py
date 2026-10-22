@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Files and server paths mounted into an application (3.4, checklist B-53).
+Files and server paths mounted into an application (4.0, checklist B-53).
 
 A client of :mod:`noust.managers.app_mounts`, like ``noust app mount``: ``GET``
 lists them without their content, ``GET .../content`` opens a file to edit it

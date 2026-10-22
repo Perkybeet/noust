@@ -51,7 +51,7 @@ INLINE = frozenset(
         "NODE_ENV",
         "COMPOSE_FILE",
         "COMPOSE_PROJECT_NAME",
-        # 3.4: the runtime an application is pinned to is first on its PATH,
+        # 4.0: the runtime an application is pinned to is first on its PATH,
         # a Python application's workers are WEB_CONCURRENCY, and a Node
         # framework's server is told where it listens and behind whom.
         "PATH",

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Recipes: the catalogue Noust deploys applications from (2.3, 3.4).
+Recipes: the catalogue Noust deploys applications from (2.3, 4.0).
 
 A client of :mod:`noust.recipes`, like ``noust recipe``: it lists, searches,
 describes and installs recipes, and says which installed ones are behind the

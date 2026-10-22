@@ -5,7 +5,7 @@
 The checks the monitor runs on a clock of their own, and what they share.
 
 The monitor's older checks (units, applications, certificates, disks) run on
-every scan and each keeps its own JSON sidecar. The checks added in 3.4 are not
+every scan and each keeps its own JSON sidecar. The checks added in 4.0 are not
 all for every scan: asking a package manager what is pending is a daily
 question, listing backups an hourly one, reading cron timers a per-minute one.
 A :class:`Watch` is one such check: it names itself, says how often it wants to

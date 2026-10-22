@@ -4,7 +4,7 @@
 """
 Go and Rust applications: compile in the sandbox, serve the binary as a unit (checklist A-38).
 
-Until 3.4 a repository with a ``go.mod`` or a ``Cargo.toml`` was only ever a container
+Until 4.0 a repository with a ``go.mod`` or a ``Cargo.toml`` was only ever a container
 (Railpack, or its own Dockerfile). A compiled program needs no runtime on the server and no
 image: the toolchain builds it as the unprivileged build account, the binary is copied into the
 release as ``bin/<app>`` and systemd runs it, which is the whole of a "native" deployment and

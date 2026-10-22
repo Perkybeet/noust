@@ -10,7 +10,7 @@ each is a small fact that has to survive a restart of the monitor (the daemon
 restarts on every upgrade), or the same alert is sent again, or never sent.
 
 The monitor's older checks keep theirs in JSON files next to its database. The
-3.4 checks use the store instead (``notification_state``, v14): one table, one
+4.0 checks use the store instead (``notification_state``, v14): one table, one
 reader and writer, a transaction per write and a rollback under ``--dry-run``
 like every other write to the store.
 

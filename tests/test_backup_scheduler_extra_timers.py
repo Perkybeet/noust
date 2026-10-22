@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The timers of an application's data and of Noust's own state (3.4, H-23 and H-27).
+The timers of an application's data and of Noust's own state (4.0, H-23 and H-27).
 
 The same scheduler as an application's schedule and a database's, two more
 units: ``noust-backup-vol-<application>`` and ``noust-backup-self``. What is

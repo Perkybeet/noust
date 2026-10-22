@@ -5,7 +5,7 @@
 A cancelled deployment is read as cancelled everywhere, not as a failure.
 
 Its row says ``failed`` (the column's CHECK cannot say anything else on a store
-from before 3.4) and carries when and by whom it was cancelled. Whatever counts
+from before 4.0) and carries when and by whom it was cancelled. Whatever counts
 failures, lists what needs attention or tells an operator the last deployment
 broke has to look at that, or an operator who stopped a build on purpose is told
 the application has a failed deploy.

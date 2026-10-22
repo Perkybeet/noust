@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The files of an application, from the console (3.4, checklist B-55).
+The files of an application, from the console (4.0, checklist B-55).
 
 A client of :mod:`noust.managers.app_files`, like ``noust app files``: list a
 directory, open a text file, download one, save an edit, upload, create a

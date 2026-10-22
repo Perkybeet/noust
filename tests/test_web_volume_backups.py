@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``/api/volume-backups`` (3.4, checklist H-23): an application's data over HTTP.
+``/api/volume-backups`` (4.0, checklist H-23): an application's data over HTTP.
 
 What the console builds on:
 

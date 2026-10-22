@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-How an application's unit is tuned beyond its hard limits (3.4): see it, or change it behind the gate.
+How an application's unit is tuned beyond its hard limits (4.0): see it, or change it behind the gate.
 
 A client of :mod:`noust.deployers.unit_tuning`, like ``noust app tuning``: ``GET`` says the options,
 the unit lines they become and what can be asked for (the capabilities, the GPU presets, the CPUs

@@ -1250,13 +1250,13 @@ API_TOKEN_COLUMNS_3_1 = (
 )
 
 
-#: Columns 3.4 added to ``api_tokens`` (I-34): a token bound to one team, one
+#: Columns 4.0 added to ``api_tokens`` (I-34): a token bound to one team, one
 #: project or one environment sees nothing else, whoever owns it. ``bound_kind``
 #: is ``team``, ``project`` or ``environment`` and ``bound_id`` its row in the
 #: store; NULL for both is a token that reaches whatever its owner does. The
 #: binding is not a foreign key because the tokens live in the sessions
 #: database; a scope that was deleted since leaves a token that reaches nothing.
-API_TOKEN_COLUMNS_3_4 = (
+API_TOKEN_BINDING_COLUMNS = (
     ("bound_kind", "TEXT"),
     ("bound_id", "INTEGER"),
 )
@@ -1524,7 +1524,7 @@ class SessionStore:
             }
             if "via" not in challenge_columns:
                 # What the first step was: a password, or a single sign-in
-                # through an identity provider. Every step before 3.4 was a password.
+                # through an identity provider. Every step before 4.0 was a password.
                 self._conn.execute(
                     "ALTER TABLE login_challenges ADD COLUMN via TEXT NOT NULL DEFAULT 'password'"
                 )
@@ -1539,7 +1539,7 @@ class SessionStore:
             }
             for column, declaration in (
                 *API_TOKEN_COLUMNS_3_1,
-                *API_TOKEN_COLUMNS_3_4,
+                *API_TOKEN_BINDING_COLUMNS,
                 *API_TOKEN_COLUMNS_4_0,
             ):
                 if column not in token_columns:
