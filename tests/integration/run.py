@@ -1765,7 +1765,7 @@ def _compose_rollback(sc: Scenario) -> None:
         label=f"docker image ls {COMPOSE_GATE_PROJECT}-web",
     )
     sc.check(
-        f"{COMPOSE_GATE_PROJECT}-web:wasm-previous" in kept.stdout,
+        f"{COMPOSE_GATE_PROJECT}-web:noust_previous" in kept.stdout,
         f"the image that served was not kept: {kept.stdout!r}",
     )
     row = sc.run(
