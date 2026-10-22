@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025 Yago López Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
@@ -32,6 +32,10 @@ __version__ = _read_version()
 
 __author__ = "Yago López Prado"
 __license__ = "AGPL-3.0-or-later"
+#: The line every legal notice carries: ``noust --version``, the packages and the console's About.
+__copyright__ = "Copyright (c) 2024-2026 Yago López Prado"
+#: Where the source of this program is, as the AGPL asks a program that interacts with users to say.
+__source__ = "https://github.com/Perkybeet/noust"
 
 from noust.core.config import Config
 from noust.core.exceptions import NoustError

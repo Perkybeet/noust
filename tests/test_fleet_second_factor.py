@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 A central registers nodes once its sign-in has a second factor: the console's, or a person's own.
 

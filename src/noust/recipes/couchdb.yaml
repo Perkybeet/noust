@@ -5,7 +5,9 @@
 # and the HTTP API and Fauxton, its web interface (/_utils), listen on 5984. A file in
 # /opt/couchdb/etc/local.d sets the node standalone (single_node) so that the system databases
 # are made, and enables CORS for the origins the Obsidian LiveSync plug-in uses (its setup
-# documentation, "CouchDB"), which is the usual reason to run one. /_up answers without a login.
+# documentation, "CouchDB"), which is the usual reason to run one. The file is mounted writable:
+# the image's entrypoint changes the owner of everything in local.d and exits, without a word,
+# when it cannot (a read-only mount did exactly that). /_up answers without a login.
 #
 # Pinned to the release tag and to the digest Docker Hub serves for it.
 schema: 2
@@ -56,7 +58,7 @@ compose: |
         COUCHDB_SECRET: "${COUCHDB_SECRET}"
       volumes:
         - couchdb-data:/opt/couchdb/data
-        - ./local.ini:/opt/couchdb/etc/local.d/10-noust.ini:ro
+        - ./local.ini:/opt/couchdb/etc/local.d/10-noust.ini
       ports:
         - "127.0.0.1:${PORT}:5984"
   volumes:

@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025 Yago López Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
@@ -2711,11 +2711,15 @@ class BaseDeployer(AppDeployer):
             manager, self.domain, template=template, context=context, logger=self.logger
         )
 
+        # A static site's row records the directory the server serves (``current/dist``, ``current/_site``),
+        # not the application's: a rollback asks the gate whether that directory has a page, and
+        # ``current`` alone has none when the page is a build's output.
+        served = context.get("static_dir") if template == "static" else None
         self.registrar.register_site(
             domain=self.domain,
             webserver=self.webserver,
             template=template,
-            app_path=self.runtime_path,
+            app_path=Path(str(served)) if served else self.runtime_path,
             port=self.port,
             with_ssl=with_ssl,
         )

@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 What ``noust inspect`` says about Go, Rust and Ruby repositories (checklist A-38, A-39).
 

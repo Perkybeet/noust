@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Noust updating itself: the one command per installation method, run in its own unit.
 
@@ -65,9 +68,38 @@ class TestRefusals:
     def test_the_container_is_asked_to_systemd(self, tmp_path, monkeypatch):
         monkeypatch.setattr(self_update, "_DETECTED", {})
         runner = FakeRunner().script(["systemd-detect-virt", "-c"], stdout="docker\n")
-        manager = SelfUpdate(runner=runner, record_path=tmp_path / "r.json", method="apt")
+        manager = SelfUpdate(
+            runner=runner, record_path=tmp_path / "r.json", method="apt", systemd=False
+        )
 
         assert manager.in_container()
+
+    @pytest.mark.parametrize("kind", ["docker", "lxc", "systemd-nspawn", "podman"])
+    def test_a_container_with_a_systemd_of_its_own_is_a_server(self, tmp_path, monkeypatch, kind):
+        # An LXC guest, a machine built as a Docker container: it installs packages and starts
+        # units like any server, and the installer's "turn the automatic update on" must work
+        # there. Only a container with no init is an image that is replaced to be updated.
+        monkeypatch.setattr(self_update, "_DETECTED", {})
+        runner = FakeRunner().script(["systemd-detect-virt", "-c"], stdout=f"{kind}\n")
+        manager = SelfUpdate(
+            runner=runner, record_path=tmp_path / "r.json", method="apt", systemd=True
+        )
+
+        assert not manager.in_container()
+        assert manager.refusal() is None
+
+    def test_a_container_image_without_systemd_still_says_to_replace_it(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(self_update, "_DETECTED", {})
+        runner = FakeRunner().script(["systemd-detect-virt", "-c"], stdout="docker\n")
+        manager = SelfUpdate(
+            runner=runner, record_path=tmp_path / "r.json", method="pip", systemd=False
+        )
+
+        refusal = manager.refusal()
+
+        assert refusal is not None and refusal.code == "container_image"
 
 
 class TestStart:

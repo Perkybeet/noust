@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Real-software scenarios of wave 6 (W6-REAL): what was proved with a fake, run against the real thing.
 

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Identity sources against real software: Keycloak (SAML 2.0 and OpenID Connect), OpenLDAP and a
 SCIM client.

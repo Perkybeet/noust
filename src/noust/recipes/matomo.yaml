@@ -26,8 +26,8 @@ category: analytics
 tags: [analytics, privacy, statistics, tracking]
 logo: logo.svg
 version: "5.14.0"
-revision: 1
-updated: 2026-10-06
+revision: 2
+updated: 2026-10-21
 homepage: https://matomo.org
 docs: https://matomo.org/faq/
 repository: https://github.com/matomo-org/matomo
@@ -53,7 +53,7 @@ files:
 compose: |
   services:
     app:
-      image: matomo:5.14.0-apache@sha256:fdd8110ef9664d54b2a4649b141162961033d309d3d3b2ea194d5fd0e3a832af
+      image: matomo:5.14.0-apache@sha256:1e00192627025a9eb9108858a0d2fcedb495958adf8ee12cd2b2e4ec306efae4
       restart: unless-stopped
       depends_on:
         db:
@@ -71,7 +71,7 @@ compose: |
       ports:
         - "127.0.0.1:${PORT}:80"
     db:
-      image: mariadb:11.8.9@sha256:6422478cb8e159f080fb1d8ccf65101e26fe51385787fde7d16c3b165a331f15
+      image: mariadb:11.8.9@sha256:f16d7a344413e519dff518f27bdb221388f84b0d274c97c4fb5f2cb0dc1b34fa
       restart: unless-stopped
       command: --max-allowed-packet=64MB
       environment:

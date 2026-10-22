@@ -32,9 +32,12 @@ variables:
   ZO_ROOT_USER_EMAIL:
     required: true
     description: The e-mail address of the root account, which you sign in with.
-  ZO_ROOT_USER_PASSWORD:
+  ZO_ROOT_USER_PASSWORD_BASE:
     generate: password32
-    description: The password of the root account.
+    description: The random part of the root account's password.
+  ZO_ROOT_USER_PASSWORD:
+    value: "${ZO_ROOT_USER_PASSWORD_BASE}Aa1!"
+    description: The password of the root account; OpenObserve refuses one without a lower-case and an upper-case letter, a digit and a special character.
 health:
   path: /healthz
   expect: "200"

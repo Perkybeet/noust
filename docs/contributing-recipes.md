@@ -76,7 +76,11 @@ noust recipe add ./my-recipes/myapp.yaml           # keep it on a test server an
 starts the stack as a throwaway Compose project on a loopback port, makes the health gate's request
 exactly as the gate makes it, makes it again the way nginx does, looks for a restart loop and an
 out-of-memory kill, and removes the project and its volumes. It touches nothing it did not create. Keep
-its evidence folder for the pull request.
+its evidence folder for the pull request. A container that restarted once and left with status 0 is
+reported as a note, not a failure: some applications apply their first-run configuration and stop
+themselves once (Hoppscotch's backend), and the restart policy brings them back; a restart with any other
+status, or a second one, fails the recipe. A file the recipe marks `render: true` is written with its
+variables filled in, as a deployment writes it.
 
 ## 5. Open the pull request
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Yago Lopez Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
@@ -34,6 +34,15 @@ services:
     image: example/dns:1
     ports:
       - "5353:53/udp"
+"""
+
+#: The form a recipe and examples/docker-compose write: the port the site proxies to arrives as PORT.
+PORT_STACK = """\
+services:
+  web:
+    image: example/web:1
+    ports:
+      - "127.0.0.1:${PORT:-3000}:80"
 """
 
 SOURCE = "https://example.com/stack.git"
@@ -83,6 +92,41 @@ def test_a_port_an_application_holds_is_refused_naming_the_registry_not_docker(
 
     with pytest.raises(PortConflictError, match="8081"):
         deployer_for(tmp_path, runner)._require_ports_free()
+
+
+def test_a_port_the_stack_takes_from_port_is_judged_at_the_port_noust_gives(
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
+) -> None:
+    # The file's own default (3000) is what nothing sets; Noust sets PORT to the application's
+    # port before the stack starts, so another application on 3000 is not in its way.
+    store.create_app(App(domain="other.example.com", app_path="/srv/other", port=3000))
+    deployer = deployer_for(tmp_path, runner, document=PORT_STACK)
+    deployer.port = 3031
+
+    deployer._require_ports_free()
+
+
+def test_the_port_noust_gives_a_stack_is_still_checked(
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
+) -> None:
+    store.create_app(App(domain="other.example.com", app_path="/srv/other", port=3031))
+    deployer = deployer_for(tmp_path, runner, document=PORT_STACK)
+    deployer.port = 3031
+
+    with pytest.raises(PortConflictError, match="3031"):
+        deployer._require_ports_free()
+
+
+def test_a_port_the_operator_set_in_the_stacks_env_is_the_one_judged(
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
+) -> None:
+    store.create_app(App(domain="other.example.com", app_path="/srv/other", port=4040))
+    deployer = deployer_for(tmp_path, runner, document=PORT_STACK)
+    deployer.port = 3031
+    (tmp_path / "app" / ".env").write_text("PORT=4040\n")
+
+    with pytest.raises(PortConflictError, match="4040"):
+        deployer._require_ports_free()
 
 
 def test_a_udp_port_something_listens_on_is_refused(

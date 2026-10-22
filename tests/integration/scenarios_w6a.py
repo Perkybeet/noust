@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Real-machine scenarios for the application work of the 4.0 release (checklist B-05, B-43, B-46,
 B-83, A-14 and the gaps of the applications audit), which unit tests could only fake.

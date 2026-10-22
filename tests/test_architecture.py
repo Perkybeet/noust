@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Structural invariants.
 
@@ -952,6 +955,8 @@ class TestPackaging:
     def test_the_man_page_generator_holds_no_licence_literal(self):
         """The fix is the source, not the output: no licence name in the generator."""
         source = (REPO / "scripts/generate_man.py").read_text(encoding="utf-8")
+        # The file's own licence header says what the generator is under, not what the page prints.
+        source = source.replace("# SPDX-License-Identifier: AGPL-3.0-or-later\n", "", 1)
         for literal in ("NCSAL", "AGPL", "GPL-"):
             assert literal not in source, f"scripts/generate_man.py hardcodes {literal!r}"
 

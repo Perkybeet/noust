@@ -336,6 +336,11 @@ noust import --from caprover --url https://captain.apps.example.com --token-file
 noust import --from dokku --ssh dokku@dokku.example.com --app web                   # no token: an SSH key
 ```
 
+A platform that answers on this machine's own network (a private address, or `127.0.0.1` when it runs
+here) is only contacted once its host is listed, so that a typed address cannot make the server read
+its own services: `noust config set notifications.allow_private_hosts 10.0.0.5 --list`. The refusal
+says so, with that command.
+
 The proposal carries the repository, branch, base directory, build commands, watch paths, ports,
 health check, limits, scheduled tasks and variables (secrets withheld unless the platform gave them
 in the clear), and lists what it could not carry. **Storage and databases are part of it**: the

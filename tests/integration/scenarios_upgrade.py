@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 The upgrade from Noust 3.3.1 to this tree, on a server that carries every legacy name.
 
@@ -1261,7 +1264,8 @@ def run_downgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
     run.upgrade_noust_venv(sc, wheel)
     sc.run("noust list --json", timeout=60, label=f"{new} noust list --json (migrates the store)")
     sc.check(
-        schema_on_disk(sc, f"{new} schema on disk") == "14", "the store was not migrated to 14"
+        schema_on_disk(sc, f"{new} schema on disk") == str(run.SCHEMA_VERSION),
+        f"the store was not migrated to {run.SCHEMA_VERSION}",
     )
     copies = sc.run(
         f"ls -l {STORE_DIR}/noust.db.v13-*.bak", timeout=15, label="the copies the upgrade kept"
@@ -1332,13 +1336,14 @@ def run_downgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
         "noust list --json",
         timeout=60,
         check=False,
-        label=f"{old} noust list --json (the store is schema 14)",
+        label=f"{old} noust list --json (the store is schema {run.SCHEMA_VERSION})",
     )
     refusal = refused.stdout + refused.stderr
     sc.check(refused.returncode != 0, "3.3.1 opened a store written by a newer release")
     sc.check("newer Noust" in refusal, f"3.3.1 does not say why it refuses:\n{refusal[-600:]}")
     sc.check(
-        schema_on_disk(sc, "schema on disk (3.3.1 refused, so nothing was written)") == "14",
+        schema_on_disk(sc, "schema on disk (3.3.1 refused, so nothing was written)")
+        == str(run.SCHEMA_VERSION),
         "3.3.1 changed the store it refused",
     )
     sc.check(
@@ -1414,9 +1419,12 @@ def run_downgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
             "PRAGMA integrity_check; SELECT MAX(version) FROM schema_version;",
         ),
         timeout=15,
-        label="the store kept aside is whole, and is schema 14",
+        label=f"the store kept aside is whole, and is schema {run.SCHEMA_VERSION}",
     ).stdout.split()
-    sc.check(kept_aside == ["ok", "14"], f"the store kept aside is not intact: {kept_aside!r}")
+    sc.check(
+        kept_aside == ["ok", str(run.SCHEMA_VERSION)],
+        f"the store kept aside is not intact: {kept_aside!r}",
+    )
 
     # -- And forward again ---------------------------------------------------------------------------------
     run.upgrade_noust_venv(sc, wheel)
@@ -1426,7 +1434,8 @@ def run_downgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
     )
     sc.check(STATIC_BEFORE in listed_domains(again), "the application is gone after going forward")
     sc.check(
-        schema_on_disk(sc, f"{new} schema on disk") == "14", "the store was not migrated again"
+        schema_on_disk(sc, f"{new} schema on disk") == str(run.SCHEMA_VERSION),
+        "the store was not migrated again",
     )
     copies_now = sc.run(
         f"ls {STORE_DIR}/noust.db.v13-*.bak | wc -l", timeout=15, label="the copies now kept"

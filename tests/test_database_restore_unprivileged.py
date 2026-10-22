@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Yago Lopez Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
@@ -318,6 +318,8 @@ class TestTheHelpers:
             ("ERROR:  must be owner of extension plpgsql", True),
             ("ERROR:  permission denied for table t", True),
             ('ERROR:  extension "postgis" is not a trusted extension', True),
+            # PostgreSQL 16 words the refusal to hand an object to a role the loader is not in so.
+            ('ERROR:  must be able to SET ROLE "postgres"', True),
             ("ERROR:  syntax error at end of input", False),
             ('ERROR:  relation "t" already exists', False),
             ("", False),

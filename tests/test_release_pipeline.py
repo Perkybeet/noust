@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Yago Lopez Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
@@ -525,7 +525,39 @@ def test_a_static_build_is_served_through_current(
     rendered = NginxManager().render_config(DOMAIN, "static", site["context"])
     assert f"root {root}/current/dist;" in rendered
     assert (root / "current" / "dist" / "index.html").is_file()
-    assert store.get_site(DOMAIN).document_root == str(root / "current")
+    # The row says what nginx serves, because a rollback asks the gate whether that has a page.
+    assert store.get_site(DOMAIN).document_root == str(root / "current" / "dist")
+
+
+def test_a_static_build_passes_the_gate_a_rollback_asks(
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
+) -> None:
+    """A site served from ``dist`` or ``_site`` is judged where it is served, not at ``current``."""
+    machine.git.publish(
+        write_tree(
+            tmp_path / "site",
+            {
+                "vite.config.ts": "export default {}",
+                "package.json": '{"devDependencies": {"vite": "5"}}',
+                "package-lock.json": LOCKFILE,
+            },
+        )
+    )
+    original_stream = machine.runner.stream
+
+    def build(argv: Any, **kwargs: Any) -> Any:
+        if tuple(argv) == ("npm", "run", "build"):
+            write_tree(Path(kwargs["cwd"]), {"dist/index.html": "<h1>ok</h1>"})
+        return original_stream(argv, **kwargs)
+
+    machine.runner.stream = build
+    deploy_new(root, machine, deployer_class=ViteDeployer)
+    app = store.get_app(DOMAIN)
+    assert app is not None
+
+    healthy, evidence = lifecycle.health_gate_for(app, store, Logger()).restart_and_probe()
+
+    assert healthy, evidence
 
 
 def test_a_static_site_deploys_as_a_release_without_a_unit(

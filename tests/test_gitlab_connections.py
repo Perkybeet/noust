@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 GitLab as a source: connections, the project and branch picker, OAuth, and cloning (checklist A-06).
 

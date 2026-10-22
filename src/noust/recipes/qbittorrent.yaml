@@ -6,7 +6,10 @@
 # so nothing is open before that. PUID and PGID of 0 run it as root inside the container so that
 # a directory the operator mounts is writable (the image changes the ownership of /config only).
 # The peer port is published on every address, tcp and udp, because peers must reach it: the
-# recipe declares it. The interface answers 200 to the page that holds its sign-in form.
+# recipe declares it. The interface checks the Host header of every request: the sign-in page
+# answers 200 to the application's own domain (and to localhost), and 401 to the address the
+# health gate asks, 127.0.0.1 with the port, so the gate expects 401, which only a running
+# interface answers.
 #
 # Licence: GPL-2.0 with an OpenSSL exception (COPYING, read 2026-10-20); the image's own build
 # is GPL-3.0. Pinned to the release tag and to the digest ghcr.io serves for it.
@@ -48,7 +51,7 @@ public_ports:
   - {port: 6881, protocol: udp, purpose: "The same for uTP and the DHT."}
 health:
   path: /
-  expect: "200"
+  expect: "401"
   timeout: 120
 files: {noust.nginx.yaml: noust.nginx.yaml}
 compose: |

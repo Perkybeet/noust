@@ -8,7 +8,7 @@ release** instead of guessing:
 
 ```
 The Noust database at /var/lib/noust/noust.db was written by a newer Noust
-(schema v14; this version understands up to v13)
+(schema v15; this version understands up to v13)
 ```
 
 So going back is one of two things, and one command says which:
@@ -19,13 +19,13 @@ noust store compat --to 3.3.1
 
 ```
 Store: /var/lib/noust/noust.db
-Schema on disk: 14
-This release writes: 14
-Oldest release that opens it: 3.4.0
+Schema on disk: 15
+This release writes: 15
+Oldest release that opens it: 4.0.0
 Copies kept before upgrading:
   noust.db.v13-20261014T101500Z-4242-ab12cd.bak  schema 13  2026-10-14 10:15 UTC
 
-1. Noust 3.3.1 cannot open this store (schema 14; it understands up to 13). The copy kept before
+1. Noust 3.3.1 cannot open this store (schema 15; it understands up to 13). The copy kept before
    the upgrade can be opened: noust.db.v13-..., schema 13, taken 2026-10-14 10:15 UTC.
 ...
 ```
@@ -43,6 +43,7 @@ Copies kept before upgrading:
 | 12 | 3.1.0 | 3.1.0 and later |
 | 13 | 3.2.0 | 3.2.0 and later (3.3 did not change it) |
 | 14 | 3.4.0 | 3.4.0 and later |
+| 15 | 4.0.0 | 4.0.0 and later |
 
 The table is in the code (`noust.core.store_compat.SCHEMA_RELEASES`), and a test fails when the
 schema a release writes has no row in it. **A schema only ever changes in a minor release**
@@ -97,7 +98,7 @@ An earlier release that is started on the new store refuses it in its own words,
 writes anything, and names the copy:
 
 ```
-The Noust database at /var/lib/noust/noust.db was written by a newer Noust (schema v14; this version understands up to v13)
+The Noust database at /var/lib/noust/noust.db was written by a newer Noust (schema v15; this version understands up to v13)
 Downgrading Noust is not supported: install the newer version again. To go back regardless, restore the copy the
 upgrade kept beside it (noust.db.v<old version>-*.bak) over noust.db; whatever changed since the upgrade is lost.
 ```
@@ -137,6 +138,11 @@ goes on. The same checks run when a central updates its servers.
   first: keep the key with the file, and set the credentials again with the earlier release
   (`noust config set notifications.channels.webhook.webhook_url ...`), or restore `config.yaml` from a
   backup taken before the upgrade.
+- **The folder of a backup destination** (schema v15). A destination made without naming a folder kept
+  the old product's default; 4.0 moves it to `noust-backups` and remembers the old one so what is
+  already there stays listed and restorable. The copy of the store that going back restores holds
+  the old name, and the archives written meanwhile are in the new folder, where the earlier release
+  does not look: fetch them from the destination by hand if you need them.
 - **`domains.enabled`** (schema v14) and the monitor's tables: the older release ignores the columns,
   and a name that was switched off is served again by it.
 

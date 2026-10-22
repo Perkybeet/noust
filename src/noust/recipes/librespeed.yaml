@@ -2,7 +2,8 @@
 # documentation describes (github.com/librespeed/speedtest/blob/master/doc_docker.md, read
 # 2026-10-20): MODE=standalone serves the speed test (download, upload, ping and jitter between
 # the visitor's browser and this server) and nothing else, TITLE is the page's title, TELEMETRY
-# stays off so no result is stored and no password is needed, and the image listens on 80.
+# stays off so no result is stored and no password is needed, and the image listens on 8080
+# (WEBPORT, which its entrypoint prints; it exposes 80 as well, where Apache does not listen).
 # It keeps nothing, so there is no volume. The test moves data, which counts against this
 # server's bandwidth; the description says so.
 #
@@ -47,7 +48,7 @@ compose: |
         TELEMETRY: "false"
         DISABLE_IPINFO: "true"
       ports:
-        - "127.0.0.1:${PORT}:80"
+        - "127.0.0.1:${PORT}:8080"
 notes:
   - "Open {{ url }}: anybody who reaches it can run a test, and the test moves data over this server's connection. Keep the address to the people who need it."
   - "Nothing is stored on this server, so there is nothing to back up. To keep results, turn telemetry on as the project's documentation describes."

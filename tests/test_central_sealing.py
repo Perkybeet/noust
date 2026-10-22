@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Sealed secrets: the central's secret files encrypted under a passphrase.
 
@@ -364,12 +367,33 @@ class TestPlaintextBase:
     def test_xdg_runtime_dir_wins_over_everything_else(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "xdg"))
-        monkeypatch.setattr(os, "getuid", lambda: 0)
+        runtime = tmp_path / "xdg"
+        runtime.mkdir()
+        monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime))
 
         base = sealing._plaintext_base(tmp_path / "secrets")
 
-        assert base == str(tmp_path / "xdg")
+        assert base == str(runtime)
+
+    @pytest.mark.parametrize("problem", ["missing", "another user's", "read-only"])
+    def test_an_xdg_runtime_dir_that_cannot_hold_secrets_is_passed_over(
+        self, problem: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The variable outlives the directory (a session that ended, a WSL that restarted) and
+        # travels with another user's environment: neither may receive a decrypted secret.
+        runtime = tmp_path / "xdg"
+        if problem != "missing":
+            runtime.mkdir()
+        owner = os.getuid()
+        if problem == "another user's":
+            monkeypatch.setattr(os, "getuid", lambda: owner + 1)
+        if problem == "read-only":
+            monkeypatch.setattr(os, "access", lambda path, mode: False)
+        monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime))
+
+        base = sealing._plaintext_base(tmp_path / "secrets", shm_dir=tmp_path / "no-shm")
+
+        assert base != str(runtime)
 
     def test_root_with_run_on_tmpfs_gets_a_private_directory_under_run(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -467,7 +491,9 @@ class TestPlaintextBase:
     def test_plaintext_copy_dir_uses_it(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "xdg"))
+        runtime = tmp_path / "xdg"
+        runtime.mkdir()
+        monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime))
 
         result = sealing.plaintext_copy_dir(tmp_path / "secrets")
 
