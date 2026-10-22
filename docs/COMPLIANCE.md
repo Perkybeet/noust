@@ -29,7 +29,7 @@ noust compliance set change_reasons on      a control's own setting
 noust compliance check [--framework X]      per framework, clause by clause
 ```
 
-The console has the same under Settings > Security > Compliance. Disabling a framework, or loosening a control, asks for sudo mode and is recorded in the audit trail; turning one on does not.
+The console has the same under Settings > Compliance. Disabling a framework, or loosening a control, asks for sudo mode and is recorded in the audit trail; turning one on does not.
 
 ## The controls
 
