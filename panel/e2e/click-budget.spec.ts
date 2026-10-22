@@ -37,6 +37,9 @@ const RELEASES_APP = "tienda.example.org";
 const LIVE_APP = "pedidos.example.org";
 const FAILED_APP = "clientes.example.com";
 const SITE_APP = "example.net";
+/** The application whose environment T09 changes, and the plain variable it changes: nothing else in the suite writes to them. */
+const ENV_APP = "blog.example.org";
+const ENV_VARIABLE = "FEATURE_FLAGS";
 const PHONE = { width: 390, height: 844 };
 
 /** The console under test is the committed build of 3.3.1 (`NOUST_E2E_BASELINE=3.3.1`): the few walks that cannot tell it by what is on screen take its path. */
@@ -583,25 +586,28 @@ test.describe("an application's updates, failures and ways back", () => {
   test("T09: a variable is changed and applied in four clicks, without reading the environment in clear", async ({ page, consoleServer }) => {
     const seen: string[] = [];
     page.on("request", (request) => seen.push(`${request.method()} ${request.url()}`));
-    await startAt(page, consoleServer, "T09", `/apps/${RELEASES_APP}`, async () => {
-      await expect(page.getByRole("heading", { level: 1, name: RELEASES_APP })).toBeVisible();
+    await startAt(page, consoleServer, "T09", `/apps/${ENV_APP}`, async () => {
+      await expect(page.getByRole("heading", { level: 1, name: ENV_APP })).toBeVisible();
     });
+    // The specs of the environment paste whole files over tienda's and pedidos's: this walk changes a variable of an app they leave alone.
+    const current = (await (await page.request.get(`/api/apps/${ENV_APP}/env`)).json()) as { variables: Record<string, string> };
+    const original = current.variables[ENV_VARIABLE] ?? "";
     seen.length = 0;
     let written: { set: Record<string, string>; unset: string[] } | undefined;
     await walked(page, "T09", async () => {
       await sections(page).getByRole("link", { name: "Environment" }).click();
-      const table = page.getByRole("table", { name: `Environment variables of ${RELEASES_APP}` });
+      const table = page.getByRole("table", { name: `Environment variables of ${ENV_APP}` });
       if (BASELINE === "3.3.1") {
         // Before a row opened on press: its menu, then Edit.
-        await table.getByRole("button", { name: "Actions for LOG_LEVEL" }).click();
+        await table.getByRole("button", { name: `Actions for ${ENV_VARIABLE}` }).click();
         await page.getByRole("menuitem", { name: "Edit" }).click();
       } else {
-        await table.getByText("LOG_LEVEL", { exact: true }).click();
+        await table.getByText(ENV_VARIABLE, { exact: true }).click();
       }
-      const dialog = page.getByRole("dialog", { name: "Edit LOG_LEVEL" });
+      const dialog = page.getByRole("dialog", { name: `Edit ${ENV_VARIABLE}` });
       await dialog.getByLabel("Value").fill("debug");
       await dialog.getByRole("button", { name: /^Update( variable)?$/ }).click();
-      const patch = page.waitForRequest((request) => /^(PATCH|PUT)$/.test(request.method()) && request.url().endsWith(`/api/apps/${RELEASES_APP}/env`), { timeout: 30_000 });
+      const patch = page.waitForRequest((request) => /^(PATCH|PUT)$/.test(request.method()) && request.url().endsWith(`/api/apps/${ENV_APP}/env`), { timeout: 30_000 });
       if (BASELINE === "3.3.1") {
         // Before the bar saved what changed: a review of the whole file, its save, and the question about the restart.
         await page.getByRole("button", { name: "Review and save" }).click();
@@ -616,12 +622,12 @@ test.describe("an application's updates, failures and ways back", () => {
     if (!MEASURE_ONLY) {
       // Nothing was read in clear to do it, and only what changed was written.
       expect(seen.filter((request) => /^GET .*\/env\?.*unmask=true/.test(request))).toEqual([]);
-      expect(written?.set).toEqual({ LOG_LEVEL: "debug" });
+      expect(written?.set).toEqual({ [ENV_VARIABLE]: "debug" });
     }
-    await jobsEnded(page, RELEASES_APP);
-    const restored = await page.request.patch(`/api/apps/${RELEASES_APP}/env`, { data: { set: { LOG_LEVEL: "info" }, unset: [], dry_run: false }, headers: await csrf(page) });
+    await jobsEnded(page, ENV_APP);
+    const restored = await page.request.patch(`/api/apps/${ENV_APP}/env`, { data: { set: { [ENV_VARIABLE]: original }, unset: [], dry_run: false }, headers: await csrf(page) });
     expect(restored.ok(), await restored.text()).toBe(true);
-    await jobsEnded(page, RELEASES_APP);
+    await jobsEnded(page, ENV_APP);
   });
 
   test("T11: a domain is added with its TLS in three clicks", async ({ page, consoleServer }) => {
