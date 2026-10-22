@@ -143,7 +143,15 @@ describe("Combobox", () => {
         )}
       />,
     );
-    await user.type(screen.getByRole("combobox", { name: "Time zone" }), "bst");
+    const input = screen.getByRole("combobox", { name: "Time zone" });
+    // Focusing selects what the input holds on the next frame, so that the first key typed starts a new search; a key
+    // typed before that frame is replaced by the next one. A person never types that fast, and the other tests of this
+    // file do not notice because they search by a part of a word. This one matches the whole word, so the frame passes.
+    await user.click(input);
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => { resolve(undefined); }));
+    });
+    await user.type(input, "bst");
     const options = within(await screen.findByRole("listbox")).getAllByRole("option");
     expect(options.map((option) => option.textContent)).toEqual(["London (BST)"]);
   });
