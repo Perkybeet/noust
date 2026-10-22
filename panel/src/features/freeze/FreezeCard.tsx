@@ -254,7 +254,7 @@ export function FreezeSetting({ domain, canDeploy }: { domain: string; canDeploy
 
   // A server older than 3.4 has no freezes: nothing to show rather than a guess.
   if (query.isError && olderServer(query.error)) return null;
-  if (query.isPending) return <RowLoading label={t("rollout.freeze.loading")} />;
+  if (query.isPending) return <RowLoading label={t("rollout.freeze.loading")} rows={[2]} />;
   if (query.isError) return <RowError title={t("rollout.freeze.readFailed")} error={query.error} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
   const inForce = freezes.some((freeze) => freeze.state === "active");
 

@@ -150,8 +150,9 @@ export function Setting(props: SettingProps) {
 
   return (
     <div data-slot="setting" {...(isSwitch ? { "data-checked": props.checked ? "" : undefined } : {})} className={cx("flex flex-col gap-3 px-5 py-3", className)}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 flex-col">
+      {/* A switch is narrow and stays at the end. A button ("Edit the limits...") is as wide as its words: on a phone it goes under the text, which would otherwise be left with a hundred pixels. */}
+      <div data-slot="setting-line" className={cx("flex", isSwitch ? "items-start justify-between gap-4" : "flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4")}>
+        <div className={cx("flex min-w-0 flex-col", isSwitch ? "flex-1" : "sm:flex-1")}>
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
             <span id={labelId} className="text-13 font-medium text-fg">
               {label}

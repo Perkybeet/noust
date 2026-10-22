@@ -112,6 +112,15 @@ describe("Setting", () => {
     });
   });
 
+  it("keeps a switch at the end of its row, and puts a button under the text on a phone", () => {
+    const { rerender } = render(<Setting label="Send notifications" help="Where failures go." checked onCheckedChange={() => undefined} />);
+    expect(document.querySelector('[data-slot="setting-line"]')).not.toHaveClass("flex-col");
+    rerender(<Setting label="Deploy limits" help="How much history is kept." action={<Button size="sm">Edit the limits...</Button>} />);
+    const line = document.querySelector('[data-slot="setting-line"]');
+    expect(line).toHaveClass("flex-col", "sm:flex-row");
+    expect(line).toContainElement(screen.getByRole("button", { name: "Edit the limits..." }));
+  });
+
   describe("confirmOff", () => {
     function guarded(onCheckedChange: (checked: boolean) => void | Promise<void>) {
       render(

@@ -42,7 +42,7 @@ export function BackupRequiredRow({ domain }: { domain: string }) {
     },
   });
 
-  if (query.isPending) return <RowLoading label={t("appSettings.backupRequired.loading")} />;
+  if (query.isPending) return <RowLoading label={t("appSettings.backupRequired.loading")} rows={[3]} />;
   // A server older than 3.4 has no such setting: nothing to show rather than a guess.
   if (query.isError && olderServer(query.error)) return null;
   if (query.isError) return <RowError title={t("appSettings.backupRequired.readFailed")} error={query.error} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
