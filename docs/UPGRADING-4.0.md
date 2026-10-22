@@ -8,7 +8,8 @@ page says what changes, what still works and what to do about each. The whole li
 [CHANGELOG-4.0.md](CHANGELOG-4.0.md).
 
 The short version: sign in to the console once, run `noust health` to see which of your scripts,
-repositories and sites still use an old name, and run `noust setup rename` when you like.
+repositories and sites still use an old name, run `noust setup rename` when you like, and look up
+a screen you cannot find in [Where it is now](#where-it-is-now).
 
 ## Where to update from
 
@@ -41,12 +42,16 @@ repositories and sites still use an old name, and run `noust setup rename` when 
 | The directories and the store under the old names | The Noust ones, which 3.3.x already moved the data to |
 | The transitional packages `wasm` (Debian) and `wasm-cli` (RPM and PyPI) | `noust`, the only package; remove the old one if it is still installed |
 | `renamed_from_wasm` in the answer of `GET /api/auth/session` | Read it as absent: it meant `false` |
+| The `linked_app` key of `noust db list --json`, which repeated `app` under the name 2.x used | `app`, with the same value |
 
 ## What you will notice
 
 - **The console asks you to sign in once.** Its cookies are `noust_session` and `noust_csrf`, and
   the header it echoes is `X-Noust-CSRF`. The cookies of 3.x are never read; signing in and signing
   out expire them. Nothing else about a session changes.
+- **The console is arranged differently.** The sidebar, the top bar, Settings and the application's
+  page changed shape, and a few screens are somewhere else: [Where it is now](#where-it-is-now) lists
+  each one. An old address redirects to the new one.
 - **Units are renamed by the next update of each application.** An application deployed before
   0.14.1 runs as `wasm-<name>`. Its next update renames the unit as part of the restart it makes
   anyway, behind the same health check, and puts the old unit back if the release does not answer.
@@ -64,6 +69,52 @@ repositories and sites still use an old name, and run `noust setup rename` when 
   what is in them. Dependencies the old runtime stamp vouches for are not reinstalled.
 - **The image a Compose update keeps to go back to** is tagged `noust_previous`; the next update of
   a stack retags what is under the old name.
+
+## Where it is now
+
+The console of 4.0 is arranged differently, and a few screens of 3.3 are somewhere else. Every old
+address that changed redirects to the new one, keeping the filters it carried, and the command palette
+(`Ctrl+K`) and the filter of Settings still find a screen by the name it had. Names are written as the
+console draws them in English.
+
+**Around the pages**
+
+| In 3.3 | In 4.0 | The old address |
+|---|---|---|
+| The server selector in the top bar (one server, **All servers**, **This central**) | The scope selector at the head of the sidebar, and in the top bar on a narrow screen. It is not drawn on a lone server with nobody else added | Addresses of a server (`/n/<server>/...`) are unchanged |
+| **Fleet**, an item of the sidebar of a central, with a strip of seven tabs: Summary, Servers, Applications, Certificates, Backups, Updates, Activity | **All servers**: the sidebar of that scope lists Overview, Servers, Applications, Certificates, Backups, Updates and Activity. Applications keeps a strip of two, with **On several servers** | `/fleet` and the pages under it are unchanged |
+| **Domains and certificates** | **Domains** | `/domains`, unchanged |
+| **Server > Logs** | **Logs**, with **Where from: System** | `/server/logs` redirects to `/logs?source=system`, keeping the service, level, range, words and stretch |
+| The session menu: Theme, Keyboard shortcuts, Sign out | Also **Account** and **Sign-in security** | |
+| **Emergency access**, on the sign-in page | **Access token** | `/login` is unchanged |
+
+**Settings**
+
+| In 3.3 | In 4.0 | The old address |
+|---|---|---|
+| **Settings > Security**: your password, authenticator app, passkeys and sessions, and the server's sign-in policy | **Account** (profile and password) and **Account > Sign-in security** (authenticator app, passkeys, sessions) in the avatar menu; the security profile and the sign-in policy are **Settings > Controls** | `/settings/security` redirects to `/account/security` |
+| **Settings > Servers** | **Fleet > Servers**, the one list of servers (pause monitoring, create at a provider, **Add a server**) | `/settings/servers` redirects to `/fleet/servers`, keeping filters and the **Add a server** flow |
+| **Settings > Notifications** | **Settings > Channels** | `/settings/notifications`, unchanged |
+| **Settings > Compliance** | **Settings > ENS report**; the compliance frameworks and controls are in **Settings > Controls** | `/settings/compliance`, unchanged |
+| **Settings > About** | **Settings > About Noust** | `/settings/about`, unchanged |
+| Settings as one list (two blocks, the server's and the central's, on a central) | Six groups. This server: General, Variables, Secret managers, Console address, Integrations, About Noust. Monitoring: Channels, Alert rules, Probes and status page, Logs and metrics export. Developers: API tokens, API reference, Manifest, MCP. People and access: Accounts, Roles, Single sign-on, Approvals. Governance: Audit log, Controls, ENS report. Fleet: Servers, Cloud providers, Central | Every address of 3.3 is unchanged except the two above |
+
+**An application**
+
+| In 3.3 | In 4.0 | The old address |
+|---|---|---|
+| Settings, nine sections: General, Deploys, Deploy on push, Deploy hooks, Builds, Resources, Previews, Export, Delete | Six groups. Code: Source, Build, Container. Deploys: Releases and rollback, Automation, Compose. Triggers: Deploy on push, Deploy hooks, Previews. Runtime: Resources, Processes, Mounts, Disk, Service security. Access: Access, Protection. Export and delete. General stays at the top | **Builds** is **Build** (`/settings/builds` redirects to `/settings/build`); **Deploys** is **Releases and rollback** at the same address |
+| Overview: **Live version**, **How it runs** and the dots of the last deploys | **Live now**, the last deployments, one health section, previews and where the application answers | |
+| Deployments: a Releases section and a table of deployments | One list of deployments, filtered by search, state, branch and who started it, with the filters in the address | `/apps/<domain>/deployments`, unchanged |
+| A rollback dialog | One rollback question, asked from the header (**Roll back**), a row, a deployment's page, Diagnose and the palette | |
+| Environment: **Environment saved**, a step after saving | The bar saves only what changed: **Save and restart** or **Save only** | |
+
+**The first screens**
+
+| In 3.3 | In 4.0 |
+|---|---|
+| An empty Overview shows first steps | One card, **Deploy your first app**: **Try a demo**, **Use a repository**, popular recipes and **All recipes** |
+| **Needs attention**, a card on the Overview | The same list, and the bell in the top bar (**Needs you** and **Recent**) |
 
 ## What still works, and until when
 
@@ -113,13 +164,19 @@ Finishes the renaming without restarting anything, and is safe to repeat:
 
 None of these is a rename. Each is a behaviour that 4.0 starts with on a server that already runs.
 
-- **Compliance friction is a choice, not a default [verificar].** Each friction point of the ENS
-  profile (an administrator that cannot touch accounts or the audit trail, separation of duties between a
-  person's accounts, a reason with every change, a second person for root-equivalent actions) is a
-  control of its own, off until you turn it on or enable a framework. A server that had chosen
-  `security.profile: ens-medium` keeps it: the setting now means ENS medium is on. On any other server the
-  administrator holds every permission. `noust compliance status` says what is on and what forces what
-  ([COMPLIANCE.md](COMPLIANCE.md)).
+- **Some security friction is a choice, not a default (item 83).** Until 3.3 a server on the standard
+  profile still carried part of what the ENS profile asks for. In 4.0 each of those is a control with its
+  own setting, off until you turn it on or enable a framework, and `noust compliance status` says what is on
+  and what forces what ([COMPLIANCE.md](COMPLIANCE.md)). On a server that stays on the standard profile:
+  the administrator holds every permission, including the security officer's (accounts, security
+  settings, compliance) and the auditor's (the audit log), so one person can run a server with one
+  account; a person may hold accounts of several roles; and a new account is no longer held at the
+  second-factor enrolment on its first sign-in, except when a framework asks for a second factor or the
+  console is published or listens beyond loopback (it can still set one up at **Account > Sign-in
+  security**). A security officer's account keeps working as it was. A server that had chosen
+  `security.profile: ens-medium` keeps all of it: the setting now means that ENS medium is on. To get the
+  stricter behaviour back without a framework: `noust compliance set roles_split on`,
+  `noust compliance set separation_of_duties on` and `noust compliance set second_factor on`.
 - **An update is refused when the backup it needs did not happen.** An application with a database
   requires a backup before its update, and a backup that fails stops the update before anything is pulled
   or built. `noust app backup-required DOMAIN off` opts one application out.
@@ -165,5 +222,4 @@ The upgrade keeps a copy of the older store beside it, and `noust store compat -
 copy to put back and what that loses: whatever changed in Noust since the copy was taken. The sealed
 credentials of notification channels and the switched-off domains are what 4.0 wrote that an earlier
 release ignores. [downgrading.md](downgrading.md) has the steps, in order, and the table of which
-release opens which store [verificar: that table stops at schema 14 and names 3.4.0 as the release that
-wrote it, and 4.0 writes schema 15].
+release opens which store: schema 15 is the first that 4.0.0 wrote.
