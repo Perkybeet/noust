@@ -15,6 +15,14 @@ describe("locale", () => {
     expect(browserLocale(["it-IT", "es", "en"])).toBe("es");
     expect(browserLocale(["en-GB", "es"])).toBe("en");
     expect(browserLocale(["nl", "ja"])).toBe("en");
+    // A language offered in one region's form serves the rest of it, but never the traditional script
+    // to the simplified one.
+    expect(browserLocale(["pt-PT", "en"])).toBe("pt-BR");
+    expect(browserLocale(["pt"])).toBe("pt-BR");
+    expect(browserLocale(["zh", "en"])).toBe("zh-CN");
+    expect(browserLocale(["zh-Hans-CN"])).toBe("zh-CN");
+    expect(browserLocale(["zh-TW", "en"])).toBe("en");
+    expect(browserLocale(["zh-Hant-HK", "es"])).toBe("es");
     vi.stubGlobal("navigator", { languages: ["es-MX", "en-US"], language: "es-MX" });
     expect(readLocale()).toBe("es");
   });
