@@ -41,7 +41,6 @@ export const teams = {
   },
   list: {
     title: "Teams",
-    description: "A team groups people and what they run, and decides who sees what and who may act.",
     boundaryTitle: "A team is not a separate machine",
     boundary:
       "A team decides who sees and who may act. Its applications still share this server's kernel: a team that must not share a machine needs a server of its own.",
@@ -163,7 +162,6 @@ export const teams = {
   },
   projects: {
     title: "Projects",
-    description: "A project groups the applications, databases and sites of one piece of work, in one or more environments such as production and staging.",
     new: "New project",
     newTitle: "New project",
     newDescription: "A project starts with its production environment. Add staging or others from its page.",

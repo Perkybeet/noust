@@ -13,7 +13,6 @@ export const changeSource: Catalog<typeof en> = {
   branch: "Rama",
   none: "Nada registrado",
   open: "Cambiar el origen",
-  fromTerminal: "Desde una terminal",
   changed: "{domain} se desplegará desde {source}",
   unsupportedInPlace: "El origen se puede cambiar con el diseño por releases, y esta aplicación compila en el sitio. Pásala antes a releases.",
   unsupportedType: "Una aplicación {type} se compila con sus propios ficheros o imagen, así que aquí no hay un origen que cambiar.",

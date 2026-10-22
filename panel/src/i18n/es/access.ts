@@ -2,11 +2,6 @@ import type { access as en } from "../en/access";
 import type { Catalog } from "../types";
 
 export const access: Catalog<typeof en> = {
-  nav: {
-    label: "Roles",
-    keywords: "roles permisos rol propio conceder vincular equipo proyecto entorno ámbito acceso mínimo privilegio",
-    command: "Ajustes de roles",
-  },
   documentTitle: "Roles",
   loadingLabel: "roles y concesiones",
   scope: {

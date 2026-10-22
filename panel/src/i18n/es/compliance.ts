@@ -2,11 +2,6 @@ import type { compliance as en } from "../en/compliance";
 import type { Catalog } from "../types";
 
 export const compliance: Catalog<typeof en> = {
-  nav: {
-    label: "Informe ENS",
-    keywords: "ens esquema nacional seguridad cumplimiento comprobación informe auditoría evidencias",
-    command: "Informe ENS",
-  },
   status: {
     fail: "No se cumple",
     warning: "Requiere atención",

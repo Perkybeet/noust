@@ -195,7 +195,6 @@ export const rollout = {
   releases: {
     waiting: "Built, not serving",
     promote: "Make it serve",
-    promoteAria: "Make release {id} serve",
     promoteTitle: "Make release {id} serve?",
     promoteDescription:
       "It was built earlier and is not serving. It goes live behind the same health check; its migrations run now and nothing is built again.",

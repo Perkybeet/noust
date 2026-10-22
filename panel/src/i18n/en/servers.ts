@@ -1,7 +1,7 @@
 /** Strings of the fleet: the Fleet page, Settings > Servers, the central's lock and its hub role. */
 export const servers = {
   nav: {
-    fleet: { label: "Fleet", keywords: "servers nodes central vps machines", goTo: "Go to fleet" },
+    fleet: { keywords: "servers nodes central vps machines" },
     settingsTab: {
       label: "Servers",
       keywords: "fleet nodes central ssh tunnel add server join code",
@@ -47,15 +47,10 @@ export const servers = {
     addServer: "Add a server",
     createAtProvider: "Create at a provider",
     linkedAddress: "Dials in: port {port} of this central",
-    test: "Test",
-    testLabel: "Test {name}",
     testedToast: "{name} answered in {latency} ms",
     testedDescription: "It runs Noust {version}.",
     testFailedToast: "{name} did not answer",
-    open: "Open",
     openLabel: "Open {name}",
-    remove: "Remove",
-    removeLabel: "Remove {name}",
     never: "Never",
     empty: {
       title: "No servers yet",
@@ -260,7 +255,6 @@ export const servers = {
   // The central's sealed secrets
 
   lock: {
-    title: "This central is locked",
     description:
       "Its secrets are sealed at rest: the keys and tokens that reach your servers are encrypted under a passphrase that is written nowhere. Until you unlock them, nothing reaches the servers.",
     passphraseLabel: "Passphrase",

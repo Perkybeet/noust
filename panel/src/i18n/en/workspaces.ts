@@ -17,7 +17,6 @@ export const workspaces = {
   problems: "What was found wrong",
   applications: "Applications",
   libraries: "Not applications",
-  type: "Type",
   dependsOn: "Depends on",
   watches: "Deploys when it changes",
   domainFor: "Domain for {name}",

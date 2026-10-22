@@ -2,7 +2,6 @@ import type { common as en } from "../en/common";
 import type { Catalog } from "../types";
 
 export const common: Catalog<typeof en> = {
-  area: "Cargando",
   copyButton: {
     label: "Copiar",
     copyCommand: "Copiar comando",
@@ -27,7 +26,6 @@ export const common: Catalog<typeof en> = {
     cancel: "Cancelar",
     typeToConfirm: "Escribe {value} para confirmar",
     failed: "La acción falló. El sistema dijo:",
-    whatSystemSaid: "Lo que dijo el sistema",
     couldNot: "No se pudo completar la acción",
     onServer: "En {server}",
   },
@@ -99,7 +97,6 @@ export const common: Catalog<typeof en> = {
     highlighted: "Camino resaltado: {path}.",
     legend: "Un trazo que avanza indica el sentido del tráfico. Trazos más rápidos: cifrado (TLS). Línea doble: WebSocket.",
     leadsTo: "Lleva a {targets}.",
-    leadsNowhere: "No lleva a ningún otro sitio.",
     tableToggle: "Ver las conexiones como tabla",
     tableCaption: "Conexiones de {label}",
     from: "Desde",
@@ -114,7 +111,6 @@ export const common: Catalog<typeof en> = {
   },
   dataTable: {
     actions: "Acciones",
-    cardActions: "Acciones de {name}",
   },
   pagination: {
     label: "Paginación",
@@ -157,8 +153,6 @@ export const common: Catalog<typeof en> = {
   meter: {
     high: "Alto",
     critical: "Crítico",
-    levelHigh: "{value}, alto",
-    levelCritical: "{value}, crítico",
   },
   emptyCell: {
     none: "Ninguno",
@@ -167,10 +161,6 @@ export const common: Catalog<typeof en> = {
     moreActions: "Más acciones",
     server: "Servidor {server}",
     place: "Dónde vive",
-  },
-  filterBar: {
-    search: "Buscar",
-    clearFilters: "Quitar los filtros",
   },
   jobProgress: {
     queued: "Esperando para empezar.",

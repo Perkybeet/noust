@@ -10,7 +10,6 @@ export const changeSource = {
   branch: "Branch",
   none: "Nothing recorded",
   open: "Change the source",
-  fromTerminal: "From a terminal",
   changed: "{domain} will deploy from {source}",
   unsupportedInPlace: "The source can be changed on the release layout, and this application builds in place. Move it onto releases first.",
   unsupportedType: "A {type} application is built from its own files or image, so there is no source to change here.",

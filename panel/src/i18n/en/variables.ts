@@ -56,10 +56,6 @@ export const variables = {
   },
   review: {
     audienceTitle: "Who gets them",
-    audienceCount: {
-      one: "{count} variable changes who gets it",
-      other: "{count} variables change who gets them",
-    },
     onlyAudience: "Only who gets the variables changes. The values stay as they are.",
   },
   shared: {

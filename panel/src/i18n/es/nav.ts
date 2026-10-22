@@ -47,7 +47,6 @@ export const nav: Catalog<typeof en> = {
     keywords: "mysql postgres redis mongodb sql databases",
     goTo: "Ir a bases de datos",
   },
-  services: { label: "Servicios", keywords: "systemd unidades demonios services units" },
   cron: { label: "Cron", keywords: "programar temporizadores tareas schedule timers jobs", goTo: "Ir a cron" },
   domains: {
     label: "Dominios",
@@ -86,7 +85,6 @@ export const nav: Catalog<typeof en> = {
   settingsTabs: {
     general: {
       label: "General",
-      keywords: "directorio de aplicaciones servidor web correo idioma language",
       command: "Ajustes generales",
     },
     notifications: {

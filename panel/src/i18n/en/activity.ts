@@ -1,6 +1,5 @@
 /** Strings of the console's activity area: the merged jobs and audit log timeline. */
 export const activity = {
-  area: "Activity",
   title: "Activity",
   description: "What happened on this server and who did it, newest first.",
   couldNotLoad: "Could not load activity",

@@ -16,7 +16,6 @@ export const workspaces: Catalog<typeof en> = {
   problems: "Lo que se encontró mal",
   applications: "Aplicaciones",
   libraries: "No son aplicaciones",
-  type: "Tipo",
   dependsOn: "Depende de",
   watches: "Se despliega cuando cambia",
   domainFor: "Dominio de {name}",

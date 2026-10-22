@@ -7,7 +7,6 @@
  */
 export const fleet = {
   selector: {
-    label: "Server",
     views: "Views",
     servers: "Servers",
     trigger: "Server: {name}",
@@ -89,7 +88,6 @@ export const fleet = {
       activity: "Activity on every server",
     },
     keywords: {
-      summary: "fleet overview dashboard all servers",
       servers: "fleet nodes labels access version",
       apps: "fleet all applications sites",
       certificates: "fleet ssl tls https expiry renew",
@@ -640,7 +638,6 @@ export const fleet = {
     drawerTitle: "This action on {name}",
     why: "Why",
     started: "Started",
-    nodeJobs: "Jobs on the server",
     notYet: "Not yet",
     output: "What {name} said",
     items: "Each application",

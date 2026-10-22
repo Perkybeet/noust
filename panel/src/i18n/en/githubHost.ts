@@ -11,7 +11,6 @@ export const githubHost = {
   save: "Use this GitHub",
   saved: "The integration now talks to {host}",
   failed: "The address could not be saved",
-  enterprise: "GitHub Enterprise at {host}",
   fact: "GitHub",
   factDescription: "The host the App lives on. It cannot change while the App exists.",
   fromTerminal: "The same, from a terminal",

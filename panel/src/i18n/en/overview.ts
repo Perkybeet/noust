@@ -1,6 +1,5 @@
 /** Strings of the console's overview area: how this server is doing, at a glance. */
 export const overview = {
-  area: "Overview",
   title: "Overview",
   description: "How this server is doing, what needs you and what happened lately.",
   version: "Noust {version}",
@@ -113,11 +112,9 @@ export const overview = {
     openServiceAria: "Open the service {name}",
     openFinding: "Look at it",
     openFindingAria: "Look at the process {name} on the server",
-    services: "Services",
     serviceFailed: "The service has failed",
     serviceRestarting: "systemd keeps restarting the service",
     runningOutsideUnit: "Its containers run while its unit is stopped: Noust is not supervising it",
-    serviceState: "The service is in state {label}",
     noAnswer: "The service runs, but nothing answers on its port",
     deployFailed: "Last deploy failed",
     deployRolledBack: "Last deploy was rolled back",
@@ -127,10 +124,6 @@ export const overview = {
     certValidUntil: "Valid until {date}",
     unitFailed: "The service has failed",
     unitRestarting: "systemd keeps restarting the service",
-    unitsFailedCount: {
-      one: "{count} of Noust's services has failed",
-      other: "{count} of Noust's services have failed",
-    },
     monitor: {
       nameNotice: "Its name matches a tool worth a look",
       nameWarning: "Its name matches a tool that needs a look",

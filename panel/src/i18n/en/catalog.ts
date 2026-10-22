@@ -1,14 +1,11 @@
 /** Strings of the console's catalogue of recipes: its page, its cards, one recipe's page, and the recipes installed. */
 export const catalog = {
-  area: "Catalog",
   page: {
     title: "Catalog",
     description: "Applications ready to deploy. Each one is pinned to a version, runs the way its project intends, and brings the variables and services it needs.",
   },
   tabs: {
     label: "Catalog sections",
-    browse: "Browse",
-    installed: "Installed",
   },
   own: {
     open: "Add a recipe",

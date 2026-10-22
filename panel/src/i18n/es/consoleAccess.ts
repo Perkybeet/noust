@@ -2,11 +2,6 @@ import type { consoleAccess as en } from "../en/consoleAccess";
 import type { Catalog } from "../types";
 
 export const consoleAccess: Catalog<typeof en> = {
-  nav: {
-    label: "Dirección de la consola",
-    keywords: "publicar exponer consola dominio https certificado nombre público nginx túnel lista de permitidos",
-    command: "Ajustes de la dirección de la consola",
-  },
   documentTitle: "Dirección de la consola",
   loadFailed: "No se pudo leer si la consola está publicada",
   loading: "Leyendo si la consola está publicada",

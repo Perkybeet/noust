@@ -1,10 +1,5 @@
 /** Strings of the servers made at a cloud provider: Settings > Cloud, its accounts, boot scripts and the wizard that creates one. */
 export const cloud = {
-  nav: {
-    label: "Cloud providers",
-    keywords: "hetzner digitalocean vultr provider token cloud-init create server vps droplet",
-    command: "Cloud providers settings",
-  },
 
   page: {
     documentTitle: "Cloud settings",

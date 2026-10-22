@@ -2,11 +2,6 @@ import type { probes as en } from "../en/probes";
 import type { Catalog } from "../types";
 
 export const probes: Catalog<typeof en> = {
-  nav: {
-    label: "Sondas",
-    keywords: "sondas disponibilidad monitor página de estado comprobación externa dirección http caída ping sitio web",
-    command: "Ajustes de sondas",
-  },
   documentTitle: "Sondas",
   loadingLabel: "las sondas",
   fromTerminal: "Desde un terminal",

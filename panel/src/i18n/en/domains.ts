@@ -6,7 +6,6 @@ export const domains = {
   // Shared across more than one screen in this area.
   unknown: "Unknown",
   cancel: "Cancel",
-  clear: "Clear",
   clearFilters: "Clear filters",
   delete: "Delete",
   moreCount: "+{count} more",
@@ -202,7 +201,6 @@ export const domains = {
     serving: "Serving",
     disabled: "Disabled",
     siteColumn: "Site",
-    serverColumn: "Server",
     stateColumn: "State",
     servesColumn: "Serves",
     namesColumn: "Names",
@@ -354,7 +352,6 @@ export const domains = {
   },
 
   jobBanner: {
-    dismiss: "Dismiss",
     jobCancelled: "The job was cancelled.",
     jobFailedNoReason: "The job failed without saying why. Its log is on the Activity page.",
   },
@@ -449,7 +446,6 @@ export const domains = {
     locationsTitleApache: "Locations and proxy rules, in the order Apache applies them",
     locationsDescription: "Exact matches first, then the longest prefix; regular expressions are tried in file order unless the prefix stops them.",
     noLocations: "No locations: the server's own directives answer every request.",
-    nestedIn: "Inside {location}",
     match: {
       exact: "Exact",
       prefix: "Prefix",
@@ -473,7 +469,6 @@ export const domains = {
     bodyHelp: "Such as 20m. Empty: the server's.",
     rateLimitField: "Rate limit",
     rateLimitHelp: "As limit_req takes it; the zone is declared in nginx.conf.",
-    websocketField: "WebSocket",
     websocketSwitch: "Pass upgrades",
     bufferingField: "Buffering",
     bufferingDefault: "Default (on)",
@@ -481,7 +476,6 @@ export const domains = {
     bufferingOff: "Off: stream it",
     unclosedQuote: "A quote is left open.",
     moreDirectives: { one: "More directives ({count})", other: "More directives ({count})" },
-    directiveArgs: "Arguments of {name}",
     removeDirective: "Remove {name}",
     blockDirective: "A block of its own: edit it in the text.",
     goToLine: "Go to line {line}",
@@ -530,8 +524,6 @@ export const domains = {
     upstreamsTitle: "Upstreams",
     upstreamsDescription: "Named groups of backends that locations proxy to.",
     upstreamTitle: "Upstream {name}",
-    upstreamServers: "Servers",
-    keepalive: "Keep-alive connections: {count}",
     usedBy: { one: "Used by {count} location", other: "Used by {count} locations" },
     unused: "No location of this file uses it.",
     fromInclude: "Defined in {path}: read only here.",

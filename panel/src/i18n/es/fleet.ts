@@ -3,7 +3,6 @@ import type { Catalog } from "../types";
 
 export const fleet: Catalog<typeof en> = {
   selector: {
-    label: "Servidor",
     views: "Vistas",
     servers: "Servidores",
     trigger: "Servidor: {name}",
@@ -81,7 +80,6 @@ export const fleet: Catalog<typeof en> = {
       activity: "Actividad de todos los servidores",
     },
     keywords: {
-      summary: "flota resumen panel todos los servidores fleet dashboard",
       servers: "flota nodos etiquetas acceso versión fleet nodes labels",
       apps: "flota todas las aplicaciones sitios fleet apps",
       certificates: "flota ssl tls https caducidad renovar certificates",
@@ -620,7 +618,6 @@ export const fleet: Catalog<typeof en> = {
     drawerTitle: "Esta acción en {name}",
     why: "Por qué",
     started: "Empezó",
-    nodeJobs: "Tareas en el servidor",
     notYet: "Todavía no",
     output: "Lo que dijo {name}",
     items: "Cada aplicación",

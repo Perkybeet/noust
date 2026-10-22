@@ -4,14 +4,12 @@
  * namespaces).
  */
 export const appPages = {
-  area: "Application",
   /** Leads a CommandHint into the equivalent CLI command. */
   fromTerminal: "From a terminal",
 
   common: {
     cancel: "Cancel",
     viewLog: "View log",
-    no: "No",
     notRecorded: "Not recorded",
     cpu: "CPU",
     memory: "Memory",

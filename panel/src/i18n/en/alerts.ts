@@ -66,8 +66,6 @@ export const alerts = {
     removeTitle: "Remove {name}?",
     removeDescription: "The rule stops being judged and what it had decided is forgotten. Nothing already sent is taken back.",
     switchFailed: "Could not change the rule",
-    removeFailed: "Could not remove the rule",
-    loadFailed: "Could not read the alert rules",
   },
   form: {
     newTitle: "New alert rule",

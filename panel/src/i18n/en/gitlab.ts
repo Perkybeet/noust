@@ -7,7 +7,6 @@ export const gitlab = {
   title: "GitLab",
   description: "Connect gitlab.com or your own GitLab to create applications from its projects and to clone the private ones. The token is kept on this server and is never shown again.",
   loading: "Loading the GitLab connections",
-  readFailed: "Could not read the GitLab connections",
   connect: "Connect GitLab",
   caption: "GitLab connections",
   columnName: "Connection",

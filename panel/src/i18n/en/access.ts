@@ -5,11 +5,6 @@
  * the server refuses with, is shown as the server wrote it.
  */
 export const access = {
-  nav: {
-    label: "Roles",
-    keywords: "roles permissions custom role grant binding team project environment scope access least privilege",
-    command: "Roles settings",
-  },
   documentTitle: "Roles",
   loadingLabel: "roles and grants",
   scope: {

@@ -6,7 +6,6 @@
  * `t.locale`.
  */
 export const environment = {
-  area: "Environment",
   cancel: "Cancel",
   addVariable: "Add variable",
   added: "Added",

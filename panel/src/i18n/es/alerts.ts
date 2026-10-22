@@ -65,8 +65,6 @@ export const alerts: Catalog<typeof en> = {
     removeTitle: "¿Quitar {name}?",
     removeDescription: "La regla deja de juzgarse y se olvida lo que había decidido. Lo que ya se envió no se retira.",
     switchFailed: "No se pudo cambiar la regla",
-    removeFailed: "No se pudo quitar la regla",
-    loadFailed: "No se pudieron leer las reglas de alerta",
   },
   form: {
     newTitle: "Nueva regla de alerta",

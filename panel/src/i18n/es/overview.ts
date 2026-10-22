@@ -2,7 +2,6 @@ import type { overview as en } from "../en/overview";
 import type { Catalog } from "../types";
 
 export const overview: Catalog<typeof en> = {
-  area: "Resumen",
   title: "Resumen",
   description: "Cómo está este servidor, qué necesita de ti y qué ha pasado últimamente.",
   version: "Noust {version}",
@@ -116,11 +115,9 @@ export const overview: Catalog<typeof en> = {
     openServiceAria: "Abrir el servicio {name}",
     openFinding: "Revisarlo",
     openFindingAria: "Revisar el proceso {name} en el servidor",
-    services: "Servicios",
     serviceFailed: "El servicio ha fallado",
     serviceRestarting: "systemd sigue reiniciando el servicio",
     runningOutsideUnit: "Sus contenedores están en marcha con la unidad parada: Noust no la supervisa",
-    serviceState: "El servicio está en el estado {label}",
     noAnswer: "El servicio está en marcha, pero nada responde en su puerto",
     deployFailed: "El último despliegue falló",
     deployRolledBack: "El último despliegue se revirtió",
@@ -130,10 +127,6 @@ export const overview: Catalog<typeof en> = {
     certValidUntil: "Válido hasta {date}",
     unitFailed: "El servicio ha fallado",
     unitRestarting: "systemd sigue reiniciando el servicio",
-    unitsFailedCount: {
-      one: "{count} servicio de Noust ha fallado",
-      other: "{count} servicios de Noust han fallado",
-    },
     monitor: {
       nameNotice: "Su nombre coincide con una herramienta que conviene revisar",
       nameWarning: "Su nombre coincide con una herramienta que hay que revisar",

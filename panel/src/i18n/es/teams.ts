@@ -38,7 +38,6 @@ export const teams: Catalog<typeof en> = {
   },
   list: {
     title: "Equipos",
-    description: "Un equipo agrupa a personas y lo que ejecutan, y decide quién ve qué y quién puede actuar.",
     boundaryTitle: "Un equipo no es una máquina aparte",
     boundary:
       "Un equipo decide quién ve y quién puede actuar. Sus aplicaciones siguen compartiendo el kernel de este servidor: un equipo que no deba compartir máquina necesita un servidor propio.",
@@ -160,7 +159,6 @@ export const teams: Catalog<typeof en> = {
   },
   projects: {
     title: "Proyectos",
-    description: "Un proyecto agrupa las aplicaciones, bases de datos y sitios de un mismo trabajo, en uno o más entornos como producción y staging.",
     new: "Nuevo proyecto",
     newTitle: "Nuevo proyecto",
     newDescription: "Un proyecto empieza con su entorno de producción. Añade staging u otros desde su página.",

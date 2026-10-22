@@ -5,7 +5,6 @@
  * defaults are.
  */
 export const common = {
-  area: "Loading",
   copyButton: {
     label: "Copy",
     copyCommand: "Copy command",
@@ -30,7 +29,6 @@ export const common = {
     cancel: "Cancel",
     typeToConfirm: "Type {value} to confirm",
     failed: "The action failed. The system said:",
-    whatSystemSaid: "What the system said",
     couldNot: "Could not complete the action",
     onServer: "On {server}",
   },
@@ -102,7 +100,6 @@ export const common = {
     highlighted: "Highlighted path: {path}.",
     legend: "A moving dash shows the direction of the traffic. Faster dashes: encrypted (TLS). Double line: WebSocket.",
     leadsTo: "Leads to {targets}.",
-    leadsNowhere: "Leads nowhere else.",
     tableToggle: "Show the connections as a table",
     tableCaption: "Connections of {label}",
     from: "From",
@@ -117,7 +114,6 @@ export const common = {
   },
   dataTable: {
     actions: "Actions",
-    cardActions: "Actions for {name}",
   },
   pagination: {
     label: "Pagination",
@@ -160,8 +156,6 @@ export const common = {
   meter: {
     high: "High",
     critical: "Critical",
-    levelHigh: "{value}, high",
-    levelCritical: "{value}, critical",
   },
   emptyCell: {
     none: "None",
@@ -170,10 +164,6 @@ export const common = {
     moreActions: "More actions",
     server: "Server {server}",
     place: "Where this lives",
-  },
-  filterBar: {
-    search: "Search",
-    clearFilters: "Clear filters",
   },
   jobProgress: {
     queued: "Waiting to start.",

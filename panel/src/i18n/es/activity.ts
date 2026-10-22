@@ -2,7 +2,6 @@ import type { activity as en } from "../en/activity";
 import type { Catalog } from "../types";
 
 export const activity: Catalog<typeof en> = {
-  area: "Actividad",
   title: "Actividad",
   description: "Qué ha pasado en este servidor y quién lo hizo, lo más reciente primero.",
   couldNotLoad: "No se pudo cargar la actividad",

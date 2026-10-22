@@ -1,6 +1,5 @@
 /** Strings of the console's newApp area: the new-application wizard and its three starts. */
 export const newApp = {
-  area: "New application",
   page: {
     title: "New application",
     description: "Deploy from a Git repository or a directory on this server, from a recipe, or from an export.",
@@ -467,10 +466,8 @@ export const newApp = {
     empty: "This release ships no recipes.",
     use: "Use {title}",
     needs: "Needs",
-    database: "A {engine} database",
     unavailable: "Not available in this release",
     openFailed: "Could not read the {title} recipe",
-    variablesIntro: "What {title}'s recipe sets up, and the values you can set over its own.",
     setupIntro: "Where {title} answers, and the values it needs from you. Everything else comes with the recipe.",
     deploy: "Deploy",
     required: "Needs a value",

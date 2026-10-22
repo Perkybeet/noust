@@ -45,7 +45,6 @@ export const dumpImport: Catalog<typeof en> = {
     discard: "Descartarla",
   },
   upload: {
-    label: "Subida de {name}",
     progress: "{received} de {size}",
     starting: "Abriendo la subida",
     uploading: "Subiendo",
@@ -59,7 +58,6 @@ export const dumpImport: Catalog<typeof en> = {
     cancelled: "Subida cancelada. El servidor tiró lo que tenía.",
     failed: "La subida falló",
     another: "Elegir otro fichero",
-    reason: "Lo que dijo el servidor",
   },
   format: {
     title: "Qué es el fichero",
@@ -81,17 +79,14 @@ export const dumpImport: Catalog<typeof en> = {
     },
     loadable: "{engine} puede cargarlo.",
     notLoadable: "{engine} no puede cargarlo.",
-    reason: "Por qué",
     inspectFailed: "No se pudo leer qué es el fichero",
   },
   options: {
-    title: "Cómo se carga",
     exists: "{name} ya existe en {engine}.",
     created: "{name} no existe en {engine}: se crea.",
     replace: "Borrarla y crearla de nuevo antes",
     replaceHelp:
       "Todo lo que hay en {name} se borra antes de cargar el volcado, así que lo que el volcado no tenga desaparece. Antes se hace una copia, y se devuelve si la carga falla.",
-    replaceNew: "Nada que borrar: la base de datos todavía no existe.",
     keepOwners: "Conservar los propietarios y privilegios que nombra el volcado",
     keepOwnersHelp:
       "Desactivado, todo pertenece a la cuenta de la propia base de datos: los roles de un volcado son los del servidor de donde viene, y aquí no existen.",
@@ -123,7 +118,6 @@ export const dumpImport: Catalog<typeof en> = {
       created: "Se creó {name}",
       replaced: "Se borró y se creó de nuevo {name}",
       safety: "Se guarda una copia de lo que tenía como {file}",
-      notes: "Lo que se hizo con el fichero",
       format: "El fichero era {format}",
     },
     startFailed: "No se pudo empezar la importación",

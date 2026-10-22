@@ -1,6 +1,5 @@
 /** Strings of the console's applications area: the list, its filters and its row actions. */
 export const apps = {
-  area: "Applications",
   newApplication: "New application",
   fromRecipe: "From a recipe",
   page: {

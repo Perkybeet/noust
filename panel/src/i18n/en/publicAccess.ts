@@ -41,7 +41,6 @@ export const publicAccess = {
     allowed: "{backend} allows the port from {sources}",
     allowedAnyone: "{backend} allows the port from anyone",
     none: "Noust changed no firewall: only your network's own firewall limits who reaches the port",
-    unknown: "Not recorded",
   },
   profile: {
     owner: "Owner",
@@ -111,9 +110,6 @@ export const publicAccess = {
     title: "Make {name} private",
     description: "Noust removes the proxy, the firewall rule it added, the TLS requirement and the account it made for public access. The database and its data stay, and connections that are open end now.",
     action: "Make it private",
-    failed: "Could not make the database private",
-    done: "{name} is private again",
   },
   revealFailed: "Could not show the connection",
-  opened: "{name} is public on port {port}",
 } as const;

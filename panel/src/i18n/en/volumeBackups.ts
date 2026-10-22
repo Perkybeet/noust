@@ -59,7 +59,6 @@ export const volumeBackups = {
     },
   },
   detail: {
-    title: "Data of {domain}",
     description: "Its policy and the backups taken of its data.",
     policy: "Policy",
     backups: "Backups",
@@ -83,7 +82,6 @@ export const volumeBackups = {
     removeTitle: "Remove the data policy of {domain}",
     removeDescription: "Its timer is removed and nothing backs this data up on a schedule any more. The backups already taken stay.",
     removeAction: "Remove policy",
-    loadFailed: "Could not load its data backups",
   },
   consistency: {
     live: "Live",
@@ -111,7 +109,6 @@ export const volumeBackups = {
     targetsFailed: "Could not read what this application declares",
     noTargets: "This application declares no data of its own yet. Add a folder below.",
     kind: { path: "Folder", docker: "Docker volume" },
-    exists: "Exists",
     missing: "Not there yet",
     declaredBy: "Declared by {source}",
     pickOne: "Choose at least one piece, or back up everything it declares.",
@@ -157,7 +154,6 @@ export const volumeBackups = {
     notChecked: "Not checked",
     checkFailed: "Check failed",
     onlyHere: "Only this server",
-    skipped: { one: "{count} thing left out", other: "{count} things left out" },
     actionsFor: "Actions for {id}",
     restore: "Restore…",
     verify: "Check it",
@@ -171,7 +167,6 @@ export const volumeBackups = {
     safety: "Take a copy of what is there first",
     safetyHelp: "Kept with its backups, and put back when the restore fails. Without it nothing is left to go back to.",
     action: "Restore data",
-    failed: "Could not start the restore",
   },
   push: {
     title: "Send {id} to a destination",
@@ -188,5 +183,4 @@ export const volumeBackups = {
     action: "Delete backup",
   },
   runFailed: "Could not start the backup",
-  verifyFailed: "Could not start the check",
 } as const;

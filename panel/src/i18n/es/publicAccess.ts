@@ -41,7 +41,6 @@ export const publicAccess: Catalog<typeof en> = {
     allowed: "{backend} permite el puerto desde {sources}",
     allowedAnyone: "{backend} permite el puerto desde cualquiera",
     none: "Noust no cambió ningún cortafuegos: solo el de tu propia red limita quién llega al puerto",
-    unknown: "Sin registrar",
   },
   profile: {
     owner: "Propietaria",
@@ -114,9 +113,6 @@ export const publicAccess: Catalog<typeof en> = {
     description:
       "Noust quita el proxy, la regla del cortafuegos que añadió, la exigencia de TLS y la cuenta que creó para el acceso público. La base de datos y sus datos se quedan, y las conexiones abiertas terminan ahora.",
     action: "Hacerla privada",
-    failed: "No se pudo hacer privada la base de datos",
-    done: "{name} vuelve a ser privada",
   },
   revealFailed: "No se pudo mostrar la conexión",
-  opened: "{name} es pública en el puerto {port}",
 };

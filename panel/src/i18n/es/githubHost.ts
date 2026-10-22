@@ -10,7 +10,6 @@ export const githubHost: Catalog<typeof en> = {
   save: "Usar este GitHub",
   saved: "La integración ahora habla con {host}",
   failed: "No se pudo guardar la dirección",
-  enterprise: "GitHub Enterprise en {host}",
   fact: "GitHub",
   factDescription: "El host donde vive la App. No puede cambiar mientras la App exista.",
   fromTerminal: "Lo mismo, desde un terminal",

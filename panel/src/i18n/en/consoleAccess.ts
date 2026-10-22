@@ -5,11 +5,6 @@
  * shown as it wrote it.
  */
 export const consoleAccess = {
-  nav: {
-    label: "Console address",
-    keywords: "publish expose console domain https certificate public name nginx tunnel allow list",
-    command: "Console address settings",
-  },
   documentTitle: "Console address",
   loadFailed: "Could not read whether the console is published",
   loading: "Reading whether the console is published",

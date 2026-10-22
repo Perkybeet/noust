@@ -1,10 +1,5 @@
 /** Strings of Settings > Compliance: the ENS category MEDIUM check and its report. */
 export const compliance = {
-  nav: {
-    label: "ENS report",
-    keywords: "ens esquema nacional seguridad compliance check report audit evidence",
-    command: "ENS report",
-  },
   status: {
     fail: "Not met",
     warning: "Needs attention",

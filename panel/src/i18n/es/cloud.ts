@@ -2,11 +2,6 @@ import type { cloud as en } from "../en/cloud";
 import type { Catalog } from "../types";
 
 export const cloud: Catalog<typeof en> = {
-  nav: {
-    label: "Proveedores en la nube",
-    keywords: "hetzner digitalocean vultr proveedor token cloud-init crear servidor vps droplet",
-    command: "Ajustes de los proveedores en la nube",
-  },
 
   page: {
     documentTitle: "Ajustes de nube",

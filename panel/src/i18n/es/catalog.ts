@@ -2,15 +2,12 @@ import type { catalog as en } from "../en/catalog";
 import type { Catalog } from "../types";
 
 export const catalog: Catalog<typeof en> = {
-  area: "Catálogo",
   page: {
     title: "Catálogo",
     description: "Aplicaciones listas para desplegar. Cada una está fijada a una versión, se ejecuta como su proyecto la concibe y trae las variables y los servicios que necesita.",
   },
   tabs: {
     label: "Secciones del catálogo",
-    browse: "Explorar",
-    installed: "Instaladas",
   },
   own: {
     open: "Añadir una receta",

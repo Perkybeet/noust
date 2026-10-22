@@ -41,7 +41,6 @@ export const nav = {
   apps: { label: "Applications", keywords: "apps sites deploy", goTo: "Go to applications" },
   catalog: { keywords: "catalog catalogue recipes templates one-click marketplace store install apps" },
   databases: { label: "Databases", keywords: "mysql postgres redis mongodb sql", goTo: "Go to databases" },
-  services: { label: "Services", keywords: "systemd units daemons" },
   cron: { label: "Cron", keywords: "schedule timers jobs", goTo: "Go to cron" },
   domains: { label: "Domains", keywords: "ssl tls https certbot nginx apache sites certificates dns", goTo: "Go to domains" },
   backups: { label: "Backups", keywords: "restore snapshots", goTo: "Go to backups" },
@@ -75,7 +74,7 @@ export const nav = {
     settings: { label: "Settings", keywords: "rename delete name" },
   },
   settingsTabs: {
-    general: { label: "General", keywords: "apps directory web server email language", command: "General settings" },
+    general: { label: "General", command: "General settings" },
     notifications: {
       label: "Channels",
       keywords: "notifications alerts email slack webhook channels where messages go",

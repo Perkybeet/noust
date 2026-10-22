@@ -8,12 +8,9 @@ export const policyScope: Catalog<typeof en> = {
     none: "Ninguna política cubre todas las bases de datos de {engine}. Cada una se protege con su propia política, o no se protege.",
     coveredBy: "La política de todas las bases de datos de {engine} copia también esta. Pon una programación propia para cambiar cuándo o dónde.",
     set: "Copiar todas las bases de datos",
-    edit: "Editar",
     covers: "Cubre",
     coversThis: "Todas las bases de datos de {engine}, incluida {name}",
     leavesThisOut: "Todas las bases de datos de {engine}, menos {name}",
-    overridden: "{name} tiene una política propia, que esta deja en paz.",
-    loadFailed: "No se pudo cargar la política de todas las bases de datos",
     remove: "Quitar",
     removeTitle: "Quitar la política de todas las bases de datos de {engine}",
     removeDescription:
@@ -44,9 +41,5 @@ export const policyScope: Catalog<typeof en> = {
     schemas: "esquemas {names}",
     tables: "tablas {names}",
     collections: "colecciones {names}",
-    nothing: "Nada",
-    scope: "Cubre",
-    scopeAll: "Todas las bases de datos del motor",
-    scopeOne: "Esta base de datos",
   },
 };

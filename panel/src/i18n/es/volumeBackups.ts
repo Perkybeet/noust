@@ -58,7 +58,6 @@ export const volumeBackups: Catalog<typeof en> = {
     },
   },
   detail: {
-    title: "Datos de {domain}",
     description: "Su política y las copias hechas de sus datos.",
     policy: "Política",
     backups: "Copias",
@@ -83,7 +82,6 @@ export const volumeBackups: Catalog<typeof en> = {
     removeTitle: "Quitar la política de datos de {domain}",
     removeDescription: "Se quita su temporizador y nada copia estos datos en una programación. Las copias ya hechas se quedan.",
     removeAction: "Quitar política",
-    loadFailed: "No se pudieron cargar sus copias de datos",
   },
   consistency: {
     live: "En vivo",
@@ -111,7 +109,6 @@ export const volumeBackups: Catalog<typeof en> = {
     targetsFailed: "No se pudo leer qué declara esta aplicación",
     noTargets: "Esta aplicación todavía no declara datos propios. Añade una carpeta abajo.",
     kind: { path: "Carpeta", docker: "Volumen Docker" },
-    exists: "Existe",
     missing: "Todavía no está",
     declaredBy: "Lo declara {source}",
     pickOne: "Elige al menos una pieza, o copia todo lo que declara.",
@@ -157,7 +154,6 @@ export const volumeBackups: Catalog<typeof en> = {
     notChecked: "Sin comprobar",
     checkFailed: "Falló la comprobación",
     onlyHere: "Solo este servidor",
-    skipped: { one: "{count} cosa dejada fuera", other: "{count} cosas dejadas fuera" },
     actionsFor: "Acciones de {id}",
     restore: "Restaurar…",
     verify: "Comprobarla",
@@ -172,7 +168,6 @@ export const volumeBackups: Catalog<typeof en> = {
     safety: "Hacer antes una copia de lo que hay",
     safetyHelp: "Se guarda con sus copias, y se devuelve si la restauración falla. Sin ella no queda nada a lo que volver.",
     action: "Restaurar datos",
-    failed: "No se pudo empezar la restauración",
   },
   push: {
     title: "Enviar {id} a un destino",
@@ -189,5 +184,4 @@ export const volumeBackups: Catalog<typeof en> = {
     action: "Borrar copia",
   },
   runFailed: "No se pudo empezar la copia",
-  verifyFailed: "No se pudo empezar la comprobación",
 };

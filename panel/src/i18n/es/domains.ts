@@ -4,7 +4,6 @@ import type { Catalog } from "../types";
 export const domains: Catalog<typeof en> = {
   unknown: "Desconocido",
   cancel: "Cancelar",
-  clear: "Borrar",
   clearFilters: "Borrar filtros",
   delete: "Eliminar",
   moreCount: "+{count} más",
@@ -200,7 +199,6 @@ export const domains: Catalog<typeof en> = {
     serving: "Sirviendo",
     disabled: "Deshabilitado",
     siteColumn: "Sitio",
-    serverColumn: "Servidor",
     stateColumn: "Estado",
     servesColumn: "Sirve",
     namesColumn: "Nombres",
@@ -352,7 +350,6 @@ export const domains: Catalog<typeof en> = {
   },
 
   jobBanner: {
-    dismiss: "Descartar",
     jobCancelled: "La tarea se canceló.",
     jobFailedNoReason: "La tarea falló sin decir por qué. Su registro está en la página Actividad.",
   },
@@ -447,7 +444,6 @@ export const domains: Catalog<typeof en> = {
     locationsTitleApache: "Locations y reglas de proxy, en el orden en que Apache las aplica",
     locationsDescription: "Primero las coincidencias exactas, luego el prefijo más largo; las expresiones regulares se prueban en el orden del archivo salvo que el prefijo las corte.",
     noLocations: "Sin locations: las directivas del propio servidor responden a cada petición.",
-    nestedIn: "Dentro de {location}",
     match: {
       exact: "Exacta",
       prefix: "Prefijo",
@@ -471,7 +467,6 @@ export const domains: Catalog<typeof en> = {
     bodyHelp: "Como 20m. Vacío: el del servidor.",
     rateLimitField: "Límite de peticiones",
     rateLimitHelp: "Como lo recibe limit_req; la zona se declara en nginx.conf.",
-    websocketField: "WebSocket",
     websocketSwitch: "Pasar el upgrade",
     bufferingField: "Buffering",
     bufferingDefault: "Por defecto (activado)",
@@ -479,7 +474,6 @@ export const domains: Catalog<typeof en> = {
     bufferingOff: "Desactivado: en streaming",
     unclosedQuote: "Queda una comilla sin cerrar.",
     moreDirectives: { one: "Más directivas ({count})", other: "Más directivas ({count})" },
-    directiveArgs: "Argumentos de {name}",
     removeDirective: "Quitar {name}",
     blockDirective: "Un bloque propio: edítalo en el texto.",
     goToLine: "Ir a la línea {line}",
@@ -528,8 +522,6 @@ export const domains: Catalog<typeof en> = {
     upstreamsTitle: "Upstreams",
     upstreamsDescription: "Grupos con nombre de backends a los que las locations hacen proxy.",
     upstreamTitle: "Upstream {name}",
-    upstreamServers: "Servidores",
-    keepalive: "Conexiones keep-alive: {count}",
     usedBy: { one: "Lo usa {count} location", other: "Lo usan {count} locations" },
     unused: "Ninguna location de este archivo lo usa.",
     fromInclude: "Definido en {path}: aquí solo se lee.",

@@ -2,13 +2,11 @@ import type { appPages as en } from "../en/appPages";
 import type { Catalog } from "../types";
 
 export const appPages: Catalog<typeof en> = {
-  area: "Aplicación",
   fromTerminal: "Desde un terminal",
 
   common: {
     cancel: "Cancelar",
     viewLog: "Ver registro",
-    no: "No",
     notRecorded: "No registrado",
     cpu: "CPU",
     memory: "Memoria",

@@ -49,10 +49,6 @@ export const variables: Catalog<typeof en> = {
   },
   review: {
     audienceTitle: "Quién las recibe",
-    audienceCount: {
-      one: "{count} variable cambia quién la recibe",
-      other: "{count} variables cambian quién las recibe",
-    },
     onlyAudience: "Solo cambia quién recibe las variables. Los valores se quedan como están.",
   },
   shared: {

@@ -5,7 +5,6 @@ export const gitlab: Catalog<typeof en> = {
   title: "GitLab",
   description: "Conecta gitlab.com o tu propio GitLab para crear aplicaciones desde sus proyectos y clonar los privados. El token se guarda en este servidor y no se vuelve a mostrar.",
   loading: "Cargando las conexiones de GitLab",
-  readFailed: "No se pudieron leer las conexiones de GitLab",
   connect: "Conectar GitLab",
   caption: "Conexiones de GitLab",
   columnName: "Conexión",

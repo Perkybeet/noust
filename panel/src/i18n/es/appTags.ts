@@ -30,7 +30,6 @@ export const appTags: Catalog<typeof en> = {
   /** Las bases de datos y los servicios llevan tags también: las mismas reglas, editados desde sus listas. */
   resource: {
     chips: "Tags",
-    edit: "Editar tags...",
     title: "Tags de {noun} {name}",
     description: "Nombres que agrupan cosas, como web o client-acme. Una lleva hasta {max}. Guardarlos no reinicia nada.",
     saved: "Tags de {name} guardados",
@@ -80,6 +79,5 @@ export const appTags: Catalog<typeof en> = {
       other: "No se pudieron actualizar {count} apps",
     },
     nothing: "No se actualizó ninguna app con el tag {tag}",
-    failed: "No se actualizaron las apps con el tag {tag}",
   },
 };

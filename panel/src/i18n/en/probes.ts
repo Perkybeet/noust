@@ -4,11 +4,6 @@
  * are shown as they are; only the words around them are here.
  */
 export const probes = {
-  nav: {
-    label: "Probes",
-    keywords: "probes uptime monitor status page external check address http outage ping website down",
-    command: "Probes settings",
-  },
   documentTitle: "Probes",
   loadingLabel: "the probes",
   fromTerminal: "From a terminal",

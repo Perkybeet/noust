@@ -1,8 +1,6 @@
 /** The map of this server: how names, applications, databases, scheduled work and data fit together. */
 export const map = {
   title: "Map",
-  description: "How this server fits together: the names that reach each application, and what each application uses, runs and keeps.",
-  newApplication: "New application",
   queryLabel: "the map of this server",
   label: "How this server fits together",
   layers: {

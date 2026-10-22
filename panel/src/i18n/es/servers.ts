@@ -3,7 +3,7 @@ import type { Catalog } from "../types";
 
 export const servers: Catalog<typeof en> = {
   nav: {
-    fleet: { label: "Flota", keywords: "servidores nodos central vps máquinas", goTo: "Ir a la flota" },
+    fleet: { keywords: "servidores nodos central vps máquinas" },
     settingsTab: {
       label: "Servidores",
       keywords: "flota nodos central ssh túnel añadir servidor código de unión",
@@ -43,15 +43,10 @@ export const servers: Catalog<typeof en> = {
     addServer: "Añadir un servidor",
     createAtProvider: "Crear en un proveedor",
     linkedAddress: "Llama él: puerto {port} de esta central",
-    test: "Probar",
-    testLabel: "Probar {name}",
     testedToast: "{name} respondió en {latency} ms",
     testedDescription: "Ejecuta Noust {version}.",
     testFailedToast: "{name} no respondió",
-    open: "Abrir",
     openLabel: "Abrir {name}",
-    remove: "Quitar",
-    removeLabel: "Quitar {name}",
     never: "Nunca",
     empty: {
       title: "Aún no hay servidores",
@@ -260,7 +255,6 @@ export const servers: Catalog<typeof en> = {
   // Los secretos sellados de la central
 
   lock: {
-    title: "Esta central está bloqueada",
     description:
       "Sus secretos están sellados en reposo: las claves y los tokens que llegan a tus servidores están cifrados con una frase de paso que no se guarda en ningún sitio. Hasta que los desbloquees, nada llega a los servidores.",
     passphraseLabel: "Frase de paso",

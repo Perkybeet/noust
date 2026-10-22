@@ -2,7 +2,6 @@ import type { newApp as en } from "../en/newApp";
 import type { Catalog } from "../types";
 
 export const newApp: Catalog<typeof en> = {
-  area: "Nueva aplicación",
   page: {
     title: "Nueva aplicación",
     description: "Despliega desde un repositorio Git o un directorio de este servidor, desde una receta o desde una exportación.",
@@ -469,10 +468,8 @@ export const newApp: Catalog<typeof en> = {
     empty: "Esta versión no incluye recetas.",
     use: "Usar {title}",
     needs: "Necesita",
-    database: "Una base de datos {engine}",
     unavailable: "No disponible en esta versión",
     openFailed: "No se ha podido leer la receta de {title}",
-    variablesIntro: "Lo que prepara la receta de {title}, y los valores que puedes definir por encima de los suyos.",
     setupIntro: "Dónde responde {title} y los valores que necesita de ti. Todo lo demás viene con la receta.",
     deploy: "Desplegar",
     required: "Necesita un valor",

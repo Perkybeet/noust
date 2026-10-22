@@ -32,7 +32,6 @@ export const appTags = {
   /** Databases and services carry tags too: the same rules, edited from their own lists. */
   resource: {
     chips: "Tags",
-    edit: "Edit tags...",
     title: "Tags of the {noun} {name}",
     description: "Names that group things, such as web or client-acme. One carries up to {max}. Saving them restarts nothing.",
     saved: "Tags of {name} saved",
@@ -82,6 +81,5 @@ export const appTags = {
       other: "{count} apps could not be updated",
     },
     nothing: "No app tagged {tag} was updated",
-    failed: "The apps tagged {tag} were not updated",
   },
 } as const;
