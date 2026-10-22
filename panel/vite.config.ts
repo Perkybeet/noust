@@ -5,6 +5,7 @@ import { defineConfig, loadEnv } from "vite";
 import type { Plugin, ProxyOptions } from "vite";
 
 import { mockBackend } from "./mock/backend.ts";
+import { LICENSES_FILE, licensesOf } from "./scripts/bundle-licenses.mjs";
 
 // The console talks to the real FastAPI backend in development. Point VITE_BACKEND at any
 // running `wasm web` instance; the default is the panel's own default bind address.
@@ -43,6 +44,32 @@ function preloadFonts(): Plugin {
   };
 }
 
+/**
+ * Writes `third-party-licenses.txt` next to index.html: the copyright and the licence text of every npm
+ * package whose code, stylesheet or font went into this build (React, Base UI, TanStack, lucide and the
+ * rest are MIT or ISC, which ask for both to travel with every copy). The build is committed and shipped
+ * in the wheel and the packages, and NOTICE points to this file. It is read from what the bundler wrote
+ * into each chunk, so a package that was tree-shaken out is not listed and a new one is, with nothing to
+ * remember; scripts/bundle-licenses.mjs has the reading and its tests.
+ */
+function thirdPartyLicenses(): Plugin {
+  return {
+    name: "noust-third-party-licenses",
+    apply: "build",
+    generateBundle(_options, bundle) {
+      this.emitFile({
+        type: "asset",
+        fileName: LICENSES_FILE,
+        source: licensesOf(bundle, {
+          // Tailwind and uPlot are bare imports of the entry stylesheet, compiled into the CSS and so not a module of any chunk.
+          projectDir: import.meta.dirname,
+          stylesheets: ["src/styles/app.css"],
+        }),
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   const backend = env.VITE_BACKEND ?? DEFAULT_BACKEND;
@@ -65,6 +92,7 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       preloadFonts(),
+      thirdPartyLicenses(),
       ...(mock ? [mockBackend()] : []),
     ],
     base: "/",
