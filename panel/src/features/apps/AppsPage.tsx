@@ -19,7 +19,7 @@ import { useOwnerScope } from "../teams/ownership";
 import { useOrganization } from "../teams/useOrganization";
 import { AppRowActions } from "./AppRowActions";
 import { AppsTable } from "./AppsTable";
-import { AppsTabs } from "./AppsTabs";
+import { AppsTabs, appsHeader } from "./AppsTabs";
 import { BulkAppsDialog } from "./BulkAppsDialog";
 import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics, useTypeName } from "./data";
 import { STATE_FILTERS, appTagNames, appTypes, filterApps, isFiltered } from "./filters";
@@ -116,10 +116,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
         ? t("apps.page.countFiltered", { shown: shown.length, total: owner.inTeam.length })
         : t("apps.page.count", { count: owner.inTeam.length });
 
-  const header = {
-    title: t("apps.page.title"),
-    description: t("apps.page.description"),
-    server: node,
+  const header = appsHeader(t, node, {
     secondaryActions: (
       <>
         {/* A bulk update is offered where the list is narrowed to one tag, and not before. */}
@@ -128,7 +125,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
       </>
     ),
     primaryAction: <NewAppLink />,
-  };
+  });
 
   if (apps.isError && apps.data === undefined) {
     return (

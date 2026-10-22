@@ -19,11 +19,10 @@ import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { Card } from "../../components/ui/Card";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
-import { FeatureState } from "../../components/ui/FeatureState";
 import { ICONS } from "../../components/ui/icons";
 import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { stateTextClass } from "../../components/ui/StatusPill";
+import { StatusPill, stateTextClass } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -362,48 +361,39 @@ function DisableDialog({ open, onClose }: { open: boolean; onClose: () => void }
 
 // ---------------------------------------------------------------------------------------
 
+/** What the state means: in a sentence, and for an operator with the factor on, how many backup codes are left. */
 function Status({ t, status, account }: { t: T; status: TwoFactorStatus; account: boolean }) {
   if (status.enabled) {
     const few = status.backup_codes_remaining <= FEW_CODES;
     return (
-      <FeatureState state="on" title={t("settings.security.twoFactor.status.onTitle")}>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <p>{account ? t("auth.security.factorOnAccount") : t("settings.security.twoFactor.status.onDescription")}</p>
-          <p className="mt-1 flex items-center gap-1.5 text-fg-muted">
-            {few ? <ICONS.warning aria-hidden="true" className={cx("size-icon-sm", stateTextClass("warning"))} /> : null}
-            <span className="tabular-nums">{t("auth.security.codesLeft", { count: status.backup_codes_remaining })}</span>
-          </p>
-          {few ? <p className="text-fg-muted">{t("settings.security.twoFactor.status.codesLow")}</p> : null}
-        </div>
-      </FeatureState>
+      <div className="flex min-w-0 flex-col gap-0.5 text-13 text-fg">
+        <p>{account ? t("auth.security.factorOnAccount") : t("settings.security.twoFactor.status.onDescription")}</p>
+        <p className="mt-1 flex items-center gap-1.5 text-fg-muted">
+          {few ? <ICONS.warning aria-hidden="true" className={cx("size-icon-sm", stateTextClass("warning"))} /> : null}
+          <span className="tabular-nums">{t("auth.security.codesLeft", { count: status.backup_codes_remaining })}</span>
+        </p>
+        {few ? <p className="text-fg-muted">{t("settings.security.twoFactor.status.codesLow")}</p> : null}
+      </div>
     );
   }
   return (
-    <FeatureState state="off" title={t("settings.security.twoFactor.status.offTitle")}>
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <p>{account ? t("auth.security.factorOffAccount") : t("settings.security.twoFactor.status.offDescription")}</p>
-        {status.pending ? <p className="mt-1 text-fg-muted">{t("settings.security.twoFactor.status.pending")}</p> : null}
-      </div>
-    </FeatureState>
+    <div className="flex min-w-0 flex-col gap-0.5 text-13 text-fg">
+      <p>{account ? t("auth.security.factorOffAccount") : t("settings.security.twoFactor.status.offDescription")}</p>
+      {status.pending ? <p className="mt-1 text-fg-muted">{t("settings.security.twoFactor.status.pending")}</p> : null}
+    </div>
   );
 }
 
 function StatusSkeleton({ t }: { t: T }) {
   return (
-    <div aria-busy="true" className="flex gap-3">
+    <div aria-busy="true" className="flex flex-col gap-0.5">
       <span className="sr-only">{t("settings.shared.loading", { label: t("settings.security.twoFactor.loadingLabel") })}</span>
-      {/* The "On" state's lines, the one a hardened console shows: state, meaning, codes left. */}
-      <Skeleton className="mt-0.5 size-5" />
-      <div aria-hidden="true" className="flex flex-1 flex-col gap-0.5">
-        <div className="flex h-5 items-center">
-          <Skeleton className="h-3.5 w-16" />
-        </div>
-        <div className="flex h-5 items-center">
-          <Skeleton className="h-3 w-72 max-w-full" />
-        </div>
-        <div className="mt-1 flex h-5 items-center">
-          <Skeleton className="h-3 w-40" />
-        </div>
+      {/* The "On" state's lines, the one a hardened console shows: what it means and the codes left. */}
+      <div aria-hidden="true" className="flex h-5 items-center">
+        <Skeleton className="h-3 w-72 max-w-full" />
+      </div>
+      <div aria-hidden="true" className="mt-1 flex h-5 items-center">
+        <Skeleton className="h-3 w-40" />
       </div>
     </div>
   );
@@ -435,28 +425,33 @@ export function TwoFactorSection({ session }: { session?: SessionInfo | undefine
 
   const status = query.data;
   let body;
+  let badge;
+  let actions;
   if (status !== undefined) {
+    badge = (
+      <StatusPill
+        state={status.enabled ? "running" : "stopped"}
+        size="sm"
+        label={status.enabled ? t("settings.security.twoFactor.status.onTitle") : t("settings.security.twoFactor.status.offTitle")}
+      />
+    );
+    actions = status.enabled ? (
+      <>
+        <Button size="sm" onClick={() => setRegenerating(true)}>
+          {t("settings.security.twoFactor.newBackupCodes")}
+        </Button>
+        <Button size="sm" onClick={() => setDisabling(true)}>
+          {t("settings.security.twoFactor.turnOff")}
+        </Button>
+      </>
+    ) : (
+      <Button size="sm" loading={enroll.isPending} onClick={() => enroll.mutate()}>
+        {t("settings.security.twoFactor.setUp")}
+      </Button>
+    );
     body = (
-      <Card>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <Status t={t} status={status} account={account} />
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {status.enabled ? (
-              <>
-                <Button size="sm" onClick={() => setRegenerating(true)}>
-                  {t("settings.security.twoFactor.newBackupCodes")}
-                </Button>
-                <Button size="sm" onClick={() => setDisabling(true)}>
-                  {t("settings.security.twoFactor.turnOff")}
-                </Button>
-              </>
-            ) : (
-              <Button size="sm" loading={enroll.isPending} onClick={() => enroll.mutate()}>
-                {t("settings.security.twoFactor.setUp")}
-              </Button>
-            )}
-          </div>
-        </div>
+      <Card padding="sm">
+        <Status t={t} status={status} account={account} />
       </Card>
     );
   } else if (query.isError) {
@@ -469,8 +464,10 @@ export function TwoFactorSection({ session }: { session?: SessionInfo | undefine
       />
     );
   } else {
+    // The buttons' room is held while the state is read, so the head does not grow when it arrives.
+    actions = <Skeleton className="h-control-sm w-24" />;
     body = (
-      <Card>
+      <Card padding="sm">
         <StatusSkeleton t={t} />
       </Card>
     );
@@ -480,6 +477,8 @@ export function TwoFactorSection({ session }: { session?: SessionInfo | undefine
     <Section
       title={t("settings.security.twoFactor.title")}
       icon={OBJECT_ICONS.signIn}
+      {...(badge !== undefined ? { badge } : {})}
+      {...(actions !== undefined ? { actions } : {})}
       description={account ? t("auth.security.factorDescriptionAccount") : t("settings.security.twoFactor.description")}
     >
       {body}

@@ -497,12 +497,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
             rows={list.data.domains}
             getRowId={(entry) => entry.domain}
             empty={
-              <EmptyState
-                icon={<OBJECT_ICONS.domain />}
-                title={t("domains.appTab.noDomainsTitle")}
-                description={t("domains.appTab.noDomainsDescription")}
-                className="border-0 py-8"
-              />
+              <EmptyState variant="inline" title={t("domains.appTab.noDomainsTitle")} description={t("domains.appTab.noDomainsDescription")} />
             }
             rowActions={(entry) => (
               <Menu

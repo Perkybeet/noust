@@ -46,7 +46,6 @@ export function CatalogFrame({ filters, notice, command, children }: CatalogFram
     <>
       <ListPage
         header={appsHeader(t, node, {
-          description: t("catalog.page.description"),
           secondaryActions: (
             <>
               <Button onClick={() => setPackageOpen(true)}>{t("catalog.package.open")}</Button>

@@ -120,7 +120,7 @@ export function MachinesSection({ canCreate, onCreate }: { canCreate: boolean; o
         isEmpty={(data) => data.length === 0}
         empty={
           <EmptyState
-            icon={<OBJECT_ICONS.server />}
+            variant="inline"
             title={t("cloud.machines.empty.title")}
             description={canCreate ? t("cloud.machines.empty.description") : t("cloud.machines.empty.needsAccount")}
             action={canCreate ? create : undefined}

@@ -131,7 +131,7 @@ export function AccountsSection({ adding, onAddingChange }: { adding: boolean; o
         label={t("cloud.accounts.loadingLabel")}
         skeleton={<DataTable caption={t("cloud.accounts.caption")} columns={columns} rows={[]} getRowId={(account) => account.name} loading skeletonRows={2} />}
         isEmpty={(data) => data.length === 0}
-        empty={<EmptyState icon={<KeyRound />} title={t("cloud.accounts.empty.title")} description={t("cloud.accounts.empty.description")} action={add} />}
+        empty={<EmptyState variant="inline" title={t("cloud.accounts.empty.title")} description={t("cloud.accounts.empty.description")} action={add} />}
       >
         {(accounts) => <DataTable caption={t("cloud.accounts.caption")} columns={columns} rows={[...accounts].sort((a, b) => a.name.localeCompare(b.name))} getRowId={(account) => account.name} rowActions={(account) => <AccountActions account={account} />} />}
       </QueryState>

@@ -33,8 +33,9 @@ export function AppsTabs() {
 
 /**
  * The header the three views share, so switching between them moves nothing but what is under the
- * strip: the same title, the server named on a fleet, and the view's own sentence and actions.
+ * strip: the same title and the same sentence (the strip says which view it is), the server named on
+ * a fleet, and the view's own actions.
  */
-export function appsHeader(t: T, node: string | null, view: Partial<PageHeaderProps>): PageHeaderProps {
-  return { title: t("apps.page.title"), server: node, ...view };
+export function appsHeader(t: T, node: string | null, view: Pick<PageHeaderProps, "primaryAction" | "secondaryActions"> = {}): PageHeaderProps {
+  return { title: t("apps.page.title"), description: t("apps.page.description"), server: node, ...view };
 }
