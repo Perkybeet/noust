@@ -7077,7 +7077,7 @@
     "one": "{count} zu aktualisieren",
     "other": "{count} zu aktualisieren"
   },
-  "fleet.summary.figures.updatesNone": "Jedes Noust ist aktuell",
+  "fleet.summary.figures.updatesNone": "Alle aktuell",
   "fleet.summary.figures.reboots": {
     "one": "{count} wartet auf einen Neustart",
     "other": "{count} warten auf einen Neustart"
@@ -11033,7 +11033,6 @@
   "runtime.tuning.cpusSyntax": "Schreiben Sie CPUs als Zahlen, Bereiche und Kommas: 0-3 oder 0,2.",
   "runtime.tuning.cpusMissing": "CPU {cpu} existiert nicht: Dieser Server hat {cores}, ab 0 nummeriert.",
   "runtime.tuning.deviceInvalid": "{device} ist kein Gerät, das Noust erlauben kann: Verwenden Sie einen Pfad unter /dev oder eine Gruppe wie char-drm.",
-  "runtime.mounts.title": "Mounts",
   "runtime.mounts.description": "Dateien und Ordner, die eine Anwendung über ihr Repository hinaus erhält: eine Konfigurationsdatei, die nicht in Git liegt, einmal aufbewahrt und von jedem Release gefunden, oder ein Ordner des Servers, der in einen Container eingebunden wird.",
   "runtime.mounts.listLabel": "Mounts von {domain}",
   "runtime.mounts.loading": "Die Mounts werden geladen",

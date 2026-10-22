@@ -233,7 +233,6 @@ export const runtime = {
     deviceInvalid: "{device} is not a device Noust can allow: use a path under /dev or a group such as char-drm.",
   },
   mounts: {
-    title: "Mounts",
     description: "Files and folders an application is given beyond its repository: a configuration file that is not in git, kept once and found by every release, or a folder of the server bound into a container.",
     listLabel: "Mounts of {domain}",
     loading: "Loading the mounts",

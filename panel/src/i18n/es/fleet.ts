@@ -222,7 +222,7 @@ export const fleet: Catalog<typeof en> = {
       certificatesDetail: "Caducan en 30 días",
       updates: "Actualizaciones de Noust",
       updatesAvailable: { one: "{count} por actualizar", other: "{count} por actualizar" },
-      updatesNone: "Todo Noust al día",
+      updatesNone: "Todos al día",
       reboots: { one: "{count} espera un reinicio", other: "{count} esperan un reinicio" },
       noReboots: "Ningún reinicio pendiente",
       attention: "Requiere atención",

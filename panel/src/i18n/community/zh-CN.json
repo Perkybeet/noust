@@ -6913,7 +6913,7 @@
   "fleet.summary.figures.updatesAvailable": {
     "other": "{count} 台待更新"
   },
-  "fleet.summary.figures.updatesNone": "所有 Noust 都是最新的",
+  "fleet.summary.figures.updatesNone": "全部最新",
   "fleet.summary.figures.reboots": {
     "other": "{count} 台等待重启"
   },
@@ -10764,7 +10764,6 @@
   "runtime.tuning.cpusSyntax": "CPU 请用数字、范围和逗号书写：0-3 或 0,2。",
   "runtime.tuning.cpusMissing": "CPU {cpu} 不存在：这台服务器有 {cores}，从 0 开始编号。",
   "runtime.tuning.deviceInvalid": "{device} 不是 Noust 可以允许的设备：请使用 /dev 下的路径或设备组，例如 char-drm。",
-  "runtime.mounts.title": "挂载",
   "runtime.mounts.description": "除了仓库之外提供给应用的文件和文件夹：不在 git 中的配置文件（保存一次，每个发布都能找到），或绑定到容器中的服务器文件夹。",
   "runtime.mounts.listLabel": "{domain} 的挂载",
   "runtime.mounts.loading": "正在加载挂载",

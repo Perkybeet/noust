@@ -35,7 +35,6 @@ import {
   useSubsectionTitle,
 } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
-import { SETTINGS_ICONS } from "./objectIcons";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 const OCTAL_MODE = /^[0-7]{3,4}$/;
@@ -446,17 +445,28 @@ function MountRow({ domain, mount }: { domain: string; mount: Mount }) {
   );
 }
 
-function MountsCard({ domain }: { domain: string }) {
+/**
+ * The mounts under the page's own heading, with their description and the buttons that add one:
+ * the card holds only the list, so the title is said once.
+ */
+function MountsSection({
+  domain,
+  title,
+  icon,
+}: {
+  domain: string;
+  title: string;
+  icon: ReturnType<typeof useSubsectionIcon>;
+}) {
   const t = useT();
   const mounts = useQuery(mountsQuery(domain));
   const [adding, setAdding] = useState<"file" | "path" | null>(null);
   const data = mounts.data;
   return (
-    <Card
-      icon={SETTINGS_ICONS.mounts}
-      title={t("runtime.mounts.title")}
+    <Section
+      title={title}
+      {...icon}
       description={t("runtime.mounts.description")}
-      padding="none"
       actions={
         <>
           {data?.container ? (
@@ -482,49 +492,51 @@ function MountsCard({ domain }: { domain: string }) {
         </>
       }
     >
-      {data === undefined ? (
-        mounts.isError ? (
+      <Card padding="none">
+        {data === undefined ? (
+          mounts.isError ? (
+            <div className="p-4">
+              <ErrorBlock
+                compact
+                error={mounts.error}
+                title={t("runtime.mounts.loadFailed")}
+                onRetry={() => void mounts.refetch()}
+                retrying={mounts.isRefetching}
+              />
+            </div>
+          ) : (
+            <LoadingRegion
+              label={t("runtime.mounts.loading")}
+              className="flex flex-col gap-2 p-4"
+            >
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </LoadingRegion>
+          )
+        ) : data.mounts.length === 0 ? (
           <div className="p-4">
-            <ErrorBlock
-              compact
-              error={mounts.error}
-              title={t("runtime.mounts.loadFailed")}
-              onRetry={() => void mounts.refetch()}
-              retrying={mounts.isRefetching}
+            <EmptyState
+              variant="inline"
+              title={t("runtime.mounts.emptyTitle")}
+              description={t("runtime.mounts.emptyDescription")}
             />
           </div>
         ) : (
-          <LoadingRegion
-            label={t("runtime.mounts.loading")}
-            className="flex flex-col gap-2 p-4"
-          >
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </LoadingRegion>
-        )
-      ) : data.mounts.length === 0 ? (
-        <div className="p-4">
-          <EmptyState
-            variant="inline"
-            title={t("runtime.mounts.emptyTitle")}
-            description={t("runtime.mounts.emptyDescription")}
-          />
-        </div>
-      ) : (
-        <>
-          <ul
-            aria-label={t("runtime.mounts.listLabel", { domain })}
-            className="flex flex-col divide-y divide-border"
-          >
-            {data.mounts.map((mount) => (
-              <MountRow key={mount.target} domain={domain} mount={mount} />
-            ))}
-          </ul>
-          <p className="border-t border-border px-4 py-3 text-12 text-pretty text-fg-muted">
-            {t("runtime.mounts.note")}
-          </p>
-        </>
-      )}
+          <>
+            <ul
+              aria-label={t("runtime.mounts.listLabel", { domain })}
+              className="flex flex-col divide-y divide-border"
+            >
+              {data.mounts.map((mount) => (
+                <MountRow key={mount.target} domain={domain} mount={mount} />
+              ))}
+            </ul>
+            <p className="border-t border-border px-4 py-3 text-12 text-pretty text-fg-muted">
+              {t("runtime.mounts.note")}
+            </p>
+          </>
+        )}
+      </Card>
       {adding !== null ? (
         <MountDialog
           domain={domain}
@@ -535,7 +547,7 @@ function MountsCard({ domain }: { domain: string }) {
           }}
         />
       ) : null}
-    </Card>
+    </Section>
   );
 }
 
@@ -545,13 +557,18 @@ export function MountsSettings() {
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.mounts", app.domain);
   const headerIcon = useSubsectionIcon("runtime.nav.mounts");
+  if (hasUnit(app) && app.app_type !== "docker-compose") {
+    return (
+      <MountsSection
+        domain={app.domain}
+        title={t("runtime.nav.mounts")}
+        icon={headerIcon}
+      />
+    );
+  }
   return (
     <Section title={t("runtime.nav.mounts")} {...headerIcon}>
-      {hasUnit(app) && app.app_type !== "docker-compose" ? (
-        <MountsCard domain={app.domain} />
-      ) : (
-        <InlineMessage tone="info">{t("runtime.mounts.cannot")}</InlineMessage>
-      )}
+      <InlineMessage tone="info">{t("runtime.mounts.cannot")}</InlineMessage>
     </Section>
   );
 }

@@ -1,0 +1,1 @@
+import{n as e}from"./TextLink-s6_Tzuwc.js";var t=e(`inline`);export{t};

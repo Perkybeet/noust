@@ -245,7 +245,6 @@ export const runtime: Catalog<typeof en> = {
     deviceInvalid: "{device} no es un dispositivo que Noust pueda permitir: usa una ruta bajo /dev o un grupo como char-drm.",
   },
   mounts: {
-    title: "Montajes",
     description:
       "Archivos y carpetas que recibe una aplicación además de su repositorio: un archivo de configuración que no está en git, guardado una vez y encontrado por cada versión, o una carpeta del servidor enlazada en un contenedor.",
     listLabel: "Montajes de {domain}",

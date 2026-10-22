@@ -81,7 +81,7 @@ export const overview: Catalog<typeof en> = {
       label: "Actualizaciones del sistema",
       pending: { one: "{count} pendiente", other: "{count} pendientes" },
       upToDate: "Al día",
-      notChecked: "Sin comprobar todavía",
+      notChecked: "Sin comprobar",
       unsupported: "No disponible",
       unsupportedDetail: "No compatible con este sistema",
       security: { one: "{count} de seguridad", other: "{count} de seguridad" },

@@ -79,7 +79,7 @@ export const overview = {
       label: "System updates",
       pending: { one: "{count} pending", other: "{count} pending" },
       upToDate: "Up to date",
-      notChecked: "Not checked yet",
+      notChecked: "Not checked",
       unsupported: "Not available",
       unsupportedDetail: "Unsupported on this system",
       security: { one: "{count} security update", other: "{count} security updates" },

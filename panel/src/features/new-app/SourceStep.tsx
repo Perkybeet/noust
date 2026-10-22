@@ -411,7 +411,8 @@ export function SourceStep({
               <div>
                 <Button
                   size="sm"
-                  variant="ghost"
+                  variant="secondary"
+                  icon={<OBJECT_ICONS.app aria-hidden="true" />}
                   onClick={() => {
                     setWorkspaces(true);
                   }}

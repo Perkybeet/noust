@@ -233,7 +233,7 @@ export const fleet = {
       certificatesDetail: "Due within 30 days",
       updates: "Noust updates",
       updatesAvailable: { one: "{count} to update", other: "{count} to update" },
-      updatesNone: "Every Noust up to date",
+      updatesNone: "All up to date",
       reboots: { one: "{count} waits for a restart", other: "{count} wait for a restart" },
       noReboots: "No restart pending",
       attention: "Needs attention",

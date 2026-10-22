@@ -7077,7 +7077,7 @@
     "one": "{count} à mettre à jour",
     "other": "{count} à mettre à jour"
   },
-  "fleet.summary.figures.updatesNone": "Tous les Noust sont à jour",
+  "fleet.summary.figures.updatesNone": "Tous à jour",
   "fleet.summary.figures.reboots": {
     "one": "{count} attend un redémarrage",
     "other": "{count} attendent un redémarrage"
@@ -11033,7 +11033,6 @@
   "runtime.tuning.cpusSyntax": "Écrivez les CPU en nombres, plages et virgules : 0-3 ou 0,2.",
   "runtime.tuning.cpusMissing": "Le CPU {cpu} n'existe pas : ce serveur en a {cores}, numérotés à partir de 0.",
   "runtime.tuning.deviceInvalid": "{device} n'est pas un périphérique que Noust peut autoriser : utilisez un chemin sous /dev ou un groupe comme char-drm.",
-  "runtime.mounts.title": "Montages",
   "runtime.mounts.description": "Les fichiers et dossiers qu'une application reçoit en plus de son dépôt : un fichier de configuration qui n'est pas dans git, conservé une fois et retrouvé par chaque release, ou un dossier du serveur lié dans un conteneur.",
   "runtime.mounts.listLabel": "Montages de {domain}",
   "runtime.mounts.loading": "Chargement des montages",

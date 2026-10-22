@@ -1,0 +1,1 @@
+import{nn as e}from"./useNode-CN-dF-Z7.js";import{t}from"./_name-vVF05ulC.js";import{t as n}from"./ServiceLayout-BdpmENiZ.js";var r=e();function i(){let{name:e}=t.useParams();return(0,r.jsx)(n,{name:e},e)}export{i as component};

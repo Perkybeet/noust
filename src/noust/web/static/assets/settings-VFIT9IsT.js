@@ -1,0 +1,1 @@
+import{nn as e}from"./useNode-CN-dF-Z7.js";import{n as t}from"./Match-D0oyQZAv.js";import{t as n}from"./SettingsShell-C9UI-e2N.js";var r=e();function i(){return(0,r.jsx)(n,{children:(0,r.jsx)(t,{})})}export{i as component};
