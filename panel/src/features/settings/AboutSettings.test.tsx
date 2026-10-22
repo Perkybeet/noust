@@ -31,22 +31,21 @@ describe("Settings > About", () => {
         current_version: "2.0.0",
         latest_version: "2.1.0",
         has_update: true,
-        update_command: "pip install --upgrade wasm-cli",
-        release_url: "https://github.com/Perkybeet/wasm/releases/tag/v2.1.0",
+        update_command: "pip install --upgrade noust",
+        release_url: "https://github.com/Perkybeet/noust/releases/tag/v2.1.0",
       }),
     );
     const { container } = renderConsole("/settings/about");
     const version = await screen.findByRole("region", { name: "Version" });
     expect(await within(version).findByText("Version 2.1.0 can be installed")).toBeInTheDocument();
     expect(within(version).getByText("2.0.0")).toBeInTheDocument();
-    expect(within(version).getByText("pip install --upgrade wasm-cli")).toBeInTheDocument();
+    expect(within(version).getByText("pip install --upgrade noust")).toBeInTheDocument();
     expect(within(version).getByRole("link", { name: /What is new in 2.1.0/ })).toHaveAttribute(
       "href",
-      "https://github.com/Perkybeet/wasm/releases/tag/v2.1.0",
+      "https://github.com/Perkybeet/noust/releases/tag/v2.1.0",
     );
-    // How this server updates, the rename, and the licence.
+    // How this server updates, and the licence.
     expect(await screen.findByText("the apt repository")).toBeInTheDocument();
-    expect(screen.getByText(/Noust is the new name of WASM since version 3\.0/)).toBeInTheDocument();
     expect(screen.getByText("AGPL-3.0-or-later")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /github\.com\/Perkybeet\/noust/ })).toHaveAttribute("href", "https://github.com/Perkybeet/noust");
     expect(screen.getByText("noust config show")).toBeInTheDocument();
@@ -147,7 +146,7 @@ describe("Settings > About", () => {
         current_version: "2.0.0",
         latest_version: "2.1.0",
         has_update: true,
-        update_command: "pip install --upgrade wasm-cli",
+        update_command: "pip install --upgrade noust",
         release_url: "javascript:alert(1)",
       }),
     );
@@ -164,8 +163,8 @@ describe("Settings > About", () => {
         has_update: false,
         published_version: "2.3.0",
         update_state: "on_the_way",
-        update_command: "sudo apt update && sudo apt install --only-upgrade wasm",
-        release_url: "https://github.com/Perkybeet/wasm/releases/tag/v2.3.0",
+        update_command: "sudo apt update && sudo apt install --only-upgrade noust",
+        release_url: "https://github.com/Perkybeet/noust/releases/tag/v2.3.0",
       }),
     );
     renderConsole("/settings/about");
@@ -313,8 +312,8 @@ describe("Settings > About in Spanish", () => {
         current_version: "2.0.0",
         latest_version: "2.1.0",
         has_update: true,
-        update_command: "pip install --upgrade wasm-cli",
-        release_url: "https://github.com/Perkybeet/wasm/releases/tag/v2.1.0",
+        update_command: "pip install --upgrade noust",
+        release_url: "https://github.com/Perkybeet/noust/releases/tag/v2.1.0",
       }),
     );
     const { container } = renderConsole("/settings/about");
@@ -322,7 +321,7 @@ describe("Settings > About in Spanish", () => {
     expect(await within(version).findByText("Se puede instalar la versión 2.1.0")).toBeInTheDocument();
     expect(within(version).getByRole("link", { name: /Novedades de 2.1.0/ })).toHaveAttribute(
       "href",
-      "https://github.com/Perkybeet/wasm/releases/tag/v2.1.0",
+      "https://github.com/Perkybeet/noust/releases/tag/v2.1.0",
     );
     expect(screen.getByRole("region", { name: "Esta instalación" })).toBeInTheDocument();
     expect(screen.getByText("noust config show")).toBeInTheDocument();

@@ -12,7 +12,7 @@ import { INTERIM_ROWS as INTERIM, REDIRECT_ROWS as REDIRECTS } from "../src/app/
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
 /** The seeded machine's names for the parameters of a path. */
-const SAMPLE: Readonly<Record<string, string>> = { $domain: "shop.example.net", $name: "wasm-shop-example-net" };
+const SAMPLE: Readonly<Record<string, string>> = { $domain: "shop.example.net", $name: "shop-example-net" };
 
 const address = (pattern: string): string => pattern.replace(/\$\w+/g, (param) => SAMPLE[param] ?? "sample");
 

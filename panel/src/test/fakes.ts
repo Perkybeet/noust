@@ -160,7 +160,7 @@ export const APPS = [
 
 /** The services of the fake machine, as GET /api/services lists them. */
 export const SERVICES: ServiceList["services"] = [
-  { name: "wasm-shop", description: "node /var/www/shop/server.js", active: true, enabled: true, status: "running", pid: 4821, uptime: "Thu 2026-09-25 08:00:00 UTC", memory: "58720256", managed: true },
+  { name: "shop-web", description: "node /var/www/shop/server.js", active: true, enabled: true, status: "running", pid: 4821, uptime: "Thu 2026-09-25 08:00:00 UTC", memory: "58720256", managed: true },
 ];
 
 /** The cron jobs of the fake machine, as GET /api/cron lists them. */
@@ -168,7 +168,7 @@ export const CRON_JOBS: CronJobList["jobs"] = [
   {
     name: "nightly-backup",
     command: "noust backup create shop.example.com",
-    user: "wasm",
+    user: "shop",
     working_directory: "/var/www/shop",
     app_domain: "shop.example.com",
     service: "",
@@ -246,7 +246,7 @@ export const NETWORK: NetworkInfo = {
 
 export const PROCESSES: ProcessList = {
   total: 1,
-  processes: [{ pid: 4821, name: "node", cpu_percent: 2.1, memory_percent: 3.4, memory_mb: 210.5, status: "running", user: "wasm", command: "node server.js" }],
+  processes: [{ pid: 4821, name: "node", cpu_percent: 2.1, memory_percent: 3.4, memory_mb: 210.5, status: "running", user: "shop", command: "node server.js" }],
 };
 
 /** The routes every signed-in page needs. */

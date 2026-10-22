@@ -181,7 +181,7 @@ describe("a team's page", () => {
   it("invites a person into the team through the accounts' invitation, with their role in it", async () => {
     const { user, backend } = teamAt("/teams/acme/members", {
       "POST /api/auth/invitations": () =>
-        json(201, { code: "wasm_inv_abc", expires_in: 86_400, account: { username: "pablo", role: "viewer" } }),
+        json(201, { code: "noust_inv_abc", expires_in: 86_400, account: { username: "pablo", role: "viewer" } }),
     });
     await user.click(await screen.findByRole("button", { name: "Invite a person" }));
     const dialog = await screen.findByRole("dialog", { name: "Invite a person to Acme Corp" });

@@ -7,7 +7,7 @@ import type { Plugin, ProxyOptions } from "vite";
 import { mockBackend } from "./mock/backend.ts";
 
 // The console talks to the real FastAPI backend in development. Point VITE_BACKEND at any
-// running `wasm web` instance; the default is the panel's own default bind address.
+// running `noust web` instance; the default is the panel's own default bind address.
 const DEFAULT_BACKEND = "http://127.0.0.1:8080";
 
 /**
@@ -27,7 +27,7 @@ const CRITICAL_FONTS = [/\/mona-sans-latin-wdth-normal-[\w-]+\.woff2$/, /\/jetbr
  */
 function preloadFonts(): Plugin {
   return {
-    name: "wasm-preload-fonts",
+    name: "noust-preload-fonts",
     apply: "build",
     transformIndexHtml: {
       order: "post",

@@ -95,7 +95,7 @@ function columnsFor(t: T, mixed: boolean, memory: boolean, appOf: ((service: Ser
             hideBelow: "sm" as const,
             // Words, not colour: nothing here is a state or something to act on.
             cell: (row: ServiceInfo) => (
-              <span className={row.managed ? "text-fg" : "text-fg-muted"}>{row.managed ? t("services.table.wasm") : t("services.table.foreign")}</span>
+              <span className={row.managed ? "text-fg" : "text-fg-muted"}>{row.managed ? t("services.table.byNoust") : t("services.table.foreign")}</span>
             ),
             sortValue: (row: ServiceInfo) => (row.managed ? 0 : 1),
           },

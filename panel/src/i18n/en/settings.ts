@@ -805,9 +805,6 @@ export const settings = {
     project: {
       title: "Project",
     },
-    rename: {
-      body: "Noust is the new name of WASM since version 3.0. The {wasm} command still works as {noust} throughout 3.x, and a server that ran WASM keeps its applications, settings and history.",
-    },
     legal: {
       title: "Licence and warranty",
       copyright: "© 2024-2026 Yago López Prado",

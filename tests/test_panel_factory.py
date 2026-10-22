@@ -33,7 +33,7 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
         A store of its own.
     """
     NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "wasm.db")
+    instance = NoustStore(tmp_path / "noust.db")
     try:
         yield instance
     finally:

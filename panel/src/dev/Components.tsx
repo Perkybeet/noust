@@ -190,7 +190,7 @@ function Forms() {
           <Field label="Repository">
             <Input mono prefix="https://" placeholder="github.com/you/app.git" />
           </Field>
-          <Field label="Port" error="Port 3004 is already used by wasm-shop.example.dev.service.">
+          <Field label="Port" error="Port 3004 is already used by shop-example-dev.service.">
             <Input mono defaultValue="3004" inputMode="numeric" />
           </Field>
           <Field label="Branch" optional>
@@ -341,7 +341,7 @@ function Overlays() {
                       Object.assign(new Error("systemctl stop failed"), {
                         hint: "The unit did not stop within 90 seconds. Check what it is waiting on, then stop it again.",
                         detail:
-                          "Job for wasm-worker.example.dev.service canceled.\nwasm-worker.example.dev.service: State 'stop-sigterm' timed out. Killing.",
+                          "Job for worker-example-dev.service canceled.\nworker-example-dev.service: State 'stop-sigterm' timed out. Killing.",
                       }),
                     );
                   }, 700),
@@ -682,7 +682,7 @@ function Attributes() {
                 <Mono>/var/www/apps/shop/current</Mono>
                 <Mono>:3004</Mono>
                 <Mono tone="muted">a1b2c3d</Mono>
-                <Mono>wasm-shop.example.dev.service</Mono>
+                <Mono>shop-example-dev.service</Mono>
               </div>
             </Item>
             <Item label="Links">

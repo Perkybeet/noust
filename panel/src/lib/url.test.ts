@@ -4,7 +4,7 @@ import { isHttpUrl } from "./url";
 
 describe("isHttpUrl", () => {
   it("accepts absolute http and https URLs", () => {
-    expect(isHttpUrl("https://github.com/Perkybeet/wasm")).toBe(true);
+    expect(isHttpUrl("https://github.com/Perkybeet/noust")).toBe(true);
     expect(isHttpUrl("http://internal.example.com/releases")).toBe(true);
   });
 

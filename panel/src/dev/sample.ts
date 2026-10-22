@@ -60,7 +60,7 @@ const BUILD_LOG = [
   "└ ƒ /api/orders                            142 B         102 kB",
   "",
   `${ESC}[1m${ESC}[36m==>${ESC}[0m ${ESC}[1mActivating release 20260925-143012-a1b2c3d${ESC}[0m`,
-  "Restarting wasm-shop.example.dev.service",
+  "Restarting shop-example-dev.service",
   `${ESC}[31mError:${ESC}[0m health check GET http://127.0.0.1:3004/ returned 502 after 30s`,
   `${ESC}[31m${ESC}[1mRolled back${ESC}[0m to release 20260924-101500-9f8e7d6. The previous version is serving traffic.`,
 ];
@@ -73,7 +73,7 @@ export const SAMPLE_BUILD_LOG: LogLine[] = BUILD_LOG.map((text, index) => {
 });
 
 const JOURNAL = [
-  "Started wasm-shop.example.dev.service - shop.example.dev (Next.js).",
+  "Started shop-example-dev.service - shop.example.dev (Next.js).",
   "▲ Next.js 15.5.2",
   "- Local:        http://127.0.0.1:3004",
   "✓ Ready in 412ms",

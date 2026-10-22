@@ -305,15 +305,11 @@ function LegalNotice() {
   );
 }
 
-/** Where the project lives, its legal notices, and the name it had before. */
+/** Where the project lives and its legal notices. */
 function ProjectSection() {
   const t = useT();
   return (
-    <Section
-      level={3}
-      title={t("settings.about.project.title")}
-      description={t.rich("settings.about.rename.body", { wasm: <Mono key="wasm">wasm</Mono>, noust: <Mono key="noust">noust</Mono> })}
-    >
+    <Section level={3} title={t("settings.about.project.title")}>
       <Card padding="sm">
         <ul className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
           {links(t).map((link) => (

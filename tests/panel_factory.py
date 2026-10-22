@@ -204,8 +204,8 @@ def seed_panel_state(
             store.create_service(
                 Service(
                     app_id=app.id,
-                    name=f"wasm-{domain.replace('.', '-')}",
-                    unit_file=f"/etc/systemd/system/wasm-{domain}.service",
+                    name=domain.replace(".", "-"),
+                    unit_file=f"/etc/systemd/system/{domain.replace('.', '-')}.service",
                     working_directory=f"/var/www/apps/{domain}",
                     command="/usr/bin/node server.js",
                     status="active" if index % 3 else "inactive",

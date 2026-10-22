@@ -119,7 +119,7 @@ describe("configuration test failures", () => {
   it("finds the line nginx and Apache point at", () => {
     expect(
       failingLine(
-        'nginx: [emerg] unexpected "}" in /tmp/wasm-validate-1a2b/example.com:57\nnginx: configuration file /tmp/wasm-validate-1a2b/wasm-validate.conf test failed\n',
+        'nginx: [emerg] unexpected "}" in /tmp/noust-validate-1a2b/example.com:57\nnginx: configuration file /tmp/noust-validate-1a2b/noust-validate.conf test failed\n',
       ),
     ).toBe(57);
     expect(failingLine("AH00526: Syntax error on line 12 of /etc/apache2/sites-enabled/example.com.conf:\nInvalid command 'Foo'")).toBe(12);

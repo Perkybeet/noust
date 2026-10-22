@@ -126,7 +126,7 @@ export function classifyLinkCode(pasted: string): LinkCodeReading {
   }
   if (OTHER_VERSION.test(value)) return { ok: false, problem: "newer" };
   if (value.includes("noust-join:")) return { ok: false, problem: "joinCode" };
-  if (/(?:^|\s)(?:noust|wasm)_tok_/.test(value)) return { ok: false, problem: "apiToken" };
-  if (/(?:^|\s)(?:noust|wasm)_[A-Za-z0-9_-]{8,}/.test(value)) return { ok: false, problem: "consoleToken" };
+  if (/(?:^|\s)noust_tok_/.test(value)) return { ok: false, problem: "apiToken" };
+  if (/(?:^|\s)noust_[A-Za-z0-9_-]{8,}/.test(value)) return { ok: false, problem: "consoleToken" };
   return { ok: false, problem: "wrongPrefix" };
 }

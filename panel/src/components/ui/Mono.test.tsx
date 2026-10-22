@@ -20,7 +20,7 @@ describe("Mono", () => {
   it("has no accessibility violations", async () => {
     const { container } = render(
       <p>
-        Listening on <Mono>:3004</Mono> as <Mono tone="muted">wasm-shop.service</Mono>
+        Listening on <Mono>:3004</Mono> as <Mono tone="muted">shop-web.service</Mono>
       </p>,
     );
     await expectNoAxeViolations(container);

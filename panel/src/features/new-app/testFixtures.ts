@@ -10,7 +10,7 @@ export const EXPORT: AppExportDocument = {
   format: "noust-app",
   version: 1,
   exported_at: "2026-09-28T10:00:00+00:00",
-  wasm_version: "2.3.0",
+  noust_version: "3.4.0",
   secrets_included: false,
   app: {
     domain: "shop.example.com",

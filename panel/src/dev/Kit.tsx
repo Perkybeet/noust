@@ -35,8 +35,8 @@ function Notices() {
     >
       <BothThemes>
         <div className="flex flex-col gap-3">
-          <Notice title="Noust was called WASM until 3.0">
-            Old commands keep working through the wasm alias.
+          <Notice title="The update restarts the console">
+            Applications keep serving while it does.
           </Notice>
           <Notice
             tone="success"
