@@ -77,6 +77,7 @@ const NAV: { title: string; links: [string, string][] }[] = [
       ["k40-long-settings", "Long settings list"],
       ["k40-dashboard-tabs", "Dashboard tabs"],
       ["k40-table", "A table that waits"],
+      ["k40-icons", "Icons of objects"],
     ],
   },
   {
