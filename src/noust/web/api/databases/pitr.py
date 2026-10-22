@@ -26,7 +26,7 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.databases.common import queue, service
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
 from noust.web.jobs import JobType, database_pitr_job
-from noust.web.pydantic_compat import dump_model
+from noust.web.pydantic_compat import dump_model, max_items_validator
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -61,8 +61,10 @@ class PitrEnableRequest(BaseModel):
     base_every_hours: int = Field(default=168, ge=1, le=8784)
     retention_count: int | None = Field(default=None, ge=1, le=100_000)
     retention_days: int | None = Field(default=7, ge=1, le=100_000)
-    destinations: list[PitrDestinationRequest] = Field(default_factory=list, max_length=10)
+    destinations: list[PitrDestinationRequest] = Field(default_factory=list)
     confirm: bool = False
+
+    _destinations_bound = max_items_validator("destinations", 10)
 
 
 class PitrDisableRequest(BaseModel):

@@ -35,6 +35,7 @@ from noust.web.api.databases.common import ActionResponse, queue, service
 from noust.web.api.databases.jobs import instance_job
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
 from noust.web.jobs import JobType
+from noust.web.pydantic_compat import max_items_validator
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -51,6 +52,10 @@ class InitScript(BaseModel):
 
     name: str = Field(..., max_length=64)
     content: str = Field(..., min_length=1, max_length=1024 * 1024)
+
+
+#: How many SQL scripts an engine may be given to run the first time it starts.
+MAX_INIT_SCRIPTS = 10
 
 
 class InstanceRequest(BaseModel):
@@ -92,11 +97,13 @@ class InstanceRequest(BaseModel):
     memory_mb: int | None = Field(default=None, ge=1, le=4194304)
     port: int | None = Field(default=None, ge=1, le=65535)
     variant: str | None = Field(default=None, max_length=24)
-    init_scripts: list[InitScript] = Field(default_factory=list, max_length=10)
+    init_scripts: list[InitScript] = Field(default_factory=list)
     image: str | None = Field(default=None, max_length=255)
     command: list[str] | None = Field(default=None, max_length=64)
     args: list[str] | None = Field(default=None, max_length=64)
     accept_untested: bool = False
+
+    _init_scripts_bound = max_items_validator("init_scripts", MAX_INIT_SCRIPTS)
 
     def scripts(self) -> list[tuple[str, bytes]]:
         """
