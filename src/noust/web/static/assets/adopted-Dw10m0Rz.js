@@ -1,0 +1,1 @@
+function e(e){return e?.app_type===`adopted`}export{e as t};

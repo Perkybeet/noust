@@ -1,0 +1,1 @@
+import{n as e}from"./Notice-B6vc4jYX.js";import{n as t,t as n}from"./objectIcons-Bhq_byko.js";var r={...n,...t,remove:e.delete,add:e.add};export{r as t};

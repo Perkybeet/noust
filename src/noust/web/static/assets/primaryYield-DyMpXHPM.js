@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-CbXtAM7H.js";import{er as t}from"./lucide-CRVmd6kt.js";var n=e(t(),1),r=0,i=new Set;function a(){for(let e of i)e()}function o(e){return i.add(e),()=>{i.delete(e)}}function s(e){(0,n.useEffect)(()=>{if(e)return r+=1,a(),()=>{--r,a()}},[e])}function c(){return(0,n.useSyncExternalStore)(o,()=>r>0,()=>!1)}export{s as n,c as t};

@@ -1,1 +1,0 @@
-import{ur as e}from"./IconButton-DWQyVbdH.js";import{h as t}from"./auth-CVN1FGOf.js";function n(n){let{data:r}=e({...t(),select:e=>e.permissions});return r?.includes(n)??!1}export{n as t};

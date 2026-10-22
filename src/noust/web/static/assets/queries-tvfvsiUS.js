@@ -1,1 +1,0 @@
-import{lr as e,p as t,ur as n}from"./IconButton-DWQyVbdH.js";import{h as r}from"./auth-CVN1FGOf.js";var i={status:[`terminal`,`status`]},a=()=>e({queryKey:i.status,queryFn:({signal:e})=>t(`get`,`/api/terminal/status`,{signal:e}),staleTime:15e3});function o(e){let{data:t}=n({...r(),select:e=>e.permissions});return t===void 0?void 0:t.includes(e)}export{o as n,a as t};

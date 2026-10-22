@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-CbXtAM7H.js";import{er as t}from"./lucide-CRVmd6kt.js";var n=e(t(),1);function r(e,t){let r=(0,n.useRef)(t);(0,n.useEffect)(()=>{r.current=t}),(0,n.useEffect)(()=>{e&&r.current()},[e])}export{r as t};

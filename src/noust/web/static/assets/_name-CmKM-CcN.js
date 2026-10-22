@@ -1,0 +1,1 @@
+import{nn as e}from"./useNode-y-IjFevg.js";import{t}from"./_name-BRG773pD.js";import{t as n}from"./ServiceLayout-Dgjd1ikf.js";var r=e();function i(){let{name:e}=t.useParams();return(0,r.jsx)(n,{name:e},e)}export{i as component};

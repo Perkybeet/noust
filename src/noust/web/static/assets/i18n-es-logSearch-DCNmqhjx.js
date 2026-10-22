@@ -1,0 +1,1 @@
+var e={nav:{label:`Registros`,keywords:`registros logs búsqueda journal grep errores líneas aplicaciones contenedores salida encontrar mensaje`}};export{e as logSearch};
