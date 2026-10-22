@@ -1,7 +1,6 @@
 {
   "$comment": "Written by `npm run design:baseline` (styles/design-structure.test.ts); may only go down. rules: count per rule and file, found in the syntax tree (styles/designStructure.ts).",
   "rules": {
-    "action-dialog": {},
     "badge-state": {
       "features/backups/noust/MigrationReport.tsx": 1,
       "features/backups/RestoreDrills.tsx": 2,
@@ -47,7 +46,6 @@
       "features/domains/InternalAuthorityDialog.tsx": 1,
       "features/domains/SiteConfigPage.tsx": 1,
       "features/new-app/NewAppWizard.tsx": 1,
-      "features/server/ActionDialog.tsx": 1,
       "features/settings/probes/StatusPageSection.tsx": 1,
       "features/settings/TwoFactorSection.tsx": 1
     },
@@ -346,7 +344,6 @@
       "features/new-app/RemoteImport.tsx": 2,
       "features/new-app/WorkspacesDialog.tsx": 2,
       "features/promotion/PromoteDialog.tsx": 1,
-      "features/server/ActionDialog.tsx": 1,
       "features/settings/alerts/RuleDrawer.tsx": 1,
       "features/settings/alerts/RuleList.tsx": 1,
       "features/settings/ChannelRouting.tsx": 1,

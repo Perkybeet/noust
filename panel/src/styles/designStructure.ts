@@ -458,13 +458,6 @@ export const STRUCTURE_RULES: readonly StructureRule[] = [
       }),
   },
   {
-    id: "action-dialog",
-    fix: "Use ConfirmDialog (size, ready, explainError): ActionDialog is its twin and goes.",
-    applies: (path) => path !== "features/server/ActionDialog.tsx" && !path.startsWith("dev/"),
-    hint: /ActionDialog/,
-    find: (file) => openings(file).filter((node) => isTag(node, "ActionDialog")),
-  },
-  {
     id: "danger-button-outside-confirm",
     fix: "A destructive last step is ConfirmDialog (friction simple or type) or DangerZone; a danger Button written by hand is a second confirmation component.",
     applies: (path) => path !== "components/ui/ConfirmDialog.tsx" && path !== "components/page/DangerZone.tsx" && !path.startsWith("dev/"),
@@ -703,7 +696,7 @@ export function messageLookup(tree: unknown): MessageOf {
 }
 
 /** The components the 4.0 wave moves, and the attribute it counts beside them. */
-export const UX_TAGS = ["Notice", "FeatureState", "ActionDialog", "Switch", "SaveBar", "LoadingRegion", "QueryState", "ConfirmDialog", "Badge"] as const;
+export const UX_TAGS = ["Notice", "FeatureState", "Switch", "SaveBar", "LoadingRegion", "QueryState", "ConfirmDialog", "Badge"] as const;
 export const UX_COLUMNS = [...UX_TAGS, "aria-busy"] as const;
 export type UxColumn = (typeof UX_COLUMNS)[number];
 

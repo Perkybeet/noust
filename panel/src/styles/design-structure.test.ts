@@ -154,11 +154,11 @@ describe("what the structural rules count", () => {
 
   it("skips a line excused with a known rule and a reason, on that line or the one above", () => {
     const source = [
-      "// design-exception: action-dialog the old dialog stays until its page moves",
-      "export const A = () => <ActionDialog title=\"x\" />;",
-      "export const B = () => <ActionDialog title=\"y\" />;",
+      "// design-exception: hand-aria-busy the kit cannot draw this one yet",
+      'export const A = () => <div aria-busy="true" />;',
+      'export const B = () => <div aria-busy="true" />;',
     ].join("\n");
-    expect(countStructure("features/server/Page.tsx", source)["action-dialog"]).toBe(1);
+    expect(countStructure("features/server/Page.tsx", source)["hand-aria-busy"]).toBe(1);
   });
 
   it("tallies each component of the table once per use, and leaves out what is not the console's", () => {

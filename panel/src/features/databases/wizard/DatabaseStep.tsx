@@ -12,7 +12,7 @@ import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { ChoiceCards } from "../../new-app/ChoiceCards";
+import { ChoiceCards } from "../../../components/ui/ChoiceCards";
 import type { CreateAppBody, Step } from "../../new-app/wizard";
 import { provisionableEngines } from "../../app/database/CreateLinkDialog";
 import { can, engineName, isContainer, sortEngines } from "../engines";

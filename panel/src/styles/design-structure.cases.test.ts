@@ -111,12 +111,6 @@ const CASES: Readonly<Record<string, Case>> = {
     bad: 1,
     good: 'export const A = () => <EmptyState variant="inline" title={t("x.list.empty")} />;',
   },
-  "action-dialog": {
-    path: "features/server/Page.tsx",
-    source: 'export const A = () => <ActionDialog title="x" />;',
-    bad: 1,
-    good: 'export const A = () => <ConfirmDialog friction="simple" title="x" />;',
-  },
   "danger-button-outside-confirm": {
     path: "features/x/Page.tsx",
     source: 'export const A = () => <Button variant={on ? "danger" : "primary"}>x</Button>;',
