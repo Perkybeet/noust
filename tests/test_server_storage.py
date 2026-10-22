@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Tests for the storage manager: real mounts, what takes the space, and the closed
 list of things that can be cleaned.

@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 The upgrade from Noust 3.3.1 to this tree, on a server that carries every legacy name.
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 Yago Lopez Prado
+// Copyright (c) 2024-2026 Yago López Prado
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Command terraform-provider-noust is the Terraform and OpenTofu provider for Noust servers.

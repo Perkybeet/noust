@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Shared pieces of the fleet tests: keys, tokens, a fake node API, a wired manager.
 

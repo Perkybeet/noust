@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Generate the man page from the command tree.
 
@@ -209,7 +212,8 @@ def build() -> str:
         ".PP",
         "https://github.com/Perkybeet/noust/blob/main/LICENSE",
         ".SH AUTHOR",
-        "Yago Lopez Prado",
+        # roff spells the accent with an escape, so the page reads the same on a terminal without UTF-8.
+        "Yago L\\('opez Prado",
     ]
 
     return "\n".join(header + body + footer) + "\n"

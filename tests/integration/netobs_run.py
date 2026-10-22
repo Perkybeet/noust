@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Real-software harness for the network and monitoring changes of Noust 4.0: the web server that
 falls, the access log with the time of each request, the ports a Compose stack holds, a

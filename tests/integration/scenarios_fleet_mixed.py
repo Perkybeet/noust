@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Mixed fleets: a central of this tree with a node of 3.3.1, and a node of this tree under a central of 3.3.1.
 

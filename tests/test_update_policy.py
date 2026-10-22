@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 The limits of Noust updating itself unattended (checklist N-28): a window, days, a channel,
 and a major version that no channel takes.

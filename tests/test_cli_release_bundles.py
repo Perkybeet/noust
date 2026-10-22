@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 ``noust releases bundle`` and ``noust releases receive`` (checklist A-49): what the commands take,
 print and refuse. The mechanism is ``tests/test_release_bundles.py``; here the functions are

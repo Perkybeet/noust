@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 The journal's query language (checklist M-40): what is read, what it means, what it refuses, what
 journalctl is asked for, and the entries around one entry.

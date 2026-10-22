@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Deploying an application with ``git push`` (checklist A-23): turning it on and off, and who may push.
 

@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Which server and location answer a request: nginx's algorithm, explained step by step."""
 
 from __future__ import annotations
