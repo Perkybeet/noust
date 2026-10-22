@@ -561,6 +561,9 @@ git push && git push origin v1.0.0
 `rpm/`, the `.dsc` in `obs/` and both changelogs. CI runs `--check` and refuses to publish on a mismatch.
 Do not edit those files by hand.
 
+The README opens with a note about the newest minor release only: a minor replaces it, never stacks
+another above it. Earlier releases are in their changelogs (`docs/CHANGELOG-<version>.md`).
+
 The tag is signed with the maintainer's SSH key (`git config gpg.format ssh`, and the same public
 key registered on GitHub as a signing key, so the tag shows as verified): `SECURITY.md` promises it
 from 4.0.0 on.
