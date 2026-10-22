@@ -67,6 +67,13 @@ import { deploymentStatusWord, shortCommit, triggerWords } from "./words";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { ArrivalRow } from "../ArrivalRow";
 
+/**
+ * How much of the history a deployment's page reads: the whole of it, as the Deployments tab does. A window of the newest twenty
+ * leaves an old failed deploy with no earlier success in it, and the page then said that nothing was serving: that this
+ * was the first deploy.
+ */
+const HISTORY_WINDOW = 200;
+
 const RUNNING = new Set(["queued", "running"]);
 
 /** Bytes of the captured log read by default: the backend's own default tail. */
@@ -506,7 +513,7 @@ function ServingLine({
   phase: PhaseView | null;
   t: T;
 }) {
-  const history = useQuery(deploymentsQuery({ domain, limit: 20 }));
+  const history = useQuery(deploymentsQuery({ domain, limit: HISTORY_WINDOW }));
   const names = useQuery(appDomainsQuery(domain));
   const certs = useQuery(certsQuery());
   const app = useQuery(appQuery(domain));
@@ -619,7 +626,7 @@ function FailureBlock({
 
 /** Whether this is the first deploy the history has seen: nothing older, and nothing pruned. */
 function useIsFirst(domain: string, deployment: Deployment): boolean {
-  const history = useQuery(deploymentsQuery({ domain, limit: 20 }));
+  const history = useQuery(deploymentsQuery({ domain, limit: HISTORY_WINDOW }));
   const rollout = useQuery({ ...rolloutQuery(domain), retry: false });
   if (history.data === undefined) return false;
   const keep = rollout.data?.history_keep_effective ?? 20;
@@ -644,7 +651,7 @@ function Deploy({
   const job = useDeploymentJob(deployment);
   const actions = useDeploymentActions(domain, deployment);
   const app = useQuery(appQuery(domain));
-  const history = useQuery(deploymentsQuery({ domain, limit: 20 }));
+  const history = useQuery(deploymentsQuery({ domain, limit: HISTORY_WINDOW }));
   const first = useIsFirst(domain, deployment);
   const now = useNow(() => (running ? 1_000 : 3_600_000));
   // A static site is served as files: nothing answers a health check, so it has none.
