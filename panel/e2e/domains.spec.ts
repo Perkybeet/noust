@@ -40,7 +40,8 @@ test("an alias is added after DNS says it points here, and the certificate is ex
   await dialog.getByLabel("Domain").blur();
   expect((await lookup).status()).toBe(200);
   await expect(dialog.getByText(`${alias} points here`)).toBeVisible();
-  await expect(dialog.getByText("203.0.113.10").first()).toBeVisible();
+  // A name that points here needs no table of addresses to say so: the records are only offered when it does not.
+  await expect(dialog.getByRole("button", { name: "Show the records" })).toHaveCount(0);
   await stillness(page);
   await expectNoA11yViolations(page, "the DNS verdict");
 
@@ -72,6 +73,7 @@ test("a name that does not point here is added, and the failed order is shown in
   // Choosing the kind leaves the field, which is what asks DNS.
   await dialog.getByRole("radio", { name: /Redirect/ }).check();
   await expect(dialog.getByText(`${name} has no DNS record yet`)).toBeVisible();
+  await dialog.getByRole("button", { name: "Show the records" }).click();
   await expect(dialog.getByText("Nothing: no A or AAAA record")).toBeVisible();
   await dialog.getByRole("button", { name: "Add anyway" }).click();
   await expect(dialog).toBeHidden();
