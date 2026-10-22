@@ -116,7 +116,7 @@ export const alerts = {
     disks: {
       title: "Disks",
       description: "A disk is announced when its use passes the limit.",
-      threshold: { label: "Almost full at (%)", description: "A disk is announced when its use passes this percentage." },
+      threshold: { label: "Almost full at (%)" },
       check: { label: "Look every (seconds)", description: "0 looks at every scan, once a minute." },
       renotify: { label: "Repeat while it stays over (hours)", description: "0 sends one message for each time it crosses." },
     },

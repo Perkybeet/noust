@@ -115,7 +115,7 @@ export const alerts: Catalog<typeof en> = {
     disks: {
       title: "Discos",
       description: "Se anuncia un disco cuando su uso supera el límite.",
-      threshold: { label: "Casi lleno al (%)", description: "Se anuncia un disco cuando su uso supera este porcentaje." },
+      threshold: { label: "Casi lleno al (%)" },
       check: { label: "Mirar cada (segundos)", description: "0 los mira en cada pasada, una vez por minuto." },
       renotify: { label: "Repetir mientras siga por encima (horas)", description: "0 envía un mensaje cada vez que lo cruza." },
     },

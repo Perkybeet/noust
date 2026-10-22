@@ -53,7 +53,7 @@ export const CHECKS: readonly Check[] = [
     title: "alerts.thresholds.disks.title",
     description: "alerts.thresholds.disks.description",
     fields: [
-      { key: "disk_threshold", fallback: 90, decimal: true, label: "alerts.thresholds.disks.threshold.label", description: "alerts.thresholds.disks.threshold.description" },
+      { key: "disk_threshold", fallback: 90, decimal: true, label: "alerts.thresholds.disks.threshold.label" },
       { key: "disk_check_seconds", fallback: 0, label: "alerts.thresholds.disks.check.label", description: "alerts.thresholds.disks.check.description" },
       { key: "disk_renotify_hours", fallback: 0, label: "alerts.thresholds.disks.renotify.label", description: "alerts.thresholds.disks.renotify.description" },
     ],

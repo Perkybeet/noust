@@ -297,7 +297,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
                 <BaseMenu.Item
                   className={ITEM}
                   onClick={() => {
-                    void navigate({ to: "/settings/servers", search: { add: true, node: undefined } });
+                    void navigate({ to: "/fleet/servers", search: { add: true, node: undefined } });
                   }}
                 >
                   <Plus aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />

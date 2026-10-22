@@ -101,7 +101,7 @@ function EngineCell({ database, engines, t }: { database: Database; engines: rea
   );
   if (!container) return name;
   return (
-    <span className="flex min-w-0 flex-col">
+    <span className="flex min-w-0 max-w-64 flex-col">
       {name}
       <span className="flex min-w-0 items-center gap-1.5 text-12 text-fg-muted">
         <Mono tone="muted" truncate>
@@ -151,7 +151,7 @@ export function DatabasesTable({ databases, engines, policies, dumps, caption, r
     {
       id: "backups",
       header: t("databases.table.backups"),
-      width: "w-44",
+      width: "w-40",
       card: "status",
       sortValue: (database) => PROTECTION_RANK[databaseProtection(database, coveringPolicy(policies, database.engine, database.name)).protection],
       cell: (database) => {
@@ -162,7 +162,7 @@ export function DatabasesTable({ databases, engines, policies, dumps, caption, r
     {
       id: "engine",
       header: t("databases.table.engine"),
-      width: "w-60",
+      width: "w-56",
       sortValue: (database) => database.engine,
       cell: (database) => <EngineCell database={database} engines={engines} t={t} />,
     },
@@ -186,7 +186,7 @@ export function DatabasesTable({ databases, engines, policies, dumps, caption, r
     {
       id: "lastBackup",
       header: t("databases.table.lastBackup"),
-      width: "w-48",
+      width: "w-44",
       hideBelow: "sm",
       sortValue: (database) => (database.last_backup ? Date.parse(database.last_backup) : null),
       cell: (database) => {
