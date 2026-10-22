@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../../app/locale";
+import { PageServerContext } from "../../nodes/pageServer";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "./Button";
 import { Setting } from "./Setting";
@@ -159,6 +160,22 @@ describe("Setting", () => {
       await userEvent.click(screen.getByRole("button", { name: "Turn off the backup" }));
       expect(await screen.findByRole("alert")).toHaveTextContent("unit not found");
       expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    });
+
+    it("names the server the page is about, with no server given to it: the shell says it once for every page", async () => {
+      render(
+        <PageServerContext value="web-2">
+          <Setting
+            label="Required backup"
+            checked
+            onCheckedChange={() => undefined}
+            confirmOff={{ title: "Turn off the required backup?", description: "x", actionLabel: "Turn off" }}
+          />
+        </PageServerContext>,
+      );
+      await userEvent.click(screen.getByRole("switch", { name: "Required backup" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Turn off the required backup?" });
+      expect(dialog).toHaveTextContent("On web-2");
     });
 
     it("asks nothing when turning it on", async () => {

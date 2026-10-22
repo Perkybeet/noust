@@ -36,11 +36,9 @@ export function isComposeStack(app: Pick<App, "app_type">): boolean {
 /** The copy of a stack's databases before each update: a row of Automation, asked about again to turn off. */
 export function BackupBeforeUpdateRow({ app }: { app: App }) {
   const t = useT();
-  const { node } = useNode();
   const queryClient = useQueryClient();
   const asksItsYou = useAsksItsYou();
   const domain = app.domain;
-  const [confirmOff, setConfirmOff] = useState(false);
   const change = useMutation({
     mutationFn: (enabled: boolean) =>
       request("patch", "/api/apps/{domain}/backup-before-update", {
@@ -70,41 +68,29 @@ export function BackupBeforeUpdateRow({ app }: { app: App }) {
     ? change.variables
     : app.backup_before_update;
   return (
-    <>
-      <Setting
-        label={t("appSettings.stack.copyLabel")}
-        help={t("appSettings.stack.copyDescription")}
-        {...(enabled ? {} : { risk: t("appSettings.stack.copyOffRisk") })}
-        elevated={asksItsYou}
-        checked={enabled}
-        busy={change.isPending}
-        onCheckedChange={(next) => {
-          if (!next) {
-            setConfirmOff(true);
-            return;
-          }
-          change.mutate(true, {
-            onError: (error) =>
-              reportActionError(
-                t("appSettings.stack.copyNotSaved", { domain }),
-                error,
-              ),
-          });
-        }}
-      />
-      <ConfirmDialog
-        open={confirmOff}
-        onOpenChange={setConfirmOff}
-        friction="simple"
-        server={node}
-        title={t("appSettings.stack.copyOffTitle", { domain })}
-        description={t("appSettings.stack.copyOffDescription")}
-        actionLabel={t("appSettings.stack.copyOffAction")}
-        onConfirm={async () => {
+    <Setting
+      label={t("appSettings.stack.copyLabel")}
+      help={t("appSettings.stack.copyDescription")}
+      {...(enabled ? {} : { risk: t("appSettings.stack.copyOffRisk") })}
+      elevated={asksItsYou}
+      checked={enabled}
+      busy={change.isPending}
+      confirmOff={{
+        title: t("appSettings.stack.copyOffTitle", { domain }),
+        description: t("appSettings.stack.copyOffDescription"),
+        actionLabel: t("appSettings.stack.copyOffAction"),
+      }}
+      onCheckedChange={async (next) => {
+        // Turning it off waits for the question, which shows a refusal in its own place.
+        if (!next) {
           await change.mutateAsync(false);
-        }}
-      />
-    </>
+          return;
+        }
+        change.mutate(true, {
+          onError: (error) => reportActionError(t("appSettings.stack.copyNotSaved", { domain }), error),
+        });
+      }}
+    />
   );
 }
 
