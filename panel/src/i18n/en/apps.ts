@@ -8,6 +8,7 @@ export const apps = {
     emptyTitle: "No applications yet",
     emptyDescription:
       "Deploy one from a Git repository, a directory on this server, a recipe or an export. Noust runs it as a service and serves it over HTTPS.",
+    emptyRecipes: "Browse the recipes",
     filterLabel: "Filter applications",
     searchLabel: "Search applications",
     searchPlaceholder: "Search by domain or type",

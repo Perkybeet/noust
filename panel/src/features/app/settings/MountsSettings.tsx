@@ -472,7 +472,6 @@ function MountsCard({ domain }: { domain: string }) {
           ) : null}
           <Button
             size="sm"
-            variant="primary"
             icon={<OBJECT_ICONS.file aria-hidden="true" />}
             onClick={() => {
               setAdding("file");

@@ -195,7 +195,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
         icon={<OBJECT_ICONS.domain />}
         title={t("domains.sitesTab.noSitesYetTitle")}
         description={t("domains.sitesTab.noSitesYetDescription")}
-        action={createButton("secondary")}
+        action={createButton("primary")}
         command="noust site create --domain example.com"
       />
     );
@@ -255,7 +255,8 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
               </Button>
             ),
           })}
-      primaryAction={createButton("primary")}
+      // While there is no site the empty state carries the action, so the page has it once.
+      {...(empty ? {} : { primaryAction: createButton("primary") })}
       {...(empty
         ? {}
         : {

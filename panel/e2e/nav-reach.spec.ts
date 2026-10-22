@@ -267,6 +267,42 @@ test.describe("a server on its own", () => {
   });
 });
 
+test.describe("from the page of its own area", () => {
+  /** A screen is looked for most often from the area it belongs to: the palette finds it there as well as from anywhere. */
+  const FROM_ITS_AREA = [
+    { from: "/apps", name: "Recipes", to: "/catalog" },
+    { from: "/", name: "Map", to: "/map" },
+    { from: "/server", name: "Terminal", to: "/server/terminal" },
+    { from: "/backups", name: "Schedules", to: "/backups/schedules" },
+    { from: "/domains", name: "DNS", to: "/domains/dns" },
+    { from: "/settings", name: "Alert rules", to: "/settings/alerts" },
+    { from: "/databases", name: "Engines", to: "/databases/engines" },
+    { from: "/apps/shop.example.net", name: "Applications", to: "/apps" },
+  ] as const;
+
+  test("the palette finds a screen by its name from the page of its own area", async ({ page, consoleServer }, testInfo) => {
+    test.skip(testInfo.project.name !== "light", "the palette is the same in both themes");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signIn(page, consoleServer, "/");
+    const pace = pacer(page);
+    const search = page.getByRole("combobox", { name: "Search apps, databases, domains, servers, settings and actions" });
+    const missed: string[] = [];
+    for (const { from, name, to } of FROM_ITS_AREA) {
+      await visit(page, from, pace);
+      await page.keyboard.press("Control+k");
+      await search.fill(name);
+      await page.keyboard.press("Enter");
+      try {
+        await expect(page).toHaveURL(new RegExp(`${to.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}(\\?.*)?$`), { timeout: 5_000 });
+      } catch {
+        missed.push(`"${name}" typed on ${from} went to ${new URL(page.url()).pathname}, not ${to}`);
+        await page.keyboard.press("Escape");
+      }
+    }
+    expect(missed, missed.join("\n")).toEqual([]);
+  });
+});
+
 /** A central with one node, as fleet.spec.ts makes them. */
 const NODE_NAME = "fleet-node";
 

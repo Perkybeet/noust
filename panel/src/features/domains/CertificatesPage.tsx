@@ -292,7 +292,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
         icon={<ICONS.verified />}
         title={t("domains.certificatesTab.noCertsYetTitle")}
         description={t("domains.certificatesTab.noCertsYetDescription")}
-        action={issueButton("secondary")}
+        action={issueButton("primary")}
         command="noust cert create -d example.com"
       />
     );
@@ -374,7 +374,8 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
           </MenuItem>
         </>
       }
-      primaryAction={issueButton("primary")}
+      // While there is no certificate the empty state carries the action, so the page has it once.
+      {...(empty ? {} : { primaryAction: issueButton("primary") })}
       {...(words !== null && followed.id !== null ? { notice: <JobBanner followed={followed} words={words} /> } : {})}
       {...(empty
         ? {}

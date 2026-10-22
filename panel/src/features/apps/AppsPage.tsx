@@ -46,12 +46,12 @@ export interface AppsPageProps {
   onSearchChange: (search: AppsSearch, options?: { replace?: boolean }) => void;
 }
 
-/** "New application": the page's one primary action, and the empty state's way forward. */
-function NewAppLink({ variant = "primary" }: { variant?: "primary" | "secondary" }) {
+/** "New application": the page's one primary action. */
+function NewAppLink() {
   const t = useT();
   const Add = ICONS.add;
   return (
-    <Link to="/apps/new" className={buttonClassName(variant)}>
+    <Link to="/apps/new" className={buttonClassName("primary")}>
       <Add aria-hidden="true" />
       {t("apps.newApplication")}
     </Link>
@@ -124,7 +124,8 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
         {search.tag !== undefined && shown.length > 0 && canOperate ? <RestartTaggedApps tag={search.tag} count={shown.length} /> : null}
       </>
     ),
-    primaryAction: <NewAppLink />,
+    // While there is no application the empty state carries the action, so the page has it once.
+    ...(firstUse ? {} : { primaryAction: <NewAppLink /> }),
   });
 
   if (apps.isError && apps.data === undefined) {
@@ -143,7 +144,15 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
           icon={<OBJECT_ICONS.app />}
           title={t("apps.page.emptyTitle")}
           description={t("apps.page.emptyDescription")}
-          action={<NewAppLink variant="secondary" />}
+          action={
+            <>
+              <NewAppLink />
+              <Link to="/catalog" className={buttonClassName("secondary")}>
+                <OBJECT_ICONS.recipe aria-hidden="true" />
+                {t("apps.page.emptyRecipes")}
+              </Link>
+            </>
+          }
           command="noust create --domain example.com --source https://github.com/you/app.git"
         />
       </ListPage>

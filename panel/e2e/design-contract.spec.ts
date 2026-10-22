@@ -24,7 +24,8 @@
 import type { Page } from "@playwright/test";
 
 import type { ConsoleServer } from "./fixtures";
-import { expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
+import { firstRun } from "./empty-server";
+import { expect, expectNoA11yViolations, settle, signIn, startConsoleServer, stillness, test } from "./fixtures";
 import { ROUTES as EVERY_ROUTE, routePath } from "./routes";
 
 const ROUTES = ["/", "/apps", "/apps/shop.example.net", "/apps/shop.example.net/settings", "/apps/shop.example.net/settings/build", "/backups", "/catalog", "/catalog/vaultwarden", "/domains", "/settings"];
@@ -178,10 +179,14 @@ async function audit(page: Page): Promise<string[]> {
   return violations.map((violation) => `${violation.rule} ${violation.value} on ${violation.element}`);
 }
 
-/** Visible primary buttons outside a dialog: the accent marks the one thing a view is for. */
+/**
+ * Visible primary buttons outside a dialog: the accent marks the one thing a view is for. A link drawn as a
+ * button (`buttonClassName("primary")`: "New application") is one too, and carries no data-variant, so it is
+ * found by the accent it is filled with.
+ */
 async function primaries(page: Page): Promise<string[]> {
   return page.evaluate(() =>
-    [...document.querySelectorAll('main [data-variant="primary"]')]
+    [...document.querySelectorAll('main [data-variant="primary"], main a.bg-accent')]
       .filter((button) => !button.closest('[role="dialog"], [role="alertdialog"], [data-design-exception]'))
       .filter((button) => button.getClientRects().length > 0 && getComputedStyle(button).visibility !== "hidden")
       // A split button is one control of two buttons: its arrow is part of the primary beside it, not another.
@@ -273,12 +278,7 @@ async function oneEach(page: Page, where: string): Promise<string[]> {
  * reason, it must still break the rule to stay (a route that is clean leaves the list, so it only gets shorter), and
  * the list is empty when the 4.0 work is whole.
  */
-const ONE_EACH_DEBT: Readonly<Record<string, string>> = {
-  "app-settings-mounts": "an empty state draws a second primary beside the header's (FM-2)",
-  "backups-noust": "an empty state draws a second primary beside the header's (FM-2)",
-  "backups-volumes": "an empty state draws a second primary beside the header's (FM-2)",
-  "settings-alerts": "the header and the empty state both draw New rule, and the form's Save is a third",
-};
+const ONE_EACH_DEBT: Readonly<Record<string, string>> = {};
 
 // Every route of the console, clean and dirty, on a desk and on a phone, in both themes: a view has one primary
 // action (the save bar's takes it over from the header's while it holds changes, FM-2) and states the condition of
@@ -318,6 +318,72 @@ for (const route of EVERY_ROUTE) {
     }
   });
 }
+
+/**
+ * Buttons and links drawn as buttons, in a page and not in a row, a dialog or a menu, that appear more than once under
+ * the same name: the header's "New application" and an empty state's, which is the same action asked for twice.
+ */
+async function repeatedActions(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const seen = new Map<string, number>();
+    for (const control of document.querySelectorAll("main :is(a, button).rounded-control")) {
+      if (control.closest('[role="dialog"], [role="alertdialog"], [role="row"], [role="menu"], li, table, nav, [data-design-exception]')) continue;
+      if (control.getClientRects().length === 0 || getComputedStyle(control).visibility === "hidden") continue;
+      const name = (control.getAttribute("aria-label") ?? control.textContent).trim();
+      if (name !== "") seen.set(name, (seen.get(name) ?? 0) + 1);
+    }
+    return [...seen].filter(([, count]) => count > 1).map(([name]) => name);
+  });
+}
+
+/** The lists and pages that draw a first-use state when there is nothing on the server. */
+const EMPTY_ROUTES = [
+  "/",
+  "/apps",
+  "/databases",
+  "/domains",
+  "/domains/sites",
+  "/backups",
+  "/backups/schedules",
+  "/backups/volumes",
+  "/backups/noust",
+  "/cron",
+  "/activity",
+  "/projects",
+  "/server/services",
+  "/settings/alerts",
+  "/settings/probes",
+  "/settings/tokens",
+  "/settings/notifications",
+  "/logs",
+];
+
+// A server with nothing on it draws the first-use state of every list. Each carries the page's one primary in its
+// header and offers another way in, never the same button twice (FM-2); a view still holds to one banner.
+test("a server with nothing on it keeps its first-use states to one primary, one banner and no action twice", async ({ page }) => {
+  test.setTimeout(240_000);
+  const server = await startConsoleServer(["--empty"]);
+  try {
+    await firstRun(page, server);
+    const problems: string[] = [];
+    for (const viewport of VIEWPORTS) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      for (const route of EMPTY_ROUTES) {
+        await page.goto(`${server.url}${route}`);
+        await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+        await settle(page);
+        const where = `${route} at ${viewport.name}`;
+        problems.push(...(await oneEach(page, where)));
+        const twice = await repeatedActions(page);
+        if (twice.length > 0) problems.push(`${where}: the same action twice (${twice.join(", ")})`);
+      }
+    }
+    expect(problems, problems.join("\n")).toEqual([]);
+  } finally {
+    await page.goto("about:blank");
+    await server.stop();
+  }
+});
 
 for (const viewport of VIEWPORTS) {
   for (const route of ROUTES) {

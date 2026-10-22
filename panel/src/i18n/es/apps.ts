@@ -10,6 +10,7 @@ export const apps: Catalog<typeof en> = {
     emptyTitle: "Todavía no hay aplicaciones",
     emptyDescription:
       "Despliega una desde un repositorio Git, un directorio de este servidor, una receta o una exportación. Noust la ejecuta como servicio y la sirve con HTTPS.",
+    emptyRecipes: "Ver las recetas",
     filterLabel: "Filtrar aplicaciones",
     searchLabel: "Buscar aplicaciones",
     searchPlaceholder: "Buscar por dominio o tipo",

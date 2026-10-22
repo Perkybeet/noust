@@ -229,10 +229,12 @@ describe("the applications list", () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/apps": () => json(200, { total: 0, apps: [] }) });
     renderConsole("/apps");
     expect(await screen.findByRole("heading", { level: 2, name: "No applications yet" })).toBeInTheDocument();
+    // One New application, the header's and the page's one primary: the empty state offers the other way in
+    // (the recipes) and does not ask for the same action twice.
     const links = screen.getAllByRole("link", { name: "New application" });
-    expect(links).toHaveLength(2);
-    // One primary action on the page: the header's; the empty state's is its echo.
-    expect(links.filter((link) => link.className.includes("bg-accent"))).toHaveLength(1);
+    expect(links).toHaveLength(1);
+    expect(links[0]?.className).toContain("bg-accent");
+    expect(screen.getByRole("link", { name: "Browse the recipes" })).toHaveAttribute("href", "/catalog");
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });

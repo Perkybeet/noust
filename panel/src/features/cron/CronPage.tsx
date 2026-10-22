@@ -58,7 +58,7 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
           icon={<OBJECT_ICONS.cron />}
           title={t("cron.page.empty.title")}
           description={t("cron.page.empty.description")}
-          action={newJobButton("secondary")}
+          action={newJobButton("primary")}
           command="noust cron create nightly-report --schedule daily --command '...'"
         />
       }
@@ -87,7 +87,8 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
 
   return (
     <ListPage
-      header={{ title: t("cron.page.title"), description: t("cron.page.description"), primaryAction: newJobButton("primary") }}
+      // While there is no job the empty state carries the action, so the page has it once.
+      header={{ title: t("cron.page.title"), description: t("cron.page.description"), ...(empty ? {} : { primaryAction: newJobButton("primary") }) }}
       {...(empty
         ? {}
         : {

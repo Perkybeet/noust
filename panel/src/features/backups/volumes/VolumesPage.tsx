@@ -149,7 +149,7 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
         title={t("volumeBackups.empty.title")}
         description={t("volumeBackups.empty.description")}
         action={
-          <Button variant="primary" onClick={newPolicy}>
+          <Button onClick={newPolicy}>
             {t("volumeBackups.empty.action")}
           </Button>
         }

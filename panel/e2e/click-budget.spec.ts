@@ -17,18 +17,17 @@
  * domain), the walk puts it back, so the worker's server is as it was seeded for the next spec.
  *
  * T01, T02a and T03b start from a server with nothing on it (`console_server.py --empty`, the first-run
- * server), T15 from a central with a node; each says so and is skipped, with the reason, on a tree
- * whose console server cannot make that machine.
+ * server), T15 from a central with a node.
  */
 
 import type { Page } from "@playwright/test";
-import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { csrf, forgetApp } from "./apps-cleanup";
 import { BUDGETS, budgetOf, renderTable } from "./budgets";
 import { MEASURE_ONLY, clicks, countClicks, depthOf, elevate, inViewport, report, startCounting, withinBudget } from "./clicks";
+import { firstRun } from "./empty-server";
 import { expect, settle, signIn, startConsoleServer, test, totpCode } from "./fixtures";
 import type { ConsoleServer, RunningServer } from "./fixtures";
 import { wizardSource } from "./wizard-sources";
@@ -763,53 +762,18 @@ test.describe("from any page", () => {
 // A server with nothing on it (console_server.py --empty): the first minutes.
 // ---------------------------------------------------------------------------------------------------
 
-const REPO = path.resolve(import.meta.dirname, "..", "..");
-
-/** Whether this tree's console server can make a server with nothing on it. */
-let emptySupported: boolean | undefined;
-function canMakeEmptyServer(): boolean {
-  if (emptySupported === undefined) {
-    const venv = path.join(REPO, ".venv", "bin", "python");
-    const python = process.env.NOUST_PYTHON ?? venv;
-    const help = spawnSync(python, [path.join(REPO, "scripts", "console_server.py"), "--help"], { encoding: "utf8", cwd: REPO, env: { ...process.env, PYTHONPATH: path.join(REPO, "src") } });
-    emptySupported = help.status === 0 && help.stdout.includes("--empty");
-  }
-  return emptySupported;
-}
-
-const FIRST_RUN_PASSWORD = "a-long-password-for-the-first-run";
-
-/**
- * Walks the first run of a server with nothing on it to its Overview: the link the installer prints,
- * the access token, the first administrator, and "Set up later". None of it is counted: the tasks
- * below start from the Overview an operator lands on.
- */
-async function firstRun(page: Page, server: RunningServer): Promise<void> {
-  await page.goto(`${server.url}/login?with=token`);
-  await page.getByLabel("Access token").fill(server.token);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Create the administrator" })).toBeVisible();
-  await page.getByLabel("Username").fill("admin");
-  await page.getByLabel("Password", { exact: true }).fill(FIRST_RUN_PASSWORD);
-  await page.getByRole("button", { name: "Create administrator" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Protect your account" })).toBeVisible();
-  await page.getByRole("button", { name: "Set up later" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Deploy your first app" })).toBeVisible();
-}
-
 test.describe("a server with nothing on it", () => {
   test.setTimeout(240_000);
   let server: RunningServer;
 
   test.beforeEach(async () => {
-    test.skip(!canMakeEmptyServer(), "this tree's console server has no --empty (the first-run server of the arrival lane)");
     server = await startConsoleServer(["--empty"]);
   });
 
   test.afterEach(async ({ page }) => {
     // The page leaves before the server does: a console left open on a server that went away reports its refusals.
     await page.goto("about:blank");
-    if (canMakeEmptyServer()) await server.stop();
+    await server.stop();
   });
 
   test("T01: the demo is one click from the Overview, and the live address is there when it is done", async ({ page, problems }) => {
