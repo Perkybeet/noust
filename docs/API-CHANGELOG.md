@@ -143,6 +143,9 @@ before 4.0 is still accepted, it is accepted until 5.0 and never written.
 - `GET /api/deployments/{id}` answers `certificate_state` and `certificate_output`: a certificate the
   authority refuses leaves a deployment that succeeded, served over HTTP, with what the authority
   said kept on it.
+- `GET`, `PUT` and `DELETE /api/apps/{domain}/hooks` carry `preview_post_create` (run in order once a
+  preview's first deployment serves) and `preview_pre_destroy` (run before a preview is removed), as well
+  as the hooks of the application itself ([previews.md](previews.md)).
 - Uploads and pushes as sources ([sources.md](sources.md)): `POST /api/uploads`, `PUT` and `GET
   /api/uploads/{upload_id}` (a chunk at the wrong offset is `409` with the offset to resume from),
   `POST .../complete` and `DELETE` take an archive up and extract it; `POST /api/uploads/dockerfile`
@@ -348,9 +351,12 @@ before 4.0 is still accepted, it is accepted until 5.0 and never written.
   change nothing.
 - Extensions and tags: `GET`, `POST /api/databases/databases/{engine}/{name}/extensions` and `DELETE
   .../extensions/{extension}`; `GET`, `PUT .../tags` on a database and on a service
-  (`/api/services/{name}/tags`). `GET /api/databases/databases`, `POST` and the database itself carry
+  (`/api/services/{name}/tags`; `GET /api/services` takes a `tag` filter and a service answers `tags`). `GET /api/databases/databases`, `POST` and the database itself carry
   `team`, `project`, `environment` and `tags`, and the list takes the same filters. A link to a database
   takes `tls` and the detected links answer `tls_mode`.
+- `POST /api/apps/{domain}/databases` (and the `database` of `POST /api/apps`) takes `install`, which installs
+  the engine in the version asked for when the host lacks it, and `GET /api/databases/engines/catalog`
+  answers `package_manager`, the one of this host.
 
 #### Backups and recovery
 
@@ -427,6 +433,8 @@ before 4.0 is still accepted, it is accepted until 5.0 and never written.
   authentik and Authelia) and `POST /api/waf/install` (ModSecurity and the Core Rule Set, from the
   distribution, sudo mode). `POST /api/server/security/fail2ban/web` makes fail2ban watch nginx, and
   `GET /api/server/security/fail2ban` answers `web_available` and `web_jails`.
+- A site belongs to a project and an environment like an application: `POST /api/sites` takes `team`,
+  `project` and `environment`, and `GET /api/sites/{domain}` answers them.
 - A certificate for one name: `POST /api/apps/{domain}/domains` takes `certificate` (`shared`, the
   default, or `own`), `challenge` (`http-01` or `dns-01`) and `dns_provider`;
   `PUT /api/apps/{domain}/domains/{name}/certificate` gives a name a certificate of its own or takes it
