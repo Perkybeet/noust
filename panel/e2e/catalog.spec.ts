@@ -41,7 +41,7 @@ async function titles(page: Page): Promise<string[]> {
 
 test("the catalog draws a card for each recipe, its logo loaded under the strict policy", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog");
-  await expect(page.getByRole("heading", { level: 1, name: "Catalog" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
   await expect(recipes(page).getByRole("heading", { level: 2 })).toHaveCount(20);
   await settle(page);
   await expectNoA11yViolations(page, "the catalog");
@@ -243,7 +243,7 @@ const withCatalogApps = test.extend<object, { consoleServer: ConsoleServer }>({
 
 withCatalogApps("the installed tab says which recipe is behind the catalog, which is not, and which has gone", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog/installed");
-  await expect(page.getByRole("heading", { level: 1, name: "Catalog" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
   const table = page.getByRole("table", { name: "Applications installed from a recipe" });
   const behind = table.getByRole("row", { name: /vault\.example\.net/ });
   await expect(behind.getByText("Update available")).toBeVisible();

@@ -38,7 +38,7 @@ describe("the catalog page", () => {
 
   it("draws a card for each recipe with what the 3.4 schema says about it", { timeout: 20_000 }, async () => {
     const { harness } = catalogue();
-    expect(await screen.findByRole("heading", { level: 1, name: "Catalog" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Applications" })).toBeInTheDocument();
 
     const vault = await cardOf("Vaultwarden");
     // Its logo is the one the server serves, as an image and never inline.
