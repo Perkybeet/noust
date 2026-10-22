@@ -377,6 +377,11 @@ def ports(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Po
     return probe
 
 
+#: The real ``shutil.rmtree``, taken before any test replaces it: a test that patches it to read what
+#: is removed must not be handed its own home at teardown.
+_remove_tree = shutil.rmtree
+
+
 @pytest.fixture(autouse=True)
 def isolated_home(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
@@ -416,7 +421,7 @@ def isolated_home(
         UpdateChecker, "CACHE_FILE", home / ".cache" / "noust" / "version_check.json"
     )
     yield home
-    shutil.rmtree(home, ignore_errors=True)
+    _remove_tree(home, ignore_errors=True)
 
 
 @pytest.fixture(autouse=True)
