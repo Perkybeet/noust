@@ -1,0 +1,1 @@
+var e=[`uptime-kuma`,`ghost`,`wordpress`,`n8n`];function t(t){if(t===void 0)return[];let n=t.filter(e=>e.available&&e.name!==`hello`),r=e.flatMap(e=>n.filter(t=>t.name===e)),i=n.filter(e=>!r.includes(e));return[...r,...i].slice(0,4)}export{t};

@@ -20,8 +20,6 @@ import json
 import re
 from pathlib import Path
 
-import pytest
-
 REPO = Path(__file__).resolve().parent.parent
 MARK = "Derived in part from Coolify's template"
 
@@ -133,12 +131,7 @@ def test_the_build_writes_that_notice_and_the_wheel_and_the_sdist_carry_it() -> 
 
 
 def test_the_committed_console_carries_the_licence_of_each_package_it_is_built_from() -> None:
-    notice = STATIC / licenses_file_name()
-    if not notice.exists():
-        pytest.skip(
-            "the committed build is from before the notice; the closing lane's build commit adds it"
-        )
-    text = notice.read_text(encoding="utf-8")
+    text = (STATIC / licenses_file_name()).read_text(encoding="utf-8")
     dependencies = json.loads((REPO / "panel" / "package.json").read_text(encoding="utf-8"))[
         "dependencies"
     ]

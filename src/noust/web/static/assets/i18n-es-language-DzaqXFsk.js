@@ -1,0 +1,1 @@
+var e={label:`Idioma`,loadFailed:`No se pudo cambiar el idioma`,loadFailedHint:`La traducción no se descargó. Comprueba la conexión con la consola y vuelve a intentarlo.`};export{e as language};

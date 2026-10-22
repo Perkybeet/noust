@@ -47,8 +47,10 @@ for (const path of ["/apps", "/catalog"]) {
     const { score, report, shifts } = await shiftOf(page, consoleServer, path, "**/api/teams/mine");
     expect(score, report).toBeLessThanOrEqual(CLS_LIMIT);
     // The Projects link was a shift of a few thousandths, far under the limit: what is held is
-    // that no row of the sidebar (its links, its lists, the rows of its skeleton) moves at all.
-    const sidebar = shifts.filter((shift) => shift.sources.some((source) => /<a\.group\.relative|<ul\.flex\.flex-col\.gap-px|<li\.flex\.h-control-md/.test(source)));
+    // that no row of the sidebar (its links, its lists, the rows of its skeleton) moves at all. A sidebar link is
+    // `group relative flex h-control-md`: the page's own tab strip draws `group relative flex h-10`, a count arriving
+    // there is the page's and is held by the limit above, so the pattern names the sidebar's height.
+    const sidebar = shifts.filter((shift) => shift.sources.some((source) => /<a\.group\.relative\.flex\.h-control-md|<ul\.flex\.flex-col\.gap-px|<li\.flex\.h-control-md/.test(source)));
     expect(sidebar, report).toEqual([]);
 
     // What the shift was held for: the link did arrive, the nav is no longer busy.

@@ -18,7 +18,7 @@ export type TtlUnit = "hours" | "days";
 
 /**
  * Which of the application's variables a preview is given: only the ones named (`allowlist`,
- * the safe way) or every one but the excluded (`all`, how previews were made before 3.4).
+ * the safe way) or every one but the excluded (`all`, how previews were made before 4.0).
  */
 export type InheritMode = "allowlist" | "all";
 

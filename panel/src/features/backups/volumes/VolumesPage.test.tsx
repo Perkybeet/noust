@@ -61,7 +61,8 @@ describe("the Volumes tab", () => {
     const { user, backend } = await volumesAt("/backups/volumes", {
       [`PUT /api/volume-backups/policies/${SHOP}`]: (call) => json(200, { ...policy(SHOP), ...(call.body as object) }),
     }, { policies: [], backups: [] });
-    await user.click(await screen.findByRole("button", { name: "New data schedule" }));
+    // With nothing scheduled yet the empty state carries the action, not the header.
+    await user.click(await screen.findByRole("button", { name: "Set a schedule" }));
     const drawer = await screen.findByRole("dialog", { name: "New data schedule" });
     await user.click(within(drawer).getByRole("combobox", { name: "Application" }));
     await user.click(await screen.findByRole("option", { name: SHOP }));
@@ -93,7 +94,8 @@ describe("the Volumes tab", () => {
 
   it("asks for a piece when only some are to be backed up, and for a folder that stays inside the data", async () => {
     const { user, backend } = await volumesAt("/backups/volumes", {}, { policies: [], backups: [] });
-    await user.click(await screen.findByRole("button", { name: "New data schedule" }));
+    // With nothing scheduled yet the empty state carries the action, not the header.
+    await user.click(await screen.findByRole("button", { name: "Set a schedule" }));
     const drawer = await screen.findByRole("dialog", { name: "New data schedule" });
     await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
     expect(await within(drawer).findByText("Choose the application whose data is backed up.")).toBeInTheDocument();

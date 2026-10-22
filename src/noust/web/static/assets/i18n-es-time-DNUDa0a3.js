@@ -1,0 +1,1 @@
+var e={justNow:`ahora mismo`,never:`Nunca`,duration:{milliseconds:`{value} ms`,seconds:`{value} s`,minutes:`{value} min`,minutesSeconds:`{minutes} min {seconds} s`,hoursMinutes:`{hours} h {minutes} min`,daysHours:`{days} d {hours} h`}};export{e as time};

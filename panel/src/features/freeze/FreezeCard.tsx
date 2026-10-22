@@ -252,7 +252,7 @@ export function FreezeSetting({ domain, canDeploy }: { domain: string; canDeploy
   const t = useT();
   const { query, freezes, making, setMaking, lifting, setLifting } = useFreezes(domain);
 
-  // A server older than 3.4 has no freezes: nothing to show rather than a guess.
+  // A server older than 4.0 has no freezes: nothing to show rather than a guess.
   if (query.isError && olderServer(query.error)) return null;
   if (query.isPending) return <RowLoading label={t("rollout.freeze.loading")} rows={[2]} />;
   if (query.isError) return <RowError title={t("rollout.freeze.readFailed")} error={query.error} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
@@ -303,7 +303,7 @@ export function FreezeCard({ canDeploy, title, description }: FreezeCardProps) {
   const t = useT();
   const { query, freezes, making, setMaking, lifting, setLifting } = useFreezes(undefined);
 
-  // A server older than 3.4 has no freezes: nothing to show rather than a guess.
+  // A server older than 4.0 has no freezes: nothing to show rather than a guess.
   if (query.isError && olderServer(query.error)) return null;
   if (query.isPending) {
     return (

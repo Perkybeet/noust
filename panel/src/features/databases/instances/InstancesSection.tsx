@@ -197,7 +197,7 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
     onError: (error, instance) => reportActionError(t("databases.instances.startFailedToast", { name: instance.name }), error),
   });
 
-  // A server older than 3.4 has no instances to show; a failure to read them is said.
+  // A server older than 4.0 has no instances to show; a failure to read them is said.
   if (query.isError && olderServer(query.error)) return null;
   const instances = query.data?.instances ?? [];
   const budget = query.data?.budget;

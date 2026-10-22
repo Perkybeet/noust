@@ -1,0 +1,1 @@
+import{a as e,o as t,t as n}from"./navCore-6IeFzU9M.js";var r=e(n(`projects`,`/projects`,`nav.projects.label`,{group:`runs`,shortcut:[`g`,`p`],goTo:`nav.projects.goTo`,keywords:`nav.projects.keywords`,when:`organised`}),e=>[t(e,`teams`,`teams.list.title`,{keywords:`nav.screens.teams.keywords`})]);export{r as t};

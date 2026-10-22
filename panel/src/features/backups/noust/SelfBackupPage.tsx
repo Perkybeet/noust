@@ -146,7 +146,7 @@ export function SelfBackupPage() {
                 {t("selfBackup.state.runNow")}
               </Button>
             ) : null}
-            <Button size="sm" variant={schedule.configured ? "secondary" : "primary"} icon={<OBJECT_ICONS.schedule aria-hidden="true" />} onClick={() => setScheduling(true)}>
+            <Button size="sm" icon={<OBJECT_ICONS.schedule aria-hidden="true" />} onClick={() => setScheduling(true)}>
               {schedule.configured ? t("selfBackup.state.edit") : t("selfBackup.state.set")}
             </Button>
             {schedule.configured ? (

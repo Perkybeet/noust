@@ -1,0 +1,1 @@
+var e={title:`Account`,description:`Who you are on this console and how you prove it. Theme and language are in the account menu.`,documentTitle:`Account`,securityDocumentTitle:`Sign-in security`,tokens:{title:`API tokens`,description:`Tokens for scripts and CI are made in Settings, where each one is listed with its owner.`,open:`Open API tokens`}};export{e as account};

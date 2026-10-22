@@ -52,7 +52,7 @@ const UI_PAIRS: [string, string][] = [
  * it sits on and what its neighbours are (the sidebar's ground, a hovered item, the active
  * item's own fill). 3:1 (WCAG 1.4.11). The active fill alone cannot carry this: it is 1.1 to 1.3
  * against the ground, which is why the item also has a mark that is not a fill (owner request,
- * 3.4, checklist M-59).
+ * 4.0, checklist M-59).
  */
 const NAV_INDICATOR_PAIRS: [string, string][] = ["bg", "surface-hover", "surface-active"].map((ground): [string, string] => [
   "text",

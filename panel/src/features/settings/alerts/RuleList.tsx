@@ -27,6 +27,7 @@ import type { Status } from "../../../components/ui/StatusPill";
 import { Switch } from "../../../components/ui/Switch";
 import { useT } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
+import { SettingsPrimaryAction } from "../SettingsPrimaryAction";
 import { acknowledgement } from "./data";
 import { RuleDrawer } from "./RuleDrawer";
 import { appliesTo, formatReading, ruleSentence } from "./rules";
@@ -198,7 +199,7 @@ function Rules({ data, onCreate }: { data: AlertRuleList; onCreate: () => void }
           description={t("alerts.rules.emptyDescription")}
           // With no rule the header has no button: the empty state's is the one way to add the first.
           action={
-            <Button size="sm" variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
+            <Button size="sm" variant="secondary" icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
               {t("alerts.rules.new")}
             </Button>
           }
@@ -220,11 +221,10 @@ export function RuleList() {
   const query = useQuery(alertRulesQuery());
   const [creating, setCreating] = useState(false);
   return (
-    <Section
-      title={t("alerts.rules.title")}
-      description={t("alerts.rules.description")}
-      actions={
-        query.data === undefined || query.data.items.length === 0 ? undefined : (
+    <Section title={t("alerts.rules.title")} description={t("alerts.rules.description")}>
+      {/* The page's one primary, in its header, where the save bar's Save takes it over while there are changes (FM-2). */}
+      {query.data === undefined || query.data.items.length === 0 ? null : (
+        <SettingsPrimaryAction>
           <Button
             variant="primary"
             icon={<ICONS.add aria-hidden="true" />}
@@ -234,9 +234,8 @@ export function RuleList() {
           >
             {t("alerts.rules.new")}
           </Button>
-        )
-      }
-    >
+        </SettingsPrimaryAction>
+      )}
       <QueryState query={query} label={t("alerts.loadingLabel")} skeleton={<SkeletonRows rows={2} />}>
         {(data) => (
           <>

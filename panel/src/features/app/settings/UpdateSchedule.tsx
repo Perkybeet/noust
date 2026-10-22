@@ -217,7 +217,7 @@ export function UpdateScheduleSetting({ domain }: { domain: string }) {
   const [removing, setRemoving] = useState(false);
 
   if (query.isPending) return <RowLoading label={t("rollout.schedule.loading")} rows={[1]} />;
-  // A server older than 3.4 has no scheduled updates: nothing to show rather than a guess.
+  // A server older than 4.0 has no scheduled updates: nothing to show rather than a guess.
   if (query.isError && olderServer(query.error)) return null;
   if (query.isError) return <RowError title={t("rollout.schedule.readFailed")} error={query.error} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
 

@@ -1,0 +1,1 @@
+import{lr as e,p as t}from"./Notice-B6vc4jYX.js";var n={sites:[`native-sites`],of:e=>[`app`,e,`adoption`]},r=()=>e({queryKey:n.sites,queryFn:({signal:e})=>t(`get`,`/api/apps/native-sites`,{signal:e})}),i=r=>e({queryKey:n.of(r),queryFn:({signal:e})=>t(`get`,`/api/apps/{domain}/adoption`,{params:{domain:r},signal:e})});export{r as n,i as t};

@@ -1,6 +1,7 @@
 /**
  * Screenshots of every page for a person (or a model) to review: both themes (the light and
- * dark projects), a 1440px desktop, a 1920px wide screen and a 390px phone. Tagged @screens
+ * dark projects), a 1440px desktop, a 1920px wide screen and a 390px phone (and in Spanish with
+ * NOUST_SCREENS_LOCALE=es). Tagged @screens
  * and left out of the default run; `npm run e2e:screens` writes them to e2e/__screens__/<theme>/, or to
  * $NOUST_SCREENS_DIR/<theme>/ when set (a review pass keeps its captures out of the tree).
  *
@@ -12,9 +13,26 @@ import type { Page } from "@playwright/test";
 import path from "node:path";
 
 import { expect, settle, signIn, test } from "./fixtures";
+import type { ConsoleServer } from "./fixtures";
 import { ROUTES, routePath } from "./routes";
+import { signInSpanish, useSpanish } from "./spanish";
 
 const OUT = process.env.NOUST_SCREENS_DIR ?? path.join(import.meta.dirname, "__screens__");
+
+// NOUST_SCREENS_LOCALE=es takes the same pictures with the console in Spanish, chosen the way the Spanish sweep
+// chooses it: the texts that run long are the ones a picture in English never shows.
+const SPANISH = (process.env.NOUST_SCREENS_LOCALE ?? "").startsWith("es");
+if (SPANISH) test.use({ locale: "es-ES" });
+
+/** Signs in to the page `next`, in the language of this run. */
+async function enter(page: Page, server: ConsoleServer, next?: string): Promise<void> {
+  if (SPANISH) {
+    await useSpanish(page);
+    await signInSpanish(page, server, next);
+  } else {
+    await signIn(page, server, next);
+  }
+}
 
 const DESKTOP = { width: 1440, height: 900 };
 /** A 1080p monitor: where a cap too narrow wastes the screen and one too wide stretches forms. */
@@ -41,7 +59,8 @@ test.describe("screens @screens", () => {
     const dir = path.join(OUT, testInfo.project.name);
     await page.setViewportSize(DESKTOP);
     await page.goto("/login");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    if (!SPANISH) await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
     await captureSizes(page, dir, "login");
   });
 
@@ -50,9 +69,9 @@ test.describe("screens @screens", () => {
       const dir = path.join(OUT, testInfo.project.name);
       await page.setViewportSize(DESKTOP);
       if (typeof route.path === "string") {
-        await signIn(page, consoleServer, route.path);
+        await enter(page, consoleServer, route.path);
       } else {
-        await signIn(page, consoleServer);
+        await enter(page, consoleServer);
         await page.goto(await routePath(page, route));
       }
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import { Landmark } from "lucide-react";
-import { createContext, useContext, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { createPortal } from "react-dom";
 
 import { sessionQuery } from "../../api/queries/auth";
 import type { Dest, NavContext } from "../../app/navCore";
@@ -21,19 +20,9 @@ import { useCentral } from "../central/central";
 import { iconOf } from "../nav/icons";
 import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../nav/settings";
 import type { SettingsBlock } from "../nav/settings";
+import { PrimarySlot } from "./SettingsPrimaryAction";
 
-/** Where a section's primary action goes: the settings' page header (see SettingsPrimaryAction). */
-const PrimarySlot = createContext<HTMLElement | null>(null);
-
-/**
- * A settings section's one primary action ("Invite a person", "Create token"), put in the page's
- * header where every view has its primary (docs/DESIGN.md 4, "One primary action per view"),
- * although the header belongs to the layout the sections share. Renders nothing outside it.
- */
-export function SettingsPrimaryAction({ children }: { children: ReactNode }) {
-  const slot = useContext(PrimarySlot);
-  return slot === null ? null : createPortal(children, slot);
-}
+export { SettingsPrimaryAction } from "./SettingsPrimaryAction";
 
 /** What the register's group ids are called in the list: whose the sections under them are. */
 const GROUP_TITLES: Readonly<Record<string, PlainKey>> = {

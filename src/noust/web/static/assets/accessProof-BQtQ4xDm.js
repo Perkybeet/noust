@@ -1,0 +1,1 @@
+var e=null;function t(t,n=Date.now()){e=t===``?null:{token:t,until:n+12e4}}function n(t=Date.now()){let n=e;return e=null,n!==null&&n.until>t?n.token:null}function r(){e=null}export{t as n,n as r,r as t};

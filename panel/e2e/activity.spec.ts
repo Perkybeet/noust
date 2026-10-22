@@ -26,8 +26,16 @@ test("merges the jobs history and the audit log, newest first, including this si
   await expect(signInRow.getByText("Succeeded")).toBeVisible();
 
   // A seeded job (the backup of shop.example.net), so the merge is proven with both kinds of row
-  // on screen at once.
-  await expect(table.getByRole("row").filter({ has: page.getByText("shop.example.net") }).first()).toBeVisible();
+  // on screen at once. The timeline is newest first and a server that has just been seeded has written a
+  // page of audit rows since (the commands its databases ran): the job is further back, a "Load more" away.
+  const seeded = table.getByRole("row").filter({ has: page.getByText("shop.example.net") }).first();
+  for (let more = 0; more < 12 && !(await seeded.isVisible()); more += 1) {
+    const older = page.getByRole("button", { name: "Load more" });
+    if (!(await older.isVisible())) break;
+    await older.click();
+    await expect(table.getByRole("table")).not.toHaveAttribute("aria-busy", "true");
+  }
+  await expect(seeded).toBeVisible();
 
   await settle(page);
   await expectNoA11yViolations(page, "the activity timeline");

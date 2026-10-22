@@ -116,7 +116,7 @@ export function AutomaticDeploysRows({ domain }: { domain: string }) {
   });
 
   if (query.isPending) return <RowLoading label={t("rollout.auto.loading")} rows={[1, 2]} />;
-  // A server older than 3.4 has no such setting: nothing to show rather than a guess.
+  // A server older than 4.0 has no such setting: nothing to show rather than a guess.
   if (query.isError && olderServer(query.error)) return null;
   if (query.isError) return <RowError title={t("rollout.auto.readFailed")} error={query.error} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
 

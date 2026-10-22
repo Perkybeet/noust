@@ -1,5 +1,5 @@
 /**
- * What the catalogue's tests answer for the API: a catalogue of recipes in the 3.4 shape, the
+ * What the catalogue's tests answer for the API: a catalogue of recipes in the 4.0 shape, the
  * server's own filtering over it, one recipe in full, and what was installed from them. Test
  * data only.
  */

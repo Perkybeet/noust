@@ -135,7 +135,7 @@ describe("the notification settings", () => {
     expect(isChannelConfigured(spec("webhook"), { webhook_url: REDACTED, secret: "" })).toBe(true);
   });
 
-  it("knows the channels added in 3.4, in the order the notifier tries them", () => {
+  it("knows the channels added in 4.0, in the order the notifier tries them", () => {
     expect(channels(en).map((channel) => channel.id)).toEqual(["webhook", "slack", "discord", "telegram", "email", "pushover", "ntfy", "gotify", "teams", "mattermost", "matrix", "lark", "pagerduty"]);
     expect(channels(en).find((channel) => channel.id === "matrix")?.fields.map((field) => [field.key, field.secret])).toEqual([
       ["homeserver", false],

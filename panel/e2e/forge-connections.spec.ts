@@ -188,9 +188,10 @@ test("an application's Export settings write its declaration file and check a pa
 test("Build shows the build cache, and process types only where the repository declares them", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${BUILD_APP}/settings/build`);
   const cache = card(page, "Build cache");
-  await expect(cache).toBeVisible();
-  await cache.scrollIntoViewIfNeeded();
+  // The card is drawn with its title while the cache is read and replaced by the one that holds it: wait for what it
+  // holds before scrolling to it, or the element scrolled to is the one that is about to go.
   await expect(cache.getByText("Kept in")).toBeVisible();
+  await cache.scrollIntoViewIfNeeded();
   // An application that declares no process types has nothing to show under that title.
   await expect(card(page, "Process types")).toHaveCount(0);
   await settle(page);

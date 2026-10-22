@@ -1,0 +1,1 @@
+import{a as e,o as t,t as n}from"./navCore-6IeFzU9M.js";var r=e(n(`overview`,`/`,`nav.overview.label`,{group:`runs`,shortcut:[`g`,`o`],goTo:`nav.overview.goTo`,keywords:`nav.overview.keywords`}),e=>[t(e,`map`,`map.title`,{command:`shell.commands.openMap`,keywords:`shell.commands.openMapKeywords`})]);export{r as t};

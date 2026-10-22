@@ -1,5 +1,5 @@
 /**
- * Strings of the previews area that came with 3.4: what a preview is given (which variables, which
+ * Strings of the previews area that came with 4.0: what a preview is given (which variables, which
  * data), making one by hand from a pull request, a branch or a tag, and managing each preview
  * one at a time (redeploy, stop, start, logs). The older strings are in `appSettings.previews`.
  */

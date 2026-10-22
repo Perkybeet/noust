@@ -928,7 +928,7 @@ On a server without a fleet, every section is the server's own. What a server's 
 tokens and second factor are cannot be changed from a central; the page says how to manage them
 on the server.
 
-![Fleet > Servers](assets/console/settings-servers.png)
+![Fleet > Servers](assets/console/fleet-servers.png)
 
 Writing any setting needs sudo mode.
 

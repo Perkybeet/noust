@@ -15,6 +15,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
+import type { Locale } from "../../i18n";
 import { formatBytes, formatDateTime } from "../../lib/format";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 
@@ -61,7 +62,7 @@ function Changes({ site, version }: { site: string; version: number }) {
   );
 }
 
-function VersionRow({ site, item, open, onToggle, onUse, locale }: { site: string; item: SiteVersion; open: boolean; onToggle: () => void; onUse: () => void; locale: "en" | "es" }) {
+function VersionRow({ site, item, open, onToggle, onUse, locale }: { site: string; item: SiteVersion; open: boolean; onToggle: () => void; onUse: () => void; locale: Locale }) {
   const t = useT();
   return (
     <RowList.Item className="items-start">

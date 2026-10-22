@@ -137,11 +137,13 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
     },
   ];
 
+  // Nothing scheduled, as read: a failed first read is the error's to show, not an empty list's.
+  const empty = !loading && rows.length === 0 && policies.data !== undefined;
   let content;
   // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (policies.isError && policies.data === undefined) {
     content = <ErrorBlock error={policies.error} title={t("volumeBackups.loadFailed")} onRetry={() => void policies.refetch()} retrying={policies.isRefetching} />;
-  } else if (!loading && rows.length === 0) {
+  } else if (empty) {
     content = (
       <EmptyState
         variant="firstUse"
@@ -189,11 +191,16 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
 
   return (
     <BackupsListPage
-      primaryAction={
-        <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={newPolicy}>
-          {t("volumeBackups.newPolicy")}
-        </Button>
-      }
+      // While there is nothing the empty state carries the action, so the page has it once.
+      {...(empty
+        ? {}
+        : {
+            primaryAction: (
+              <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={newPolicy}>
+                {t("volumeBackups.newPolicy")}
+              </Button>
+            ),
+          })}
       {...(job.notice !== null ? { notice: job.notice } : {})}
       {...(rows.length > 0 ? { footer: <CommandHint command="noust backup volumes schedule set shop.example.com --schedule daily" label={t("common.words.fromTerminal")} /> } : {})}
     >

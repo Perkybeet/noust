@@ -263,7 +263,15 @@ const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag2
  * WCAG 2.2 AA.
  */
 export async function expectNoA11yViolations(page: Page, label?: string): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
+  const measure = () => new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
+  let results = await measure();
+  if (results.violations.length > 0) {
+    // The server is shared by every test of the worker, so a job another test started can end, and a state pill
+    // pulse (an opacity fade of 0.9 s), while axe reads the colours: a contrast measured mid-fade says nothing. Once
+    // the page is still it is measured again, and only what is still there is reported.
+    await stillness(page);
+    results = await measure();
+  }
   const report = results.violations.map((violation) => {
     const nodes = violation.nodes
       .slice(0, 5)
@@ -329,8 +337,10 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     // eslint-disable-next-line no-empty-pattern -- Playwright requires the destructuring form
     async ({}, use) => {
       // Two-factor on: the hardened configuration, and the sign-in every test goes through.
-      // Enough backup codes for every sign-in and confirmation one worker makes.
-      const server = await startConsoleServer(["--totp", "--backup-codes", "500"]);
+      // Enough backup codes for every sign-in and confirmation one worker makes, which is the whole suite when it
+      // runs on a single worker (a worker that ran 490 tests spent 500 and then fell back to codes of the clock, one
+      // step ahead of each other, which the server refuses). Enrolling more costs nothing at start.
+      const server = await startConsoleServer(["--totp", "--backup-codes", "2500"]);
       try {
         await use(server);
       } finally {

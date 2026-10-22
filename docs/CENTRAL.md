@@ -319,7 +319,7 @@ central created. Linking and unlinking ask for sudo mode.
 **Fleet > Servers** lists every server the same way, with its reachability, version and
 when it was last seen, and starts the same add flow (step 1 above) without the CLI:
 
-![Fleet > Servers](assets/console/settings-servers.png)
+![Fleet > Servers](assets/console/fleet-servers.png)
 
 To take a server out: `noust node remove vps1` on the central, or revoke the central from the
 server itself (`noust fleet deauthorize --name nas` removes its key lines, from the tunnel
