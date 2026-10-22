@@ -57,8 +57,8 @@
     "settings-central": { "path": "/settings/central", "height": 468 },
     "settings-controls": {
       "path": "/settings/controls",
-      "height": 5039,
-      "reason": "Every compliance framework with the controls it is made of, and the security profile, on one page; each framework's controls go behind a disclosure and the profile becomes a section of its own."
+      "height": 5096,
+      "reason": "Every compliance framework with the controls it is made of, and the security profile, on one page; each framework's controls go behind a disclosure and the profile becomes a section of its own. Measured 5064 before the control Second factor required joined the list (one more row, 32px), which makes 5096."
     },
     "account-profile": { "path": "/account", "height": 190 },
     "account-security": { "path": "/account/security", "height": 775 },
