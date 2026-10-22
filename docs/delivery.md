@@ -160,7 +160,7 @@ rollback`, which runs no hook. A release that was built and never served is refu
 and `activate` with the way to promote it, because going back to code nobody has run is not a
 rollback.
 
-The console shows it in **Deployments** as "Built, not serving" with **Make it serve**, and builds it
+The console shows it in **Deployments** as "Built, not serving" with **Go live**, and builds it
 from **More actions > Build without serving**. A promotion during a freeze asks the same question as
 an update does.
 

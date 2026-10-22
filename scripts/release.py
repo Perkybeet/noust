@@ -45,7 +45,7 @@ else:  # pragma: no cover - only on 3.10
 
 ROOT = Path(__file__).resolve().parent.parent
 
-MAINTAINER = "Yago Lopez Prado"
+MAINTAINER = "Yago López Prado"
 MAINTAINER_EMAIL = "yago.lopez.adeje@gmail.com"
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")

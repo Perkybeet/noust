@@ -56,7 +56,10 @@ function preloadFonts(): Plugin {
  */
 function catalogChunkName(facade: string | null): string | undefined {
   const language = /[\\/]src[\\/]i18n[\\/](en|es)[\\/][^\\/]+\.ts$/.exec(facade ?? "")?.[1];
-  return language === undefined ? undefined : `assets/i18n-${language}-[name]-[hash].js`;
+  if (language !== undefined) return `assets/i18n-${language}-[name]-[hash].js`;
+  // A language contributed as data is one file, weighed on its own (catalogCommunity).
+  const community = /[\\/]src[\\/]i18n[\\/]community[\\/]([a-z]{2,3}(?:-[A-Z]{2})?)\.json$/.exec(facade ?? "")?.[1];
+  return community === undefined ? undefined : `assets/i18n-community-${community}.[hash].js`;
 }
 
 /**

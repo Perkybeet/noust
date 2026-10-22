@@ -743,11 +743,13 @@ where they are, not as a change.
   one verb (`Retry` where it said "Deploy again", `Continue with GitHub` and `Continue with GitLab` where it
   said "Confirm and continue", `Open access` and `Close access` for a database made reachable from the
   network). A glossary of the interface and a test hold the words ([TRANSLATING.md](TRANSLATING.md)).
-- **Object icons.** Sections and cards of the application page and of its settings, the verb buttons and menu
-  items of the Server area and of Settings, and the menus of single sign-on carry the icon of the object or
-  the verb they are about: achromatic, decorative and never in a tab. One map holds the icon of each kind of
-  object (an application, a database, a domain, a backup, a server...) and the register reads it, so an
-  object has one icon across the console.
+- **Object icons.** Every card, section and group of settings across the console, the verb buttons and menu
+  items, and the menus of single sign-on carry the icon of the object or the verb they are about:
+  achromatic, decorative and never in a tab. One map holds the icon of each kind of object (an application,
+  a database, a domain, a backup, a server...), the register and every screen read it, and a lint rule
+  refuses an object's icon taken from anywhere else, so an object has one icon across the console.
+- **On a phone.** The action of a notice and the button of a setting go under their text at 390 pixels, where
+  a Spanish sentence was left about 100 pixels wide beside them.
 
 ### Other changes across the console
 

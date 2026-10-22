@@ -16,7 +16,8 @@ const made = [];
 
 /**
  * A build whose entry is 10 kB, whose one preloaded chunk is 20 kB, whose lazy chunk is 40 kB, whose stylesheet is 5 kB,
- * and whose texts are one English chunk of 6 kB and two Spanish ones of 7 and 8 kB (named as vite.config.ts names them).
+ * and whose texts are one English chunk of 6 kB and two Spanish ones of 7 and 8 kB (named as vite.config.ts names them),
+ * and two languages contributed as data: French in one file of 60 kB, Brazilian Portuguese in one of 45 kB.
  *
  * @param {{ index?: boolean }} [options]
  */
@@ -37,6 +38,9 @@ function build({ index = true } = {}) {
   file("i18n-en-nav-AbCd1234.js", 6);
   file("i18n-es-nav-AbCd1234.js", 7);
   file("i18n-es-servers-AbCd1234.js", 8);
+  // Vite's hashes may hold a dash: the code ends at the dot.
+  file("i18n-community-fr.Ab-Cd123.js", 60);
+  file("i18n-community-pt-BR.Ef_Gh456.js", 45);
   // A feature that is called like a catalog is not one.
   file("nav-AbCd1234.js", 3);
   file("app.css", 5);
@@ -66,7 +70,7 @@ function check(dir, budget) {
   return { status: result.status, out: result.stdout, err: result.stderr };
 }
 
-const ROOMY = { initialJs: 40 * KB, initialCss: 8 * KB, chunk: 50 * KB, totalJs: 150 * KB, catalogEn: 10 * KB, catalogEs: 20 * KB };
+const ROOMY = { initialJs: 40 * KB, initialCss: 8 * KB, chunk: 50 * KB, totalJs: 150 * KB, catalogEn: 10 * KB, catalogEs: 20 * KB, catalogCommunity: 80 * KB };
 
 afterEach(() => {
   for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
@@ -124,6 +128,22 @@ describe("the bundle budget", () => {
     expect(english.status).toBe(1);
     expect(english.err).toContain("catalogEn is 6.");
     expect(english.err).not.toContain("catalogEs is");
+  });
+
+  it("weighs a contributed language on its own, by its heaviest, and leaves it out of the chunk and the total", () => {
+    const result = check(build(), ROOMY);
+
+    expect(result.status).toBe(0);
+    // French is 60 kB, more than the 50 kB a chunk may weigh, and is not the largest chunk: only who chose it fetches it.
+    expect(result.out).toMatch(/catalogCommunity\s+60\.\d kB of 80\.0 kB\s+\(fr\)/);
+    expect(result.out).toContain("page.js");
+
+    const tight = check(build(), { ...ROOMY, catalogCommunity: 50 * KB });
+
+    expect(tight.status).toBe(1);
+    expect(tight.err).toContain("catalogCommunity is 60.");
+    expect(tight.err).not.toContain("totalJs is");
+    expect(tight.err).not.toContain("chunk is");
   });
 
   it("refuses a directory that is not a build", () => {
