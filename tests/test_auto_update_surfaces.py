@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 The automatic update's two doors, ``noust self-update`` and ``/api/system/update/auto``: they
 translate to the manager (tests/test_auto_update.py) and nothing else.

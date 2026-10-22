@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 Yago Lopez Prado
+// Copyright (c) 2024-2026 Yago López Prado
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package provider is the Noust Terraform and OpenTofu provider: resources and data sources that

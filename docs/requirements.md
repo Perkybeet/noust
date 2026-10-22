@@ -55,28 +55,32 @@ Noust has two long-running processes: the console (`noust-web`) and the monitor
 
 | Process | Memory (median) | Memory (peak) | Processor | Threads | Open files |
 |---|---|---|---|---|---|
-| `noust-web` | 148.5 MB | 148.5 MB | 0.48 % of one core | 15 | 41 |
-| `noust-monitor` | 60.7 MB | 61.2 MB | 0.26 % of one core | 3 | 20 |
+| `noust-web` | 189.9 MB | 189.9 MB | 2.2 % of one core | 11 | 30 |
+| `noust-monitor` | 96.9 MB | 149.2 MB | 0.13 % of one core | 3 | 21 |
 
-Measured over 60 seconds after a 15 second warm-up, on Python 3.12.13, 14 logical processors and
-19.5 GB of memory (a development machine, WSL2). So **Noust is about 210 MB of resident memory and
-well under one percent of a core when nothing is happening**; a server with 1 GB has most of it left
-for the web server and the applications.
+Measured over 60 seconds after a 120 second warm-up, on the two units as the installer leaves them
+(`install.sh --method pip` on Ubuntu 24.04 with systemd, Python 3.12.3, in a container on a
+14-processor machine with 19.5 GB; no applications deployed). So **Noust is about 290 MB of resident
+memory (about 340 MB at the monitor's peak) and a few percent of one core when nothing is
+happening**. That leaves a server with 1 GB more than 650 MB for the web server and the
+applications, and one at the 512 MB floor about 170 MB: enough to run Noust, not to build (add swap,
+below).
 
 How it is measured, so you can repeat it on your own server:
 
 ```bash
-python scripts/measure_idle.py --seconds 60 --markdown
+python scripts/measure_idle.py --attach --warmup 120 --seconds 60 --markdown
 ```
 
-The script starts the real console application the way the tests and the console's development do
-(`scripts/console_server.py`: the same FastAPI application under uvicorn, over a seeded store, with a
-model of systemd instead of the machine) and `noust monitor run` in a scratch directory, leaves each
-alone, and reads the resident memory of the process and its children, the processor time used, the
-threads and the open files from the kernel once a second. Two cautions: the console's number is for
-the application with a small seeded store, and a server with hundreds of applications keeps more in
-memory; and a real server's monitor also samples its applications and its processes, which costs a
-little more than an empty scratch directory.
+With `--attach` the script finds `noust-web` and `noust-monitor` through systemd and reads the
+resident memory of each process and its children, the processor time used, the threads and the open
+files from the kernel once a second, for the window you give. Without it the script starts its own
+copy of the console (`scripts/console_server.py`: the same FastAPI application under uvicorn, over a
+seeded store, with a model of systemd instead of the machine) and `noust monitor run` in a scratch
+directory, which is how a development machine measures them and gave smaller numbers (about 210 MB in
+all). Two cautions: the console's number grows with the store, so a server with hundreds of
+applications keeps more in memory; and the monitor's grows with what it samples (applications and
+processes).
 
 ## What your applications need
 

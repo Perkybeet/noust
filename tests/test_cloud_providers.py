@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """The Hetzner, DigitalOcean and Vultr adapters, against fake APIs: no real call is ever made."""
 
 from __future__ import annotations

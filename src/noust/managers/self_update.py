@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Yago Lopez Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
@@ -373,14 +373,16 @@ class SelfUpdate:
         Report whether this Noust runs in a container image.
 
         Returns:
-            True when ``systemd-detect-virt -c`` names a container.
+            True when ``systemd-detect-virt -c`` names a container that has no systemd of its
+            own. One that does (an LXC guest, a machine built as a Docker container) is a
+            server: it installs packages and starts units like one, so it updates itself.
         """
         if self._container is None:
             if "container" not in _DETECTED:
                 result = self.runner.run(["systemd-detect-virt", "-c"], timeout=10)
                 kind = result.stdout.strip()
                 _DETECTED["container"] = result.success and kind not in ("", "none")
-            self._container = bool(_DETECTED["container"])
+            self._container = bool(_DETECTED["container"]) and not self.systemd()
         return self._container
 
     def command(self, method: str) -> SelfUpdateCommand | None:

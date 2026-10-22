@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 A database moved from one server of a fleet to another, driven by a central (checklist C-21).
 

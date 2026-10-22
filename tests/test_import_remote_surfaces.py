@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 The ways an operator reaches the Coolify and Dokploy importers (checklist A-17).
 

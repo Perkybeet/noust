@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Real-machine integration harness for Noust.
 
@@ -1765,7 +1768,7 @@ def _compose_rollback(sc: Scenario) -> None:
         label=f"docker image ls {COMPOSE_GATE_PROJECT}-web",
     )
     sc.check(
-        f"{COMPOSE_GATE_PROJECT}-web:wasm-previous" in kept.stdout,
+        f"{COMPOSE_GATE_PROJECT}-web:noust_previous" in kept.stdout,
         f"the image that served was not kept: {kept.stdout!r}",
     )
     row = sc.run(

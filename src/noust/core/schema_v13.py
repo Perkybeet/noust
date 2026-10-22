@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Schema v13 (Noust 3.2): every table and column 3.2 adds to the store.
 

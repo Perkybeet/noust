@@ -59,6 +59,13 @@ for `/` and looks for the sentence, and updates it to a second commit and goes b
 `noust releases rollback`. It needs Docker and the network, it is not part of `pytest`, and it names
 every resource it makes with the label `noust.test=1`.
 
+Rails, Phoenix and Jekyll are not folders here: their generators write the project (`rails new`,
+`mix phx.new`, `jekyll new`), so the harness runs the generator in the container and deploys what it
+wrote (`--example rails`, `--example phoenix`, `--example jekyll`). What `mix phx.new` writes today needs
+an Elixir newer than Ubuntu 24.04's, so the harness installs one first, the way
+[frameworks.md](../docs/frameworks.md#phoenix-and-elixir) says. `--example from_a_directory` deploys the
+first example from a plain directory, the form shown at the top of this page.
+
 ```bash
 python tests/integration/examples_run.py                    # all of them
 python tests/integration/examples_run.py --example go --example rust

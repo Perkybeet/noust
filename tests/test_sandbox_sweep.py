@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Build units a dead process left behind are swept when the console or the monitor starts.
 

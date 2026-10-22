@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025 Yago López Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
@@ -1565,10 +1565,16 @@ class DockerComposeDeployer(AppDeployer):
         Raises:
             PortConflictError: A published port is held by something else.
         """
+        values = self._values_the_ports_are_read_with()
         mappings = [
             mapping
             for service in self.services
-            for mapping in parse_ports(list(service.ports))
+            for mapping in parse_ports(
+                [
+                    interpolate(entry, values) if isinstance(entry, str) else entry
+                    for entry in service.ports
+                ]
+            )
             if mapping.host_port is not None
         ]
         if not mappings:
@@ -1585,6 +1591,29 @@ class DockerComposeDeployer(AppDeployer):
             if not own:
                 raise
         claims.require_stack_free(self.domain, mappings, own=own)
+
+    def _values_the_ports_are_read_with(self) -> dict[str, str]:
+        """
+        The variables the stack's ``ports:`` will be filled from when it starts.
+
+        The file's own default (``${PORT:-3000}``) is what nothing sets, and a deploy sets
+        ``PORT`` to the port its site proxies to in the step after this check
+        (:meth:`_own_the_port_variable`). Judging the default would refuse a stack for the port of
+        an application it never publishes on.
+
+        Returns:
+            The stack's ``.env``, then the values given at create time, then ``PORT`` when the
+            document publishes on it and nobody set it.
+        """
+        from noust.deployers.helpers.compose_variables import read_values
+
+        values, _used = read_values(self._compose_file_path(), self.app_path)
+        values.update(self.env_vars)
+        if self.port and "PORT" not in values:
+            published = [entry for service in self.services for entry in service.ports]
+            if "PORT" in host_port_variables(published):
+                values["PORT"] = str(self.port)
+        return values
 
     def _ports_published_by_containers(self) -> set[tuple[int, str]]:
         """

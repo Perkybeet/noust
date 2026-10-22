@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """CLI commands package for Noust."""
 
 from noust.cli.commands.cert import handle_cert

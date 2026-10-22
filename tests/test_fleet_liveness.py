@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 When a server counts as down, how long to wait before asking again, and when to say nothing (F-09).
 

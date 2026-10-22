@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Yago Lopez Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
@@ -61,6 +61,17 @@ def test_a_service_is_found_by_the_one_expression_and_only_for_a_plain_name() ->
         assert service_container(name) is None
 
 
+def test_a_service_that_a_platform_has_named_two_ways_is_found_under_either() -> None:
+    # CapRover names the service after the application now, and used to put srv-captain-- in front.
+    assert (
+        service_container("db", "srv-captain--db")
+        == "$(docker ps -qf name=^db\\. -f name=^srv-captain--db\\.)"
+    )
+    for name in HOSTILE:
+        assert service_container("db", name) is None
+        assert service_container(name, "srv-captain--db") is None
+
+
 def test_a_dump_is_written_for_a_plain_container_and_for_the_service_expression() -> None:
     plain = database_commands("postgresql", "abc-123", "shop", "abc-123")
     assert plain is not None
@@ -69,6 +80,9 @@ def test_a_dump_is_written_for_a_plain_container_and_for_the_service_expression(
     expression = service_container("srv-captain--db")
     assert expression is not None
     assert database_commands("postgresql", expression, "db", "db") is not None
+    both = service_container("db", "srv-captain--db")
+    assert both is not None
+    assert database_commands("postgresql", both, "db", "db") is not None
 
 
 @pytest.mark.parametrize("name", HOSTILE)
@@ -84,6 +98,9 @@ def test_an_expression_that_is_not_the_one_expression_is_not_a_container() -> No
         "$(docker ps -qf name=^x; reboot\\.)",
         "$(docker ps -qf name=^x\\.) && reboot",
         "$(docker ps -qf name=^x)",
+        "$(docker ps -qf name=^x\\. -f name=^y; reboot\\.)",
+        "$(docker ps -qf name=^x\\. -f name=^y\\.) && reboot",
+        "$(docker ps -qf name=^x\\. -f label=a=b)",
     ):
         assert database_commands("postgresql", expression, "x", "x") is None
 

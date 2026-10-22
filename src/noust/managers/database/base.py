@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025 Yago López Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
@@ -2979,6 +2979,8 @@ class BaseDatabaseManager(BaseManager):
                 failure = exc
         if failure is not None:
             if safety is None:
+                if not exists:
+                    self._discard_what_the_restore_made(database, failure)
                 raise failure
             if replaced and not dropped:
                 raise DatabaseBackupError(
@@ -2992,6 +2994,29 @@ class BaseDatabaseManager(BaseManager):
         return RestoreOutcome(
             database=database, source=backup_path, safety_copy=safety, replaced=replaced
         )
+
+    def _discard_what_the_restore_made(self, database: str, failure: DatabaseError) -> None:
+        """
+        Drop the database a failed restore created, so that nothing of it is left behind.
+
+        Nothing existed under the name before, so nothing is lost by dropping it, and the retry the
+        error often asks for (the same restore as the superuser) finds the name free instead of
+        taken by the husk of the first attempt.
+
+        Args:
+            database: The database the restore created.
+            failure: What the load raised; its details say that the database was removed.
+        """
+        try:
+            self.drop_database(database, force=True)
+        except DatabaseError as exc:
+            self.logger.warning(
+                f"Could not remove the database '{database}' left by the restore: {exc}"
+            )
+            return
+        failure.details = (
+            f"{failure.details}\n\n" if failure.details else ""
+        ) + f"The database '{database}' this restore had created was dropped again."
 
     def _put_back(
         self, database: str, safety: Path, owner: str | None, failure: DatabaseError

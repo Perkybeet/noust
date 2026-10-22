@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Tests for the open terminals: the registry that is the one way to open one, and
 the session it hands back.

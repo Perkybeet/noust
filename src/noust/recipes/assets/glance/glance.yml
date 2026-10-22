@@ -1,5 +1,5 @@
 # Glance reads this file from /app/config/glance.yml and reloads it when it changes.
-# ${NAME} is replaced by the container's environment variable of that name.
+# The three variables below, written with a dollar sign and braces, are read from the container environment.
 # Documentation: https://github.com/glanceapp/glance/blob/main/docs/configuration.md
 auth:
   secret-key: ${GLANCE_SECRET_KEY}

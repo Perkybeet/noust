@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Noust updating itself when nobody asks (checklist N-28): the settings, the timer that follows
 them, and the run the timer starts, with the update check, the clock and the install faked.

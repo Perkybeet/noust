@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2024-2026 Yago Lopez Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # Noust installer.
@@ -1198,7 +1198,9 @@ post_install() {
     fi
     have noust || die "noust is not on the PATH after the installation." \
         "Look at the output above; the package manager says why."
-    say "Installed: $(noust --version 2>/dev/null || echo noust)"
+    # The first line is the version; the notices under it are for a person who asks.
+    installed_line=$(noust --version 2>/dev/null | head -n 1)
+    say "Installed: ${installed_line:-noust}"
 
     # An upgrade of a server a 3.x release moved onto Noust's names: the links it left under the
     # old names go when nothing uses them (noust setup retire-links says what it keeps). A

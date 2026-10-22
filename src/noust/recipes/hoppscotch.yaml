@@ -4,7 +4,11 @@
 # "Environment variables", read 2026-10-20). ENABLE_SUBPATH_BASED_ACCESS=true makes the image serve the app, the admin
 # dashboard (/admin) and the backend (/backend) behind one address instead of three ports. The
 # project runs `prisma migrate deploy` as a separate job before the backend; the same command runs
-# first in this container (and does nothing once the database is current). JWT_SECRET,
+# first in this container (and does nothing once the database is current), with the Prisma the image
+# carries in /dist/backend: `pnpx prisma` downloads the newest one, whose 8.0 release candidate has
+# no `migrate` command. On its very first start the backend fills its settings table and stops
+# itself five seconds later so that it starts with them ("Stopping app in 5 seconds"), and the
+# restart policy brings it back: one restart with status 0, once. JWT_SECRET,
 # SESSION_SECRET and DATA_ENCRYPTION_KEY (32 characters) are generated. Sign-in is by e-mail
 # link or OAuth, configured in the admin dashboard that the first visit opens, so the first note
 # says to open it now.
@@ -76,7 +80,7 @@ compose: |
     hoppscotch:
       image: hoppscotch/hoppscotch:2026.9.0@sha256:3160f5b3acf49478552a66a0785ee6c75f64311066f149f7d946fbd540f8388d
       restart: unless-stopped
-      command: ["sh", "-c", "pnpx prisma migrate deploy && node /usr/src/app/aio_run.mjs"]
+      command: ["sh", "-c", "cd /dist/backend && ./node_modules/.bin/prisma migrate deploy && exec node /usr/src/app/aio_run.mjs"]
       depends_on:
         db:
           condition: service_healthy

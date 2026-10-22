@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 ``/api/push`` and ``/api/apps/{domain}/push``: deploying with git push over the API (checklist A-23).
 

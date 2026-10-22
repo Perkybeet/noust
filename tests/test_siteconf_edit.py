@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Edits touch only the bytes of their element and keep the surrounding indentation."""
 
 from __future__ import annotations

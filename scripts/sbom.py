@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2024-2026 Yago Lopez Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Write a CycloneDX 1.5 SBOM for a Noust wheel, with nothing but the standard library.

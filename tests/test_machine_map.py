@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 How a server fits together, read as a graph (checklist M-69): what it holds, how it connects, whose
 it is, that nothing in it is a position, and that the API and the permission map agree.
