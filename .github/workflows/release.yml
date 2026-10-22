@@ -467,7 +467,6 @@ jobs:
       - clean-install
       - deb-in-a-clean-container
       - rpm-in-a-clean-container
-      - upgrade-from-2x
       - container-image
     runs-on: ubuntu-latest
     permissions:
