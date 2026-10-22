@@ -86,6 +86,23 @@ export const apps = {
     cancel: "Cancel",
     rebuildAnyway: "Rebuild anyway",
   },
+  /** The row a deploy that serves ends on: the wizard's last step and a deployment's page (features/app/ArrivalRow.tsx). */
+  arrival: {
+    live: "Live",
+    liveSite: "{domain}, the live site",
+    copy: "Copy the address",
+    httpsReady: "HTTPS is ready.",
+    httpOnly: "Served over HTTP: the certificate could not be issued.",
+    httpOnlyNone: "Served over HTTP: no certificate covers this address yet.",
+    temporaryHelp: "A temporary address is for trying things out.",
+    certbotSaid: "What certbot said",
+    certbotOutput: "What certbot said about {domain}",
+    openDomains: "Open Domains",
+    next: "Next",
+    nextDomain: "Add your own domain",
+    nextDatabase: "Add a database",
+    nextBackup: "Schedule a backup",
+  },
   actions: {
     restartedToast: "Restarted {domain}",
     startedToast: "Started {domain}",
