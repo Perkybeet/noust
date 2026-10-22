@@ -215,7 +215,7 @@ withMisplacedBackups("backups outside the backup directory are named, with the c
   await expect(notice.getByText(`${String(found.count)} backups in ${found.directory}`)).toBeVisible();
   expect(found.command).toBe(`noust backup import ${found.directory}`);
   await expect(notice.locator("code").filter({ hasText: found.command })).toBeVisible();
-  await expect(notice.getByText(/--dry-run\s*to the command to see what would move first/)).toBeVisible();
+  await expect(notice.getByText(/--dry-run shows what would move/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the misplaced backups notice");
 });

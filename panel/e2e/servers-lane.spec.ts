@@ -55,7 +55,7 @@ test("Settings > Cloud: no account yet, the scripts that ship with Noust, and an
 });
 
 test("a server behind NAT: the way is one step from adding a server, and says what this central lacks", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/settings/servers");
+  await signIn(page, consoleServer, "/fleet/servers");
   await page.getByRole("button", { name: "Add a server" }).first().click();
   await page.getByRole("button", { name: "It cannot be reached from outside: let it dial this central instead" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server behind NAT" });

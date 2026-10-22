@@ -10,7 +10,7 @@ import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures
 
 test("the DNS, Tunnels and Ports tabs are one click from the certificates, and each says what it holds", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/domains");
-  const tabs = page.getByRole("navigation", { name: "Domains and certificates sections" });
+  const tabs = page.getByRole("navigation", { name: "Domains sections" });
   await expect(tabs.getByRole("link", { name: /^Certificates/ })).toHaveAttribute("aria-current", "page");
 
   await tabs.getByRole("link", { name: /^DNS/ }).click();

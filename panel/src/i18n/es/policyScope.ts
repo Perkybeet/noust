@@ -5,16 +5,16 @@ export const policyScope: Catalog<typeof en> = {
   card: {
     title: "Todas las bases de datos de {engine}",
     description: "Una misma programación para todas, y para las que se creen después.",
-    none: "Ninguna política cubre todas las bases de datos de {engine}. Cada una se protege con su propia política, o no se protege.",
-    coveredBy: "La política de todas las bases de datos de {engine} copia también esta. Pon una programación propia para cambiar cuándo o dónde.",
+    none: "Ninguna programación cubre todas las bases de datos de {engine}. Cada una se protege con su propia programación, o no se protege.",
+    coveredBy: "La programación de todas las bases de datos de {engine} copia también esta. Pon una programación propia para cambiar cuándo o dónde.",
     set: "Copiar todas las bases de datos",
     covers: "Cubre",
     coversThis: "Todas las bases de datos de {engine}, incluida {name}",
     leavesThisOut: "Todas las bases de datos de {engine}, menos {name}",
-    removeTitle: "Quitar la política de todas las bases de datos de {engine}",
+    removeTitle: "Quitar la programación de todas las bases de datos de {engine}",
     removeDescription:
-      "Ninguna base de datos se copia ya con ella y la programación se detiene. Los volcados ya hechos se quedan. Las bases de datos con política propia la conservan.",
-    removeAction: "Quitar política",
+      "Ninguna base de datos se copia ya con ella y la programación se detiene. Los volcados ya hechos se quedan. Las bases de datos con programación propia la conservan.",
+    removeAction: "Quitar programación",
   },
   drawer: {
     titleAll: "Copias de todas las bases de datos de {engine}",

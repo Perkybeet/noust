@@ -10,12 +10,14 @@ import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
+import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 /** What a major-version move leaves from: an instance of Noust's, or the host's own engine. */
 export interface MigrationSource {
@@ -154,7 +156,7 @@ export function MigrateDialog({ source, onOpenChange, onQueued }: MigrateDialogP
     >
       <div className="flex flex-col gap-5">
         {catalog.isError ? <ErrorBlock compact error={catalog.error} title={t("databases.newInstance.catalogFailed")} onRetry={() => void catalog.refetch()} /> : null}
-        {catalog.data !== undefined && offered.length === 0 ? <Notice title={t("databases.migrate.nothingNewer", { engine: source.label })}>{t("databases.migrate.nothingNewerBody")}</Notice> : null}
+        {catalog.data !== undefined && offered.length === 0 ? <EmptyState variant="inline" title={t("databases.migrate.nothingNewer", { engine: source.label })} description={t("databases.migrate.nothingNewerBody")} /> : null}
         {offered.length > 0 ? (
           <>
             <Field label={t("databases.migrate.version")} nativeLabel={false} description={t("databases.migrate.versionHelp", { current: source.version ?? "?" })}>
@@ -165,16 +167,15 @@ export function MigrateDialog({ source, onOpenChange, onQueued }: MigrateDialogP
                 <Input mono value={name} onValueChange={setName} autoComplete="off" autoCapitalize="off" spellCheck={false} />
               </Field>
               <Field label={t("databases.migrate.memoryField")} optional description={t("databases.migrate.memoryHelp")} error={memoryValid ? undefined : t("databases.newInstance.memoryInvalid")} className="w-44">
-                <Input mono inputMode="numeric" value={memory} onValueChange={setMemory} suffix="MB" />
+                <Input mono inputMode="numeric" value={memory} placeholder={t("databases.migrate.memoryPlaceholder")} onValueChange={setMemory} suffix="MB" />
               </Field>
             </div>
           </>
         ) : null}
         {plan.isPending && chosen !== null && memoryValid ? (
-          <div aria-busy="true">
-            <span className="sr-only">{t("databases.migrate.planning")}</span>
+          <LoadingRegion label={t("databases.migrate.planning")}>
             <Skeleton className="h-32 w-full rounded-control" />
-          </div>
+          </LoadingRegion>
         ) : null}
         {plan.isError ? <ErrorBlock compact error={plan.error} title={t("databases.migrate.planFailed")} /> : null}
         {plan.data !== undefined ? <Plan plan={plan.data} /> : null}

@@ -83,7 +83,7 @@ export const dumpImport = {
     replace: "Drop and recreate it first",
     replaceHelp: "Everything in {name} is deleted before the dump is loaded, so what the dump does not hold is gone. A copy is taken first and put back if the load fails.",
     keepOwners: "Keep the owners and privileges the dump names",
-    keepOwnersHelp: "Off, everything belongs to the database's own account: the roles in a dump are those of the server it came from, and do not exist here.",
+    keepOwnersHelp: "Without it, everything belongs to the database's own account: the roles in a dump are those of the server it came from, and do not exist here.",
     safety: "Take a copy of {name} first",
     safetyHelp: "Kept with its backups, and put back if the load fails.",
     safetyAlways: "A copy of {name} is taken first, because it is dropped.",

@@ -39,6 +39,7 @@ export function CreateBackupDialog({ open, onOpenChange, domain: fixedDomain }: 
   const [includeDockerVolumes, setIncludeDockerVolumes] = useState(false);
   const [redisMethod, setRedisMethod] = useState("rdb");
   const [tags, setTags] = useState("");
+  const [pressed, setPressed] = useState(false);
   const { create } = useBackupActions();
   const target = fixedDomain ?? domain;
 
@@ -52,6 +53,7 @@ export function CreateBackupDialog({ open, onOpenChange, domain: fixedDomain }: 
     setIncludeDockerVolumes(false);
     setRedisMethod("rdb");
     setTags("");
+    setPressed(false);
     create.reset();
   };
 
@@ -63,7 +65,10 @@ export function CreateBackupDialog({ open, onOpenChange, domain: fixedDomain }: 
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (target.trim() === "") return;
+    if (target.trim() === "") {
+      setPressed(true);
+      return;
+    }
     create.mutate(
       {
         domain: target.trim(),
@@ -97,15 +102,15 @@ export function CreateBackupDialog({ open, onOpenChange, domain: fixedDomain }: 
           <Button disabled={create.isPending} onClick={() => close(false)}>
             {t("common.words.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={target.trim() === ""}>
+          <Button type="submit" form={formId} variant="primary" loading={create.isPending}>
             {t("backups.createDialog.submit")}
           </Button>
         </>
       }
     >
-      <form id={formId} onSubmit={submit} className="flex flex-col gap-5">
+      <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
         {fixedDomain === undefined ? (
-          <Field label={t("backups.fields.application")} nativeLabel={false}>
+          <Field label={t("backups.fields.application")} nativeLabel={false} error={pressed && target.trim() === "" ? t("backups.fields.chooseApplication") : undefined}>
             <Select
               aria-label={t("backups.fields.application")}
               value={domain}

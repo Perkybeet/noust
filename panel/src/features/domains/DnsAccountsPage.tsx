@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontal, Plus, RotateCw, Settings2, Trash2 } from "lucide-react";
+import { List, Plus, RotateCw, Settings2, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -10,6 +10,7 @@ import { MenuItem } from "../../components/ui/Menu";
 import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { RowMenu } from "../../components/page/RowMenu";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
@@ -19,10 +20,10 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Drawer } from "../../components/ui/Drawer";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
-import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
-import { Menu, MenuSeparator } from "../../components/ui/Menu";
+import { MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
+import { RowList } from "../../components/ui/RowList";
 import { Select } from "../../components/ui/Select";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
@@ -242,21 +243,23 @@ function RecordsDrawer({ open, onClose }: { open: boolean; onClose: () => void }
       ) : records.data === undefined ? null : records.data.records.length === 0 ? (
         <EmptyState variant="inline" title={t("network.dns.recordsEmpty")} />
       ) : (
-        <ul aria-label={t("network.dns.recordsTitle")} className="flex flex-col divide-y divide-border rounded-control border border-border">
+        <RowList aria-label={t("network.dns.recordsTitle")}>
           {records.data.records.map((record) => (
-            <li key={record.id} className="flex min-w-0 flex-col gap-1 px-3 py-2">
-              <Mono truncate>{`${record.type} ${record.hostname}`}</Mono>
-              <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-12 text-fg-muted">
-                <Mono truncate>{record.content}</Mono>
-                <Badge>{record.owned ? t("network.appDns.madeByNoust") : t("network.appDns.adopted")}</Badge>
-                <span>{t("network.dns.recordIn", { account: record.provider })}</span>
-              </span>
-              <span className="text-12 text-fg-muted">
-                {(record.applications ?? []).length > 0 ? t("network.dns.usedBy", { names: (record.applications ?? []).join(", ") }) : t("network.dns.usedByNobody")}
-              </span>
-            </li>
+            <RowList.Item key={record.id} className="items-start">
+              <div className="flex min-w-0 flex-col gap-1">
+                <Mono truncate>{`${record.type} ${record.hostname}`}</Mono>
+                <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-12 text-fg-muted">
+                  <Mono truncate>{record.content}</Mono>
+                  <Badge>{record.owned ? t("network.appDns.madeByNoust") : t("network.appDns.adopted")}</Badge>
+                  <span>{t("network.dns.recordIn", { account: record.provider })}</span>
+                </span>
+                <span className="text-12 text-fg-muted">
+                  {(record.applications ?? []).length > 0 ? t("network.dns.usedBy", { names: (record.applications ?? []).join(", ") }) : t("network.dns.usedByNobody")}
+                </span>
+              </div>
+            </RowList.Item>
           ))}
-        </ul>
+        </RowList>
       )}
     </Drawer>
   );
@@ -326,9 +329,10 @@ export function DnsAccountsPage() {
           {t("network.dns.add")}
         </Button>
       }
-      {...(empty ? {} : { secondaryActions: <Button onClick={() => setShowRecords(true)}>{t("network.dns.managed")}</Button> })}
+      {...(empty ? {} : { secondaryActions: <Button icon={<List aria-hidden="true" />} onClick={() => setShowRecords(true)}>{t("network.dns.managed")}</Button> })}
       footer={<CommandHint command="noust dns provider list" label={t("common.words.fromTerminal")} />}
     >
+      {/* design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed */}
       {accounts.isError && accounts.data === undefined ? (
         <ErrorBlock error={accounts.error} title={t("network.dns.listFailed")} onRetry={() => void accounts.refetch()} retrying={accounts.isRefetching} />
       ) : empty ? (
@@ -353,7 +357,7 @@ export function DnsAccountsPage() {
           getRowId={(account) => account.name}
           loading={accounts.isPending}
           rowActions={(account) => (
-            <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: account.name })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
+            <RowMenu name={account.name}>
               <MenuItem icon={<RotateCw />} disabled={verify.isPending} onClick={() => verify.mutate(account)}>
                 {t("network.dns.verify")}
               </MenuItem>
@@ -364,7 +368,7 @@ export function DnsAccountsPage() {
               <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(account)}>
                 {t("network.dns.remove")}
               </MenuItem>
-            </Menu>
+            </RowMenu>
           )}
         />
       )}

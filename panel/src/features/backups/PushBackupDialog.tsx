@@ -24,6 +24,7 @@ export function PushBackupDialog({ backup, open, onOpenChange }: PushBackupDialo
   const formId = useId();
   const destinations = useQuery({ ...backupDestinationsQuery(), enabled: open });
   const [destination, setDestination] = useState("");
+  const [pressed, setPressed] = useState(false);
   const { push } = useBackupActions();
 
   const close = (next: boolean): void => {
@@ -31,13 +32,17 @@ export function PushBackupDialog({ backup, open, onOpenChange }: PushBackupDialo
     onOpenChange(next);
     if (!next) {
       setDestination("");
+      setPressed(false);
       push.reset();
     }
   };
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (destination === "") return;
+    if (destination === "") {
+      setPressed(true);
+      return;
+    }
     push.mutate({ backupId: backup.backup_id, destination }, { onSuccess: () => close(false) });
   };
 
@@ -55,14 +60,14 @@ export function PushBackupDialog({ backup, open, onOpenChange }: PushBackupDialo
           <Button disabled={push.isPending} onClick={() => close(false)}>
             {t("common.words.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={push.isPending} disabled={destination === ""}>
+          <Button type="submit" form={formId} variant="primary" loading={push.isPending}>
             {t("backups.pushDialog.submit")}
           </Button>
         </>
       }
     >
       <form id={formId} onSubmit={submit} className="flex flex-col gap-4">
-        <Field label={t("backups.fields.destination")} nativeLabel={false}>
+        <Field label={t("backups.fields.destination")} nativeLabel={false} error={pressed && destination === "" ? t("backups.fields.chooseDestination") : undefined}>
           <Select
             aria-label={t("backups.fields.destination")}
             value={destination}

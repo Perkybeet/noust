@@ -5,15 +5,17 @@ import type { ReactNode } from "react";
 import { emailApiQuery, saveEmailApiSettings, saveSmtpSettings, smtpSettingsQuery } from "../../api/queries/config";
 import type { SmtpSettings } from "../../api/queries/config";
 import { saveNotificationChannel } from "../../api/queries/notifications";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { QueryState } from "../../components/page/QueryState";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
-import { Field } from "../../components/ui/Field";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Field, FieldGroup } from "../../components/ui/Field";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
+import { RowList } from "../../components/ui/RowList";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { ChannelDrawer, ChannelRow, SecretInput, useChannelTest, useRefreshConfig } from "./channelParts";
@@ -91,31 +93,37 @@ function RecipientsEditor({
         {t("settings.notifications.email.recipients.legend")}
       </p>
       {recipients.length > 0 ? (
-        <ul aria-label={t("settings.notifications.email.recipients.listLabel")} className="flex min-w-0 flex-col divide-y divide-border rounded-control border border-border bg-bg-sunken">
+        <RowList aria-label={t("settings.notifications.email.recipients.listLabel")}>
           {recipients.map((address) => {
             const bad = refused.has(address);
             return (
-              <li key={address} className="flex min-h-9 min-w-0 items-center gap-2 py-1 pr-1 pl-3">
-                {bad ? <StatusGlyph state="failed" size={10} className="text-fail" /> : null}
-                <Mono truncate title={address} className="min-w-0 flex-1 text-12">
-                  {address}
-                </Mono>
-                {bad ? <span className="shrink-0 text-12 text-fail">{t("settings.notifications.email.recipients.refused")}</span> : null}
-                <IconButton
-                  size="sm"
-                  label={t("settings.notifications.email.recipients.removeLabel", { address })}
-                  icon={<ICONS.dismiss />}
-                  disabled={disabled}
-                  onClick={() => {
-                    onChange(recipients.filter((other) => other !== address));
-                  }}
-                />
-              </li>
+              <RowList.Item
+                key={address}
+                leading={bad ? <StatusGlyph state="failed" size={10} className="text-fail" /> : undefined}
+                actions={
+                  <IconButton
+                    size="sm"
+                    label={t("settings.notifications.email.recipients.removeLabel", { address })}
+                    icon={<ICONS.dismiss />}
+                    disabled={disabled}
+                    onClick={() => {
+                      onChange(recipients.filter((other) => other !== address));
+                    }}
+                  />
+                }
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <Mono truncate title={address} className="min-w-0 flex-1 text-12">
+                    {address}
+                  </Mono>
+                  {bad ? <span className="shrink-0 text-12 text-fail">{t("settings.notifications.email.recipients.refused")}</span> : null}
+                </div>
+              </RowList.Item>
             );
           })}
-        </ul>
+        </RowList>
       ) : (
-        <p className="text-13 text-fg-muted">{t("settings.notifications.email.recipients.empty")}</p>
+        <EmptyState variant="inline" title={t("settings.notifications.email.recipients.empty")} />
       )}
       <Field
         label={t("settings.notifications.email.recipients.addLabel")}
@@ -251,11 +259,7 @@ function SmtpAccountFields({
           />
         </Field>
       </div>
-      <div className="flex min-w-0 flex-col gap-1.5">
-        {/* The radio group is named by its own label; this is the same word, for sight. */}
-        <span aria-hidden="true" className="text-13 font-medium text-fg">
-          {t("settings.notifications.email.encryptionLabel")}
-        </span>
+      <FieldGroup legend={t("settings.notifications.email.encryptionLabel")} description={securityDescription} error={errorOf("security")}>
         <SegmentedControl<SmtpSecurity>
           label={t("settings.notifications.email.encryptionLabel")}
           options={options}
@@ -265,9 +269,7 @@ function SmtpAccountFields({
           }}
           className="self-start"
         />
-        <p className="text-12 text-fg-muted">{securityDescription}</p>
-        {errorOf("security") !== undefined ? <p className="text-13 text-fail">{errorOf("security")}</p> : null}
-      </div>
+      </FieldGroup>
       <div className="grid min-w-0 gap-5 sm:grid-cols-2">
         <Field label={t("settings.notifications.email.usernameLabel")} optional error={errorOf("username")} description={t("settings.notifications.email.usernameDescription")}>
           <Input
@@ -438,45 +440,46 @@ export function EmailChannel({ enabledStored, smtp }: { enabledStored: boolean; 
         testReason={testReason}
       >
         <FormFailure error={split.form !== null && providerSplit.form !== null ? split.form : null} title={t("settings.notifications.email.saveErrorTitle")} />
-        {query.isError && data === undefined ? (
-          <ErrorBlock compact error={query.error} title={t("settings.notifications.email.loadFailed")} onRetry={() => void query.refetch()} />
-        ) : form === undefined || data === undefined ? (
-          <div aria-busy="true">
-            <span className="sr-only">{t("settings.notifications.email.loading")}</span>
-            <FieldsSkeleton rows={[2, 1, 2, 1]} />
-          </div>
-        ) : (
-          <EmailFields
-            form={form}
-            stored={data}
-            enabled={enabledValue}
-            onEnabled={setEnabled}
-            set={(name, value) => {
-              set(name, value);
-            }}
-            setSecurity={(next) => {
-              setDraft((current) => ({ ...current, security: next, port: portForSecurity(form.port, form.security, next) }));
-              setEdited((current) => new Set([...current, "security", "port"]));
-            }}
-            errorOf={errorOf}
-            disabled={save.isPending}
-            viaService={viaService}
-            provider={
-              providerForm !== undefined && providerQuery.data !== undefined ? (
-                <EmailProviderFields
-                  form={providerForm}
-                  stored={providerQuery.data}
-                  set={(change) => {
-                    setProviderDraft((current) => ({ ...current, ...change }));
-                    setProviderEdited((current) => new Set([...current, ...Object.keys(change)]));
-                  }}
-                  errorOf={providerErrorOf}
-                  disabled={save.isPending}
-                />
-              ) : null
-            }
-          />
-        )}
+        <QueryState
+          query={{ data, error: query.error, isPending: query.isPending, isError: query.isError, isRefetching: query.isRefetching, refetch: query.refetch }}
+          label={t("settings.notifications.email.noun")}
+          skeleton={<FieldsSkeleton rows={[2, 1, 2, 1]} />}
+        >
+          {(stored) =>
+            form === undefined ? null : (
+              <EmailFields
+                form={form}
+                stored={stored}
+                enabled={enabledValue}
+                onEnabled={setEnabled}
+                set={(name, value) => {
+                  set(name, value);
+                }}
+                setSecurity={(next) => {
+                  setDraft((current) => ({ ...current, security: next, port: portForSecurity(form.port, form.security, next) }));
+                  setEdited((current) => new Set([...current, "security", "port"]));
+                }}
+                errorOf={errorOf}
+                disabled={save.isPending}
+                viaService={viaService}
+                provider={
+                  providerForm !== undefined && providerQuery.data !== undefined ? (
+                    <EmailProviderFields
+                      form={providerForm}
+                      stored={providerQuery.data}
+                      set={(change) => {
+                        setProviderDraft((current) => ({ ...current, ...change }));
+                        setProviderEdited((current) => new Set([...current, ...Object.keys(change)]));
+                      }}
+                      errorOf={providerErrorOf}
+                      disabled={save.isPending}
+                    />
+                  ) : null
+                }
+              />
+            )
+          }
+        </QueryState>
       </ChannelDrawer>
     </>
   );

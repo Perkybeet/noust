@@ -100,7 +100,7 @@ describe("the DNS tab", () => {
     expect(within(row).getByText("Made without asking")).toBeInTheDocument();
     expect(within(row).getByText("Works")).toBeInTheDocument();
     // The strip the tab belongs to names its sister tabs and counts what each holds.
-    const tabs = screen.getByRole("navigation", { name: "Domains and certificates sections" });
+    const tabs = screen.getByRole("navigation", { name: "Domains sections" });
     expect(within(tabs).getByRole("link", { name: /^DNS/ })).toHaveAttribute("aria-current", "page");
     expect(within(tabs).getByRole("link", { name: /^Tunnels/ })).toBeInTheDocument();
     expect(within(tabs).getByRole("link", { name: /^Ports/ })).toBeInTheDocument();

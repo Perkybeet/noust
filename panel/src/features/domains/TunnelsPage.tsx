@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Cable, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { Cable, Plus, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -10,6 +10,7 @@ import type { RouteResult, Tunnel } from "../../api/queries/network";
 import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { RowMenu } from "../../components/page/RowMenu";
 import { Button } from "../../components/ui/Button";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
@@ -21,8 +22,9 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
 import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
-import { Menu, MenuItem } from "../../components/ui/Menu";
+import { MenuItem } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
+import { RowList } from "../../components/ui/RowList";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { StatusPill } from "../../components/ui/StatusPill";
@@ -314,19 +316,21 @@ function TunnelDrawer({ tunnel, onClose, onAddRoute, onRemoveRoute }: { tunnel: 
           {routes.length === 0 ? (
             <EmptyState variant="inline" title={t("network.tunnels.noRoutes")} />
           ) : (
-            <ul aria-label={t("network.tunnels.routesLabel", { name: tunnel.name })} className="flex flex-col divide-y divide-border rounded-control border border-border">
+            <RowList aria-label={t("network.tunnels.routesLabel", { name: tunnel.name })}>
               {routes.map((route) => (
-                <li key={route.hostname} className="flex min-w-0 items-center justify-between gap-3 px-3 py-2">
+                <RowList.Item
+                  key={route.hostname}
+                  actions={<IconButton label={t("network.tunnels.routeRemoveNamed", { name: route.hostname })} icon={<Trash2 />} size="sm" onClick={() => onRemoveRoute(tunnel, route.hostname)} />}
+                >
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <Mono truncate>{route.hostname}</Mono>
                     <span className="text-12 text-fg-muted">
                       <Mono truncate>{route.service}</Mono>
                     </span>
                   </div>
-                  <IconButton label={t("network.tunnels.routeRemoveNamed", { name: route.hostname })} icon={<Trash2 />} size="sm" onClick={() => onRemoveRoute(tunnel, route.hostname)} />
-                </li>
+                </RowList.Item>
               ))}
-            </ul>
+            </RowList>
           )}
         </div>
       ) : null}
@@ -396,6 +400,7 @@ export function TunnelsPage() {
         : {})}
       footer={<CommandHint command="noust tunnel list" label={t("common.words.fromTerminal")} />}
     >
+      {/* design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed */}
       {tunnels.isError && tunnels.data === undefined ? (
         <ErrorBlock error={tunnels.error} title={t("network.tunnels.listFailed")} onRetry={() => void tunnels.refetch()} retrying={tunnels.isRefetching} />
       ) : empty ? (
@@ -425,14 +430,14 @@ export function TunnelsPage() {
           loading={tunnels.isPending}
           onRowActivate={(row) => setOpen(row.name)}
           rowActions={(row) => (
-            <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: row.name })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
+            <RowMenu name={row.name}>
               <MenuItem icon={<Plus />} disabled={row.state !== "ready"} onClick={() => setRouting(row)}>
                 {t("network.tunnels.routeAdd")}
               </MenuItem>
               <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleting(row)}>
                 {t("network.tunnels.delete")}
               </MenuItem>
-            </Menu>
+            </RowMenu>
           )}
         />
       )}

@@ -51,8 +51,10 @@ describe("probeItems", () => {
   it("lists the probes that are down, with the probe's own words about why", () => {
     const list = {
       items: [
-        { name: "shop", status: { state: "up", since: SINCE, last_error: null } },
-        { name: "blog", status: { state: "down", since: SINCE, last_error: "HTTP 503 Service Unavailable" } },
+        { name: "shop", enabled: true, status: { state: "up", since: SINCE, last_error: null } },
+        { name: "blog", enabled: true, status: { state: "down", since: SINCE, last_error: "HTTP 503 Service Unavailable" } },
+        // A probe that is switched off is not asked, so its last answer is not a thing that needs anybody.
+        { name: "old", enabled: false, status: { state: "down", since: SINCE, last_error: "timeout" } },
       ],
     } as unknown as ProbeList;
     expect(probeItems(list)).toMatchObject([{ id: "probe:blog", severity: "fail", reasons: [{ code: "probe_down", detail: "HTTP 503 Service Unavailable" }] }]);

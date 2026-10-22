@@ -34,10 +34,12 @@ test("the list says which databases are backed up, and the engines have a tab of
   await expect(production.getByText("Backed up")).toBeVisible();
   await expect(production.getByRole("link", { name: "example.com" })).toBeVisible();
   await expect(table.getByRole("row", { name: /example_staging/ }).getByText("No backups scheduled")).toBeVisible();
-  // Nothing but filters and one notice sits between the header and the table (T1): what
-  // configures the list, the engines, is a subset tab, not a strip above it.
+  // Nothing but the filters sits between the header and the table (T1): what configures the list, the
+  // engines, is a subset tab, not a strip above it, and what each row already says is not repeated in
+  // a banner; the count of the rows without a schedule is a filter beside the search.
   await expect(page.getByRole("navigation", { name: "Engines" })).toHaveCount(0);
-  await expect(page.getByText(/databases? (has|have) no backup schedule/)).toBeVisible();
+  await expect(page.getByText(/databases? (has|have) no backup schedule/)).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: /^No schedule \(\d+\)$/ })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the databases list");
 
@@ -71,7 +73,7 @@ test("the engines in containers have their own section, and an engine's settings
   await slow.fill(String(1000 + (Date.now() % 9000)));
   await page.getByRole("button", { name: "Save" }).click();
   await confirmItsYou(page, consoleServer);
-  await expect(page.getByText(/^Saved, and PostgreSQL /)).toBeVisible();
+  await expect(page.getByText(/Saved, and PostgreSQL /)).toBeVisible();
   await expect(page.getByText("No unsaved changes")).toBeVisible();
 });
 
@@ -116,7 +118,9 @@ test("extensions: the loaded ones are listed, and loading and unloading one goes
   await page.getByRole("option", { name: /^postgis_topology/ }).click();
   // One that is not trusted says so, and the one it needs is loaded with it or not at all.
   await expect(dialog.getByText("This extension is not trusted")).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Add extension" })).toBeDisabled();
+  // Pressing it without the box says what is missing and loads nothing.
+  await dialog.getByRole("button", { name: "Add extension" }).click();
+  await expect(dialog.getByText("Tick the box to load what it needs too.")).toBeVisible();
   await dialog.getByRole("checkbox", { name: "Also load what it needs: postgis" }).check();
   await expectNoA11yViolations(page, "adding an extension");
   await dialog.getByRole("button", { name: "Add extension" }).click();
@@ -206,7 +210,7 @@ test("backups: the schedule in plain words, and a restore into a new database fo
 
   await dumps.getByRole("button", { name: /^Actions for postgresql-example_production-/ }).first().click();
   await page.getByRole("menuitem", { name: "Restore…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Restore a dump" });
+  const dialog = page.getByRole("alertdialog", { name: "Restore a dump" });
   await expect(dialog.getByLabel("New database name")).not.toHaveValue("");
   await expectNoA11yViolations(page, "the restore dialog");
   await dialog.getByRole("button", { name: "Restore as new database" }).click();

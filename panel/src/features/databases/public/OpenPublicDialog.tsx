@@ -12,6 +12,7 @@ import { ChoiceCards } from "../../../components/ui/ChoiceCards";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Disclosure } from "../../../components/ui/Disclosure";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
 import { Textarea } from "../../../components/ui/Textarea";
@@ -195,7 +196,7 @@ export function OpenPublicDialog({ engine, database, open, onOpenChange, onOpene
                 description: t(`publicAccess.profile.${profile}Help`),
               }))}
             />
-            {errors.profile !== undefined ? <p className="text-13 text-fail">{errors.profile}</p> : null}
+            {errors.profile !== undefined ? <InlineMessage tone="error">{errors.profile}</InlineMessage> : null}
             <ChoiceCards<TlsMode>
               legend={t("publicAccess.dialog.tlsLabel")}
               value={form.tls}
@@ -210,7 +211,7 @@ export function OpenPublicDialog({ engine, database, open, onOpenChange, onOpene
                 {errors.tls}
               </Notice>
             ) : null}
-            {!requireTls ? <Notice tone="warning">{t("publicAccess.dialog.tlsCannotRequire", { engine: name })}</Notice> : null}
+            {!requireTls ? <InlineMessage>{t("publicAccess.dialog.tlsCannotRequire", { engine: name })}</InlineMessage> : null}
             <Disclosure label={t("publicAccess.dialog.moreOptions")} defaultOpen={form.bind !== ""}>
               <Field label={t("publicAccess.dialog.bind")} description={t("publicAccess.dialog.bindHelp")} error={errors.bind} optional>
                 <Input mono value={form.bind} onValueChange={(bind: string) => set({ bind })} placeholder="0.0.0.0" className="w-56" autoComplete="off" spellCheck={false} />

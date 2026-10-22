@@ -1,5 +1,4 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown } from "lucide-react";
 
 import { configQuery, patchConfig, smtpSettingsQuery } from "../../api/queries/config";
 import type { SmtpSettings } from "../../api/queries/config";
@@ -15,13 +14,15 @@ import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Badge } from "../../components/ui/Badge";
 import { Card } from "../../components/ui/Card";
 import { Checkbox } from "../../components/ui/Checkbox";
-import { Field } from "../../components/ui/Field";
+import { Disclosure } from "../../components/ui/Disclosure";
+import { Field, FieldGroup } from "../../components/ui/Field";
 import { Mono } from "../../components/ui/Mono";
+import { Setting } from "../../components/ui/Setting";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { FeatureState } from "../../components/ui/FeatureState";
-import { Switch } from "../../components/ui/Switch";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { Textarea } from "../../components/ui/Textarea";
 import { TextLink } from "../../components/ui/TextLink";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
@@ -40,7 +41,12 @@ import type { SettingsForm } from "./useSettingsForm";
 // ---------------------------------------------------------------------------------------
 // The master switch: applies at once, so it is not part of the form below.
 
-function useDelivery(settings: Settings, channelsOn: number) {
+/**
+ * Whether anything is sent, as the first row of the channels' card. The state is the switch and a
+ * small pill; "on" with nowhere to go is not on, so it says so in amber, with the one sentence
+ * that fixes it, and no block.
+ */
+function DeliveryRow({ settings, channelsOn }: { settings: Settings; channelsOn: number }) {
   const t = useT();
   const refresh = useRefreshConfig();
   const toggle = useMutation({
@@ -54,41 +60,30 @@ function useDelivery(settings: Settings, channelsOn: number) {
   });
   // While the write is in flight (and "Confirm it's you" is open) the switch shows where it is going.
   const checked = toggle.isPending ? toggle.variables : settings.enabled;
-  const description = !checked
-    ? channelsOn === 0
-      ? t("settings.notifications.delivery.offNoChannel")
-      : t("settings.notifications.delivery.off")
+  const help = !checked
+    ? t("settings.notifications.delivery.helpOff")
     : channelsOn === 0
-      ? t("settings.notifications.delivery.onNoChannel")
-      : t("settings.notifications.delivery.on", { count: channelsOn });
-  // On but with nowhere to go is not on: amber, not green (DESIGN, FeatureState).
-  const state = !checked ? "off" : channelsOn === 0 ? "problem" : "on";
-  const title =
-    state === "off"
-      ? t("settings.notifications.delivery.offTitle")
-      : state === "problem"
-        ? t("settings.notifications.delivery.problemTitle")
-        : t("settings.notifications.delivery.onTitle");
-  return {
-    state: (
-      <FeatureState
-        state={state}
-        title={title}
-        action={
-          <Switch
-            label={t("settings.notifications.delivery.switchLabel")}
-            checked={checked}
-            disabled={toggle.isPending}
-            onCheckedChange={(next) => {
-              toggle.mutate(next);
-            }}
-          />
-        }
-      >
-        {description}
-      </FeatureState>
-    ),
-  };
+      ? t("settings.notifications.delivery.helpNoChannel")
+      : t("settings.notifications.delivery.helpOn", { count: channelsOn });
+  const status = !checked ? (
+    <StatusPill state="stopped" label={t("settings.notifications.delivery.off")} size="sm" />
+  ) : channelsOn === 0 ? (
+    <StatusPill state="warning" label={t("settings.notifications.delivery.onNoChannel")} size="sm" />
+  ) : (
+    <StatusPill state="running" label={t("settings.notifications.delivery.on")} size="sm" />
+  );
+  return (
+    <Setting
+      label={t("settings.notifications.delivery.switchLabel")}
+      help={help}
+      status={status}
+      checked={checked}
+      busy={toggle.isPending}
+      onCheckedChange={(next) => {
+        toggle.mutate(next);
+      }}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------------------
@@ -101,22 +96,23 @@ function useDelivery(settings: Settings, channelsOn: number) {
 function Channels({ settings, smtp }: { settings: Settings; smtp: SmtpSettings | undefined }) {
   const t = useT();
   const specs = channels(t);
-  const delivery = useDelivery(settings, channelsOn(t, settings, smtp));
   return (
-    <Section title={t("settings.notifications.channels.title")}>
-      {delivery.state}
+    <Section icon={OBJECT_ICONS.channel} title={t("settings.notifications.channels.title")}>
       <Card padding="none">
-        <ul aria-label={t("settings.notifications.channels.listLabel")} className="flex min-w-0 flex-col divide-y divide-border">
-          {specs.map((spec) =>
-            spec.id === "email" ? (
-              <EmailChannel key={spec.id} enabledStored={settings.emailEnabled} smtp={smtp} />
-            ) : spec.id === "telegram" ? (
-              <TelegramChannel key={spec.id} stored={settings.channels.telegram} />
-            ) : (
-              <HttpChannel key={spec.id} spec={spec} stored={settings.channels[spec.id]} />
-            ),
-          )}
-        </ul>
+        <div className="flex min-w-0 flex-col divide-y divide-border">
+          <DeliveryRow settings={settings} channelsOn={channelsOn(t, settings, smtp)} />
+          <ul aria-label={t("settings.notifications.channels.listLabel")} className="flex min-w-0 flex-col divide-y divide-border">
+            {specs.map((spec) =>
+              spec.id === "email" ? (
+                <EmailChannel key={spec.id} enabledStored={settings.emailEnabled} smtp={smtp} />
+              ) : spec.id === "telegram" ? (
+                <TelegramChannel key={spec.id} stored={settings.channels.telegram} />
+              ) : (
+                <HttpChannel key={spec.id} spec={spec} stored={settings.channels[spec.id]} />
+              ),
+            )}
+          </ul>
+        </div>
       </Card>
     </Section>
   );
@@ -152,37 +148,32 @@ function EventsCard({
   const t = useT();
   const values = form.values ?? {};
   return (
-    <Section title={t("settings.notifications.events.title")} description={t("settings.notifications.events.description")}>
+    <Section icon={OBJECT_ICONS.activity} title={t("settings.notifications.events.title")} description={t("settings.notifications.events.description")}>
       <FormFailure error={form.formError} title={t("settings.notifications.events.errorTitle")} />
       <FormFailure error={language.formError ?? privateHosts.formError} title={t("settings.notifications.messages.errorTitle")} />
-      <Card padding="none">
-        <ul className="flex min-w-0 flex-col divide-y divide-border">
-          {EVENT_GROUPS.map((group) => (
-            <li key={group.id} className="min-w-0">
-              <EventGroup
-                id={group.id}
-                kinds={group.kinds}
-                values={values}
-                changed={group.kinds.some((kind) => form.changed.includes(kind))}
-                onChange={(kind, next) => form.set(kind, next)}
-              />
-            </li>
-          ))}
-          <li className="min-w-0 px-4 py-4 sm:px-5">
-            <Messages language={language} publicUrl={publicUrl} />
-          </li>
-          <li className="min-w-0">
-            <PrivateHosts form={privateHosts} />
-          </li>
-        </ul>
-      </Card>
+      <div className="flex min-w-0 flex-col gap-3">
+        {EVENT_GROUPS.map((group) => (
+          <EventGroup
+            key={group.id}
+            id={group.id}
+            kinds={group.kinds}
+            values={values}
+            changed={group.kinds.some((kind) => form.changed.includes(kind))}
+            onChange={(kind, next) => form.set(kind, next)}
+          />
+        ))}
+        <Card>
+          <Messages language={language} publicUrl={publicUrl} />
+        </Card>
+        <PrivateHosts form={privateHosts} />
+      </div>
     </Section>
   );
 }
 
 /**
  * One area's events, folded to a line that says how many are sent: the page stays short, and
- * what each event is opens on demand. A group with an unsaved change stays open.
+ * what each event is opens on demand. A group with an unsaved change starts open.
  */
 function EventGroup({
   id,
@@ -201,40 +192,38 @@ function EventGroup({
   const title = t(`settings.notifications.events.groups.${id}.title`);
   const sent = kinds.filter((kind) => values[kind] === true).length;
   return (
-    <details open={changed || undefined} className="group">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 -outline-offset-2 hover:bg-surface-hover sm:px-5 [&::-webkit-details-marker]:hidden">
-        <span className="flex min-w-0 flex-col">
-          <span className="text-13 font-medium text-fg">{title}</span>
-          <span className="text-12 text-fg-muted">{t(`settings.notifications.events.groups.${id}.description`)}</span>
-        </span>
-        <span className="flex shrink-0 items-center gap-2 text-12 text-fg-muted tabular-nums">
-          {sent === 0 ? t("settings.notifications.events.noneSent") : t("settings.notifications.events.sent", { sent, total: kinds.length })}
-          <ChevronDown aria-hidden="true" className="size-icon-sm transition-transform duration-(--duration-fast) group-open:rotate-180" />
-        </span>
-      </summary>
-      <fieldset className="grid min-w-0 gap-x-8 gap-y-3 px-4 pt-1 pb-4 sm:grid-cols-2 sm:px-5">
-        <legend className="sr-only">{title}</legend>
-        {kinds.map((kind) => {
-          const spec = eventSpec(t, kind);
-          return (
-            <Checkbox
-              key={kind}
-              label={
-                <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                  {spec.label}
-                  {spec.offByDefault === true ? <Badge>{t("settings.notifications.events.offByDefault")}</Badge> : null}
-                </span>
-              }
-              description={spec.description}
-              checked={values[kind] === true}
-              onCheckedChange={(next) => {
-                onChange(kind, next);
-              }}
-            />
-          );
-        })}
-      </fieldset>
-    </details>
+    <Disclosure
+      variant="card"
+      label={title}
+      summary={sent === 0 ? t("settings.notifications.events.noneSent") : t("settings.notifications.events.sent", { sent, total: kinds.length })}
+      defaultOpen={changed}
+    >
+      <div className="flex min-w-0 flex-col gap-3">
+        <p className="text-12 text-pretty text-fg-muted">{t(`settings.notifications.events.groups.${id}.description`)}</p>
+        <fieldset className="m-0 grid min-w-0 gap-x-8 gap-y-3 border-0 p-0 sm:grid-cols-2">
+          <legend className="sr-only">{title}</legend>
+          {kinds.map((kind) => {
+            const spec = eventSpec(t, kind);
+            return (
+              <Checkbox
+                key={kind}
+                label={
+                  <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    {spec.label}
+                    {spec.offByDefault === true ? <Badge>{t("settings.notifications.events.offByDefault")}</Badge> : null}
+                  </span>
+                }
+                description={spec.description}
+                checked={values[kind] === true}
+                onCheckedChange={(next) => {
+                  onChange(kind, next);
+                }}
+              />
+            );
+          })}
+        </fieldset>
+      </div>
+    </Disclosure>
   );
 }
 
@@ -244,10 +233,7 @@ function Messages({ language, publicUrl }: { language: SettingsForm<{ language: 
   const value: Locale = language.values?.language === "es" ? "es" : "en";
   return (
     <div className="grid min-w-0 gap-5 sm:grid-cols-2">
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <span aria-hidden="true" className="text-13 font-medium text-fg">
-          {t("settings.notifications.language.fieldLabel")}
-        </span>
+      <FieldGroup legend={t("settings.notifications.language.fieldLabel")} description={t("settings.notifications.language.description")} error={language.fieldErrors.language}>
         <SegmentedControl<Locale>
           label={t("settings.notifications.language.fieldLabel")}
           options={LOCALE_CHOICES.map((choice) => ({ value: choice.value, label: choice.label }))}
@@ -257,9 +243,7 @@ function Messages({ language, publicUrl }: { language: SettingsForm<{ language: 
           }}
           className="self-start"
         />
-        <p className="text-12 text-pretty text-fg-muted">{t("settings.notifications.language.description")}</p>
-        {language.fieldErrors.language !== undefined ? <p className="text-13 text-fail">{language.fieldErrors.language}</p> : null}
-      </div>
+      </FieldGroup>
       <div className="flex min-w-0 flex-col gap-1.5">
         <p className="text-13 font-medium text-fg">{t("settings.notifications.messages.linkTitle")}</p>
         <p className="text-13 text-pretty text-fg-muted">
@@ -283,30 +267,24 @@ function PrivateHosts({ form }: { form: SettingsForm<{ allow_private_hosts: stri
   const t = useT();
   const open = form.dirty || form.fieldErrors.allow_private_hosts !== undefined || (form.values?.allow_private_hosts ?? "") !== "";
   return (
-    <details open={open || undefined} className="group">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 -outline-offset-2 hover:bg-surface-hover sm:px-5 [&::-webkit-details-marker]:hidden">
-        <span className="text-13 font-medium text-fg">{t("settings.notifications.privateHosts.title")}</span>
-        <ChevronDown aria-hidden="true" className="size-icon-sm text-fg-muted transition-transform duration-(--duration-fast) group-open:rotate-180" />
-      </summary>
-      <div className="px-4 pt-1 pb-4 sm:px-5">
-        <Field
-          label={t("settings.notifications.privateHosts.fieldLabel")}
-          optional
-          description={t("settings.notifications.privateHosts.fieldDescription")}
-          error={form.fieldErrors.allow_private_hosts}
-        >
-          <Textarea
-            mono
-            rows={3}
-            placeholder="10.0.0.12"
-            value={form.values?.allow_private_hosts ?? ""}
-            onChange={(event) => {
-              form.set("allow_private_hosts", event.target.value);
-            }}
-          />
-        </Field>
-      </div>
-    </details>
+    <Disclosure variant="card" label={t("settings.notifications.privateHosts.title")} defaultOpen={open}>
+      <Field
+        label={t("settings.notifications.privateHosts.fieldLabel")}
+        optional
+        description={t("settings.notifications.privateHosts.fieldDescription")}
+        error={form.fieldErrors.allow_private_hosts}
+      >
+        <Textarea
+          mono
+          rows={3}
+          placeholder="10.0.0.12"
+          value={form.values?.allow_private_hosts ?? ""}
+          onChange={(event) => {
+            form.set("allow_private_hosts", event.target.value);
+          }}
+        />
+      </Field>
+    </Disclosure>
   );
 }
 

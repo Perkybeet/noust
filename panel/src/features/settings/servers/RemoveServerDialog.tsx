@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { CopyValue } from "../../../components/ui/CopyValue";
 import { Dialog } from "../../../components/ui/Dialog";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { toast } from "../../../components/ui/toast";
@@ -34,6 +35,7 @@ export function RemoveServerDialog({ name, open, onOpenChange }: RemoveServerDia
   return (
     <>
       <ConfirmDialog
+        friction="simple"
         open={open}
         onOpenChange={onOpenChange}
         title={t("common.words.removeNamedQuestion", { name })}
@@ -45,14 +47,8 @@ export function RemoveServerDialog({ name, open, onOpenChange }: RemoveServerDia
                 ? t("servers.settings.removeDialog.unreachable", { name })
                 : t("servers.settings.removeDialog.unreachableUnknown", { name })}
             </span>
-            {central !== null ? (
-              <code translate="no" className="mt-1.5 block rounded-control border border-border bg-bg-sunken px-2.5 py-1.5 text-12 break-all text-fg select-all">
-                {`noust fleet deauthorize --name ${central}`}
-              </code>
-            ) : null}
           </>
         }
-        confirmText={name}
         actionLabel={t("servers.settings.removeDialog.action")}
         onConfirm={async () => {
           const result = await removeNode(name, true);
@@ -63,7 +59,9 @@ export function RemoveServerDialog({ name, open, onOpenChange }: RemoveServerDia
           if (result.messages.length > 0) setRemoved(result);
           else toast.success(t("servers.settings.removeDialog.removedToast", { name: result.name }));
         }}
-      />
+      >
+        {central !== null ? <CopyValue value={`noust fleet deauthorize --name ${central}`} label={t("common.copyButton.copyCommand")} /> : null}
+      </ConfirmDialog>
       {removed !== null ? (
         <Dialog
           open

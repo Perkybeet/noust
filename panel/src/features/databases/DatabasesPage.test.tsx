@@ -67,10 +67,12 @@ describe("the databases list", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("says how many databases have no schedule, and shows them on request through the URL", async () => {
+  it("counts the databases with no schedule in a quick filter, not in a banner, and shows them through the URL", async () => {
     const { user, location, table } = await listAt();
-    expect(await screen.findByText("2 databases have no backup schedule")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Show them" }));
+    // Each row already says "No backups scheduled": nothing above the table repeats it.
+    expect(await screen.findByRole("radio", { name: "No schedule (2)" })).toBeInTheDocument();
+    expect(screen.queryByText(/have no backup schedule/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "No schedule (2)" }));
     await waitFor(() => expect(location().search).toEqual({ backups: "attention" }));
     expect(within(table).queryByText("example_production")).not.toBeInTheDocument();
     expect(within(table).getByText("shop_wp")).toBeInTheDocument();
@@ -82,7 +84,7 @@ describe("the databases list", () => {
         json(200, { exposed: [{ engine: "postgresql", port: 5432, address: "0.0.0.0", process: "postgres", source: "engine", container: null, image: null, advice: "Set listen_addresses." }] }),
     });
     expect(await screen.findByText("A database port is open to the network")).toBeInTheDocument();
-    expect(screen.queryByText("2 databases have no backup schedule")).not.toBeInTheDocument();
+    expect(screen.queryByText(/have no backup schedule/)).not.toBeInTheDocument();
   });
 
   it("says an engine it cannot read before anything else, with the engine's words, and stores an account for it", async () => {
@@ -205,7 +207,7 @@ describe("the databases list", () => {
           firewalled: [{ engine: "postgresql", port: 5433, address: "0.0.0.0", source: "docker", container: "proggest-postgres-1", firewalled: true, closed_by: "DOCKER-USER" }],
         }),
     });
-    expect(await screen.findByText("2 databases have no backup schedule")).toBeInTheDocument();
+    expect(await screen.findByRole("radio", { name: "No schedule (2)" })).toBeInTheDocument();
     expect(screen.queryByText(/open to the network/)).not.toBeInTheDocument();
   });
 
@@ -225,7 +227,7 @@ describe("the databases list", () => {
     // placeholders that the notice would push down when it came.
     expect(screen.queryByRole("search", { name: "Filter databases" })).not.toBeInTheDocument();
     expect(screen.queryByText("No databases yet")).not.toBeInTheDocument();
-    expect(screen.queryByText(/databases? have no backup schedule/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: /No schedule/ })).not.toBeInTheDocument();
     expect(screen.queryByText("0 databases")).not.toBeInTheDocument();
 
     answer(json(200, { databases: DATABASES, total: DATABASES.length }));

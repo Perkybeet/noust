@@ -425,7 +425,10 @@ describe("the Destinations tab", () => {
     await user.click(within(dialog).getByRole("checkbox", { name: /I already have a key for this folder/ }));
 
     const submit = within(dialog).getByRole("button", { name: "Add destination" });
-    expect(submit).toBeDisabled();
+    // Pressing without the key says what is missing and sends nothing.
+    await user.click(submit);
+    expect(within(dialog).getAllByText("This field is required.").length).toBeGreaterThan(0);
+    expect(backend.callsTo("POST /api/backup-destinations")).toHaveLength(0);
     await user.type(within(dialog).getByLabelText("Password", { selector: "input" }), "old-passphrase");
     await user.type(within(dialog).getByLabelText("Password 2 (salt)", { selector: "input" }), "old-salt");
     await user.click(submit);

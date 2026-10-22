@@ -10,23 +10,24 @@ import type { Engine } from "../../api/queries/databases";
 import { jobKeys, useFollowedJob } from "../../api/queries/jobs";
 import { CommandHint } from "../../components/page/CommandHint";
 import { ListPage } from "../../components/page/ListPage";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { Section } from "../../components/page/Section";
+import { RowMenu } from "../../components/page/RowMenu";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { Drawer } from "../../components/ui/Drawer";
 import { EmptyCell } from "../../components/ui/EmptyCell";
-import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { LogViewer } from "../../components/ui/LogViewer";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
@@ -60,16 +61,9 @@ function EngineLogs({ engine, onClose }: { engine: Engine; onClose: () => void }
       title={t("databases.engines.logsTitle", { engine: name })}
       description={unit ? <Mono>{unit}</Mono> : undefined}
     >
-      {logs.isError && logs.data === undefined ? (
-        <ErrorBlock compact error={logs.error} title={t("databases.engines.logsFailed")} onRetry={() => void logs.refetch()} />
-      ) : logs.data === undefined ? (
-        <div aria-busy="true">
-          <span className="sr-only">{t("databases.engines.logsLoading")}</span>
-          <Skeleton className="h-80 w-full rounded-card" />
-        </div>
-      ) : (
-        <LogViewer lines={lines} label={t("databases.engines.logsLabel", { engine: name })} filename={`${engine.name}.log`} height={560} />
-      )}
+      <QueryState query={logs} label={t("databases.engines.logsNoun")} skeleton={<Skeleton className="h-80 w-full rounded-card" />}>
+        {() => <LogViewer lines={lines} label={t("databases.engines.logsLabel", { engine: name })} filename={`${engine.name}.log`} height={560} />}
+      </QueryState>
     </Drawer>
   );
 }
@@ -320,7 +314,7 @@ export function EnginesPage() {
   const rowActions = (engine: Engine) => {
     const container = isContainer(engine);
     return (
-      <Menu align="end" trigger={<IconButton label={t("databases.engines.actionsFor", { engine: nameOf(engine) })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <RowMenu name={nameOf(engine)}>
         {!engine.installed && !container ? (
           <MenuItem icon={<Download />} disabled={busy} onClick={() => setInstalling({ engine: engine.name })}>
             {t("databases.engines.install")}
@@ -379,7 +373,7 @@ export function EnginesPage() {
             ) : null}
           </>
         )}
-      </Menu>
+      </RowMenu>
     );
   };
 
@@ -462,19 +456,20 @@ export function EnginesPage() {
       {...(shownNotice !== undefined && shownNotice !== null ? { notice: shownNotice } : {})}
       {...(engines.isPending ? {} : { footer: <CommandHint command="noust db engines" label={t("common.words.fromTerminal")} /> })}
     >
+      {/* design-exception: hand-error-ternary each table below draws its own skeleton rows while the engines load */}
       {engines.isError && engines.data === undefined ? (
         <ErrorBlock error={engines.error} title={t("databases.engines.couldNotLoad")} onRetry={() => void engines.refetch()} retrying={engines.isRefetching} />
       ) : (
         <div className="flex min-w-0 flex-col gap-8">
           {containers.length > 0 ? (
-            <Section title={t("databases.instances.hostTitle")} description={t("databases.instances.hostDescription")}>
+            <Section icon={OBJECT_ICONS.server} title={t("databases.instances.hostTitle")} description={t("databases.instances.hostDescription")}>
               {hostEngines}
             </Section>
           ) : (
             hostEngines
           )}
           {containers.length > 0 ? (
-            <Section title={t("databases.instances.title")} description={t("databases.instances.description")}>
+            <Section icon={OBJECT_ICONS.container} title={t("databases.instances.title")} description={t("databases.instances.description")}>
               <DataTable
                 columns={containerColumns}
                 rows={containers}

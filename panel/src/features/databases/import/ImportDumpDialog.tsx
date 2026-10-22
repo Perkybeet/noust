@@ -19,6 +19,7 @@ import { Button, buttonClassName } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
@@ -125,17 +126,13 @@ function UploadProgress({ upload, onRetry, onCancel }: { upload: UploadSnapshot;
       <Progress value={upload.phase === "done" ? 100 : percent} label={label} />
       <p className="text-12 text-fg-muted tabular-nums">{t("dumpImport.upload.progress", { received: formatBytes(upload.received, t.locale), size: formatBytes(upload.size, t.locale) })}</p>
       {upload.phase === "waiting" ? (
-        <Notice tone="warning" live>
+        <InlineMessage live>
           {upload.retryInMs !== null && upload.retryInMs >= 1000
             ? t("dumpImport.upload.waiting", { seconds: Math.round(upload.retryInMs / 1000), attempt: upload.attempt })
             : t("dumpImport.upload.waitingNow", { attempt: upload.attempt })}
-        </Notice>
+        </InlineMessage>
       ) : null}
-      {upload.phase === "paused" ? (
-        <Notice tone="warning" live>
-          {t("dumpImport.upload.paused", { received: formatBytes(upload.received, t.locale) })}
-        </Notice>
-      ) : null}
+      {upload.phase === "paused" ? <InlineMessage live>{t("dumpImport.upload.paused", { received: formatBytes(upload.received, t.locale) })}</InlineMessage> : null}
       <div className="flex flex-wrap items-center gap-2">
         {upload.phase === "waiting" || upload.phase === "paused" ? (
           <Button size="sm" onClick={onRetry}>
@@ -388,7 +385,7 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
                 options={choices.map((item) => ({ value: item.name, label: instanceLabel(t, item) }))}
               />
             </Field>
-            {engines.data !== undefined && choices.length === 0 ? <Notice tone="warning">{t("dumpImport.target.noEngine")}</Notice> : null}
+            {engines.data !== undefined && choices.length === 0 ? <InlineMessage>{t("dumpImport.target.noEngine")}</InlineMessage> : null}
             <Field label={t("dumpImport.target.database")} description={t("dumpImport.target.databaseHelp")} error={errors.database}>
               <Input
                 ref={databaseRef}

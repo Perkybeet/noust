@@ -499,7 +499,6 @@ export const appPages = {
 
   logs: {
     connecting: "Connecting",
-    live: "Live",
     disconnected: "Disconnected",
     readingBacklog: "Loading the last {count} lines",
     lineCount: { one: "{count} line", other: "{count} lines" },
@@ -530,9 +529,7 @@ export const appPages = {
     accessError: "Server errors",
     accessLabel: "Web server access log of {domain}",
     errorLabel: "Web server error log of {domain}",
-    siteReading: "Loading the log",
     siteEmpty: "The log has no lines yet.",
-    siteFailed: "Could not read the web server's log",
     siteNotWrittenTitle: "The web server has not written this log yet",
     siteNotWritten: "{path} does not exist yet. The web server creates it with the first request or error for this site.",
     siteTruncated: "Showing the newest {shown} lines from the end of the file. Older ones are not read here; {command} narrows them to some text.",

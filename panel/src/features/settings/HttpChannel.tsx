@@ -12,10 +12,9 @@ import { useState } from "react";
 import { removeNotificationChannel, saveNotificationChannel } from "../../api/queries/notifications";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
-import { CopyButton } from "../../components/ui/CopyButton";
+import { CopyValue } from "../../components/ui/CopyValue";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
-import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
 import { ChannelDrawer, ChannelRow, SecretInput, SecretTextarea, testReasonFor, useChannelTest, useRefreshConfig } from "./channelParts";
 import { REDACTED, channelValue, isChannelConfigured } from "./notifications";
@@ -220,12 +219,7 @@ export function HttpChannel({ spec, stored, name = spec.id, label = spec.label, 
                 )}
               </Field>
               {generated !== null && field.key === "secret" && draft["secret"] === generated ? (
-                <div className="flex min-w-0 items-center gap-2 rounded-control border border-border bg-bg-sunken py-1 pr-1 pl-3">
-                  <Mono truncate className="min-w-0 flex-1 text-12">
-                    {generated}
-                  </Mono>
-                  <CopyButton value={generated} label={t("settings.notifications.channels.webhook.secretCopyLabel")} />
-                </div>
+                <CopyValue value={generated} label={t("settings.notifications.channels.webhook.secretCopyLabel")} />
               ) : null}
               {generated !== null && field.key === "secret" && draft["secret"] === generated ? (
                 <p className="text-12 text-fg-muted">{t("settings.notifications.channels.webhook.generatedHint")}</p>

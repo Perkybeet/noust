@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { PackageCheck, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -17,6 +17,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
 import { IconButton } from "../../../components/ui/IconButton";
 import { Mono } from "../../../components/ui/Mono";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
@@ -30,6 +31,7 @@ function AddDialog({ engine, name, offered, loaded, onOpenChange }: { engine: st
   const queryClient = useQueryClient();
   const [chosen, setChosen] = useState<string | null>(null);
   const [cascade, setCascade] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const picked = offered.find((item) => item.name === chosen);
   const needs = (picked?.requires ?? []).filter((item) => !loaded.has(item));
   const add = useMutation({
@@ -50,14 +52,27 @@ function AddDialog({ engine, name, offered, loaded, onOpenChange }: { engine: st
       footer={
         <>
           <Button onClick={() => onOpenChange(false)}>{t("common.confirmDialog.cancel")}</Button>
-          <Button variant="primary" disabled={picked === undefined || (needs.length > 0 && !cascade)} loading={add.isPending} onClick={() => add.mutate()}>
+          <Button
+            variant="primary"
+            loading={add.isPending}
+            onClick={() => {
+              // Pressing says what is missing under the field that lacks it.
+              if (picked === undefined || (needs.length > 0 && !cascade)) setPressed(true);
+              else add.mutate();
+            }}
+          >
             {t("databases.extensions.addAction")}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label={t("databases.extensions.extension")} nativeLabel={false} description={picked !== undefined && picked.comment !== "" ? picked.comment : undefined}>
+        <Field
+          label={t("databases.extensions.extension")}
+          nativeLabel={false}
+          description={picked !== undefined && picked.comment !== "" ? picked.comment : undefined}
+          error={pressed && picked === undefined ? t("databases.extensions.chooseFirst") : undefined}
+        >
           <Select
             value={chosen}
             placeholder={t("databases.extensions.choose")}
@@ -73,7 +88,10 @@ function AddDialog({ engine, name, offered, loaded, onOpenChange }: { engine: st
           <Notice title={t("databases.extensions.notTrustedTitle")}>{t("databases.extensions.notTrustedBody")}</Notice>
         ) : null}
         {needs.length > 0 ? (
-          <Checkbox checked={cascade} onCheckedChange={setCascade} label={t("databases.extensions.cascade", { needs: needs.join(", ") })} />
+          <div className="flex flex-col gap-1.5">
+            <Checkbox checked={cascade} onCheckedChange={setCascade} label={t("databases.extensions.cascade", { needs: needs.join(", ") })} />
+            {pressed && !cascade ? <InlineMessage tone="error">{t("databases.extensions.cascadeFirst")}</InlineMessage> : null}
+          </div>
         ) : null}
         {add.isError ? <ErrorBlock live compact error={add.error} title={t("databases.extensions.addFailed")} /> : null}
       </div>
@@ -102,6 +120,7 @@ export function ExtensionsCard({ engine, name }: { engine: string; name: string 
 
   return (
     <Card
+      icon={PackageCheck}
       title={t("databases.extensions.title")}
       level={2}
       description={t("databases.extensions.description")}

@@ -135,6 +135,7 @@ export const notifyRouting: Catalog<typeof en> = {
     add: "Añadir un canal",
     addTitle: "Añadir un canal",
     addDescription: "Ponle nombre y elige por dónde envía. A continuación configuras su destino.",
+    nameBad: "Un nombre empieza por una letra minúscula y tiene hasta 32 de ellas, dígitos, - y _.",
     nameDescription: "Minúsculas, dígitos, - y _, empezando por una letra. La línea de comandos lo nombra así.",
     typeLabel: "Envía por",
     create: "Añadir canal",

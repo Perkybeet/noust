@@ -132,7 +132,8 @@ describe("Settings > Probes", () => {
   it("explains what a probe is when there is none", { timeout: 20_000 }, async () => {
     await pageAt([]);
     expect(await screen.findByText("No probes yet")).toBeInTheDocument();
-    expect(screen.getByText("Everything answers.")).toBeInTheDocument();
+    expect(screen.queryByText("Everything answers.")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "New probe" })).toHaveLength(1);
   });
 
   it("asks a probe now and says what it got, verbatim when it was bad", { timeout: 30_000 }, async () => {
@@ -141,9 +142,11 @@ describe("Settings > Probes", () => {
       "POST /api/probes/blog/check": () => json(200, { ok: false, status: 503, latency_ms: 10, error: "HTTP 503 Service Unavailable", probe: DOWN }),
     });
     await screen.findByRole("list", { name: "Probes" });
-    await user.click(within(row("shop")).getByRole("button", { name: "Ask shop now" }));
+    await user.click(within(row("shop")).getByRole("button", { name: "Actions for shop" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Ask now" }));
     expect(await within(row("shop")).findByText("It answered well 200 95 ms")).toBeInTheDocument();
-    await user.click(within(row("blog")).getByRole("button", { name: "Ask blog now" }));
+    await user.click(within(row("blog")).getByRole("button", { name: "Actions for blog" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Ask now" }));
     expect(await within(row("blog")).findByText(/It did not answer well 503 10 ms/)).toBeInTheDocument();
     expect(backend.callsTo("POST /api/probes/blog/check")).toHaveLength(1);
   });
@@ -185,9 +188,17 @@ describe("Settings > Probes", () => {
     await user.click(screen.getByRole("button", { name: "New probe" }));
     const drawer = await screen.findByRole("dialog", { name: "New probe" });
     const save = within(drawer).getByRole("button", { name: "Save probe" });
-    // Nothing to send until it has a name and an address.
-    expect(save).toBeDisabled();
+    // The button is never disabled for what is left out: pressing it says what, and goes there.
+    expect(save).toBeEnabled();
+    await user.click(save);
+    expect(await within(drawer).findByText("Give the probe a name.")).toBeInTheDocument();
+    expect(within(drawer).getByLabelText("Name")).toHaveFocus();
+    expect(backend.callsTo("PUT /api/probes/shop")).toHaveLength(0);
     await user.type(within(drawer).getByLabelText("Name"), "shop");
+    await user.click(save);
+    expect(await within(drawer).findByText("Write the address to ask.")).toBeInTheDocument();
+    expect(within(drawer).getByLabelText("Address")).toHaveFocus();
+    expect(backend.callsTo("PUT /api/probes/shop")).toHaveLength(0);
     await user.type(within(drawer).getByLabelText("Address"), "https://user:pw@shop.example.com/");
     await user.click(save);
     expect(await within(drawer).findByText("The address must not carry a user or a password.")).toBeInTheDocument();
@@ -243,7 +254,8 @@ describe("Settings > Probes", () => {
       "DELETE /api/probes/shop": () => new Response(null, { status: 204 }),
     });
     await screen.findByRole("list", { name: "Probes" });
-    await user.click(within(row("shop")).getByRole("button", { name: "Remove shop" }));
+    await user.click(within(row("shop")).getByRole("button", { name: "Actions for shop" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Remove" }));
     const question = await screen.findByRole("alertdialog", { name: "Remove shop?" });
     await user.click(within(question).getByRole("button", { name: "Remove" }));
     await waitFor(() => {
@@ -257,7 +269,7 @@ describe("Settings > Probes: the status page", () => {
     const { user, backend } = await pageAt();
     const section = (await screen.findByRole("heading", { name: "Status page" })).closest("section") ?? document.body;
     expect(section.textContent).toContain("Written to /var/lib/noust/status: 1 component.");
-    expect(within(section).getByText("It is not on a name of its own: serve the folder above yourself, or put it on one.")).toBeInTheDocument();
+    expect(within(section).getByText("It has no name of its own: serve the folder above yourself, or give it one.")).toBeInTheDocument();
 
     await user.click(within(section).getByRole("switch", { name: "Keep the page's files up to date" }));
     await waitFor(() => {
@@ -265,10 +277,13 @@ describe("Settings > Probes: the status page", () => {
     });
     expect(backend.callsTo("PUT /api/probes/status-page")[0]?.body).toEqual({ enabled: false });
 
-    const title = within(section).getByLabelText("Page title");
+    // The title is changed in a dialog of its own: no Save button sits beside a switch.
+    await user.click(within(section).getByRole("button", { name: "Change" }));
+    const titling = await screen.findByRole("dialog", { name: "Title of the status page" });
+    const title = within(titling).getByLabelText("Page title");
     await user.clear(title);
     await user.type(title, "Acme status");
-    await user.click(within(section).getByRole("button", { name: "Save title" }));
+    await user.click(within(titling).getByRole("button", { name: "Save title" }));
     await waitFor(() => {
       expect(backend.callsTo("PUT /api/probes/status-page")).toHaveLength(2);
     });
@@ -287,8 +302,12 @@ describe("Settings > Probes: the status page", () => {
     });
     await user.click(await screen.findByRole("button", { name: "Publish on a name" }));
     const dialog = await screen.findByRole("dialog", { name: "Publish the status page" });
-    // Nothing to send until it has a name.
-    expect(within(dialog).getByRole("button", { name: "Publish" })).toBeDisabled();
+    // Pressing it with no name says what is missing and goes to the box; it is never a dead button.
+    expect(within(dialog).getByRole("button", { name: "Publish" })).toBeEnabled();
+    await user.click(within(dialog).getByRole("button", { name: "Publish" }));
+    expect(await within(dialog).findByText("Write the name the page goes on.")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Name")).toHaveFocus();
+    expect(backend.callsTo("POST /api/probes/status-page/publish")).toHaveLength(0);
     await user.type(within(dialog).getByLabelText("Name"), "status.example.com");
     await user.click(within(dialog).getByRole("button", { name: "Publish" }));
     await waitFor(() => {
@@ -296,7 +315,7 @@ describe("Settings > Probes: the status page", () => {
     });
     expect(backend.callsTo("POST /api/probes/status-page/publish")[0]?.body).toEqual({ domain: "status.example.com", skip_dns_check: false });
     expect(await within(dialog).findByText("status.example.com shows the status page")).toBeInTheDocument();
-    expect(within(dialog).getByRole("link", { name: /Open status\.example\.com/ })).toHaveAttribute("href", "https://status.example.com");
+    expect(within(dialog).getByRole("link", { name: /Open the page/ })).toHaveAttribute("href", "https://status.example.com");
   });
 
   it("shows the server's refusal to publish verbatim and stays on the name", { timeout: 30_000 }, async () => {
@@ -316,7 +335,7 @@ describe("Settings > Probes: the status page", () => {
       "DELETE /api/probes/status-page/site": () => json(202, { ...ACCEPTED, job: { ...JOB, name: "Take the status page off status.example.com" } }),
     });
     expect(await screen.findByText(/Published on/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Open status\.example\.com/ })).toHaveAttribute("href", "https://status.example.com");
+    expect(screen.getByRole("link", { name: /Open the page/ })).toHaveAttribute("href", "https://status.example.com");
     await user.click(screen.getByRole("button", { name: "Take it off the name" }));
     const dialog = await screen.findByRole("dialog", { name: "Take the status page off its name" });
     expect(within(dialog).getByText(/only those/)).toBeInTheDocument();

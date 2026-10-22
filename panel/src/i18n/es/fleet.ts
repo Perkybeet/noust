@@ -63,13 +63,6 @@ export const fleet: Catalog<typeof en> = {
   },
 
   tabs: {
-    summary: "Resumen",
-    servers: "Servidores",
-    apps: "Aplicaciones",
-    certificates: "Certificados",
-    backups: "Copias",
-    updates: "Actualizaciones de Noust y del sistema",
-    activity: "Actividad",
     command: {
       summary: "Resumen de la flota",
       servers: "Servidores de la flota",
@@ -89,9 +82,10 @@ export const fleet: Catalog<typeof en> = {
     },
   },
   page: {
+    createAtProvider: "Crear en un proveedor",
     title: "Flota",
     description: "Todos los servidores que gestiona esta central, a la vez.",
-    tabsLabel: "Vistas de la flota",
+    tabsLabel: "Vistas de las aplicaciones de la flota",
     addServer: "Añadir un servidor",
     runAction: "Ejecutar una acción",
     loadFailed: "No se pudo cargar la flota",
@@ -283,7 +277,6 @@ export const fleet: Catalog<typeof en> = {
     updateAvailable: "{version} disponible",
     now: "Ahora",
     never: "Nunca",
-    actionsFor: "Acciones de {name}",
     open: "Abrir",
     test: "Probar la conexión",
     editLabels: "Editar etiquetas",
@@ -390,7 +383,6 @@ export const fleet: Catalog<typeof en> = {
         other: "{count} esperan a que se publiquen sus paquetes.",
       },
     },
-    actionsFor: "Acciones de {name}",
     refreshLists: "Renovar las listas de paquetes",
     refreshBehind: "Renovar las listas de paquetes (su índice está atrasado)",
     noMethod: "Desconocido",

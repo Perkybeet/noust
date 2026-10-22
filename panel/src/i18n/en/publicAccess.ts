@@ -8,12 +8,13 @@ export const publicAccess = {
   description:
     "Open this database to a client on your own computer, on a port you choose. It is private until you do, and you can close access again at any time.",
   loadFailed: "Could not read whether this database is public",
+  loading: "Loading whether this database is public",
   state: {
     private: "Private",
     privateBody: "The engine does not listen beyond this server. You reach this database from here, or through an SSH tunnel.",
-    public: "Public on port {port}",
+    public: "Public",
     publicBody: "A client outside this server can reach the database with the account Noust made for it. Anyone who can reach the port can try its password.",
-    notAnswering: "Public, but the port does not answer",
+    notAnswering: "Not answering",
     notAnsweringBody: "The proxy that forwards the port is not listening. Close access and open it again, or start the proxy again.",
     closing: "Being made private",
     closingBody: "An earlier attempt to close access did not finish. Close access again to finish it.",

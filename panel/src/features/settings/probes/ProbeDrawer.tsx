@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { probeKeys, saveProbe } from "../../../api/queries/probes";
@@ -37,9 +37,14 @@ export function ProbeDrawer({ probe, open, onOpenChange }: ProbeDrawerProps) {
   const initial = (): ProbeForm => (probe === undefined ? emptyProbe() : probeFormFrom(probe));
   const [form, setForm] = useState<ProbeForm>(initial);
   const [edited, setEdited] = useState<ReadonlySet<string>>(new Set());
+  // What the form could not send because it was left empty, and the boxes to go to when it says so.
+  const [missing, setMissing] = useState<ReadonlySet<"name" | "url">>(new Set());
+  const nameRef = useRef<HTMLInputElement>(null);
+  const urlRef = useRef<HTMLInputElement>(null);
 
   const set = <K extends keyof ProbeForm>(key: K, value: ProbeForm[K], touched: readonly string[] = [key]): void => {
     setForm((current) => ({ ...current, [key]: value }));
+    if (key === "name" || key === "url") setMissing((current) => new Set([...current].filter((field) => field !== key)));
     // A message is about the value that was sent: it goes away when the value is edited.
     setEdited((current) => new Set([...current, ...touched]));
   };
@@ -56,18 +61,30 @@ export function ProbeDrawer({ probe, open, onOpenChange }: ProbeDrawerProps) {
   });
   const split = splitErrors(save.error, PROBE_FIELDS);
   const message = (...names: ProbeField[]): string | undefined => {
+    if (names.includes("name") && missing.has("name")) return t("probes.form.nameMissing");
+    if (names.includes("url") && missing.has("url")) return t("probes.form.urlMissing");
     if (names.some((name) => edited.has(name))) return undefined;
     return names.map((name) => split.fields[name]).find((text) => text !== undefined);
   };
 
-  const ready = form.name.trim() !== "" && form.url.trim() !== "";
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (!save.isPending && ready) save.mutate();
+    if (save.isPending) return;
+    // Pressing it with something left out says what, beside the box, and goes to the first.
+    const lacks = new Set<"name" | "url">();
+    if (form.name.trim() === "") lacks.add("name");
+    if (form.url.trim() === "") lacks.add("url");
+    if (lacks.size > 0) {
+      setMissing(lacks);
+      (lacks.has("name") ? nameRef : urlRef).current?.focus();
+      return;
+    }
+    save.mutate();
   };
   const reset = (): void => {
     setForm(initial());
     setEdited(new Set());
+    setMissing(new Set());
     save.reset();
   };
 
@@ -91,7 +108,7 @@ export function ProbeDrawer({ probe, open, onOpenChange }: ProbeDrawerProps) {
           >
             {t("settings.shared.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" disabled={!ready} loading={save.isPending}>
+          <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {t("probes.form.save")}
           </Button>
         </>
@@ -101,6 +118,7 @@ export function ProbeDrawer({ probe, open, onOpenChange }: ProbeDrawerProps) {
         <FormFailure error={split.form} title={t("probes.form.saveErrorTitle")} />
         <Field label={t("common.words.name")} description={t("probes.form.nameDescription")} error={message("name")}>
           <Input
+            ref={nameRef}
             mono
             autoComplete="off"
             autoCapitalize="off"
@@ -116,6 +134,7 @@ export function ProbeDrawer({ probe, open, onOpenChange }: ProbeDrawerProps) {
         </Field>
         <Field label={t("probes.form.urlLabel")} description={t("probes.form.urlDescription")} error={message("url")}>
           <Input
+            ref={urlRef}
             mono
             type="url"
             autoComplete="off"

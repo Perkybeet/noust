@@ -10,6 +10,7 @@ import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
@@ -21,6 +22,7 @@ import { PlanView } from "../BulkActionDialog";
 import { fleetKeys, fleetViewQuery, originOf } from "../data";
 import { COMMIT, buildersQuery, clearBuilder, parseFailures, parseSerial, placementKeys, runShip, setBuilder, shipBody } from "../placements";
 import type { ActionAnswer, Placement, ShipBody } from "../placements";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 /** The server that builds an application, as the central recorded it; undefined when none. */
 function builderOf(domain: string, builders: readonly { domain: string; node: string }[] | undefined): string | undefined {
@@ -186,9 +188,7 @@ export function ShipDialog({ placement, onClose }: ShipDialogProps) {
               ))}
             </ul>
             {errors.targets !== undefined ? (
-              <p role="alert" className="text-13 text-fail">
-                {errors.targets}
-              </p>
+              <InlineMessage tone="error" live>{errors.targets}</InlineMessage>
             ) : null}
             {placement.members.includes(builder) ? <p className="text-13 text-fg-muted">{t("placements.ship.onlyBuilder")}</p> : null}
           </fieldset>
@@ -249,11 +249,10 @@ export function ShipDialog({ placement, onClose }: ShipDialogProps) {
           </fieldset>
         </div>
       ) : planning.isPending ? (
-        <div aria-busy="true" className="flex flex-col gap-3">
-          <span className="sr-only">{t("fleet.bulk.plan.loading")}</span>
+        <LoadingRegion label={t("fleet.bulk.plan.loading")} className="flex flex-col gap-3">
           <Skeleton className="h-4 w-80 max-w-full" />
           <Skeleton className="h-24 w-full" />
-        </div>
+        </LoadingRegion>
       ) : planning.isError ? (
         <ErrorBlock
           live

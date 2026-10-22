@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -11,9 +12,9 @@ import { Checkbox } from "../../../components/ui/Checkbox";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
@@ -79,9 +80,12 @@ function ChangeView({ change, t }: { change: RowChange; t: T }) {
   const changed = change.action === "update" ? names.filter((column) => JSON.stringify(before[column]) !== JSON.stringify(after[column])) : names;
   return (
     <div className="flex flex-col gap-3">
-      <Notice tone="success" live title={t(change.action === "insert" ? "databases.row.inserted" : change.action === "delete" ? "databases.row.deleted" : "databases.row.updated")}>
-        {t("databases.row.auditNote")}
-      </Notice>
+      <div className="flex flex-col gap-1">
+        <InlineMessage tone="success" live>
+          {t(change.action === "insert" ? "databases.row.inserted" : change.action === "delete" ? "databases.row.deleted" : "databases.row.updated")}
+        </InlineMessage>
+        <p className="text-12 text-fg-muted">{t("databases.row.auditNote")}</p>
+      </div>
       <dl className="flex flex-col divide-y divide-border rounded-card border border-border">
         {changed.map((column) => (
           <div key={column} className="flex min-w-0 flex-col gap-1 px-3 py-2">
@@ -204,7 +208,7 @@ export function RowDrawer({ engine, name, schema, relation, columns, editable, m
           <>
             <Button onClick={onClose}>{t("common.words.close")}</Button>
             {editable ? (
-              <Button variant="primary" onClick={() => onModeChange("edit")}>
+              <Button icon={<Pencil aria-hidden="true" />} variant="primary" onClick={() => onModeChange("edit")}>
                 {t("common.words.edit")}
               </Button>
             ) : null}

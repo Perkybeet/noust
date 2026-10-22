@@ -12,7 +12,7 @@ import { WizardActions } from "../../../components/page/Wizard";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { ChoiceCards } from "../../../components/ui/ChoiceCards";
-import { CopyTextButton } from "../../../components/ui/CopyTextButton";
+import { CopyValue } from "../../../components/ui/CopyValue";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Disclosure } from "../../../components/ui/Disclosure";
 import { Field } from "../../../components/ui/Field";
@@ -288,14 +288,7 @@ export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollSe
         />
         <div className="flex min-w-0 flex-col gap-2">
           <p className="text-13 text-fg-muted">{t("enroll.hostKey.howTo")}</p>
-          <code translate="no" className="rounded-control border border-border-strong bg-bg-sunken px-3 py-2 text-12 break-all text-fg select-all">
-            {FINGERPRINT_COMMAND}
-          </code>
-          <div>
-            <CopyTextButton value={FINGERPRINT_COMMAND} variant="secondary">
-              {t("servers.add.authorize.copy")}
-            </CopyTextButton>
-          </div>
+          <CopyValue value={FINGERPRINT_COMMAND} label={t("servers.add.authorize.copy")} />
         </div>
         <Checkbox checked={confirmed} onCheckedChange={setConfirmed} label={t("enroll.hostKey.confirm")} description={t("enroll.hostKey.confirmHelp")} />
         {enroll.isError && !(enroll.error instanceof ElevationCancelledError) ? <ErrorBlock live compact error={enroll.error} title={t("enroll.job.startFailed")} /> : null}

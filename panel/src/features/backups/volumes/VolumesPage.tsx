@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { HardDrive } from "lucide-react";
+import { CalendarClock, HardDrive, History, Pencil, Play, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -8,15 +8,15 @@ import type { VolumePolicy } from "../../../api/queries/volumeBackups";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
+import { RowMenu } from "../../../components/page/RowMenu";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { IconButton } from "../../../components/ui/IconButton";
 import { ICONS } from "../../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
@@ -137,6 +137,7 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
   ];
 
   let content;
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (policies.isError && policies.data === undefined) {
     content = <ErrorBlock error={policies.error} title={t("volumeBackups.loadFailed")} onRetry={() => void policies.refetch()} retrying={policies.isRefetching} />;
   } else if (!loading && rows.length === 0) {
@@ -166,21 +167,21 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
         onRowActivate={openRow}
         mobile="cards"
         rowActions={(row) => (
-          <Menu align="end" trigger={<IconButton size="sm" label={t("common.words.actionsForDomain", { domain: row.domain })} icon={<ICONS.more />} tooltip={false} />}>
-            <MenuItem disabled={job.busy || run.isPending} onClick={() => run.mutate(row)}>
+          <RowMenu name={row.domain}>
+            <MenuItem icon={<Play />} disabled={job.busy || run.isPending} onClick={() => run.mutate(row)}>
               {t("common.words.backUpNow")}
             </MenuItem>
-            <MenuItem onClick={() => setEditing({ domain: row.domain, policy: row.policy })}>{row.policy === null ? t("volumeBackups.detail.setPolicy") : t("volumeBackups.actions.edit")}</MenuItem>
-            <MenuItem onClick={() => openRow(row)}>{t("volumeBackups.actions.open")}</MenuItem>
+            <MenuItem icon={row.policy === null ? <CalendarClock /> : <Pencil />} onClick={() => setEditing({ domain: row.domain, policy: row.policy })}>{row.policy === null ? t("volumeBackups.detail.setPolicy") : t("volumeBackups.actions.edit")}</MenuItem>
+            <MenuItem icon={<History />} onClick={() => openRow(row)}>{t("volumeBackups.actions.open")}</MenuItem>
             {row.policy !== null ? (
               <>
                 <MenuSeparator />
-                <MenuItem destructive onClick={() => setRemoving(row)}>
+                <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(row)}>
                   {t("volumeBackups.actions.remove")}
                 </MenuItem>
               </>
             ) : null}
-          </Menu>
+          </RowMenu>
         )}
       />
     );

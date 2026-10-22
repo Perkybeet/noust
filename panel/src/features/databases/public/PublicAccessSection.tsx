@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Eye, Globe, Lock } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -8,11 +9,13 @@ import type { PublicConnection, PublicExposure, PublicOpened } from "../../../ap
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Section } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import { FeatureState } from "../../../components/ui/FeatureState";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
@@ -86,41 +89,69 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
   const unreachable = exposure !== null && exposure.state === "exposed" && !exposure.listening;
   const stuck = exposure !== null && exposure.state !== "exposed";
   const open = (
-    <Button size="sm" variant="secondary" onClick={() => setOpening(true)}>
+    <Button size="sm" variant="secondary" icon={<Globe aria-hidden="true" />} onClick={() => setOpening(true)}>
       {t("publicAccess.actions.open")}
     </Button>
   );
 
+  // The state is a pill after the title, three ways (colour, shape and word), not a block of its own.
+  const status =
+    exposure === null ? (
+      <StatusPill state="stopped" size="sm" label={t("publicAccess.state.private")} />
+    ) : stuck ? (
+      <StatusPill state="warning" size="sm" label={t("publicAccess.state.closing")} />
+    ) : unreachable ? (
+      <StatusPill state="warning" size="sm" label={t("publicAccess.state.notAnswering")} />
+    ) : (
+      <StatusPill state="running" size="sm" label={t("publicAccess.state.public")} />
+    );
+  const sentence =
+    exposure === null
+      ? t("publicAccess.state.privateBody")
+      : stuck
+        ? t("publicAccess.state.closingBody")
+        : unreachable
+          ? t("publicAccess.state.notAnsweringBody")
+          : t("publicAccess.state.publicBody");
+
+  if (data === undefined) {
+    return (
+      <Section icon={OBJECT_ICONS.addresses} title={t("publicAccess.title")} description={t("publicAccess.description")}>
+        {detail.isError ? (
+          <ErrorBlock compact error={detail.error} title={t("publicAccess.loadFailed")} onRetry={() => void detail.refetch()} retrying={detail.isRefetching} />
+        ) : (
+          <LoadingRegion label={t("publicAccess.loading")}>
+            <Skeleton className="h-24 w-full rounded-card" />
+          </LoadingRegion>
+        )}
+      </Section>
+    );
+  }
+
   return (
-    <Section title={t("publicAccess.title")} description={t("publicAccess.description")} loading={data === undefined && !detail.isError}>
-      {detail.isError && data === undefined ? (
-        <ErrorBlock compact error={detail.error} title={t("publicAccess.loadFailed")} onRetry={() => void detail.refetch()} retrying={detail.isRefetching} />
-      ) : data === undefined ? (
-        <Skeleton className="h-24 w-full rounded-card" />
-      ) : exposure === null ? (
-        <FeatureState state="off" title={t("publicAccess.state.private")} action={open}>
-          {t("publicAccess.state.privateBody")}
-        </FeatureState>
-      ) : (
-        <div className="flex min-w-0 flex-col gap-4">
-          <FeatureState
-            state={stuck || unreachable ? "problem" : "on"}
-            title={stuck ? t("publicAccess.state.closing") : unreachable ? t("publicAccess.state.notAnswering") : t("publicAccess.state.public", { port: exposure.port })}
-            action={
-              <div className="flex flex-wrap items-center gap-2">
-                {!stuck ? (
-                  <Button size="sm" loading={reveal.isPending} onClick={() => reveal.mutate()}>
-                    {t("publicAccess.actions.reveal")}
-                  </Button>
-                ) : null}
-                <Button size="sm" variant="secondary" onClick={() => setClosing(true)}>
-                  {t("publicAccess.actions.close")}
+    <>
+      <Section
+        title={t("publicAccess.title")}
+        badge={status}
+        description={sentence}
+        actions={
+          exposure === null ? (
+            open
+          ) : (
+            <>
+              {!stuck ? (
+                <Button size="sm" icon={<Eye aria-hidden="true" />} loading={reveal.isPending} onClick={() => reveal.mutate()}>
+                  {t("publicAccess.actions.reveal")}
                 </Button>
-              </div>
-            }
-          >
-            {stuck ? t("publicAccess.state.closingBody") : unreachable ? t("publicAccess.state.notAnsweringBody") : t("publicAccess.state.publicBody")}
-          </FeatureState>
+              ) : null}
+              <Button size="sm" variant="secondary" icon={<Lock aria-hidden="true" />} onClick={() => setClosing(true)}>
+                {t("publicAccess.actions.close")}
+              </Button>
+            </>
+          )
+        }
+      >
+        {exposure === null ? null : (
           <KeyValueList
             items={[
               { label: t("publicAccess.facts.address"), value: data.connection !== null && data.connection !== undefined ? `${data.connection.host}:${String(data.connection.port)}` : `${exposure.bind_address}:${String(exposure.port)}` },
@@ -133,8 +164,8 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
               { label: t("publicAccess.facts.since"), value: <RelativeTime value={exposure.created_at} />, mono: false, copy: false },
             ]}
           />
-        </div>
-      )}
+        )}
+      </Section>
       <OpenPublicDialog
         key={`${engine}/${name}`}
         engine={engine}
@@ -160,6 +191,6 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
         }}
       />
       <SecretShown secret={secret} onClose={() => setSecret(null)} />
-    </Section>
+    </>
   );
 }

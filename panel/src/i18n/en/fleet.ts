@@ -71,13 +71,6 @@ export const fleet = {
   // The Fleet's pages
 
   tabs: {
-    summary: "Summary",
-    servers: "Servers",
-    apps: "Applications",
-    certificates: "Certificates",
-    backups: "Backups",
-    updates: "Noust and system updates",
-    activity: "Activity",
     command: {
       summary: "Fleet summary",
       servers: "Servers of the fleet",
@@ -97,9 +90,10 @@ export const fleet = {
     },
   },
   page: {
+    createAtProvider: "Create at a provider",
     title: "Fleet",
     description: "Every server this central manages, at once.",
-    tabsLabel: "Fleet views",
+    tabsLabel: "Fleet application views",
     addServer: "Add a server",
     runAction: "Run an action",
     loadFailed: "Could not load the fleet",
@@ -297,7 +291,6 @@ export const fleet = {
     updateAvailable: "{version} available",
     now: "Now",
     never: "Never",
-    actionsFor: "Actions for {name}",
     open: "Open",
     test: "Test the connection",
     editLabels: "Edit labels",
@@ -407,7 +400,6 @@ export const fleet = {
         other: "{count} wait for their packages to be published.",
       },
     },
-    actionsFor: "Actions for {name}",
     refreshLists: "Refresh package lists",
     refreshBehind: "Refresh package lists (its index is behind)",
     noMethod: "Not known",

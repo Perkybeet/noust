@@ -19,12 +19,11 @@ export const domains: Catalog<typeof en> = {
   deleteSite: "Eliminar sitio",
   deleteSiteDescription:
     "Se elimina su configuración de nginx y de Apache, la que exista, junto con su certificado, y el servidor web se recarga sin él. Una aplicación detrás de él sigue en ejecución, pero deja de ser accesible con este nombre.",
-  discardChanges: "Descartar cambios",
   theSite: "El sitio",
 
   page: {
     description: "Cada certificado HTTPS de este servidor y los sitios del servidor web que responden por cada nombre.",
-    tabsLabel: "Secciones de dominios y certificados",
+    tabsLabel: "Secciones de Dominios",
     certificatesTab: "Certificados",
     sitesTab: "Sitios del servidor web",
   },
@@ -225,16 +224,12 @@ export const domains: Catalog<typeof en> = {
     noSiteTitle: "No hay ningún sitio con este nombre",
     noSiteDescription: "Puede que se haya eliminado, o que la dirección tenga una errata. Todos los sitios de esta máquina están en la pestaña Sitios.",
     allSites: "Todos los sitios",
-    testedBefore: "Se prueba con {command} antes de guardarla: lo que rechaza nunca se guarda.",
     belongsTo: "Sirve la aplicación {app}",
     couldNotReadConfig: "No se pudo leer la configuración de {site}",
     servesLabel: "Sirve",
     fileLabel: "Archivo",
     configNotSaved: "La configuración no se guardó",
     configNotTested: "No se pudo probar la configuración",
-    leaveDialogTitle: "¿Salir sin guardar?",
-    leaveDialogDescription: "Tus cambios a la configuración de {site} no se han guardado ni probado. Salir los descarta.",
-    keepEditing: "Seguir editando",
     configurationOfAriaLabel: "Configuración de {site}",
     webserverRejectedThisConfiguration: "{webserver} rechazó esta configuración",
   },
@@ -388,7 +383,6 @@ export const domains: Catalog<typeof en> = {
     editedTitle: "Cambiado fuera de Noust",
     editedBody: "Este archivo no es lo último que escribió Noust. Un despliegue lo reescribiría; el texto que tiene ahora queda en el historial.",
     pendingTitle: "{webserver} no ha cargado este archivo",
-    pendingBody: "El archivo se escribió después de que {webserver} arrancara por última vez sus procesos, así que sigue ejecutando el texto anterior.",
     sources: {
       generated: "Generado por Noust",
       edit: "Guardado por una persona",

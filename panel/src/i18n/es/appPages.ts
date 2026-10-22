@@ -498,7 +498,6 @@ export const appPages: Catalog<typeof en> = {
 
   logs: {
     connecting: "Conectando",
-    live: "En directo",
     disconnected: "Desconectado",
     readingBacklog: "Cargando las últimas {count} líneas",
     lineCount: { one: "{count} línea", other: "{count} líneas" },
@@ -527,9 +526,7 @@ export const appPages: Catalog<typeof en> = {
     accessError: "Errores de servidor",
     accessLabel: "Registro de acceso del servidor web de {domain}",
     errorLabel: "Registro de errores del servidor web de {domain}",
-    siteReading: "Cargando el registro",
     siteEmpty: "El registro todavía no tiene líneas.",
-    siteFailed: "No se pudo leer el registro del servidor web",
     siteNotWrittenTitle: "El servidor web aún no ha escrito este registro",
     siteNotWritten: "{path} todavía no existe. El servidor web lo crea con la primera petición o error de este sitio.",
     siteTruncated: "Mostrando las {shown} líneas más recientes del final del archivo. Las anteriores no se leen aquí; {command} las reduce a un texto.",

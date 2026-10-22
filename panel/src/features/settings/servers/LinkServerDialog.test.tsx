@@ -128,8 +128,7 @@ describe("Add a server behind NAT", () => {
     expect(field).toHaveAttribute("type", "password");
     await user.click(field);
     await user.paste(linkCodeOf(LINK_FIELDS));
-    expect(await within(dialog).findByText("Link code read")).toBeInTheDocument();
-    expect(within(dialog).getByText("web-5")).toBeInTheDocument();
+    expect(await within(dialog).findByText("web-5")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Add server" }));
 
     await within(dialog).findByText("web-5 is part of the fleet");

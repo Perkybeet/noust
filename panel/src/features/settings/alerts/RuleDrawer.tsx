@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { alertKeys, saveAlertRule } from "../../../api/queries/alerts";
@@ -39,12 +39,17 @@ export function RuleDrawer({ rule, metrics, open, onOpenChange }: RuleDrawerProp
   const initial = (): RuleForm => (rule === undefined ? emptyRule(first) : ruleFormFrom(rule, metrics));
   const [form, setForm] = useState<RuleForm>(initial);
   const [edited, setEdited] = useState<ReadonlySet<string>>(new Set());
+  // What the form could not send because it was left empty, and the boxes to go to when it says so.
+  const [missing, setMissing] = useState<ReadonlySet<"name" | "limit">>(new Set());
+  const nameRef = useRef<HTMLInputElement>(null);
+  const limitRef = useRef<HTMLInputElement>(null);
 
   const metric = metrics.find((candidate) => candidate.id === form.metric);
   const onApp = metric?.scope === "app";
   const unit = metric?.unit ?? "number";
   const set = <K extends keyof RuleForm>(key: K, value: RuleForm[K], touched: readonly string[] = [key]): void => {
     setForm((current) => ({ ...current, [key]: value }));
+    if (key === "name" || key === "limit") setMissing((current) => new Set([...current].filter((field) => field !== key)));
     // A message is about the value that was sent: it goes away when the value is edited.
     setEdited((current) => new Set([...current, ...touched]));
   };
@@ -61,17 +66,30 @@ export function RuleDrawer({ rule, metrics, open, onOpenChange }: RuleDrawerProp
   });
   const split = splitErrors(save.error, RULE_FIELDS);
   const message = (...names: string[]): string | undefined => {
+    if (names.includes("name") && missing.has("name")) return t("alerts.form.nameMissing");
+    if (names.includes("threshold") && missing.has("limit")) return t("alerts.form.limitMissing");
     if (names.some((name) => edited.has(name))) return undefined;
     return names.map((name) => split.fields[name as (typeof RULE_FIELDS)[number]]).find((text) => text !== undefined);
   };
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (!save.isPending && form.name.trim() !== "") save.mutate();
+    if (save.isPending) return;
+    // Pressing it with something left out says what, beside the box, and goes to the first.
+    const lacks = new Set<"name" | "limit">();
+    if (form.name.trim() === "") lacks.add("name");
+    if (form.limit.trim() === "") lacks.add("limit");
+    if (lacks.size > 0) {
+      setMissing(lacks);
+      (lacks.has("name") ? nameRef : limitRef).current?.focus();
+      return;
+    }
+    save.mutate();
   };
   const reset = (): void => {
     setForm(initial());
     setEdited(new Set());
+    setMissing(new Set());
     save.reset();
   };
 
@@ -95,7 +113,7 @@ export function RuleDrawer({ rule, metrics, open, onOpenChange }: RuleDrawerProp
           >
             {t("settings.shared.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" disabled={form.name.trim() === "" || form.limit.trim() === ""} loading={save.isPending}>
+          <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {t("alerts.form.save")}
           </Button>
         </>
@@ -105,6 +123,7 @@ export function RuleDrawer({ rule, metrics, open, onOpenChange }: RuleDrawerProp
         <FormFailure error={split.form} title={t("alerts.form.saveErrorTitle")} />
         <Field label={t("common.words.name")} description={t("alerts.form.nameDescription")} error={message("name")}>
           <Input
+            ref={nameRef}
             mono
             autoComplete="off"
             autoCapitalize="off"
@@ -157,6 +176,7 @@ export function RuleDrawer({ rule, metrics, open, onOpenChange }: RuleDrawerProp
           </Field>
           <Field label={t("alerts.form.limitLabel")} description={limitHint(t, unit)} error={message("threshold")}>
             <Input
+              ref={limitRef}
               mono
               autoComplete="off"
               spellCheck={false}

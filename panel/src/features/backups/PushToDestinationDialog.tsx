@@ -37,6 +37,7 @@ export function PushToDestinationDialog({ open, onOpenChange, words, onPush }: P
   const formId = useId();
   const destinations = useQuery({ ...backupDestinationsQuery(), enabled: open });
   const [destination, setDestination] = useState("");
+  const [pressed, setPressed] = useState(false);
   const push = useMutation({ mutationFn: (name: string) => onPush(name) });
   const options = (destinations.data?.destinations ?? []).map((entry) => ({ value: entry.name, label: entry.name }));
 
@@ -45,13 +46,17 @@ export function PushToDestinationDialog({ open, onOpenChange, words, onPush }: P
     onOpenChange(next);
     if (!next) {
       setDestination("");
+      setPressed(false);
       push.reset();
     }
   };
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (destination === "") return;
+    if (destination === "") {
+      setPressed(true);
+      return;
+    }
     push.mutate(destination, { onSuccess: () => close(false) });
   };
 
@@ -67,14 +72,14 @@ export function PushToDestinationDialog({ open, onOpenChange, words, onPush }: P
           <Button disabled={push.isPending} onClick={() => close(false)}>
             {t("common.words.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={push.isPending} disabled={destination === ""}>
+          <Button type="submit" form={formId} variant="primary" loading={push.isPending}>
             {words.action}
           </Button>
         </>
       }
     >
       <form id={formId} onSubmit={submit} className="flex flex-col gap-4">
-        <Field label={words.destination} nativeLabel={false}>
+        <Field label={words.destination} nativeLabel={false} error={pressed && destination === "" ? words.choose : undefined}>
           <Select
             aria-label={words.destination}
             value={destination}

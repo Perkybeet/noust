@@ -4,11 +4,11 @@ import { useState } from "react";
 
 import type { BackupList } from "../../api/queries/backups";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { RowMenu } from "../../components/page/RowMenu";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
-import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
@@ -63,13 +63,10 @@ export interface BackupActionHandlers {
   onDelete: (backup: BackupRow) => void;
 }
 
-function RowActions({ backup, checking, onVerify, handlers }: { backup: BackupRow; checking: boolean; onVerify: () => void; handlers: BackupActionHandlers }) {
+function BackupMenu({ backup, checking, onVerify, handlers }: { backup: BackupRow; checking: boolean; onVerify: () => void; handlers: BackupActionHandlers }) {
   const t = useT();
   return (
-    <Menu
-      align="end"
-      trigger={<IconButton label={t("backups.history.actionsFor", { id: backup.backup_id })} icon={<ICONS.more />} size="sm" tooltip={false} />}
-    >
+    <RowMenu name={backup.backup_id}>
       <MenuItem icon={<FileCheck />} disabled={checking} onClick={onVerify}>
         {t("backups.history.actions.verify")}
       </MenuItem>
@@ -83,7 +80,7 @@ function RowActions({ backup, checking, onVerify, handlers }: { backup: BackupRo
       <MenuItem icon={<ICONS.delete />} destructive onClick={() => handlers.onDelete(backup)}>
         {t("backups.history.actions.delete")}
       </MenuItem>
-    </Menu>
+    </RowMenu>
   );
 }
 
@@ -177,7 +174,7 @@ export function BackupsTable({ backups, caption, loading = false, skeletonRows, 
       loading={loading}
       {...(skeletonRows !== undefined ? { skeletonRows } : {})}
       {...(empty !== undefined ? { empty } : {})}
-      rowActions={(row) => <RowActions backup={row} checking={checking.has(row.backup_id)} onVerify={() => onVerify(row)} handlers={handlers} />}
+      rowActions={(row) => <BackupMenu backup={row} checking={checking.has(row.backup_id)} onVerify={() => onVerify(row)} handlers={handlers} />}
       defaultSort={{ column: "created", direction: "descending" }}
     />
   );

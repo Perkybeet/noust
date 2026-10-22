@@ -121,7 +121,8 @@ test("public access: opened from one address with TLS, shown once, and made priv
   await shown.getByRole("button", { name: "Done" }).click();
   await expect(shown).toBeHidden();
 
-  await expect(section.getByText(/^Public on port \d+$/)).toBeVisible();
+  await expect(section.getByText("Public", { exact: true })).toBeVisible();
+  await expect(section.getByText("Address", { exact: true })).toBeVisible();
   await expect(section.getByText("Required: a connection without TLS is refused")).toBeVisible();
   await expect(section.getByText("203.0.113.7/32", { exact: true })).toBeVisible();
   await expect(section.getByText("Read only", { exact: true })).toBeVisible();
@@ -162,7 +163,7 @@ test("one backup policy for every database of an engine, with what it leaves out
   problems.expect(/status of 403 .*\/api\/databases\/backup-policies\/mysql\/\*$/);
   await signIn(page, consoleServer, "/databases/mysql/example_shop/backups");
   const card = page.locator("section").filter({ has: page.getByRole("heading", { level: 2, name: "Every MySQL/MariaDB database" }) });
-  await expect(card.getByText("No policy covers every MySQL/MariaDB database.")).toBeVisible();
+  await expect(card.getByText("No schedule covers every MySQL/MariaDB database.")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the backups tab, no policy for every database");
 
@@ -198,8 +199,8 @@ test("one backup policy for every database of an engine, with what it leaves out
   await page.goto("/databases/mysql/example_shop/backups");
   await card.getByRole("button", { name: "More schedule actions" }).click();
   await page.getByRole("menuitem", { name: "Remove" }).click();
-  await page.getByRole("alertdialog", { name: "Remove the policy for every MySQL/MariaDB database" }).getByRole("button", { name: "Remove policy" }).click();
-  await expect(card.getByText("No policy covers every MySQL/MariaDB database.")).toBeVisible();
+  await page.getByRole("alertdialog", { name: "Remove the schedule for every MySQL/MariaDB database" }).getByRole("button", { name: "Remove schedule" }).click();
+  await expect(card.getByText("No schedule covers every MySQL/MariaDB database.")).toBeVisible();
 });
 
 /** A plain SQL dump of `bytes` bytes or a little more: the header an engine's own tool writes, then comments. */

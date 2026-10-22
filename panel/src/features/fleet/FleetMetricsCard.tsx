@@ -111,6 +111,7 @@ export function FleetMetricsCard() {
         </div>
       }
     >
+      {/* design-exception: hand-error-ternary the table draws its own skeleton rows inside the card's frame */}
       {query.isError && query.data === undefined ? (
         <ErrorBlock compact error={query.error} title={t("fleetCompare.metrics.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} className="m-4" />
       ) : (

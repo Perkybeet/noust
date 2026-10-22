@@ -16,6 +16,7 @@ import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 interface Draft {
   ca: string;
@@ -154,10 +155,9 @@ export function AuthorityDialog({ open, onClose, onRegister }: { open: boolean; 
       {settings.isError ? (
         <ErrorBlock compact error={settings.error} title={t("network.authority.readFailed")} onRetry={() => void settings.refetch()} retrying={settings.isRefetching} />
       ) : settings.data === undefined ? (
-        <div aria-busy="true">
-          <span className="sr-only">{t("network.authority.loading")}</span>
+        <LoadingRegion label={t("network.authority.loading")}>
           <Skeleton className="h-32 rounded-card" />
-        </div>
+        </LoadingRegion>
       ) : (
         <Form settings={settings.data} onClose={onClose} onRegister={onRegister} />
       )}

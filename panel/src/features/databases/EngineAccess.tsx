@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -114,7 +115,7 @@ export function ListingProblemsNotice({ problems, engines }: { problems: readonl
               <SystemOutput label={t("databases.access.output", { engine: problem.display_name })}>{problem.output || problem.message}</SystemOutput>
               {storable(problem) ? (
                 <div>
-                  <Button size="sm" onClick={() => setStoring(problem)}>
+                  <Button icon={<KeyRound aria-hidden="true" />} size="sm" onClick={() => setStoring(problem)}>
                     {t("databases.access.storeAccount")}
                   </Button>
                 </div>

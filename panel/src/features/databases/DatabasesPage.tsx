@@ -11,11 +11,12 @@ import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { RowMenu } from "../../components/page/RowMenu";
+import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
-import { IconButton } from "../../components/ui/IconButton";
-import { Menu, MenuGroup, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { MenuGroup, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { toast } from "../../components/ui/toast";
@@ -42,7 +43,7 @@ export interface DatabasesPageProps {
 }
 
 /** The menu at the end of a database's row: open it, back it up now, query it, connect to it. */
-function RowActions({ database, engines, t }: { database: Database; engines: readonly Engine[] | undefined; t: T }) {
+function DatabaseMenu({ database, engines, t }: { database: Database; engines: readonly Engine[] | undefined; t: T }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const engine = engines?.find((item) => item.name === database.engine);
@@ -73,7 +74,7 @@ function RowActions({ database, engines, t }: { database: Database; engines: rea
   const [editingTags, setEditingTags] = useState(false);
   return (
     <>
-    <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: database.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+    <RowMenu name={database.name}>
       <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/databases/$engine/$name", params })}>
         {t("databases.list.open")}
       </MenuItem>
@@ -114,7 +115,7 @@ function RowActions({ database, engines, t }: { database: Database; engines: rea
           </MenuGroup>
         </>
       ) : null}
-    </Menu>
+    </RowMenu>
     {editingTags ? (
       <ResourceTagsDialog
         name={database.name}
@@ -214,23 +215,10 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
         })}
       </Notice>
     );
-  } else if (unprotected > 0 && search.backups === undefined) {
-    notice = (
-      <Notice
-        tone="warning"
-        title={t("databases.list.unprotectedTitle", { count: unprotected })}
-        action={
-          <Button size="sm" onClick={() => set({ backups: "attention" })}>
-            {t("databases.list.showThem")}
-          </Button>
-        }
-      >
-        {t("databases.list.unprotectedBody")}
-      </Notice>
-    );
   }
 
   const Add = ICONS.add;
+  // design-exception: hand-error-ternary the list's loading is its own table skeleton under filters that are already drawn (`arrival`), not a replacement of the page
   if (list.isError && list.data === undefined) {
     return (
       <>
@@ -262,16 +250,18 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
             options={[{ value: ALL, label: t("databases.list.everyEngine") }, ...engineOptions.map((engine) => ({ value: engine.name, label: instanceLabel(t, engine) }))]}
             className="min-w-40"
           />
-          <Select
-            aria-label={t("databases.list.backupsLabel")}
-            value={search.backups ?? ALL}
-            onValueChange={(value) => set({ backups: value === "attention" ? "attention" : undefined })}
-            options={[
-              { value: ALL, label: t("databases.list.everyBackupState") },
-              { value: "attention", label: t("databases.list.needsAttention") },
-            ]}
-            className="min-w-40"
-          />
+          {/* What the rows say one by one, counted: the way to get at the ones without a schedule. */}
+          {unprotected > 0 || search.backups !== undefined ? (
+            <SegmentedControl<"all" | "attention">
+              label={t("databases.list.backupsLabel")}
+              value={search.backups === "attention" ? "attention" : "all"}
+              onValueChange={(value) => set({ backups: value === "attention" ? "attention" : undefined })}
+              options={[
+                { value: "all", label: t("databases.list.backupsAll") },
+                { value: "attention", label: t("databases.list.backupsNone", { count: unprotected }) },
+              ]}
+            />
+          ) : null}
           {tagNames.length > 0 || search.tag !== undefined ? (
             <Select
               aria-label={t("appTags.filter.label")}
@@ -365,7 +355,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
           policies={byPolicy}
           dumps={newest}
           caption={filtered ? t("databases.list.captionFiltered") : t("databases.list.caption")}
-          rowActions={(database) => <RowActions database={database} engines={engines.data?.engines} t={t} />}
+          rowActions={(database) => <DatabaseMenu database={database} engines={engines.data?.engines} t={t} />}
           empty={
             <EmptyState
               variant="inline"

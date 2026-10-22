@@ -9,16 +9,15 @@ import type { SiteEntry } from "../../api/queries/sites";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { Badge } from "../../components/ui/Badge";
+import { RowMenu } from "../../components/page/RowMenu";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import type { Column } from "../../components/ui/DataTable";
 import { DataTable } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { TextLink } from "../../components/ui/TextLink";
@@ -125,8 +124,8 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
       cell: (site) => (
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <span translate="no">{site.name}</span>
-          {site.pending_reload ? <Badge tone="warn">{t("domains.siteHistory.pendingBadge")}</Badge> : null}
-          {site.edited_outside ? <Badge tone="warn">{t("domains.siteHistory.editedBadge")}</Badge> : null}
+          {site.pending_reload ? <StatusPill state="warning" size="sm" appearance="inline" label={t("domains.siteHistory.pendingBadge")} /> : null}
+          {site.edited_outside ? <StatusPill state="warning" size="sm" appearance="inline" label={t("domains.siteHistory.editedBadge")} /> : null}
         </span>
       ),
       sortValue: (site) => site.name,
@@ -185,6 +184,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   );
 
   let content;
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (sites.isError && sites.data === undefined) {
     content = <ErrorBlock error={sites.error} title={t("domains.sitesTab.couldNotListSites")} onRetry={() => void sites.refetch()} retrying={sites.isRefetching} />;
   } else if (empty) {
@@ -221,7 +221,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
           />
         }
         rowActions={(site) => (
-          <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: site.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+          <RowMenu name={site.name}>
             <MenuItem icon={<FileCode />} onClick={() => open(site)}>
               {t("domains.sitesTab.editConfiguration")}
             </MenuItem>
@@ -238,7 +238,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
             <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(site)}>
               {t("common.words.delete")}
             </MenuItem>
-          </Menu>
+          </RowMenu>
         )}
       />
     );

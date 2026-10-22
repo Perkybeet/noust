@@ -17,7 +17,7 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
-import { Notice } from "../../components/ui/Notice";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
@@ -45,6 +45,7 @@ import {
   runFleetAction,
 } from "./data";
 import type { FleetActionBody, FleetNodeState, FleetPlan, KnownAction } from "./data";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 // ---------------------------------------------------------------------------------------
 // Opening it from anywhere on the fleet's pages
@@ -240,11 +241,11 @@ export function PlanView({ t, plan, action }: { t: T; plan: FleetPlan; action: K
         </ol>
       ) : null}
       <DataTable caption={t("fleet.bulk.plan.caption")} columns={planColumns(t, plan.strategy["canary"])} rows={plan.nodes} getRowId={(node) => node.node} density="compact" mobile="cards" />
-      {plan.requires_elevation ? <Notice>{t("fleet.bulk.plan.elevation")}</Notice> : null}
-      {action === "noust_update" ? <Notice>{t("fleet.bulk.plan.centralLast")}</Notice> : null}
-      {action === "os_updates" ? <Notice tone="warning">{t("fleet.bulk.plan.noReboot")}</Notice> : null}
+      {plan.requires_elevation ? <InlineMessage tone="info">{t("fleet.bulk.plan.elevation")}</InlineMessage> : null}
+      {action === "noust_update" ? <InlineMessage tone="info">{t("fleet.bulk.plan.centralLast")}</InlineMessage> : null}
+      {action === "os_updates" ? <InlineMessage>{t("fleet.bulk.plan.noReboot")}</InlineMessage> : null}
       {action === "os_updates" && plan.nodes.some(updatesNoust) ? (
-        <Notice>{t("fleet.bulk.plan.alsoNoustNote", { count: plan.nodes.filter(updatesNoust).length })}</Notice>
+        <InlineMessage tone="info">{t("fleet.bulk.plan.alsoNoustNote", { count: plan.nodes.filter(updatesNoust).length })}</InlineMessage>
       ) : null}
     </div>
   );
@@ -397,11 +398,10 @@ export function BulkActionDialog({ initial, onClose }: BulkActionDialogProps) {
         />
         {mode === "name" ? (
           servers.isPending ? (
-            <div aria-busy="true" className="flex flex-col gap-2">
-              <span className="sr-only">{t("fleet.bulk.servers.loading")}</span>
+            <LoadingRegion label={t("fleet.bulk.servers.loading")} className="flex flex-col gap-2">
               <Skeleton className="h-control-md w-full" />
               <Skeleton className="h-control-md w-full" />
-            </div>
+            </LoadingRegion>
           ) : (
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-2 text-13 font-medium text-fg">{t("fleet.bulk.servers.legend")}</legend>
@@ -509,11 +509,10 @@ export function BulkActionDialog({ initial, onClose }: BulkActionDialogProps) {
     );
   } else if (action !== null) {
     content = planning.isPending ? (
-      <div aria-busy="true" className="flex flex-col gap-3">
-        <span className="sr-only">{t("fleet.bulk.plan.loading")}</span>
+      <LoadingRegion label={t("fleet.bulk.plan.loading")} className="flex flex-col gap-3">
         <Skeleton className="h-4 w-80 max-w-full" />
         <Skeleton className="h-24 w-full" />
-      </div>
+      </LoadingRegion>
     ) : planning.isError ? (
       <ErrorBlock
         live

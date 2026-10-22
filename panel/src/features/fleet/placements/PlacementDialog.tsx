@@ -7,6 +7,7 @@ import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Select } from "../../../components/ui/Select";
@@ -158,9 +159,7 @@ export function PlacementDialog({ placement, onClose }: PlacementDialogProps) {
             ))}
           </ul>
           {errors.nodes !== undefined ? (
-            <p role="alert" className="text-13 text-fail">
-              {errors.nodes}
-            </p>
+            <InlineMessage tone="error" live>{errors.nodes}</InlineMessage>
           ) : null}
         </fieldset>
         <Field label={t("placements.form.labelLabel")} description={t("placements.form.labelDescription")} error={errors.labels} optional>

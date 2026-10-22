@@ -9,9 +9,8 @@ import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Drawer } from "../../../components/ui/Drawer";
-import { Field } from "../../../components/ui/Field";
+import { Field, FieldGroup } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
-import { Notice } from "../../../components/ui/Notice";
 import { useT } from "../../../i18n";
 import { validTime } from "../../databases/backups/schedule";
 import { KeepFields } from "../policy/KeepFields";
@@ -150,9 +149,7 @@ export function ScheduleDrawer({ schedule, open, onOpenChange }: ScheduleDrawerP
           destinations={form.sends.length}
         />
 
-        <fieldset className="flex min-w-0 flex-col gap-4">
-          <legend className="mb-3 text-13 font-medium text-fg">{t("selfBackup.schedule.passphraseTitle")}</legend>
-          <Notice>{known ? t("selfBackup.schedule.passphraseKept") : t("selfBackup.schedule.passphraseNew")}</Notice>
+        <FieldGroup legend={t("selfBackup.schedule.passphraseTitle")} description={known ? t("selfBackup.schedule.passphraseKept") : t("selfBackup.schedule.passphraseNew")}>
           <Field label={t("selfBackup.passphrase.label")} optional={known} description={t("selfBackup.passphrase.help")} error={errors.passphrase}>
             <Input mono type="password" value={form.passphrase} onValueChange={(passphrase: string) => set({ passphrase })} autoComplete="new-password" autoCapitalize="off" spellCheck={false} />
           </Field>
@@ -161,7 +158,7 @@ export function ScheduleDrawer({ schedule, open, onOpenChange }: ScheduleDrawerP
               <Input mono type="password" value={form.repeat} onValueChange={(repeat: string) => set({ repeat })} autoComplete="new-password" autoCapitalize="off" spellCheck={false} />
             </Field>
           ) : null}
-        </fieldset>
+        </FieldGroup>
 
         <Checkbox checked={form.enabled} onCheckedChange={(enabled) => set({ enabled })} label={t("selfBackup.schedule.enabled")} description={t("selfBackup.schedule.enabledHelp")} />
         {save.isError && !(isApiError(save.error) && save.error.fields !== null && (save.error.fields["schedule"] !== undefined || save.error.fields["passphrase"] !== undefined)) ? (
