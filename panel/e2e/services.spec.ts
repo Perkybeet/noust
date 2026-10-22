@@ -18,15 +18,16 @@ test("lists a seeded Noust-managed service in the Server area and opens its page
   await settle(page);
   await expectNoA11yViolations(page, "the services tab");
 
-  // The list pages at 20 rows and the seeded machine has 21 Noust units, this one the 20th by
-  // name: any unit another test of the same server created before it would push it onto the
-  // second page. It is found as an operator finds a unit on a long list, by searching.
-  await page.getByRole("searchbox", { name: "Search services" }).fill("wasm-shop-example-net");
-  const link = table.getByRole("link", { name: "wasm-shop-example-net" });
+  // The list pages at 20 rows and the seeded machine has 21 Noust units, this one among them: any
+  // unit another test of the same server created before it would push it onto the second page. It
+  // is found as an operator finds a unit on a long list, by searching.
+  await page.getByRole("searchbox", { name: "Search services" }).fill("shop-example-net");
+  // Exactly: the seeded backup unit of the same application carries the name inside its own.
+  const link = table.getByRole("link", { name: "shop-example-net", exact: true });
   await expect(link).toBeVisible();
   await link.click();
-  await expect(page).toHaveURL(/\/server\/services\/wasm-shop-example-net$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("wasm-shop-example-net");
+  await expect(page).toHaveURL(/\/server\/services\/shop-example-net$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop-example-net");
   await expect(page.getByRole("navigation", { name: "Service sections" })).toBeVisible();
   // Its facts say who manages it (a foreign unit's page says Noust did not create it).
   await expect(page.getByText("Managed by", { exact: true })).toBeVisible();
@@ -40,17 +41,17 @@ test("lists a seeded Noust-managed service in the Server area and opens its page
 test("the 3.0 addresses of the services redirect under Server", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/services?q=shop");
   await expect(page).toHaveURL(/\/server\/services\?q=shop$/);
-  await page.goto("/services/wasm-shop-example-net");
-  await expect(page).toHaveURL(/\/server\/services\/wasm-shop-example-net$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("wasm-shop-example-net");
+  await page.goto("/services/shop-example-net");
+  await expect(page).toHaveURL(/\/server\/services\/shop-example-net$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("shop-example-net");
 });
 
 test("restarts a unit from its own page", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/services/wasm-shop-example-net");
-  const restarted = page.waitForResponse((response) => response.url().endsWith("/api/services/wasm-shop-example-net/restart"));
+  await signIn(page, consoleServer, "/server/services/shop-example-net");
+  const restarted = page.waitForResponse((response) => response.url().endsWith("/api/services/shop-example-net/restart"));
   await page.getByRole("button", { name: "Restart" }).click();
   expect((await restarted).status()).toBe(200);
-  await expect(toasts(page).getByText("Restarted wasm-shop-example-net")).toBeVisible();
+  await expect(toasts(page).getByText("Restarted shop-example-net")).toBeVisible();
 });
 
 test("creates a service in simple mode and finds it in the list", async ({ page, consoleServer, problems }) => {
@@ -78,11 +79,11 @@ test("creates a service in simple mode and finds it in the list", async ({ page,
 });
 
 test("saving the unit file asks to confirm it's you, then says it was saved", async ({ page, consoleServer, problems }) => {
-  problems.expect(/status of 403 .*\/api\/services\/wasm-shop-example-net\/config$/);
-  await signIn(page, consoleServer, "/server/services/wasm-shop-example-net");
+  problems.expect(/status of 403 .*\/api\/services\/shop-example-net\/config$/);
+  await signIn(page, consoleServer, "/server/services/shop-example-net");
   await page.getByRole("link", { name: "Configuration" }).click();
-  await expect(page).toHaveURL(/\/server\/services\/wasm-shop-example-net\/unit$/);
-  const editor = page.getByLabel("Configuration of wasm-shop-example-net", { exact: true });
+  await expect(page).toHaveURL(/\/server\/services\/shop-example-net\/unit$/);
+  const editor = page.getByLabel("Configuration of shop-example-net", { exact: true });
   await expect(editor).toBeVisible();
   await expectNoA11yViolations(page, "the unit file page");
   const original = await editor.inputValue();
@@ -102,12 +103,12 @@ test("saving the unit file asks to confirm it's you, then says it was saved", as
   // The elevation covers the next ten minutes; reloading the unit file's own read (no
   // elevation needed for GET) confirms the write actually landed.
   await page.reload();
-  await expect(page.getByLabel("Configuration of wasm-shop-example-net", { exact: true })).toHaveValue(/# edited by e2e/);
+  await expect(page.getByLabel("Configuration of shop-example-net", { exact: true })).toHaveValue(/# edited by e2e/);
 });
 
 test("checks the unit with systemd-analyze before saving, and blocks a save it rejects", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/services/wasm-shop-example-net/unit");
-  const editor = page.getByLabel("Configuration of wasm-shop-example-net", { exact: true });
+  await signIn(page, consoleServer, "/server/services/shop-example-net/unit");
+  const editor = page.getByLabel("Configuration of shop-example-net", { exact: true });
   const original = await editor.inputValue();
   // The fake systemd-analyze refuses a unit with no ExecStart=; nothing else about the file
   // needs to be realistic for the check to fail.
@@ -128,7 +129,7 @@ test("checks the unit with systemd-analyze before saving, and blocks a save it r
 
   // Nothing was written: reloading shows the unit exactly as it was before the attempt.
   await page.reload();
-  await expect(page.getByLabel("Configuration of wasm-shop-example-net", { exact: true })).toHaveValue(original);
+  await expect(page.getByLabel("Configuration of shop-example-net", { exact: true })).toHaveValue(original);
 });
 
 test("shows every unit of the system, one Noust did not create read only", async ({ page, consoleServer, problems }) => {

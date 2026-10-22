@@ -131,10 +131,10 @@ word, per namespace, and the count only goes down.
   rendered with `t.rich`.
 - **Everything a person reads or hears**: visible text, `aria-label`, `sr-only` text, live
   region announcements, toasts, `title`s, document titles, placeholders, validation messages.
-- **System output is never translated.** What nginx, systemd, certbot, psql, git or WASM's
+- **System output is never translated.** What nginx, systemd, certbot, psql, git or Noust's
   server prints (errors, hints, diagnosis, journal lines) is shown verbatim. Only the words
   around it (a heading, "Suggested fix") come from the catalog.
-- **Not translated either**: commands (`wasm config set ...`), paths, unit names, product
+- **Not translated either**: commands (`noust config set ...`), paths, unit names, product
   names, and language autonyms ("English", "Español").
 - **Numbers, sizes, dates and times** go through `lib/format.ts`, never `toFixed` or a
   hard-coded `"en-US"`. A placeholder value is printed as given: format numbers first.
@@ -158,7 +158,7 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | application, app | aplicación | "app" only where space is tight |
 | deploy (verb) | desplegar | |
 | deploy, deployment (noun) | despliegue | |
-| release | release (la, las releases) | WASM's `releases/<id>` directory. Not "versión": that is WASM's own version and an app's |
+| release | release (la, las releases) | Noust's `releases/<id>` directory. Not "versión": that is Noust's own version and an app's |
 | rollback, roll back | reversión, revertir | "Revertir a esta release" |
 | startup check (was "health check"), health gate | comprobación de arranque, comprobación de salud | The interface says "Startup check" (DESIGN 7). "Health check" is the system's own phrase and stays where the system prints it |
 | unit (systemd) | unidad | A label says "Service" ("servicio", the unit name in mono): "Unit" and "Systemd unit" are jargon (DESIGN 7). "Unidad" stays where the unit file itself is meant |

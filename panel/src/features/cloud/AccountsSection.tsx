@@ -22,6 +22,7 @@ import { AccountDialog } from "./AccountDialog";
 import { cloudAccountsQuery } from "./data";
 import type { CloudAccount, ProviderKind } from "./data";
 import { useCloudActions } from "./useCloudActions";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function providerName(t: T, provider: string): string {
   return provider === "hetzner" || provider === "digitalocean" || provider === "vultr" ? t(`cloud.provider.${provider satisfies ProviderKind}.name`) : provider;
@@ -124,13 +125,13 @@ export function AccountsSection({ adding, onAddingChange }: { adding: boolean; o
     </Button>
   );
   return (
-    <Section title={t("cloud.accounts.title")} description={t("cloud.accounts.description")} actions={query.data !== undefined && query.data.length > 0 ? add : undefined}>
+    <Section title={t("cloud.accounts.title")} icon={OBJECT_ICONS.cloud} description={t("cloud.accounts.description")} actions={query.data !== undefined && query.data.length > 0 ? add : undefined}>
       <QueryState
         query={query}
         label={t("cloud.accounts.loadingLabel")}
         skeleton={<DataTable caption={t("cloud.accounts.caption")} columns={columns} rows={[]} getRowId={(account) => account.name} loading skeletonRows={2} />}
         isEmpty={(data) => data.length === 0}
-        empty={<EmptyState icon={<KeyRound />} title={t("cloud.accounts.empty.title")} description={t("cloud.accounts.empty.description")} action={add} />}
+        empty={<EmptyState variant="inline" title={t("cloud.accounts.empty.title")} description={t("cloud.accounts.empty.description")} action={add} />}
       >
         {(accounts) => <DataTable caption={t("cloud.accounts.caption")} columns={columns} rows={[...accounts].sort((a, b) => a.name.localeCompare(b.name))} getRowId={(account) => account.name} rowActions={(account) => <AccountActions account={account} />} />}
       </QueryState>

@@ -7,6 +7,7 @@ export const nav = {
     teamSections: "Team sections",
     accountSections: "Account sections",
     projectSections: "Project sections",
+    appsSections: "Applications sections",
     overviewSections: "Overview sections",
   },
   /**

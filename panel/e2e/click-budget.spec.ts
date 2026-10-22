@@ -204,7 +204,8 @@ test.describe("starting a first application", () => {
     });
     await walked(page, "T03a", async () => {
       // Where the recipes are: a tab of the list, or a link beside it, or (3.3.1) the wizard's own choice.
-      const tab = page.locator("main").getByRole("link", { name: "Recipes", exact: true });
+      // The tab carries the count of recipes after its name ("Recipes 143").
+      const tab = page.locator("main").getByRole("link", { name: /^Recipes\b/ });
       const link = page.getByRole("link", { name: "From a recipe" });
       if ((await tab.count()) > 0) {
         await tab.first().click();

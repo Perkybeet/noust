@@ -279,12 +279,21 @@ then **20, 24, 32, 40, 48, 64** for layout.
 
 ### 2.8 Icons
 
-- **I-1** One set, lucide-react, plus Noust's own `StatusGlyph`. The icons that carry a
-  **meaning** come from one map, `components/ui/icons.ts` (`ICONS.success`, `ICONS.warning`,
-  `ICONS.error`, `ICONS.info`, `ICONS.locked`, `ICONS.verified`, `ICONS.more`, `ICONS.close`,
-  `ICONS.dismiss`, `ICONS.delete`, `ICONS.external`, `ICONS.copy`, `ICONS.copied`, `ICONS.add`,
-  `ICONS.search`); icons of **objects** (a server, a database, a navigation entry) are imported
-  from lucide directly.
+- **I-1** One set, lucide-react, plus Noust's own `StatusGlyph`, and three places where the name
+  of an icon is written. The icons that carry a **meaning** come from `components/ui/icons.ts`
+  (`ICONS.success`, `ICONS.warning`, `ICONS.error`, `ICONS.info`, `ICONS.locked`, `ICONS.verified`,
+  `ICONS.more`, `ICONS.close`, `ICONS.dismiss`, `ICONS.delete`, `ICONS.external`, `ICONS.copy`,
+  `ICONS.copied`, `ICONS.add`, `ICONS.search`). The icons of **objects** (an application, a
+  database, a certificate, a server, a token, a log) come from one map of the kit,
+  `components/ui/objectIcons.ts` (`OBJECT_ICONS.app`, `.database`, `.certificate`...), and the
+  verbs of a button that `ICONS` does not have (turn on, edit, rebuild, refresh...) from
+  `VERB_ICONS`, beside it. An object has one icon in the whole console: the sidebar, the lists on
+  the side, the palette (all read the register, which reads the map), the head of a card, a menu
+  item and a button that acts on a database draw the same one. A feature never imports an object's
+  icon from lucide; when the object is missing the map grows, never the feature. *Enforced by:*
+  lint rule `object-icon-import` (`no-restricted-imports`, whose list is read from
+  `objectIcons.ts` so it cannot drift from it; the maps and the tests are exempt) and
+  `semantic-icon-import` for the severities.
 - **I-2** Five sizes, from `--icon-*` (`ICON_SIZE` in `icons.ts`): 12 (`size-icon-xs`, a status
   glyph in a dense row), 14 (`size-icon-sm`, a small button, a 13px line), 16 (`size-icon-md`,
   the default), 20 (`size-icon-lg`, an empty state), 24 (`size-icon-xl`, illustration only).
@@ -297,6 +306,16 @@ then **20, 24, 32, 40, 48, 64** for layout.
   **severity of a message** (`Notice`, `Field`, `Toast`).
 - **I-6** An icon takes the colour of its text, or of its state; the accent only when it is an
   active interactive icon.
+- **I-7** Where the icon of an object goes. The head of a `Card`, of a `SettingsGroup` and of a
+  `Section` that is about an object carries its icon, before the title (`icon={OBJECT_ICONS.log}`:
+  a component, never an element, so the kit sets its size and its colour); a button or a menu item
+  that acts on an object draws the verb's icon when `VERB_ICONS` has one and the object's
+  otherwise; so does a first-use empty state, at 20px. Without an icon, on purpose: a tab (its
+  width is the budget), running text, an inline empty state, and a head that names no object of
+  the map (Columns, Over time, About). Two cards of one view that are about the same object (the
+  jails and the banned addresses of fail2ban) draw the same icon. *Enforced by:* review (G-7);
+  `components/page/Section.test.tsx` and `Card.test.tsx` (the icon is drawn, decorative, in the
+  text colour).
 
 ### 2.9 Density and control sizes
 
@@ -325,8 +344,8 @@ to say it.
   Rows of one subject live in a `SettingsGroup` (a `Card padding="none"` with `divide-y`). The
   state of a feature is the header of its card: the title, a `StatusPill size="sm"` after it
   (`Card status`) and the control in `actions`. A tinted block is never used to say that something
-  is on or off. *Enforced by:* ratchet `feature-state` (then the component is deleted); G-7
-  question 7.
+  is on or off. *Enforced by:* G-7 question 7 (`FeatureState` no longer exists, and
+  `feature-state-notice` counts the neutral notice that replaces it).
 - **SW-3** The label names the thing and never changes with the state ("Send notifications", not
   "Notifications are on"). The help describes what the setting does, in one sentence of 18 words
   or fewer, and never starts with the state ("Off: ..."). A row is 44px without help and 60px
@@ -457,7 +476,7 @@ servers.
   filters={<FilterBar .../>}
   footer={<CommandHint command="noust list" />}
 >
-  <DataTable mobile="cards" ... />   // or, empty: <EmptyState variant="firstUse" .../>
+  <DataTable ... />   // or, empty: <EmptyState variant="firstUse" .../>
 </ListPage>
 ```
 
@@ -798,7 +817,7 @@ or long forms (a drawer). Footer buttons at the right, the primary last.
 or interrupts, with the friction its reach deserves (see 6.2); the friction is always declared,
 there is no default (FM-6). It is the only confirmation of the console: a plan with a before and an
 after (an sshd change, the ports a firewall protects) is its `children` in a wider `size`, not a
-second dialog (`ActionDialog` is retired), and a destructive last step is never a
+second dialog, and a destructive last step is never a
 `variant="danger"` button written by hand outside it and `DangerZone`. `explainError` says a
 refusal in its own words before it is shown, and `failureAction` puts what to run on the node under
 the failure. `simple` opens on Cancel; `type`
@@ -840,9 +859,10 @@ confirmation.
 **`LinkTabs`** (`count` per tab) and **`Tabs`**. Sibling views of one subject. `LinkTabs` (the
 state is the URL) by default; `Tabs` only where a URL makes no sense. Eight tabs at most.
 
-**`DataTable`** (`mobile` `"scroll" | "cards"`, column `card` `"title" | "status" | "meta" |
+**`DataTable`** (`mobile` `"cards" | "scroll"`, column `card` `"title" | "status" | "meta" |
 "control" | "hidden"`, `density`, `layout` `"auto" | "fixed"`, `rowActions`, `onRowActivate`,
-`skeletonRows`, `pagination`). Rows of like things. Lists of a T1 page use `mobile="cards"`; a selection
+`skeletonRows`, `pagination`). Rows of like things. Under 640px a table is cards without being told;
+`mobile="scroll"` is for the one whose columns are the point (a parameter list, a diff). A selection
 checkbox is `card: "control"` (its own slot, never on the meta line), and an empty meta value
 is left out of the card rather than drawn as a dash. `layout="fixed"` for values with no
 natural length (an audit event): the columns keep their widths and cells truncate.
@@ -880,14 +900,11 @@ channel") and a sentence with one link to the fix, never a block. Stated in word
 agreement: `StatusPill` has one word per state (`Fallido`) and a feminine entity passes a `label`
 ("Tarea fallida").
 
-**`FeatureState`** (retired in 4.0). A tinted block (`state` `on | off | problem`, `title`,
-`action`, `children`) that said whether a feature is on at the top of the place that configures it.
-At 74 to 142px for a switch of 18px it weighed the same for good news as for bad, and repeated what
-the card's title and the control already said. It stays in the kit only until the last page that
-draws it has moved (ratchet `feature-state` counts them), and is then deleted with its gallery
-entry and its rule. A new page never uses it. Instead: the feature's `Card` with a `StatusPill
-size="sm"` as its `status` and the action in `actions`, or a `Setting` row (2.10). Its three signals
-(colour, shape and word) are the `StatusPill`'s, in 20px. **The state of a feature is never a
+**The state of a feature** is the header of its `Card` or its `Setting` row: the card's `StatusPill
+size="sm"` as its `status` and the action in `actions`, or a `Setting` row (2.10). The tinted block
+of 3.2 (`FeatureState`) is deleted: at 74 to 142px for a switch of 18px it weighed the same for good
+news as for bad and repeated what the card's title and the control already said. The signals (colour,
+shape and word) are the `StatusPill`'s, in 20px. **The state of a feature is never a
 neutral `Notice` either**: a notice in which only a word changes between on and off has to be read
 to be understood (ratchet `feature-state-notice`).
 
@@ -900,7 +917,7 @@ button ("Turn on...") and not a switch (SW-5). The rules of its text are SW-3 an
 by `styles/setting-copy.test.ts`. Not for a filter or a view mode, a parameter of an action, or
 anything saved with a Save button.
 
-**`SettingsGroup`** (`title`, `description`, `status`, `actions`, `command`, `level`). The rows of
+**`SettingsGroup`** (`title`, `icon`, `description`, `status`, `actions`, `command`, `level`). The rows of
 one subject on one surface: a `Card padding="none"` whose children are separated by a hairline. A
 subsection that saves with a Save button is a form of `Field`s, not a group of rows (FM-1).
 
@@ -914,17 +931,18 @@ validation stays the `Field` error; a framed condition with a fix is a `Notice` 
 
 - **BD-1** A `Badge` is an attribute (a type, a version, a branch, a count) or something selected
   or staged (`accent`). It is never a state: a state, including "this feature is on", is a
-  `StatusPill`. *Enforced by:* ratchet `badge-state`; then the type is `BadgeTone = "neutral" |
-  "accent"`.
+  `StatusPill`. *Enforced by:* the type (`BadgeTone = "neutral" | "accent"`); ratchet `badge-state`
+  (a tone the code computes).
 - **BD-2** A state is never coloured text without its glyph and never a tone map of a feature's
   own: `StatusGlyph`, `stateTextClass` and `StatusPill` say it. *Enforced by:* ratchet
   `tone-map`; `styles/dead-class.test.ts` (a class that names no colour of the system, such as
   `text-danger`, fails: Tailwind drops it silently and the text is painted without its colour).
 
-**`Card`** (`padding` `md | sm | none`, `as`, `interactive`, `loading`, `title`, `description`,
-`status`, `actions`, `footer`, `level`). Every panel of the console. A feature MUST NOT write `rounded-card border
-bg-surface` by hand. `status` is the `StatusPill size="sm"` of a feature with a state, right after
-the title (not in `actions`).
+**`Card`** (`padding` `md | sm | none`, `as`, `interactive`, `loading`, `title`, `icon`,
+`description`, `status`, `actions`, `footer`, `level`). Every panel of the console. A feature MUST
+NOT write `rounded-card border bg-surface` by hand. `icon` is the object the card is about, a
+component of `OBJECT_ICONS` (I-7). `status` is the `StatusPill size="sm"` of a feature with a
+state, right after the title (not in `actions`).
 
 **`Notice`** (`tone` `info | success | warning | error`, `variant` `inline | banner`, `title`,
 `action`, `onDismiss`, `live`). A persistent message beside what it concerns (inline) or the
@@ -973,14 +991,14 @@ they started it. Its history is Activity's.
 **`FilterBar`** (`label`, `search`, `filters`, `count`, `actions`). Search and filters above a
 list: a 288px box that `/` focuses, the filters, the count at the right. Filters live in the URL.
 
-**`EmptyState`** (`variant` `firstUse | inline`). See the shared patterns above. The variant-less
-framed block is kept only for pages not yet on a template, and the type makes the variant required
-when the last one has moved. A bare muted paragraph is not an empty state (ST-2).
+**`EmptyState`** (`variant` `firstUse | inline`, required). See the shared patterns above. The
+3.0 framed block without a variant is gone. A bare muted paragraph is not an empty state (ST-2).
 
 **`Section`** (`loading`, `icon`), **`Sections`**, **`Subsection`**. A page's subjects (`h2`, 32px
 apart) and their parts (`h3`, or `h4` inside a card). Headings are never written by hand in a
 feature. A section about an object (a deployment, the health of an app, its domains) carries the
-object's icon before its title (`icon`, decorative, in the text colour: I-4 and I-6).
+object's icon before its title (`icon`, a component of `OBJECT_ICONS`, decorative, in the text
+colour: I-4, I-6 and I-7).
 
 **`PageHeader`** (`title`, `mono`, `status`, `statusExtras`, `meta`, `description`, `breadcrumbs`,
 `place`, `secondaryActions`, `primaryAction`, `overflow`, `server`, `flush`). The start of every page;
@@ -1143,8 +1161,8 @@ application's state while it runs.
   the fleet are `simple`, as the table says; turning off a safeguard is `simple` too (SW-5).
 - There is one confirmation component, `ConfirmDialog`: a plan with a before and an after is its
   `children` in a wider `size`, and the last step of a destructive flow is never a danger `Button`
-  written by hand outside it and `DangerZone` (ratchets `action-dialog` and
-  `danger-button-outside-confirm`, with `confirm-hand-rolled`).
+  written by hand outside it and `DangerZone` (ratchets `danger-button-outside-confirm` and
+  `confirm-hand-rolled`).
 - After acting, the interface itself changes (the row goes, the state changes), the change is
   announced to screen readers, and focus returns to something stable. A toast only when the
   result is not on screen.
@@ -1253,7 +1271,7 @@ forms go in a drawer.
   `simple`, `type`; there is no default). A confirmation that needs a plan or a host name uses its
   `children`, `size` and `confirmText`; there is no second dialog and no hand-written
   `variant="danger"` outside `ConfirmDialog` and `DangerZone`. *Enforced by:* the type; ratchets
-  `confirm-hand-rolled`, `action-dialog` and `danger-button-outside-confirm`.
+  `confirm-hand-rolled` and `danger-button-outside-confirm`.
 - **FM-7** A success toast is only for what is not visible on screen. A row that appears, a row
   that disappears or a dialog that closes says nothing. *Enforced by:* ratchet `toast-success`
   (only goes down); G-7.
@@ -1278,7 +1296,7 @@ forms go in a drawer.
   server pages uses "Load more" and says how many are loaded; virtualise only beyond 100. The
   last page is never padded: a grid with an incomplete last row makes people think there is no
   more.
-- On a phone, card rows (`mobile="cards"`) with the actions in view.
+- On a phone, card rows (the table's default) with the actions in view.
 
 ### 6.9 Filters and search
 
@@ -1533,7 +1551,7 @@ lint`, the E2E suite).
 |---|---|---|
 | Construction | `app.css` | Tailwind's palette, type scale, shadows and radii do not exist; only token utilities compile |
 | Tokens | `styles/tokens.test.ts` (`lib/contrast.ts` does the maths) | Every text pair 4.5:1, every control boundary 3:1, tinted borders 1.4:1, hairlines visible; surfaces, text and idle achromatic; dark elevation by luminance; the `viz` pair's contrast, colour-vision distance, hue distance, lightness and chroma; every colour token has a utility and at least one verified pair; the values of radii, control heights, layers, widths, measures, icon sizes and the seven type sizes; `scrollbar-gutter: stable` |
-| Lint | `eslint.config.js`, `no-restricted-syntax` and `no-restricted-imports` | Outside the kit (`components/`, `app/`, `dev/`) and the legacy list: raw hex, arbitrary dimensions (`max-w-[...]`, `h-[...]`, `rounded-[...]`, `z-[...]`), colour functions, hand-written `h1`-`h4`, `<label>`, `style=`, and severity icons imported from lucide instead of `icons.ts` |
+| Lint | `eslint.config.js`, `no-restricted-syntax` and `no-restricted-imports` | Outside the kit (`components/`, `app/`, `dev/`) and the legacy list: raw hex, arbitrary dimensions (`max-w-[...]`, `h-[...]`, `rounded-[...]`, `z-[...]`), colour functions, hand-written `h1`-`h4`, `<label>`, `style=`, severity icons imported from lucide instead of `icons.ts`, and the icon of an object imported from lucide instead of `objectIcons.ts` (everywhere, the kit included) |
 | Ratchet | `styles/design-rules.test.ts`, rules in `styles/designRules.ts`, counts in `styles/design-baseline.json` | Per rule and per file, counts that may only go down (the rule ids below); ESLint's legacy list only shrinks; the `viz` colours stay inside `Chart`; no component of the system is left unused except those still waiting for their pages |
 | Structure | `styles/design-structure.test.ts`, rules in `styles/designStructure.ts`, counts in `styles/design-structure-baseline.json` | The same contract for what a regular expression per line cannot see, found in the syntax tree: a component used where a kit piece exists, a file with three notices, a notice read in English words (the structural rule ids below). `npm run ux:counts` prints how much of the console is built from each piece, from the same code. Examples of what each rule counts and what it does not are `styles/design-structure.cases.test.ts` |
 | Copy | `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts` (baselines `i18n/glossary-baseline.json`, `styles/concept-doors.json`) | The words of a setting row (SW-3, SW-4); the concepts with more than one editable home (NV-8), a list that only gets shorter; a colour class that names no colour of the system; the glossary's verbs and states in both languages; a retired value that comes back, a glossary word translated otherwise, one English text translated several ways |
@@ -1565,15 +1583,15 @@ The ratchet's rules (`designRules.ts`):
 | `dashed-empty` | `border-dashed` outside `EmptyState` | `EmptyState` |
 | `spinner-outside-kit` | `<Spinner>` in a feature | `JobProgress`, `Button loading` |
 | `focus-ring-repeat` | `focus-visible:outline-2` | the global ring |
-| `confirm-hand-rolled` | `AlertDialog.Popup` outside `ConfirmDialog` (its twin `ActionDialog` and a hand-written danger button are the structural rules `action-dialog` and `danger-button-outside-confirm`) | `ConfirmDialog` |
+| `confirm-hand-rolled` | `AlertDialog.Popup` outside `ConfirmDialog` (a hand-written danger button is the structural rule `danger-button-outside-confirm`) | `ConfirmDialog` |
 | `page-without-template` | `<PageHeader>` written by a feature | a template's `header` prop |
 | `feature-state-notice` | a `Notice` whose title or text is an on/off key (`.on`, `.offTitle`, `.enabled`...) | `Card status`, a `Setting` row |
+| `object-icon-import` (lint) | an object's icon (`Database`, `Globe`, `ScrollText`, `Users`...) imported from lucide outside the two maps | `OBJECT_ICONS`, `VERB_ICONS` (2.8) |
 
 The structural rules (`designStructure.ts`), found in the syntax tree:
 
 | Rule id | What it counts | Instead |
 |---|---|---|
-| `feature-state` | `<FeatureState` outside the kit | `Card status` (a `StatusPill size="sm"`), a `Setting` row; the component is deleted when the count reaches 0 |
 | `badge-state` | a `Badge` with tone `ok`, `warn`, `fail`, or a tone the code computes | `StatusPill`; then `BadgeTone` is `neutral \| accent` |
 | `notice-stack` | a file with three `<Notice` or more (one per file; a design-exception anywhere in the file, with its reason, excuses it) | the worst one, an aggregate, help text or a risk line |
 | `notice-info-bare` | an `info` Notice with neither an action nor a title | the help text of its field, row or section |
@@ -1586,7 +1604,6 @@ The structural rules (`designStructure.ts`), found in the syntax tree:
 | `hand-aria-busy` | `aria-busy="true"` outside the kit | `QueryState`, `LoadingRegion` (the codemod rewrites the common form) |
 | `hand-error-ternary` | `isError && data === undefined` | `QueryState` |
 | `inline-empty-by-hand` | a muted `<p>` whose only content is an `empty` key | `EmptyState variant="inline"` |
-| `action-dialog` | `<ActionDialog` | `ConfirmDialog`; the file is deleted |
 | `danger-button-outside-confirm` | `variant="danger"` outside `ConfirmDialog` and `DangerZone` | `ConfirmDialog`, `DangerZone` |
 | `native-details` | `<details` | `Disclosure variant="card"` |
 | `row-actions-local` | a `RowActions` component of a feature | `RowMenu` |

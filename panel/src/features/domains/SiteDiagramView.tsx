@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Route, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -19,6 +19,7 @@ import { buildSiteDiagram, parseTriedUrl, routePath, serverLabel } from "./siteD
 import type { DiagramWords, TriedUrl } from "./siteDiagram";
 import { locationLabel, locationsById } from "./siteStructure";
 import { NotParsed, OlderNoust, ViewLoading, isMissingRoute } from "./SiteViewStates";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 export interface SiteDiagramViewProps {
   site: string;
@@ -168,7 +169,7 @@ export function SiteDiagramView({ site, webserver, text, dirty, onGoToText }: Si
           error={invalid ? t("domains.siteRoute.invalid") : null}
           action={
             <span className="flex items-center gap-2">
-              <Button type="submit" icon={<Route aria-hidden="true" />} loading={trace.isPending}>
+              <Button type="submit" icon={<OBJECT_ICONS.routes aria-hidden="true" />} loading={trace.isPending}>
                 {t("domains.siteRoute.submit")}
               </Button>
               {current ? (

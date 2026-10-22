@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Radio, Trash2 } from "lucide-react";
+import { Plus, Radio } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -30,6 +30,7 @@ import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { listOf } from "../app/settings/access";
 import { DomainsListPage } from "./DomainsListPage";
+import { ICONS } from "../../components/ui/icons";
 
 const NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const WHOLE = /^\d+$/;
@@ -285,7 +286,6 @@ export function StreamsPage() {
         />
       ) : (
         <DataTable
-          mobile="cards"
           caption={t("network.ports.tableCaption")}
           columns={columns}
           rows={rows}
@@ -293,7 +293,7 @@ export function StreamsPage() {
           loading={streams.isPending}
           rowActions={(row) => (
             <RowMenu name={row.name}>
-              <MenuItem icon={<Trash2 />} destructive onClick={() => setClosing(row)}>
+              <MenuItem icon={<ICONS.delete />} destructive onClick={() => setClosing(row)}>
                 {t("network.ports.close")}
               </MenuItem>
             </RowMenu>

@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { PanelTop, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -22,6 +22,7 @@ import { projectPath } from "./organization";
 import { refreshOrganization } from "./refresh";
 import { useOrganization } from "./useOrganization";
 import type { Resources } from "./useResources";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** The default project of the default team receives what nobody assigned: the server will not delete it. */
 export function isDefaultProject(project: Pick<Project, "team" | "slug">): boolean {
@@ -84,7 +85,7 @@ export function useProjectActions(resources: Pick<Resources, "held" | "known">, 
 
   const rowMenu = (project: Project): ReactNode => (
     <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: project.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
-      <MenuItem icon={<PanelTop />} onClick={() => void navigate(projectPath(project))}>
+      <MenuItem icon={<OBJECT_ICONS.project />} onClick={() => void navigate(projectPath(project))}>
         {t("teams.projects.open")}
       </MenuItem>
       {menuItems(project)}

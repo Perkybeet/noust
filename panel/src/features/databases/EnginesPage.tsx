@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Download, Play, Plus, Replace, RotateCw, ScrollText, SlidersHorizontal, Square, Trash2 } from "lucide-react";
+import { Download, Play, Plus, Replace, RotateCw, Square } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -331,7 +331,7 @@ export function EnginesPage() {
               </MenuItem>
             )}
             {!container ? (
-              <MenuItem icon={<SlidersHorizontal />} onClick={() => void navigate({ to: "/databases/engines/$engine/settings", params: { engine: engine.name } })}>
+              <MenuItem icon={<OBJECT_ICONS.settings />} onClick={() => void navigate({ to: "/databases/engines/$engine/settings", params: { engine: engine.name } })}>
                 {t("databases.engines.settings")}
               </MenuItem>
             ) : null}
@@ -351,7 +351,7 @@ export function EnginesPage() {
                 {t("databases.migrate.open")}
               </MenuItem>
             ) : null}
-            <MenuItem icon={<ScrollText />} onClick={() => setLogsOf(engine)}>
+            <MenuItem icon={<OBJECT_ICONS.log />} onClick={() => setLogsOf(engine)}>
               {t("databases.engines.logs")}
             </MenuItem>
             <MenuSeparator />
@@ -366,7 +366,7 @@ export function EnginesPage() {
             {!container ? (
               <>
                 <MenuSeparator />
-                <MenuItem icon={<Trash2 />} destructive onClick={() => setUninstalling(engine)}>
+                <MenuItem icon={<ICONS.delete />} destructive onClick={() => setUninstalling(engine)}>
                   {t("databases.engines.uninstall")}
                 </MenuItem>
               </>
@@ -430,7 +430,6 @@ export function EnginesPage() {
         rowActions={rowActions}
         loading={engines.isPending}
         skeletonRows={4}
-        mobile="cards"
       />
       {firewalled.length > 0 ? (
         <p className="max-w-measure text-12 text-fg-muted">
@@ -476,7 +475,6 @@ export function EnginesPage() {
                 getRowId={(engine) => engine.name}
                 caption={t("databases.instances.caption")}
                 rowActions={rowActions}
-                mobile="cards"
               />
               {limited ? <p className="max-w-measure text-12 text-fg-muted">{t("databases.instances.limitedNote")}</p> : null}
             </Section>
@@ -522,7 +520,7 @@ export function EnginesPage() {
         />
       ) : null}
       {uninstalling !== null ? (
-        <ConfirmDialog
+        <ConfirmDialog friction="type"
           open
           onOpenChange={(open) => (open ? undefined : setUninstalling(null))}
           title={t("databases.engines.uninstallTitle", { engine: uninstalling.display_name })}

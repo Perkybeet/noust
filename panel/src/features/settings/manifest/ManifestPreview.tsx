@@ -25,6 +25,7 @@ import { focusFirstInvalid } from "../formErrors";
 import type { T } from "../../../i18n";
 import { useJobInHand } from "../../jobs/useJobInHand";
 import { SettingsPrimaryAction } from "../SettingsShell";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** The sentence for an action kind; a kind this console does not know is shown as the server named it. */
 function kindLabel(t: T, kind: string): string {
@@ -92,7 +93,7 @@ function Result({ plan, apply }: { plan: ManifestPlan; apply: ReactNode }) {
   const t = useT();
   const columns = columnsFor(t);
   return (
-    <Section title={t("manifestPreview.result.title")} description={plan.empty ? undefined : t("manifestPreview.result.summary", { count: plan.actions.length })}>
+    <Section title={t("manifestPreview.result.title")} icon={OBJECT_ICONS.manifest} description={plan.empty ? undefined : t("manifestPreview.result.summary", { count: plan.actions.length })}>
       {plan.empty ? (
         <EmptyState variant="inline" title={t("manifestPreview.result.nothing")} description={t("manifestPreview.result.nothingBody")} />
       ) : (
@@ -101,7 +102,6 @@ function Result({ plan, apply }: { plan: ManifestPlan; apply: ReactNode }) {
           columns={columns}
           rows={plan.actions}
           getRowId={(action) => `${action.kind}:${action.target}:${action.summary}`}
-          mobile="cards"
         />
       )}
       {plan.warnings.length > 0 ? (
@@ -184,7 +184,7 @@ export function ManifestPreview() {
           {t("manifestPreview.form.preview")}
         </Button>
       </SettingsPrimaryAction>
-      <Section title={t("manifestPreview.intro.title")} description={t("manifestPreview.intro.description")}>
+      <Section title={t("manifestPreview.intro.title")} icon={OBJECT_ICONS.manifest} description={t("manifestPreview.intro.description")}>
         <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-4">
           {preview.isError ? <ErrorBlock live compact error={preview.error} title={t("manifestPreview.form.errorTitle")} /> : null}
           <Field label={t("manifestPreview.form.label")} description={t("manifestPreview.form.help")} error={tried && text.trim() === "" ? t("settings.shared.required") : undefined}>

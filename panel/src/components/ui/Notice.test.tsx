@@ -27,7 +27,7 @@ describe("Notice", () => {
   });
 
   it("keeps information achromatic: info is not a state", () => {
-    const { container } = render(<Notice title="Noust was called WASM" />);
+    const { container } = render(<Notice title="The update restarts the console" />);
     expect(container.firstElementChild).toHaveClass("bg-surface-raised");
     expect(container.querySelector("svg")).toHaveClass("text-fg-muted");
   });
@@ -51,6 +51,19 @@ describe("Notice", () => {
     expect(screen.getByRole("button", { name: "Review" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(onDismiss).toHaveBeenCalledOnce();
+  });
+
+  it("puts the action under the text on a phone and beside it from sm up", () => {
+    render(
+      <Notice tone="warning" title="Unsaved" action={<Button size="sm">Review</Button>}>
+        Two settings changed.
+      </Notice>,
+    );
+    const row = screen.getByRole("button", { name: "Review" }).parentElement?.parentElement;
+    expect(row).toHaveClass("flex-col", "sm:flex-row");
+    // The text and the action are siblings, so a long Spanish sentence never shares a line with it.
+    expect(row).toHaveTextContent("Two settings changed.");
+    expect(row).toContainElement(screen.getByRole("button", { name: "Review" }));
   });
 
   it("says which variant it is, for the contract that allows one banner per page", () => {

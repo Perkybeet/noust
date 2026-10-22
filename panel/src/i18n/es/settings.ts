@@ -767,9 +767,6 @@ export const settings: Catalog<typeof en> = {
     project: {
       title: "Proyecto",
     },
-    rename: {
-      body: "Noust es el nuevo nombre de WASM desde la versión 3.0. El comando {wasm} sigue funcionando como {noust} durante toda la serie 3.x, y un servidor que usaba WASM conserva sus aplicaciones, ajustes e historial.",
-    },
     legal: {
       title: "Licencia y garantía",
       copyright: "© 2024-2026 Yago López Prado",

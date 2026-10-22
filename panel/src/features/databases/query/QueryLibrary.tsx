@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eraser, Trash2 } from "lucide-react";
+import { Eraser } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -20,6 +20,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatCount, formatDecimal } from "../../../lib/format";
 import { reportActionError } from "../../apps/useAppActions";
+import { ICONS } from "../../../components/ui/icons";
 
 function ListSkeleton({ label }: { label: string }) {
   return (
@@ -67,7 +68,7 @@ function SavedItem({ saved, onPick, onDelete, t }: { saved: SavedQuery; onPick: 
         </Mono>
         {saved.database === "" ? <span className="text-12 text-fg-faint">{t("databases.library.anyDatabase")}</span> : null}
       </button>
-      <IconButton size="sm" label={t("common.words.deleteNamed", { name: saved.name })} icon={<Trash2 />} onClick={onDelete} className="mt-1.5" />
+      <IconButton size="sm" label={t("common.words.deleteNamed", { name: saved.name })} icon={<ICONS.delete />} onClick={onDelete} className="mt-1.5" />
     </li>
   );
 }

@@ -57,7 +57,7 @@ function database(name: string, engine: string, extra: Partial<Database> = {}): 
     engine,
     size: "46.0 MB",
     tables: 0,
-    owner: engine === "postgresql" ? "wasm_app" : null,
+    owner: engine === "postgresql" ? "shop_app" : null,
     encoding: "UTF8",
     tracked: true,
     missing: false,

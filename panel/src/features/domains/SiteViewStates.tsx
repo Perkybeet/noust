@@ -1,4 +1,4 @@
-import { CornerDownRight, FileText } from "lucide-react";
+import { CornerDownRight } from "lucide-react";
 
 import { isApiError } from "../../api/client";
 import type { SiteParseFailure } from "../../api/queries/sites";
@@ -9,6 +9,7 @@ import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
+import { VERB_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * A 404 from a route the site itself answered a moment ago: the server has no such route, an
@@ -26,7 +27,7 @@ export function OlderNoust({ onText }: { onText: () => void }) {
     <Notice
       title={t("domains.siteViews.olderNoustTitle")}
       action={
-        <Button size="sm" icon={<FileText aria-hidden="true" />} onClick={onText}>
+        <Button size="sm" icon={<VERB_ICONS.edit aria-hidden="true" />} onClick={onText}>
           {t("domains.siteViews.editAsText")}
         </Button>
       }

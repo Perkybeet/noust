@@ -89,7 +89,7 @@ export function exportFacts(t: T, document: AppExportDocument, types: readonly A
             value: formatDateTime(exportedAt, t.locale),
             mono: false,
             copy: false as const,
-            ...(document.wasm_version ? { hint: t("newApp.importApp.exportedBy", { version: document.wasm_version }) } : {}),
+            ...(document.noust_version ? { hint: t("newApp.importApp.exportedBy", { version: document.noust_version }) } : {}),
           },
         ]
       : []),

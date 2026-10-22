@@ -13,8 +13,6 @@ import type { PlainKey } from "../i18n";
 export type ThemeChoice = "system" | "light" | "dark";
 
 export const THEME_STORAGE_KEY = "noust.theme";
-/** The key WASM stored this under before the rename; read once, then migrated away. */
-export const LEGACY_THEME_STORAGE_KEY = "wasm.theme";
 
 /** Labels are catalog keys, like `nav.ts`: `ThemeSwitch` translates them with `t(choice.label)`. */
 export const THEME_CHOICES: readonly { value: ThemeChoice; label: PlainKey }[] = [
@@ -30,15 +28,7 @@ function isThemeChoice(value: unknown): value is ThemeChoice {
 export function readTheme(): ThemeChoice {
   try {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (isThemeChoice(stored)) return stored;
-    // One-time migration: a choice made before the rename still applies, moved to the new key.
-    const legacy = window.localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
-    if (isThemeChoice(legacy)) {
-      window.localStorage.setItem(THEME_STORAGE_KEY, legacy);
-      window.localStorage.removeItem(LEGACY_THEME_STORAGE_KEY);
-      return legacy;
-    }
-    return "system";
+    return isThemeChoice(stored) ? stored : "system";
   } catch {
     // Storage can be disabled (privacy modes, some embedded browsers): the system decides.
     return "system";
@@ -80,7 +70,7 @@ function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   // Another tab changed the theme: follow it, so two tabs of one console never disagree.
   const onStorage = (event: StorageEvent): void => {
-    if (event.key !== THEME_STORAGE_KEY && event.key !== LEGACY_THEME_STORAGE_KEY && event.key !== null) return;
+    if (event.key !== THEME_STORAGE_KEY && event.key !== null) return;
     current = readTheme();
     applyTheme(current);
     listener();

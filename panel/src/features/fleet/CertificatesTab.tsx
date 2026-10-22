@@ -200,7 +200,6 @@ export function CertificatesTab({ search, onSearchChange }: CertificatesTabProps
         getRowId={(row) => `${originOf(row).node}:${field(row, "domain") ?? ""}`}
         loading={view.isPending}
         skeletonRows={5}
-        mobile="cards"
         pagination="fleet-certificates"
         empty={
           rows.length === 0 && view.data !== undefined ? (

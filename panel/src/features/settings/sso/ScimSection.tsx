@@ -96,7 +96,7 @@ export function ScimSection() {
       <QueryState
         query={query}
         label={t("scimAdmin.loadingLabel")}
-        skeleton={<DataTable caption={t("scimAdmin.tableCaption")} columns={columns} rows={[]} getRowId={(source) => source.name} loading mobile="cards" skeletonRows={1} />}
+        skeleton={<DataTable caption={t("scimAdmin.tableCaption")} columns={columns} rows={[]} getRowId={(source) => source.name} loading skeletonRows={1} />}
         isEmpty={(data) => data.sources.length === 0}
         empty={
           <div className="flex flex-col gap-3">
@@ -112,7 +112,6 @@ export function ScimSection() {
               columns={columns}
               rows={data.sources}
               getRowId={(source) => source.name}
-              mobile="cards"
               onRowActivate={(source) => setEditing(source)}
               rowActions={(source) => (
                 <RowMenu name={source.name}>

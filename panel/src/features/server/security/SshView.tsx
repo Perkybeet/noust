@@ -45,6 +45,7 @@ import type { AccountKeys, FixPlan, SshKey, SshStatus } from "../queries";
 import { useServerJob } from "../serverJob";
 import { DirectiveChanges, FixBlocked } from "./FixDialogs";
 import { InlineMessage } from "../../../components/ui/InlineMessage";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** The sshd settings worth reading, in the order a person asks about them. */
 const SETTINGS: readonly { directive: string; label: "passwords" | "root" | "keys" | "keyboard" | "empty" | "tries" | "log" | "x11" }[] = [
@@ -282,7 +283,6 @@ function Keys({ hostname }: { hostname: string }) {
           caption={t("server.ssh.keys.caption")}
           loading={keys.isPending}
           skeletonRows={2}
-          mobile="cards"
           empty={<EmptyState variant="inline" title={t("server.ssh.keys.none")} />}
           rowActions={(row) => (
             <Menu align="end" trigger={<IconButton label={t("server.ssh.keys.actionsFor", { fingerprint: row.key.fingerprint })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
@@ -357,7 +357,7 @@ function Sessions({ ssh }: { ssh: SshStatus }) {
   const t = useT();
   const recent = ssh.logins.recent.slice(0, 5);
   return (
-    <Card level={2} title={t("server.ssh.sessionsTitle")} padding="sm">
+    <Card level={2} title={t("server.ssh.sessionsTitle")} icon={OBJECT_ICONS.session} padding="sm">
       <div className="flex flex-col gap-3">
         {ssh.sessions.length === 0 ? (
           <p className="text-13 text-fg-muted">{t("server.ssh.noSessions")}</p>

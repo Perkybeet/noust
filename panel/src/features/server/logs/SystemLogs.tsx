@@ -9,7 +9,6 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { History } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { QueryState } from "../../../components/page/QueryState";
@@ -30,6 +29,7 @@ import { TimelineDrawer } from "../../timeline/TimelineDrawer";
 import { journalSearchQuery, journalUnitsQuery } from "../queries";
 import { ContextDrawer } from "./ContextDrawer";
 import { journalLines } from "./data";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** Select's value for "no filter": an option needs a value. */
 const ALL = "__all";
@@ -178,7 +178,7 @@ function Logs({ search, onSearchChange }: SystemLogsProps) {
                 <Button
                   size="sm"
                   variant="ghost"
-                  icon={<History aria-hidden="true" />}
+                  icon={<OBJECT_ICONS.activity aria-hidden="true" />}
                   onClick={() => {
                     setInvestigating(stretchOf(search, Math.floor(Date.now() / 1000)));
                   }}

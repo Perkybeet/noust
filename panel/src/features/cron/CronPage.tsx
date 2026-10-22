@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Clock } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { cronJobsQuery } from "../../api/queries/cron";
@@ -17,6 +16,7 @@ import { CronJobsTable } from "./CronJobsTable";
 import { CronRunsDrawer } from "./CronRunsDrawer";
 import { filterJobs, isFiltered } from "./data";
 import type { CronJob, CronSearch } from "./data";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 export interface CronPageProps {
   search: CronSearch;
@@ -55,7 +55,7 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
       empty={
         <EmptyState
           variant="firstUse"
-          icon={<Clock />}
+          icon={<OBJECT_ICONS.cron />}
           title={t("cron.page.empty.title")}
           description={t("cron.page.empty.description")}
           action={newJobButton("secondary")}

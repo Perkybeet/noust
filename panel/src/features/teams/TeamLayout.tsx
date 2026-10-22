@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet } from "@tanstack/react-router";
-import { Users } from "lucide-react";
 import { createContext, useContext } from "react";
 
 import { isApiError } from "../../api/client";
@@ -21,6 +20,7 @@ import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { teamRoleLabel } from "./roles";
 import { useOrganization } from "./useOrganization";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * The team whose page is open. The layout provides it once it is read, so every tab renders
@@ -68,7 +68,7 @@ export function TeamLayout({ team: slug }: { team: string }) {
       <DetailPage header={{ ...header, mono: true }}>
         <EmptyState
           variant="firstUse"
-          icon={<Users />}
+          icon={<OBJECT_ICONS.team />}
           title={t("teams.team.notFoundTitle")}
           description={t("teams.team.notFoundDescription", { team: slug })}
           action={
@@ -105,7 +105,7 @@ export function TeamLayout({ team: slug }: { team: string }) {
           ? {
               secondaryActions: (
                 <Button
-                  icon={<Users aria-hidden="true" />}
+                  icon={<OBJECT_ICONS.team aria-hidden="true" />}
                   loading={org.choosing}
                   onClick={() => {
                     org.choose(team.slug).then(

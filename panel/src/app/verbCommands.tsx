@@ -10,7 +10,7 @@
  * every rule is tested without a palette.
  */
 
-import { CircleArrowUp, History, Play, RotateCw, Square } from "lucide-react";
+import { CircleArrowUp, Play, RotateCw, Square } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { appStatus } from "../components/page/status";
@@ -18,6 +18,7 @@ import { planBulk } from "../features/apps/bulk";
 import type { AppInfo } from "../features/apps/data";
 import type { PlainKey, T } from "../i18n";
 import type { Command } from "./CommandPalette";
+import { OBJECT_ICONS } from "../components/ui/objectIcons";
 
 /** The verbs the application's header offers every day, in its order. */
 export type AppVerb = "restart" | "start" | "stop" | "rollback" | "update";
@@ -54,7 +55,7 @@ const ICON: Record<AppVerb, ReactNode> = {
   restart: <RotateCw />,
   start: <Play />,
   stop: <Square />,
-  rollback: <History />,
+  rollback: <OBJECT_ICONS.rollback />,
   update: <CircleArrowUp />,
 };
 

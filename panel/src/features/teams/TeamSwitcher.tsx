@@ -1,6 +1,6 @@
 import { Menu as BaseMenu } from "@base-ui/react/menu";
 import { useNavigate } from "@tanstack/react-router";
-import { Check, ChevronsUpDown, Settings2, Users } from "lucide-react";
+import { Check, ChevronsUpDown, Settings2 } from "lucide-react";
 
 import { announce } from "../../app/Announcer";
 import { Mono } from "../../components/ui/Mono";
@@ -10,6 +10,7 @@ import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { teamRoleLabel } from "./roles";
 import { useOrganization } from "./useOrganization";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** The radio value for "every team": no team slug can be one (slugs are [a-z0-9-]). */
 const EVERY_TEAM = "@all";
@@ -79,7 +80,7 @@ export function TeamSwitcher({ className }: { className?: string }) {
           className,
         )}
       >
-        <Users aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" />
+        <OBJECT_ICONS.team aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" />
         <span className="min-w-0 truncate font-medium max-sm:sr-only">{name}</span>
         <ChevronsUpDown aria-hidden="true" className="size-icon-sm shrink-0 text-fg-faint max-sm:hidden" />
       </BaseMenu.Trigger>
@@ -136,7 +137,7 @@ export function TeamSwitcher({ className }: { className?: string }) {
                 </BaseMenu.Item>
               ) : null}
               <BaseMenu.Item className={cx(ITEM, "min-h-8")} onClick={() => void navigate({ to: "/projects/teams" })}>
-                <Users aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
+                <OBJECT_ICONS.team aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
                 {t("teams.switcher.manage")}
               </BaseMenu.Item>
             </div>

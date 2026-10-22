@@ -3,7 +3,6 @@ import type { Catalog } from "../types";
 
 export const apps: Catalog<typeof en> = {
   newApplication: "Nueva aplicación",
-  fromRecipe: "Desde una receta",
   page: {
     title: "Aplicaciones",
     description: "Todo lo que ejecuta este servidor, y en qué estado está.",
@@ -78,6 +77,21 @@ export const apps: Catalog<typeof en> = {
   nothingNew: {
     title: "No hay nada nuevo que desplegar en {domain}",
     rebuildAnyway: "Recompilar de todos modos",
+  },
+  arrival: {
+    live: "En producción",
+    liveSite: "{domain}, el sitio en producción",
+    copy: "Copiar la dirección",
+    httpsReady: "HTTPS está listo.",
+    httpOnly: "Se sirve por HTTP: no se pudo emitir el certificado.",
+    httpOnlyNone: "Se sirve por HTTP: ningún certificado cubre todavía esta dirección.",
+    temporaryHelp: "Una dirección temporal sirve para probar cosas.",
+    certbotSaid: "Lo que dijo certbot",
+    certbotOutput: "Lo que dijo certbot sobre {domain}",
+    openDomains: "Abrir Dominios",
+    nextDomain: "Añadir tu propio dominio",
+    nextDatabase: "Añadir una base de datos",
+    nextBackup: "Programar una copia de seguridad",
   },
   actions: {
     restartedToast: "Se reinició {domain}",

@@ -1,4 +1,4 @@
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -23,6 +23,7 @@ import type { T } from "../../../i18n";
 import { REDIRECT_CODES, draftOfRoute, errorsOfRoute, normalPath, routeOf, withRoute, withoutRoute } from "./routes";
 import type { PolicyRoute, RouteAuth, RouteDraft, RouteErrors, RouteKind } from "./routes";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { ICONS } from "../../../components/ui/icons";
 
 type Route = PolicyFields["routes"][number];
 
@@ -221,7 +222,7 @@ export function RoutesCard({ domain, routes, error, onChange }: RoutesCardProps)
                 actions={
                   <>
                     <IconButton label={t("network.access.routes.edit", { path: route.path })} icon={<Pencil />} size="sm" onClick={() => setDialog({ route })} />
-                    <IconButton label={t("network.access.routes.remove", { path: route.path })} icon={<Trash2 />} size="sm" onClick={() => onChange(withoutRoute(routes, route.path))} />
+                    <IconButton label={t("network.access.routes.remove", { path: route.path })} icon={<ICONS.delete />} size="sm" onClick={() => onChange(withoutRoute(routes, route.path))} />
                   </>
                 }
               >

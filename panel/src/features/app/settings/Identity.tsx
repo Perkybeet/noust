@@ -29,6 +29,7 @@ import {
   waitForJob,
 } from "./queries";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 export function IdentityCard({ domain }: { domain: string }) {
   const t = useT();
@@ -41,7 +42,7 @@ export function IdentityCard({ domain }: { domain: string }) {
 
   if (identity.isPending) {
     return (
-      <Card title={title}>
+      <Card title={title} icon={OBJECT_ICONS.account}>
         <LoadingRegion label={t("appSettings.identity.loading")}>
           <Skeleton className="h-10 w-full rounded-control" />
         </LoadingRegion>
@@ -52,7 +53,7 @@ export function IdentityCard({ domain }: { domain: string }) {
   if (identity.isError && olderServer(identity.error)) return null;
   if (identity.isError) {
     return (
-      <Card title={title}>
+      <Card title={title} icon={OBJECT_ICONS.account}>
         <ErrorBlock
           compact
           error={identity.error}
@@ -66,7 +67,7 @@ export function IdentityCard({ domain }: { domain: string }) {
   const data = identity.data;
   const proposed = data.proposed ?? null;
   return (
-    <Card title={title} description={t("appSettings.identity.description")}>
+    <Card title={title} icon={OBJECT_ICONS.account} description={t("appSettings.identity.description")}>
       <div className="flex flex-col gap-3">
         <p className="text-13 text-pretty text-fg">
           {data.own

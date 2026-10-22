@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { List, Plus, RotateCw, Settings2, Trash2 } from "lucide-react";
+import { List, Plus, RotateCw, Settings2 } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -32,6 +32,7 @@ import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { DomainsListPage } from "./DomainsListPage";
+import { ICONS } from "../../components/ui/icons";
 
 /** An account's name, as the server takes it: lower case letters, digits and dashes. */
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
@@ -350,7 +351,6 @@ export function DnsAccountsPage() {
         />
       ) : (
         <DataTable
-          mobile="cards"
           caption={t("network.dns.tableCaption")}
           columns={columns}
           rows={accounts.data?.accounts ?? []}
@@ -365,7 +365,7 @@ export function DnsAccountsPage() {
                 {t("network.dns.settings")}
               </MenuItem>
               <MenuSeparator />
-              <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(account)}>
+              <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(account)}>
                 {t("network.dns.remove")}
               </MenuItem>
             </RowMenu>

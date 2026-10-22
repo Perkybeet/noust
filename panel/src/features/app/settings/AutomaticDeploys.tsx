@@ -29,6 +29,7 @@ import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
+import { useResumeDeploys } from "../useResumeDeploys";
 import { olderServer } from "./queries";
 import { RowError, RowLoading } from "./settingRows";
 
@@ -102,16 +103,7 @@ export function AutomaticDeploysRows({ domain }: { domain: string }) {
   const query = useQuery({ ...rolloutQuery(domain), retry: false });
   const [pausing, setPausing] = useState(false);
 
-  const resume = useMutation({
-    mutationFn: () => request("post", "/api/apps/{domain}/rollout/resume", { params: { domain } }),
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: rolloutKey(domain) });
-      announce(result.held > 0 ? t("rollout.auto.resumedHeld", { domain, count: result.held }) : t("rollout.auto.resumed", { domain }));
-    },
-    onError: (error) => {
-      reportActionError(t("rollout.auto.resumeFailed", { domain }), error);
-    },
-  });
+  const resume = useResumeDeploys(domain);
   const onRollback = useMutation({
     mutationFn: (pause_on_rollback: boolean) => request("put", "/api/apps/{domain}/rollout", { params: { domain }, body: { pause_on_rollback } }),
     onSuccess: (result) => {
@@ -123,7 +115,7 @@ export function AutomaticDeploysRows({ domain }: { domain: string }) {
     },
   });
 
-  if (query.isPending) return <RowLoading label={t("rollout.auto.loading")} />;
+  if (query.isPending) return <RowLoading label={t("rollout.auto.loading")} rows={[1, 2]} />;
   // A server older than 3.4 has no such setting: nothing to show rather than a guess.
   if (query.isError && olderServer(query.error)) return null;
   if (query.isError) return <RowError title={t("rollout.auto.readFailed")} error={query.error} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;

@@ -1,4 +1,4 @@
-import { FolderOpen, GitBranch, GitCommitHorizontal } from "lucide-react";
+import { GitCommitHorizontal } from "lucide-react";
 
 import { Badge } from "../../components/ui/Badge";
 import { Card } from "../../components/ui/Card";
@@ -10,6 +10,7 @@ import { formatCount } from "../../lib/format";
 import { Suggestion } from "./Suggestion";
 import { joinList, sourceKind, typeName } from "./wizard";
 import type { AppTypeOption, Inspection } from "./wizard";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function Command({ step, argv, none }: { step: string; argv: string | null; none: string }) {
   return (
@@ -86,9 +87,9 @@ export function InspectionReadout({ inspection, types, source }: { inspection: I
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-4 py-3">
           <span className="flex min-w-0 flex-1 basis-64 items-center gap-2">
             {local ? (
-              <FolderOpen aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
+              <OBJECT_ICONS.file aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
             ) : (
-              <GitBranch aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
+              <OBJECT_ICONS.source aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
             )}
             <Mono truncate title={source}>
               {source}
@@ -97,7 +98,7 @@ export function InspectionReadout({ inspection, types, source }: { inspection: I
           <span className="flex flex-wrap items-center gap-1.5">
             {inspection.branch ? (
               <Badge mono>
-                <GitBranch aria-hidden="true" className="size-icon-xs" />
+                <OBJECT_ICONS.source aria-hidden="true" className="size-icon-xs" />
                 <span className="sr-only">{t("newApp.readout.branch", { branch: inspection.branch })}</span>
                 <span aria-hidden="true">{inspection.branch}</span>
               </Badge>

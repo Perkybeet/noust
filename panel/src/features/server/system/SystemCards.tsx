@@ -35,6 +35,7 @@ import { dayOf, identityQuery, serverKeys, summaryQuery, timeQuery } from "../qu
 import type { Identity, ServerClock } from "../queries";
 import { TimeZoneField } from "../TimeZoneField";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** The card's shape while its read is in flight, inside the loading region QueryState draws. */
 function CardSkeleton({ title }: { title: string }) {
@@ -198,7 +199,7 @@ function HostnamePanel({ host }: { host: Identity["hostname"] }) {
   ];
   return (
     <Card level={2}
-      title={t("server.hostname.title")}
+      title={t("server.hostname.title")} icon={OBJECT_ICONS.server}
       padding="sm"
       actions={
         <Button
@@ -295,7 +296,7 @@ function SystemFacts({ data }: { data: Identity }) {
     },
   ];
   return (
-    <Card level={2} title={t("server.os.title")} padding="sm">
+    <Card level={2} title={t("server.os.title")} icon={OBJECT_ICONS.server} padding="sm">
       <KeyValueList items={items} />
     </Card>
   );

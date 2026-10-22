@@ -36,8 +36,6 @@ export { EmptyState } from "./EmptyState";
 export type { EmptyStateProps } from "./EmptyState";
 export { ExternalLink } from "./ExternalLink";
 export type { ExternalLinkProps } from "./ExternalLink";
-export { FeatureState } from "./FeatureState";
-export type { FeatureStateProps, FeatureStateValue } from "./FeatureState";
 export { Field, FieldGroup } from "./Field";
 export type { FieldGroupProps, FieldProps } from "./Field";
 export { FlowDiagram } from "./FlowDiagram";

@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { CirclePause, CirclePlay, PanelTop, RotateCw, ScrollText, Tags, ToggleLeft, ToggleRight } from "lucide-react";
+import { CirclePause, CirclePlay, RotateCw, Tags, ToggleLeft, ToggleRight } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -15,6 +15,7 @@ import { useNode } from "../../nodes/useNode";
 import { ResourceTagsDialog } from "../app/settings/ResourceTagsDialog";
 import type { ServiceInfo } from "./data";
 import { useServiceActions } from "./useServiceActions";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * The menu at the end of a service's row: open it, read its journal, or act on the unit
@@ -35,10 +36,10 @@ export function ServiceRowActions({ service }: { service: ServiceInfo }) {
   return (
     <>
     <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
-      <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/server/services/$name", params: { name } })}>
+      <MenuItem icon={<OBJECT_ICONS.service />} onClick={() => void navigate({ to: "/server/services/$name", params: { name } })}>
         {t("services.actions.open")}
       </MenuItem>
-      <MenuItem icon={<ScrollText />} onClick={() => void navigate({ to: "/server/logs", search: { unit: name } })}>
+      <MenuItem icon={<OBJECT_ICONS.log />} onClick={() => void navigate({ to: "/server/logs", search: { unit: name } })}>
         {t("services.actions.viewLogs")}
       </MenuItem>
       {service.managed ? (

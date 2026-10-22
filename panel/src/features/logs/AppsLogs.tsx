@@ -6,7 +6,6 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { ScrollText } from "lucide-react";
 import { useMemo } from "react";
 
 import { isApiError } from "../../api/client";
@@ -28,6 +27,7 @@ import type { LogsScope, LogsSearch } from "./data";
 import { LogToolbar } from "./LogToolbar";
 import { patched, rangeChoices, sourceChoices, switchedTo } from "./sources";
 import type { Patch } from "./sources";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** Select's value for "no filter": an option needs a value. */
 const ALL = "__all";
@@ -213,7 +213,7 @@ export function AppsLogs({ search, onSearchChange }: AppsLogsProps) {
                 </ul>
               ) : null}
               {answer.lines.length === 0 && answer.apps.length === 0 && search.q === undefined ? (
-                <EmptyState variant="firstUse" icon={<ScrollText />} title={t("logs.noAppsTitle")} description={t("logs.noAppsDescription")} />
+                <EmptyState variant="firstUse" icon={<OBJECT_ICONS.log />} title={t("logs.noAppsTitle")} description={t("logs.noAppsDescription")} />
               ) : (
                 // Keyed by the range: choosing "Live" starts the viewer following the end again.
                 <div key={rangeOf(search)} className="flex h-editor min-h-0 min-w-0 flex-col">

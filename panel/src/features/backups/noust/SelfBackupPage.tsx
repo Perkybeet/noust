@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, CalendarClock, CloudUpload, Play, ShieldQuestion, Trash2 } from "lucide-react";
+import { BookOpen, Play, ShieldQuestion } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { ElevationCancelledError, request } from "../../../api/client";
@@ -41,6 +41,7 @@ import { readMigrationReport } from "./migration";
 import { PassphraseDialog } from "./PassphraseDialog";
 import { RestoreInfoDialog } from "./RestoreInfoDialog";
 import { ScheduleDrawer } from "./ScheduleDrawer";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 function problemWords(t: T, problem: "noPassphrase" | "timerMissing" | "lastFailed" | "locked"): string {
   switch (problem) {
@@ -133,7 +134,7 @@ export function SelfBackupPage() {
   const stateCard =
     schedule === undefined || reading === null ? null : (
       <Card
-        icon={CalendarClock}
+        icon={OBJECT_ICONS.schedule}
         level={2}
         title={t("selfBackup.state.title")}
         status={<StatusPill size="sm" state={reading.health === "ok" ? "running" : reading.health === "problem" ? "warning" : "stopped"} label={stateWord} />}
@@ -145,11 +146,11 @@ export function SelfBackupPage() {
                 {t("selfBackup.state.runNow")}
               </Button>
             ) : null}
-            <Button size="sm" variant={schedule.configured ? "secondary" : "primary"} icon={<CalendarClock aria-hidden="true" />} onClick={() => setScheduling(true)}>
+            <Button size="sm" variant={schedule.configured ? "secondary" : "primary"} icon={<OBJECT_ICONS.schedule aria-hidden="true" />} onClick={() => setScheduling(true)}>
               {schedule.configured ? t("selfBackup.state.edit") : t("selfBackup.state.set")}
             </Button>
             {schedule.configured ? (
-              <Button size="sm" variant="ghost" icon={<Trash2 aria-hidden="true" />} onClick={() => setRemoving(true)}>
+              <Button size="sm" variant="ghost" icon={<ICONS.delete aria-hidden="true" />} onClick={() => setRemoving(true)}>
                 {t("selfBackup.schedule.remove")}
               </Button>
             ) : null}
@@ -258,7 +259,6 @@ export function SelfBackupPage() {
               loading={data === undefined}
               skeletonRows={3}
               getRowId={(bundle) => bundle.name}
-              mobile="cards"
               empty={<EmptyState variant="inline" title={t("selfBackup.table.empty")} description={t("selfBackup.table.emptyHint")} />}
               columns={[
                 {
@@ -322,14 +322,14 @@ export function SelfBackupPage() {
                   <MenuItem icon={<ShieldQuestion />} disabled={job.busy} onClick={() => (known ? attempt(() => verify(bundle, null)) : setAsking({ kind: "verify", bundle }))}>
                     {t("selfBackup.table.verify")}
                   </MenuItem>
-                  <MenuItem icon={<CloudUpload />} disabled={job.busy} onClick={() => setPushing(bundle)}>
+                  <MenuItem icon={<OBJECT_ICONS.destination />} disabled={job.busy} onClick={() => setPushing(bundle)}>
                     {t("selfBackup.table.push")}
                   </MenuItem>
                   <MenuItem icon={<BookOpen />} onClick={() => setRestoring(bundle)}>
                     {t("selfBackup.table.restore")}
                   </MenuItem>
                   <MenuSeparator />
-                  <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleting(bundle)}>
+                  <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(bundle)}>
                     {t("common.words.delete")}
                   </MenuItem>
                 </RowMenu>

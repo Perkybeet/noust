@@ -84,14 +84,17 @@ export function Notice({ tone = "info", variant = "inline", title, children, act
       )}
     >
       <Icon aria-hidden="true" className={cx("mt-0.5 size-icon-md shrink-0", GLYPH[tone])} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="sr-only">{`${t(WORD[tone])}:`} </span>
-        {title !== undefined ? <p className="font-medium text-pretty text-fg">{title}</p> : null}
-        {children !== undefined ? (
-          <div className={cx("text-pretty", title !== undefined ? "text-fg-muted" : "text-fg")}>{children}</div>
-        ) : null}
+      {/* The action sits beside the text from `sm` up and under it below: in Spanish on a phone the text beside an action is left with a hundred pixels. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="sr-only">{`${t(WORD[tone])}:`} </span>
+          {title !== undefined ? <p className="font-medium text-pretty text-fg">{title}</p> : null}
+          {children !== undefined ? (
+            <div className={cx("text-pretty", title !== undefined ? "text-fg-muted" : "text-fg")}>{children}</div>
+          ) : null}
+        </div>
+        {action !== undefined ? <div className="flex shrink-0 items-center">{action}</div> : null}
       </div>
-      {action !== undefined ? <div className="flex shrink-0 items-center self-center">{action}</div> : null}
       {onDismiss !== undefined ? (
         <IconButton label={t("common.notice.dismiss")} icon={<ICONS.dismiss />} size="sm" onClick={onDismiss} className="-my-1 -mr-1.5" />
       ) : null}

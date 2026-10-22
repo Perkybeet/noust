@@ -118,7 +118,6 @@ export function ProjectsTable({ projects, labels, resources, showTeam, caption, 
       loading={loading}
       skeletonRows={skeletonRows}
       defaultSort={{ column: "project", direction: "ascending" }}
-      mobile="cards"
       pagination="projects"
       {...(rowActions !== undefined ? { rowActions } : {})}
       {...(empty !== undefined ? { empty } : {})}

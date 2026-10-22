@@ -165,7 +165,6 @@ export function InstalledRecipesPage() {
       rows={installed.data?.items ?? []}
       getRowId={(row) => row.domain}
       caption={t("catalog.installed.caption")}
-      mobile="cards"
       loading={installed.data === undefined}
       skeletonRows={4}
       defaultSort={{ column: "state", direction: "ascending" }}

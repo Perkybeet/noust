@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 
 import { cx } from "../../lib/cx";
 
-export type BadgeTone = "neutral" | "accent" | "ok" | "warn" | "fail";
+export type BadgeTone = "neutral" | "accent";
 
 export interface BadgeProps {
   children: ReactNode;
-  /** Neutral unless the badge reports a state. Colour always means something. */
+  /** Neutral, or accent for something selected or staged. A state is a StatusPill: colour always means something. */
   tone?: BadgeTone;
   /** Set the content as a system value (runtime version, branch). */
   mono?: boolean;
@@ -16,12 +16,9 @@ export interface BadgeProps {
 const TONES: Record<BadgeTone, string> = {
   neutral: "border-border bg-bg-sunken text-fg-muted",
   accent: "border-transparent bg-accent-soft text-accent-fg",
-  ok: "border-transparent bg-ok-soft text-ok",
-  warn: "border-transparent bg-warn-soft text-warn",
-  fail: "border-transparent bg-fail-soft text-fail",
 };
 
-/** A short attribute: a type, a count, a version. For state, use StatusPill. */
+/** A short attribute: a type, a count, a version. A state is a StatusPill, never a Badge. */
 export function Badge({ children, tone = "neutral", mono = false, className }: BadgeProps) {
   return (
     <span

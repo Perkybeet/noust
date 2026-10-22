@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, Boxes, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
@@ -19,6 +19,7 @@ import { useOwnerScope } from "../teams/ownership";
 import { useOrganization } from "../teams/useOrganization";
 import { AppRowActions } from "./AppRowActions";
 import { AppsTable } from "./AppsTable";
+import { AppsTabs, appsHeader } from "./AppsTabs";
 import { BulkAppsDialog } from "./BulkAppsDialog";
 import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics, useTypeName } from "./data";
 import { STATE_FILTERS, appTagNames, appTypes, filterApps, isFiltered } from "./filters";
@@ -26,6 +27,7 @@ import type { AppsSearch } from "./filters";
 import { RestartTaggedApps } from "./RestartTaggedApps";
 import { UpdateTaggedApps } from "./UpdateTaggedApps";
 import { useStateTransitions } from "./useStateTransitions";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const ALL = "all";
 
@@ -52,21 +54,6 @@ function NewAppLink({ variant = "primary" }: { variant?: "primary" | "secondary"
     <Link to="/apps/new" className={buttonClassName(variant)}>
       <Add aria-hidden="true" />
       {t("apps.newApplication")}
-    </Link>
-  );
-}
-
-/**
- * "From a recipe": the new-application wizard already on its recipes, so a known application
- * (WordPress, Ghost, Uptime Kuma) is a click on its card and a Deploy away, not a mode to find
- * first (checklist M-19). Named for where it starts from, never "Deploy": it opens a page.
- */
-function FromRecipeLink() {
-  const t = useT();
-  return (
-    <Link to="/apps/new" search={{ start: "recipe" }} className={buttonClassName("secondary")}>
-      <BookOpen aria-hidden="true" />
-      {t("apps.fromRecipe")}
     </Link>
   );
 }
@@ -129,24 +116,20 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
         ? t("apps.page.countFiltered", { shown: shown.length, total: owner.inTeam.length })
         : t("apps.page.count", { count: owner.inTeam.length });
 
-  const header = {
-    title: t("apps.page.title"),
-    description: t("apps.page.description"),
-    server: node,
+  const header = appsHeader(t, node, {
     secondaryActions: (
       <>
         {/* A bulk update is offered where the list is narrowed to one tag, and not before. */}
         {search.tag !== undefined && shown.length > 0 && canDeploy ? <UpdateTaggedApps tag={search.tag} count={shown.length} /> : null}
         {search.tag !== undefined && shown.length > 0 && canOperate ? <RestartTaggedApps tag={search.tag} count={shown.length} /> : null}
-        <FromRecipeLink />
       </>
     ),
     primaryAction: <NewAppLink />,
-  };
+  });
 
   if (apps.isError && apps.data === undefined) {
     return (
-      <ListPage header={header}>
+      <ListPage header={header} tabs={<AppsTabs />}>
         <ErrorBlock error={apps.error} title={t("apps.page.couldNotLoad")} onRetry={() => void apps.refetch()} retrying={apps.isRefetching} />
       </ListPage>
     );
@@ -154,10 +137,10 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
 
   if (firstUse) {
     return (
-      <ListPage header={header}>
+      <ListPage header={header} tabs={<AppsTabs />}>
         <EmptyState
           variant="firstUse"
-          icon={<Boxes />}
+          icon={<OBJECT_ICONS.app />}
           title={t("apps.page.emptyTitle")}
           description={t("apps.page.emptyDescription")}
           action={<NewAppLink variant="secondary" />}
@@ -170,6 +153,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   return (
     <ListPage
       header={header}
+      tabs={<AppsTabs />}
       filters={
         <FilterBar
           label={t("apps.page.filterLabel")}

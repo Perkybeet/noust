@@ -24,7 +24,7 @@ const SAMPLES: Readonly<Record<string, string>> = {
   $domain: "shop.example.com",
   $id: "42",
   $engine: "postgresql",
-  $name: "wasm-shop",
+  $name: "shop-web",
   $site: "shop.example.com",
   $team: "acme",
   $project: "web",

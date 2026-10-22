@@ -29,6 +29,7 @@ import { accountsQuery } from "../accounts/api";
 import { SettingsPrimaryAction } from "../SettingsShell";
 import { accountsWithoutSecondFactor } from "./data";
 import { PublishConsoleDialog } from "./PublishConsoleDialog";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** What publishing made, in the words of what unpublishing will do with it. */
 function madeWords(t: T, made: boolean): string {
@@ -128,7 +129,7 @@ export function ConsoleAccessSettings() {
         <>
           <Card
             level={2}
-            title={t("consoleAccess.state.title")}
+            title={t("consoleAccess.state.title")} icon={OBJECT_ICONS.domain}
             status={
               <StatusPill
                 state={exposure.exposed ? (problem ? "warning" : "running") : stuck ? "warning" : "stopped"}

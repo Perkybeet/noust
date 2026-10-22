@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Archive, Play } from "lucide-react";
+import { Play } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
@@ -28,6 +28,7 @@ import { RestoreBackupDialog } from "./RestoreBackupDialog";
 import { ScheduleDialog } from "./ScheduleDialog";
 import { useBackupActions } from "./useBackupActions";
 import { useBackupRefresh } from "./useBackupRefresh";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const ALL = "all";
 
@@ -111,7 +112,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
     content = (
       <EmptyState
         variant="firstUse"
-        icon={<Archive />}
+        icon={<OBJECT_ICONS.backup />}
         title={t("backups.coverage.empty.title")}
         description={t("backups.coverage.empty.description")}
         action={
@@ -211,7 +212,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
       ) : null}
       {open?.kind === "copy" ? <PushBackupDialog key={open.backup.backup_id} backup={open.backup} open onOpenChange={(next) => !next && close()} /> : null}
       {open?.kind === "delete" ? (
-        <ConfirmDialog
+        <ConfirmDialog friction="type"
           key={open.backup.backup_id}
           open
           onOpenChange={(next) => !next && close()}

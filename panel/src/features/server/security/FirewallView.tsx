@@ -41,6 +41,7 @@ import { firewallQuery, identityQuery } from "../queries";
 import type { Firewall, FirewallRule, ListeningPort } from "../queries";
 import { useServerJob } from "../serverJob";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** A port that is open by accident: a database or internal service answering everyone, or Docker around the firewall. */
 export function isExposed(port: Pick<ListeningPort, "verdict" | "risky" | "reachable">): boolean {
@@ -123,7 +124,7 @@ function Ports({ firewall }: { firewall: Firewall }) {
     },
   ];
   return (
-    <Card level={2} title={t("server.firewall.ports.title")} description={t("server.firewall.ports.description")} padding="none">
+    <Card level={2} title={t("server.firewall.ports.title")} icon={OBJECT_ICONS.port} description={t("server.firewall.ports.description")} padding="none">
       {firewall.ports_error ? (
         <div className="px-5 pb-4">
           <ServerErrorBlock compact error={{ detail: firewall.ports_error }} title={t("server.firewall.ports.failed")} />
@@ -134,7 +135,6 @@ function Ports({ firewall }: { firewall: Firewall }) {
           rows={sortPorts(firewall.ports)}
           getRowId={(row) => `${row.proto}:${row.address}:${String(row.port)}`}
           caption={t("server.firewall.ports.caption")}
-          mobile="cards"
           density="compact"
           empty={<EmptyState variant="inline" title={t("server.firewall.ports.none")} />}
         />
@@ -163,13 +163,12 @@ function Rules({ firewall, onDelete }: { firewall: Firewall; onDelete: (rule: Fi
     { id: "comment", header: t("server.firewall.rules.comment"), hideBelow: "md", cell: (row) => (row.comment !== "" ? <span className="text-fg-muted">{row.comment}</span> : <EmptyCell />) },
   ];
   return (
-    <Card level={2} title={t("server.firewall.rules.title")} padding="none">
+    <Card level={2} title={t("server.firewall.rules.title")} icon={OBJECT_ICONS.firewall} padding="none">
       <DataTable
         columns={columns}
         rows={firewall.firewall.rules}
         getRowId={(row) => row.id}
         caption={t("server.firewall.rules.caption")}
-        mobile="cards"
         density="compact"
         empty={<EmptyState variant="inline" title={t("server.firewall.rules.none")} />}
         rowActions={(row) =>

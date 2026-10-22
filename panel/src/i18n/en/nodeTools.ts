@@ -65,6 +65,9 @@ export const nodeTools = {
     authorizedDescription:
       "Add this line to the authorized_keys of {user} on the bastion. It allows one stream to {name} and nothing else: no shell, no other destination.",
     authorizedCopy: "the line for the bastion",
+    showLine: "Show the line for the bastion",
+    showLineHelp: "The bastion has to let this central in before the change can be tried: add the line there first, then save.",
+    showLineFailed: "Could not get the line for the bastion of {name}",
     save: "Save and test",
     failed: "Could not change how {name} is connected to",
     saved: "{name} answers with these options",

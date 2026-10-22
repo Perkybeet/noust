@@ -21,7 +21,7 @@ describe("Field", () => {
 
   it("marks the control invalid and announces the error with it", () => {
     render(
-      <Field label="Port" error="Port 3004 is already used by wasm-shop.service.">
+      <Field label="Port" error="Port 3004 is already used by shop-web.service.">
         <Input defaultValue="3004" />
       </Field>,
     );

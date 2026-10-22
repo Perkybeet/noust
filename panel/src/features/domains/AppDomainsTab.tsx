@@ -1,16 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowRight,
-  BadgeCheck,
-  Globe,
-  MoreHorizontal,
-  Plug,
-  Plus,
-  Power,
-  RotateCw,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { ArrowRight, BadgeCheck, MoreHorizontal, Plug, Plus, Power, RotateCw, Search } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../api/client";
@@ -73,6 +62,7 @@ import { JobBanner } from "./JobBanner";
 import { useCertificateRefresh } from "./useCertificateJobs";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ICONS } from "../../components/ui/icons";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function kindLabel(t: T, kind: string): string {
   if (kind === "primary") return t("domains.kindPrimary");
@@ -440,7 +430,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
     <Sections>
       <Section
         title={t("domains.appTab.domainsSectionTitle")}
-        icon={Globe}
+        icon={OBJECT_ICONS.domain}
         description={t("domains.appTab.domainsSectionDescription", { domain })}
         actions={
           <Button
@@ -507,12 +497,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
             rows={list.data.domains}
             getRowId={(entry) => entry.domain}
             empty={
-              <EmptyState
-                icon={<Globe />}
-                title={t("domains.appTab.noDomainsTitle")}
-                description={t("domains.appTab.noDomainsDescription")}
-                className="border-0 py-8"
-              />
+              <EmptyState variant="inline" title={t("domains.appTab.noDomainsTitle")} description={t("domains.appTab.noDomainsDescription")} />
             }
             rowActions={(entry) => (
               <Menu
@@ -582,7 +567,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
                   <>
                     <MenuSeparator />
                     <MenuItem
-                      icon={<Trash2 />}
+                      icon={<ICONS.delete />}
                       destructive
                       onClick={() => setRemoving(entry)}
                     >

@@ -27,6 +27,7 @@ import {
   FileCode,
   FileDown,
   FileJson,
+  FileTerminal,
   FileOutput,
   FileText,
   Fingerprint,
@@ -121,6 +122,7 @@ export const OBJECT_ICONS = {
   certificate: ShieldCheck,
   site: PanelTop,
   dns: Network,
+  upstream: Network,
   tunnel: Cable,
   port: EthernetPort,
   backup: Archive,
@@ -192,6 +194,7 @@ export const OBJECT_ICONS = {
   webhook: Webhook,
   preview: GitPullRequest,
   hooks: Terminal,
+  script: FileTerminal,
   resources: MemoryStick,
   processes: Cpu,
   disk: HardDrive,
@@ -233,6 +236,8 @@ export const VERB_ICONS = {
   prepare: Wrench,
   next: ArrowRight,
   test: PlugZap,
+  showTimes: Clock,
+  refresh: RefreshCw,
 } as const satisfies Record<string, LucideIcon>;
 
 export type VerbName = keyof typeof VERB_ICONS;

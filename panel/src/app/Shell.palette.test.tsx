@@ -128,9 +128,9 @@ describe("the command palette", () => {
 
   it("finds a service by name and opens it", async () => {
     const { user, location } = await open();
-    await search(user, "wasm-shop");
-    await user.click(await screen.findByRole("option", { name: /wasm-shop/ }));
-    await waitFor(() => expect(location().pathname).toBe("/server/services/wasm-shop"));
+    await search(user, "shop-web");
+    await user.click(await screen.findByRole("option", { name: /shop-web/ }));
+    await waitFor(() => expect(location().pathname).toBe("/server/services/shop-web"));
   });
 
   it("finds a settings section by what it is about", async () => {

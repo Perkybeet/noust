@@ -161,7 +161,7 @@ export function RowDrawer({ engine, name, schema, relation, columns, editable, m
   if (mode === "delete" && row !== null) {
     const typed = Object.values(row.key ?? {}).join(", ");
     return (
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         open
         onOpenChange={(open) => (open ? undefined : onClose())}
         title={t("databases.row.deleteTitle", { name: `${schema}.${relation}` })}

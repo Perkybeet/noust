@@ -1,4 +1,6 @@
-import { Copy } from "lucide-react";
+// eslint-disable-next-line no-restricted-imports -- design-exception: object-icon-import the gallery shows the wrong way on purpose
+import { Copy, ScrollText } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 
 import { LinkTabs } from "../app/LinkTabs";
@@ -25,7 +27,6 @@ import {
   DemotePrimary,
   Disclosure,
   EmptyState,
-  FeatureState,
   FieldGroup,
   InlineMessage,
   MenuItem,
@@ -44,6 +45,7 @@ import {
   TextLink,
 } from "../components/ui";
 import type { Column } from "../components/ui";
+import { OBJECT_ICONS, VERB_ICONS } from "../components/ui/objectIcons";
 import { BothThemes, DoDont, Item, Row, Section, Stage } from "./gallery";
 
 /** A switch that holds its own value, for a specimen. */
@@ -224,13 +226,13 @@ function Settings40() {
           </Card>
         }
         notThis={
-          <FeatureState
-            state="on"
+          <Notice
+            tone="success"
             title="Instant rollback is on"
             action={<Button size="sm">Turn off…</Button>}
           >
             Each deploy is kept apart; going back takes seconds.
-          </FeatureState>
+          </Notice>
         }
         why="A block of 74 to 142px for a switch of 20: it spends the green of running on a ticked box and says three times what the title already says."
       />
@@ -1062,6 +1064,55 @@ function Tables40() {
   );
 }
 
+/** Every icon of the map, with the name a feature asks for it by. */
+function IconTable({ icons }: { icons: Readonly<Record<string, LucideIcon>> }) {
+  return (
+    <ul className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
+      {Object.entries(icons).map(([name, Icon]) => (
+        <li key={name} className="flex min-w-0 items-center gap-2 text-13 text-fg">
+          <Icon aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
+          <Mono tone="muted" className="min-w-0 truncate">
+            {name}
+          </Mono>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Icons40() {
+  return (
+    <Section
+      id="k40-icons"
+      title="Icons of objects"
+      description="An object has one icon in the whole console, from one map of the kit: the sidebar, the palette, the head of a card or a section, a menu item and a button that acts on it draw the same one. A head about no object of the map (Columns, Over time) has none. Importing an object's icon from lucide anywhere else is a lint error."
+    >
+      <Stage plain flush className="p-4">
+        <div className="flex flex-col gap-4">
+          <IconTable icons={OBJECT_ICONS} />
+          <IconTable icons={VERB_ICONS} />
+        </div>
+      </Stage>
+      <BothThemes>
+        <div className="flex flex-col gap-3">
+          <Card title="Backups" icon={OBJECT_ICONS.backup} status={<StatusPill state="running" label="On" size="sm" />} padding="sm">
+            <p className="text-13 text-fg-muted">The head says which object the card is about before the title is read.</p>
+          </Card>
+          <SettingsGroup title="Automatic deploys" icon={OBJECT_ICONS.automaticDeploys}>
+            <Setting label="Deploy on push" help="A push to the branch starts a deploy." checked onCheckedChange={() => undefined} />
+          </SettingsGroup>
+        </div>
+      </BothThemes>
+      <DoDont
+        rule="The icon of an object is the map's, as a component"
+        doThis={<Button icon={<OBJECT_ICONS.log aria-hidden="true" />}>View the build log</Button>}
+        notThis={<Button icon={<ScrollText aria-hidden="true" />}>View the build log</Button>}
+        why="A log drawn with a scroll here and a file there is two objects to whoever reads the screen. The map says one, and the lint rule refuses the other."
+      />
+    </Section>
+  );
+}
+
 /** Specimens of the components of the 4.0 console wave. */
 export function Kit40() {
   return (
@@ -1079,6 +1130,7 @@ export function Kit40() {
       <LongSettings40 />
       <DashboardTabs40 />
       <Tables40 />
+      <Icons40 />
     </>
   );
 }

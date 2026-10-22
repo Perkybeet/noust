@@ -244,7 +244,6 @@ export function UpdatesTab({ search, onSearchChange }: UpdatesTabProps) {
         getRowId={(row) => originOf(row).node}
         loading={view.isPending}
         skeletonRows={3}
-        mobile="cards"
         rowActions={(row) => (
           <UpdateMenu
             t={t}

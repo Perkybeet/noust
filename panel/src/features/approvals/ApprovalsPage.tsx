@@ -36,6 +36,7 @@ import { ApprovalStateLabel } from "./ApprovalStateLabel";
 import { approvalDescription, callFromSnapshot, inView } from "./data";
 import type { ApprovalsSearch, ApprovalsView } from "./data";
 import { forgetHeld, heldCall } from "./store";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function who(t: T, actor: Approval["requester"] | null | undefined): string {
   if (actor === null || actor === undefined) return "";
@@ -216,7 +217,7 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
   return (
     <Sections>
       <Section
-        title={t("approvals.page.title")}
+        title={t("approvals.page.title")} icon={OBJECT_ICONS.approval}
         {...(policy.data !== undefined
           ? { badge: <StatusPill state={policy.data.enabled ? "running" : "stopped"} label={policy.data.enabled ? t("approvals.page.on") : t("approvals.page.offLabel")} size="sm" /> }
           : {})}
@@ -259,7 +260,7 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
           <QueryState
             query={query}
             label={t("approvals.page.what")}
-            skeleton={<DataTable caption={t("approvals.page.caption")} columns={columns} rows={[]} getRowId={(item) => String(item.id)} mobile="cards" loading skeletonRows={2} />}
+            skeleton={<DataTable caption={t("approvals.page.caption")} columns={columns} rows={[]} getRowId={(item) => String(item.id)} loading skeletonRows={2} />}
           >
             {() => (
               <DataTable
@@ -267,7 +268,6 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
                 columns={columns}
                 rows={shown}
                 getRowId={(item) => String(item.id)}
-                mobile="cards"
                 onRowActivate={(item) => setOpen(item.id)}
                 rowActions={(item) => (
                   <Button size="sm" variant="ghost" aria-label={t("approvals.table.openLabel", { id: item.id })} onClick={() => setOpen(item.id)}>

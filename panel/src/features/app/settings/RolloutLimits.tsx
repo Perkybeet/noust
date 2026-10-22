@@ -164,7 +164,7 @@ export function RolloutLimitsSetting({ domain }: { domain: string }) {
   const query = useQuery({ ...rolloutQuery(domain), retry: false });
   const [editing, setEditing] = useState(false);
 
-  if (query.isPending) return <RowLoading label={t("rollout.limits.loading")} />;
+  if (query.isPending) return <RowLoading label={t("rollout.limits.loading")} rows={[3]} />;
   if (query.isError && olderServer(query.error)) return null;
   if (query.isError) return <RowError title={t("rollout.limits.readFailed")} error={query.error} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
 

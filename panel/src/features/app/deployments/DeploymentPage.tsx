@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { FileX, Rocket, ScrollText, Webhook } from "lucide-react";
+import { FileX } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -29,7 +29,6 @@ import { Card } from "../../../components/ui/Card";
 import { CopyButton } from "../../../components/ui/CopyButton";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { ExternalLink } from "../../../components/ui/ExternalLink";
 import { LogViewer } from "../../../components/ui/LogViewer";
 import type { LogLine } from "../../../components/ui/LogViewer";
 import { Mono } from "../../../components/ui/Mono";
@@ -65,6 +64,8 @@ import { currentPhase, logClockOffset, outcomeOf, timeline } from "./phases";
 import type { PhaseKey, PhaseView } from "./phases";
 import { useDeploymentJob } from "./useDeploymentJob";
 import { deploymentStatusWord, shortCommit, triggerWords } from "./words";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+import { ArrivalRow } from "../ArrivalRow";
 
 const RUNNING = new Set(["queued", "running"]);
 
@@ -241,7 +242,7 @@ function HooksSection({ deployment, t }: { deployment: Deployment; t: T }) {
   return (
     <Section
       title={t("appPages.deployments.hooks.title")}
-      icon={Webhook}
+      icon={OBJECT_ICONS.webhook}
       level={3}
       description={
         deployment.schema_changed
@@ -373,7 +374,7 @@ function LogSection({
     <div id={LOG_ANCHOR} className="scroll-mt-20">
       <Section
         title={t("appPages.deployments.page.buildLogTitle")}
-        icon={ScrollText}
+        icon={OBJECT_ICONS.log}
         level={3}
         description={
           running ? t("appPages.deployments.page.buildLogFollowing") : undefined
@@ -383,7 +384,7 @@ function LogSection({
             <Button
               size="sm"
               variant="ghost"
-              icon={<ScrollText aria-hidden="true" />}
+              icon={<OBJECT_ICONS.log aria-hidden="true" />}
               loading={log.isFetching}
               onClick={wholeLog}
             >
@@ -616,78 +617,6 @@ function FailureBlock({
   );
 }
 
-/**
- * The row a deploy that serves opens with: it is live, at which address, and whether HTTPS
- * covers it. The first deploy of an app adds the three things worth doing next. It states a fact,
- * so it is a row and not a banner, and it is green only where the app is serving.
- */
-function ArrivalRow({
-  domain,
-  first,
-  t,
-}: {
-  domain: string;
-  first: boolean;
-  t: T;
-}) {
-  const names = useQuery(appDomainsQuery(domain));
-  const certs = useQuery(certsQuery());
-  const address = displayAddress(domain, names.data?.domains, certs.data);
-  const url = `${address.secure ? "https" : "http"}://${address.name}`;
-  return (
-    <Card padding="sm">
-      <div className="flex min-w-0 flex-col gap-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-          <StatusPill
-            state="running"
-            label={t("appPages.deployments.words.live")}
-          />
-          <ExternalLink
-            href={url}
-            label={t("appPages.layout.liveSite", { domain: address.name })}
-          >
-            <Mono>{url}</Mono>
-          </ExternalLink>
-          <CopyButton
-            value={url}
-            label={t("appPages.deployments.page.copyAddress")}
-          />
-        </div>
-        <p className="text-13 text-fg-muted">
-          {address.secure ? (
-            t("appPages.deployments.page.httpsReady")
-          ) : (
-            <>
-              {t("appPages.deployments.page.httpOnly")}{" "}
-              <TextLink
-                to="/apps/$domain/domains"
-                params={{ domain }}
-                size="ui"
-              >
-                {t("appPages.deployments.page.openDomains")}
-              </TextLink>
-            </>
-          )}
-        </p>
-        {first ? (
-          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-13 text-fg-muted">
-            <span>{t("common.words.next")}</span>
-            <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
-              {t("appPages.deployments.page.nextDomain")}
-            </TextLink>
-            <TextLink to="/apps/$domain/database" params={{ domain }} size="ui">
-              {t("appPages.deployments.page.nextDatabase")}
-            </TextLink>
-            <TextLink to="/backups" size="ui">
-              {t("appPages.deployments.page.nextBackup")}
-            </TextLink>
-          </p>
-        ) : null}
-      </div>
-    </Card>
-  );
-}
-
 /** Whether this is the first deploy the history has seen: nothing older, and nothing pruned. */
 function useIsFirst(domain: string, deployment: Deployment): boolean {
   const history = useQuery(deploymentsQuery({ domain, limit: 20 }));
@@ -786,7 +715,7 @@ function Deploy({
         title={t("appPages.deployments.page.heading", {
           id: String(deployment.id),
         })}
-        icon={Rocket}
+        icon={OBJECT_ICONS.deployment}
         badge={
           <span className="flex items-center gap-2">
             <DeployStatePill status={deploymentStatusWord(deployment)} />
@@ -812,7 +741,7 @@ function Deploy({
             t={t}
           />
         ) : null}
-        {live ? <ArrivalRow domain={domain} first={first} t={t} /> : null}
+        {live ? <ArrivalRow domain={domain} deploymentId={deployment.id} next={first} /> : null}
         <Card padding="none">
           <div className="px-4 py-3.5">
             <Facts deployment={deployment} t={t} />

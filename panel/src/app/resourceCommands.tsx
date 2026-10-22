@@ -8,7 +8,7 @@
  * page that shows it. Pure, so every rule is tested without a palette.
  */
 
-import { Cog, Database as DatabaseIcon, FolderKanban, Globe, Rocket, ShieldCheck, Users } from "lucide-react";
+import { Cog } from "lucide-react";
 
 import type { CertEntry } from "../api/queries/certs";
 import type { Database } from "../api/queries/databases";
@@ -22,6 +22,7 @@ import { engineName } from "../features/databases/engines";
 import { serviceState } from "../features/services/data";
 import { teamRoleLabel } from "../features/teams/roles";
 import type { Command } from "./CommandPalette";
+import { OBJECT_ICONS } from "../components/ui/objectIcons";
 
 export type ServiceEntry = ServiceList["services"][number];
 export type DeploymentEntry = DeploymentList["items"][number];
@@ -63,7 +64,7 @@ function databaseCommands(databases: readonly Database[], { navigate }: Resource
     group: "Databases",
     label: database.name,
     detail: engineName(database.engine),
-    icon: <DatabaseIcon />,
+    icon: <OBJECT_ICONS.database />,
     keywords: words(database.engine, engineName(database.engine), database.username, database.owner, database.app, ...(database.apps ?? [])),
     kind: "navigate",
     run: () => navigate({ to: "/databases/$engine/$name", params: { engine: database.engine, name: database.name } }),
@@ -76,7 +77,7 @@ function siteCommands(sites: readonly SiteEntry[], { navigate }: ResourceContext
     group: "Domains",
     label: site.name,
     detail: site.webserver === "apache" ? "Apache" : "nginx",
-    icon: <Globe />,
+    icon: <OBJECT_ICONS.domain />,
     // A site answers on every name it lists, which is what an operator types for it.
     keywords: words(...site.server_names, site.app),
     kind: "navigate",
@@ -98,7 +99,7 @@ function certificateCommands(certificates: readonly CertEntry[], { t, navigate }
       group: "Certificates",
       label: cert.domain,
       ...(detail !== undefined ? { detail } : {}),
-      icon: <ShieldCheck />,
+      icon: <OBJECT_ICONS.certificate />,
       keywords: words(...cert.domains, cert.issuer),
       kind: "navigate",
       // A certificate has no page of its own: the list, filtered to it, is where it is read.
@@ -129,7 +130,7 @@ function deploymentCommands(deployments: readonly DeploymentEntry[], { t, naviga
       group: "Deployments",
       label: t("shell.commands.deployment", { domain: deployment.domain, id: String(deployment.id) }),
       ...(detail !== undefined ? { detail } : {}),
-      icon: <Rocket />,
+      icon: <OBJECT_ICONS.deployment />,
       status: deployStatus(deployment.cancelled ? "cancelled" : deployment.status, t.locale).state,
       keywords: words(deployment.domain, deployment.git_commit, deployment.git_branch, deployment.commit_message, deployment.status, deployment.triggered_by),
       kind: "navigate",
@@ -144,7 +145,7 @@ function teamCommands(teams: readonly Team[], { t, navigate }: ResourceContext):
     group: "Teams",
     label: team.name,
     ...(team.role !== null && team.role !== undefined ? { detail: teamRoleLabel(t, team.role) } : {}),
-    icon: <Users />,
+    icon: <OBJECT_ICONS.team />,
     keywords: words(team.slug),
     kind: "navigate",
     run: () => navigate({ to: "/teams/$team", params: { team: team.slug } }),
@@ -159,7 +160,7 @@ function projectCommands(projects: readonly Project[], teams: readonly Team[], {
     label: project.name,
     // Which team it is in, only where there are several to tell two of one name apart.
     ...(teams.length > 1 ? { detail: names.get(project.team) ?? project.team } : {}),
-    icon: <FolderKanban />,
+    icon: <OBJECT_ICONS.project />,
     keywords: words(project.slug, project.team, names.get(project.team), ...(project.environments ?? [])),
     kind: "navigate",
     run: () => navigate({ to: "/projects/$team/$project", params: { team: project.team, project: project.slug } }),

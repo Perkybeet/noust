@@ -22,6 +22,7 @@ import type { T } from "../../../i18n";
 import { RowAction } from "../RowAction";
 import { SettingsPrimaryAction } from "../SettingsShell";
 import { GrantDialog } from "./GrantDialog";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 function columnsFor(t: T, roleLabel: (name: string) => string, isCustom: (name: string) => boolean): Column<AccessBinding>[] {
   return [
@@ -92,12 +93,12 @@ export function GrantsSection() {
   );
 
   return (
-    <Section title={t("access.grants.title")} description={t("access.grants.description")}>
+    <Section title={t("access.grants.title")} icon={OBJECT_ICONS.role} description={t("access.grants.description")}>
       {query.data !== undefined && query.data.bindings.length > 0 ? <SettingsPrimaryAction>{grant}</SettingsPrimaryAction> : null}
       <QueryState
         query={query}
         label={t("access.loadingLabel")}
-        skeleton={<DataTable caption={t("access.grants.tableCaption")} columns={columns} rows={[]} getRowId={(binding) => String(binding.id)} loading mobile="cards" skeletonRows={3} />}
+        skeleton={<DataTable caption={t("access.grants.tableCaption")} columns={columns} rows={[]} getRowId={(binding) => String(binding.id)} loading skeletonRows={3} />}
         isEmpty={(data) => data.bindings.length === 0}
         empty={<EmptyState variant="firstUse" level={3} icon={<UsersRound />} title={t("access.grants.emptyTitle")} description={t("access.grants.emptyDescription")} action={grant} command="noust access grant maria --role admin --team acme --project web" />}
       >
@@ -107,7 +108,6 @@ export function GrantsSection() {
             columns={columns}
             rows={data.bindings}
             getRowId={(binding) => `${String(binding.id)}-${binding.username}-${binding.scope}`}
-            mobile="cards"
             pagination="access-grants"
             rowActions={(binding) =>
               binding.id === 0 ? (

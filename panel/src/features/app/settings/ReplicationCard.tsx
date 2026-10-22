@@ -10,6 +10,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 function Finding({ finding }: { finding: ReplicationFinding }) {
   const t = useT();
@@ -54,7 +55,7 @@ export function ReplicationCard({ domain }: { domain: string }) {
   const replication = useQuery(replicationQuery(domain));
   return (
     <Section
-      title={t("runtime.replication.title")}
+      title={t("runtime.replication.title")} icon={OBJECT_ICONS.server}
       description={t("runtime.replication.description")}
     >
       <Card>

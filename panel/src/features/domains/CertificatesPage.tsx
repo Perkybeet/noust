@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, ShieldX, Upload } from "lucide-react";
+import { ShieldX, Upload } from "lucide-react";
 import { Suspense, lazy, useMemo, useState } from "react";
 
 import { request } from "../../api/client";
@@ -43,6 +43,7 @@ import { truncatedNames } from "./names";
 import type { CertificatesSearch } from "./search";
 import { UploadCertificateDialog } from "./UploadCertificateDialog";
 import { useCertificateRefresh } from "./useCertificateJobs";
+import { VERB_ICONS } from "../../components/ui/objectIcons";
 
 const ALL = "all";
 
@@ -102,7 +103,7 @@ function CertificateDrawer({ cert, job, onClose, onRenew }: { cert: CertEntry | 
       description={t("domains.certificatesTab.drawerDescription")}
       footer={
         cert && cert.source !== "custom" ? (
-          <Button icon={<RefreshCw aria-hidden="true" />} disabled={job !== null} onClick={() => onRenew(cert)}>
+          <Button icon={<VERB_ICONS.refresh aria-hidden="true" />} disabled={job !== null} onClick={() => onRenew(cert)}>
             {t("domains.certificatesTab.renew")}
           </Button>
         ) : undefined
@@ -298,7 +299,6 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
   } else {
     content = (
       <DataTable
-        mobile="cards"
         pagination="certificates"
         caption={filtered ? t("domains.certificatesTab.tableCaptionFiltered") : t("domains.certificatesTab.tableCaption")}
         columns={columns}
@@ -330,10 +330,10 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
           }
           return (
             <RowMenu name={cert.domain}>
-              <MenuItem icon={<RefreshCw />} disabled={busy} onClick={() => renew.mutate({ cert, force: false })}>
+              <MenuItem icon={<VERB_ICONS.refresh />} disabled={busy} onClick={() => renew.mutate({ cert, force: false })}>
                 {t("domains.certificatesTab.renewIfDue")}
               </MenuItem>
-              <MenuItem icon={<RefreshCw />} disabled={busy} onClick={() => renew.mutate({ cert, force: true })}>
+              <MenuItem icon={<VERB_ICONS.refresh />} disabled={busy} onClick={() => renew.mutate({ cert, force: true })}>
                 {t("domains.certificatesTab.renewNow")}
               </MenuItem>
               <MenuSeparator />
@@ -356,7 +356,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
         ? {}
         : {
             secondaryActions: (
-              <Button icon={<RefreshCw aria-hidden="true" />} loading={renewAll.isPending} onClick={() => renewAll.mutate()}>
+              <Button icon={<VERB_ICONS.refresh aria-hidden="true" />} loading={renewAll.isPending} onClick={() => renewAll.mutate()}>
                 {t("domains.certificatesTab.renewDue")}
               </Button>
             ),
@@ -466,7 +466,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
         onClose={() => setOpened(null)}
         onRenew={(cert) => renew.mutate({ cert, force: true })}
       />
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         open={revoking !== null}
         onOpenChange={(open) => {
           if (!open) setRevoking(null);
@@ -482,7 +482,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
           toast.success(t("domains.certificatesTab.revokedToast", { domain: revoking.domain }));
         }}
       />
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         open={deleting !== null}
         onOpenChange={(open) => {
           if (!open) setDeleting(null);

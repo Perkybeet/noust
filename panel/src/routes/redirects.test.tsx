@@ -14,7 +14,7 @@ import { fakeBackend, signedInRoutes } from "../test/fakes";
  * same thing today. `e2e/redirects.spec.ts` walks the same tables in a browser.
  */
 
-const SAMPLE: Readonly<Record<string, string>> = { $domain: "shop.example.com", $name: "wasm-shop" };
+const SAMPLE: Readonly<Record<string, string>> = { $domain: "shop.example.com", $name: "shop-web" };
 
 /** An address that opens a route: its parameters filled in. */
 const address = (pattern: string): string => pattern.replace(/\$\w+/g, (param) => SAMPLE[param] ?? "sample");

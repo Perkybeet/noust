@@ -2,10 +2,6 @@
 export const catalog = {
   page: {
     title: "Catalog",
-    description: "Applications ready to deploy. Each one is pinned to a version, runs the way its project intends, and brings the variables and services it needs.",
-  },
-  tabs: {
-    label: "Catalog sections",
   },
   own: {
     open: "Add a recipe",

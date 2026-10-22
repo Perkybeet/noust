@@ -4,10 +4,6 @@ import type { Catalog } from "../types";
 export const catalog: Catalog<typeof en> = {
   page: {
     title: "Catálogo",
-    description: "Aplicaciones listas para desplegar. Cada una está fijada a una versión, se ejecuta como su proyecto la concibe y trae las variables y los servicios que necesita.",
-  },
-  tabs: {
-    label: "Secciones del catálogo",
   },
   own: {
     open: "Añadir una receta",

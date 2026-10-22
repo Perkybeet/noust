@@ -49,6 +49,26 @@ const SEMANTIC_ICONS = {
   ],
 };
 
+// An object (an application, a certificate, a token) has one icon in the whole console, from the
+// map in components/ui/objectIcons.ts (docs/DESIGN.md 2.8, I-1). The names are read from the map, so
+// the rule cannot drift from it: importing one of them from lucide anywhere else is how a database
+// came to have four drawings. The map and the semantic icons are the only places that name them.
+const OBJECT_ICON_MAP = readFileSync(new URL("./src/components/ui/objectIcons.ts", import.meta.url), "utf8");
+const OBJECT_ICON_NAMES = [
+  ...new Set(
+    [...OBJECT_ICON_MAP.slice(OBJECT_ICON_MAP.indexOf("export const OBJECT_ICONS = {"), OBJECT_ICON_MAP.indexOf("} as const satisfies")).matchAll(/:\s*([A-Z][A-Za-z0-9]*),/g)].map(
+      (match) => match[1],
+    ),
+  ),
+];
+
+const OBJECT_ICONS = {
+  name: "lucide-react",
+  importNames: OBJECT_ICON_NAMES,
+  message:
+    "object-icon-import: an object has one icon, from components/ui/objectIcons.ts (OBJECT_ICONS.app, .database, .certificate...). Add the object to the map when it is missing.",
+};
+
 // Files written before the design rules, not migrated yet: ESLint holds them to the hex rule
 // only, and the ratchet (src/styles/design-rules.test.ts) holds every count in them down. The
 // list only shrinks: `npm run design:baseline` drops a file once it breaks none of these rules.
@@ -88,7 +108,7 @@ export default defineConfig(
     files: ["src/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-syntax": ["error", ...DESIGN],
-      "no-restricted-imports": ["error", SEMANTIC_ICONS],
+      "no-restricted-imports": ["error", { paths: [...SEMANTIC_ICONS.paths, OBJECT_ICONS] }],
       "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
       "@typescript-eslint/no-confusing-void-expression": ["error", { ignoreArrowShorthand: true }],
     },
@@ -96,7 +116,12 @@ export default defineConfig(
   {
     // The kit builds with what the rules forbid elsewhere; legacy files wait for their migration.
     files: ["src/components/**", "src/app/**", "src/dev/**", ...LEGACY],
-    rules: { "no-restricted-syntax": ["error", HEX], "no-restricted-imports": "off" },
+    rules: { "no-restricted-syntax": ["error", HEX], "no-restricted-imports": ["error", { paths: [OBJECT_ICONS] }] },
+  },
+  {
+    // The two maps of icons are where lucide's names are written.
+    files: ["src/components/ui/icons.ts", "src/components/ui/objectIcons.ts"],
+    rules: { "no-restricted-imports": "off" },
   },
   {
     files: ["src/**/*.test.{ts,tsx}", "src/test/**", "src/styles/**"],

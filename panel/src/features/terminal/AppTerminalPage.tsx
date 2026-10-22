@@ -3,6 +3,7 @@ import { useDocumentTitle } from "../../app/documentTitle";
 import { useT } from "../../i18n";
 import { ExecPanel } from "./ExecPanel";
 import { TerminalPanel } from "./TerminalPanel";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * An application's terminal and its one-off commands, under the application's header: the
@@ -14,7 +15,7 @@ export function AppTerminalPage({ domain }: { domain: string }) {
   useDocumentTitle(t("terminal.document.app", { domain }));
   return (
     <Sections>
-      <Section title={t("terminal.page.title")}>
+      <Section title={t("terminal.page.title")} icon={OBJECT_ICONS.terminal}>
         <TerminalPanel target={{ kind: "app", domain }} />
       </Section>
       <Section title={t("terminal.exec.title")} description={t("terminal.exec.description")}>

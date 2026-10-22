@@ -893,12 +893,7 @@ def _list(
         views = [view for view in views if (view.name, view.engine) in owned]
     failed = 1 if any(problem.kind != "docker" for problem in listing.problems) else 0
 
-    entries = []
-    for view in views:
-        data = view.to_dict()
-        # The 2.x JSON called the owning application linked_app; kept for scripts.
-        data["linked_app"] = view.app
-        entries.append(data)
+    entries = [view.to_dict() for view in views]
 
     if json_output:
         _echo_json(entries)

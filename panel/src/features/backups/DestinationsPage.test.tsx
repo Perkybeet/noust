@@ -44,7 +44,7 @@ function destination(overrides: Record<string, unknown> = {}): Record<string, un
     name: "offsite",
     backend: "sftp",
     encrypted: false,
-    settings: { host: "backup.example.com", user: "wasm", path: "noust-backups" },
+    settings: { host: "backup.example.com", user: "backup", path: "noust-backups" },
     configured_secret_fields: [],
     encryption_configured: false,
     created_at: "2026-01-01T00:00:00+00:00",
@@ -149,7 +149,7 @@ describe("the Destinations tab", () => {
     await user.click(await screen.findByRole("option", { name: /^SFTP server/ }));
 
     await user.type(within(dialog).getByLabelText("Host"), "backup.example.com");
-    await user.type(within(dialog).getByLabelText("User"), "wasm");
+    await user.type(within(dialog).getByLabelText("User"), "backup");
     // A new destination is encrypted unless someone says otherwise: the box starts ticked.
     const encrypt = within(dialog).getByRole("checkbox", { name: /Encrypt backups before upload/ });
     expect(encrypt).toBeChecked();
@@ -165,7 +165,7 @@ describe("the Destinations tab", () => {
     expect(body.backend).toBe("sftp");
     expect(body.encrypted).toBe(false);
     expect(body.fields["host"]).toBe("backup.example.com");
-    expect(body.fields["user"]).toBe("wasm");
+    expect(body.fields["user"]).toBe("backup");
     // The password was left blank and is a secret field: it is not sent at all.
     expect(body.fields).not.toHaveProperty("pass");
   });
@@ -191,7 +191,7 @@ describe("the Destinations tab", () => {
       await user.click(within(dialog).getByRole("combobox", { name: "Backend" }));
       await user.click(await screen.findByRole("option", { name: /^SFTP server/ }));
       await user.type(within(dialog).getByLabelText("Host"), "backup.old.invalid");
-      await user.type(within(dialog).getByLabelText("User"), "wasm");
+      await user.type(within(dialog).getByLabelText("User"), "backup");
       await user.click(within(dialog).getByRole("checkbox", { name: /Encrypt backups before upload/ }));
       await user.click(within(dialog).getByRole("button", { name: "Add destination" }));
       return dialog;
@@ -296,7 +296,7 @@ describe("the Destinations tab", () => {
       await user.click(within(dialog).getByRole("combobox", { name: "Backend" }));
       await user.click(await screen.findByRole("option", { name: /^Servidor SFTP/ }));
       await user.type(within(dialog).getByLabelText("Host"), "backup.old.invalid");
-      await user.type(within(dialog).getByLabelText("User"), "wasm");
+      await user.type(within(dialog).getByLabelText("User"), "backup");
       await user.click(within(dialog).getByRole("button", { name: "Añadir destino" }));
 
       const alert = await within(dialog).findByRole("alert");
@@ -420,7 +420,7 @@ describe("the Destinations tab", () => {
     await user.click(within(dialog).getByRole("combobox", { name: "Backend" }));
     await user.click(await screen.findByRole("option", { name: /^SFTP server/ }));
     await user.type(within(dialog).getByLabelText("Host"), "backup.example.com");
-    await user.type(within(dialog).getByLabelText("User"), "wasm");
+    await user.type(within(dialog).getByLabelText("User"), "backup");
     expect(within(dialog).getByRole("checkbox", { name: /Encrypt backups before upload/ })).toBeChecked();
     await user.click(within(dialog).getByRole("checkbox", { name: /I already have a key for this folder/ }));
 

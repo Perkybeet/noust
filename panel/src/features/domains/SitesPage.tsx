@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { FileCode, Globe, Lock, Play, RotateCw, Square } from "lucide-react";
+import { Lock, Play, RotateCw, Square } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../api/client";
@@ -33,6 +33,7 @@ import { spendNew } from "./search";
 import type { SitesSearch } from "./search";
 import { UnknownHostsCard } from "./UnknownHostsCard";
 import { useSiteActions } from "./useSiteActions";
+import { OBJECT_ICONS, VERB_ICONS } from "../../components/ui/objectIcons";
 
 /** Whether a site serves HTTPS, as an attribute of it rather than a state: no colour. */
 export function Tls({ secure }: { secure: boolean }) {
@@ -191,7 +192,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
     content = (
       <EmptyState
         variant="firstUse"
-        icon={<Globe />}
+        icon={<OBJECT_ICONS.domain />}
         title={t("domains.sitesTab.noSitesYetTitle")}
         description={t("domains.sitesTab.noSitesYetDescription")}
         action={createButton("secondary")}
@@ -201,7 +202,6 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   } else {
     content = (
       <DataTable
-        mobile="cards"
         pagination="sites"
         caption={filtered ? t("domains.sitesTab.tableCaptionFiltered") : t("domains.sitesTab.tableCaption")}
         columns={columns}
@@ -222,7 +222,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
         }
         rowActions={(site) => (
           <RowMenu name={site.name}>
-            <MenuItem icon={<FileCode />} onClick={() => open(site)}>
+            <MenuItem icon={<VERB_ICONS.edit />} onClick={() => open(site)}>
               {t("domains.sitesTab.editConfiguration")}
             </MenuItem>
             {site.enabled ? (
@@ -297,7 +297,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
           }
         }}
       />
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         open={deleting !== null}
         onOpenChange={(next) => {
           if (!next) setDeleting(null);

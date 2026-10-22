@@ -36,6 +36,7 @@ import { WEEKDAYS, weekdayLabel } from "../databases/backups/schedule";
 import type { Weekday } from "../databases/backups/schedule";
 import { CHANNELS, EMPTY_DRAFT, bodyOf, crossesMidnight, daysWords, draftOf, problemsOf } from "./autoUpdate";
 import type { AutoUpdateDraft, Channel } from "./autoUpdate";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function channelOptions(t: T) {
   return CHANNELS.map((value) => ({
@@ -176,7 +177,7 @@ export function AutoUpdateSection() {
       query={query}
       label={t("autoUpdate.what")}
       skeleton={
-        <Card loading level={3} title={t("autoUpdate.title")} description={t("autoUpdate.description")}>
+        <Card loading level={3} title={t("autoUpdate.title")} icon={OBJECT_ICONS.update} description={t("autoUpdate.description")}>
           <div className="flex flex-col gap-3">
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-24 w-full" />
@@ -227,7 +228,7 @@ function AutoUpdateCard({ state }: { state: AutoUpdate }) {
     <>
       <Card
         level={3}
-        title={t("autoUpdate.title")}
+        title={t("autoUpdate.title")} icon={OBJECT_ICONS.update}
         status={
           <StatusPill
             state={PILL[featureState]}

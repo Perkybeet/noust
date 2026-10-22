@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Webhook } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -41,6 +40,7 @@ import type { ReceivedDelivery, WebhookSecret, WebhookStatus } from "./queries";
 import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { connectionView, forgeName, outcomeView, senderName } from "./webhook";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** The example name `noust web expose-hooks` is shown with: the operator types their own. */
 const HOOKS_EXAMPLE = "hooks.example.com";
@@ -99,7 +99,7 @@ function Connection({ status, followTags, onRotate, onDisable }: { status: Webho
     <Card padding="sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <Webhook aria-hidden="true" className="mt-0.5 size-icon-md shrink-0 text-fg-muted" />
+          <OBJECT_ICONS.webhook aria-hidden="true" className="mt-0.5 size-icon-md shrink-0 text-fg-muted" />
           <div className="flex min-w-0 flex-col items-start gap-1">
             <StatusPill state={view.state} label={view.label} size="sm" />
             <p className="text-13 text-pretty text-fg-muted">{detail}</p>
@@ -386,7 +386,6 @@ function PushesReceived({ domain, status }: { domain: string; status: WebhookSta
             loading
             skeletonRows={Math.min(Math.max(total, 1), RECEIVED_SHOWN)}
             density="compact"
-            mobile="cards"
           />
         }
         isEmpty={(data) => data.items.length === 0}
@@ -399,7 +398,6 @@ function PushesReceived({ domain, status }: { domain: string; status: WebhookSta
             rows={data.items}
             getRowId={(row) => String(row.id)}
             density="compact"
-            mobile="cards"
           />
         )}
       </QueryState>

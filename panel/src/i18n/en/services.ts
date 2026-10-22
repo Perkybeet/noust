@@ -40,7 +40,7 @@ export const services = {
     managed: "Managed",
     boot: "At boot",
     memory: "Memory",
-    wasm: "Noust",
+    byNoust: "Noust",
     foreign: "Foreign",
     enabled: "Starts",
     disabled: "Does not start",

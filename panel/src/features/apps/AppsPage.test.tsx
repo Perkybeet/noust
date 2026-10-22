@@ -206,12 +206,14 @@ describe("the applications list", () => {
     await expectNoAxeViolations(table);
   });
 
-  it("opens the recipes in one click from the header, beside the one primary action (checklist M-19)", async () => {
+  it("opens the recipes in one click, as a tab beside the list (checklist M-19)", async () => {
     await appsAt();
-    const recipes = screen.getByRole("link", { name: "From a recipe" });
-    expect(recipes).toHaveAttribute("href", "/apps/new?start=recipe");
-    // Not a second primary: "New application" stays the page's one.
-    expect(recipes.className).not.toContain("bg-accent");
+    const tabs = screen.getByRole("navigation", { name: "Applications sections" });
+    expect(within(tabs).getByRole("link", { name: /^Applications/ })).toHaveAttribute("href", "/apps");
+    expect(within(tabs).getByRole("link", { name: /^Recipes/ })).toHaveAttribute("href", "/catalog");
+    expect(within(tabs).getByRole("link", { name: /^Installed recipes/ })).toHaveAttribute("href", "/catalog/installed");
+    // The header keeps one primary action and no second link to the same recipes.
+    expect(screen.queryByRole("link", { name: "From a recipe" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New application" }).className).toContain("bg-accent");
   });
 
@@ -219,7 +221,8 @@ describe("the applications list", () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/apps": () => json(200, { total: 0, apps: [] }) });
     renderConsole("/apps");
     await screen.findByRole("heading", { level: 2, name: "No applications yet" });
-    expect(screen.getByRole("link", { name: "From a recipe" })).toHaveAttribute("href", "/apps/new?start=recipe");
+    const tabs = screen.getByRole("navigation", { name: "Applications sections" });
+    expect(within(tabs).getByRole("link", { name: /^Recipes/ })).toHaveAttribute("href", "/catalog");
   });
 
   it("invites the first deploy on an empty machine, without filters or a table", async () => {

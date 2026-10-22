@@ -116,11 +116,11 @@ describe("validateServicesSearch", () => {
 });
 
 describe("filterServices", () => {
-  const services = [service("wasm-queue", true, "node worker.js"), service("wasm-cache", false, "redis-server"), service("nginx", true)];
+  const services = [service("shop-queue", true, "node worker.js"), service("shop-cache", false, "redis-server"), service("nginx", true)];
 
   it("matches the name or the command, case-insensitively", () => {
-    expect(filterServices(services, { q: "QUEUE" }).map((s) => s.name)).toEqual(["wasm-queue"]);
-    expect(filterServices(services, { q: "redis" }).map((s) => s.name)).toEqual(["wasm-cache"]);
+    expect(filterServices(services, { q: "QUEUE" }).map((s) => s.name)).toEqual(["shop-queue"]);
+    expect(filterServices(services, { q: "redis" }).map((s) => s.name)).toEqual(["shop-cache"]);
   });
 
   it("keeps everything without a filter", () => {

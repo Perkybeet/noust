@@ -12,6 +12,7 @@ import { nodeKeys } from "./nodes";
 
 export type ConnectionOptions = ResponseOf<"/api/nodes/{node}/ssh", "get">;
 export type ConnectionBody = BodyOf<"/api/nodes/{node}/ssh", "put">;
+export type BastionBody = BodyOf<"/api/nodes/{node}/ssh/authorization", "post">;
 export type InventoryReport = ResponseOf<"/api/nodes/{node}/inventory", "post">;
 export type LinkBody = BodyOf<"/api/fleet/cloud/servers/{node}/link", "post">;
 export type Rotation = ResponseOf<"/api/nodes/{node}/rekey", "post">;
@@ -29,6 +30,15 @@ export const connectionQuery = (node: string) =>
 /** Sets the connection options and tries them: the old ones are put back when the server does not answer. */
 export function saveConnection(node: string, body: ConnectionBody): Promise<ConnectionOptions> {
   return request("put", "/api/nodes/{node}/ssh", { params: { node }, body });
+}
+
+/**
+ * The line a bastion's operator adds so the central can reach the server through it, asked for with
+ * the bastion that is about to be set. Setting one is tried before it is kept, and the try cannot
+ * succeed while the bastion does not let the central in: so the line comes first. Changes nothing.
+ */
+export function askBastionLine(node: string, body: BastionBody): Promise<{ authorized_key_line: string }> {
+  return request("post", "/api/nodes/{node}/ssh/authorization", { params: { node }, body });
 }
 
 /** What this central knows about a server, to take to another central. No secret is in it. */

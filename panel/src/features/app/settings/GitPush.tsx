@@ -221,7 +221,6 @@ function TurnedOn({ domain, info }: { domain: string; info: AppPush }) {
             rows={info.keys}
             getRowId={(key) => key.label}
             density="compact"
-            mobile="cards"
             rowActions={(key) => (
               <Button size="sm" variant="ghost" aria-label={t("gitPush.on.removeKey", { label: key.label })} onClick={() => setRemoving(key)}>
                 {t("gitPush.on.removeAction")}

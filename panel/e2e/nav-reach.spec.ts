@@ -203,10 +203,7 @@ function reachedAt(depths: ReadonlyMap<string, number>, entry: Dest): number | u
  * the way in. The walk fails when a screen is lost that is not here, and when one is here and found: the list only
  * gets shorter, and it is empty when the 4.0 work is whole.
  */
-const NOT_LINKED_YET: Readonly<Record<string, string>> = {
-  "apps.recipes": "the closing lane draws the Applications tabs (Applications | Recipes | Installed)",
-  "apps.installed": "the closing lane draws the Applications tabs (Applications | Recipes | Installed)",
-};
+const NOT_LINKED_YET: Readonly<Record<string, string>> = {};
 
 /** Screens the seeded machine has no way to show, and why; the register's own test holds each to its way in. */
 const NOT_ON_THIS_MACHINE: Readonly<Record<string, string>> = {

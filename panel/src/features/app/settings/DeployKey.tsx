@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, RefreshCw } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -38,6 +38,7 @@ import { webhookStatusQuery } from "./queries";
 import { deployKeysUrl } from "./sourceForge";
 import { forgeName } from "./webhook";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { VERB_ICONS } from "../../../components/ui/objectIcons";
 
 /** What an action on the key answers: the application's key as the API now sees it. */
 function useKeySettled(domain: string): (result: AppDeployKey) => void {
@@ -491,7 +492,7 @@ export function DeployKeyCard({ domain, repository }: { domain: string; reposito
                 <Button icon={<SETTINGS_ICONS.test aria-hidden="true" />} size="sm" loading={test.isPending} onClick={() => test.mutate()}>
                   {t("sources.deployKey.test")}
                 </Button>
-                <Button size="sm" icon={<RefreshCw aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()}>
+                <Button size="sm" icon={<VERB_ICONS.refresh aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()}>
                   {t("sources.deployKey.rotate")}
                 </Button>
                 <Button icon={<SETTINGS_ICONS.remove aria-hidden="true" />} size="sm" variant="ghost" onClick={() => elevated(() => setRemoving(true))}>

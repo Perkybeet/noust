@@ -162,7 +162,6 @@ export function ApiReference({ search, onSearchChange }: ApiReferenceProps) {
                 columns={columns}
                 rows={shown}
                 getRowId={(operation) => operation.id}
-                mobile="cards"
                 pagination="api-reference"
                 onRowActivate={(operation) => {
                   setOpen(operation);

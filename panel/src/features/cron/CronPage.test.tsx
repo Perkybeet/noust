@@ -56,7 +56,7 @@ const JOBS = [
   {
     name: "nightly-backup",
     command: "noust backup create shop.example.com",
-    user: "wasm",
+    user: "shop",
     working_directory: "/var/www/shop",
     app_domain: "shop.example.com",
     schedule: "daily",
@@ -70,7 +70,7 @@ const JOBS = [
   {
     name: "hourly-sync",
     command: "rsync -a /a /b",
-    user: "wasm",
+    user: "shop",
     working_directory: "",
     app_domain: "",
     schedule: "hourly",

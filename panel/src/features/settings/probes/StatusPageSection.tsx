@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Globe, Pencil, Unlink } from "lucide-react";
+import { Pencil, Unlink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ElevationCancelledError } from "../../../api/client";
@@ -311,7 +311,7 @@ function PageCard({ page }: { page: StatusPage }) {
             ) : (
               <Button
                 size="sm"
-                icon={<Globe aria-hidden="true" />}
+                icon={<OBJECT_ICONS.addresses aria-hidden="true" />}
                 onClick={() => {
                   setDoing("publish");
                 }}
@@ -325,7 +325,7 @@ function PageCard({ page }: { page: StatusPage }) {
           label={t("probes.page.writeLabel")}
           help={t("probes.page.writeHelp")}
           action={
-            <Button size="sm" icon={<FileText aria-hidden="true" />} loading={write.isPending} onClick={() => write.mutate()}>
+            <Button size="sm" icon={<OBJECT_ICONS.file aria-hidden="true" />} loading={write.isPending} onClick={() => write.mutate()}>
               {t("probes.page.write")}
             </Button>
           }

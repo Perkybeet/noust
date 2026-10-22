@@ -1,21 +1,4 @@
-import {
-  Boxes,
-  ExternalLink,
-  GitBranch,
-  Info,
-  Link2,
-  Pencil,
-  Play,
-  Plus,
-  Power,
-  RefreshCw,
-  Rocket,
-  RotateCw,
-  Search,
-  Settings,
-  Trash2,
-  WrapText,
-} from "lucide-react";
+import { ExternalLink, Info, Link2, Pencil, Play, Plus, Power, RotateCw, Search, WrapText } from "lucide-react";
 import { Ellipsis } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -72,6 +55,8 @@ import { Terminal } from "../lib/terminal/terminal";
 import { Item, Row, Section, Stage } from "./gallery";
 import type { SampleApp } from "./sample";
 import { SAMPLE_APPS, SAMPLE_BUILD_LOG, ago, nextJournalLine, sampleDayWithGaps, sampleMetrics, sampleWeekMetrics } from "./sample";
+import { ICONS } from "../components/ui/icons";
+import { OBJECT_ICONS, VERB_ICONS } from "../components/ui/objectIcons";
 
 const STATES: Status[] = ["running", "deploying", "failed", "stopped", "static", "unknown"];
 
@@ -85,7 +70,7 @@ function Buttons() {
       <Stage>
         <Row>
           <Item label="Primary">
-            <Button variant="primary" icon={<Rocket />}>
+            <Button variant="primary" icon={<OBJECT_ICONS.deployment />}>
               Deploy
             </Button>
           </Item>
@@ -145,10 +130,10 @@ function IconButtons() {
       <Stage>
         <Row>
           <Item label="Ghost">
-            <IconButton label="Refresh" icon={<RefreshCw />} />
+            <IconButton label="Refresh" icon={<VERB_ICONS.refresh />} />
           </Item>
           <Item label="Secondary">
-            <IconButton label="Settings" icon={<Settings />} variant="secondary" />
+            <IconButton label="Settings" icon={<OBJECT_ICONS.settings />} variant="secondary" />
           </Item>
           <Item label="Pressed toggle">
             <IconButton label="Wrap lines" icon={<WrapText />} pressed={wrap} onClick={() => setWrap((v) => !v)} />
@@ -190,11 +175,11 @@ function Forms() {
           <Field label="Repository">
             <Input mono prefix="https://" placeholder="github.com/you/app.git" />
           </Field>
-          <Field label="Port" error="Port 3004 is already used by wasm-shop.example.dev.service.">
+          <Field label="Port" error="Port 3004 is already used by shop-example-dev.service.">
             <Input mono defaultValue="3004" inputMode="numeric" />
           </Field>
           <Field label="Branch" optional>
-            <Input mono placeholder="main" icon={<GitBranch />} />
+            <Input mono placeholder="main" icon={<OBJECT_ICONS.source />} />
           </Field>
           <Field label="Runtime" nativeLabel={false} description="Detected from package.json. Change it if the guess is wrong.">
             <Select options={RUNTIMES} defaultValue="next" />
@@ -298,28 +283,28 @@ function Overlays() {
             </Dialog>
           </Item>
           <Item label="Type to confirm">
-            <ConfirmDialog
+            <ConfirmDialog friction="type"
               title="Delete shop.example.dev"
               description="Stops the service, removes the nginx site and the release directories. Backups and the database are kept."
               confirmText="shop.example.dev"
               actionLabel="Delete application"
               onConfirm={() => new Promise((resolve) => setTimeout(resolve, 900))}
               trigger={
-                <Button variant="danger" icon={<Trash2 />} data-testid="open-confirm">
+                <Button variant="danger" icon={<ICONS.delete />} data-testid="open-confirm">
                   Delete
                 </Button>
               }
             />
           </Item>
           <Item label="Options that destroy more, unchecked">
-            <ConfirmDialog
+            <ConfirmDialog friction="type"
               title="Delete legacy.example.dev"
               description="Stops the service and removes the site. Backups are kept."
               confirmText="legacy.example.dev"
               actionLabel="Delete application"
               onConfirm={() => new Promise((resolve) => setTimeout(resolve, 900))}
               trigger={
-                <Button variant="danger" icon={<Trash2 />} data-testid="open-confirm-options">
+                <Button variant="danger" icon={<ICONS.delete />} data-testid="open-confirm-options">
                   Delete with options
                 </Button>
               }
@@ -329,7 +314,7 @@ function Overlays() {
             </ConfirmDialog>
           </Item>
           <Item label="Failure shown verbatim">
-            <ConfirmDialog
+            <ConfirmDialog friction="type"
               title="Stop worker.example.dev"
               description="The worker stops taking jobs. Jobs in progress are cancelled."
               confirmText="worker.example.dev"
@@ -341,7 +326,7 @@ function Overlays() {
                       Object.assign(new Error("systemctl stop failed"), {
                         hint: "The unit did not stop within 90 seconds. Check what it is waiting on, then stop it again.",
                         detail:
-                          "Job for wasm-worker.example.dev.service canceled.\nwasm-worker.example.dev.service: State 'stop-sigterm' timed out. Killing.",
+                          "Job for worker-example-dev.service canceled.\nworker-example-dev.service: State 'stop-sigterm' timed out. Killing.",
                       }),
                     );
                   }, 700),
@@ -426,7 +411,7 @@ function Navigation() {
             <Tab value="domains">Domains</Tab>
             <Tab value="diagnose">Diagnose</Tab>
             <Tab value="settings" disabled>
-              Settings
+              OBJECT_ICONS.settings
             </Tab>
           </TabList>
           {["overview", "deployments", "logs", "metrics", "environment", "domains", "diagnose", "settings"].map((value) => (
@@ -469,7 +454,7 @@ function Navigation() {
                 <MenuItem icon={<RotateCw />} shortcut={["R"]}>
                   Restart
                 </MenuItem>
-                <MenuItem icon={<Rocket />} shortcut={["D"]}>
+                <MenuItem icon={<OBJECT_ICONS.deployment />} shortcut={["D"]}>
                   Redeploy
                 </MenuItem>
                 <MenuItem icon={<ExternalLink />}>Open site</MenuItem>
@@ -480,7 +465,7 @@ function Navigation() {
               </MenuItem>
               <MenuSeparator />
               <MenuItem icon={<Power />}>Stop</MenuItem>
-              <MenuItem icon={<Trash2 />} destructive>
+              <MenuItem icon={<ICONS.delete />} destructive>
                 Delete application
               </MenuItem>
             </Menu>
@@ -653,9 +638,9 @@ function Attributes() {
             </Item>
             <Item label="State">
               <div className="flex gap-1.5">
-                <Badge tone="ok">Valid</Badge>
-                <Badge tone="warn">Expires in 6 d</Badge>
-                <Badge tone="fail">Expired</Badge>
+                <StatusPill state="running" label="Valid" size="sm" />
+                <StatusPill state="warning" label="Expires in 6 d" size="sm" />
+                <StatusPill state="failed" label="Expired" size="sm" />
               </div>
             </Item>
           </Row>
@@ -682,7 +667,7 @@ function Attributes() {
                 <Mono>/var/www/apps/shop/current</Mono>
                 <Mono>:3004</Mono>
                 <Mono tone="muted">a1b2c3d</Mono>
-                <Mono>wasm-shop.example.dev.service</Mono>
+                <Mono>shop-example-dev.service</Mono>
               </div>
             </Item>
             <Item label="Links">
@@ -772,7 +757,7 @@ function Cards() {
       </Card>
       <EmptyState
         variant="firstUse"
-        icon={<Boxes />}
+        icon={<OBJECT_ICONS.app />}
         title="No applications yet"
         description="Deploy a repository and Noust builds it, runs it as a systemd unit and puts nginx and a certificate in front of it."
         action={
@@ -844,9 +829,9 @@ function Tables() {
         rowActions={(row) => (
           <Menu align="end" trigger={<IconButton label={`Actions for ${row.domain}`} icon={<Ellipsis />} size="sm" tooltip={false} />}>
             <MenuItem icon={<RotateCw />}>Restart</MenuItem>
-            <MenuItem icon={<Rocket />}>Redeploy</MenuItem>
+            <MenuItem icon={<OBJECT_ICONS.deployment />}>Redeploy</MenuItem>
             <MenuSeparator />
-            <MenuItem icon={<Trash2 />} destructive>
+            <MenuItem icon={<ICONS.delete />} destructive>
               Delete
             </MenuItem>
           </Menu>
@@ -858,7 +843,6 @@ function Tables() {
           columns={COLUMNS.slice(0, 3)}
           rows={PAGED_APPS}
           getRowId={(row) => row.domain}
-          mobile="cards"
           pagination="gallery-applications"
         />
       </div>

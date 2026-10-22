@@ -1,15 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import {
-  ChevronDown,
-  CircleHelp,
-  CircleMinus,
-  CircleX,
-  History,
-  RotateCw,
-  ScrollText,
-  Stethoscope,
-} from "lucide-react";
+import { ChevronDown, CircleHelp, CircleMinus, CircleX, RotateCw, Stethoscope } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { appQuery, diagnosisQuery } from "../../../api/queries/apps";
@@ -47,6 +38,7 @@ import {
   verdictView,
 } from "./view";
 import type { Check, Tone } from "./view";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** A verdict drawn in the state language: healthy is running, degraded a warning, down failed. */
 const VERDICT_STATE: Record<Tone, Status> = {
@@ -158,13 +150,13 @@ function Remedies({ domain, t }: { domain: string; t: T }) {
           params={{ domain }}
           className={buttonClassName("secondary", "sm")}
         >
-          <ScrollText aria-hidden="true" />
+          <OBJECT_ICONS.log aria-hidden="true" />
           {t("appPages.diagnose.viewLogs")}
         </Link>
       ) : null}
       <Button
         size="sm"
-        icon={<History aria-hidden="true" />}
+        icon={<OBJECT_ICONS.rollback aria-hidden="true" />}
         onClick={() => openRollback()}
       >
         {t("appPages.diagnose.rollBack")}

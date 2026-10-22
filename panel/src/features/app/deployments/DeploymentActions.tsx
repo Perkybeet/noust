@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { GitCommitHorizontal, Hammer, History, RotateCw } from "lucide-react";
+import { GitCommitHorizontal, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -22,6 +22,7 @@ import type { T } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { useRollback, useTrackJob } from "../RollbackHost";
 import { shortCommit } from "./words";
+import { OBJECT_ICONS, VERB_ICONS } from "../../../components/ui/objectIcons";
 
 const RUNNING = new Set(["queued", "running"]);
 
@@ -206,7 +207,7 @@ export function useDeploymentActions(domain: string, deployment: Deployment): De
         }}
         menu={
           <MenuItem
-            icon={<Hammer />}
+            icon={<VERB_ICONS.rebuild />}
             onClick={() => {
               action.dismiss();
               retry.mutate({ id: deployment.id, noCache: true }, { onError: (error) => reportActionError(t("appPages.deployments.actions.retryFailed"), error) });
@@ -223,7 +224,7 @@ export function useDeploymentActions(domain: string, deployment: Deployment): De
     <>
       {available ? (
         <Button
-          icon={<History aria-hidden="true" />}
+          icon={<OBJECT_ICONS.rollback aria-hidden="true" />}
           disabled={action.busy}
           onClick={() => {
             action.dismiss();

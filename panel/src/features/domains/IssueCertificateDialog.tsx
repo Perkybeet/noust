@@ -12,6 +12,7 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { Textarea } from "../../components/ui/Textarea";
 import { translate, useT } from "../../i18n";
 import type { Locale, T } from "../../i18n";
@@ -200,9 +201,7 @@ export function IssueCertificateDialog({ open, onOpenChange, onQueued }: IssueCe
           <ul aria-label={t("domains.issueCertificateDialog.otherNamesOnCertAriaLabel")} className="-mt-3 flex flex-wrap gap-1.5">
             {extra.map((name) => (
               <li key={name}>
-                <Badge mono tone={domainProblem(name, t.locale) === null ? "neutral" : "fail"}>
-                  {name}
-                </Badge>
+                {domainProblem(name, t.locale) === null ? <Badge mono>{name}</Badge> : <StatusPill state="failed" size="sm" label={name} />}
               </li>
             ))}
           </ul>

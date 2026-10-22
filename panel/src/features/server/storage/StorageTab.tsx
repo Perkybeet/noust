@@ -43,6 +43,7 @@ import { TabToolbar } from "../TabToolbar";
 import { CleanupHistory } from "./CleanupHistory";
 import { CleanupScheduleCard } from "./CleanupScheduleCard";
 import { SwapCard } from "./SwapCard";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** What a candidate is, by the id the API gives it; one this console does not know keeps its id. */
 export function candidateLabel(t: T, id: string): string {
@@ -94,7 +95,7 @@ const TYPICAL_CANDIDATES = 8;
 function Mounts({ mounts }: { mounts: readonly Mount[] | undefined }) {
   const t = useT();
   return (
-    <Card level={2} title={t("server.storage.mountsTitle")} padding="none">
+    <Card level={2} title={t("server.storage.mountsTitle")} icon={OBJECT_ICONS.disk} padding="none">
       {mounts === undefined ? (
         <LoadingRegion label={t("server.storage.loading")}>
         <ul aria-hidden="true" className="flex flex-col divide-y divide-border">
@@ -256,7 +257,6 @@ function ImagesDrawer({ onClose }: { onClose: () => void }) {
           caption={t("server.storage.imagesCaption")}
           loading={images.isPending}
           skeletonRows={3}
-          mobile="cards"
           empty={<EmptyState variant="inline" title={t("server.storage.noImages")} />}
           rowActions={(row) => (
             <Button size="sm" variant="ghost" onClick={() => setRemoving(row.id)} aria-label={t("server.storage.removeImage", { image: `${row.repository}:${row.tag}` })}>
@@ -339,7 +339,6 @@ function Candidates({ storage, open }: { storage: Storage | undefined; open: (op
         // One id can measure several places (Noust's logs are three directories).
         getRowId={(row) => `${row.id}:${row.detail}`}
         caption={t("server.storage.candidatesCaption")}
-        mobile="cards"
         empty={<EmptyState variant="inline" title={t("server.storage.noCandidates")} />}
         rowActions={(row) =>
           row.id === "docker-images" ? (

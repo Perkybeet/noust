@@ -1,5 +1,4 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { History } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { isApiError } from "../../api/client";
@@ -21,6 +20,7 @@ import { ActivityTable } from "./ActivityTable";
 import { JobLogDrawer } from "./JobLogDrawer";
 import { AUDIT_RESULTS, JOB_STATUSES, actionWords, actorWords, auditCategoriesFor, inKind, isFiltered, matchesText, mergeActivity, resultOptions, resultValidFor } from "./data";
 import type { ActivityJob, ActivitySearch } from "./data";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const ALL = "all";
 const OPERATIONS = "operations";
@@ -174,7 +174,7 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
     );
   } else if (nothingYet) {
     content = (
-      <EmptyState variant="firstUse" icon={<History />} title={t("activity.emptyTitle")} description={t("activity.emptyDescription")} command="noust audit list" />
+      <EmptyState variant="firstUse" icon={<OBJECT_ICONS.activity />} title={t("activity.emptyTitle")} description={t("activity.emptyDescription")} command="noust audit list" />
     );
   } else {
     content = (

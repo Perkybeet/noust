@@ -156,7 +156,6 @@ export function RegistriesSection() {
             rows={data.logins}
             getRowId={(login) => login.name}
             density="compact"
-            mobile="cards"
             rowActions={(login) => (
               <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: login.name })} icon={<ICONS.more />} tooltip={false} />}>
                 <MenuItem

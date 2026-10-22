@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FlaskConical } from "lucide-react";
 
 import { request } from "../../api/client";
 import { restoreDrillsQuery } from "../../api/queries/backups";
@@ -22,6 +21,7 @@ import { useT } from "../../i18n";
 import { olderServer } from "../app/settings/queries";
 import { reportActionError } from "../apps/useAppActions";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { VERB_ICONS } from "../../components/ui/objectIcons";
 
 /** One test: what it found, step by step, in the server's own words. */
 function Drill({ drill }: { drill: RestoreDrill }) {
@@ -88,7 +88,7 @@ export function RestoreDrillsSection({ domain }: { domain: string }) {
   // A server older than 3.4 has no restore tests: nothing to offer.
   if (query.isError && olderServer(query.error)) return null;
   const action = (
-    <Button size="sm" icon={<FlaskConical aria-hidden="true" />} loading={run.isPending} onClick={() => run.mutate()}>
+    <Button size="sm" icon={<VERB_ICONS.test aria-hidden="true" />} loading={run.isPending} onClick={() => run.mutate()}>
       {t("backups.drills.run")}
     </Button>
   );

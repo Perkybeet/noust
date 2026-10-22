@@ -9,7 +9,6 @@
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ScrollText } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -26,6 +25,7 @@ import type { LogLine } from "../../components/ui/LogViewer";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** What a job on a database does, which names it while it runs and once it ends. */
 export type DatabaseJobKind =
@@ -294,7 +294,7 @@ export function DatabaseJobProgress({ job, words, onDismiss }: { job: Job; words
   const state = jobState(job.status);
   const title = state === "succeeded" ? words.succeeded : state === "failed" ? words.failed : words.running;
   const viewOutput = (
-    <Button icon={<ScrollText aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setOutputOpen(true)}>
+    <Button icon={<OBJECT_ICONS.log aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setOutputOpen(true)}>
       {t("databases.job.viewOutput")}
     </Button>
   );

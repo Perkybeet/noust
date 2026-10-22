@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { FileText } from "lucide-react";
 import { useMemo } from "react";
 
 import { siteLogQuery } from "../../../api/queries/siteLogs";
@@ -16,6 +15,7 @@ import { formatCount } from "../../../lib/format";
 import { levelOf } from "../deployments/buildLog";
 import { keeps, priorityOfViewerLevel } from "../../logs/query";
 import type { QueryNode } from "../../logs/query";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /**
  * The status code of an access-log line: the three digits after the quoted request. A server
@@ -75,7 +75,7 @@ function SiteLines({ domain, kind, log, filter, command }: SiteLogsProps & { log
       <EmptyState
         variant="firstUse"
         level={3}
-        icon={<FileText />}
+        icon={<OBJECT_ICONS.log />}
         title={t("appPages.logs.siteNotWrittenTitle")}
         description={t.rich("appPages.logs.siteNotWritten", { path: <Mono key="path">{log.path ?? ""}</Mono> })}
         command={command}

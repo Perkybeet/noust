@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Copy, Eye, FileCode, Pencil, Plus } from "lucide-react";
+import { Copy, Eye, Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { CommandHint } from "../../components/page/CommandHint";
@@ -22,6 +22,7 @@ import type { CloudScript } from "./data";
 import { ScriptDialog } from "./ScriptDialog";
 import { useCloudActions } from "./useCloudActions";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function columnsFor(t: T): readonly Column<CloudScript>[] {
   return [
@@ -120,7 +121,7 @@ export function ScriptsSection() {
         {(scripts) => <DataTable caption={t("cloud.scripts.caption")} columns={columns} rows={scripts} getRowId={(script) => script.name} rowActions={(script) => <ScriptActions script={script} />} />}
       </QueryState>
       <p className="max-w-measure text-13 text-pretty text-fg-muted">
-        <FileCode aria-hidden="true" className="mr-1 inline size-icon-sm align-text-bottom" />
+        <OBJECT_ICONS.script aria-hidden="true" className="mr-1 inline size-icon-sm align-text-bottom" />
         {t("cloud.scripts.note")}
       </p>
       <CommandHint label={t("common.words.fromTerminal")} command="noust fleet cloud script list" />

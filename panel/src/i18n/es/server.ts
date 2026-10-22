@@ -33,11 +33,6 @@ export const server: Catalog<typeof en> = {
     hint: "En {node}, ejecuta {command} para que esta consola pueda cambiar cómo se llega a él.",
     onNode: "En {node}",
   },
-  dialog: {
-    onServer: "En {server}.",
-    typeToConfirm: "Escribe {value} para confirmar",
-    failed: "No se hizo el cambio",
-  },
   job: {
     viewOutput: "Ver la salida",
     outputDescription: "La salida del propio sistema, tal como se imprimió.",

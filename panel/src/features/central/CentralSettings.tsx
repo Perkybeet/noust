@@ -14,6 +14,7 @@ import { useT } from "../../i18n";
 import { useServerList } from "../../nodes/servers";
 import { useCentral } from "./central";
 import { UnlockForm } from "./UnlockForm";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * Settings > Central: what this central is (its name, its role) and the state of the secrets
@@ -39,7 +40,7 @@ export function CentralSettings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card loading={reading} title={t("servers.central.identity.title")} description={t("servers.central.identity.description")}>
+      <Card loading={reading} title={t("servers.central.identity.title")} icon={OBJECT_ICONS.central} description={t("servers.central.identity.description")}>
         <KeyValueList
           items={[
             { label: t("common.words.name"), value: <Mono>{name}</Mono>, copy: name === "" ? false : name, mono: true },
@@ -61,7 +62,7 @@ export function CentralSettings() {
       </Card>
 
       <Card
-        title={t("servers.central.seal.title")}
+        title={t("servers.central.seal.title")} icon={OBJECT_ICONS.secretManager}
         description={t("servers.central.seal.description")}
         actions={<StatusPill state={seal.state} label={seal.label} appearance="inline" size="sm" />}
       >

@@ -77,7 +77,7 @@ function installedPage(items: unknown[], extra: Record<string, RouteHandler> = {
 describe("the installed recipes page", () => {
   it("lists what was installed from a recipe against the catalog, and what can be updated", { timeout: 20_000 }, async () => {
     const { harness } = installedPage([BEHIND, CURRENT, GONE]);
-    expect(await screen.findByRole("heading", { level: 1, name: "Catalog" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Applications" })).toBeInTheDocument();
     const table = await screen.findByRole("table", { name: "Applications installed from a recipe" });
 
     const behind = within(table).getByRole("row", { name: /vault\.example\.com/ });
@@ -110,7 +110,7 @@ describe("the installed recipes page", () => {
 
   it("shows how many applications each tab holds", { timeout: 20_000 }, async () => {
     installedPage([BEHIND, CURRENT]);
-    const tabs = await screen.findByRole("navigation", { name: "Catalog sections" });
+    const tabs = await screen.findByRole("navigation", { name: "Applications sections" });
     await waitFor(() => expect(within(tabs).getByRole("link", { name: /Installed recipes/ })).toHaveTextContent("2"));
     expect(within(tabs).getByRole("link", { name: /Recipes/ })).toHaveTextContent("25");
   });

@@ -7,7 +7,6 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Route } from "lucide-react";
 import { useId, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -29,6 +28,7 @@ import type { EventGroupId } from "./notifications";
 import { QUIET_ALLOWS, SUMMARY_BELOWS, WEEKDAYS, isClock, isFloodValid, routeSummary, routingBody, routingDirty, routingFormFrom } from "./routing";
 import type { FloodForm, QuietAllow, QuietForm, RouteForm, RouteList, RoutingForm, SummaryBelow, SummaryForm, Weekday } from "./routing";
 import { FormFailure } from "./SettingsForm";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** A channel as the server describes it, read once for every row of the page. */
 export function useChannelView(name: string): NotificationChannel | undefined {
@@ -64,7 +64,7 @@ export function RoutingButton({ name, label }: { name: string; label: string }) 
     <>
       <Button
         size="sm"
-        icon={<Route aria-hidden="true" />}
+        icon={<OBJECT_ICONS.routes aria-hidden="true" />}
         aria-label={t("notifyRouting.buttonLabel", { label })}
         onClick={() => {
           setOpen(true);

@@ -43,7 +43,7 @@ export const services: Catalog<typeof en> = {
     managed: "Gestión",
     boot: "Al arrancar",
     memory: "Memoria",
-    wasm: "Noust",
+    byNoust: "Noust",
     foreign: "Ajeno",
     enabled: "Arranca",
     disabled: "No arranca",

@@ -1,10 +1,7 @@
 {
   "$comment": "Written by `npm run design:baseline` (styles/design-structure.test.ts); may only go down. rules: count per rule and file, found in the syntax tree (styles/designStructure.ts).",
   "rules": {
-    "action-dialog": {},
-    "badge-state": {
-      "features/domains/IssueCertificateDialog.tsx": 1
-    },
+    "badge-state": {},
     "bordered-list": {
       "features/catalog/RecipeRequirements.tsx": 1,
       "features/new-app/ComposeDocument.tsx": 1
@@ -16,7 +13,6 @@
       "features/auth/TotpSetup.tsx": 1
     },
     "danger-button-outside-confirm": {
-      "features/server/ActionDialog.tsx": 1,
       "features/settings/TwoFactorSection.tsx": 1
     },
     "destination-outside-register": {},
@@ -33,9 +29,6 @@
       "i18n/en/server.ts": 1,
       "i18n/en/servers.ts": 1,
       "i18n/en/sourceOptions.ts": 1
-    },
-    "feature-state": {
-      "features/settings/TwoFactorSection.tsx": 2
     },
     "field-error-by-hand": {
       "features/cloud/CreateServerDialog.tsx": 1,
@@ -123,7 +116,6 @@
       "features/new-app/RemoteImport.tsx": 2,
       "features/new-app/WorkspacesDialog.tsx": 2,
       "features/promotion/PromoteDialog.tsx": 1,
-      "features/server/ActionDialog.tsx": 1,
       "features/settings/DeployKeysSection.tsx": 1,
       "features/settings/gitlab/ConnectGitLabDialog.tsx": 1,
       "features/settings/registries/RegistryDialog.tsx": 1,

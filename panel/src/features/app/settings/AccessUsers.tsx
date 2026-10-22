@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Plus, Trash2 } from "lucide-react";
+import { KeyRound, Plus } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -21,6 +21,7 @@ import { RowList } from "../../../components/ui/RowList";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { ICONS } from "../../../components/ui/icons";
 
 /** What the server accepts as a login name (`noust.managers.site_policy`). */
 const USERNAME = /^[A-Za-z0-9._@-]{1,64}$/;
@@ -156,7 +157,7 @@ export function AccessUsers({ domain, policy }: { domain: string; policy: AppPol
               actions={
                 <>
                   <IconButton label={`${t("network.access.users.change")}: ${name}`} icon={<KeyRound />} size="sm" onClick={() => setDialog({ name })} />
-                  <IconButton label={`${t("common.words.remove")}: ${name}`} icon={<Trash2 />} size="sm" onClick={() => setRemoving(name)} />
+                  <IconButton label={`${t("common.words.remove")}: ${name}`} icon={<ICONS.delete />} size="sm" onClick={() => setRemoving(name)} />
                 </>
               }
             >

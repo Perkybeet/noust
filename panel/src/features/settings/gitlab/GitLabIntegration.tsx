@@ -115,7 +115,6 @@ function OAuthApps({ status }: { status: GitLabStatus }) {
         rows={status.oauth_apps}
         getRowId={(app) => app.host}
         density="compact"
-        mobile="cards"
         rowActions={(app) => (
           <Button
             size="sm"
@@ -202,7 +201,6 @@ export function GitLabIntegration() {
                 rows={data.connections}
                 getRowId={(connection) => connection.name}
                 density="compact"
-                mobile="cards"
                 rowActions={(connection) => (
                   <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: connection.name })} icon={<ICONS.more />} tooltip={false} />}>
                     <MenuItem

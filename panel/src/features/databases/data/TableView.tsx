@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { relationQuery, rowsQuery } from "../../../api/queries/databases";
@@ -179,7 +179,7 @@ export function TableView({ engine, name, schema, relation, search, onSearchChan
                             {t("databases.data.editRow")}
                           </MenuItem>
                           <MenuSeparator />
-                          <MenuItem icon={<Trash2 />} destructive onClick={() => setDrawer({ mode: "delete", row: source })}>
+                          <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDrawer({ mode: "delete", row: source })}>
                             {t("databases.data.deleteRow")}
                           </MenuItem>
                         </Menu>

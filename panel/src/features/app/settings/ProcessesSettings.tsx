@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Scaling, Trash2 } from "lucide-react";
+import { Pencil, Plus, Scaling } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -626,7 +626,7 @@ function ProcessActions({
         </MenuItem>
         <MenuSeparator />
         <MenuItem
-          icon={<Trash2 />}
+          icon={<ICONS.delete />}
           destructive
           onClick={() => setRemoving(true)}
         >

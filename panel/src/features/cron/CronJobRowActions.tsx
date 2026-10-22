@@ -1,4 +1,4 @@
-import { CirclePause, CirclePlay, History, Pencil, Play } from "lucide-react";
+import { CirclePause, CirclePlay, Pencil, Play } from "lucide-react";
 import { useState } from "react";
 
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
@@ -8,6 +8,7 @@ import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { useT } from "../../i18n";
 import type { CronJob } from "./data";
 import { useCronActions } from "./useCronActions";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 export interface CronJobRowActionsProps {
   job: CronJob;
@@ -28,7 +29,7 @@ export function CronJobRowActions({ job, onEdit, onViewRuns }: CronJobRowActions
         <MenuItem icon={<Play />} disabled={run.isPending} onClick={() => run.mutate(name)}>
           {t("cron.actions.runNow")}
         </MenuItem>
-        <MenuItem icon={<History />} onClick={() => onViewRuns(name)}>
+        <MenuItem icon={<OBJECT_ICONS.activity />} onClick={() => onViewRuns(name)}>
           {t("cron.actions.viewRuns")}
         </MenuItem>
         <MenuItem icon={<Pencil />} onClick={() => onEdit(job)}>

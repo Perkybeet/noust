@@ -165,7 +165,6 @@ export function BackupsTable({ backups, caption, loading = false, skeletonRows, 
 
   return (
     <DataTable
-      mobile="cards"
       pagination="backups"
       columns={columns}
       rows={backups}

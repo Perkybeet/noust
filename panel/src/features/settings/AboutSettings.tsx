@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleArrowUp, CircleDashed, CircleHelp, RefreshCw, RotateCw } from "lucide-react";
+import { CircleArrowUp, CircleDashed, CircleHelp, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -33,6 +33,7 @@ import { installMethodWords, readServerIdentity, selfUpdateQuery } from "./Gener
 import { InstallCheck } from "./InstallCheck";
 import { SupportReport } from "./SupportReport";
 import { UpdateNotes, WhatsNew } from "./WhatsNew";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 type UpdateInfo = ResponseOf<"/api/system/version", "get">;
 
@@ -106,7 +107,7 @@ function IndexBehind({ info, version }: { info: UpdateInfo; version: string }): 
     <StateLine icon={<CircleArrowUp aria-hidden="true" className="size-icon-md shrink-0" />} title={t("settings.about.version.indexBehind", { version })}>
       <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("settings.about.version.indexBehindDescription")}</p>
       <div className="flex flex-wrap items-center gap-3">
-        <Button size="sm" variant="primary" icon={<RefreshCw aria-hidden="true" />} loading={running} onClick={() => refresh.mutate()}>
+        <Button size="sm" variant="primary" icon={<OBJECT_ICONS.update aria-hidden="true" />} loading={running} onClick={() => refresh.mutate()}>
           {running ? t("settings.about.version.refreshingIndex") : t("settings.about.version.refreshIndex")}
         </Button>
         <ReleaseNotesLink url={info.release_url} version={version} />
@@ -248,7 +249,7 @@ function InstallationSection() {
   // A node's console is reached through this one; its own address is the one it says it has.
   const address = node === null ? window.location.origin : publicUrl;
   return (
-    <Section level={3} title={t("settings.about.installation.title")}>
+    <Section level={3} title={t("settings.about.installation.title")} icon={OBJECT_ICONS.noust}>
       <Card padding="sm">
         <KeyValueList
           items={[
@@ -305,15 +306,11 @@ function LegalNotice() {
   );
 }
 
-/** Where the project lives, its legal notices, and the name it had before. */
+/** Where the project lives and its legal notices. */
 function ProjectSection() {
   const t = useT();
   return (
-    <Section
-      level={3}
-      title={t("settings.about.project.title")}
-      description={t.rich("settings.about.rename.body", { wasm: <Mono key="wasm">wasm</Mono>, noust: <Mono key="noust">noust</Mono> })}
-    >
+    <Section level={3} title={t("settings.about.project.title")}>
       <Card padding="sm">
         <ul className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
           {links(t).map((link) => (
@@ -387,7 +384,7 @@ export function AboutSettings() {
   if (!read) return <AboutSkeleton />;
   return (
     <Sections>
-      <Section title={t("settings.about.groups.updates.title")} description={t("settings.about.groups.updates.description")}>
+      <Section title={t("settings.about.groups.updates.title")} icon={OBJECT_ICONS.update} description={t("settings.about.groups.updates.description")}>
         <div className="flex min-w-0 flex-col gap-6">
           <VersionSection />
           <AutoUpdateSection />

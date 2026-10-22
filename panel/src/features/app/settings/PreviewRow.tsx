@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, GitBranch, GitPullRequest, Play, RotateCw, ScrollText, Square, Tag, X } from "lucide-react";
+import { Check, Play, RotateCw, Square, Tag, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -28,6 +28,7 @@ import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
 import { useConfirmItsYou } from "../useDeleteApp";
 import { previewName, previewStatus } from "./previews";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** When a preview goes: "Expires in 5d", or "Expired 2h ago" while its removal is pending. */
 function Expiry({ value }: { value: string }) {
@@ -41,7 +42,7 @@ function Expiry({ value }: { value: string }) {
 
 function KindIcon({ kind }: { kind: string }) {
   const t = useT();
-  const Icon = kind === "tag" ? Tag : kind === "branch" ? GitBranch : GitPullRequest;
+  const Icon = kind === "tag" ? Tag : kind === "branch" ? OBJECT_ICONS.source : OBJECT_ICONS.preview;
   const label = kind === "tag" ? t("previewHand.list.kind.tag") : kind === "branch" ? t("previewHand.list.kind.branch") : t("previewHand.list.kind.pr");
   return <Icon role="img" aria-label={label} className="size-icon-md shrink-0 text-fg-muted" />;
 }
@@ -200,7 +201,7 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
           {awaiting ? <p className="text-12 text-fg-muted">{t.rich("rollout.previews.awaitingNote", { commit: <Mono>{(preview.head_sha ?? "").slice(0, 7)}</Mono> })}</p> : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <Button size="sm" variant="ghost" icon={<ScrollText aria-hidden="true" />} aria-label={`${t("previewHand.list.logs")} ${name}`} onClick={() => onLogs(preview)}>
+          <Button size="sm" variant="ghost" icon={<OBJECT_ICONS.log aria-hidden="true" />} aria-label={`${t("previewHand.list.logs")} ${name}`} onClick={() => onLogs(preview)}>
             {t("previewHand.list.logs")}
           </Button>
           {awaiting && can.deploy ? (

@@ -12,7 +12,7 @@ import { toast } from "./toast";
 
 function setup(onConfirm: () => Promise<void>) {
   render(
-    <ConfirmDialog
+    <ConfirmDialog friction="type"
       title="Delete example.com"
       description="Stops the service and removes the site. Backups are kept."
       confirmText="example.com"
@@ -218,7 +218,7 @@ describe("ConfirmDialog", () => {
   it("holds the options that change what the action does, between the question and the name, outside its description", async () => {
     const user = userEvent.setup();
     render(
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         title="Delete example.com"
         description="Stops the service and removes the site."
         confirmText="example.com"

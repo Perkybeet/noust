@@ -1,4 +1,4 @@
-import { Box, CircleDot, Clock, CornerUpRight, Database, Folder, Globe, HardDrive, Network, Plug, Route, Server, ServerCog } from "lucide-react";
+import { CircleDot, CornerUpRight, Folder, Plug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useId, useLayoutEffect, useMemo, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
@@ -9,6 +9,7 @@ import { DataTable } from "./DataTable";
 import type { Column } from "./DataTable";
 import { Disclosure } from "./Disclosure";
 import { Mono } from "./Mono";
+import { OBJECT_ICONS } from "./objectIcons";
 import { connectedPath, layoutFlow, pathEdges } from "./flowDiagram.layout";
 import type { FlowLayout, PlacedEdge, PlacedNode } from "./flowDiagram.layout";
 import type { FlowEdge, FlowLayer, FlowNode, FlowNodeKind, FlowNodeState } from "./flowDiagram.types";
@@ -74,17 +75,18 @@ function useWidth(element: HTMLElement | null): number {
 
 const KIND_ICON: Record<FlowNodeKind, LucideIcon> = {
   listener: Plug,
-  server: Server,
-  location: Route,
-  upstream: Network,
-  "upstream-server": ServerCog,
+  // A server block is a site to the operator, as it is everywhere else in the console.
+  server: OBJECT_ICONS.site,
+  location: OBJECT_ICONS.routes,
+  upstream: OBJECT_ICONS.upstream,
+  "upstream-server": OBJECT_ICONS.server,
   static: Folder,
   redirect: CornerUpRight,
-  domain: Globe,
-  application: Box,
-  database: Database,
-  scheduled: Clock,
-  storage: HardDrive,
+  domain: OBJECT_ICONS.domain,
+  application: OBJECT_ICONS.app,
+  database: OBJECT_ICONS.database,
+  scheduled: OBJECT_ICONS.cron,
+  storage: OBJECT_ICONS.volume,
   other: CircleDot,
 };
 

@@ -1,10 +1,10 @@
 import { Section } from "../../components/page/Section";
-import { Gauge } from "lucide-react";
 import { CommandHint } from "../../components/page/CommandHint";
 import { Card } from "../../components/ui/Card";
 import { CopyValue } from "../../components/ui/CopyValue";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** The path a scraper asks (noust.web.api.metrics.export_prometheus). */
 export const EXPORT_PATH = "/api/metrics/prometheus";
@@ -36,7 +36,7 @@ export function MetricsExportSection() {
   const { host, protocol } = window.location;
   const scheme = protocol === "http:" ? "http" : "https";
   return (
-    <Section icon={Gauge} title={t("metricsExport.title")} description={t("metricsExport.description")}>
+    <Section icon={OBJECT_ICONS.export} title={t("metricsExport.title")} description={t("metricsExport.description")}>
       <Card>
         <div className="flex min-w-0 flex-col gap-4">
           <div className="flex min-w-0 flex-col gap-1.5">

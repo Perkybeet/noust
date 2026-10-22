@@ -41,7 +41,7 @@ function Sections() {
           <PageSection
             level={3}
             title="Needs attention"
-            badge={<Badge tone="fail">2</Badge>}
+            badge={<Badge>2</Badge>}
             actions={<Button size="sm">Refresh</Button>}
           >
             <div className="h-16 rounded-card border border-dashed border-border" />
@@ -322,7 +322,7 @@ function Danger() {
             title="Delete this application"
             description="Stops and removes the service, the site, the certificate and the files. Backups are kept."
             action={
-              <ConfirmDialog
+              <ConfirmDialog friction="type"
                 title="Delete shop.example.dev"
                 description="Stops and removes the service, the site, the certificate and the app's files. Backups are kept."
                 confirmText="shop.example.dev"

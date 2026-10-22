@@ -166,7 +166,6 @@ export function ActivityTab({ search, onSearchChange }: ActivityTabProps) {
         loading={view.isPending}
         skeletonRows={8}
         density="compact"
-        mobile="cards"
         empty={
           rows.length === 0 && view.data !== undefined ? (
             <EmptyState variant="inline" title={t("fleet.activity.empty")} />

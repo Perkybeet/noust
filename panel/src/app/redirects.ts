@@ -8,7 +8,7 @@
  */
 
 /**
- * Each old address and where its screen is now (2.9 of the navigation design); `docs/MIGRATING-4.0.md`
+ * Each old address and where its screen is now (2.9 of the navigation design); `docs/UPGRADING-4.0.md`
  * carries this table as "where it is now".
  *
  * `live`: the old address redirects. `pending`: its screen is still where it was because the screen

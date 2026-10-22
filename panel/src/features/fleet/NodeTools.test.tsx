@@ -103,6 +103,61 @@ describe("how the central connects to a server", () => {
     expect(within(dialog).queryByRole("button", { name: "Save and test" })).not.toBeInTheDocument();
   });
 
+  it("asks for the bastion's line before anything is saved, so the bastion can let the central in first", { timeout: 40_000 }, async () => {
+    const backend = backendWith({
+      "GET /api/nodes/web-2/ssh": () => json(200, DIRECT),
+      "POST /api/nodes/web-2/ssh/authorization": () => json(200, { authorized_key_line: AUTHORIZED }),
+    });
+    const { user } = renderConsole("/fleet/servers");
+
+    await openTool(user, "Connection options");
+    const dialog = await screen.findByRole("dialog", { name: "How this central connects to web-2" });
+    await user.click(await within(dialog).findByRole("checkbox", { name: /Connect through a bastion/ }));
+    // Nothing is asked of the server until the bastion is described: a bastion without a key is never trusted.
+    await user.type(within(dialog).getByLabelText(/^Bastion/), "hop@bastion.example.com:22");
+    await user.click(within(dialog).getByRole("button", { name: "Show the line for the bastion" }));
+    expect(await within(dialog).findByText("Give the bastion's fingerprint or host key.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/nodes/web-2/ssh/authorization")).toHaveLength(0);
+
+    await user.type(within(dialog).getByLabelText(/^Its host key/), PRINT);
+    await user.click(within(dialog).getByRole("button", { name: "Show the line for the bastion" }));
+
+    const authorize = await within(dialog).findByRole("group", { name: "Authorize this central on the bastion" });
+    expect(authorize).toHaveTextContent(AUTHORIZED);
+    expect(authorize).toHaveTextContent("Add this line to the authorized_keys of hop on the bastion.");
+    expect(backend.callsTo("POST /api/nodes/web-2/ssh/authorization")[0]?.body).toEqual({ address: "hop@bastion.example.com:22", fingerprint: PRINT });
+    // Asking changes nothing: the dialog is still the form, and nothing was saved.
+    expect(backend.callsTo("PUT /api/nodes/web-2/ssh")).toHaveLength(0);
+    expect(within(dialog).getByRole("button", { name: "Save and test" })).toBeInTheDocument();
+  });
+
+  it("forgets the line when the bastion it was asked for is edited, and says why when it cannot give one", { timeout: 40_000 }, async () => {
+    let refuse = false;
+    backendWith({
+      "GET /api/nodes/web-2/ssh": () => json(200, DIRECT),
+      "POST /api/nodes/web-2/ssh/authorization": () =>
+        refuse ? problem(400, "node_error", "The bastion answers with another fingerprint", { output: "SHA256:other" }) : json(200, { authorized_key_line: AUTHORIZED }),
+    });
+    const { user } = renderConsole("/fleet/servers");
+
+    await openTool(user, "Connection options");
+    const dialog = await screen.findByRole("dialog", { name: "How this central connects to web-2" });
+    await user.click(await within(dialog).findByRole("checkbox", { name: /Connect through a bastion/ }));
+    await user.type(within(dialog).getByLabelText(/^Bastion/), "hop@bastion.example.com:22");
+    await user.type(within(dialog).getByLabelText(/^Its host key/), PRINT);
+    await user.click(within(dialog).getByRole("button", { name: "Show the line for the bastion" }));
+    await within(dialog).findByRole("group", { name: "Authorize this central on the bastion" });
+
+    await user.type(within(dialog).getByLabelText(/^Bastion/), "2");
+    expect(within(dialog).queryByRole("group", { name: "Authorize this central on the bastion" })).not.toBeInTheDocument();
+
+    refuse = true;
+    await user.click(within(dialog).getByRole("button", { name: "Show the line for the bastion" }));
+    expect(await within(dialog).findByText("The bastion answers with another fingerprint")).toBeInTheDocument();
+    expect(within(dialog).getByText("SHA256:other")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("group", { name: "Authorize this central on the bastion" })).not.toBeInTheDocument();
+  });
+
   it("keeps the key already pinned when the bastion is the same one, and changes only the wait", { timeout: 40_000 }, async () => {
     const backend = backendWith({
       "GET /api/nodes/web-2/ssh": () => json(200, THROUGH),
