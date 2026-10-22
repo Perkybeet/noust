@@ -211,10 +211,10 @@ test.describe("docs @docs", () => {
     await shot(page, "fleet");
   });
 
-  withFleet("settings-servers", async ({ page, consoleServer }) => {
+  withFleet("fleet-servers", async ({ page, consoleServer }) => {
     await page.setViewportSize(DESKTOP);
     await signIn(page, consoleServer, "/fleet/servers");
-    await shot(page, "settings-servers");
+    await shot(page, "fleet-servers");
   });
 
   withFleet("node-apps", async ({ page, consoleServer }) => {
