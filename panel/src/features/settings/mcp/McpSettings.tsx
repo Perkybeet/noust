@@ -20,6 +20,7 @@ import { TextLink } from "../../../components/ui/TextLink";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 const KNOWN_GROUPS = ["inspect", "deploy", "control"] as const;
 type KnownGroup = (typeof KNOWN_GROUPS)[number];
@@ -120,7 +121,7 @@ export function McpSettings() {
           <>
             <SettingsGroup
               level={2}
-              title={t("mcpSettings.state.title")}
+              title={t("mcpSettings.state.title")} icon={OBJECT_ICONS.mcp}
               description={t("mcpSettings.state.description")}
               status={<StatusPill state={status.enabled ? "running" : "stopped"} label={status.enabled ? t("mcpSettings.state.on") : t("mcpSettings.state.off")} size="sm" />}
               command={t("mcpSettings.commandEnable")}

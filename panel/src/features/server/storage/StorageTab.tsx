@@ -43,6 +43,7 @@ import { TabToolbar } from "../TabToolbar";
 import { CleanupHistory } from "./CleanupHistory";
 import { CleanupScheduleCard } from "./CleanupScheduleCard";
 import { SwapCard } from "./SwapCard";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** What a candidate is, by the id the API gives it; one this console does not know keeps its id. */
 export function candidateLabel(t: T, id: string): string {
@@ -94,7 +95,7 @@ const TYPICAL_CANDIDATES = 8;
 function Mounts({ mounts }: { mounts: readonly Mount[] | undefined }) {
   const t = useT();
   return (
-    <Card level={2} title={t("server.storage.mountsTitle")} padding="none">
+    <Card level={2} title={t("server.storage.mountsTitle")} icon={OBJECT_ICONS.disk} padding="none">
       {mounts === undefined ? (
         <LoadingRegion label={t("server.storage.loading")}>
         <ul aria-hidden="true" className="flex flex-col divide-y divide-border">

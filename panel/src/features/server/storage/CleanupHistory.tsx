@@ -27,6 +27,7 @@ import { cleanupHistoryQuery } from "../queries";
 import type { CleanupRun } from "../queries";
 import { cleanupActionLabel } from "./CleanupScheduleCard";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** Runs the card keeps room for while they load. */
 const TYPICAL_RUNS = 4;
@@ -189,7 +190,7 @@ function CleanupRuns({ runs }: { runs: CleanupRun[] }) {
     },
   ];
   return (
-    <Card level={2} title={t("server.storage.history.title")} description={t("server.storage.history.description")} padding="none">
+    <Card level={2} title={t("server.storage.history.title")} icon={OBJECT_ICONS.activity} description={t("server.storage.history.description")} padding="none">
       <DataTable
         columns={columns}
         rows={runs}

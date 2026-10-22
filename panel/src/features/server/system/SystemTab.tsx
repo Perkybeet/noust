@@ -30,6 +30,7 @@ import type { ProcessSort, Processes } from "../queries";
 import { ClockCard, HostnameCard, PowerCard, SystemCard } from "./SystemCards";
 import type { SystemView } from "./data";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** Processes listed at first, and after "Show more". */
 const FEW = 10;
@@ -92,7 +93,7 @@ function ProcessesView() {
         const shown = byUnit ? data.units.length : data.processes.length;
         return (
           <Card level={2}
-            title={t("server.processes.title")}
+            title={t("server.processes.title")} icon={OBJECT_ICONS.processes}
             description={t("server.processes.description")}
             padding="none"
             actions={

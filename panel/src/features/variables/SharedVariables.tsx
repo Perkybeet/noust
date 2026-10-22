@@ -325,7 +325,7 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
   const caption = scope.kind === "preview" ? t("variables.shared.tableCaptionPreview", { scope: text.of }) : t("variables.shared.tableCaption", { scope: text.of });
 
   return (
-    <Section title={text.title} description={text.description} level={level} {...(!primary && !firstUse && addButton !== null ? { actions: addButton } : {})}>
+    <Section title={text.title} icon={OBJECT_ICONS.variable} description={text.description} level={level} {...(!primary && !firstUse && addButton !== null ? { actions: addButton } : {})}>
       {primary && addButton !== null ? <SettingsPrimaryAction>{addButton}</SettingsPrimaryAction> : null}
       <QueryState
         query={query}

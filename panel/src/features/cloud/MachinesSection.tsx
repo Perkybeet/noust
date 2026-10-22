@@ -112,7 +112,7 @@ export function MachinesSection({ canCreate, onCreate }: { canCreate: boolean; o
     </Button>
   );
   return (
-    <Section title={t("cloud.machines.title")} description={t("cloud.machines.description")} actions={query.data !== undefined && query.data.length > 0 ? create : undefined}>
+    <Section title={t("cloud.machines.title")} icon={OBJECT_ICONS.server} description={t("cloud.machines.description")} actions={query.data !== undefined && query.data.length > 0 ? create : undefined}>
       <QueryState
         query={query}
         label={t("cloud.machines.loadingLabel")}

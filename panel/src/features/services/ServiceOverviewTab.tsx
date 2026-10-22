@@ -10,6 +10,7 @@ import { formatBytes } from "../../lib/format";
 import type { ServiceInfo } from "./data";
 import { useServiceRecord } from "./useServiceRecord";
 import type { ServiceRecord } from "./useServiceRecord";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** A service's facts: what it runs, its process, its memory, since when, and whether it starts at boot. */
 export function ServiceOverviewTab({ name }: { name: string }) {
@@ -23,7 +24,7 @@ export function ServiceOverviewTab({ name }: { name: string }) {
       query={query}
       label={name}
       skeleton={
-        <Card level={2} title={t("services.detail.factsTitle")} padding="sm">
+        <Card level={2} title={t("services.detail.factsTitle")} icon={OBJECT_ICONS.service} padding="sm">
           <KeyValueListSkeleton rows={5} />
         </Card>
       }
@@ -61,7 +62,7 @@ function ServiceFacts({ name, data, record }: { name: string; data: ServiceInfo;
   ];
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <Card level={2} title={t("services.detail.factsTitle")} padding="sm">
+      <Card level={2} title={t("services.detail.factsTitle")} icon={OBJECT_ICONS.service} padding="sm">
         <KeyValueList items={items} />
       </Card>
       <CommandHint command={record.foreign ? `systemctl status ${name}` : `noust service status ${name}`} label={t("services.fromTerminal")} />

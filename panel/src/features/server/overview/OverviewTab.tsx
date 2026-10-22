@@ -33,6 +33,7 @@ import { usePowerDialog } from "../PowerDialog";
 import { SERVER_CAPABILITY, dayOf, securityOverviewQuery, summaryQuery } from "../queries";
 import type { SecurityOverview, ServerSummary } from "../queries";
 import { checkTitle } from "../security/data";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** Rows shown before "Show all": the three most serious and two more fit the card. */
 const SHOWN = 5;
@@ -149,7 +150,7 @@ function NeedsAttention({ items, loading }: { items: readonly AttentionItem[]; l
   const shown = all ? items : items.slice(0, SHOWN);
   return (
     <Card level={2}
-      title={t("server.attention.title")}
+      title={t("server.attention.title")} icon={OBJECT_ICONS.alert}
       padding="none"
       className="lg:col-span-2"
       actions={
@@ -213,7 +214,7 @@ function Facts({ summary }: { summary: ServerSummary | undefined }) {
   const t = useT();
   if (summary === undefined) {
     return (
-      <Card level={2} title={t("server.overview.factsTitle")} padding="sm">
+      <Card level={2} title={t("server.overview.factsTitle")} icon={OBJECT_ICONS.server} padding="sm">
         <LoadingRegion label={t("server.overview.loading")}>
           <KeyValueListSkeleton rows={6} />
         </LoadingRegion>
@@ -259,7 +260,7 @@ function Facts({ summary }: { summary: ServerSummary | undefined }) {
     },
   ];
   return (
-    <Card level={2} title={t("server.overview.factsTitle")} padding="sm">
+    <Card level={2} title={t("server.overview.factsTitle")} icon={OBJECT_ICONS.server} padding="sm">
       <KeyValueList items={items} />
     </Card>
   );

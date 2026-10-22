@@ -22,6 +22,7 @@ import type { T } from "../../../i18n";
 import { RowAction } from "../RowAction";
 import { SettingsPrimaryAction } from "../SettingsShell";
 import { GrantDialog } from "./GrantDialog";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 function columnsFor(t: T, roleLabel: (name: string) => string, isCustom: (name: string) => boolean): Column<AccessBinding>[] {
   return [
@@ -92,7 +93,7 @@ export function GrantsSection() {
   );
 
   return (
-    <Section title={t("access.grants.title")} description={t("access.grants.description")}>
+    <Section title={t("access.grants.title")} icon={OBJECT_ICONS.role} description={t("access.grants.description")}>
       {query.data !== undefined && query.data.bindings.length > 0 ? <SettingsPrimaryAction>{grant}</SettingsPrimaryAction> : null}
       <QueryState
         query={query}

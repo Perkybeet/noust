@@ -6,6 +6,7 @@ import { useT } from "../../i18n";
 import { olderServer } from "../app/settings/queries";
 import { useOrganization } from "../teams/useOrganization";
 import { FreezeCard } from "./FreezeCard";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * The freeze of the whole server (`noust deploy freeze`, `POST /api/deploy-freezes`): every deploy
@@ -18,7 +19,7 @@ export function ServerFreezeSection() {
   const query = useQuery({ ...freezesQuery(), retry: false });
   if (query.isError && olderServer(query.error)) return null;
   return (
-    <Section title={t("rollout.freeze.serverTitle")} description={t("rollout.freeze.serverDescription")}>
+    <Section title={t("rollout.freeze.serverTitle")} icon={OBJECT_ICONS.freeze} description={t("rollout.freeze.serverDescription")}>
       <FreezeCard canDeploy={org.can("apps.deploy")} title={t("rollout.freeze.title")} />
     </Section>
   );

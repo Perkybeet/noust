@@ -15,6 +15,7 @@ import { IconButton } from "../../components/ui/IconButton";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
 import { downloadText } from "../../lib/clipboard";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * Settings > About > Support report: the text an issue needs, made on demand. The server masks the
@@ -50,7 +51,7 @@ export function SupportReport() {
         {create.isError ? <ErrorBlock compact live error={create.error} title={t("settings.about.supportReport.failed")} /> : null}
         {report !== undefined ? (
           <Card
-            title={t("settings.about.supportReport.outputLabel")}
+            title={t("settings.about.supportReport.outputLabel")} icon={OBJECT_ICONS.report}
             level={3}
             padding="sm"
             actions={

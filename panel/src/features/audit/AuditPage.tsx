@@ -302,7 +302,7 @@ function ReviewsSection({ t }: { t: T }) {
   const query = useQuery(reviewsQuery());
   const items = query.data?.items ?? [];
   return (
-    <Section title={t("audit.reviews.title")} description={t("audit.reviews.description")}>
+    <Section title={t("audit.reviews.title")} icon={OBJECT_ICONS.report} description={t("audit.reviews.description")}>
       {query.isError ? (
         <ErrorBlock compact error={query.error} title={t("audit.reviews.loadFailed")} onRetry={() => void query.refetch()} />
       ) : (
@@ -381,7 +381,7 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
     <Sections>
       <TrailNotice t={t} />
       <Section
-        title={t("audit.page.title")}
+        title={t("audit.page.title")} icon={OBJECT_ICONS.audit}
         description={t("audit.page.description")}
         actions={
           <>

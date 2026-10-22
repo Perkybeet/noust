@@ -36,6 +36,7 @@ import { ApprovalStateLabel } from "./ApprovalStateLabel";
 import { approvalDescription, callFromSnapshot, inView } from "./data";
 import type { ApprovalsSearch, ApprovalsView } from "./data";
 import { forgetHeld, heldCall } from "./store";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function who(t: T, actor: Approval["requester"] | null | undefined): string {
   if (actor === null || actor === undefined) return "";
@@ -216,7 +217,7 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
   return (
     <Sections>
       <Section
-        title={t("approvals.page.title")}
+        title={t("approvals.page.title")} icon={OBJECT_ICONS.approval}
         {...(policy.data !== undefined
           ? { badge: <StatusPill state={policy.data.enabled ? "running" : "stopped"} label={policy.data.enabled ? t("approvals.page.on") : t("approvals.page.offLabel")} size="sm" /> }
           : {})}

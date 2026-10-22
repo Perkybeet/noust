@@ -22,6 +22,7 @@ import { useExtraAttention } from "../inbox/useAttention";
 import { mergeAttention } from "./attention";
 import type { Severity } from "./attention";
 import { attentionTarget } from "./attentionTarget";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * What the monitor saw, in words, by its signal (`src/noust/monitor/models.py`) and severity
@@ -352,7 +353,7 @@ export function NeedsAttention({ items: listed, total: listedTotal }: NeedsAtten
               </span>
             ) : null}
           </span>
-        }
+        } icon={OBJECT_ICONS.alert}
         // "Show all" in the card's header, as every card that folds a list has it.
         {...(more
           ? {

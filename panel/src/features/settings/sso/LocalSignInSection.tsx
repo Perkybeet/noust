@@ -17,6 +17,7 @@ import { useT } from "../../../i18n";
 import { accountsQuery } from "../accounts/api";
 import type { Account } from "../accounts/api";
 import { roleLabel } from "../accounts/roles";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** Roles first that can administer: the accounts worth keeping a password for. */
 const ADMINISTRATORS = new Set(["admin", "security"]);
@@ -137,7 +138,7 @@ export function LocalSignInSection() {
 
   if (current === undefined) {
     return (
-      <Card level={2} title={t("ssoAdmin.local.title")} description={t("ssoAdmin.local.description")}>
+      <Card level={2} title={t("ssoAdmin.local.title")} icon={OBJECT_ICONS.passkey} description={t("ssoAdmin.local.description")}>
         {query.isError ? <ErrorBlock error={query.error} title={t("ssoAdmin.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} /> : null}
       </Card>
     );
@@ -149,7 +150,7 @@ export function LocalSignInSection() {
     <>
       <SettingsGroup
         level={2}
-        title={t("ssoAdmin.local.title")}
+        title={t("ssoAdmin.local.title")} icon={OBJECT_ICONS.passkey}
         description={t("ssoAdmin.local.description")}
         status={<StatusPill state={current.enabled ? "running" : "stopped"} label={current.enabled ? t("ssoAdmin.local.pill.on") : t("ssoAdmin.local.pill.off")} size="sm" />}
       >

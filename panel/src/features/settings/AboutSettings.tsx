@@ -249,7 +249,7 @@ function InstallationSection() {
   // A node's console is reached through this one; its own address is the one it says it has.
   const address = node === null ? window.location.origin : publicUrl;
   return (
-    <Section level={3} title={t("settings.about.installation.title")}>
+    <Section level={3} title={t("settings.about.installation.title")} icon={OBJECT_ICONS.noust}>
       <Card padding="sm">
         <KeyValueList
           items={[
@@ -384,7 +384,7 @@ export function AboutSettings() {
   if (!read) return <AboutSkeleton />;
   return (
     <Sections>
-      <Section title={t("settings.about.groups.updates.title")} description={t("settings.about.groups.updates.description")}>
+      <Section title={t("settings.about.groups.updates.title")} icon={OBJECT_ICONS.update} description={t("settings.about.groups.updates.description")}>
         <div className="flex min-w-0 flex-col gap-6">
           <VersionSection />
           <AutoUpdateSection />

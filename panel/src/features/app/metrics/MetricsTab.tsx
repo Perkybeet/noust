@@ -53,6 +53,7 @@ import { prepareRead, useMetricsRead } from "../../overview/metricsData";
 import type { SeriesSpec } from "../../overview/metricsData";
 import { RANGES } from "../../overview/ranges";
 import type { MetricRange } from "../../overview/ranges";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 const CHART_HEIGHT = 180;
 
@@ -577,7 +578,7 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
   if (status.data === undefined) {
     return (
       <Section
-        title={t("appPages.metrics.mainTitle")}
+        title={t("appPages.metrics.mainTitle")} icon={OBJECT_ICONS.resources}
         description={<TruthLine read={undefined} range={range} reading />}
         actions={control}
       >

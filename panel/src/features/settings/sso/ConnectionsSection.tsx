@@ -286,7 +286,7 @@ export function ConnectionsSection() {
   const columns = columnsFor(t);
 
   return (
-    <Section title={t("ssoAdmin.connections.title")} description={t("ssoAdmin.connections.description")}>
+    <Section title={t("ssoAdmin.connections.title")} icon={OBJECT_ICONS.identity} description={t("ssoAdmin.connections.description")}>
       {!pending && rows.length > 0 ? <SettingsPrimaryAction>{add}</SettingsPrimaryAction> : null}
       {plainHttp ? (
         <Notice tone="warning" title={t("samlAdmin.plainHttpTitle")}>

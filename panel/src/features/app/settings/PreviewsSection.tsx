@@ -572,7 +572,7 @@ export function PreviewsSettings() {
   const onGithub = /github\.com[:/]/i.test(app.source ?? "");
   return (
     <Section
-      title={t("appSettings.previews.title")}
+      title={t("appSettings.previews.title")} icon={OBJECT_ICONS.preview}
       description={t("appSettings.previews.description")}
     >
       {previews.isPending ? (

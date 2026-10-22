@@ -29,6 +29,7 @@ import { RowAction } from "./RowAction";
 import { sortTokens, tokenState } from "./tokens";
 import type { TokenState } from "./tokens";
 import { SettingsPrimaryAction } from "./SettingsShell";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * A token's state, an on/off at a glance (item 56): an active token works, in the running
@@ -146,7 +147,7 @@ export function TokensSettings() {
     <Sections>
       {query.data !== undefined && query.data.tokens.length > 0 ? <SettingsPrimaryAction>{create}</SettingsPrimaryAction> : null}
       <Section
-        title={t("accounts.tokens.title")}
+        title={t("accounts.tokens.title")} icon={OBJECT_ICONS.token}
         description={t("accounts.tokens.description")}
       >
         <QueryState

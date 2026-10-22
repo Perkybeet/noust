@@ -23,7 +23,7 @@ import type { T } from "../../i18n";
 import { profileLabel } from "../settings/SecuritySettings";
 import { checkQuery, incidentQuery, trailKeys } from "./api";
 import type { EnsFinding } from "./api";
-import { VERB_ICONS } from "../../components/ui/objectIcons";
+import { OBJECT_ICONS, VERB_ICONS } from "../../components/ui/objectIcons";
 
 /** A finding's state: failing, a warning, met, or not applicable here. */
 export function findingView(t: T, status: string): { status: Status; label: string } {
@@ -242,7 +242,7 @@ export function CompliancePage() {
     <Sections>
       <LockdownNotice />
       <Section
-        title={t("compliance.page.title")}
+        title={t("compliance.page.title")} icon={OBJECT_ICONS.control}
         description={t("compliance.page.description")}
         actions={
           <>

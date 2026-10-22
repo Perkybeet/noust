@@ -14,6 +14,7 @@ import { Card } from "../../components/ui/Card";
 import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function facts(adoption: SiteAdoption, t: T): KeyValueItem[] {
   const prose = { mono: false, copy: false } as const;
@@ -44,7 +45,7 @@ export function AdoptedOverview({ app, resources }: { app: App; resources: React
     <div className="flex flex-col gap-8">
       <Notice title={t("runtime.adopted.title")}>{t("runtime.adopted.description")}</Notice>
       {resources}
-      <Section title={t("runtime.adopted.what")}>
+      <Section title={t("runtime.adopted.what")} icon={OBJECT_ICONS.compose}>
         <Card padding="sm">
           {adoption.isPending ? (
             <KeyValueListSkeleton rows={5} />

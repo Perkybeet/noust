@@ -29,6 +29,7 @@ import { ServerErrorBlock, explainServerError, useServerConfirm, ServerQueryStat
 import { fail2banQuery } from "../queries";
 import type { Fail2ban } from "../queries";
 import { useServerJob } from "../serverJob";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 type Jail = Fail2ban["jails"][number];
 
@@ -67,7 +68,7 @@ function Jails({ state }: { state: Fail2ban }) {
   ];
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <Card level={2} title={t("server.bans.jailsTitle")} padding="none">
+      <Card level={2} title={t("server.bans.jailsTitle")} icon={OBJECT_ICONS.protection} padding="none">
         <DataTable
           columns={columns}
           rows={state.jails}
@@ -79,7 +80,7 @@ function Jails({ state }: { state: Fail2ban }) {
         />
       </Card>
       {state.jails.length > 0 ? (
-        <Card level={2} title={t("server.bans.bannedTitle")} padding="sm">
+        <Card level={2} title={t("server.bans.bannedTitle")} icon={OBJECT_ICONS.protection} padding="sm">
           <div className="flex flex-col gap-4">
             {state.jails.map((jail) => (
               <div key={jail.name} className="flex min-w-0 flex-col gap-2">

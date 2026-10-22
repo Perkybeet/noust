@@ -28,6 +28,7 @@ import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { useSudoFirst } from "../app/settings/formParts";
 import { splitErrors } from "./formErrors";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
  * What the API takes to forget a host that listens on another port: `name:port`. The list shows
@@ -239,7 +240,7 @@ export function DeployKeysSection() {
   const t = useT();
   const keys = useQuery(deployKeysQuery());
   return (
-    <Section title={t("sources.server.title")} description={t("sources.server.description")}>
+    <Section title={t("sources.server.title")} icon={OBJECT_ICONS.key} description={t("sources.server.description")}>
       <QueryState
         query={keys}
         label={t("sources.server.label")}

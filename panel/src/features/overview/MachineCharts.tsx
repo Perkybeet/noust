@@ -12,6 +12,7 @@ import { prepareRead, useMetricsRead } from "./metricsData";
 import type { SeriesSpec } from "./metricsData";
 import { RANGES } from "./ranges";
 import type { MetricRange } from "./ranges";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** Every metric the machine charts draw, read together: one request, one grid, one crosshair. */
 export const MACHINE_METRICS = ["cpu.percent", "mem.used_bytes", "swap.used_bytes", "load.1m", "net.rx_bytes_s", "net.tx_bytes_s", "disk.used_bytes"] as const;
@@ -113,7 +114,7 @@ export function MachineCharts({ range, onRangeChange, className }: MachineCharts
   const control = <RangeControl range={range} onRangeChange={onRangeChange} />;
   return (
     <Section
-      title={t("overview.machine.title")}
+      title={t("overview.machine.title")} icon={OBJECT_ICONS.server}
       description={<TruthLine read={read.data} range={range} reading={read.isPlaceholderData} />}
       actions={control}
       {...(className !== undefined ? { className } : {})}

@@ -27,6 +27,7 @@ import type { T } from "../../../i18n";
 import { accountsQuery } from "../accounts/api";
 import { focusFirstInvalid, splitErrors } from "../formErrors";
 import { RowAction } from "../RowAction";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 function columnsFor(t: T): Column<SsoIdentity>[] {
   return [
@@ -176,7 +177,7 @@ export function IdentitiesSection() {
   );
 
   return (
-    <Section title={t("ssoAdmin.identities.title")} description={t("ssoAdmin.identities.description")} actions={query.data !== undefined && query.data.identities.length > 0 ? link : undefined}>
+    <Section title={t("ssoAdmin.identities.title")} icon={OBJECT_ICONS.identity} description={t("ssoAdmin.identities.description")} actions={query.data !== undefined && query.data.identities.length > 0 ? link : undefined}>
       <QueryState
         query={query}
         label={t("ssoAdmin.loadingLabel")}

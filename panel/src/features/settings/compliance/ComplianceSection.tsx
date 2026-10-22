@@ -9,6 +9,7 @@ import { useT } from "../../../i18n";
 import { useCan } from "../../variables/useCan";
 import { ControlsSection } from "./ControlsSection";
 import { FrameworksSection } from "./FrameworksSection";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /**
  * Settings > Security > Compliance, in two parts: the frameworks that can be switched on (each
@@ -23,7 +24,7 @@ export function ComplianceSection() {
   const canManage = useCan("security.manage");
   const state = query.data;
   return (
-    <Section title={t("complianceSetup.title")} description={t("complianceSetup.description")} loading={state === undefined && !query.isError}>
+    <Section title={t("complianceSetup.title")} icon={OBJECT_ICONS.control} description={t("complianceSetup.description")} loading={state === undefined && !query.isError}>
       <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("complianceSetup.honest")}</p>
       {query.isError && state === undefined ? (
         <ErrorBlock error={query.error} title={t("complianceSetup.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />

@@ -20,6 +20,7 @@ import type { PlainKey } from "../../../i18n";
 import { ChangeDialog } from "./ChangeDialog";
 import { LockedMark } from "./FrameworksSection";
 import { GROUPS, asText, controlSummary, controlTitle, formatValue, inGroup, lockedBy } from "./model";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 interface ControlDialogProps {
   control: ComplianceControl;
@@ -221,7 +222,7 @@ export function ControlsSection({ state, canManage }: { state: ComplianceState; 
   });
 
   return (
-    <Section level={3} title={t("complianceSetup.controls.title")} description={t("complianceSetup.controls.description")}>
+    <Section level={3} title={t("complianceSetup.controls.title")} icon={OBJECT_ICONS.control} description={t("complianceSetup.controls.description")}>
       {flip.isError ? <ErrorBlock live compact error={flip.error} title={t("complianceSetup.controls.dialog.failed")} /> : null}
       {GROUPS.map((group) => {
         const rows = inGroup(state.controls, group);

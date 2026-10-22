@@ -12,6 +12,7 @@ import type { T } from "../../i18n";
 import { ServerLink } from "../fleet/links";
 import { ReachabilityPill } from "../fleet/ReachabilityPill";
 import type { FleetSummaryRow, FleetSummaryState } from "./useFleetSummary";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const NAME = "min-w-0 truncate rounded-chip text-13 font-medium text-fg hover:underline hover:underline-offset-2";
 
@@ -106,7 +107,7 @@ export function FleetSummary({ state }: { state: FleetSummaryState }) {
       as="section"
       level={2}
       padding="none"
-      title={t("overview.fleet.title")}
+      title={t("overview.fleet.title")} icon={OBJECT_ICONS.node}
       {...(line !== undefined ? { description: line } : {})}
       actions={
         <TextLink to="/fleet" size="ui">

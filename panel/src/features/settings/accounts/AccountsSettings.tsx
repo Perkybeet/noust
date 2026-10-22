@@ -417,7 +417,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
         <ConflictsNotice t={t} conflicts={query.data.conflicts} canManage={canManage} onException={(person) => setPending({ kind: "exception", person })} />
       ) : null}
       {!empty ? <SettingsPrimaryAction>{inviteButton("primary")}</SettingsPrimaryAction> : null}
-      <Section title={t("accounts.page.title")} description={t("accounts.page.description")}>
+      <Section title={t("accounts.page.title")} icon={OBJECT_ICONS.account} description={t("accounts.page.description")}>
         {content}
       </Section>
       {!empty ? <ExceptionsSection t={t} canManage={canManage} onAdd={() => setPending({ kind: "exception", person: "" })} /> : null}

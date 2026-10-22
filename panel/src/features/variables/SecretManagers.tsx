@@ -33,6 +33,7 @@ import { reportActionError } from "../apps/useAppActions";
 import { SettingsPrimaryAction } from "../settings/SettingsShell";
 import { useOrganization } from "../teams/useOrganization";
 import { useCan } from "./useCan";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** What a name may be, as the server reads it: lowercase letters, digits and dashes. */
 const NAME = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -325,7 +326,7 @@ export function SecretManagers() {
   const caption = t("variables.providers.tableCaption");
   return (
     <div className="flex flex-col gap-6">
-      <Section title={t("variables.providers.title")} description={t.rich("variables.providers.description", { syntax: <Mono>{syntaxOf("NAME")}</Mono> })}>
+      <Section title={t("variables.providers.title")} icon={OBJECT_ICONS.secretManager} description={t.rich("variables.providers.description", { syntax: <Mono>{syntaxOf("NAME")}</Mono> })}>
         {add}
         <QueryState
           query={providers}

@@ -43,6 +43,7 @@ import type { UpdatePackage, UpdateRun, UpdateScope, Updates } from "../queries"
 import { useServerJob } from "../serverJob";
 import { TabToolbar } from "../TabToolbar";
 import { ApplyDialog, Names } from "./ApplyDialog";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** Rows before "Show all": enough to see every security update on most days. */
 const SHOWN_PACKAGES = 8;
@@ -155,7 +156,7 @@ function RecentRuns() {
     { id: "actor", header: t("server.updates.runs.actor"), hideBelow: "md", cell: (row) => (row.actor ? <Mono tone="muted">{row.actor}</Mono> : <EmptyCell />) },
   ];
   return (
-    <Card level={2} title={t("server.updates.runs.title")} padding="none">
+    <Card level={2} title={t("server.updates.runs.title")} icon={OBJECT_ICONS.activity} padding="none">
       <DataTable
         columns={columns}
         rows={runs.data ?? []}
@@ -205,7 +206,7 @@ function AutoUpdates({ updates }: { updates: Updates }) {
   return (
     <SettingsGroup
       level={2}
-      title={t("server.updates.auto.title")}
+      title={t("server.updates.auto.title")} icon={OBJECT_ICONS.update}
       status={<StatusPill state={auto.enabled ? "running" : "stopped"} label={auto.enabled ? t("server.updates.auto.on") : t("server.updates.auto.off")} size="sm" />}
     >
       <Setting

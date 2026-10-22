@@ -27,6 +27,7 @@ import { reportActionError } from "../../apps/useAppActions";
 import { headlessQuery, olderServer, settingsKeys } from "./queries";
 import { useAsksItsYou } from "./settingRows";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** Whether the app is a Compose stack, the only kind these settings are about. */
 export function isComposeStack(app: Pick<App, "app_type">): boolean {
@@ -110,7 +111,7 @@ export function WorkerCard({ app }: { app: App }) {
 
   if (check.isPending) {
     return (
-      <Card title={title}>
+      <Card title={title} icon={OBJECT_ICONS.compose}>
         <LoadingRegion label={t("appSettings.stack.workerLoading")}>
           <Skeleton className="h-10 w-full rounded-control" />
         </LoadingRegion>
@@ -121,7 +122,7 @@ export function WorkerCard({ app }: { app: App }) {
   if (check.isError && olderServer(check.error)) return null;
   if (check.isError) {
     return (
-      <Card title={title}>
+      <Card title={title} icon={OBJECT_ICONS.compose}>
         <ErrorBlock
           compact
           error={check.error}
@@ -136,7 +137,7 @@ export function WorkerCard({ app }: { app: App }) {
   const port = data.recorded_port ?? null;
   if (!data.headless || port === null) return null;
   return (
-    <Card title={title}>
+    <Card title={title} icon={OBJECT_ICONS.compose}>
       <div className="flex flex-col gap-3">
         <p className="max-w-measure text-13 text-pretty text-fg">
           {t("appSettings.stack.workerDescription", { port })}

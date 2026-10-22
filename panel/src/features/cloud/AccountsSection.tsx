@@ -22,6 +22,7 @@ import { AccountDialog } from "./AccountDialog";
 import { cloudAccountsQuery } from "./data";
 import type { CloudAccount, ProviderKind } from "./data";
 import { useCloudActions } from "./useCloudActions";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function providerName(t: T, provider: string): string {
   return provider === "hetzner" || provider === "digitalocean" || provider === "vultr" ? t(`cloud.provider.${provider satisfies ProviderKind}.name`) : provider;
@@ -124,7 +125,7 @@ export function AccountsSection({ adding, onAddingChange }: { adding: boolean; o
     </Button>
   );
   return (
-    <Section title={t("cloud.accounts.title")} description={t("cloud.accounts.description")} actions={query.data !== undefined && query.data.length > 0 ? add : undefined}>
+    <Section title={t("cloud.accounts.title")} icon={OBJECT_ICONS.cloud} description={t("cloud.accounts.description")} actions={query.data !== undefined && query.data.length > 0 ? add : undefined}>
       <QueryState
         query={query}
         label={t("cloud.accounts.loadingLabel")}
