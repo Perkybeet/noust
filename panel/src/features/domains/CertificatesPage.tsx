@@ -12,6 +12,7 @@ import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { RowMenu } from "../../components/page/RowMenu";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import type { Column } from "../../components/ui/DataTable";
@@ -19,9 +20,8 @@ import { DataTable } from "../../components/ui/DataTable";
 import { Drawer } from "../../components/ui/Drawer";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Select } from "../../components/ui/Select";
 import { StatusPill } from "../../components/ui/StatusPill";
@@ -273,6 +273,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
   );
 
   let content;
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (certs.isError && certs.data === undefined) {
     content = (
       <ErrorBlock
@@ -320,15 +321,15 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
           const busy = certificateJobFor(jobs, cert.domain) !== null;
           if (cert.source === "custom") {
             return (
-              <Menu align="end" trigger={<IconButton label={t("domains.actionsFor", { name: cert.domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+              <RowMenu name={cert.domain}>
                 <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeletingUpload(cert)}>
                   {t("network.upload.delete")}
                 </MenuItem>
-              </Menu>
+              </RowMenu>
             );
           }
           return (
-            <Menu align="end" trigger={<IconButton label={t("domains.actionsFor", { name: cert.domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+            <RowMenu name={cert.domain}>
               <MenuItem icon={<RefreshCw />} disabled={busy} onClick={() => renew.mutate({ cert, force: false })}>
                 {t("domains.certificatesTab.renewIfDue")}
               </MenuItem>
@@ -342,7 +343,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
               <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(cert)}>
                 {t("domains.delete")}
               </MenuItem>
-            </Menu>
+            </RowMenu>
           );
         }}
       />

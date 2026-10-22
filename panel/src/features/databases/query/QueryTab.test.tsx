@@ -30,8 +30,8 @@ describe("the SQL console", () => {
     expect(within(grid).getByText("NULL")).toBeInTheDocument();
     expect(screen.getByText("2 rows")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("switch", { name: "Allow changes" }));
-    expect(screen.getByText("Statements can change data")).toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: "Allow changes" }));
+    expect(screen.getByText(/Runs as the engine's administrator/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^Run/ }));
     await waitFor(() => expect(backend.callsTo("POST /api/databases/query")).toHaveLength(2));
     expect(backend.callsTo("POST /api/databases/query")[1]?.body).toMatchObject({ mode: "write" });

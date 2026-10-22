@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Database as DatabaseIcon, KeyRound, Link2, Unlink } from "lucide-react";
+import { Database as DatabaseIcon, Eye, KeyRound, Link2, Plus, Unlink } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -10,7 +10,7 @@ import { activeJobsQuery, isJobFinished, jobKeys, useFollowedJob } from "../../.
 import type { Job } from "../../../api/queries/jobs";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
-import { ErrorBlock } from "../../../components/page/QueryState";
+import { QueryState } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
@@ -107,7 +107,7 @@ function LinkCard({
               value: link.url ? (
                 <span className="flex min-w-0 flex-wrap items-center gap-x-2">
                   <Mono truncate>{link.url}</Mono>
-                  <Button size="sm" variant="ghost" onClick={onShow}>
+                  <Button icon={<Eye aria-hidden="true" />} size="sm" variant="ghost" onClick={onShow}>
                     {t("databases.connect.showUrl")}
                   </Button>
                 </span>
@@ -215,7 +215,7 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
         <Notice
           title={t("databases.appTab.pendingTitle", { engine: engineName(pending.engine, engines.data?.engines) })}
           action={
-            <Button size="sm" onClick={() => setCreating(true)}>
+            <Button size="sm" icon={<Plus aria-hidden="true" />} onClick={() => setCreating(true)}>
               {t("databases.appTab.create")}
             </Button>
           }
@@ -224,44 +224,46 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
         </Notice>
       ) : null}
 
-      {links.isError && links.data === undefined ? (
-        <ErrorBlock error={links.error} title={t("databases.appTab.loadFailed")} onRetry={() => void links.refetch()} retrying={links.isRefetching} />
-      ) : links.data === undefined ? (
-        <div aria-busy="true" className="flex flex-col gap-4">
-          <span className="sr-only">{t("databases.appTab.loading")}</span>
-          <Skeleton className="h-36 w-full rounded-card" />
-        </div>
-      ) : list.length === 0 ? (
-        <EmptyState
-          variant="firstUse"
-          icon={<DatabaseIcon />}
-          title={t("databases.appTab.emptyTitle")}
-          description={t("databases.appTab.emptyDescription")}
-          action={actions}
-          command={`noust db provision ${domain} -e postgresql`}
-        />
-      ) : (
-        <>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="max-w-measure text-13 text-fg-muted">{t("databases.appTab.intro")}</p>
-            {actions}
-          </div>
-          <ul className="grid gap-4 lg:grid-cols-2">
-            {list.map((link) => (
-              <LinkCard
-                key={`${link.engine}/${link.database}`}
-                link={link}
-                t={t}
-                busy={busy}
-                engines={engines.data?.engines}
-                onShow={() => reveal.mutate(link)}
-                onRotate={() => setRotating(link)}
-                onUnlink={() => setUnlinking(link)}
-              />
-            ))}
-          </ul>
-        </>
-      )}
+      <QueryState
+        query={links}
+        label={t("databases.appTab.noun")}
+        skeleton={<Skeleton className="h-36 w-full rounded-card" />}
+        isEmpty={() => list.length === 0}
+        empty={
+          <EmptyState
+            variant="firstUse"
+            icon={<DatabaseIcon />}
+            title={t("databases.appTab.emptyTitle")}
+            description={t("databases.appTab.emptyDescription")}
+            action={actions}
+            command={`noust db provision ${domain} -e postgresql`}
+          />
+        }
+        className="flex flex-col gap-4"
+      >
+        {() => (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="max-w-measure text-13 text-fg-muted">{t("databases.appTab.intro")}</p>
+              {actions}
+            </div>
+            <ul className="grid gap-4 lg:grid-cols-2">
+              {list.map((link) => (
+                <LinkCard
+                  key={`${link.engine}/${link.database}`}
+                  link={link}
+                  t={t}
+                  busy={busy}
+                  engines={engines.data?.engines}
+                  onShow={() => reveal.mutate(link)}
+                  onRotate={() => setRotating(link)}
+                  onUnlink={() => setUnlinking(link)}
+                />
+              ))}
+            </ul>
+          </>
+        )}
+      </QueryState>
 
       {list.length > 0 ? <CommandHint command={`noust db links ${domain}`} label={t("databases.common.fromTerminal")} /> : null}
 

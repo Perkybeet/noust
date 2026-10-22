@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Globe, Pencil, X } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -19,6 +20,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 type Action = "close" | "refuse" | "redirect";
 
@@ -133,6 +135,7 @@ export function UnknownHostsCard() {
     },
   });
 
+  // design-exception: hand-error-ternary the card keeps its frame and a skeleton of its action while it loads, so the page below does not move
   if (status.isError && status.data === undefined) {
     return <ErrorBlock error={status.error} title={t("network.unknownHosts.readFailed")} onRetry={() => void status.refetch()} retrying={status.isRefetching} />;
   }
@@ -142,6 +145,7 @@ export function UnknownHostsCard() {
 
   return (
     <Card
+      icon={Globe}
       loading={data === undefined}
       level={2}
       title={t("network.unknownHosts.title")}
@@ -152,11 +156,11 @@ export function UnknownHostsCard() {
         ) : (
           <span className="flex items-center gap-2">
             {data.enabled ? (
-              <Button size="sm" loading={reset.isPending} onClick={() => reset.mutate()}>
+              <Button icon={<X aria-hidden="true" />} size="sm" loading={reset.isPending} onClick={() => reset.mutate()}>
                 {t("network.unknownHosts.remove")}
               </Button>
             ) : null}
-            <Button size="sm" onClick={() => setChanging(true)}>
+            <Button icon={<Pencil aria-hidden="true" />} size="sm" onClick={() => setChanging(true)}>
               {data.enabled ? t("network.unknownHosts.change") : t("network.unknownHosts.set")}
             </Button>
           </span>
@@ -164,10 +168,9 @@ export function UnknownHostsCard() {
       }
     >
       {data === undefined ? (
-        <div aria-busy="true" className="flex flex-col gap-2">
-          <span className="sr-only">{t("network.unknownHosts.loading")}</span>
+        <LoadingRegion label={t("network.unknownHosts.loading")} className="flex flex-col gap-2">
           <Skeleton className="h-5 w-2/3" />
-        </div>
+        </LoadingRegion>
       ) : (
         <div className="flex flex-col gap-3">
           <p className="text-13 text-fg">{answer(data, t)}</p>

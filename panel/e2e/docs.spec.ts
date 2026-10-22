@@ -213,7 +213,7 @@ test.describe("docs @docs", () => {
 
   withFleet("settings-servers", async ({ page, consoleServer }) => {
     await page.setViewportSize(DESKTOP);
-    await signIn(page, consoleServer, "/settings/servers");
+    await signIn(page, consoleServer, "/fleet/servers");
     await shot(page, "settings-servers");
   });
 

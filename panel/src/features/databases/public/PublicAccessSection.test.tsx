@@ -181,7 +181,7 @@ describe("a database's public access", () => {
       },
     });
     const section = await screen.findByRole("region", { name: "Public access" });
-    expect(await within(section).findByText("Public on port 5433")).toBeInTheDocument();
+    expect(await within(section).findByText("Public")).toBeInTheDocument();
     expect(within(section).getByText("203.0.113.50:5433")).toBeInTheDocument();
     expect(within(section).getByText("Required: a connection without TLS is refused")).toBeInTheDocument();
     expect(within(section).getByText("ufw allows the port from 203.0.113.7/32")).toBeInTheDocument();
@@ -215,6 +215,6 @@ describe("a database's public access", () => {
     await connectAt({
       [`GET ${PUBLIC}`]: () => json(200, { public: true, exposure: { ...EXPOSURE, listening: false }, connection: CONNECTION }),
     });
-    expect(await screen.findByText("Public, but the port does not answer")).toBeInTheDocument();
+    expect(await screen.findByText("Not answering")).toBeInTheDocument();
   });
 });

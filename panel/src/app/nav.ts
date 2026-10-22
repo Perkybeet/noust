@@ -48,8 +48,7 @@ import type { ConsolePath, Dest, NavContext, Scope, TabItem } from "./navCore";
 export { INTERIM, isStaged, tabsOf, withCounts } from "./navCore";
 export type { ConsolePath, Dest, Kind, NavContext, Owner, Scope, Strip, TabItem, When } from "./navCore";
 export { APP_TABS } from "../features/nav/app";
-export { FLEET_TABS } from "../features/nav/fleet";
-export type { FleetTabItem } from "../features/nav/fleet";
+export { FLEET_APPS_SCREENS } from "../features/nav/fleet";
 export { TEAM_TABS } from "../features/nav/team";
 
 /** The register itself, filled in the order the lists draw the groups. */

@@ -30,10 +30,9 @@ export const fleetCompare: Catalog<typeof en> = {
     scopeLabel: "Qué servidores",
     thisServer: "Este servidor",
     everyServer: "Todos los servidores",
-    appNote: "Buscando en todos los servidores: el filtro de aplicación vale para un solo servidor.",
+    label: "los registros de todos los servidores",
     summary: { one: "{count} línea que coincide, de {servers} servidores.", other: "{count} líneas que coinciden, de {servers} servidores." },
     nothing: "Ningún servidor tiene una línea que coincida.",
     perServer: "Hasta {limit} líneas de cada servidor.",
-    loadFailed: "No se pudo buscar en los registros de los servidores",
   },
 };

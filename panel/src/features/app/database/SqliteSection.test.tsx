@@ -81,7 +81,7 @@ describe("the SQLite files in an application's Database tab", { timeout: 40_000 
     if (!card) throw new Error("no card");
     await user.click(within(card).getByRole("button", { name: "Check" }));
 
-    expect(await within(card).findByText("Nothing wrong found in 0.25 s")).toBeInTheDocument();
+    expect(await within(card).findByText(/Nothing wrong found in 0.25 s/)).toBeInTheDocument();
     await user.click(within(card).getByRole("button", { name: "Check every index" }));
     await waitFor(() => expect(backend.callsTo(CHECK)).toHaveLength(2));
     expect(backend.callsTo(CHECK)[0]?.body).toEqual({ path: "data/app.db", full: false });
@@ -113,7 +113,7 @@ describe("the SQLite files in an application's Database tab", { timeout: 40_000 
     if (!card) throw new Error("no card");
     await user.click(within(card).getByRole("button", { name: "Check every index" }));
 
-    expect(await within(card).findByText("The check stopped before the end")).toBeInTheDocument();
+    expect(await within(card).findByText(/The check stopped before the end/)).toBeInTheDocument();
     expect(within(card).queryByText(/Nothing wrong found in/)).not.toBeInTheDocument();
   });
 });

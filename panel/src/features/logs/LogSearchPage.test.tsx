@@ -80,7 +80,7 @@ describe("Logs", () => {
     expect(screen.getAllByRole("link", { name: "Logs" }).some((link) => link.getAttribute("href") === "/logs")).toBe(true);
   });
 
-  it("asks again with the words typed, the window, the level and the application chosen", { timeout: 40_000 }, async () => {
+  it("asks again with the words typed, the range and the application chosen", { timeout: 40_000 }, async () => {
     const { user, backend, location } = await pageAt();
     await screen.findByText("3 of 5 matching lines shown, out of 340 examined.");
     await user.type(screen.getByRole("searchbox", { name: "Search the logs" }), "refused");
@@ -88,15 +88,10 @@ describe("Logs", () => {
       expect(backend.callsTo("GET /api/logs/search").at(-1)?.search.get("q")).toBe("refused");
     });
 
-    await user.click(screen.getByRole("radio", { name: "24 hours" }));
+    await user.click(screen.getByRole("combobox", { name: "How far back" }));
+    await user.click(await screen.findByRole("option", { name: "24 hours" }));
     await waitFor(() => {
       expect(backend.callsTo("GET /api/logs/search").at(-1)?.search.get("since")).toBe("24h");
-    });
-
-    await user.click(screen.getByRole("combobox", { name: "Level" }));
-    await user.click(await screen.findByRole("option", { name: "Errors" }));
-    await waitFor(() => {
-      expect(backend.callsTo("GET /api/logs/search").at(-1)?.search.get("level")).toBe("err");
     });
 
     await user.click(screen.getByRole("combobox", { name: "Application" }));
@@ -105,11 +100,49 @@ describe("Logs", () => {
       expect(backend.callsTo("GET /api/logs/search").at(-1)?.search.getAll("app")).toEqual(["blog.example.com"]);
     });
     // The question is in the address, so it can be sent to somebody.
-    expect(location().search).toEqual({ q: "refused", since: "24h", level: "err", app: "blog.example.com" });
+    expect(location().search).toEqual({ q: "refused", since: "24h", app: "blog.example.com" });
 
     await user.click(screen.getByRole("button", { name: "Clear the search" }));
     await waitFor(() => {
       expect(location().search).toEqual({});
+    });
+  });
+
+  it("keeps the space typed between two words", { timeout: 40_000 }, async () => {
+    const { user, location } = await pageAt();
+    await screen.findByText("3 of 5 matching lines shown, out of 340 examined.");
+    await user.type(screen.getByRole("searchbox", { name: "Search the logs" }), "connection refused");
+    await waitFor(() => {
+      expect(location().search).toEqual({ q: "connection refused" });
+    });
+    expect(screen.getByRole("searchbox", { name: "Search the logs" })).toHaveValue("connection refused");
+  });
+
+  it("offers Live among the ranges: the newest lines, asked again every few seconds", { timeout: 40_000 }, async () => {
+    const { user, backend, location } = await pageAt();
+    await screen.findByText("3 of 5 matching lines shown, out of 340 examined.");
+    await user.click(screen.getByRole("combobox", { name: "How far back" }));
+    expect((await screen.findAllByRole("option")).map((option) => option.textContent)).toEqual(["Live", "15 minutes", "1 hour", "6 hours", "24 hours", "7 days"]);
+    await user.click(screen.getByRole("option", { name: "Live" }));
+    await waitFor(() => {
+      expect(location().search).toEqual({ since: "live" });
+    });
+    await waitFor(() => {
+      expect(backend.callsTo("GET /api/logs/search").at(-1)?.search.get("since")).toBe("15m");
+    });
+    expect(screen.getByText("noust log search --since 15m")).toBeInTheDocument();
+  });
+
+  it("moves to the system's journal and back, taking the words along", { timeout: 40_000 }, async () => {
+    const { user, location } = await pageAt("/logs?q=timeout&app=shop.example.com&since=24h");
+    await screen.findByText("3 of 5 matching lines shown, out of 340 examined.");
+    await user.click(screen.getByRole("radio", { name: "System" }));
+    await waitFor(() => {
+      expect(location().search).toEqual({ source: "system", q: "timeout", since: "24h" });
+    });
+    await user.click(await screen.findByRole("radio", { name: "Applications" }));
+    await waitFor(() => {
+      expect(location().search).toEqual({ q: "timeout", since: "24h" });
     });
   });
 

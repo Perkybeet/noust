@@ -18,6 +18,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
@@ -119,11 +120,12 @@ export function DeliveryLog() {
   const deliveries = useQuery(notificationDeliveriesQuery());
 
   // A server whose Noust predates the record has nothing to show here.
+  // design-exception: hand-error-ternary an older server has no such record: that is not a failure to load
   if (deliveries.isError && deliveries.data === undefined) return null;
   const items = deliveries.data?.items ?? [];
 
   return (
-    <Section title={t("notifyRouting.deliveries.title")} description={t("notifyRouting.deliveries.description")}>
+    <Section icon={OBJECT_ICONS.activity} title={t("notifyRouting.deliveries.title")} description={t("notifyRouting.deliveries.description")}>
       {deliveries.data === undefined ? (
         <LoadingRegion label={t("notifyRouting.deliveries.loading")}>
           <Card padding="none">

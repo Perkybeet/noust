@@ -272,7 +272,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
         keywords: t("fleet.commands.addServerKeywords"),
         kind: "navigate",
         run: () => {
-          void navigate({ to: "/settings/servers", search: { add: true } });
+          void navigate({ to: "/fleet/servers", search: { add: true } });
         },
       },
       ...(["dark", "light", "system"] as const)
@@ -362,7 +362,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
                     keywords: t("fleet.selector.keywords"),
                     kind: "navigate" as const,
                     run: () => {
-                      void navigate({ to: "/settings/servers", search: { node: undefined } }).then(() => {
+                      void navigate({ to: "/settings/central", search: { node: undefined } }).then(() => {
                         announce(t("fleet.selector.switchedCentral"));
                       });
                     },

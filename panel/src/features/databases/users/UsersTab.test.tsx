@@ -20,7 +20,7 @@ describe("a database's accounts", () => {
     expect(await within(table).findByText("example_production")).toBeInTheDocument();
     expect(within(table).getByText("Read and write")).toBeInTheDocument();
     expect(within(table).queryByText("postgres")).toBeNull();
-    await user.click(screen.getByRole("switch", { name: "Show 1 system account" }));
+    await user.click(screen.getByRole("checkbox", { name: "Show 1 system account" }));
     expect(within(table).getByText("postgres")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "New user" }));

@@ -9,26 +9,29 @@ import type { Job } from "../../api/queries/jobs";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Subsection } from "../../components/page/Subsection";
-import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Mono } from "../../components/ui/Mono";
+import { RowList } from "../../components/ui/RowList";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { olderServer } from "../app/settings/queries";
 import { reportActionError } from "../apps/useAppActions";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 /** One test: what it found, step by step, in the server's own words. */
 function Drill({ drill }: { drill: RestoreDrill }) {
   const t = useT();
   const steps = drill.steps ?? [];
   return (
-    <li className="flex min-w-0 flex-col gap-2 px-3 py-3">
+    <RowList.Item className="items-start">
+     <div className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Badge tone={drill.ok ? "ok" : "fail"}>{drill.ok ? t("backups.drills.passed") : t("backups.drills.failed")}</Badge>
+        <StatusPill size="sm" state={drill.ok ? "running" : "failed"} label={drill.ok ? t("backups.drills.passed") : t("backups.drills.failed")} />
         <RelativeTime value={drill.started_at} className="text-12 text-fg-muted" />
         <span className="text-12 text-fg-faint">{drill.trigger === "schedule" ? t("backups.drills.byTimer") : t("backups.drills.byHand")}</span>
         {drill.backup_id ? <Mono truncate title={drill.backup_id}>{drill.backup_id}</Mono> : null}
@@ -36,24 +39,29 @@ function Drill({ drill }: { drill: RestoreDrill }) {
       <p className="text-13 text-pretty text-fg">{drill.summary}</p>
       {steps.length > 0 ? (
         <Disclosure label={t("backups.drills.steps", { count: steps.length })} defaultOpen={!drill.ok}>
-          <ol aria-label={t("backups.drills.stepsLabel")} className="flex flex-col divide-y divide-border rounded-control border border-border">
+          <RowList aria-label={t("backups.drills.stepsLabel")}>
             {steps.map((step) => (
-              <li key={step.name} className="flex min-w-0 flex-col gap-0.5 px-3 py-2">
-                <span className="flex flex-wrap items-center gap-2">
-                  <Mono>{step.name}</Mono>
-                  <Badge tone={step.skipped ? "neutral" : step.ok ? "ok" : "fail"}>
-                    {step.skipped ? t("backups.drills.skipped") : step.ok ? t("backups.drills.stepOk") : t("backups.drills.stepFailed")}
-                  </Badge>
-                </span>
-                <SystemOutput label={t("backups.drills.stepOutput", { name: step.name })} maxHeight="max-h-32">
-                  {step.detail}
-                </SystemOutput>
-              </li>
+              <RowList.Item key={step.name} className="items-start">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <Mono>{step.name}</Mono>
+                    <StatusPill
+                      size="sm"
+                      state={step.skipped ? "stopped" : step.ok ? "running" : "failed"}
+                      label={step.skipped ? t("backups.drills.skipped") : step.ok ? t("backups.drills.stepOk") : t("backups.drills.stepFailed")}
+                    />
+                  </span>
+                  <SystemOutput label={t("backups.drills.stepOutput", { name: step.name })} maxHeight="max-h-32">
+                    {step.detail}
+                  </SystemOutput>
+                </div>
+              </RowList.Item>
             ))}
-          </ol>
+          </RowList>
         </Disclosure>
       ) : null}
-    </li>
+     </div>
+    </RowList.Item>
   );
 }
 
@@ -87,10 +95,9 @@ export function RestoreDrillsSection({ domain }: { domain: string }) {
   if (query.isPending) {
     return (
       <Subsection title={title} level={3}>
-        <div aria-busy="true">
-          <span className="sr-only">{t("backups.drills.loading")}</span>
+        <LoadingRegion label={t("backups.drills.loading")}>
           <Skeleton className="h-16 w-full rounded-control" />
-        </div>
+        </LoadingRegion>
       </Subsection>
     );
   }
@@ -107,11 +114,11 @@ export function RestoreDrillsSection({ domain }: { domain: string }) {
       {items.length === 0 ? (
         <EmptyState variant="inline" title={t("backups.drills.empty")} />
       ) : (
-        <ul aria-label={title} className="flex flex-col divide-y divide-border rounded-control border border-border">
+        <RowList aria-label={title}>
           {items.map((drill) => (
             <Drill key={drill.id ?? drill.started_at} drill={drill} />
           ))}
-        </ul>
+        </RowList>
       )}
     </Subsection>
   );

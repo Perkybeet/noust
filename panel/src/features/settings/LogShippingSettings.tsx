@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Power, Send, Trash2 } from "lucide-react";
+import { Pencil, Plus, Power, Send, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -7,7 +7,7 @@ import { isApiError, request } from "../../api/client";
 import { logDrainsQuery, runtimeKeys } from "../../api/queries/runtime";
 import type { LogDrain } from "../../api/queries/runtime";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section } from "../../components/page/Section";
 import { Badge } from "../../components/ui/Badge";
@@ -25,11 +25,12 @@ import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
-import { Skeleton } from "../../components/ui/Skeleton";
+import { SkeletonRows } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
 import { toast } from "../../components/ui/toast";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatCount } from "../../lib/format";
@@ -207,7 +208,6 @@ function DrainDialog({ drain, open, onOpenChange }: { drain?: LogDrain; open: bo
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: runtimeKeys.logDrains });
-      toast.success(t("runtime.logShipping.saved", { name: draft.name.trim() }));
       onOpenChange(false);
     },
   });
@@ -387,6 +387,7 @@ function DrainActions({ drain, onEdit }: { drain: LogDrain; onEdit: () => void }
   const test = useMutation({
     mutationFn: () => request("post", "/api/log-drains/{name}/test", { params: { name: drain.name } }),
     onSuccess: (result) => {
+      // design-exception: toast-success what the destination received is not on this screen
       toast.success(t("runtime.logShipping.tested", { name: drain.name }), { description: t("runtime.logShipping.testedDetail", { line: result.sent }) });
       refresh();
     },
@@ -408,10 +409,7 @@ function DrainActions({ drain, onEdit }: { drain: LogDrain; onEdit: () => void }
   });
   const remove = useMutation({
     mutationFn: () => request("delete", "/api/log-drains/{name}", { params: { name: drain.name } }),
-    onSuccess: () => {
-      toast.success(t("runtime.logShipping.removed", { name: drain.name }));
-      refresh();
-    },
+    onSuccess: refresh,
     onError: (error) => {
       reportActionError(t("runtime.logShipping.removeFailed", { name: drain.name }), error);
     },
@@ -515,7 +513,7 @@ export function LogShippingSettings() {
   const data = drains.data;
   const notRunning = data !== undefined && data.drains.some((drain) => drain.enabled) && !data.service["active"];
   return (
-    <Section title={t("runtime.logShipping.title")} description={t("runtime.logShipping.description")}>
+    <Section icon={OBJECT_ICONS.logShipping} title={t("runtime.logShipping.title")} description={t("runtime.logShipping.description")}>
       {notRunning ? (
         <Notice tone="warning" title={t("runtime.logShipping.notRunningTitle")}>
           {t("runtime.logShipping.notRunningBody")}
@@ -525,7 +523,7 @@ export function LogShippingSettings() {
         title={t("runtime.logShipping.destinations")}
         padding="none"
         actions={
-          <Button
+          <Button icon={<Plus aria-hidden="true" />}
             size="sm"
             variant="primary"
             onClick={() => {
@@ -536,29 +534,23 @@ export function LogShippingSettings() {
           </Button>
         }
       >
-        {data === undefined ? (
-          drains.isError ? (
-            <div className="p-4">
-              <ErrorBlock compact error={drains.error} title={t("runtime.logShipping.loadFailed")} onRetry={() => void drains.refetch()} retrying={drains.isRefetching} />
-            </div>
-          ) : (
-            <div aria-busy="true" className="flex flex-col gap-2 p-4">
-              <span className="sr-only">{t("runtime.logShipping.loading")}</span>
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          )
-        ) : data.drains.length === 0 ? (
-          <div className="p-4">
-            <EmptyState variant="inline" title={t("runtime.logShipping.emptyTitle")} description={t("runtime.logShipping.emptyDescription")} />
-          </div>
-        ) : (
-          <ul aria-label={t("runtime.logShipping.listLabel")} className="flex flex-col divide-y divide-border">
-            {data.drains.map((drain) => (
-              <DrainRow key={drain.name} drain={drain} />
-            ))}
-          </ul>
-        )}
+        <div className="p-4">
+          <QueryState
+            query={drains}
+            label={t("runtime.logShipping.noun")}
+            skeleton={<SkeletonRows rows={2} />}
+            isEmpty={(answer) => answer.drains.length === 0}
+            empty={<EmptyState variant="inline" title={t("runtime.logShipping.emptyTitle")} description={t("runtime.logShipping.emptyDescription")} />}
+          >
+            {(answer) => (
+              <ul aria-label={t("runtime.logShipping.listLabel")} className="flex flex-col divide-y divide-border">
+                {answer.drains.map((drain) => (
+                  <DrainRow key={drain.name} drain={drain} />
+                ))}
+              </ul>
+            )}
+          </QueryState>
+        </div>
       </Card>
       {adding ? <DrainDialog open onOpenChange={setAdding} /> : null}
     </Section>

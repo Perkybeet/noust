@@ -10,10 +10,13 @@ import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Mono } from "../../components/ui/Mono";
+import { RowList } from "../../components/ui/RowList";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
 import { formatBytes, formatDateTime } from "../../lib/format";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 interface SiteHistoryDialogProps {
   site: string;
@@ -44,10 +47,9 @@ function Changes({ site, version }: { site: string; version: number }) {
   if (detail.isError) return <ErrorBlock compact error={detail.error} title={t("domains.siteHistory.couldNotRead", { version })} />;
   if (detail.data === undefined) {
     return (
-      <div aria-busy="true">
-        <span className="sr-only">{t("domains.siteHistory.loadingChanges")}</span>
+      <LoadingRegion label={t("domains.siteHistory.loadingChanges")}>
         <Skeleton className="h-16 w-full" />
-      </div>
+      </LoadingRegion>
     );
   }
   return detail.data.diff === "" ? (
@@ -62,12 +64,13 @@ function Changes({ site, version }: { site: string; version: number }) {
 function VersionRow({ site, item, open, onToggle, onUse, locale }: { site: string; item: SiteVersion; open: boolean; onToggle: () => void; onUse: () => void; locale: "en" | "es" }) {
   const t = useT();
   return (
-    <li className="flex flex-col gap-2 px-3 py-2">
+    <RowList.Item className="items-start">
+     <div className="flex min-w-0 flex-1 flex-col gap-2">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <Mono>{t("domains.siteHistory.versionNumber", { version: item.version })}</Mono>
-          <Badge tone={item.source === "found" ? "warn" : "neutral"}>{sourceLabel(item.source, t)}</Badge>
-          {item.current ? <Badge tone="ok">{t("domains.siteHistory.current")}</Badge> : null}
+          {item.source === "found" ? <StatusPill state="warning" size="sm" appearance="inline" label={sourceLabel(item.source, t)} /> : <Badge>{sourceLabel(item.source, t)}</Badge>}
+          {item.current ? <StatusPill state="running" size="sm" appearance="inline" label={t("domains.siteHistory.current")} /> : null}
           <span className="text-13 text-fg-muted">{formatDateTime(new Date(item.created_at), locale)}</span>
           {item.actor !== null && item.actor !== undefined ? <span className="text-13 text-fg-muted">{item.actor}</span> : null}
           <span className="text-12 text-fg-muted">{formatBytes(item.size, locale)}</span>
@@ -84,7 +87,8 @@ function VersionRow({ site, item, open, onToggle, onUse, locale }: { site: strin
         </span>
       </div>
       {open ? <Changes site={site} version={item.version} /> : null}
-    </li>
+     </div>
+    </RowList.Item>
   );
 }
 
@@ -123,14 +127,13 @@ export function SiteHistoryDialog({ site, dirty, onClose, onUse }: SiteHistoryDi
         {versions.isError ? (
           <ErrorBlock error={versions.error} title={t("domains.siteHistory.couldNotList")} onRetry={() => void versions.refetch()} retrying={versions.isRefetching} />
         ) : versions.data === undefined ? (
-          <div aria-busy="true">
-            <span className="sr-only">{t("domains.siteHistory.loading")}</span>
+          <LoadingRegion label={t("domains.siteHistory.loading")}>
             <Skeleton className="h-24 w-full" />
-          </div>
+          </LoadingRegion>
         ) : items.length === 0 ? (
           <EmptyState variant="inline" title={t("domains.siteHistory.empty")} />
         ) : (
-          <ul aria-label={t("domains.siteHistory.listLabel", { site })} className="flex flex-col divide-y divide-border rounded-control border border-border">
+          <RowList aria-label={t("domains.siteHistory.listLabel", { site })}>
             {items.map((item) => (
               <VersionRow
                 key={item.version}
@@ -148,7 +151,7 @@ export function SiteHistoryDialog({ site, dirty, onClose, onUse }: SiteHistoryDi
                 }}
               />
             ))}
-          </ul>
+          </RowList>
         )}
         {asked !== null ? <p role="status" className="text-13 text-warn">{t("domains.siteHistory.confirmUse", { version: asked })}</p> : null}
       </div>

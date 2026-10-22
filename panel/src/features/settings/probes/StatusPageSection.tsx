@@ -5,6 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FileText, Globe, Pencil, Unlink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ElevationCancelledError } from "../../../api/client";
@@ -21,8 +22,9 @@ import { ExternalLink } from "../../../components/ui/ExternalLink";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { Switch } from "../../../components/ui/Switch";
+import { Setting } from "../../../components/ui/Setting";
 import { toast } from "../../../components/ui/toast";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import { jobState } from "../../databases/jobs";
 import { JobLogPanel } from "../../jobs/JobLogPanel";
@@ -41,6 +43,7 @@ function PageJobDialog({ doing, open, onClose, domain }: { doing: Doing; open: b
   const followed = useFollowedJob();
   const [name, setName] = useState("");
   const [skipDns, setSkipDns] = useState(false);
+  const [lacksName, setLacksName] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
   const start = useMutation({
@@ -62,9 +65,20 @@ function PageJobDialog({ doing, open, onClose, domain }: { doing: Doing; open: b
     void queryClient.invalidateQueries({ queryKey: probeKeys.all });
   }, [job, queryClient]);
 
+  // Pressing "Publish" with no name says so beside the box and goes there; it is never a dead button.
+  const begin = (): void => {
+    if (start.isPending) return;
+    if (doing === "publish" && name.trim() === "") {
+      setLacksName(true);
+      nameRef.current?.focus();
+      return;
+    }
+    start.mutate();
+  };
   const close = (): void => {
     if (start.isPending) return;
     onClose();
+    setLacksName(false);
     setName("");
     setSkipDns(false);
     followed.dismiss();
@@ -91,14 +105,7 @@ function PageJobDialog({ doing, open, onClose, domain }: { doing: Doing; open: b
             <Button variant="ghost" disabled={start.isPending} onClick={close}>
               {t("settings.shared.cancel")}
             </Button>
-            <Button
-              variant={doing === "publish" ? "primary" : "danger"}
-              loading={start.isPending}
-              disabled={doing === "publish" && name.trim() === ""}
-              onClick={() => {
-                start.mutate();
-              }}
-            >
+            <Button variant="primary" loading={start.isPending} onClick={begin}>
               {doing === "publish" ? t("probes.page.publish.submit") : t("probes.page.unpublish.submit")}
             </Button>
           </>
@@ -106,7 +113,7 @@ function PageJobDialog({ doing, open, onClose, domain }: { doing: Doing; open: b
           <>
             {state === "succeeded" && doing === "publish" ? (
               <ExternalLink href={`https://${shown}`} button="secondary">
-                {t("probes.page.open", { domain: shown })}
+                {t("probes.page.open")}
               </ExternalLink>
             ) : null}
             <Button variant="primary" disabled={running} onClick={close}>
@@ -124,10 +131,10 @@ function PageJobDialog({ doing, open, onClose, domain }: { doing: Doing; open: b
               className="flex min-w-0 flex-col gap-5"
               onSubmit={(event) => {
                 event.preventDefault();
-                if (name.trim() !== "" && !start.isPending) start.mutate();
+                begin();
               }}
             >
-              <Field label={t("probes.page.publish.domainLabel")} description={t("probes.page.publish.domainDescription")}>
+              <Field label={t("probes.page.publish.domainLabel")} description={t("probes.page.publish.domainDescription")} error={lacksName && name.trim() === "" ? t("probes.page.publish.nameMissing") : undefined}>
                 <Input
                   ref={nameRef}
                   mono
@@ -138,6 +145,7 @@ function PageJobDialog({ doing, open, onClose, domain }: { doing: Doing; open: b
                   value={name}
                   onValueChange={(next: string) => {
                     setName(next);
+                    setLacksName(false);
                     start.reset();
                   }}
                 />
@@ -168,21 +176,73 @@ function PageJobDialog({ doing, open, onClose, domain }: { doing: Doing; open: b
   );
 }
 
+/** The page's title, asked in a dialog of its own: a field and a button that saves it, not a Save in the card. */
+function TitleDialog({ page, open, onClose }: { page: StatusPage; open: boolean; onClose: () => void }) {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const [title, setTitle] = useState(page.title);
+  const save = useMutation({
+    mutationFn: () => saveStatusPage({ title: title.trim() }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: probeKeys.all });
+      onClose();
+    },
+  });
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && !save.isPending) onClose();
+      }}
+      size="sm"
+      title={t("probes.page.titleDialog")}
+      description={t("probes.page.titleDescription")}
+      footer={
+        <>
+          <Button variant="ghost" disabled={save.isPending} onClick={onClose}>
+            {t("settings.shared.cancel")}
+          </Button>
+          <Button icon={<Pencil aria-hidden="true" />} variant="primary" loading={save.isPending} onClick={() => save.mutate()}>
+            {t("probes.page.saveTitle")}
+          </Button>
+        </>
+      }
+    >
+      <form
+        noValidate
+        className="flex min-w-0 flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!save.isPending) save.mutate();
+        }}
+      >
+        <Field label={t("probes.page.titleLabel")}>
+          <Input
+            maxLength={80}
+            autoComplete="off"
+            value={title}
+            onValueChange={(next: string) => {
+              setTitle(next);
+              save.reset();
+            }}
+          />
+        </Field>
+        {save.isError ? <ErrorBlock live compact error={save.error} title={t("probes.page.saveFailed")} /> : null}
+      </form>
+    </Dialog>
+  );
+}
+
 function PageCard({ page }: { page: StatusPage }) {
   const t = useT();
   const queryClient = useQueryClient();
-  const [title, setTitle] = useState<string | null>(null);
+  const [titling, setTitling] = useState(false);
   const [doing, setDoing] = useState<Doing | null>(null);
-  const shownTitle = title ?? page.title;
-  const dirty = title !== null && title.trim() !== page.title;
 
   const refresh = (): Promise<void> => queryClient.invalidateQueries({ queryKey: probeKeys.all });
   const change = useMutation({
-    mutationFn: (body: { enabled?: boolean; title?: string }) => saveStatusPage(body),
-    onSuccess: async () => {
-      setTitle(null);
-      await refresh();
-    },
+    mutationFn: (enabled: boolean) => saveStatusPage({ enabled }),
+    onSuccess: refresh,
     onError: (error) => {
       reportActionError(t("probes.page.saveFailed"), error);
     },
@@ -190,6 +250,7 @@ function PageCard({ page }: { page: StatusPage }) {
   const write = useMutation({
     mutationFn: () => writeStatusPage(),
     onSuccess: async (result) => {
+      // design-exception: toast-success the files are written to disk, which is not on this screen
       toast.success(t("probes.page.written", { count: result.files.length }));
       await refresh();
     },
@@ -197,84 +258,88 @@ function PageCard({ page }: { page: StatusPage }) {
       reportActionError(t("probes.page.writeFailed"), error);
     },
   });
-  const checked = change.isPending && change.variables.enabled !== undefined ? change.variables.enabled : page.enabled;
+  const checked = change.isPending ? change.variables : page.enabled;
+  const published = page.domain !== null && page.domain !== "";
 
   return (
-    <Card>
-      <div className="flex min-w-0 flex-col gap-5">
-        <Switch
+    <Card padding="none">
+      <div className="flex flex-col divide-y divide-border">
+        <Setting
           label={t("probes.page.enabledLabel")}
+          help={t.rich("probes.page.files", { directory: <Mono key="dir">{page.directory}</Mono>, count: page.components })}
           checked={checked}
-          disabled={change.isPending}
+          busy={change.isPending}
           onCheckedChange={(next) => {
-            change.mutate({ enabled: next });
+            change.mutate(next);
           }}
         />
-        <p className="text-12 text-pretty text-fg-muted">
-          {t.rich("probes.page.files", { directory: <Mono key="dir">{page.directory}</Mono>, count: page.components })}
-        </p>
-        <Field
+        <Setting
           label={t("probes.page.titleLabel")}
-          description={t("probes.page.titleDescription")}
-          // Beside the field, not inside its frame: a disabled button in the frame would dim the text.
+          help={page.title}
           action={
             <Button
-              variant={dirty ? "primary" : "secondary"}
-              disabled={!dirty || change.isPending}
+              size="sm"
+              icon={<Pencil aria-hidden="true" />}
               onClick={() => {
-                change.mutate({ title: shownTitle.trim() });
+                setTitling(true);
               }}
             >
-              {t("probes.page.saveTitle")}
+              {t("probes.page.changeTitle")}
             </Button>
           }
-        >
-          <Input
-            maxLength={80}
-            autoComplete="off"
-            value={shownTitle}
-            disabled={change.isPending}
-            onValueChange={(next: string) => {
-              setTitle(next);
-            }}
-          />
-        </Field>
-        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-          {page.domain !== null && page.domain !== undefined && page.domain !== "" ? (
-            <>
-              <p className="min-w-0 flex-1 basis-60 text-13 text-fg">
-                {t.rich("probes.page.publishedOn", { domain: <Mono key="domain">{page.domain}</Mono> })}
-              </p>
-              <ExternalLink href={`https://${page.domain}`} button="secondary">
-                {t("probes.page.open", { domain: page.domain })}
-              </ExternalLink>
+        />
+        <Setting
+          label={t("probes.page.addressLabel")}
+          help={published ? t.rich("probes.page.publishedOn", { domain: <Mono key="domain">{page.domain}</Mono> }) : t("probes.page.notPublished")}
+          action={
+            published ? (
+              <div className="flex items-center gap-2">
+                <ExternalLink href={`https://${page.domain ?? ""}`} button="secondary" size="sm">
+                  {t("probes.page.open")}
+                </ExternalLink>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={<Unlink aria-hidden="true" />}
+                  onClick={() => {
+                    setDoing("unpublish");
+                  }}
+                >
+                  {t("probes.page.unpublish.button")}
+                </Button>
+              </div>
+            ) : (
               <Button
-                variant="ghost"
-                onClick={() => {
-                  setDoing("unpublish");
-                }}
-              >
-                {t("probes.page.unpublish.button")}
-              </Button>
-            </>
-          ) : (
-            <>
-              <p className="min-w-0 flex-1 basis-60 text-13 text-fg-muted">{t("probes.page.notPublished")}</p>
-              <Button
-                variant="secondary"
+                size="sm"
+                icon={<Globe aria-hidden="true" />}
                 onClick={() => {
                   setDoing("publish");
                 }}
               >
                 {t("probes.page.publish.button")}
               </Button>
-            </>
-          )}
-          <Button size="sm" loading={write.isPending} onClick={() => write.mutate()}>
-            {t("probes.page.write")}
-          </Button>
-        </div>
+            )
+          }
+        />
+        <Setting
+          label={t("probes.page.writeLabel")}
+          help={t("probes.page.writeHelp")}
+          action={
+            <Button size="sm" icon={<FileText aria-hidden="true" />} loading={write.isPending} onClick={() => write.mutate()}>
+              {t("probes.page.write")}
+            </Button>
+          }
+        />
       </div>
+      {titling ? (
+        <TitleDialog
+          page={page}
+          open
+          onClose={() => {
+            setTitling(false);
+          }}
+        />
+      ) : null}
       {doing !== null ? (
         <PageJobDialog
           doing={doing}
@@ -295,7 +360,7 @@ export function StatusPageSection() {
   const query = useQuery(probesQuery());
   if (query.data === undefined) return null;
   return (
-    <Section title={t("probes.page.title")} description={t("probes.page.description")}>
+    <Section icon={OBJECT_ICONS.site} title={t("probes.page.title")} description={t("probes.page.description")}>
       <PageCard page={query.data.status_page} />
     </Section>
   );

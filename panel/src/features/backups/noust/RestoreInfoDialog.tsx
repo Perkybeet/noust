@@ -1,21 +1,8 @@
 import { Button } from "../../../components/ui/Button";
-import { CopyTextButton } from "../../../components/ui/CopyTextButton";
+import { CopyValue } from "../../../components/ui/CopyValue";
 import { Dialog } from "../../../components/ui/Dialog";
 import { useT } from "../../../i18n";
 import { restoreCommand, restoreServerCommand } from "./data";
-
-function Command({ command, label }: { command: string; label: string }) {
-  return (
-    <div className="flex min-w-0 flex-col items-start gap-2">
-      <code translate="no" className="w-full rounded-control border border-border-strong bg-bg-sunken px-3 py-2 text-12 break-all text-fg select-all">
-        {command}
-      </code>
-      <CopyTextButton value={command} variant="secondary">
-        {label}
-      </CopyTextButton>
-    </div>
-  );
-}
 
 export interface RestoreInfoDialogProps {
   name: string;
@@ -46,11 +33,11 @@ export function RestoreInfoDialog({ name, open, onOpenChange }: RestoreInfoDialo
       <div className="flex min-w-0 flex-col gap-5">
         <div className="flex min-w-0 flex-col gap-2">
           <p className="text-13 font-medium text-fg">{t("selfBackup.restore.first")}</p>
-          <Command command={restoreCommand(name)} label={t("selfBackup.restore.copy")} />
+          <CopyValue value={restoreCommand(name)} label={t("selfBackup.restore.copy")} />
         </div>
         <div className="flex min-w-0 flex-col gap-2">
           <p className="text-13 font-medium text-fg">{t("selfBackup.restore.second")}</p>
-          <Command command={restoreServerCommand(name)} label={t("selfBackup.restore.copy")} />
+          <CopyValue value={restoreServerCommand(name)} label={t("selfBackup.restore.copy")} />
         </div>
         <p className="max-w-measure text-13 text-fg-muted">{t("selfBackup.restore.note")}</p>
       </div>

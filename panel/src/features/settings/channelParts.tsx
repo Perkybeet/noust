@@ -5,7 +5,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import type { UseMutationResult } from "@tanstack/react-query";
-import { Eye, EyeOff, Send } from "lucide-react";
+import { Eye, EyeOff, Pencil, Send, Settings2 } from "lucide-react";
 import { useId, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
@@ -269,7 +269,12 @@ export function ChannelRow({
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {configured ? <TestButton test={test} reason={testReason} label={t("settings.notifications.channels.sendTestTo", { label })} /> : null}
           {name !== undefined && configured ? <RoutingButton name={name} label={label} /> : null}
-          <Button size="sm" aria-label={configured ? t("settings.notifications.channels.editLabel", { label }) : t("settings.notifications.channels.setUpLabel", { label })} onClick={onOpen}>
+          <Button
+            size="sm"
+            icon={configured ? <Pencil aria-hidden="true" /> : <Settings2 aria-hidden="true" />}
+            aria-label={configured ? t("settings.notifications.channels.editLabel", { label }) : t("settings.notifications.channels.setUpLabel", { label })}
+            onClick={onOpen}
+          >
             {configured ? t("settings.notifications.channels.edit") : t("settings.notifications.channels.setUp")}
           </Button>
         </div>

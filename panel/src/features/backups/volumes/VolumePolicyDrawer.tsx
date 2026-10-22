@@ -6,6 +6,7 @@ import { isApiError, request } from "../../../api/client";
 import { appsQuery } from "../../../api/queries/apps";
 import { CONSISTENCY_MODES, volumeKeys, volumeTargetsQuery } from "../../../api/queries/volumeBackups";
 import type { Consistency, VolumePolicy } from "../../../api/queries/volumeBackups";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -14,6 +15,7 @@ import { ChoiceCards } from "../../../components/ui/ChoiceCards";
 import { Drawer } from "../../../components/ui/Drawer";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
 import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
@@ -135,9 +137,9 @@ export function VolumePolicyDrawer({ domain: fixed, policy, taken, open, onOpenC
               {domain === "" ? null : targets.isError ? (
                 <ErrorBlock compact error={targets.error} title={t("volumeBackups.form.targetsFailed")} onRetry={() => void targets.refetch()} />
               ) : targets.data === undefined ? (
-                <div aria-busy="true">
+                <LoadingRegion label={t("volumeBackups.form.targetsLoading")}>
                   <Skeleton className="h-16 w-full rounded-card" />
-                </div>
+                </LoadingRegion>
               ) : declared.length === 0 ? (
                 <EmptyState variant="inline" title={t("volumeBackups.form.noTargets")} />
               ) : (
@@ -160,7 +162,7 @@ export function VolumePolicyDrawer({ domain: fixed, policy, taken, open, onOpenC
                   ))}
                 </ul>
               )}
-              {errors.targets !== undefined ? <p className="text-13 text-fail">{errors.targets}</p> : null}
+              {errors.targets !== undefined ? <InlineMessage tone="error">{errors.targets}</InlineMessage> : null}
             </div>
           ) : null}
           <Field label={t("volumeBackups.form.extraPaths")} optional description={t("volumeBackups.form.extraPathsHelp")} error={errors.paths}>

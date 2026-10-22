@@ -10,11 +10,12 @@ import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
-import { Input } from "../../../components/ui/Input";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Select } from "../../../components/ui/Select";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
+import { GbField } from "../../backups/policy/GbField";
 import { KeepFields } from "../../backups/policy/KeepFields";
 import { MAX_COUNT, MAX_DAYS, destinationBody, destinationsValid, gbValue, limitText, limitValue, validGb, validLimit } from "../../backups/policy/limits";
 import type { DestinationDraft } from "../../backups/policy/limits";
@@ -177,9 +178,7 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
           countError={errors.count}
           daysError={errors.days}
         >
-          <Field label={t("databases.policy.gb")} optional description={t("databases.policy.gbHelp")} error={errors.gb} className="w-44">
-            <Input mono inputMode="decimal" value={gb} onValueChange={setGb} suffix="GB" />
-          </Field>
+          <GbField label={t("databases.policy.gb")} help={t("databases.policy.gbHelp")} value={gb} onChange={setGb} error={errors.gb} />
         </KeepFields>
 
         <SendToFields
@@ -203,7 +202,7 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
         {sends.length > 0 || remote ? (
           <div className="flex flex-col gap-1">
             <Checkbox checked={remote} onCheckedChange={setRemote} label={t("databases.policy.remoteOnly")} description={t("databases.policy.remoteOnlyHelp")} />
-            {errors.remote !== undefined ? <p className="text-12 text-fail">{errors.remote}</p> : null}
+            {errors.remote !== undefined ? <InlineMessage tone="error">{errors.remote}</InlineMessage> : null}
           </div>
         ) : null}
 

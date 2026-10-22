@@ -5,6 +5,7 @@ import type { AppDomainChange } from "../../api/queries/domains";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Section } from "../../components/page/Section";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 
 type Spelling = "none" | "www" | "apex";
@@ -32,7 +33,7 @@ export function CanonicalSection({ domain, canonical, onChanged }: { domain: str
     },
   });
   return (
-    <Section title={t("network.canonical.title")} description={t("network.canonical.description")}>
+    <Section icon={OBJECT_ICONS.domain} title={t("network.canonical.title")} description={t("network.canonical.description")}>
       <ChoiceCards<Spelling>
         legend={t("network.canonical.legend")}
         options={[

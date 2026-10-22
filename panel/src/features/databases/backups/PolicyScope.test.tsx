@@ -37,7 +37,7 @@ async function backupsAt(extra: Record<string, RouteHandler> = {}) {
 describe("the policy for every database of an engine", () => {
   it("is offered beside the database's own, and says no policy covers them when none does", async () => {
     await backupsAt();
-    expect(await screen.findByText(/No policy covers every PostgreSQL database/)).toBeInTheDocument();
+    expect(await screen.findByText(/No schedule covers every PostgreSQL database/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back up every database" })).toBeInTheDocument();
   });
 
@@ -83,7 +83,7 @@ describe("the policy for every database of an engine", () => {
     expect(await within(drawer).findByText("'x' is not a valid name for exclude_tables")).toBeInTheDocument();
   });
 
-  it("shows what it covers and leaves out, and backs up a database that has no policy of its own", async () => {
+  it("shows what it covers and leaves out, and backs up a database that has no schedule of its own", async () => {
     await backupsAt({
       "GET /api/databases/backup-policies/postgresql/example_production": () => json(200, { engine: "postgresql", database: "example_production", configured: false, enabled: false, scope: "database", exclusions: {}, destinations: [], timer: {} }),
       [ALL]: () => json(200, EVERYTHING),
@@ -91,7 +91,7 @@ describe("the policy for every database of an engine", () => {
     expect(await screen.findByText("Every PostgreSQL database, example_production included")).toBeInTheDocument();
     expect(screen.getByText("databases scratch; schemas audit; tables logs")).toBeInTheDocument();
     // The database's own card does not say nothing backs it up: the engine's policy does.
-    expect(await screen.findByText(/The policy for every PostgreSQL database backs this one up/)).toBeInTheDocument();
+    expect(await screen.findByText(/The schedule for every PostgreSQL database backs this one up/)).toBeInTheDocument();
   });
 
   it("leaves out a database it excludes, and says so", async () => {

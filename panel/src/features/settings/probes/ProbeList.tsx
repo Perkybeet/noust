@@ -5,20 +5,24 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 import { checkProbe, probeHistoryQuery, probeKeys, probesQuery, removeProbe, saveProbe } from "../../../api/queries/probes";
 import type { Probe, ProbeCheck, ProbeList as ProbeListData } from "../../../api/queries/probes";
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
+import { RowMenu } from "../../../components/page/RowMenu";
 import { Section } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { ICONS } from "../../../components/ui/icons";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
+import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
+import { RowList } from "../../../components/ui/RowList";
+import { Skeleton, SkeletonRows } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { Switch } from "../../../components/ui/Switch";
 import { useT } from "../../../i18n";
@@ -33,7 +37,7 @@ function CheckOutcome({ result }: { result: ProbeCheck }) {
     .filter((part) => part !== null)
     .join(" ");
   return (
-    <p role="status" className={result.ok ? "text-12 text-ok" : "text-12 text-fail"}>
+    <InlineMessage tone={result.ok ? "success" : "error"} live>
       {result.ok ? t("probes.check.good", { detail }) : t("probes.check.bad", { detail })}
       {result.error !== null && result.error !== undefined && result.error !== "" ? (
         <>
@@ -41,7 +45,7 @@ function CheckOutcome({ result }: { result: ProbeCheck }) {
           <Mono>{result.error}</Mono>
         </>
       ) : null}
-    </p>
+    </InlineMessage>
   );
 }
 
@@ -112,9 +116,51 @@ function ProbeRow({ probe }: { probe: Probe }) {
   const checked = toggle.isPending ? toggle.variables : probe.enabled;
 
   return (
-    <li className="flex min-w-0 flex-col gap-2 px-4 py-3 sm:px-5">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex min-w-0 flex-1 basis-72 flex-col gap-0.5">
+    <RowList.Item
+      leading={
+        <Switch
+          aria-label={t("probes.switchLabel", { name: probe.name })}
+          checked={checked}
+          busy={toggle.isPending}
+          onCheckedChange={(next) => {
+            toggle.mutate(next);
+          }}
+        />
+      }
+      actions={
+        <RowMenu name={probe.name}>
+          <MenuItem
+            icon={<RefreshCw />}
+            disabled={!probe.enabled || check.isPending}
+            onClick={() => {
+              check.mutate();
+            }}
+          >
+            {t("probes.check.button")}
+          </MenuItem>
+          <MenuItem
+            icon={<Pencil />}
+            onClick={() => {
+              setEditing(true);
+            }}
+          >
+            {t("probes.edit")}
+          </MenuItem>
+          <MenuSeparator />
+          <MenuItem
+            icon={<ICONS.delete />}
+            destructive
+            onClick={() => {
+              setRemoving(true);
+            }}
+          >
+            {t("probes.remove")}
+          </MenuItem>
+        </RowMenu>
+      }
+    >
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Mono tone="default" className="text-13 font-medium">
               {probe.name}
@@ -155,65 +201,25 @@ function ProbeRow({ probe }: { probe: Probe }) {
             })}
           </ul>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Switch
-            aria-label={t("probes.switchLabel", { name: probe.name })}
-            checked={checked}
-            disabled={toggle.isPending}
-            onCheckedChange={(next) => {
-              toggle.mutate(next);
-            }}
-          />
-          <Button
-            size="sm"
-            loading={check.isPending}
-            disabled={!probe.enabled}
-            aria-label={t("probes.check.label", { name: probe.name })}
-            onClick={() => {
-              check.mutate();
-            }}
-          >
-            {t("probes.check.button")}
-          </Button>
-          <Button
-            size="sm"
-            aria-label={t("probes.editLabel", { name: probe.name })}
-            onClick={() => {
-              setEditing(true);
-            }}
-          >
-            {t("probes.edit")}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label={t("probes.removeLabel", { name: probe.name })}
-            onClick={() => {
-              setRemoving(true);
-            }}
-          >
-            {t("probes.remove")}
-          </Button>
+        {outcome !== null ? <CheckOutcome result={outcome} /> : null}
+        <div className="flex min-w-0 flex-col gap-2">
+          <div>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-expanded={history}
+              icon={history ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+              onClick={() => {
+                setHistory((open) => !open);
+              }}
+              className="-ml-2.5"
+            >
+              {t("probes.history.title")}
+            </Button>
+          </div>
+          {/* Read only when opened: a page of probes does not ask the server for every one's incidents. */}
+          {history ? <Incidents name={probe.name} /> : null}
         </div>
-      </div>
-      {outcome !== null ? <CheckOutcome result={outcome} /> : null}
-      <div className="flex min-w-0 flex-col gap-2">
-        <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-expanded={history}
-            icon={history ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
-            onClick={() => {
-              setHistory((open) => !open);
-            }}
-            className="-ml-2.5"
-          >
-            {t("probes.history.title")}
-          </Button>
-        </div>
-        {/* Read only when opened: a page of probes does not ask the server for every one's incidents. */}
-        {history ? <Incidents name={probe.name} /> : null}
       </div>
       <ProbeDrawer probe={probe} open={editing} onOpenChange={setEditing} />
       <ConfirmDialog
@@ -230,25 +236,7 @@ function ProbeRow({ probe }: { probe: Probe }) {
           await refresh();
         }}
       />
-    </li>
-  );
-}
-
-function ProbesSkeleton() {
-  return (
-    <Card padding="none">
-      <ul aria-hidden="true" className="flex flex-col divide-y divide-border">
-        {[0, 1].map((row) => (
-          <li key={row} className="flex items-center justify-between gap-4 px-4 py-3 sm:px-5">
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-3.5 w-72 max-w-full" />
-            </div>
-            <Skeleton className="h-control-sm w-24" />
-          </li>
-        ))}
-      </ul>
-    </Card>
+    </RowList.Item>
   );
 }
 
@@ -256,30 +244,29 @@ function Probes({ data, onCreate }: { data: ProbeListData; onCreate: () => void 
   const t = useT();
   return (
     <>
-      <p role="status" className="text-13 text-fg-muted">
-        {data.down === 0 ? t("probes.allUp") : t("probes.downCount", { count: data.down })}
-      </p>
+      {data.items.length === 0 ? null : (
+        <p role="status" className="text-13 text-fg-muted">
+          {data.down === 0 ? t("probes.allUp") : t("probes.downCount", { count: data.down })}
+        </p>
+      )}
       {data.items.length === 0 ? (
         <EmptyState
-          variant="firstUse"
-          level={3}
-          icon={<Activity />}
+          variant="inline"
           title={t("probes.emptyTitle")}
           description={t("probes.emptyDescription")}
+          // With no probe the header has no button: the empty state's is the one way to add the first.
           action={
-            <Button variant="primary" onClick={onCreate}>
+            <Button size="sm" variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
               {t("probes.new")}
             </Button>
           }
         />
       ) : (
-        <Card padding="none">
-          <ul aria-label={t("probes.listLabel")} className="flex min-w-0 flex-col divide-y divide-border">
-            {data.items.map((probe) => (
-              <ProbeRow key={probe.name} probe={probe} />
-            ))}
-          </ul>
-        </Card>
+        <RowList aria-label={t("probes.listLabel")}>
+          {data.items.map((probe) => (
+            <ProbeRow key={probe.name} probe={probe} />
+          ))}
+        </RowList>
       )}
     </>
   );
@@ -295,18 +282,20 @@ export function ProbeList() {
       title={t("probes.title")}
       description={t("probes.description")}
       actions={
-        <Button
-          variant="primary"
-          disabled={query.data === undefined}
-          onClick={() => {
-            setCreating(true);
-          }}
-        >
-          {t("probes.new")}
-        </Button>
+        query.data === undefined || query.data.items.length === 0 ? undefined : (
+          <Button
+            variant="primary"
+            icon={<ICONS.add aria-hidden="true" />}
+            onClick={() => {
+              setCreating(true);
+            }}
+          >
+            {t("probes.new")}
+          </Button>
+        )
       }
     >
-      <QueryState query={query} label={t("probes.loadingLabel")} skeleton={<ProbesSkeleton />}>
+      <QueryState query={query} label={t("probes.loadingLabel")} skeleton={<SkeletonRows rows={2} />}>
         {(data) => (
           <>
             <Probes

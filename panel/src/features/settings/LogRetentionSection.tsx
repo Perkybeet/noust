@@ -6,12 +6,13 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { Pencil, RotateCcw } from "lucide-react";
+import { useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { clearLogRetention, logKeys, logRetentionQuery, saveLogRetention } from "../../api/queries/logSearch";
 import type { LogRetention } from "../../api/queries/logSearch";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { QueryState } from "../../components/page/QueryState";
 import { Section } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -22,7 +23,8 @@ import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
-import { Skeleton } from "../../components/ui/Skeleton";
+import { SkeletonCard } from "../../components/ui/Skeleton";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import { formatBytes } from "../../lib/format";
 import { splitErrors } from "./formErrors";
@@ -67,6 +69,9 @@ function RetentionDrawer({ current, open, onOpenChange }: { current: LogRetentio
   const formId = useId();
   const [form, setForm] = useState<RetentionForm>(() => formFrom(current));
   const [edited, setEdited] = useState<ReadonlySet<string>>(new Set());
+  // Pressing Save with nothing written says so beside the first box, rather than leaving the button dead.
+  const [nothing, setNothing] = useState(false);
+  const daysRef = useRef<HTMLInputElement>(null);
   const save = useMutation({
     mutationFn: () => saveLogRetention(retentionBody(form)),
     onSuccess: async () => {
@@ -77,16 +82,26 @@ function RetentionDrawer({ current, open, onOpenChange }: { current: LogRetentio
       setEdited(new Set());
     },
   });
+  const empty = form.days.trim() === "" && form.size.trim() === "";
   const split = splitErrors(save.error, FIELDS);
-  const message = (name: (typeof FIELDS)[number]): string | undefined => (edited.has(name) ? undefined : split.fields[name]);
+  const message = (name: (typeof FIELDS)[number]): string | undefined => {
+    if (name === "days" && nothing && empty) return t("logs.retention.nothingToSave");
+    return edited.has(name) ? undefined : split.fields[name];
+  };
   const set = (patch: Partial<RetentionForm>, touched: readonly string[]): void => {
+    setNothing(false);
     setForm((previous) => ({ ...previous, ...patch }));
     setEdited((previous) => new Set([...previous, ...touched]));
   };
-  const empty = form.days.trim() === "" && form.size.trim() === "";
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (!empty && !save.isPending) save.mutate();
+    if (save.isPending) return;
+    if (empty) {
+      setNothing(true);
+      daysRef.current?.focus();
+      return;
+    }
+    save.mutate();
   };
   return (
     <Drawer
@@ -95,12 +110,13 @@ function RetentionDrawer({ current, open, onOpenChange }: { current: LogRetentio
         if (!next) {
           setForm(formFrom(current));
           setEdited(new Set());
+          setNothing(false);
           save.reset();
         }
         onOpenChange(next);
       }}
-      title={t("logSearch.retention.drawerTitle")}
-      description={t("logSearch.retention.drawerDescription")}
+      title={t("logs.retention.drawerTitle")}
+      description={t("logs.retention.drawerDescription")}
       footer={
         <>
           <Button
@@ -112,16 +128,17 @@ function RetentionDrawer({ current, open, onOpenChange }: { current: LogRetentio
           >
             {t("settings.shared.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" disabled={empty} loading={save.isPending}>
-            {t("logSearch.retention.save")}
+          <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
+            {t("logs.retention.save")}
           </Button>
         </>
       }
     >
       <form id={formId} noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-5">
-        <FormFailure error={split.form} title={t("logSearch.retention.saveFailed")} />
-        <Field label={t("logSearch.retention.daysLabel")} description={t("logSearch.retention.daysDescription", { min: MIN_DAYS, max: MAX_DAYS })} error={message("days")}>
+        <FormFailure error={split.form} title={t("logs.retention.saveFailed")} />
+        <Field label={t("logs.retention.daysLabel")} description={t("logs.retention.daysDescription", { min: MIN_DAYS, max: MAX_DAYS })} error={message("days")}>
           <Input
+            ref={daysRef}
             mono
             inputMode="numeric"
             value={form.days}
@@ -130,7 +147,7 @@ function RetentionDrawer({ current, open, onOpenChange }: { current: LogRetentio
             }}
           />
         </Field>
-        <Field label={t("logSearch.retention.sizeLabel")} description={t("logSearch.retention.sizeDescription", { min: MIN_MB, max: MAX_MB })} error={message("max_use_mb")}>
+        <Field label={t("logs.retention.sizeLabel")} description={t("logs.retention.sizeDescription", { min: MIN_MB, max: MAX_MB })} error={message("max_use_mb")}>
           <Input
             mono
             inputMode="numeric"
@@ -141,8 +158,8 @@ function RetentionDrawer({ current, open, onOpenChange }: { current: LogRetentio
           />
         </Field>
         <Checkbox
-          label={t("logSearch.retention.persistentLabel")}
-          description={t("logSearch.retention.persistentDescription")}
+          label={t("logs.retention.persistentLabel")}
+          description={t("logs.retention.persistentDescription")}
           checked={form.persistent}
           onCheckedChange={(persistent) => {
             set({ persistent }, []);
@@ -163,21 +180,21 @@ function Retention({ current }: { current: LogRetention }) {
     <Card>
       <div className="flex min-w-0 flex-col gap-4">
         {current.foreign ? (
-          <Notice tone="warning" title={t("logSearch.retention.foreignTitle")}>
-            {t("logSearch.retention.foreignBody")}
+          <Notice tone="warning" title={t("logs.retention.foreignTitle")}>
+            {t("logs.retention.foreignBody")}
           </Notice>
         ) : null}
         <p className="text-13 text-pretty text-fg">
           {set
-            ? t("logSearch.retention.state", {
-                days: current.days === null || current.days === undefined ? t("logSearch.retention.noLimit") : t("logSearch.retention.days", { count: current.days }),
-                size: current.max_use_mb === null || current.max_use_mb === undefined ? t("logSearch.retention.noLimit") : formatBytes(current.max_use_mb * 1024 * 1024, t.locale),
+            ? t("logs.retention.state", {
+                days: current.days === null || current.days === undefined ? t("logs.retention.noLimit") : t("logs.retention.days", { count: current.days }),
+                size: current.max_use_mb === null || current.max_use_mb === undefined ? t("logs.retention.noLimit") : formatBytes(current.max_use_mb * 1024 * 1024, t.locale),
               })
-            : t("logSearch.retention.defaults")}
+            : t("logs.retention.defaults")}
         </p>
         {current.disk_usage !== "" ? (
           <p className="text-12 text-fg-muted">
-            {t.rich("logSearch.retention.usage", { usage: <Mono key="usage">{current.disk_usage}</Mono> })}
+            {t.rich("logs.retention.usage", { usage: <Mono key="usage">{current.disk_usage}</Mono> })}
           </p>
         ) : null}
         {current.notes.length > 0 ? (
@@ -188,23 +205,23 @@ function Retention({ current }: { current: LogRetention }) {
           </ul>
         ) : null}
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <Button
+          <Button icon={<Pencil aria-hidden="true" />}
             variant="secondary"
             disabled={current.foreign}
             onClick={() => {
               setEditing(true);
             }}
           >
-            {t("logSearch.retention.change")}
+            {t("logs.retention.change")}
           </Button>
           {set ? (
-            <Button
+            <Button icon={<RotateCcw aria-hidden="true" />}
               variant="ghost"
               onClick={() => {
                 setResetting(true);
               }}
             >
-              {t("logSearch.retention.reset")}
+              {t("logs.retention.reset")}
             </Button>
           ) : null}
         </div>
@@ -214,9 +231,9 @@ function Retention({ current }: { current: LogRetention }) {
         friction="simple"
         open={resetting}
         onOpenChange={setResetting}
-        title={t("logSearch.retention.resetTitle")}
-        description={t("logSearch.retention.resetDescription")}
-        actionLabel={t("logSearch.retention.reset")}
+        title={t("logs.retention.resetTitle")}
+        description={t("logs.retention.resetDescription")}
+        actionLabel={t("logs.retention.reset")}
         onConfirm={async () => {
           await clearLogRetention();
           await queryClient.invalidateQueries({ queryKey: logKeys.retention });
@@ -231,17 +248,10 @@ export function LogRetentionSection() {
   const t = useT();
   const query = useQuery(logRetentionQuery());
   return (
-    <Section title={t("logSearch.retention.title")} description={t("logSearch.retention.description")}>
-      {query.data !== undefined ? (
-        <Retention current={query.data} />
-      ) : query.isError ? (
-        <ErrorBlock compact error={query.error} title={t("logSearch.retention.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
-      ) : (
-        <div aria-busy="true" className="flex flex-col gap-2">
-          <span className="sr-only">{t("logSearch.retention.loading")}</span>
-          <Skeleton className="h-16 w-full" />
-        </div>
-      )}
+    <Section icon={OBJECT_ICONS.log} title={t("logs.retention.title")} description={t("logs.retention.description")}>
+      <QueryState query={query} label={t("logs.retention.noun")} skeleton={<SkeletonCard lines={2} />}>
+        {(current) => <Retention current={current} />}
+      </QueryState>
     </Section>
   );
 }
