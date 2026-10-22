@@ -750,6 +750,11 @@ where they are, not as a change.
   refuses an object's icon taken from anywhere else, so an object has one icon across the console.
 - **On a phone.** The action of a notice and the button of a setting go under their text at 390 pixels, where
   a Spanish sentence was left about 100 pixels wide beside them.
+- **Four more languages.** Besides English and Spanish, the console speaks French, German, Brazilian
+  Portuguese and Simplified Chinese, every text of it. A browser that asks for one of them gets it (Portuguese
+  and Chinese in any form but Traditional Chinese), and the session menu switches. Each language is a file
+  only who chose it downloads; a text a later release adds shows in English until it is translated
+  ([TRANSLATING.md](TRANSLATING.md)).
 
 ### Other changes across the console
 

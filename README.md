@@ -312,8 +312,9 @@ the applications and the system's journal; an activity timeline, and a panel tha
 and settings, accounts, approvals, the audit log and compliance. On a central, fleet-wide views
 and bulk actions.
 The new-application wizard deploys from a repository, a recipe or an exported application.
-It speaks English and Spanish, following the browser, switched from the top bar; what
-nginx, systemd or certbot print is shown verbatim, as they wrote it. Every page is built from
+It speaks English, Spanish, French, German, Brazilian Portuguese and Simplified Chinese, following
+the browser, switched from the session menu; what nginx, systemd or certbot print is shown verbatim,
+as they wrote it. Every page is built from
 one design system, [docs/DESIGN.md](docs/DESIGN.md). Keyboard: `Ctrl K` for
 the command palette, `g a` for applications, `/` to search, `?` for every shortcut. Light,
 dark and system themes. Built to WCAG 2.2 AA and tested with axe on every page.

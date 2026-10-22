@@ -56,6 +56,9 @@ describe("checking a contributed file", () => {
     // Japanese has no "one": a form it never selects would be a form nobody reads.
     expect(pluralCategories("ja")).toEqual(["other"]);
     expect(check({ "nav.failed": { one: "{count}", other: "{count}" } }, ENGLISH, "ja")[0]?.message).toMatch(/not one this language uses/);
+    // ...and needs none: "other" alone is the whole plural there, never a missing "one".
+    expect(check({ "nav.failed": { other: "{count} 个失败" } }, ENGLISH, "zh-CN")).toEqual([]);
+    expect(check({ "nav.failed": { other: "" } }, ENGLISH, "zh-CN")[0]?.message).toMatch(/"other" is missing or empty/);
     expect(pluralCategories("pt")).toContain("many");
     expect(check({ "nav.failed": { one: "{count}", many: "{count}", other: "{count}" } }, ENGLISH, "pt")).toEqual([]);
   });

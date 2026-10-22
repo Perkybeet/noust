@@ -164,6 +164,13 @@ describe("formatRelative", () => {
     expect(formatRelative(new Date(now.getTime() + 3 * 3600 * 1000), now)).toBe("in 3h");
     expect(formatRelative(new Date(now.getTime() + 2000), now)).toBe("just now");
   });
+
+  it("says ago in words where a language's narrow form is a bare sign", () => {
+    // French's narrow form is "-5 h"; its short one reads as a sentence. Spanish keeps the narrow one.
+    expect(formatRelative(ago(5 * 3600), now, "fr")).toMatch(/^il y a 5\sh$/);
+    expect(formatRelative(new Date(now.getTime() + 3 * 3600 * 1000), now, "fr")).toMatch(/^dans 3\sh$/);
+    expect(formatRelative(ago(5 * 3600), now, "es")).toMatch(/^hace 5\sh$/);
+  });
 });
 
 describe("formatDateTime", () => {

@@ -1,8 +1,9 @@
 # Translating the console
 
-The console speaks English and Spanish. A third language does not need anyone to write TypeScript: it
-is one JSON file of translations that the console reads when somebody chooses that language. This
-page is the whole guide, from nothing to a pull request.
+The console speaks English and Spanish, and four languages contributed as data: French (`fr`), German
+(`de`), Brazilian Portuguese (`pt-BR`) and Simplified Chinese (`zh-CN`). Another language does not need
+anyone to write TypeScript: it is one JSON file of translations that the console reads when somebody
+chooses that language. This page is the whole guide, from nothing to a pull request.
 
 What is translated is the console: its buttons, messages, headings and help text. Not translated, on
 purpose: what a program printed (nginx's, systemd's, git's own words), commands, paths, unit names and
@@ -48,8 +49,8 @@ npm run i18n:status -- pt         # how far you are, what is wrong, what comes n
 - **Placeholders** such as `{count}` or `{name}` are filled in by Noust: keep each one exactly, in the
   place your language needs it. A missing or misspelled placeholder is refused.
 - **Plurals** are an object of forms chosen by the number. Write `one` and `other`, and the others
-  your language uses (`many` in Portuguese and French, for example; the checker says which). A form
-  your language never selects is refused.
+  your language uses (`many` in Portuguese and French, for example; the checker says which). Chinese and
+  Japanese say every count with `other` alone. A form your language never selects is refused.
 - **Leave out what you have not translated.** The console shows English for any key your file does
   not have, so a language can grow a page at a time. An empty text is refused for that reason: it would
   show nothing.

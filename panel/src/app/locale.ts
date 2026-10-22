@@ -38,6 +38,9 @@ function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
 }
 
+/** A tag of Chinese written in the traditional script: Taiwan, Hong Kong, Macao or `Hant` itself. */
+const TRADITIONAL_CHINESE = /-(hant|tw|hk|mo)(-|$)/i;
+
 /** The languages offered, which are the ones a browser's own preference may choose for a person. */
 function isOffered(value: string): value is Locale {
   return LOCALE_CHOICES.some((choice) => choice.value === value);
@@ -46,7 +49,9 @@ function isOffered(value: string): value is Locale {
 /**
  * The first of the browser's preferred languages the console speaks; English otherwise. The whole
  * tag is tried before its language (`pt-BR`, then `pt`), so a regional translation wins where one
- * exists. A draft is never chosen for somebody: it is incomplete.
+ * exists, and a language offered only in one region's form serves the others (`pt-PT` and `pt` read
+ * Brazilian Portuguese, `zh` and `zh-Hans-CN` Simplified Chinese), except Traditional Chinese, whose
+ * readers are not given the simplified script. A draft is never chosen for somebody: it is incomplete.
  */
 export function browserLocale(languages: readonly string[] = navigator.languages): Locale {
   const preferred = languages.length > 0 ? languages : [navigator.language];
@@ -56,6 +61,8 @@ export function browserLocale(languages: readonly string[] = navigator.languages
     if (full !== undefined && isOffered(full)) return full;
     const base = tag.toLowerCase().split("-")[0];
     if (base !== undefined && isOffered(base)) return base;
+    const regional = LOCALE_CHOICES.find((choice) => choice.value.toLowerCase().startsWith(`${base ?? ""}-`));
+    if (regional !== undefined && !(base === "zh" && TRADITIONAL_CHINESE.test(tag))) return regional.value;
   }
   return "en";
 }

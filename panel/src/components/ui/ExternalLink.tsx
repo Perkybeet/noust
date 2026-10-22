@@ -12,6 +12,11 @@ export interface ExternalLinkProps {
   href: string | null | undefined;
   /** The link's text; omitted, the address itself in mono. */
   children?: ReactNode;
+  /**
+   * An icon before the text, as `Button` takes one. Never inside `children`: the text is a
+   * truncating span, and an icon in it would sit on a line of its own above the words.
+   */
+  icon?: ReactNode;
   /** Draw it as a button of this variant; omitted, it is a link in the accent. */
   button?: ButtonVariant;
   size?: ButtonSize;
@@ -39,6 +44,7 @@ const LINK =
 export function ExternalLink({
   href,
   children,
+  icon,
   button,
   size = "md",
   inline = false,
@@ -59,6 +65,7 @@ export function ExternalLink({
       {...(label !== undefined ? { "aria-label": `${label} ${opensInNewTab}` } : {})}
       className={button !== undefined ? buttonClassName(button, size, className) : cx(LINK, !inline && "w-fit text-13", className)}
     >
+      {icon}
       <span
         translate={children === undefined ? "no" : undefined}
         className={cx("min-w-0", inline ? "break-all" : "truncate", children === undefined && "mono text-12")}

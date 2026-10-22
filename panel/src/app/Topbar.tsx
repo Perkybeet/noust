@@ -83,8 +83,12 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
           <LanguageSwitch />
         </div>
         <div className="-mx-4 flex flex-col border-t border-border px-2 pt-2">
-          <ExternalLink href={helpUrl(helpFor(pathname))} button="ghost" className="justify-start">
-            <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
+          <ExternalLink
+            href={helpUrl(helpFor(pathname))}
+            button="ghost"
+            className="justify-start"
+            icon={<BookOpen aria-hidden="true" className="size-icon-md shrink-0" />}
+          >
             {t("shell.session.documentation")}
           </ExternalLink>
           <Button
