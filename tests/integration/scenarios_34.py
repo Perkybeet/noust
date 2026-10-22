@@ -1569,11 +1569,25 @@ def scenario_database_instances(sc: Scenario) -> None:
             timeout=120,
             label="noust db backup shop",
         )
-        sc.run(
+        # A file outside Noust's own folder is loaded as the database's owner, who cannot hand
+        # objects to the dump's owner (postgres): the refusal says to repeat with --as-superuser,
+        # which is right for a dump the operator made a moment ago.
+        refused = sc.run(
             f"noust db restore {DBI_DATABASE} /root/it-shop.dump --engine {DBI_ENGINE} "
             f"--as-new shop_copy --force",
             timeout=120,
-            label="noust db restore --as-new shop_copy",
+            check=False,
+            label="noust db restore --as-new shop_copy (a dump outside Noust's folder)",
+        )
+        sc.check(
+            refused.returncode != 0 and "--as-superuser" in refused.stdout + refused.stderr,
+            f"the refusal does not say how to load a dump you made: {refused.stdout!r}",
+        )
+        sc.run(
+            f"noust db restore {DBI_DATABASE} /root/it-shop.dump --engine {DBI_ENGINE} "
+            f"--as-new shop_copy --as-superuser --force",
+            timeout=120,
+            label="noust db restore --as-new shop_copy --as-superuser",
         )
         copy = orders(sc, DBI_ENGINE, "shop_copy", "the orders of the copy")
         sc.check("10" in copy and "20" in copy, f"the restored copy lacks the data: {copy!r}")
@@ -2762,8 +2776,15 @@ def scenario_restore_server(sc: Scenario) -> None:
         )
         sc.evidence.append(f"(report) {json.dumps(report)[:1500]}")
         outcomes = {item["domain"]: item for item in report["apps"]}
+        # In the suite this container also holds the applications of other scenarios, which nobody
+        # backed up: the report says so ("no_backup") and is not ok for it, which is the true answer.
+        # What this scenario proves is that the application it lost is back and that nothing else
+        # failed for any other reason.
+        others = {domain: item for domain, item in outcomes.items() if domain != DR_DOMAIN}
         sc.check(
-            report.get("ok") is True and outcomes.get(DR_DOMAIN, {}).get("status") == "restored",
+            outcomes.get(DR_DOMAIN, {}).get("status") == "restored"
+            and all(item.get("status") == "no_backup" for item in others.values())
+            and (report.get("ok") is True or bool(others)),
             f"the server is not back: {json.dumps(report.get('apps'))[:600]}",
         )
 
