@@ -1,6 +1,6 @@
 # Teams, projects and environments
 
-A server can be shared. Teams (3.4) are how: a **team** groups people, a **project** groups what they
+A server can be shared. Teams (4.0) are how: a **team** groups people, a **project** groups what they
 run, an **environment** is a stage of a project (production, staging). Every application, site,
 database and backup schedule belongs to one project and one environment, and a person sees the
 teams they belong to and nothing of the others.
@@ -67,7 +67,7 @@ noust access list
 noust access revoke 7
 ```
 
-It is Settings > Roles and access in the console and `GET|POST /api/access/bindings` in the API
+It is Settings > Roles in the console and `GET|POST /api/access/bindings` in the API
 (`accounts.read` to look, `accounts.manage` to change, sudo mode, and a second person's approval
 where approvals apply). What an account holds on a resource is the union of what it holds on the
 environment, the project and the team that contain it, and on the server, with the floor of its own
@@ -130,7 +130,7 @@ token list says where each one reaches.
 Everything below the API is a page of the console, in English and Spanish, and a viewer never
 sees a button it would be refused.
 
-- **The team switcher** is in the top bar, beside the server selector. It is drawn once there is
+- **The team switcher** is at the left of the top bar. It is drawn once there is
   something to switch (a second team, or a team that is not `default`): a server nobody organised
   looks exactly as it did. It says the team the console works in (or "All teams", which an
   administrator and anyone in several teams has), narrows the Applications, Databases and Sites
@@ -327,7 +327,7 @@ Any member sees the list; changing it takes the admin role in the team (and sudo
 ## Servers of the fleet
 
 A central's servers (see [CENTRAL.md](CENTRAL.md)) are the instance's until one is **assigned to a team**.
-The team then sees the server in its server selector, reads its status and tests its connection, and
+The team then sees the server in its scope selector, reads its status and tests its connection, and
 works on it through the central: its members open the server's console pages (applications, sites,
 databases, backups, logs, jobs) as they open the central's own. Every other team reads the server as
 absent (`404`, the body of one that is not registered), and so does any account that belongs to no team.
@@ -367,7 +367,7 @@ overview and timeline), backups and their destinations (database dumps, data vol
 own backup, with the policies that schedule them: each writes a root timer and names a destination
 the server owns), certificates in bulk, the GitHub App, the fleet's own views and the way the central reaches each server, an adopted
 Compose stack, an import of an exported application and the install of a recipe (create the
-application through `POST /api/apps` with a recipe instead). These are what 3.4 does not yet
+application through `POST /api/apps` with a recipe instead). These are what 4.0 does not yet
 filter by team; the pages come to a team member as each is filtered. Database engines (the
 instances Noust runs in containers beside the host's included: making, upgrading and removing one),
 users, imports and dumps are also the server's; the databases a team owns are its own, on whichever

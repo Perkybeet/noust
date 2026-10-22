@@ -160,13 +160,19 @@ not show the host name or the version before you sign in; `auth.login_label` set
 tells your servers apart. After signing in, the console says when and from where you last signed
 in and how many attempts failed since.
 
-**A server with no accounts** signs in with the access token, as in 3.0, and then opens **Create
-the first account**: an administrator, and (recommended) a security officer for another person.
+**A server with no accounts** signs in with the access token (the **Access token** button, or the
+link the installer printed, which opens the page on its field) and then opens one form that
+creates the first administrator and signs in with it: a username and a password, with the name and
+the email a click away. The console then offers to **Protect your account**, which can wait (**Set
+up later**) unless a compliance framework asks for a second factor or the console is published.
 Once an account exists, the access token is emergency access: it still signs in, and each use is
 recorded. An invited person opens the invitation link, chooses a password and sets up a second
 factor; where the server can send mail the invitation dialog also mails the link, and the sign-in
-page offers "Forgot your password?", which mails a link that needs the authenticator as well. Every account sets up a second factor, an authenticator app or a passkey, at its first
-sign-in, before it can do anything else. When `auth.notice.text` is set, a notice of rights and
+page offers "Forgot your password?", which mails a link that needs the authenticator as well. An
+account sets up a second factor, an authenticator app or a passkey, at its first sign-in, before it
+can do anything else, when a compliance framework asks for one or the console is published or
+listens beyond loopback; elsewhere it is set up at **Account > Sign-in security** whenever the
+person likes. When `auth.notice.text` is set, a notice of rights and
 obligations is shown and must be accepted.
 
 A session ends after 30 minutes without activity and 12 hours after sign-in (`auth.session.*`).
@@ -175,15 +181,23 @@ address; the page counts down.
 
 ## Layout
 
-- **Sidebar**, in two groups: Overview, Applications, Catalog, Databases, Domains and
-  certificates, Backups; then Server, Cron, Activity. On a central, Fleet comes first. Settings is at the
-  bottom. On a narrow screen it becomes a menu.
-- **Top bar**: on a central, a server selector with three contexts: one server, **All servers**
-  (the Fleet pages) and **This central** (the central's own settings). `/n/<server>/...` keeps
-  the choice across a reload, the last server is remembered, and every page for one server shows
-  its name above the title. Then the machine strip (host name, uptime, load, CPU, memory, disk,
-  units running and failed), the command palette, the language switch, and the session menu
-  (account, theme, keyboard shortcuts, sign out).
+- **Sidebar**, in three groups: what runs (Overview, Projects, Applications, Databases, Domains,
+  Backups and Cron), what happens (Logs and Activity) and the machine (Server). Projects is where
+  teams, projects and environments live, and appears once they matter on the server. Settings is at
+  the bottom. On a narrow screen the sidebar becomes a menu.
+- **The scope selector**, at the head of the sidebar (in the top bar on a narrow screen), on a central
+  or a server that has others: one server, **All servers** (the fleet) or **This central** (its own
+  servers, security and tokens). The sidebar follows it: **All servers** and **This central** list the
+  fleet's seven pages, Overview, Servers, Applications, Certificates, Backups, Updates and Activity.
+  `/n/<server>/...` keeps the choice across a reload, the last server is remembered, and every page for
+  one server shows its name above the title. A lone server draws no selector.
+- **Top bar**: the machine strip (host name, uptime, load, CPU, memory, disk, units running and
+  failed), the command palette, the **inbox** and the session menu (account, sign-in security, theme,
+  language, keyboard shortcuts, sign out). The inbox is a bell: **Needs you** lists what is wrong while
+  it is wrong (a failed application, a certificate about to expire, an alert that fires, a probe that is
+  down, a request waiting for your decision, a Noust or a recipe with a newer version), each row with
+  one button that goes to it, and **Recent** keeps the last 30 things the server said while this tab
+  was open. The history is Activity.
 - The browser tab is titled `<page> - <hostname> - Noust`.
 
 Every page follows one of the templates in [DESIGN.md](DESIGN.md): a list, a detail page with
@@ -201,12 +215,16 @@ How this server is doing, what needs you and what happened lately. Six key figur
 applications running and failed, deploys today, certificates due, backups in the last 24 hours,
 disk, and pending system updates. Below them, what needs attention (worst first, each with the
 way to fix it) beside recent activity as a timeline, then the machine's charts and quick actions.
-When the charts' history is not being recorded, it says why and what to run. A server with
-nothing deployed shows first steps instead. On a hub, the home page is the fleet summary.
+When the charts' history is not being recorded, it says why and what to run. The Overview has a
+second view, the [Map](#map). A server with nothing deployed shows one card instead, **Deploy your
+first app**: **Try a demo** (a tiny page on a temporary address), **Use a repository**, four popular
+recipes and **All recipes**, and under it **Then make it safe to leave alone** (backups, a copy off
+the server, notifications and, while the account is not protected, **Protect your account**). On a
+hub, the home page is the fleet summary.
 
 ### Map
 
-`/map` (Overview's More actions, or the palette: "Open the map of this server") draws how this server fits
+`/map` (the Overview's second tab, or the palette: "Open the map of this server") draws how this server fits
 together: the names that reach each application, the applications with their state, the databases they use,
 the scheduled work they run and the data they keep (persistent paths and mounted paths), in fixed columns
 from left to right, with the lines that connect them. It is **read from the server on every visit** and
@@ -215,8 +233,7 @@ look again: the same server is the same picture. Pointing at or focusing an elem
 as in a site's diagram; the same connections are a table with a link to each thing, and on a phone each
 column is a list. A team member's map has its team's applications and databases and nothing else, and
 a project is drawn apart from another when there is more than one to tell apart. The same relations
-are `noust map` (and `noust map --json`, the document `GET /api/map` answers). The map does not have an
-entry in the sidebar yet; where it lives in the navigation is decided with the rest of it.
+are `noust map` (and `noust map --json`, the document `GET /api/map` answers).
 
 ### Charts
 
@@ -256,11 +273,12 @@ way everywhere.
 
 ### Fleet
 
-A [central's](CENTRAL.md) own pages, hidden on a plain server. Tabs: **Summary** (the fleet's
-key figures and what needs attention on every server, worst first), **Servers** (reachability,
-version, load, memory, disk, labels), **Applications**, **Certificates**, **Backups**,
-**Updates** and **Activity**, each row with its server and a link to its page there. The
-Summary ends with **Compare servers**: one measurement of every server (CPU, memory, swap, disk,
+A [central's](CENTRAL.md) own pages, hidden on a plain server: choose **All servers** in the scope
+selector and the sidebar lists them. **Overview** (the fleet's key figures and what needs attention
+on every server, worst first), **Servers** (reachability, version, load, memory, disk, labels),
+**Applications**, **Certificates**, **Backups**, **Updates** and **Activity**, each row with its
+server and a link to its page there. The
+fleet's Overview ends with **Compare servers**: one measurement of every server (CPU, memory, swap, disk,
 load, network) over the same window, the busiest first, from each server's own history; a server
 that did not answer is a gap, said so. A server
 that did not answer, is too old for a view, or refused you is one row with its state and its
@@ -270,7 +288,7 @@ own words; the rest of the page is unaffected.
 update Noust, apply system updates) are chosen from a list of servers or by label, show their
 plan first (which servers, in which batches, what is skipped and why), and run as a fleet job
 with each server's outcome and a button to retry the servers that failed. **Add a server**
-starts the same flow as **Settings > Servers**.
+is on **Servers**, and the selector and the palette lead to it.
 
 On a fleet job's page, **Details** on a server's row opens what happened there:
 
@@ -293,7 +311,8 @@ central waits for the node to come back and reads the result instead of counting
 node's console follows a job that runs in a transient systemd unit again after it restarts (see
 [Live updates](#live-updates)), so the job ends as the unit did.
 
-**On several servers** is the tab for an application that runs on more than one server
+**On several servers** is the second tab of Applications (on **All servers**), for an application that
+runs on more than one server
 ([CENTRAL.md](CENTRAL.md#an-application-on-several-servers)): each application is a card with its servers
 side by side - the commit each serves, when, and whether it is current, differs, is missing or did not
 answer - and a line that says whether the fleet is in sync or which commit most servers run. Its menu
@@ -307,7 +326,7 @@ bastion, tried before it is kept, with the line to authorize on the bastion), **
 
 ![Fleet](assets/console/fleet.png)
 
-The server selector switches every other page to one server, and every action taken there
+The scope selector switches every other page to one server, and every action taken there
 (including a destructive one, still behind "Confirm it's you") reaches that server's own API
 through the central's tunnel. What the server's ceiling for the central does not allow is
 greyed out with the reason. A hub (`central.role = hub`) deploys nothing of its own; switched to
@@ -338,16 +357,22 @@ time, in the order chosen, with the server's own words for any that fails and **
 for those alone. Each is the call the application's page makes, so sudo mode, the audit trail and
 the update queue are the same.
 
-**New application** (`/apps/new`) walks through **Server** (on a fleet only: which server
-deploys it, so any server can be reached from one place), **Source** (a Git URL, a GitHub
-repository, a directory on the server, a recipe, an export file or an application read from a
-Coolify or Dokploy server with a read-only token, and a branch), **Address**,
-**Configuration**, **Variables**, **Database** (optional: one created and linked before the first
-build, its connection string in the app's environment) and **Deploy**. The server inspects the repository before anything is created: the
-detected type (editable), install, build and start commands, port, and the variables declared in
-`.env.example` as a form, with secrets flagged. It checks the domain's DNS, then deploys and
-streams the build log until the application answers. Switched to a server of the fleet, the
-wizard deploys there.
+**New application** (`/apps/new`) asks for what it needs and nothing else. In **Source** you give a
+Git URL, a path on the server or a Docker image, or choose **From GitHub**; what you give is read at
+once, and a line under the field says what was found, with **Change**: the detected type (editable),
+the commands, the port and the variables declared in `.env.example` as a form, with secrets flagged
+(`Detected: Next.js with npm. Port 3000. 2 variables to fill in.`). **More ways** are Compose, a
+recipe, an import (an export file, or an application read from a Coolify or Dokploy server with a
+read-only token) and a site that already runs. Then **Address** (a name of your own, whose DNS the
+console checks, or, on a server with a public address, a temporary one such as
+`shop.203-0-113-10.sslip.io`, which needs none), **Configuration**, **Variables**, **Database**
+(optional: one created and linked before the first build, its connection string in the app's
+environment) and **Deploy**. The stepper lists only the steps that ask something, and the summary
+before deploying says what was detected, the address and the variables, each with **Change**. The
+deploy streams the build log until the application answers, and ends on one card: the address with
+copy and open, whether HTTPS is ready, and what to do next. On a fleet there is also a **Server** step,
+or switch to the server first. A repository the console cannot clone shows git's own words and this
+server's public key, to add at the code host. Leaving with something chosen asks first.
 
 The Source step also offers **A running stack**, for a Docker Compose stack that already runs on
 this server and that Noust did not deploy (one started by its own `deploy.sh`, say). You give the
@@ -373,9 +398,11 @@ image is made and never a secret. A container's releases are images, so the layo
 kept in `shared/` are not offered, and neither is a database: it cannot reach the host's. See
 [containers.md](containers.md).
 
-### Catalog
+### Recipes
 
-The recipes this release ships (`noust recipe list`), each as a card: its logo (an image the server
+The recipes this release ships (`noust recipe list`), reached from **Applications** and kept at
+`/catalog` (so are the installed ones, `/catalog/installed`), each as a tile with a **Popular** row
+before any filter: its logo (an image the server
 serves, within the strict policy), name and slogan, its category from a closed list, tags, the
 version it pins, the day the recipe last changed, links to its site and documentation, **Runs in
 Docker** for a Compose recipe and what a native one needs (a database Noust sets up, a PHP-FPM). A
@@ -413,7 +440,7 @@ down, with a link to **Diagnose**. Tabs:
 | Tab | What it has |
 |---|---|
 | Overview | What is live now and what changed, the last deployments (a failed one says which version kept serving), the application's health (uptime, certificate, CPU and memory, with the way to change its limits), its previews, and where it answers and whether a push deploys it |
-| Deployments | The application's [queue](#the-deploy-queue-and-cancelling) when something builds or waits for it; the deployment history in one list: what serves is marked **Live**, a failed deploy says which version kept serving, a deploy that was cancelled is drawn as **Cancelled** and never as a failure, search and filters (state, branch, who started it) are in the address, and each row opens its page or acts from its menu (**View log**, **Roll back to this**, **Retry**, **Rebuild this commit**, **Copy commit**); a build made with **Build without serving** waits at the top with **Make it serve**; an application kept in a single folder lists its backups under the list |
+| Deployments | The application's [queue](#the-deploy-queue-and-cancelling) when something builds or waits for it; the deployment history in one list: what serves is marked **Live**, a failed deploy says which version kept serving, a deploy that was cancelled is drawn as **Cancelled** and never as a failure, search and filters (state, branch, who started it) are in the address, and each row opens its page or acts from its menu (**View log**, **Roll back to this**, **Retry**, **Rebuild this commit**, **Copy commit**); a build made with **Build without serving** waits at the top with **Go live**; an application kept in a single folder lists its backups under the list |
 | Logs | The unit's journal, live; for a Docker Compose stack or a container application, what the containers printed (all services or one, read again every few seconds), with the unit's journal as one choice |
 | Metrics | CPU and memory (requests and errors for a static site) over an hour, a day, a week or a month, against its limits, with deploys marked; or why there is nothing to show. A Compose stack of two containers or more adds CPU, memory, disk and network **by container** (the busiest three of each), and a site whose access log is read adds **who asks for what**: requests and errors by the hour, data served, and the pages, networks, status codes and referrers that appear most |
 | Environment | The `.env`, redacted; revealing a secret needs sudo mode. A row opens on press, and a hidden value is never read to be edited: it is kept, or replaced (**Replace value**). A change shows in its row, the old value struck beside the new one, and the bar at the foot writes only what changed: **Save and restart**, or **Save only** from its menu, which leaves the change waiting as "not applied". A pasted file, or more than six changes, is looked over in full first. A value made of references (`{{project.NAME}}`, `{{secret:vault/...}}`) is shown as written, not as what it resolved to, and **Resolve references** reads them again without a deploy. **Given to** (build and runtime, build only, runtime only) is in each row's menu and in the add dialog, and saved with the values. **Given by Noust** lists `NOUST_URL`, `NOUST_BRANCH` and the rest, read-only. See [variables.md](variables.md) |
@@ -614,7 +641,7 @@ now, enable, disable, and each job's recent runs with their output and exit stat
 given the longest it may run and, for an application that is a Compose stack, the service of the
 stack it runs in (see [compose.md](compose.md#scheduled-tasks-of-a-stack)).
 
-### Domains and certificates
+### Domains
 
 Two tabs. **Certificates**: every certificate with its names, issuer and expiry; issue one
 (method: automatic, nginx, Apache, webroot or standalone; extra names; `www`), renew those
@@ -636,10 +663,11 @@ trust it on each kind of device, the certificates it signed), from More actions;
 [certificates.md](certificates.md) and
 [network.md](network.md). An application's **Domains** tab also chooses the spelling that is served
 (`www` or the bare name), sends an alias to another port, shows and makes the DNS records of its
-names, and chooses where its certificate comes from; its **Settings, Access** holds the password,
-the address lists, the limits and the response headers of its site.
+names, and chooses where its certificate comes from; its **Settings, Access** holds the password, the address lists, the private network,
+the sign-in service and the routes of its site, and **Settings, Protection** the limits, the
+response headers, HTTP/3, the firewall and the client certificates.
 
-![Domains and certificates](assets/console/domains.png)
+![Domains](assets/console/domains.png)
 
 #### A site as text, structure and diagram
 
@@ -744,15 +772,18 @@ by kind, result and actor. A job opens its log. What builds and what waits leads
 
 ### Logs
 
-One search over the logs of every application at once (the journal's lines and the containers'
-output, credentials masked): the words as typed, the application, the level and how far back, all in
-the address so a search can be sent to somebody, with how many lines matched and how many were
-examined. On a central, **Every server** searches all of them, each line naming its server. See
-[logs.md](logs.md).
+One search over the logs, from one toolbar: a query box (`/` focuses it), **Where from** (the
+applications, with the journal's lines and the containers' output, or the **System**: the journal of
+any service of the machine), **How far back** (**Live** first; **This boot**, **Previous boot** and
+**Since the last deploy** are ranges too), the syntax help and **Copy link to this search**. Credentials
+are masked, and everything is in the address so a search can be sent to somebody, with how many lines
+matched and how many were examined. An application's Logs tab has the same toolbar. On a central,
+**Every server** searches all of them, each line naming its server. `/server/logs` opens the System
+source. See [logs.md](logs.md).
 
 ### Server
 
-Seven tabs, each with its URL:
+Six tabs, each with its URL (the system's journal is in [Logs](#logs)):
 
 | Tab | What it has |
 |---|---|
@@ -761,12 +792,11 @@ Seven tabs, each with its URL:
 | Security | Hardening checks with their fix or exact steps, accepted risks; SSH (effective settings, keys, safe fixes that revert unless confirmed); the firewall against the ports that really answer; fail2ban |
 | Storage | Real filesystems, what takes their space, clean-ups, swap; **Automatic cleanup**, the policy this server runs by itself (schedule, how full a disk must be, which actions) with a Run now, and the history of every cleanup |
 | Services | Every systemd unit Noust manages ("Show all units" lists the rest, read-only); a service's page has its live journal, controls and a unit editor checked with `systemd-analyze verify`. A unit carries tags like an application (**Edit tags...** in its menu, a Tag filter, chips under its name) |
-| Logs | The journal of any unit, searched with a query (below), with filters, and any entry opened in context |
 | System | Time and synchronisation, host name, the operating system and its end of life, processes, network, reboot and shut down (now or scheduled), and the resource monitor |
 
 `/services` redirects to Server > Services.
 
-**Searching the logs.** The Logs tab's search box takes a query, judged by the server against what
+**Searching the logs.** The search box of Logs takes a query, judged by the server against what
 the journal returns (`GET /api/server/logs/search`, `noust server logs -Q`): nothing typed is part of a
 command line, and no regular expression is run.
 
@@ -781,14 +811,13 @@ command line, and no regular expression is run.
 | `-debug`, `NOT debug` | leave out what says that |
 | `a OR b`, `(a OR b) c` | either; grouping (`AND`, `OR` and `NOT` in capitals) |
 
-The Service and Level pickers are shortcuts for `@unit:` and `@level:`, and the page says the query as the
+On the System source, the Service and Level pickers are shortcuts for `@unit:` and `@level:`, and the page says the query as the
 server understood it ("Understood as `@unit:nginx AND @level:err AND NOT timeout`") with how many entries
 it looked through. A search examines the newest 5,000 entries of the range (20,000 on request) and says
 when older ones were not examined, so a narrow range or `@unit:` finds what a wide one cannot. A query
 the server cannot read is answered in its own words, with where. The range can also be a stretch carried
 from elsewhere: **What happened here** opens the timeline of the stretch being searched, and the
-timeline's **Search these logs** brings its stretch (and its application, as `@app:`) back to the Logs
-tab. **Click a line, or select it with the arrow keys and press Enter, to see it in context**: the entries
+timeline's **Search these logs** brings its stretch (and its application, as `@app:`) back to Logs. **Click a line, or select it with the arrow keys and press Enter, to see it in context**: the entries
 the journal logged just before and after it, from every service or only its own, with the one chosen marked
 (`noust server logs --around CURSOR`, with the cursors `--json` prints).
 
@@ -822,34 +851,39 @@ failed, so a cleanup that took something you missed can be reconstructed. From a
 
 ### Settings
 
-A side navigation with a page per section. On a central, each section says whose it is: the
-selected server's, or this central's.
+A side navigation with a page per section, in six groups that say whose they are. **This server**,
+**Monitoring** and **Developers** are the selected server's; **People and access**, **Governance**
+and **Fleet** are the instance's and stay the same whichever server you choose. From twelve sections
+the list has a filter that also finds a section by the name it had before, and on a phone the list is
+a page of its own. Your own password, authenticator app, passkeys and sessions are not here: they are
+**Account** and **Account > Sign-in security**, in the avatar menu.
 
-| Section | Scope | What it has |
+| Section | Group | What it has |
 |---|---|---|
-| General | Server | Applications directory, web server, certificate email, backups, the server's name, and the console address `--open` links use; and **Deploy freeze**, which holds every deploy on the server for a stretch ([delivery.md](delivery.md#freezing-deploys)) |
-| Notifications | Server | Whether notifications are on, at the top (amber when they are on but no channel is set up; see [Features that are on or off](#features-that-are-on-or-off)); channels (webhook, Slack, Discord, Telegram, email, Pushover, ntfy, Gotify, Microsoft Teams, Mattermost, Matrix, Lark, PagerDuty) in drawers, with a test each; email by SMTP or through Resend, Postmark, Brevo or Amazon SES; per channel its own events, its route, quiet hours, a **cap on messages** and a **daily summary**; the record of deliveries with why one is held; which events notify, among them **Deployed with warnings** (`deploy_hook_failed`), **Application not answering** (`app_unreachable`) and **Application answering again** (`app_recovered`), all on by default; private destinations allowed |
-| Integrations | Server | The GitHub App, the address for webhooks, the address and an entry to paste for a metrics scraper (Prometheus, Grafana Alloy, an OpenTelemetry Collector), and the server's **deploy keys** (each with the repositories it reaches and the applications built from them) and the **host keys it pinned**, which can be forgotten after comparing the fingerprint |
-| Log shipping | Server | Where the logs of applications are sent besides the journal: Grafana Loki, Axiom, New Relic, an HTTP endpoint, OpenTelemetry or a remote syslog; how each destination is doing and what it answered when it failed, verbatim; add, edit, turn off, test with one line, remove. See [runtime.md](runtime.md#log-shipping). Below it, **Keeping the logs**: how many days and how much disk the journal may take, whether it survives a reboot, and a way back to journald's defaults ([logs.md](logs.md)) |
-| Probes | Server | Addresses the monitor asks from outside the application: where each stands, what it last answered, its uptime over a day, a week, a month and a quarter, its incidents, and a button to ask it now; and the **public status page** made of the ones marked public, kept up to date, titled, and put on a name of its own through a job. See [probes.md](probes.md) |
-| Variables | Server | The server's shared variables, which every application can refer to as `{{server.NAME}}`; the team's, the project's and the environment's are on their own pages (below) |
-| Secret managers | Server | Vault, Doppler and Infisical, which a variable refers to with `{{secret:NAME/path}}`: the address, the settings of the kind, the team that may name it and a token that is written and never shown again; **Test connection** proves it answers. A secret's value is fetched at every deploy and never kept. See [variables.md](variables.md) |
-| About | Server | Version and updates; **Automatic updates** (whether this server installs Noust's own new releases by itself, the releases it takes, the hours and days, the next window and what the last run did; saving writes or removes a timer, in sudo mode; [release-policy.md](release-policy.md#updating-by-itself)); installation, CLI equivalents, links |
-| Servers | Central | Every server, its reachability, version, ceiling and labels, and, under its state, how long it has been silent or why its monitoring is paused; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code, or, for a server behind NAT, makes it dial in; **Create at a provider** opens the wizard of Settings > Cloud; test, pause monitoring and remove |
-| Cloud | Central | The provider accounts (Hetzner, DigitalOcean, Vultr) with their tokens as secrets, the servers this central created and why one did not join, and the cloud-init library new servers boot with (below) |
-| Console access | Server | Publishes the console on a name of its own over TLS, or takes it down (below) |
-| MCP | Server | Turns the endpoint for MCP clients on or off, switches its groups of tools, lists the tools with the permission each needs ([mcp.md](mcp.md)) |
-| Manifest | Server | Previews what applying a manifest of applications would change here, then applies exactly that as you ([manifest.md](manifest.md)) |
-| API reference | Server | Every route the server answers, with the permission it needs, what it takes and answers, a curl to copy, and a way to try the call with your own session (a change asks first; the status, the headers and the server's words are shown) |
-| Accounts | Central | Accounts, roles, invitations, separation-of-duties exceptions (with `accounts.read`) |
-| Roles and access | Central | Who holds which role and where (an environment, a project, a team, the server), granting and revoking, and the roles of your own (with `accounts.read`; [teams.md](teams.md#roles-where-they-are-needed)) |
-| Single sign-on | Central | The identity providers (OpenID Connect, SAML), directories and SCIM provisioning sources (added, tested, removed), the people linked to them, and the switch that turns passwords and passkeys off, naming the accounts that keep theirs ([sso.md](sso.md)) |
-| Security | Central | Your password, second factor and passkeys; sessions; the sign-in policy and the notice |
-| API tokens | Central | Your tokens: issue (shown once), narrow, bind to a team, a project or an environment, list (with where each reaches and when it expires) and revoke |
-| Approvals | Central | Four-eyes requests: yours, and those waiting for you to decide |
-| Audit log | Central | The audit trail, its verification, destinations and reviews (with `audit.read`) |
-| Compliance | Central | `noust ens check` and the evidence report |
-| Central | Central | The role, the certificate and the seal |
+| General | This server | Applications directory, web server, certificate email, backups, the server's name, and the console address `--open` links use; and **Deploy freeze**, which holds every deploy on the server for a stretch ([delivery.md](delivery.md#freezing-deploys)) |
+| Channels | Monitoring | Whether notifications are on, at the top (amber when they are on but no channel is set up; see [Features that are on or off](#features-that-are-on-or-off)); channels (webhook, Slack, Discord, Telegram, email, Pushover, ntfy, Gotify, Microsoft Teams, Mattermost, Matrix, Lark, PagerDuty) in drawers, with a test each; email by SMTP or through Resend, Postmark, Brevo or Amazon SES; per channel its own events, its route, quiet hours, a **cap on messages** and a **daily summary**; the record of deliveries with why one is held; which events notify, among them **Deployed with warnings** (`deploy_hook_failed`), **Application not answering** (`app_unreachable`) and **Application answering again** (`app_recovered`), all on by default; private destinations allowed |
+| Integrations | This server | The GitHub App, the address for webhooks, the address and an entry to paste for a metrics scraper (Prometheus, Grafana Alloy, an OpenTelemetry Collector), and the server's **deploy keys** (each with the repositories it reaches and the applications built from them) and the **host keys it pinned**, which can be forgotten after comparing the fingerprint |
+| Alert rules | Monitoring | Rules that fire when a measure stays past a limit for a while, the alerts firing now, and the built-in checks (disk, certificates, backups, patches, tokens) as boxes whose number shows only while they are on. A firing alert is **taken** by whoever is on call, with who and when, and **reopened**; the same buttons are in the inbox. See [notifications.md](notifications.md#alert-rules) |
+| Logs and metrics export | Monitoring | Where the logs of applications are sent besides the journal: Grafana Loki, Axiom, New Relic, an HTTP endpoint, OpenTelemetry or a remote syslog; how each destination is doing and what it answered when it failed, verbatim; add, edit, turn off, test with one line, remove. See [runtime.md](runtime.md#log-shipping). Below it, **Keeping the logs**: how many days and how much disk the journal may take, whether it survives a reboot, and a way back to journald's defaults ([logs.md](logs.md)) |
+| Probes and status page | Monitoring | Addresses the monitor asks from outside the application: where each stands, what it last answered, its uptime over a day, a week, a month and a quarter, its incidents, and a button to ask it now; and the **public status page** made of the ones marked public, kept up to date, titled, and put on a name of its own through a job. See [probes.md](probes.md) |
+| Variables | This server | The server's shared variables, which every application can refer to as `{{server.NAME}}`; the team's, the project's and the environment's are on their own pages (below) |
+| Secret managers | This server | Vault, Doppler and Infisical, which a variable refers to with `{{secret:NAME/path}}`: the address, the settings of the kind, the team that may name it and a token that is written and never shown again; **Test connection** proves it answers. A secret's value is fetched at every deploy and never kept. See [variables.md](variables.md) |
+| About Noust | This server | Version and updates; **Automatic updates** (whether this server installs Noust's own new releases by itself, the releases it takes, the hours and days, the next window and what the last run did; saving writes or removes a timer, in sudo mode; [release-policy.md](release-policy.md#updating-by-itself)); installation, CLI equivalents, links |
+| Servers | Fleet | Every server, its reachability, version, ceiling and labels, and, under its state, how long it has been silent or why its monitoring is paused; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code, or, for a server behind NAT, makes it dial in; **Create at a provider** opens the wizard of Settings > Cloud providers; test, pause monitoring and remove |
+| Cloud providers | Fleet | The provider accounts (Hetzner, DigitalOcean, Vultr) with their tokens as secrets, the servers this central created and why one did not join, and the cloud-init library new servers boot with (below) |
+| Console address | This server | Publishes the console on a name of its own over TLS, or takes it down (below) |
+| MCP | This server | Turns the endpoint for MCP clients on or off, switches its groups of tools, lists the tools with the permission each needs ([mcp.md](mcp.md)) |
+| Manifest | This server | Previews what applying a manifest of applications would change here, then applies exactly that as you ([manifest.md](manifest.md)) |
+| API reference | This server | Every route the server answers, with the permission it needs, what it takes and answers, a curl to copy, and a way to try the call with your own session (a change asks first; the status, the headers and the server's words are shown) |
+| Accounts | People and access | Accounts, roles, invitations, separation-of-duties exceptions (with `accounts.read`) |
+| Roles | People and access | Who holds which role and where (an environment, a project, a team, the server), granting and revoking, and the roles of your own (with `accounts.read`; [teams.md](teams.md#roles-where-they-are-needed)) |
+| Single sign-on | People and access | The identity providers (OpenID Connect, SAML), directories and SCIM provisioning sources (added, tested, removed), the people linked to them, and the switch that turns passwords and passkeys off, naming the accounts that keep theirs ([sso.md](sso.md)) |
+| Controls | Governance | The security profile in force and the sign-in policy; the compliance frameworks (ENS basic, medium and high, ISO/IEC 27001, NIS2, CIS, SOC 2, GDPR) and every control with its value and who forces it ([COMPLIANCE.md](COMPLIANCE.md)) |
+| API tokens | Developers | Your tokens: issue (shown once), narrow, bind to a team, a project or an environment, list (with where each reaches and when it expires) and revoke |
+| Approvals | People and access | Four-eyes requests: yours, and those waiting for you to decide |
+| Audit log | Governance | The audit trail, its verification, destinations and reviews (with `audit.read`) |
+| ENS report | Governance | `noust ens check` and the evidence report |
+| Central | Fleet | The role, the certificate and the seal |
 
 **Add a server** opens on the guided way: a name, the address and port, the account (root, or one
 with passwordless sudo), what the central may do there (read, deploy or admin, and whether it may
@@ -864,7 +898,7 @@ if it fails, shows ssh's own words and goes back to the details with the credent
 **Authorize it with a command on the server instead** is the way that never gives the central a
 credential at all.
 
-**Create a server** (Settings > Cloud, or Settings > Servers > Create at a provider) is a wizard in
+**Create a server** (Settings > Cloud providers, or Fleet > Servers > Create at a provider) is a wizard in
 five steps: the name and the provider account; the location, size (with its processor and monthly price)
 and image, read from the provider now; the options its create call has (public addresses, backups,
 firewalls, networks, SSH keys of your own, boot scripts from the library, delete the machine if it does not
@@ -881,7 +915,7 @@ connected and answered. If this central has not been prepared for it, the dialog
 command that fixes it (`noust node link setup`). A server that dials in shows "Dials in: port N of this
 central" where another shows its SSH address.
 
-**Console access** publishes the console at a name that points at this server: an nginx site, a
+**Console address** publishes the console at a name that points at this server: an nginx site, a
 Let's Encrypt certificate, the console told to trust nginx, and an allow-list if you give one;
 there is no plain-HTTP form. The page lists what is checked first (a second factor on every
 account that can sign in, with the accounts that lack one named; the ENS profile, which keeps the
@@ -894,27 +928,27 @@ On a server without a fleet, every section is the server's own. What a server's 
 tokens and second factor are cannot be changed from a central; the page says how to manage them
 on the server.
 
-![Settings > Servers](assets/console/settings-servers.png)
+![Fleet > Servers](assets/console/settings-servers.png)
 
 Writing any setting needs sudo mode.
 
 ## Features that are on or off
 
-A page that configures a feature opens with its state in one block, at the top, where earlier
-versions had a neutral message in which only a word changed. The state is a colour, a glyph and a
-word at once, so it reads without reading the sentence under it:
+A page that configures a feature says its state beside the setting, as a pill: a colour, a glyph and a
+word at once, so it reads without reading the sentence under it. The setting is a row, with the
+switch at its end and, when turning it on or off has a risk, the risk in one line and the confirmation
+that goes with it.
 
-| State | Shown as | Beside the title |
-|---|---|---|
-| On | The running green, a switch drawn on, "Enabled" in strong type | What it does for you |
-| Off | Grey, a switch drawn off, "Disabled" | What being off means for you, and the action that turns it on |
-| On with a problem | Amber and a warning triangle, never green: it is on but cannot do what it says | The problem by name ("Enabled, but no channel"), and the action that fixes it |
+| State | Shown as |
+|---|---|
+| On | The running green, a glyph and "Enabled" |
+| Off | Grey, a glyph and "Disabled", with what being off means for you |
+| On with a problem | Amber and a warning triangle, never green: it is on but cannot do what it says ("Enabled, but no channel"), with the action that fixes it |
 
-The block appears on Settings > Notifications, Settings > Approvals, the second factor in
-Settings > Security, scheduled backups on the Backups page, automatic updates on Server > Updates,
-and in an application's settings for instant rollback, zero-downtime deploys, builds in the
-sandbox and pull request previews. A change of state pulses once; with `prefers-reduced-motion`
-it does not. The block is the design system's `FeatureState`, see [DESIGN.md](DESIGN.md).
+The state is a row on Settings > Channels, Console address, MCP, Approvals and Automatic updates (in
+About Noust), the second factor in Account > Sign-in security, scheduled backups on the Backups page,
+automatic updates on Server > Updates, and in an application's settings for instant rollback,
+zero-downtime deploys, builds in the sandbox and pull request previews. See [DESIGN.md](DESIGN.md).
 
 ## Keyboard
 
@@ -922,10 +956,17 @@ it does not. The block is the design system's `FeatureState`, see [DESIGN.md](DE
 |---|---|
 | `Ctrl K` / `Cmd K` | Open the command palette, from anywhere |
 | `g` `o` | Go to Overview |
+| `g` `p` | Go to Projects |
 | `g` `a` | Go to Applications |
-| `g` `c` | Go to the Catalog |
 | `g` `b` | Go to Databases |
-| `g` `f` | Go to the Fleet (a central) |
+| `g` `n` | Go to Domains |
+| `g` `k` | Go to Backups |
+| `g` `c` | Go to Cron |
+| `g` `l` | Go to Logs |
+| `g` `y` | Go to Activity |
+| `g` `v` | Go to the server (on **All servers**, to the fleet's Servers) |
+| `g` `f` | Go to **All servers** (a central, from a server) |
+| `g` `u` | Go to the fleet's Updates (on **All servers**) |
 | `g` `s` | Go to Settings |
 | `g` `d` | Go to the application's Deployments tab; outside an application, to Activity |
 | `/` | Focus this page's search, or open the palette when it has none |
@@ -935,13 +976,15 @@ Two-key sequences are typed one after the other within about a second. They do n
 you type in a field or while a dialog is open. Inside a log viewer, `Ctrl F` / `Cmd F`
 focuses its search; `Enter` and `Shift Enter` step through matches.
 
-The **command palette** searches anything the console lists, by any name it answers to: pages
-and each Settings section; applications (domain, name and type, with their state); databases;
+The **command palette** searches anything the console lists, by any name it answers to, and says
+where each page lives: pages and each Settings section (an old name still finds it); applications (domain, name and type, with their state); databases;
 sites (by every name they answer on); certificates (by every name they cover, with the time
 left); services; the other servers; the newest deployments (by application, commit or
 message); and actions, the ones that create something first: new application, new application
 from a recipe, import an application, adopt a stack, new database, add a server, then change
-theme, keyboard shortcuts and sign out. It reads its lists the first time it is opened, only
+theme, keyboard shortcuts and sign out. `>` at the start lists only actions, and `@` changes the
+scope (a server, **All servers** or **This central**). The last three places it opened come first. It
+reads its lists the first time it is opened, only
 the ones your account may read, and reads them again after a job ends. Arrow keys or
 `Ctrl N` / `Ctrl P` move, `Enter` runs, `Esc` closes.
 

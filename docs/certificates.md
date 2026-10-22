@@ -29,7 +29,7 @@ central) and is passed to certbot through a configuration file, never on its com
 never in an API response or in the console. `--register` registers the account with the authority
 now, so a wrong key fails where you are looking and not at the next order. The settings live in
 `ssl.ca`, `ssl.acme_server`, `ssl.eab_kid` and `ssl.email` ([CONFIG.md](CONFIG.md)); the console
-has them under **Domains and certificates, More actions, Certificate authority**.
+has them under **Domains, Certificates, More actions, Certificate authority**.
 
 ## How a name is proven
 

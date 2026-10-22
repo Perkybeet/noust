@@ -55,7 +55,7 @@ npm run i18n:status -- pt         # how far you are, what is wrong, what comes n
   show nothing.
 - **Whole sentences.** Each key is a complete sentence with its placeholders; never join pieces. Word
   order and agreement are yours.
-- **Sentence case**, as English and Spanish do ("Domains and certificates"), and the same word for
+- **Sentence case**, as English and Spanish do ("Probes and status page"), and the same word for
   the same thing everywhere. The Spanish glossary in [`panel/src/i18n/README.md`](../panel/src/i18n/README.md)
   lists the terms Noust has fixed (release, health gate, unit, sudo mode...) and how Spanish says them; read it before you
   choose yours, and keep your own list of the choices you make.

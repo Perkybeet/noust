@@ -156,7 +156,7 @@ noust setup doctor
 ```
 
 lists what is missing and the command that fixes each item; the console shows the same under
-**Settings > About > Installation check**. Then:
+**Settings > About Noust > Installation check**. Then:
 
 - **The installer refused the platform (exit status 3).** The distribution or the processor is not
   on the list ([platforms.md](PLATFORMS.md)). `--force --target <repository directory>` tries

@@ -72,26 +72,26 @@ palette (`Ctrl K`) too.
 | Dokploy | Noust |
 |---|---|
 | Home, Projects | **Overview** and **Applications** (and **Projects** when there is something to organise) |
-| Overview, Monitoring | **Overview**, the application's **Metrics**, **Server > System**, the resource monitor and **Settings > Alerts** ([MONITOR.md](MONITOR.md)). There is no agent to install: Noust reads the machine itself |
+| Overview, Monitoring | **Overview**, the application's **Metrics**, **Server > System**, the resource monitor and **Settings > Alert rules** ([MONITOR.md](MONITOR.md)). There is no agent to install: Noust reads the machine itself |
 | Schedules | **Cron** |
-| Traefik File System | The web server's sites, as text, as a structure or as a diagram (**Domains and certificates**, the sites tab); nothing is generated that you cannot read |
+| Traefik File System | The web server's sites, as text, as a structure or as a diagram (**Domains**, the sites tab); nothing is generated that you cannot read |
 | Docker | **Server > Storage**: what the images, volumes and build cache take, and one-off cleanups; an application's **Logs** and **Services** for what runs |
 | Requests | The application's traffic ([MONITOR.md](MONITOR.md#traffic-of-an-application)): requests, status classes, latency, visitors |
-| Settings > Web Server | **Settings > General**, **Server > Updates** and **Settings > About** |
-| Settings > Profile, Sessions, Users | **Settings > Security** (two-step verification, passkeys), **Settings > Accounts** |
-| Settings > Remote Servers | **Fleet**, and **Settings > Servers** on a central |
+| Settings > Web Server | **Settings > General**, **Server > Updates** and **Settings > About Noust** |
+| Settings > Profile, Sessions, Users | **Account > Sign-in security** (two-step verification, passkeys), **Settings > Accounts** |
+| Settings > Remote Servers | **Fleet > Servers** on a central (**All servers** in the scope selector) |
 | Settings > Deployments | **Activity**: every job and event with its log and who started it |
 | Settings > Audit Logs | The audit trail (`noust audit`, and the console's Activity and Settings) |
 | Settings > SSH Keys | **Server > Security**; deploy keys on each application |
 | Settings > Git | **Settings > Integrations** |
 | Settings > Registry | **Settings > Integrations > Container registries** |
-| Settings > Logs & Metrics | **Settings > Log shipping** and **Metrics** |
+| Settings > Logs & Metrics | **Settings > Logs and metrics export** and **Metrics** |
 | Settings > Secrets | **Settings > Integrations**: secret managers (Vault, Doppler, Infisical) ([variables.md](variables.md)) |
-| Settings > DNS Providers | **Domains and certificates**: DNS accounts (`noust dns`) |
+| Settings > DNS Providers | **Domains**: DNS accounts (`noust dns`) |
 | Settings > S3 Destinations | **Backups > Destinations** |
-| Settings > Certificates | **Domains and certificates**: the certificates tab |
-| Settings > Notifications | **Settings > Notifications** |
-| Settings > SSO | **Settings > Security**, single sign-on ([sso.md](sso.md)) |
+| Settings > Certificates | **Domains**: the certificates tab |
+| Settings > Notifications | **Settings > Channels** |
+| Settings > SSO | **Settings > Single sign-on** ([sso.md](sso.md)) |
 | Settings > Billing, License, Whitelabeling | None. Noust is AGPL-3.0-or-later and has one edition; nothing is licensed per server or per seat |
 | An application: General, Environment, Domains, Deployments, Preview Deployments, Schedules, Volume Backups, Logs, Monitoring, Advanced | The application's **Overview**, **Environment**, **Domains**, **Deployments**, **Settings > Previews**, **Cron**, **Backups**, **Logs**, **Metrics** and **Settings** |
 | Rollback (in Deployments) | **Roll back** on the application, from **Deployments** |

@@ -13,9 +13,9 @@ Applications, sites, certificates, databases and the rest are refused there with
 and the console hides them. Everything else (the console, tokens, two-factor, the fleet)
 works as on any Noust.
 
-The console's own **Fleet** page (a central's, never a plain server's) is every server it
-manages side by side - whether it answers, what it runs, what needs attention on each - and a
-server selector in the top bar switches the whole console to one of them; see
+The console's own fleet pages (a central's, never a plain server's: **All servers** in the scope
+selector) show every server it manages side by side - whether it answers, what it runs, what needs
+attention on each - and the selector switches the whole console to one of them; see
 [console.md](console.md#fleet) for its pages.
 
 ![Fleet](assets/console/fleet.png)
@@ -184,8 +184,8 @@ it **on the server**, where you are already root (below); or, when you only have
 way in, the central does the same three steps once, from [a guided enrollment](#enrolling-a-server-with-an-address-and-a-credential).
 Manually:
 
-1. On the central: `docker exec -it noust noust node key vps1` (or **Settings > Servers >
-   Add** in the console). It prints the central's key for `vps1` and a command.
+1. On the central: `docker exec -it noust noust node key vps1` (or **Fleet > Servers >
+   Add a server** in the console). It prints the central's key for `vps1` and a command.
 2. On `vps1`, as root, run the printed command:
 
    ```bash
@@ -274,8 +274,8 @@ noust fleet cloud server list                                   # what this cent
 noust fleet cloud server delete web-7 --remove-node        # asks for the name, then destroys the machine
 ```
 
-In the console it is **Settings > Cloud** (the accounts, the servers created here and the boot
-scripts) and **Settings > Servers > Create at a provider**, a wizard in five steps that ends on the
+In the console it is **Settings > Cloud providers** (the accounts, the servers created here and the boot
+scripts) and **Fleet > Servers > Create at a provider**, a wizard in five steps that ends on the
 job's log. Everything that spends or destroys asks for sudo mode, and a second person's approval
 when your policy requires it.
 
@@ -293,7 +293,7 @@ when your policy requires it.
   `authorized_keys` and deleted at the provider when the server has joined. If the server does not
   join, it stays on record with the reason (billed until you delete it), unless
   `--delete-on-failure` says to delete it.
-- **The boot scripts are a library** (`noust fleet cloud script`, Settings > Cloud): shell scripts
+- **The boot scripts are a library** (`noust fleet cloud script`, Settings > Cloud providers): shell scripts
   and `#cloud-config` fragments the new server runs as root on its first boot, after Noust's own
   part. Noust's part (the SSH host key, who may log in, no password logins) cannot be overridden by
   a fragment, a script must say what runs it (`#!`), and anything that looks like a credential is
@@ -316,10 +316,10 @@ The provider is asked whether the machine exists and is at the address the serve
 --live` says whether it is on, `power-on` starts it, and `delete` can destroy it, as for one this
 central created. Linking and unlinking ask for sudo mode.
 
-**Settings > Servers** lists every server the same way, with its reachability, version and
+**Fleet > Servers** lists every server the same way, with its reachability, version and
 when it was last seen, and starts the same add flow (step 1 above) without the CLI:
 
-![Settings > Servers](assets/console/settings-servers.png)
+![Fleet > Servers](assets/console/settings-servers.png)
 
 To take a server out: `noust node remove vps1` on the central, or revoke the central from the
 server itself (`noust fleet deauthorize --name nas` removes its key lines, from the tunnel
@@ -418,7 +418,7 @@ noust node link add web-5 --link-code -                    # on the central: pas
   or root: nothing is sent, and the message names the port.
 - Ports 24000 to 24999 of the central's loopback are the links' (`--port` chooses another);
   `noust node link cancel NAME` gives back an invitation nobody answered. The console does it all:
-  **Settings > Servers > Add a server**, then "It cannot be reached from outside".
+  **Fleet > Servers > Add a server**, then "It cannot be reached from outside".
 - A server that dials in has no SSH key of the central's to rotate (`noust node rekey` says so).
   To take it out: `noust node remove web-5` on the central, which takes its key out and forgets its
   port, and `noust fleet unlink --name nas` on the server, which stops the service, removes its key
@@ -471,7 +471,7 @@ It is set only on the server's command line (or with `noust fleet authorize --ac
 
 ## Seeing the whole fleet
 
-The Fleet page and `noust fleet` ask every server at once, each with its own deadline, and show
+The fleet pages and `noust fleet` ask every server at once, each with its own deadline, and show
 what came back: a server that is down, too old or refuses the operator is one row with its
 state and its own words (ssh's, or the server's API error), never an error for the whole page.
 When a server cannot be reached, its last good answer is shown with its age.
@@ -487,9 +487,9 @@ noust fleet logs error --since 1h         # search the logs of every node at onc
 noust fleet metrics --metric memory --window 7d   # one metric of every node, side by side
 ```
 
-In the console, the Fleet page has the same views as tabs (Summary, Servers, Applications,
-Certificates, Backups, Updates, Activity), and each row links to the page on its server. On a
-hub, the Fleet summary is the home page. The server selector in the top bar switches every other
+In the console, **All servers** in the scope selector has the same views as the sidebar (Overview,
+Servers, Applications, Certificates, Backups, Updates, Activity), and each row links to the page on its
+server. On a hub, the fleet's Overview is the home page. The selector switches every other
 page to one server, and each page shows that server's name above its title.
 
 ## Acting on several servers
@@ -500,7 +500,7 @@ noust node label vps1 region-                # remove one
 noust fleet run certs_renew --label env=prod --plan
 noust fleet run apps_update --label env=prod --serial 25% --max-failures 1 --canary vps1
 noust fleet run os_updates --nodes vps1,vps2 --option scope=security
-noust fleet run noust_update --label env=prod --option target_version=3.4.0 --plan
+noust fleet run noust_update --label env=prod --option target_version=4.0.0 --plan
 noust fleet jobs                             # the fleet jobs, and each server's outcome
 noust fleet retry JOB_ID                     # again, on the servers that failed or were not reached
 ```
@@ -512,18 +512,18 @@ batches, what is skipped and why) and asks before it starts. A server that canno
 servers run at a time, `--canary` runs one server alone first and stops everything if it fails,
 and `--max-failures` stops the rest after that many failures. Each server runs the action
 through its own API, as the same operator, with the same sudo mode and approvals as a call made
-there by hand. The Fleet page starts the same jobs.
+there by hand. The fleet pages start the same jobs.
 
 System updates never reboot a server; `noust_update` updates Noust with the server's own
 installation method (the package manager or pip).
 
 Updating Noust to a version of your choosing, across the fleet (`noust_update` with
-`--option target_version=3.4.0`, or "Update to this version" in the console's dialog): the plan
-says each server's step ("Noust 3.3.1 -> 3.4.0"). A server already on that version is skipped, one
+`--option target_version=4.0.0`, or "Update to this version" in the console's dialog): the plan
+says each server's step ("Noust 3.3.1 -> 4.0.0"). A server already on that version is skipped, one
 whose package source does not offer it yet is skipped with the reason (**"on the way"** when it is
 published and its index is behind, `index_behind`), and one that ends up short of it is reported as
 failed with the version it is on. `index_refresh` ("Refresh package lists", also in a server's menu
-on the Fleet page's Updates tab) reads each server's repositories again so a release published since
+on the fleet's Updates page) reads each server's repositories again so a release published since
 is seen; nothing is installed. Without a target, each server takes the newest its own source offers.
 
 A system update that includes the `noust` package restarts that server's console in the middle.
@@ -555,7 +555,7 @@ noust fleet placement upstreams shop.example.com --format nginx --port 443
 noust fleet placement remove shop.example.com          # forget the record; no server is touched
 ```
 
-In the console it is **Fleet > On several servers** (`/api/fleet/placements`, see [api.md](api.md)).
+In the console it is **Fleet > Applications > On several servers** (`/api/fleet/placements`, see [api.md](api.md)).
 
 - **Status compares, and says which differs.** Each server answers for itself: the commit it serves,
   when it was deployed, whether the application runs. The commit most servers serve is the reference;
@@ -606,7 +606,7 @@ noust fleet builder clear shop.example.com            # back to building where i
 ```
 
 In the console it is the **Build on one server, run on the others** and **Choose the build server**
-items of an application in Fleet > On several servers; in the API, `POST
+items of an application in Fleet > Applications > On several servers; in the API, `POST
 /api/fleet/placements/{domain}/ship` and `/api/fleet/builders` (see [api.md](api.md)).
 
 - **The builder builds once, and nothing else.** It fetches, installs and builds the release in its build
@@ -755,7 +755,7 @@ own API and holds no shell and no copy of what they run.
 A server is declared down only after it has stayed silent for two minutes (two silences at least
 twenty seconds apart), is asked less often the longer it stays down (down to once every six
 minutes) and is announced once; it is announced again only after it answered. **Pause a server's monitoring** for maintenance
-(`noust node pause web-5 --reason "kernel update"`, `noust node resume web-5`, or **Settings >
+(`noust node pause web-5 --reason "kernel update"`, `noust node resume web-5`, or **Fleet >
 Servers > Pause monitoring**): a paused server is not asked, not counted as down and never
 announced, and the fleet still shows what it last answered, with the reason beside it.
 

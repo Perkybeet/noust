@@ -311,7 +311,7 @@ Netlify, Cloudflare or Deno or the Node adapter's `middleware` mode, a Remix pro
 neither a `start` script nor `remix-serve`. If the project is built some other way, say what to
 run (`start`) or where the files are (`publish_directory`): the block wins over what is refused.
 
-An application deployed as `vite` before 3.4 stays `vite`: an update uses the type it was
+An application deployed as `vite` before 4.0 stays `vite`: an update uses the type it was
 created with.
 
 ## Python
@@ -348,7 +348,7 @@ created with.
 ## Go, Rust and Ruby
 
 A repository with a `go.mod`, a `Cargo.toml` or a `Gemfile` used to be only ever a container. Since
-3.4 it is built on the server, in the build sandbox, with the server's own toolchain, and the
+4.0 it is built on the server, in the build sandbox, with the server's own toolchain, and the
 program runs as the application's unit. A repository that commits a `Dockerfile` or a
 `Containerfile` stays a container (the author said how it runs); `--type go`, `--type rust` or
 `--type ruby` builds it natively anyway. **Rails 7.1 and later write a `Dockerfile` into every new

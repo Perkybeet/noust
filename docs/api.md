@@ -13,7 +13,7 @@ credential. On a console bound to loopback, run them on the server against
 The API has one version, **1**, and two addresses for it. `/api/v1/apps` and `/api/apps` are the
 same route: not a copy, one route that answers to both names, so they have the same permission,
 the same audit entry and the same rate limit. A script that wants a promise should use
-`/api/v1`; the console and every client written before 3.4 use `/api` and keep working. If a
+`/api/v1`; the console and every client written before 4.0 use `/api` and keep working. If a
 version 2 ever exists it appears at `/api/v2` beside this one, and `/api` stays version 1 until
 version 1 is retired under the policy below. The event stream (`/events`), the WebSockets
 (`/ws`) and the webhooks (`/hooks`) have no versioned address.
@@ -175,7 +175,7 @@ the address; always `202`, the same whoever asks) and finishes at `POST /api/aut
 when the server has no mail channel or runs the ENS profile; `GET /api/auth/oidc/providers` says
 whether the sign-in page offers it (`password_reset`).
 
-Since 3.4 a person can also sign in through an identity provider (OpenID Connect), under
+Since 4.0 a person can also sign in through an identity provider (OpenID Connect), under
 `/api/auth/oidc` ([sso.md](sso.md)). `GET /api/auth/oidc/providers` lists the buttons the sign-in page
 shows (anonymous); `GET /start` and `GET /callback` are the browser's two redirects; `POST /complete`
 collects the single-use ticket the callback left and answers what `POST /api/auth/login` answers
@@ -200,7 +200,7 @@ own session, tokens, second factor and passkeys), or one of `apps.read`, `apps.o
 `audit.manage`, `compliance.read`, `teams.read`, `teams.manage`. `GET /api/auth/roles` lists
 what each role holds; the table is in [security.md](security.md#roles-and-permissions).
 
-Since 3.4 an account also belongs to **teams** ([teams.md](teams.md)), and the permission of a route
+Since 4.0 an account also belongs to **teams** ([teams.md](teams.md)), and the permission of a route
 that names a resource is held *in the resource's team*: a principal that does not see the resource
 gets `404` (the same body as for one that does not exist, before anything else is asked of it),
 and one that sees it but holds the permission only in another team gets `403`. A route about the
@@ -766,7 +766,7 @@ to send push events to `hook_url`, which is `https://<console>/hooks/deploy/{dom
 | GitLab | `X-Gitlab-Token: <secret>` |
 | Bitbucket Cloud | `X-Hub-Signature: sha256=<HMAC-SHA256 of the body>` (set the webhook's secret); the event is in `X-Event-Key` |
 
-Bitbucket Cloud (3.4): add the webhook at the repository's Repository settings > Webhooks with
+Bitbucket Cloud (4.0): add the webhook at the repository's Repository settings > Webhooks with
 the triggers `Repository: Push` and, for previews, `Pull request: Created, Updated, Merged,
 Declined`. A push (`repo:push`) deploys the tracked branch (a push that moves several branches
 deploys when one of them is it), `diagnostics:ping` is answered, and the four pull request keys
@@ -805,7 +805,7 @@ from the terminal: `noust app webhook show|rotate|disable|deliveries DOMAIN`. Th
 
 ## Deploy keys
 
-Each repository an application is cloned from can have an SSH key of its own (3.4), instead of the
+Each repository an application is cloned from can have an SSH key of its own (4.0), instead of the
 one key `noust setup ssh` manages for the whole server: a key whose theft reaches one repository,
 and which GitHub accepts, since it refuses one deploy key on two repositories.
 
@@ -955,7 +955,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 
 ### Sources, builds and imports
 
-Added in 3.4. Each is documented where its feature is: [sources.md](sources.md), [ci.md](ci.md),
+Added in 4.0. Each is documented where its feature is: [sources.md](sources.md), [ci.md](ci.md),
 [build.md](build.md), [declarative.md](declarative.md), [workspaces.md](workspaces.md),
 [containers.md](containers.md#registry-accounts) and [compose.md](compose.md).
 

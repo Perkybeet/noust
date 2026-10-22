@@ -35,7 +35,7 @@ What follows from that:
 | Resource (an application, a database or a service) | Application, Database, Recipe | An application is a thing Noust deploys; a database is on an engine; a recipe is a ready-made application from the catalog. |
 | Application (Nixpacks, Railpack, Dockerfile, Docker Compose, Docker image, Static) | An application of a type: Next.js, Nuxt, SvelteKit, Astro, Remix, Angular, Vite, Node.js, Python, PHP, static; Docker Compose; container (Dockerfile, registry image or Railpack) | Native types need no build file; see [frameworks.md](frameworks.md). Nixpacks has no counterpart: Railpack is its successor and is supported for the container type. |
 | Build pack settings (install, build, start commands, base directory, publish directory) | The `build:` block of `noust.yaml`, or `noust app build set` | [build.md](build.md). Commands are argument vectors, never given to a shell. |
-| One-click Service | Recipe (127 applications) | [recipes.md](recipes.md). A service Noust does not have is deployed as a Docker Compose project. |
+| One-click Service | Recipe (128 applications) | [recipes.md](recipes.md). A service Noust does not have is deployed as a Docker Compose project. |
 | Server | Server; several are a fleet | Each server runs its own Noust; a central drives them. |
 | Destination (a Docker network) | Not applicable | Applications are processes on the server's loopback address; there is nothing to choose. |
 | Proxy (Traefik or Caddy) | nginx or Apache | Per application: `--webserver apache`. Sites are yours to edit ([domains.md](domains.md#operator-sites)). |
@@ -47,7 +47,7 @@ What follows from that:
 | Preview deployments | Previews | `noust preview enable`; one per pull request. |
 | Health check | The health gate | Runs on every activation and also on a rollback; configurable per application (`noust app health`). |
 | Resource limits | Resource limits | `noust app limits`; systemd resource control. |
-| API token (Root, Write, Deploy, Read, Read sensitive) | A token with a scope, and roles | Settings > Tokens; roles are `viewer`, `operator`, `admin`, `security`, `auditor`. |
+| API token (Root, Write, Deploy, Read, Read sensitive) | A token with a scope, and roles | Settings > API tokens; roles are `viewer`, `operator`, `admin`, `security`, `auditor`. |
 | Tags | App tags | The labels that group applications, set under an application's **Settings > General**. The Applications list narrows to one, and **Update tagged apps** updates every application that carries it ([console.md](console.md)). Databases and services carry tags too, and `noust app tag restart` restarts everything that has one ([teams.md](teams.md#tags-on-applications)). Projects and environments group resources too. |
 | Shared variables | Shared variables and references | A variable of a team, a project, an environment or the server, used as `{{project.NAME}}` in an application's own variables; **Settings > Variables** holds the server's, a team's **Variables** tab and a project's page the others ([variables.md](variables.md)). |
 
@@ -61,28 +61,28 @@ command palette (`Ctrl K`) too.
 | Dashboard | **Overview**: key figures, charts, what needs attention with the fix, recent activity |
 | Projects | **Projects** (when there is something to organise) and **Applications** |
 | Terminal | The application's **Terminal** and the server's ([terminal.md](terminal.md)) |
-| Servers | **Server** (this server: system, services, storage, security, updates) and **Fleet** (all servers) |
+| Servers | **Server** (this server: system, services, storage, security, updates) and **All servers** (the fleet) |
 | Sources | **Settings > Integrations** |
 | Destinations | None: no Docker networks |
 | Registries | **Settings > Integrations > Container registries**: the accounts, kept once, and an application's **Settings > Compose** or **Container** says which it uses ([containers.md](containers.md#registry-accounts)) |
 | S3 Storage | **Backups > Destinations** |
 | Shared Variables | **Settings > Variables** (the server's), a team's **Variables** tab and a project's page ([variables.md](variables.md)) |
-| Team | **Settings > Accounts**, and **Teams** |
-| Notifications | **Settings > Notifications**: email, Telegram, Slack, Discord, webhook |
-| Keys & Tokens | **Settings > Tokens**; deploy keys on each application and **Settings > Integrations**; SSH keys under **Server > Security** |
+| Team | **Settings > Accounts**, and **Projects > Teams** |
+| Notifications | **Settings > Channels**: email, Telegram, Slack, Discord, webhook |
+| Keys & Tokens | **Settings > API tokens**; deploy keys on each application and **Settings > Integrations**; SSH keys under **Server > Security** |
 | Tags | **Applications**, narrowed to a tag, and an application's **Settings > General** |
 | Settings > General | **Settings > General** |
-| Settings > Updates | **Settings > About** (the version, what's new and, if you turn it on, the hours Noust may update itself in) and **Server > Updates** (the operating system's) |
+| Settings > Updates | **Settings > About Noust** (the version, what's new and, if you turn it on, the hours Noust may update itself in) and **Server > Updates** (the operating system's) |
 | Server Patching | **Server > Updates**: what is pending, security first, applied all or only the security fixes; it says when a reboot is due and why, and never reboots by itself; automatic updates and the history of runs ([console.md](console.md)) |
 | Docker Cleanup | **Server > Storage**: what takes the space, one-off cleanups, and **Automatic cleanup**, the schedule and threshold this server cleans by |
-| Log Drains | **Settings > Log shipping**: Loki, Axiom, New Relic, an HTTP endpoint, OpenTelemetry or a remote syslog ([runtime.md](runtime.md#log-shipping)) |
-| Analytics, Sentinel | **Metrics** on each application, **Server > System**, and the resource monitor with **Settings > Alerts**. There is no agent to install: Noust reads the machine itself ([MONITOR.md](MONITOR.md)) |
+| Log Drains | **Settings > Logs and metrics export**: Loki, Axiom, New Relic, an HTTP endpoint, OpenTelemetry or a remote syslog ([runtime.md](runtime.md#log-shipping)) |
+| Analytics, Sentinel | **Metrics** on each application, **Server > System**, and the resource monitor with **Settings > Alert rules**. There is no agent to install: Noust reads the machine itself ([MONITOR.md](MONITOR.md)) |
 | Scheduled Jobs of the instance | **Activity**: every job and event of this server with its log and who started it; the applications' own tasks are in **Cron** |
-| Cloud Tokens, provisioning a server | **Settings > Cloud** on a central: provider accounts (Hetzner, DigitalOcean, Vultr), the wizard that creates a server and its cloud-init ([cloud-init.md](cloud-init.md), [CENTRAL.md](CENTRAL.md)) |
-| Settings > Email | **Settings > Notifications > Email** |
-| Settings > Authentication | **Settings > Security** (two-step verification, passkeys), single sign-on ([sso.md](sso.md)) |
+| Cloud Tokens, provisioning a server | **Settings > Cloud providers** on a central: provider accounts (Hetzner, DigitalOcean, Vultr), the wizard that creates a server and its cloud-init ([cloud-init.md](cloud-init.md), [CENTRAL.md](CENTRAL.md)) |
+| Settings > Email | **Settings > Channels > Email** |
+| Settings > Authentication | **Account > Sign-in security** (two-step verification, passkeys), **Settings > Single sign-on** ([sso.md](sso.md)) |
 | Settings > Backup (the instance) | **Backups > Noust's own state** (`noust self-backup`, one encrypted file) |
-| Profile, 2FA | **Settings > Security** |
+| Profile, 2FA | **Account > Sign-in security** |
 | An application: General, Domains, Environment, Storage | The application's **Overview**, **Domains**, **Environment** and **Settings** (General, Source, Build, Releases and rollback, Automation, Deploy on push, Deploy hooks, Previews, Resources, Access, Protection, Export, Delete) |
 | Runtime Logs, Deployment Logs | **Logs** and **Deployments** |
 | Metrics | **Metrics** |
@@ -101,8 +101,7 @@ command palette (`Ctrl K`) too.
   no network to choose.
 - **No tunnel as the way a server is reached.** A server is reached by its address and a CDN in
   front of it is fine; the DNS check says when it hides the server's address. A Cloudflare Tunnel
-  for a name that should not open a port is optional and managed in **Domains and certificates >
-  Tunnels** ([network.md](network.md#cloudflare-tunnel)).
+  for a name that should not open a port is optional and managed in **Domains > Tunnels** ([network.md](network.md#cloudflare-tunnel)).
 - **No agent beside the server (Sentinel).** The monitor, the metrics and the alerts run inside Noust and
   report what they saw; none of them signals a process or changes a file ([MONITOR.md](MONITOR.md)).
 - **No GitHub self-hosted runners.** Noust builds on the server it deploys to, as an unprivileged
