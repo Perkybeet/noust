@@ -89,7 +89,7 @@ test("public access: opened from one address with TLS, shown once, and made priv
   await expectNoA11yViolations(page, "a database's Connect tab, private");
 
   await section.getByRole("button", { name: "Open access…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Make example_staging public" });
+  const dialog = page.getByRole("dialog", { name: "Open access to example_staging" });
   // The recommended answers are the ones already chosen.
   await expect(dialog.getByRole("radio", { name: /^Required \(recommended\)/ })).toBeChecked();
   await expect(dialog.getByRole("radio", { name: /^Owner/ })).toBeChecked();
@@ -135,7 +135,7 @@ test("public access: opened from one address with TLS, shown once, and made priv
   await again.getByRole("button", { name: "Done" }).click();
 
   await section.getByRole("button", { name: "Close access" }).click();
-  const confirm = page.getByRole("alertdialog", { name: "Make example_staging private" });
+  const confirm = page.getByRole("alertdialog", { name: "Close access to example_staging" });
   await confirm.getByRole("button", { name: "Close access" }).click();
   await expect(section.getByText("Private", { exact: true })).toBeVisible();
 });
@@ -144,7 +144,7 @@ test("a database that is not public stays private when the review is cancelled",
   await signIn(page, consoleServer, `${DATABASE}/connect`);
   const section = page.getByRole("region", { name: "Public access" });
   await section.getByRole("button", { name: "Open access…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Make example_production public" });
+  const dialog = page.getByRole("dialog", { name: "Open access to example_production" });
   await dialog.getByRole("radio", { name: /^Optional/ }).check();
   await dialog.getByRole("button", { name: "Review" }).click();
   // Nobody was named, so it says anyone, in words, and not the one the server writes for it.

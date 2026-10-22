@@ -108,6 +108,7 @@ export function agreementStem(text: string): string {
 export const DIVERGENCE_EXCEPTIONS: Readonly<Record<string, string>> = {
   "Audit log": "the settings entry is \"Auditoría\" and the log itself \"Registro de auditoría\" (README, glossary)",
   Backups: "a tab or a column header says \"Copias\"; the name of the place says \"Copias de seguridad\"",
+  Branch: "an option that completes \"Crearla desde\" or \"Desde\" takes the article (\"Una rama\", \"Desde una rama\"); a field label does not (\"Rama\")",
   Build: "a noun (\"Compilación\", a section) and a verb (\"Compilar\", the label of a command)",
   Change: "a noun (\"Cambio\", a column) and a verb (\"Cambiar\", a button)",
   Check: "a noun (\"Comprobación\", a column or a constraint) and a verb (\"Comprobar\", a button)",
