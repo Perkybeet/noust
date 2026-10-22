@@ -1,7 +1,7 @@
 # Upgrading to 3.2
 
 This guide is written against Noust 3.1.17. A server older than 3.1 goes through
-[UPGRADING-3.1.md](UPGRADING-3.1.md) first (and a WASM 2.x server through
+[UPGRADING-3.1.md](UPGRADING-3.1.md) first (and a 2.x server through
 [UPGRADING-3.0.md](UPGRADING-3.0.md) before that); the packages do the steps in one upgrade, but
 read those guides for what each one moves.
 
@@ -120,8 +120,8 @@ When the new package is installed, and from the next update of each application:
 - **Which account an existing application runs as**, and the accounts, tokens, passkeys, roles
   and approvals of 3.1.
 - **A fleet.** Servers enrolled by 3.1 keep working, with the access ceiling they set.
-- **The names kept from WASM** (`wasm_session`, `X-WASM-CSRF`, `wasm_ro_` roles, `wasm_bg_`
-  upstream names and the rest), and the `wasm` command.
+- **The names kept from before the rename** (the session cookies, the CSRF header, the read-only
+  database roles, the upstream names and the rest), and the old command.
 
 ## Upgrading a single server
 
@@ -175,7 +175,7 @@ Keep a way to reinstall 3.1.17:
 apt update && apt upgrade                    # Debian, Ubuntu
 dnf upgrade --refresh                        # Fedora
 zypper refresh && zypper update              # openSUSE
-pip install -U 'noust[all]' wasm-cli         # PyPI (or 'noust[web]' without the monitor)
+pip install -U 'noust[all]'                  # PyPI (or 'noust[web]' without the monitor)
 ```
 
 No dependency is new: the packages need nothing that 3.1 did not.
@@ -295,7 +295,7 @@ The directory must be a git checkout with an `origin` (or pass `--source`), and 
 [compose.md](compose.md#adopting-a-running-stack).
 
 **Workers.** A stack that publishes no port was never a web application. If an earlier version
-registered it with a port and a site (WASM 1.x recorded the default port), `noust diagnose` and
+registered it with a port and a site (1.x recorded the default port), `noust diagnose` and
 `noust health` call it down or degraded. `noust app headless DOMAIN` clears the port and, when
 Noust wrote its site and no alias uses it, offers to remove the site. It is never done for you.
 

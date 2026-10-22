@@ -113,7 +113,7 @@ class StatusReporter:
         self._load = load
         self._deployments: OrderedDict[tuple[str, int | None], int] = OrderedDict()
         self._targets: OrderedDict[tuple[str, int], Target] = OrderedDict()
-        self._queue = BackgroundQueue("wasm-github-statuses")
+        self._queue = BackgroundQueue("noust-github-statuses")
         self._lock = threading.Lock()
 
     def resolve(self, event: DeployEvent) -> Target | None:

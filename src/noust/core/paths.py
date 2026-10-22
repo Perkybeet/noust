@@ -173,9 +173,9 @@ PHP_POOL_PREFIX = "noust-"
 #: Prefix of Noust's own units (console, monitor, previews, cron, backups).
 #: Application units are named after the application and never carry it.
 UNIT_PREFIX = "noust-"
-#: What WASM's own units were called, and what application units written
-#: before 0.14.1 still are: ``wasm-<app>.service`` is an application's unit.
-LEGACY_UNIT_PREFIX = "wasm-"
+#: What application units written before 0.14.1 are still called: a unit with this prefix
+#: is an application's, and its next deployment renames it.
+LEGACY_UNIT_PREFIX = legacy_names.UNIT_PREFIX
 
 #: The comment every unit Noust writes carries, so a hand-written unit with a
 #: colliding name is never overwritten or removed.
@@ -213,13 +213,16 @@ AUTO_UPDATE_UNIT = f"{UNIT_PREFIX}auto-update"
 #: The service that keeps a server's link to its central up: ``noust-link-<central>``.
 LINK_UNIT_PREFIX = f"{UNIT_PREFIX}link-"
 
+#: The names Noust's own units had before 3.0. The move to 3.x renamed them, but journald
+#: keeps the old name's journal until it rotates and a unit file an interrupted move left
+#: may still carry it, so the name still counts as ours (and its journal as private).
 LEGACY_WEB_UNIT = f"{LEGACY_UNIT_PREFIX}web"
 LEGACY_MONITOR_UNIT = f"{LEGACY_UNIT_PREFIX}monitor"
 LEGACY_PREVIEWS_UNIT = f"{LEGACY_UNIT_PREFIX}previews"
 LEGACY_CRON_UNIT_PREFIX = f"{LEGACY_UNIT_PREFIX}cron-"
 LEGACY_BACKUP_UNIT_PREFIX = f"{LEGACY_UNIT_PREFIX}backup-"
 
-#: The fixed names of Noust's own units, new and legacy.
+#: The fixed names of Noust's own units, new and from before 3.0.
 OWN_UNITS: frozenset[str] = frozenset(
     {
         WEB_UNIT,
@@ -232,7 +235,7 @@ OWN_UNITS: frozenset[str] = frozenset(
         LEGACY_PREVIEWS_UNIT,
     }
 )
-#: The prefixes of Noust's scheduled-work units, new and legacy.
+#: The prefixes of Noust's scheduled-work units, new and from before 3.0.
 OWN_UNIT_PREFIXES: tuple[str, ...] = (
     CRON_UNIT_PREFIX,
     BACKUP_UNIT_PREFIX,
@@ -391,7 +394,7 @@ def user_cache_dir(home: Path | None = None) -> Path:
 
 def is_own_unit_name(name: str) -> bool:
     """
-    Report whether a unit name is one of Noust's (or WASM's) own units.
+    Report whether a unit name is one of Noust's own units, under its name now or before 3.0.
 
     Args:
         name: Unit name without the ``.service``/``.timer`` suffix.
@@ -405,7 +408,7 @@ def is_own_unit_name(name: str) -> bool:
 
 def carries_unit_marker(content: str) -> bool:
     """
-    Report whether a unit file says Noust or WASM wrote it.
+    Report whether a unit file says Noust wrote it, under its name now or before 3.0.
 
     Args:
         content: The unit file's text.
@@ -414,19 +417,6 @@ def carries_unit_marker(content: str) -> bool:
         True when either marker is present.
     """
     return any(marker in content for marker in UNIT_MARKERS)
-
-
-def user_state_dir(home: Path | None = None) -> Path:
-    """
-    Return the per-user state directory: ``~/.local/state/noust``.
-
-    Args:
-        home: Home directory, defaulting to the current user's.
-
-    Returns:
-        The directory; created by whoever writes to it.
-    """
-    return (home or Path.home()) / ".local" / "state" / NAME
 
 
 #: The web servers' configuration trees, by the label a bundle of Noust's state keeps them under.

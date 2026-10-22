@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useId, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -18,6 +19,11 @@ export interface SettingsNavItem {
   search?: Record<string, unknown>;
   /** Already translated. */
   label: string;
+  /**
+   * What the section is, drawn before its name: an object of the register's, in the colour of the text
+   * (colour is for state). Give one to every item of a list or to none, so the names stay aligned.
+   */
+  icon?: LucideIcon;
   /** Only this path, not its children, marks the item current. */
   exact?: boolean;
   /** The destructive subsection ("Delete"): set apart, last. */
@@ -66,7 +72,7 @@ export interface SettingsLayoutProps {
 }
 
 const LINK =
-  "flex items-center rounded-control px-2.5 text-13 text-fg-muted outline-none " +
+  "group flex items-center rounded-control px-2.5 text-13 text-fg-muted outline-none " +
   "hover:bg-surface-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-focus " +
   "data-[status=active]:bg-surface-active data-[status=active]:font-medium data-[status=active]:text-fg";
 
@@ -82,8 +88,16 @@ function NavList({ items, phone, labelledBy }: { items: readonly SettingsNavItem
             activeOptions={{ exact: item.exact ?? false, includeSearch: false }}
             className={cx(LINK, phone ? "h-11 justify-between" : "h-8", item.danger === true && "text-fail hover:text-fail data-[status=active]:text-fail")}
           >
-            <span className="truncate">{item.label}</span>
-            {phone ? <ChevronRight aria-hidden="true" className="size-icon-md text-fg-faint" /> : null}
+            <span className="flex min-w-0 items-center gap-2.5">
+              {item.icon !== undefined ? (
+                <item.icon
+                  aria-hidden="true"
+                  className={cx("size-icon-md shrink-0", item.danger === true ? "text-fail" : "text-fg-faint group-hover:text-fg-muted group-data-[status=active]:text-fg")}
+                />
+              ) : null}
+              <span className="truncate">{item.label}</span>
+            </span>
+            {phone ? <ChevronRight aria-hidden="true" className="size-icon-md shrink-0 text-fg-faint" /> : null}
           </Link>
         </li>
       ))}

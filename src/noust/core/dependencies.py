@@ -176,100 +176,6 @@ SYSTEM_DEPENDENCIES: list[Dependency] = [
     ),
 ]
 
-# Web server dependencies
-WEBSERVER_DEPENDENCIES: list[Dependency] = [
-    Dependency(
-        name="nginx",
-        command="nginx",
-        description="High-performance web server",
-        required=False,
-        category="webserver",
-        install_apt="nginx",
-        version_flag="-v",
-    ),
-    Dependency(
-        name="apache2",
-        command="apache2",
-        description="Apache HTTP Server",
-        required=False,
-        category="webserver",
-        install_apt="apache2",
-        version_flag="-v",
-    ),
-    Dependency(
-        name="certbot",
-        command="certbot",
-        description="Let's Encrypt SSL certificate tool",
-        required=False,
-        category="webserver",
-        install_apt="certbot",
-    ),
-]
-
-# Node.js runtime and package managers
-NODEJS_DEPENDENCIES: list[Dependency] = [
-    Dependency(
-        name="node",
-        command="node",
-        description="Node.js JavaScript runtime",
-        required=False,
-        category="nodejs",
-        install_script="curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs",
-        min_version="18.0.0",
-    ),
-    Dependency(
-        name="npm",
-        command="npm",
-        description="Node Package Manager (comes with Node.js)",
-        required=False,
-        category="nodejs",
-    ),
-    Dependency(
-        name="pnpm",
-        command="pnpm",
-        description="Fast, disk space efficient package manager",
-        required=False,
-        category="nodejs",
-        install_script="npm install -g pnpm",
-    ),
-    Dependency(
-        name="yarn",
-        command="yarn",
-        description="Fast, reliable, and secure dependency management",
-        required=False,
-        category="nodejs",
-        install_script="npm install -g yarn",
-    ),
-    Dependency(
-        name="bun",
-        command="bun",
-        description="Fast all-in-one JavaScript runtime & toolkit",
-        required=False,
-        category="nodejs",
-        install_script="curl -fsSL https://bun.sh/install | bash",
-    ),
-]
-
-# Docker dependencies
-DOCKER_DEPENDENCIES: list[Dependency] = [
-    Dependency(
-        name="docker",
-        command="docker",
-        description="Container runtime",
-        required=False,
-        category="docker",
-        install_apt="docker.io",
-    ),
-    Dependency(
-        name="docker-compose",
-        command="docker",
-        description="Docker Compose (v2 plugin)",
-        required=False,
-        category="docker",
-        version_flag="compose version",
-    ),
-]
-
 # Backup destinations (2.2): uploading a backup to a remote goes through rclone.
 BACKUP_DEPENDENCIES: list[Dependency] = [
     Dependency(
@@ -322,20 +228,6 @@ COMPOSER_DEPENDENCY = Dependency(
     install_zypper="php-composer2",
 )
 
-PHP_DEPENDENCIES: list[Dependency] = [
-    Dependency(
-        name="php",
-        command="php",
-        description="PHP command-line interpreter (Composer runs on it)",
-        required=False,
-        category="php",
-        install_apt="php-cli",
-        install_dnf="php-cli",
-        install_zypper="php8-cli",
-    ),
-    COMPOSER_DEPENDENCY,
-]
-
 
 def dependency_install_hint(
     dep: Dependency,
@@ -376,51 +268,10 @@ def dependency_install_hint(
     return f"Install {dep.name} using your system's package manager."
 
 
-# Python dependencies
-PYTHON_DEPENDENCIES: list[Dependency] = [
-    Dependency(
-        name="python3",
-        command="python3",
-        description="Python programming language",
-        required=False,
-        category="python",
-        install_apt="python3",
-        min_version="3.10",
-    ),
-    Dependency(
-        name="pip3",
-        command="pip3",
-        description="Python package installer",
-        required=False,
-        category="python",
-        install_apt="python3-pip",
-    ),
-    Dependency(
-        name="python3-venv",
-        command="python3",
-        description="Python virtual environment support",
-        required=False,
-        category="python",
-        install_apt="python3-venv",
-    ),
-]
-
-
 class DependencyChecker:
     """
     Utility class to check and manage system dependencies.
     """
-
-    # All known dependencies by category
-    ALL_DEPENDENCIES: ClassVar[dict[str, list[Dependency]]] = {
-        "system": SYSTEM_DEPENDENCIES,
-        "webserver": WEBSERVER_DEPENDENCIES,
-        "nodejs": NODEJS_DEPENDENCIES,
-        "python": PYTHON_DEPENDENCIES,
-        "docker": DOCKER_DEPENDENCIES,
-        "backup": BACKUP_DEPENDENCIES,
-        "php": PHP_DEPENDENCIES,
-    }
 
     # Package manager info
     PACKAGE_MANAGERS: ClassVar[dict[str, PackageManagerInfo]] = {
@@ -510,34 +361,6 @@ class DependencyChecker:
         version = self.get_version(dep.command, dep.version_flag)
         return DependencyStatus.INSTALLED, version
 
-    def check_all_dependencies(
-        self,
-        categories: list[str] | None = None,
-    ) -> dict[str, dict[str, tuple[DependencyStatus, str | None]]]:
-        """
-        Check all dependencies in specified categories.
-
-        Args:
-            categories: Categories to check (None for all).
-
-        Returns:
-            Dict of category -> {name: (status, version)}.
-        """
-        if categories is None:
-            categories = list(self.ALL_DEPENDENCIES.keys())
-
-        results: dict[str, dict[str, tuple[DependencyStatus, str | None]]] = {}
-
-        for category in categories:
-            deps = self.ALL_DEPENDENCIES.get(category, [])
-            results[category] = {}
-
-            for dep in deps:
-                status, version = self.check_dependency(dep)
-                results[category][dep.name] = (status, version)
-
-        return results
-
     def check_package_manager(self, pm: str) -> tuple[bool, str | None, str]:
         """
         Check if a specific package manager is available.
@@ -577,24 +400,6 @@ class DependencyChecker:
             return "npm"
 
         return None
-
-    def get_missing_required(self) -> list[Dependency]:
-        """
-        Get list of missing required dependencies.
-
-        Returns:
-            List of missing required dependencies.
-        """
-        missing = []
-
-        for deps in self.ALL_DEPENDENCIES.values():
-            for dep in deps:
-                if dep.required:
-                    status, _ = self.check_dependency(dep)
-                    if status == DependencyStatus.NOT_INSTALLED:
-                        missing.append(dep)
-
-        return missing
 
     def verify_deployment_requirements(
         self,
@@ -782,42 +587,6 @@ class DependencyChecker:
             False,
             f"Unsupported install recipe for {dep.name}: {script}",
         )
-
-    def install_package_manager(self, pm: str) -> tuple[bool, str]:
-        """
-        Install a Node.js package manager.
-
-        Args:
-            pm: Package manager name.
-
-        Returns:
-            Tuple of (success, message).
-        """
-        # First verify npm/node is available
-        if not self.check_command("npm"):
-            return (
-                False,
-                "npm is required to install other package managers. Please install Node.js first.",
-            )
-
-        pm_info = self.PACKAGE_MANAGERS.get(pm)
-        if not pm_info:
-            return False, f"Unknown package manager: {pm}"
-
-        if pm == "bun":
-            # Bun has its own trusted installer
-            try:
-                result = run_trusted_installer("https://bun.sh/install", runner=self.runner)
-            except SecurityError as e:
-                return False, f"Failed to install bun: {e}"
-        else:
-            # Install via npm globally
-            result = self.runner.run(["npm", "install", "-g", pm], timeout=INSTALL_TIMEOUT)
-
-        if result.success:
-            return True, f"Successfully installed {pm}"
-
-        return False, f"Failed to install {pm}: {result.stderr}"
 
     def get_setup_summary(self) -> SetupSummary:
         """

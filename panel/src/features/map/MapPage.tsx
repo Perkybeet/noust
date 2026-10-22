@@ -12,18 +12,22 @@ import { Plus } from "lucide-react";
 import { useMemo } from "react";
 
 import { mapQuery } from "../../api/queries/map";
+import { overviewQuery } from "../../api/queries/overview";
+import { LinkTabs } from "../../app/LinkTabs";
+import { tabsOf } from "../../app/navCore";
 import type { MapNode } from "../../api/queries/map";
 import { CommandHint } from "../../components/page/CommandHint";
 import { DashboardPage } from "../../components/page/DashboardPage";
 import { QueryState } from "../../components/page/QueryState";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { Mono } from "../../components/ui/Mono";
 import { FlowDiagram } from "../../components/ui/FlowDiagram";
-import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { TextLink } from "../../components/ui/TextLink";
 import { buttonClassName } from "../../components/ui/Button";
 import { Link } from "@tanstack/react-router";
 import { useT } from "../../i18n";
+import { OVERVIEW_SCREENS } from "../nav/overview";
 import { useTypeName } from "../apps/data";
 import { countsOf, diagramOf } from "./model";
 
@@ -67,53 +71,67 @@ function MapSkeleton() {
 export function MapPage() {
   const t = useT();
   const query = useQuery(mapQuery());
+  const overview = useQuery(overviewQuery());
+  const server = overview.data?.server;
   const typeName = useTypeName();
   const diagram = useMemo(() => (query.data ? diagramOf(query.data, t, (type) => typeName(type) ?? type) : null), [query.data, t, typeName]);
 
-  // An empty server replaces everything below the header, as on the Overview: an empty diagram is
+  // An empty server replaces the diagram, as it replaces the Overview's figures: an empty diagram is
   // not a welcome.
   const empty = query.data?.layers.length === 0;
 
   return (
+    // The Overview's second view (D-6): its header and its tabs, the map as the body of this one.
     <DashboardPage
       header={{
-        title: t("map.title"),
-        description: t("map.description"),
+        title: t("overview.title"),
+        description: t("overview.description"),
+        // The line keeps its height before the answer arrives, so nothing below it moves.
+        meta:
+          server !== undefined ? (
+            <>
+              <Mono>{server.name}</Mono>
+              <span>{t("overview.version", { version: server.version })}</span>
+            </>
+          ) : (
+            <span aria-hidden="true" className="flex h-5 items-center">
+              <Skeleton className="h-3 w-40" />
+            </span>
+          ),
         primaryAction: (
           <Link to="/apps/new" className={buttonClassName("primary")}>
             <Plus aria-hidden="true" />
-            {t("map.newApplication")}
+            {t("overview.newApplication")}
           </Link>
         ),
       }}
-      firstSteps={
-        empty ? <EmptyState variant="firstUse" title={t("map.emptyTitle")} description={t("map.emptyDescription")} command="noust create" /> : undefined
-      }
-      charts={
-        <div className="col-span-full min-w-0">
-          <QueryState query={query} label={t("map.queryLabel")} skeleton={<MapSkeleton />}>
-            {(data) => {
-              if (diagram === null) return null;
-              const counts = countsOf(data);
-              return (
-                <div className="flex min-w-0 flex-col gap-4">
-                  {data.truncated ? <Notice tone="info">{t("map.truncated")}</Notice> : null}
-                  <FlowDiagram
-                    layers={diagram.layers}
-                    edges={diagram.edges}
-                    label={t("map.label")}
-                    animated={false}
-                    legend={t("map.legend")}
-                    summary={t("map.summary", counts)}
-                    nodeLink={(node, name) => <NodeLink node={diagram.nodes.get(node.id)} name={typeof name === "string" ? name : node.label} />}
-                  />
-                </div>
-              );
-            }}
-          </QueryState>
-        </div>
-      }
+      tabs={<LinkTabs label={t("nav.landmarks.overviewSections")} tabs={tabsOf(OVERVIEW_SCREENS)} />}
       footer={<CommandHint command="noust map" label={t("map.fromTerminal")} />}
-    />
+    >
+      {empty ? (
+        <EmptyState variant="firstUse" title={t("map.emptyTitle")} description={t("map.emptyDescription")} command="noust create" />
+      ) : (
+        <QueryState query={query} label={t("map.queryLabel")} skeleton={<MapSkeleton />}>
+          {(data) => {
+            if (diagram === null) return null;
+            const counts = countsOf(data);
+            return (
+              <div className="flex min-w-0 flex-col gap-4">
+                {data.truncated ? <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("map.truncated")}</p> : null}
+                <FlowDiagram
+                  layers={diagram.layers}
+                  edges={diagram.edges}
+                  label={t("map.label")}
+                  animated={false}
+                  legend={t("map.legend")}
+                  summary={t("map.summary", counts)}
+                  nodeLink={(node, name) => <NodeLink node={diagram.nodes.get(node.id)} name={typeof name === "string" ? name : node.label} />}
+                />
+              </div>
+            );
+          }}
+        </QueryState>
+      )}
+    </DashboardPage>
   );
 }

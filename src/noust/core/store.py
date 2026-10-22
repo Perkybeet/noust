@@ -3895,37 +3895,6 @@ class NoustStore:
             row = cursor.fetchone()
             return DatabaseUser.from_row(row) if row else None
 
-    def list_database_users(
-        self,
-        engine: str | None = None,
-        database_id: int | None = None,
-    ) -> list[DatabaseUser]:
-        """List database users."""
-        query = "SELECT * FROM database_users WHERE 1=1"
-        params: list[object] = []
-
-        if engine:
-            query += " AND engine = ?"
-            params.append(engine)
-        if database_id is not None:
-            query += " AND database_id = ?"
-            params.append(database_id)
-
-        query += " ORDER BY created_at DESC"
-
-        with self._transaction() as cursor:
-            cursor.execute(query, params)
-            return [DatabaseUser.from_row(row) for row in cursor.fetchall()]
-
-    def delete_database_user(self, username: str, engine: str, host: str = "localhost") -> bool:
-        """Delete a database user record."""
-        with self._transaction() as cursor:
-            cursor.execute(
-                "DELETE FROM database_users WHERE username = ? AND engine = ? AND host = ?",
-                (username, engine, host),
-            )
-            return cursor.rowcount > 0
-
     # =========================================================================
     # Deployment history
     # =========================================================================
@@ -5789,17 +5758,6 @@ class NoustStore:
         }
 
         return result
-
-    def sync_service_status_from_systemd(self, name: str, active: bool, enabled: bool) -> None:
-        """
-        Sync service status from systemd state.
-
-        Args:
-            name: Service name.
-            active: Whether service is active in systemd.
-            enabled: Whether service is enabled in systemd.
-        """
-        self.update_service_status(name, active=active, enabled=enabled)
 
     def get_statistics(self) -> dict[str, Any]:
         """Get store statistics."""

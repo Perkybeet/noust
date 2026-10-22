@@ -77,6 +77,10 @@ Each release has up to four lists:
   `webhook_headers` setting of the generic webhook channel.
 - The log-shipping kind `newrelic` (and `region`).
 - The DNS check's `cdn` is also `fastly`, `bunnycdn` or `arvancloud`.
+- `POST /api/nodes/{node}/ssh/authorization` (`fleet.manage`): the line a bastion's operator adds,
+  asked for with the bastion the operator means to set, before setting it, as `noust node ssh NAME
+  --bastion ... --show` does. Setting a bastion opens the tunnel through it, which cannot work until
+  the bastion lets the central in; `GET .../ssh` gave the line only once the bastion was set.
 - `PATCH /api/apps/{domain}/env` takes `audience` (a name to `both`, `build` or `runtime`) for the
   variables whose audience changes, as `PUT` does; a name that is not in the file after the merge, or an
   audience that is not one of the three, is refused as `audience` before anything is written. Changing
@@ -394,7 +398,7 @@ Nothing.
 
 The baseline for version 1 is the API as 3.3.1 shipped it. What differs from it:
 
-- `GET /api/auth/session` no longer answers `renamed_from_wasm`. The console used it to tell an
+- `GET /api/auth/session` no longer answers its `renamed_from_<previous name>` field. The console used it to tell an
   operator, once, that the product had been renamed in 3.0; the notice is gone with the upgrade
   from 2.x, which 4.0 does not move. A client that read the field reads it as absent, which is
   what `false` meant.

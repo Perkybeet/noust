@@ -1198,17 +1198,6 @@ class ApprovalManager:
         )
         return [_request(row) for row in rows]
 
-    def pending_count(self) -> int:
-        """
-        Returns:
-            How many requests wait for a decision.
-        """
-        self.expire_due()
-        rows = self._rows(
-            "SELECT COUNT(*) AS n FROM approval_requests WHERE state = ?", (STATE_REQUESTED,)
-        )
-        return int(rows[0]["n"])
-
     # ------------------------------------------------------------ asking
 
     def request(

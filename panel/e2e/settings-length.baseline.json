@@ -56,11 +56,13 @@
     "settings-servers": { "path": "/settings/servers", "height": 428 },
     "settings-cloud": { "path": "/settings/cloud", "height": 1167 },
     "settings-central": { "path": "/settings/central", "height": 468 },
-    "settings-security": {
-      "path": "/settings/security",
-      "height": 5866,
-      "reason": "The account, its second factors, passkeys and sessions, the compliance frameworks and the security profile in one page; the account moves to Account and the rest to Controls."
+    "settings-controls": {
+      "path": "/settings/controls",
+      "height": 5039,
+      "reason": "Every compliance framework with the controls it is made of, and the security profile, on one page; each framework's controls go behind a disclosure and the profile becomes a section of its own."
     },
+    "account-profile": { "path": "/account", "height": 190 },
+    "account-security": { "path": "/account/security", "height": 775 },
     "app-settings-general": { "path": "/apps/shop.example.net/settings", "height": 907 },
     "app-settings-source": { "path": "/apps/taller.example.com/settings/source", "height": 1212 },
     "app-settings-deploys": { "path": "/apps/tienda.example.org/settings/deploys", "height": 1048 },

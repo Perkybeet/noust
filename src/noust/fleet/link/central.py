@@ -60,12 +60,10 @@ from noust.fleet.authorize import (
     TUNNEL_KEYS_DIR,
     AccountPolicy,
     AuthorizedKeys,
-    SshdPolicy,
     SshdSettings,
     apply_account_policy,
     ensure_tunnel_account,
     groups_of,
-    plan_account_policy,
     read_sshd_settings,
     sshd_blockers,
     tunnel_keys_file,
@@ -518,17 +516,6 @@ class LinkManager:
             ssh_port=settings.port,
             host_key_fingerprint=host_key.fingerprint,
             changed=policy.changed,
-        )
-
-    def planned_policy(self) -> SshdPolicy:
-        """
-        Returns:
-            Where the link account's block goes and what the file becomes; nothing is written.
-        """
-        return plan_account_policy(
-            link_account_policy(LINK_USER, self._keys_dir),
-            sshd_config=self._sshd_config,
-            dropin_dir=self._dropin_dir,
         )
 
     def status(self) -> LinkStatus:

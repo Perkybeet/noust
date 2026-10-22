@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Archive, ArrowRight, Bell, GitBranch, HardDriveUpload, LibraryBig, Play, Rocket, Shield, Stethoscope } from "lucide-react";
+import { ArrowRight, LibraryBig, Play, Stethoscope } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
@@ -13,6 +13,7 @@ import { buttonClassName } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { ICONS } from "../../components/ui/icons";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { InlineMessage } from "../../components/ui/InlineMessage";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
@@ -72,7 +73,7 @@ export function FirstSteps({ overview }: { overview: Overview }) {
   const safe: SafeStep[] = [
     {
       key: "backups",
-      icon: <Archive />,
+      icon: <OBJECT_ICONS.backup />,
       title: "overview.firstSteps.backups.title",
       description: "overview.firstSteps.backups.description",
       action: "overview.firstSteps.backups.action",
@@ -81,7 +82,7 @@ export function FirstSteps({ overview }: { overview: Overview }) {
     },
     {
       key: "destination",
-      icon: <HardDriveUpload />,
+      icon: <OBJECT_ICONS.destination />,
       title: "overview.firstSteps.destination.title",
       description: "overview.firstSteps.destination.description",
       action: "overview.firstSteps.destination.action",
@@ -90,7 +91,7 @@ export function FirstSteps({ overview }: { overview: Overview }) {
     },
     {
       key: "notifications",
-      icon: <Bell />,
+      icon: <OBJECT_ICONS.channel />,
       title: "overview.firstSteps.notifications.title",
       description: "overview.firstSteps.notifications.description",
       action: "overview.firstSteps.notifications.action",
@@ -102,7 +103,7 @@ export function FirstSteps({ overview }: { overview: Overview }) {
       ? [
           {
             key: "twoFactor",
-            icon: <Shield />,
+            icon: <OBJECT_ICONS.signInSecurity />,
             title: "overview.firstSteps.twoFactor.title",
             description: "overview.firstSteps.twoFactor.description",
             action: "overview.firstSteps.twoFactor.action",
@@ -133,13 +134,13 @@ export function FirstSteps({ overview }: { overview: Overview }) {
       ) : null}
       <Card as="section" title={t("overview.firstSteps.title")} description={t("overview.firstSteps.description")} level={2} padding="none">
         <ul className="divide-y divide-border">
-          <Row icon={<Rocket />} title={t("overview.firstSteps.demo.title")} description={t("overview.firstSteps.demo.description")}>
+          <Row icon={<OBJECT_ICONS.recipe />} title={t("overview.firstSteps.demo.title")} description={t("overview.firstSteps.demo.description")}>
             <Link to="/apps/new" search={{ start: "recipe", recipe: "hello", deploy: "now" }} className={buttonClassName("secondary", "sm")}>
               <Play aria-hidden="true" />
               {t("overview.firstSteps.demo.action")}
             </Link>
           </Row>
-          <Row icon={<GitBranch />} title={t("overview.firstSteps.repository.title")} description={t("overview.firstSteps.repository.description")}>
+          <Row icon={<OBJECT_ICONS.source />} title={t("overview.firstSteps.repository.title")} description={t("overview.firstSteps.repository.description")}>
             <Link to="/apps/new" className={buttonClassName("secondary", "sm")}>
               <ArrowRight aria-hidden="true" />
               {t("overview.firstSteps.repository.action")}

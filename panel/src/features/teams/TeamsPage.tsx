@@ -1,5 +1,5 @@
 import { useQueries, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { PanelTop, Users, X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useState } from "react";
@@ -21,10 +21,12 @@ import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { NameDialog } from "./NameDialog";
+import { ProjectsTabs, projectsHeader } from "./ProjectsTabs";
 import { heldBy } from "./organization";
 import { refreshOrganization } from "./refresh";
 import { teamRoleLabel } from "./roles";
@@ -89,9 +91,9 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
       sortValue: (team) => team.name,
       cell: (team) => (
         <span className="flex min-w-0 flex-col">
-          <Link to="/teams/$team" params={{ team: team.slug }} title={team.name} className="-mx-1 block max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2">
+          <TextLink to="/teams/$team" params={{ team: team.slug }} title={team.name} variant="row" className="-mx-1 block max-w-full truncate px-1 py-0.5">
             {team.name}
-          </Link>
+          </TextLink>
           <Mono tone="faint" truncate>
             {team.slug}
           </Mono>
@@ -137,20 +139,16 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
   ];
 
   const Add = ICONS.add;
-  const header = {
-    title: t("teams.list.title"),
-    description: t("teams.list.description"),
-    server: node,
-    ...(mayCreate
-      ? {
-          primaryAction: (
-            <Button variant="primary" icon={<Add aria-hidden="true" />} onClick={openCreate}>
-              {t("teams.list.new")}
-            </Button>
-          ),
-        }
-      : {}),
-  };
+  const header = projectsHeader(
+    t,
+    node,
+    mayCreate ? (
+      <Button variant="primary" icon={<Add aria-hidden="true" />} onClick={openCreate}>
+        {t("teams.list.new")}
+      </Button>
+    ) : undefined,
+  );
+  const tabs = <ProjectsTabs />;
 
   const notice = <Notice title={t("teams.list.boundaryTitle")}>{t("teams.list.boundary")}</Notice>;
 
@@ -175,7 +173,7 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
 
   if (org.error !== null && org.error !== undefined && !org.available) {
     return (
-      <ListPage header={header}>
+      <ListPage header={header} tabs={tabs}>
         <ErrorBlock error={org.error} title={t("teams.couldNotLoad")} onRetry={org.reload} />
       </ListPage>
     );
@@ -183,7 +181,7 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
 
   if (org.available && org.teams.length === 0) {
     return (
-      <ListPage header={header}>
+      <ListPage header={header} tabs={tabs}>
         <EmptyState
           variant="firstUse"
           icon={<Users />}
@@ -199,6 +197,7 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
   return (
     <ListPage
       header={header}
+      tabs={tabs}
       notice={notice}
       filters={
         <FilterBar

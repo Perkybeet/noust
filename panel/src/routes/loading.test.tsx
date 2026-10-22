@@ -22,7 +22,6 @@ import { FakeEventSource, FakeWebSocket, SESSION, json } from "../test/fakes";
 /** Every route of the console and an address that opens it. */
 const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/", "/"],
-  // Routes whose page is yet to come open the screen that holds the same thing today (app/nav.ts, INTERIM).
   ["/account", "/account"],
   ["/account/security", "/account/security"],
   ["/activity", "/activity"],
@@ -155,6 +154,7 @@ const BEFORE_SIGN_IN = ["/invite", "/login", "/reset-password", "/setup", "/welc
  * drawn whole from the first frame, so there is nothing to put a skeleton over.
  */
 const NOTHING_TO_WAIT_FOR: Readonly<Record<string, string>> = {
+  "/account": "who is signed in is the session, which is read before any page is drawn; the password is a dialog",
   "/apps/new": "a form: its fields are there from the first frame, and what it reads only feeds later steps",
   "/integrations/github/callback": "reads the address GitHub sent the browser back to, not the server",
   "/integrations/gitlab/callback": "reads the address GitLab sent the browser back to, not the server",

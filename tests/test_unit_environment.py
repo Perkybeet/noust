@@ -277,7 +277,7 @@ def test_nousts_own_units_and_compose_settings_are_not_findings(tmp_path: Path) 
     own = f"# {UNIT_MARKER}\n[Service]\nEnvironment=HOME=/root USER=root LOGNAME=root\n"
     stack = f'# {UNIT_MARKER}\n[Service]\nEnvironment="COMPOSE_FILE=docker-compose.yml"\n'
 
-    check = _check(tmp_path, {"noust-web": own, "noust-monitor": own, "licitaciones": stack})
+    check = _check(tmp_path, {"noust-web": own, "noust-monitor": own, "notices": stack})
 
     assert check.status == "pass"
 
@@ -289,7 +289,7 @@ def test_units_that_load_their_env_file_pass(tmp_path: Path) -> None:
 
 
 def test_a_unit_kept_under_its_legacy_wasm_name_is_found(machine) -> None:
-    """grupotambor's admon app: the row says admon-..., the installed unit is wasm-admon-...."""
+    """an admin app: the row says admin-..., the installed unit is the legacy-prefixed admin-...."""
     legacy = machine.units / "wasm-taller-example-com.service"
     (machine.units / "taller-example-com.service").rename(legacy)
 

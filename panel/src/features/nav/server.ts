@@ -1,10 +1,14 @@
-import { Server } from "lucide-react";
-
 import { area, hidden, strip, tab } from "../../app/navCore";
 
 /** The machine: its tabs, and Terminal, which is reached from "More actions". The register is app/nav.ts; this is one group of it. */
 export const SERVER_SCREENS = strip(
-  area("server", "/server", "nav.server.label", Server, { group: "machine", keywords: "nav.server.keywords", rootLabel: "server.tabs.overview" }),
+  area("server", "/server", "nav.server.label", {
+    group: "machine",
+    shortcut: ["g", "v"],
+    goTo: "nav.server.goTo",
+    keywords: "nav.server.keywords",
+    rootLabel: "server.tabs.overview",
+  }),
   (server) => [
     tab(server, "updates", "server.tabs.updates"),
     tab(server, "security", "server.tabs.security"),

@@ -50,45 +50,6 @@ class WorkspaceHelper:
         """
         self.logger = logger or Logger()
 
-    def parse_pnpm_workspace(self, app_path: Path) -> list[str]:
-        """
-        Parse pnpm-workspace.yaml to find workspace patterns.
-
-        Args:
-            app_path: Root path of the monorepo.
-
-        Returns:
-            List of workspace glob patterns.
-        """
-        workspace_file = app_path / "pnpm-workspace.yaml"
-        if not workspace_file.exists():
-            return []
-
-        try:
-            import yaml
-
-            with open(workspace_file) as f:
-                config = yaml.safe_load(f) or {}
-                return [str(pattern) for pattern in config.get("packages", [])]
-        except ImportError:
-            # Fallback: basic parsing without yaml library
-            patterns = []
-            with open(workspace_file) as f:
-                in_packages = False
-                for line in f:
-                    line = line.strip()
-                    if line == "packages:":
-                        in_packages = True
-                    elif in_packages and line.startswith("- "):
-                        pattern = line[2:].strip().strip("'\"")
-                        patterns.append(pattern)
-                    elif in_packages and not line.startswith("-") and line:
-                        in_packages = False
-            return patterns
-        except (OSError, UnicodeDecodeError) as e:
-            self.logger.debug(f"Error parsing pnpm-workspace.yaml: {e}")
-            return []
-
     def discover_apps(self, app_path: Path) -> list[Path]:
         """
         Discover deployable apps in the monorepo.

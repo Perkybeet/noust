@@ -1,5 +1,5 @@
-# Subdominios de producto de Proggest: timpora (control horario), partes (partes
-# de trabajo), gestordoc (gestor documental) y uaap. Todos van a la misma
+# Subdominios de producto de Proggest: clock (control horario), reports (partes
+# de trabajo), docs (gestor documental) y portal. Todos van a la misma
 # aplicación que proggest.es; el proxy de Next.js (apps/web-gateway/src/proxy.ts)
 # enseña el login de cada producto según el host. Mismos bloques que
 # proggest.es salvo /admin/queues, que solo se abre desde el dominio principal.
@@ -13,7 +13,7 @@
 server {
     listen 80;
     listen [::]:80;
-    server_name timpora.proggest.es partes.proggest.es partestrabajo.proggest.es gestordoc.proggest.es uaap.proggest.es;
+    server_name clock.proggest.es reports.proggest.es worklogs.proggest.es docs.proggest.es portal.proggest.es;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -29,7 +29,7 @@ server {
     listen 443 ssl;
     http2 on;
     listen [::]:443 ssl;
-    server_name timpora.proggest.es partes.proggest.es partestrabajo.proggest.es gestordoc.proggest.es uaap.proggest.es;
+    server_name clock.proggest.es reports.proggest.es worklogs.proggest.es docs.proggest.es portal.proggest.es;
 
     ssl_certificate /etc/letsencrypt/live/proggest.es/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/proggest.es/privkey.pem;
@@ -47,11 +47,11 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
-    # partestrabajo.proggest.es es otro nombre de partes.proggest.es: una sola
+    # worklogs.proggest.es es otro nombre de reports.proggest.es: una sola
     # dirección (y una sola app instalable) por producto. 302 y no 301: el
-    # navegador guarda un 301 para siempre, y ya costó un bucle con /uaap.
-    if ($host = partestrabajo.proggest.es) {
-        return 302 https://partes.proggest.es$request_uri;
+    # navegador guarda un 301 para siempre, y ya costó un bucle con /portal.
+    if ($host = worklogs.proggest.es) {
+        return 302 https://reports.proggest.es$request_uri;
     }
 
     gzip on;
@@ -66,7 +66,7 @@ server {
         add_header Content-Type text/plain;
     }
 
-    # Acceso público de partes para los ayuntamientos.
+    # Acceso público de partes para los visitantes.
     #
     # El límite va aquí y no solo en el @Throttle de Nest porque este bloque ve
     # la IP real del visitante: la petición llega directa del navegador. El
@@ -276,24 +276,24 @@ server {
         proxy_buffering off;
     }
 
-    # Páginas del módulo UAAP (proxy Next -> Next).
+    # Páginas del módulo Portal (proxy Next -> Next).
     # El informe global va por Server Action, y una Server Action POSTea a la URL
-    # de la PÁGINA que la invoca (/uaap/dashboard y /uaap/trabajadores), no a
+    # de la PÁGINA que la invoca (/portal/dashboard y /portal/trabajadores), no a
     # /api/: hereda el `location /` y sus 60s por defecto de Nginx. Generar la
     # ficha de hasta 200 trabajadores encadena 200 render de pdfmake más el
     # merge, así que sin este bloque la descarga muere en 504 con la plantilla
     # entera seleccionada. Mismo motivo y mismos valores que
     # /work-reports/reports/download.
     # Cortacircuito del bucle de redirecciones cacheado: la primera version del
-    # bloque /uaap/ emitio un 301 permanente (/uaap -> /uaap/) que los navegadores
-    # guardan; con Next devolviendo 308 (/uaap/ -> /uaap) el bucle vivia en la
+    # bloque /portal/ emitio un 301 permanente (/portal -> /portal/) que los navegadores
+    # guardan; con Next devolviendo 308 (/portal/ -> /portal) el bucle vivia en la
     # cache del cliente aunque el servidor ya estuviera corregido. Un 302 (no
     # cacheable) directo al dashboard rompe el ciclo sin pedirle nada al usuario.
-    location = /uaap/ {
-        return 302 /uaap/dashboard;
+    location = /portal/ {
+        return 302 /portal/dashboard;
     }
 
-    location /uaap {
+    location /portal {
         proxy_pass http://nextjs_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;

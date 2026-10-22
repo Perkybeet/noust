@@ -64,9 +64,18 @@ function map(extra: Record<string, RouteHandler> = {}, body: unknown = MAP) {
 }
 
 describe("the map", () => {
+  it("is the second view of the Overview: its header, its tabs, the map as the body", async () => {
+    map();
+    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    const tabs = await screen.findByRole("navigation", { name: "Overview sections" });
+    expect(within(tabs).getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/");
+    expect(within(tabs).getByRole("link", { name: "Map" })).toHaveAttribute("aria-current", "page");
+    expect(await screen.findByRole("figure", { name: "How this server fits together" })).toBeInTheDocument();
+  });
+
   it("draws each layer as a column with what is in it, and says how many there are", async () => {
     map();
-    await screen.findByRole("heading", { level: 1, name: "Map" });
+    await screen.findByRole("heading", { level: 1, name: "Overview" });
     const figure = await screen.findByRole("figure", { name: "How this server fits together" });
     for (const title of ["Names", "Applications", "Databases", "Scheduled work", "Data"]) {
       expect(within(figure).getByRole("list", { name: title })).toBeInTheDocument();
@@ -119,17 +128,18 @@ describe("the map", () => {
 
   it("is found from the palette", async () => {
     const { user, location } = map();
-    await screen.findByRole("heading", { level: 1, name: "Map" });
+    await screen.findByRole("heading", { level: 1, name: "Overview" });
     await user.keyboard("{Control>}k{/Control}");
     await user.type(await screen.findByRole("combobox"), "map of this");
-    await user.click(await screen.findByRole("option", { name: "Open the map of this server" }));
+    // It says where it lives beside its name: the Map is a tab of the Overview.
+    await user.click(await screen.findByRole("option", { name: /^Open the map of this server/ }));
     await waitFor(() => expect(location().pathname).toBe("/map"));
   });
 
   it("speaks Spanish", async () => {
     await act(() => setLocale("es"));
     map();
-    expect(await screen.findByRole("heading", { level: 1, name: "Mapa" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Resumen" })).toBeInTheDocument();
     expect(await screen.findByRole("figure", { name: "Cómo encaja este servidor" })).toBeInTheDocument();
     expect(screen.getByText("Aplicaciones: 1. Bases de datos: 1. Tareas programadas: 1.")).toBeInTheDocument();
   });

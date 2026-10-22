@@ -98,14 +98,6 @@ def ca_certificate_path() -> Path:
     return authority_dir() / "ca.crt"
 
 
-def _key_path() -> Path:
-    """
-    Returns:
-        The authority's private key.
-    """
-    return authority_dir() / "ca.key"
-
-
 @dataclass(frozen=True)
 class CertificateInfo:
     """

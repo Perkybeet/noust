@@ -287,10 +287,10 @@ class TestBlocks:
         assert [u.name for u in result.structure.upstreams][-1] == "worker_upstream"
 
     def test_remove_a_location_with_its_comments(self, model):
-        uaap = loc(model, 1, "/uaap/", "=")
-        result = apply_ops(PROGGEST, "nginx", [{"op": "remove_block", "target": uaap.id}])
+        portal = loc(model, 1, "/portal/", "=")
+        result = apply_ops(PROGGEST, "nginx", [{"op": "remove_block", "target": portal.id}])
         assert "Cortacircuito" not in result.config
-        assert "location = /uaap/" not in result.config
+        assert "location = /portal/" not in result.config
         assert "Descarga del informe agregado" in result.config
         start, end_before, end_after = diff_window(PROGGEST, result.config)
         assert end_after == start  # a pure deletion of one contiguous run
@@ -310,11 +310,11 @@ class TestBlocks:
         assert end_before == start  # a pure insertion
 
     def test_duplicate_does_not_copy_comments(self, model):
-        uaap = loc(model, 1, "/uaap/", "=")
+        portal = loc(model, 1, "/portal/", "=")
         result = apply_ops(
             PROGGEST,
             "nginx",
-            [{"op": "duplicate_block", "target": uaap.id, "args": ["=", "/uaap2/"]}],
+            [{"op": "duplicate_block", "target": portal.id, "args": ["=", "/portal2/"]}],
         )
         assert result.config.count("Cortacircuito") == 1
 

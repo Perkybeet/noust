@@ -21,17 +21,16 @@ export const REDIRECT_ROWS = [
   { from: "/services", to: "/server/services", state: "live" },
   { from: "/services/$name", to: "/server/services/$name", state: "live" },
   { from: "/server/logs", to: "/logs", search: { source: "system" }, state: "pending", after: "D: Logs gains the System source" },
-  { from: "/settings/security", to: "/account/security", state: "pending", after: "S2c: the account page holds what Security does" },
-  { from: "/settings/servers", to: "/fleet/servers", state: "pending", after: "S2d: the fleet's servers list is the one list" },
+  // The account page has no filters to carry: what the old address carried is dropped.
+  { from: "/settings/security", to: "/account/security", state: "live", plain: true },
+  { from: "/settings/servers", to: "/fleet/servers", state: "pending", after: "D: the fleet's servers list is the one list" },
   { from: "/apps/$domain/settings/builds", to: "/apps/$domain/settings/build", state: "live" },
 ] as const;
 
 /**
  * New routes whose page does not exist yet. Until it does, each opens the screen that holds the
- * same thing today, so the route is never an empty page and nothing is stranded.
+ * same thing today, so the route is never an empty page and nothing is stranded. Empty now: the
+ * account, its sign-in security and Controls have their pages. A lane that adds a route before its
+ * page puts a row here.
  */
-export const INTERIM_ROWS = [
-  { from: "/account", to: "/settings/security", after: "S2c: features/account" },
-  { from: "/account/security", to: "/settings/security", after: "S2c: features/account" },
-  { from: "/settings/controls", to: "/settings/security", after: "S2c: ControlsSettings" },
-] as const;
+export const INTERIM_ROWS: readonly { readonly from: string; readonly to: string; readonly after: string }[] = [];

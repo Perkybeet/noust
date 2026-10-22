@@ -5,17 +5,20 @@ import type { KeyboardEvent, ReactNode, RefObject } from "react";
 
 import { BACKDROP, MODAL_POPUP } from "../components/ui/Dialog";
 import { Kbd } from "../components/ui/Kbd";
+import { Mono } from "../components/ui/Mono";
 import { StatusPill } from "../components/ui/StatusPill";
 import type { Status } from "../components/ui/StatusPill";
 import { useT } from "../i18n";
 import type { PlainKey } from "../i18n";
 import { cx } from "../lib/cx";
+import { readRecent, rememberRecent } from "./paletteRecent";
 
 /**
  * What the palette finds: every page, every kind of resource the console lists, and the actions
  * that are not a page. The identifiers stay English: they are compared, not shown.
  */
 export type CommandGroup =
+  | "Recent"
   | "Pages"
   | "Settings"
   | "Applications"
@@ -44,7 +47,7 @@ export interface Command {
    * alone finds the thing and not every verb that could be said of it.
    */
   verb?: string;
-  /** What distinguishes it from the next one, in muted text after the name: a type, a time left. */
+  /** What distinguishes it from the next one, in muted text after the name: a type, a time left, where it lives. */
   detail?: string;
   /**
    * Shown with nothing typed even where its group is held back: the verbs of the application
@@ -68,7 +71,16 @@ export interface CommandResults {
   items: Command[];
 }
 
+/** What the palette says it is working in, at the left of the field: the server on a fleet, or the application on screen. */
+export interface PaletteScope {
+  /** Already translated: "Server", "Application", "All servers". */
+  label: string;
+  /** A system name, set in mono beside the label. */
+  name?: string;
+}
+
 const GROUP_ORDER: readonly CommandGroup[] = [
+  "Recent",
   "Pages",
   "Settings",
   "Applications",
@@ -86,6 +98,7 @@ const GROUP_ORDER: readonly CommandGroup[] = [
 
 /** The group identifiers stay English (they are compared, not shown); this is what renders them. */
 const GROUP_LABEL: Record<CommandGroup, PlainKey> = {
+  Recent: "shell.commandGroups.recent",
   Pages: "shell.commandGroups.pages",
   Settings: "shell.commandGroups.settings",
   Applications: "shell.commandGroups.applications",
@@ -123,6 +136,22 @@ const BROWSE_LIMIT: Partial<Record<CommandGroup, number>> = {
 /** A group whose labels are names of things on the machine, not words of the console. */
 const NAMED_GROUPS: ReadonlySet<CommandGroup> = new Set(["Applications", "Projects", "Teams", "Databases", "Domains", "Certificates", "Services", "Servers"]);
 
+/** How many commands the palette remembers having opened (NV-14: the three most recent). */
+const RECENT_SHOWN = 3;
+
+/** What a leading `>` or `@` asks for: only what can be done, or only another scope. */
+export type PaletteMode = "all" | "actions" | "scope";
+
+const ACTION_GROUPS: ReadonlySet<CommandGroup> = new Set(["Actions", "Operations"]);
+
+/** The mode a query asks for and the text that is searched once the prefix is taken off. */
+export function parseQuery(raw: string): { mode: PaletteMode; text: string } {
+  const typed = raw.trimStart();
+  if (typed.startsWith(">")) return { mode: "actions", text: typed.slice(1) };
+  if (typed.startsWith("@")) return { mode: "scope", text: typed.slice(1) };
+  return { mode: "all", text: raw };
+}
+
 function isSubsequence(needle: string, haystack: string): boolean {
   let at = 0;
   for (const char of haystack) {
@@ -131,6 +160,9 @@ function isSubsequence(needle: string, haystack: string): boolean {
   }
   return needle.length === 0;
 }
+
+/** How many scattered letters make a match: fewer than this find nearly anything. */
+const SUBSEQUENCE_FROM = 4;
 
 /** How well a command matches what was typed; 0 is no match. */
 export function scoreCommand(command: Command, query: string): number {
@@ -150,17 +182,22 @@ export function scoreCommand(command: Command, query: string): number {
   const haystack = `${label} ${command.keywords ?? ""} ${command.detail ?? ""} ${command.group}`.toLowerCase();
   if (tokens.every((token) => haystack.includes(token))) return 20;
   // Scattered letters only mean something once there are a few of them.
-  if (q.length >= 3 && isSubsequence(q, label)) return 10;
+  if (q.length >= SUBSEQUENCE_FROM && isSubsequence(q, label)) return 10;
   return 0;
 }
 
-/** Matching commands grouped, best group first once something is typed. */
-export function filterCommands(commands: readonly Command[], query: string): CommandResults[] {
-  const browsing = query.trim() === "";
+/**
+ * Matching commands grouped, best group first once something is typed. A leading `>` keeps only
+ * what can be done (actions and the verbs on an application) and `@` only the ways to change scope;
+ * with nothing typed, the commands in `recent` come first.
+ */
+export function filterCommands(commands: readonly Command[], query: string, recent: readonly Command[] = []): CommandResults[] {
+  const { mode, text } = parseQuery(query);
+  const pool = mode === "actions" ? commands.filter((command) => ACTION_GROUPS.has(command.group)) : mode === "scope" ? commands.filter((command) => command.group === "Servers") : commands;
+  const browsing = text.trim() === "";
   const groups = GROUP_ORDER.map((group) => {
-    const scored = commands
-      .filter((command) => command.group === group)
-      .map((command, order) => ({ command, order, score: scoreCommand(command, query) }))
+    const scored = (group === "Recent" ? (browsing && mode === "all" ? recent : []) : pool.filter((command) => command.group === group))
+      .map((command, order) => ({ command, order, score: scoreCommand(command, text) }))
       .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score || a.order - b.order);
     const limit = browsing ? BROWSE_LIMIT[group] : undefined;
@@ -175,14 +212,48 @@ function domId(base: string, id: string): string {
   return `${base}-${id.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
 }
 
+/** What `>` and `@` do, for whoever opens the palette and wonders. */
+function Hints({ scopes }: { scopes: boolean }) {
+  const t = useT();
+  return (
+    <div aria-hidden="true" className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-border bg-bg-sunken px-4 py-2 text-12 text-fg-faint max-sm:hidden">
+      <span className="flex items-center gap-1.5">
+        <Kbd>↑</Kbd>
+        <Kbd>↓</Kbd>
+        {t("shell.search.moveHint")}
+      </span>
+      <span className="flex items-center gap-1.5">
+        <Kbd>↵</Kbd>
+        {t("shell.search.openHint")}
+      </span>
+      <span className="flex items-center gap-1.5">
+        <Kbd>&gt;</Kbd>
+        {t("shell.search.actionsHint")}
+      </span>
+      {scopes ? (
+        <span className="flex items-center gap-1.5">
+          <Kbd>@</Kbd>
+          {t("shell.search.scopeHint")}
+        </span>
+      ) : null}
+      <span className="flex items-center gap-1.5">
+        <Kbd>Esc</Kbd>
+        {t("shell.search.closeHint")}
+      </span>
+    </div>
+  );
+}
+
 function PaletteBody({
   commands,
   onRun,
   inputRef,
+  scope,
 }: {
   commands: readonly Command[];
   onRun: (command: Command) => void;
   inputRef: RefObject<HTMLInputElement | null>;
+  scope?: PaletteScope | undefined;
 }) {
   const t = useT();
   const [query, setQuery] = useState("");
@@ -190,12 +261,22 @@ function PaletteBody({
   const base = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const listId = `${base}-results`;
 
-  const results = useMemo(() => filterCommands(commands, query), [commands, query]);
+  // The three the operator opened last, found again among what is offered now (a page that is gone is not).
+  const recent = useMemo(
+    () =>
+      readRecent()
+        .flatMap((id) => commands.filter((command) => command.id === id).slice(0, 1))
+        .slice(0, RECENT_SHOWN)
+        .map((command): Command => ({ ...command, id: `recent:${command.id}`, group: "Recent" })),
+    [commands],
+  );
+  const results = useMemo(() => filterCommands(commands, query, recent), [commands, query, recent]);
   const flat = useMemo(() => results.flatMap((group) => group.items), [results]);
   const positions = useMemo(() => new Map(flat.map((command, position) => [command, position])), [flat]);
   const activeIndex = flat.length === 0 ? -1 : Math.min(active, flat.length - 1);
   const activeCommand = activeIndex >= 0 ? flat[activeIndex] : undefined;
   const activeId = activeCommand ? domId(base, activeCommand.id) : undefined;
+  const scopes = useMemo(() => commands.some((command) => command.group === "Servers"), [commands]);
 
   useEffect(() => {
     if (activeId === undefined) return;
@@ -220,6 +301,17 @@ function PaletteBody({
     <>
       <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-border px-4">
         <Search aria-hidden="true" className="size-4 shrink-0 text-fg-faint" />
+        {scope !== undefined ? (
+          // Where the palette is working, said once: its results are about this server or this application.
+          <span data-slot="scope" className="inline-flex h-6 max-w-40 shrink-0 items-center gap-1 rounded-chip border border-border bg-bg-sunken px-1.5 text-12 text-fg-muted">
+            <span className="shrink-0">{scope.label}</span>
+            {scope.name !== undefined ? (
+              <Mono tone="default" truncate className="min-w-0">
+                {scope.name}
+              </Mono>
+            ) : null}
+          </span>
+        ) : null}
         <input
           ref={inputRef}
           type="text"
@@ -290,7 +382,7 @@ function PaletteBody({
                       {command.label}
                     </span>
                     {command.detail !== undefined ? (
-                      // Read with the name by a screen reader: it is what tells two of them apart.
+                      // Read with the name by a screen reader: it is what tells two of them apart, and says where one lives.
                       <span className="max-w-48 shrink truncate text-12 text-fg-muted max-sm:hidden">{command.detail}</span>
                     ) : null}
                     {command.status !== undefined ? (
@@ -310,26 +402,14 @@ function PaletteBody({
           ))}
         </div>
       ) : (
-        <p role="status" className="px-4 py-10 text-center text-13 text-fg-muted">
-          {t("shell.search.noMatches", { query: query.trim() })}
-        </p>
+        <div role="status" className="flex flex-col gap-1 px-4 py-10 text-center">
+          <p className="text-13 text-fg-muted">{t("shell.search.noMatches", { query: query.trim() })}</p>
+          <p className="text-12 text-pretty text-fg-faint">{t("shell.search.noMatchesHint")}</p>
+          <p className="text-12 text-fg-faint">{t.rich("shell.search.noMatchesCli", { command: <Mono key="cli">noust --help</Mono> })}</p>
+        </div>
       )}
 
-      <div aria-hidden="true" className="flex shrink-0 items-center gap-4 border-t border-border bg-bg-sunken px-4 py-2 text-12 text-fg-faint max-sm:hidden">
-        <span className="flex items-center gap-1.5">
-          <Kbd>↑</Kbd>
-          <Kbd>↓</Kbd>
-          {t("shell.search.moveHint")}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Kbd>↵</Kbd>
-          {t("shell.search.openHint")}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Kbd>Esc</Kbd>
-          {t("shell.search.closeHint")}
-        </span>
-      </div>
+      <Hints scopes={scopes} />
     </>
   );
 }
@@ -338,6 +418,8 @@ export interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   commands: readonly Command[];
+  /** What the palette is working in, shown at the left of the field. */
+  scope?: PaletteScope | undefined;
   /** Where focus returns when the palette closes without opening a page. */
   returnFocus?: () => HTMLElement | null;
 }
@@ -347,7 +429,7 @@ export interface CommandPaletteProps {
  * combobox: focus stays in the input while the arrow keys move a highlighted option, which
  * is announced through aria-activedescendant.
  */
-export function CommandPalette({ open, onOpenChange, commands, returnFocus }: CommandPaletteProps) {
+export function CommandPalette({ open, onOpenChange, commands, scope, returnFocus }: CommandPaletteProps) {
   const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const lastRun = useRef<Command["kind"] | null>(null);
@@ -361,6 +443,8 @@ export function CommandPalette({ open, onOpenChange, commands, returnFocus }: Co
 
   const run = (command: Command): void => {
     lastRun.current = command.kind;
+    // A page opened, or a thing made, is worth finding again; a theme switched or a session ended is not.
+    if (command.kind === "navigate" && command.id !== "action:sign-out") rememberRecent(command.id.replace(/^recent:/, ""));
     onOpenChange(false);
     command.run();
   };
@@ -386,7 +470,7 @@ export function CommandPalette({ open, onOpenChange, commands, returnFocus }: Co
             className={cx(MODAL_POPUP, "sm:max-w-[640px]")}
           >
             <BaseDialog.Title className="sr-only">{t("shell.search.dialogTitle")}</BaseDialog.Title>
-            <PaletteBody commands={commands} onRun={run} inputRef={inputRef} />
+            <PaletteBody commands={commands} onRun={run} inputRef={inputRef} scope={scope} />
           </BaseDialog.Popup>
         </BaseDialog.Viewport>
       </BaseDialog.Portal>

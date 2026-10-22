@@ -531,7 +531,7 @@ class TestEveryRollbackIsHeldLikeADeploy:
         import noust.deployers.lifecycle as lifecycle
         import noust.managers.backup_manager as backup_manager
 
-        app = SimpleNamespace(domain="picconia.example", app_type="vite")
+        app = SimpleNamespace(domain="site.example", app_type="vite")
         store = SimpleNamespace(get_app=lambda domain: app if domain == app.domain else None)
         monkeypatch.setattr(backup_manager, "get_store", lambda: store)
         asked: list[str] = []
@@ -545,16 +545,16 @@ class TestEveryRollbackIsHeldLikeADeploy:
         return SimpleNamespace(app=app, asked=asked)
 
     def test_the_type_and_the_gate_come_from_the_store(self, site) -> None:
-        app_type, gate = RollbackManager()._held_like_a_deploy("picconia.example", None, None)
+        app_type, gate = RollbackManager()._held_like_a_deploy("site.example", None, None)
 
         assert app_type == "vite"
         assert gate is not None and gate() == (False, "404 on /")
-        assert site.asked == ["picconia.example"]
+        assert site.asked == ["site.example"]
 
     def test_what_the_caller_passed_wins(self, site) -> None:
         own = lambda: (True, "")  # noqa: E731
 
-        app_type, gate = RollbackManager()._held_like_a_deploy("picconia.example", "nodejs", own)
+        app_type, gate = RollbackManager()._held_like_a_deploy("site.example", "nodejs", own)
 
         assert app_type == "nodejs" and gate is own
 

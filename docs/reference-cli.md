@@ -419,7 +419,7 @@ Arguments: `domain`
 
 | Option | What it does | Default |
 |---|---|---|
-| `--path` | The directory the stack runs from, such as /opt/proggest. |  |
+| `--path` | The directory the stack runs from, such as /opt/shop. |  |
 | `--compose-file` | Its compose file, relative to --path (found among the usual names otherwise). |  |
 | `--source` | Where updates fetch from (default: origin). |  |
 | `--branch` | The branch updates follow (default: the current). |  |
@@ -8533,7 +8533,7 @@ Arguments: `domain`, `name`
 
 ### noust env migrate
 
-Move an application's variables from its systemd unit into its .env (WASM 1.x units).
+Move an application's variables from its systemd unit into its .env (units written by 1.x).
 
 ```
 noust env migrate [OPTIONS] [DOMAIN]

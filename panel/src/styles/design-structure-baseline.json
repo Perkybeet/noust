@@ -9,8 +9,7 @@
       "features/databases/instances/TuningDialog.tsx": 1,
       "features/domains/IssueCertificateDialog.tsx": 1,
       "features/domains/SiteHistoryDialog.tsx": 2,
-      "features/domains/SitesPage.tsx": 2,
-      "features/overview/NeedsAttention.tsx": 1
+      "features/domains/SitesPage.tsx": 2
     },
     "bordered-list": {
       "features/backups/BrowseDestinationDialog.tsx": 1,
@@ -47,8 +46,7 @@
       "features/domains/SiteConfigPage.tsx": 1,
       "features/server/ActionDialog.tsx": 1,
       "features/settings/probes/StatusPageSection.tsx": 1,
-      "features/settings/TwoFactorSection.tsx": 1,
-      "features/teams/TeamSettings.tsx": 1
+      "features/settings/TwoFactorSection.tsx": 1
     },
     "destination-outside-register": {},
     "empty-means-off": {
@@ -94,8 +92,7 @@
       "features/settings/CreateTokenDialog.tsx": 1,
       "features/settings/EmailChannel.tsx": 1,
       "features/settings/NotificationSettings.tsx": 1,
-      "features/settings/probes/ProbeList.tsx": 1,
-      "features/teams/AddMemberDialog.tsx": 1
+      "features/settings/probes/ProbeList.tsx": 1
     },
     "hand-aria-busy": {
       "features/activity/JobLogDrawer.tsx": 1,
@@ -134,15 +131,10 @@
       "features/fleet/placements/UpstreamsDialog.tsx": 1,
       "features/fleet/SummaryTab.tsx": 2,
       "features/logs/LogSearchPage.tsx": 2,
-      "features/overview/NeedsAttention.tsx": 1,
       "features/settings/EmailChannel.tsx": 1,
       "features/settings/LogRetentionSection.tsx": 1,
       "features/settings/LogShippingSettings.tsx": 1,
-      "features/settings/TwoFactorSection.tsx": 1,
-      "features/teams/ProjectPage.tsx": 1,
-      "features/teams/TeamLayout.tsx": 1,
-      "features/teams/TeamNotifications.tsx": 1,
-      "nodes/capability.tsx": 1
+      "features/settings/TwoFactorSection.tsx": 1
     },
     "hand-error-ternary": {
       "features/activity/ActivityPage.tsx": 2,
@@ -194,9 +186,7 @@
       "features/overview/useFleetSummary.ts": 1,
       "features/queue/QueuePanel.tsx": 1,
       "features/settings/DeliveryLog.tsx": 1,
-      "features/settings/MoreChannels.tsx": 1,
-      "features/teams/TeamMembers.tsx": 1,
-      "features/teams/TeamNotifications.tsx": 1
+      "features/settings/MoreChannels.tsx": 1
     },
     "help-starts-with-state": {
       "i18n/en/autoUpdate.ts": 1,
@@ -240,19 +230,15 @@
       "features/fleet/NodeToolsDialogs.tsx": 1,
       "features/fleet/placements/UpstreamsDialog.tsx": 1,
       "features/logs/LogSearchPage.tsx": 2,
-      "features/map/MapPage.tsx": 1,
       "features/settings/servers/AddServerDialog.tsx": 1,
       "features/settings/servers/LinkServerDialog.tsx": 1,
-      "features/timeline/TimelineDrawer.tsx": 3,
-      "nodes/NodeNotice.tsx": 2
+      "features/timeline/TimelineDrawer.tsx": 3
     },
     "notice-long": {
       "features/backups/MisplacedBackupsNotice.tsx": 1,
       "features/catalog/RecipeUpdateDialog.tsx": 1,
       "features/databases/wizard/DatabaseStep.tsx": 1,
-      "features/domains/InternalAuthorityDialog.tsx": 1,
-      "features/teams/TeamOverview.tsx": 1,
-      "features/teams/TeamsPage.tsx": 1
+      "features/domains/InternalAuthorityDialog.tsx": 1
     },
     "notice-stack": {
       "features/app/AppBanner.tsx": 1,
@@ -272,8 +258,7 @@
       "features/fleet/BulkActionDialog.tsx": 1,
       "features/settings/servers/AddServerDialog.tsx": 1,
       "features/settings/servers/LinkServerDialog.tsx": 1,
-      "features/timeline/TimelineDrawer.tsx": 1,
-      "nodes/NodeNotice.tsx": 1
+      "features/timeline/TimelineDrawer.tsx": 1
     },
     "notice-success": {
       "features/app/database/SqliteSection.tsx": 1,
@@ -313,11 +298,7 @@
       "features/fleet/parts.tsx": 1,
       "features/fleet/placements/PlacementsTab.tsx": 1,
       "features/fleet/SummaryTab.tsx": 2,
-      "features/overview/FleetSummary.tsx": 1,
-      "features/overview/NeedsAttention.tsx": 1,
-      "features/teams/ProjectPage.tsx": 2,
-      "features/teams/ProjectsTable.tsx": 1,
-      "features/teams/TeamsPage.tsx": 1
+      "features/overview/FleetSummary.tsx": 1
     },
     "submit-disabled-invalid": {
       "features/app/ReclaimDialog.tsx": 1,
@@ -377,8 +358,6 @@
       "features/apps/UpdateTaggedApps.tsx": 1,
       "features/apps/useAppActions.ts": 3,
       "features/audit/AuditPage.tsx": 1,
-      "features/auth/PasskeysSection.tsx": 1,
-      "features/auth/PasswordDialog.tsx": 1,
       "features/backups/BackupsTable.tsx": 1,
       "features/backups/DestinationsPage.tsx": 1,
       "features/backups/useBackupActions.ts": 5,
@@ -459,11 +438,8 @@
       "features/settings/TokenNetworksDialog.tsx": 1,
       "features/settings/TokensSettings.tsx": 1,
       "features/settings/TwoFactorSection.tsx": 3,
-      "features/teams/MoveAppDialog.tsx": 1,
-      "features/teams/TeamNotifications.tsx": 2,
       "features/terminal/TerminalPanel.tsx": 1,
-      "features/variables/SecretManagers.tsx": 1,
-      "realtime/events.ts": 1
+      "features/variables/SecretManagers.tsx": 1
     }
   }
 }

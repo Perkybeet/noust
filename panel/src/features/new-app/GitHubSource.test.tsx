@@ -298,7 +298,7 @@ describe("connecting GitHub without leaving the wizard", () => {
     window.sessionStorage.setItem("noust.newApp.draft", JSON.stringify({ mode: "github", source: "", branch: "", step: "source" }));
     const { user } = wizard(STATUS).harness;
     await screen.findByRole("combobox", { name: "Repository" });
-    await user.click(screen.getByRole("link", { name: "Applications" }));
+    await user.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Applications" }));
     await waitFor(() => {
       expect(window.sessionStorage.getItem("noust.newApp.draft")).toBeNull();
     });

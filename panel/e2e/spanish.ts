@@ -77,7 +77,7 @@ const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   { page: "container settings", text: /^Container$/, origin: "deployers/container.py DISPLAY_NAME" },
   // core/teams: the default team, project and environment are named "Default" and "default",
   // and the pages of teams and projects show names as the operator (or the server) gave them.
-  ...["projects", "project", "teams", "team", "team-members", "team-settings", "team-variables", "team-notifications"].map((page) => ({
+  ...["projects", "project", "teams", "projects-teams", "team", "team-members", "team-settings", "team-variables", "team-notifications"].map((page) => ({
     page,
     text: /^[Dd]efault$/,
     origin: "the name of the default team and project",

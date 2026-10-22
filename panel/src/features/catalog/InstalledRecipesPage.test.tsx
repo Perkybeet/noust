@@ -111,8 +111,8 @@ describe("the installed recipes page", () => {
   it("shows how many applications each tab holds", { timeout: 20_000 }, async () => {
     installedPage([BEHIND, CURRENT]);
     const tabs = await screen.findByRole("navigation", { name: "Catalog sections" });
-    await waitFor(() => expect(within(tabs).getByRole("link", { name: /Installed/ })).toHaveTextContent("2"));
-    expect(within(tabs).getByRole("link", { name: /Browse/ })).toHaveTextContent("25");
+    await waitFor(() => expect(within(tabs).getByRole("link", { name: /Installed recipes/ })).toHaveTextContent("2"));
+    expect(within(tabs).getByRole("link", { name: /Recipes/ })).toHaveTextContent("25");
   });
 
   it("updates through the one update: it says what changed and what happens when it fails, queues a job and follows it", { timeout: 30_000 }, async () => {

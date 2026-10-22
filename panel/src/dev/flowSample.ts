@@ -9,7 +9,7 @@ import type { FlowEdge, FlowLayer, FlowNode } from "../components/ui/flowDiagram
 const NEXT = "u:nextjs_upstream";
 const NEST = "u:nestjs_upstream";
 
-type Target = typeof NEXT | typeof NEST | "d:certbot" | "d:assets" | "d:https" | "d:uaap" | "d:healthy" | "d:404" | "d:deny";
+type Target = typeof NEXT | typeof NEST | "d:certbot" | "d:assets" | "d:https" | "d:portal" | "d:healthy" | "d:404" | "d:deny";
 
 const TLS_LOCATIONS: readonly [string, Target, { websocket?: boolean }?][] = [
   ["/health", "d:healthy"],
@@ -31,8 +31,8 @@ const TLS_LOCATIONS: readonly [string, Target, { websocket?: boolean }?][] = [
   ["/admin/queues", NEST],
   ["/assets/", "d:assets"],
   ["/work-reports/reports/download", NEXT],
-  ["= /uaap/", "d:uaap"],
-  ["/uaap", NEXT],
+  ["= /portal/", "d:portal"],
+  ["/portal", NEXT],
   ["/", NEXT],
   ["/_next/static/", NEXT],
   ["~ /\\.", "d:deny"],
@@ -79,7 +79,7 @@ export const PROGGEST_LAYERS: readonly FlowLayer[] = [
       { id: "d:assets", kind: "static", label: "/var/www/proggest/apps/web-gateway/public/assets/", group: "Files" },
       { id: "d:certbot", kind: "static", label: "/var/www/certbot", group: "Files" },
       { id: "d:https", kind: "redirect", label: "301 https://$host$request_uri", group: "Answers" },
-      { id: "d:uaap", kind: "redirect", label: "302 /uaap/dashboard", group: "Answers" },
+      { id: "d:portal", kind: "redirect", label: "302 /portal/dashboard", group: "Answers" },
       { id: "d:healthy", kind: "other", label: "200 healthy", group: "Answers" },
       { id: "d:404", kind: "other", label: "404", group: "Answers" },
       { id: "d:deny", kind: "other", label: "deny all", group: "Answers" },

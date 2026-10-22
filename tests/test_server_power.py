@@ -272,9 +272,9 @@ class TestTheApplicationsComeBack:
     """
     Each application is asked about through the units it really runs as.
 
-    On the owner's central the pre-check said ``admon-africarsrent-com`` would
+    On the owner's central the pre-check said ``admin-example-org`` would
     not start again: the application runs as the legacy
-    ``wasm-admon-africarsrent-com.service``, enabled, and the name asked about
+    ``wasm-admin-example-org.service``, enabled, and the name asked about
     was the derived one, which systemd does not know.
     """
 
@@ -315,24 +315,24 @@ class TestTheApplicationsComeBack:
         from noust.core.store import App, Service
 
         app = store.create_app(
-            App(domain="admon.africarsrent.com", app_path="/var/www/apps/admon-africarsrent-com")
+            App(domain="admin.example.org", app_path="/var/www/apps/admin-example-org")
         )
-        (units / "wasm-admon-africarsrent-com.service").write_text("[Service]\n")
+        (units / "wasm-admin-example-org.service").write_text("[Service]\n")
         # What 'noust store import' records for such a unit: the derived name.
         store.create_service(
             Service(
-                name="admon-africarsrent-com",
+                name="admin-example-org",
                 app_id=app.id,
-                unit_file=str(units / "wasm-admon-africarsrent-com.service"),
+                unit_file=str(units / "wasm-admin-example-org.service"),
             )
         )
-        runner = self._runner(**{"wasm-admon-africarsrent-com": "enabled"})
+        runner = self._runner(**{"wasm-admin-example-org": "enabled"})
 
         assert unenabled_app_units(runner) == []
-        assert self._asked(runner) == ["wasm-admon-africarsrent-com.service"]
+        assert self._asked(runner) == ["wasm-admin-example-org.service"]
 
-        disabled = self._runner(**{"wasm-admon-africarsrent-com": "disabled"})
-        assert unenabled_app_units(disabled) == ["wasm-admon-africarsrent-com"]
+        disabled = self._runner(**{"wasm-admin-example-org": "disabled"})
+        assert unenabled_app_units(disabled) == ["wasm-admin-example-org"]
 
     def test_a_legacy_unit_without_a_row_is_found_too(self, store, units: Path) -> None:
         from noust.core.store import App

@@ -12,8 +12,6 @@ them and the ``from noust.managers import NginxManager`` imports all keep workin
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from noust.core.fs import FileSystem
 from noust.core.runner import CommandRunner
 from noust.managers.webserver import (
@@ -23,11 +21,6 @@ from noust.managers.webserver import (
     WebServerManager,
     WebServerStatus,
 )
-
-if TYPE_CHECKING:
-    # Imported for typing only: the builder pulls in the deployer helpers, which
-    # is a heavier dependency than a site manager should take at import time.
-    from noust.deployers.helpers.nginx_config import NginxAdvancedConfig
 
 __all__ = ["NginxManager", "SiteInfo", "WebServerStatus"]
 
@@ -63,35 +56,3 @@ class NginxManager(WebServerManager):
             fs: Filesystem to write through. Defaults to the process-wide one.
         """
         super().__init__(backend or NGINX_BACKEND, verbose=verbose, runner=runner, fs=fs)
-
-    def create_advanced_site(
-        self,
-        domain: str,
-        config: NginxAdvancedConfig,
-        ssl: bool = False,
-        app_path: str = "",
-    ) -> bool:
-        """
-        Create a multi-route Nginx site configuration.
-
-        Args:
-            domain: Domain name.
-            config: Parsed ``noust.nginx.yaml`` configuration.
-            ssl: Whether the site serves TLS.
-            app_path: Application directory, used as the document root.
-
-        Returns:
-            True when the configuration was written.
-
-        Raises:
-            NginxError: When the site already exists or cannot be written.
-            DomainError: When the domain is not a valid domain name.
-            TemplateError: When the advanced template fails to render.
-        """
-        from noust.deployers.helpers.nginx_config import NginxConfigBuilder
-
-        builder = NginxConfigBuilder(verbose=self.verbose)
-        context = builder.build_context(config, domain, ssl, app_path)
-        if self.site_exists(domain):
-            return self.update_site(domain, template="advanced", context=context)
-        return self.create_site(domain, template="advanced", context=context)

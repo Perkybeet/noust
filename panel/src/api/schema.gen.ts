@@ -21065,6 +21065,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/nodes/{node}/ssh/authorization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Bastion Line
+         * @description Give the line a bastion's operator needs, before the bastion is set.
+         *
+         *     Setting a bastion opens the tunnel through it and keeps it only when the server answers, which
+         *     it cannot while the bastion does not yet let the central in. So the line is asked for first,
+         *     with the bastion the operator means to set, exactly as ``noust node ssh NAME --bastion ...
+         *     --show`` does; nothing is changed. The central connects to the address only to check the
+         *     fingerprint it was given, which is why this needs the permission to manage the fleet and not
+         *     the one to read it.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         body: The bastion's address and its key or fingerprint.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The line.
+         *
+         *     Raises:
+         *         NodeError: 400 when the key is not vouched for, the address is malformed, nothing answers
+         *             or what answers is not that fingerprint; 404 when the node is not registered.
+         */
+        post: operations["ask_bastion_line_api_nodes__node__ssh_authorization_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/nodes/{node}/team": {
         parameters: {
             query?: never;
@@ -32415,6 +32454,17 @@ export interface components {
             fingerprint?: string | null;
             /** Host Key */
             host_key?: string | null;
+        };
+        /**
+         * BastionLineOut
+         * @description The line a bastion's operator adds so the central can reach a server through it.
+         *
+         *     Attributes:
+         *         authorized_key_line: One ``authorized_keys`` line: one stream to the server, no shell.
+         */
+        BastionLineOut: {
+            /** Authorized Key Line */
+            authorized_key_line: string;
         };
         /**
          * BastionOut
@@ -86081,6 +86131,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SSHOptionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_bastion_line_api_nodes__node__ssh_authorization_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BastionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BastionLineOut"];
                 };
             };
             /** @description Validation Error */

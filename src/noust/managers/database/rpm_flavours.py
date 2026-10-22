@@ -174,13 +174,6 @@ class RpmRepository:
                 lines.append("module_hotfixes=1")
         return "\n".join(lines) + "\n"
 
-    def to_name(self) -> str:
-        """
-        Returns:
-            The repository's name, for a plan's description.
-        """
-        return self.name
-
 
 def rpm_manager(os_release: OsRelease) -> str | None:
     """

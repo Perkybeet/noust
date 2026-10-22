@@ -433,9 +433,7 @@ class Waf:
             )
         platform = detect_platform(self._web.runner, None)
         backend = backend_for(platform, runner=self._web.runner, fs=self._web.fs)
-        result = self._web.runner.run(
-            backend.install_argv(list(PACKAGES)), env=backend.env(), timeout=INSTALL_TIMEOUT
-        )
+        result = backend.install(list(PACKAGES), timeout=INSTALL_TIMEOUT)
         if not result.success:
             raise ValidationError(
                 "The packages could not be installed",

@@ -30,6 +30,7 @@ export function PasswordDialog({ onClose }: { onClose: () => void }) {
   const change = useMutation({
     mutationFn: () => request("post", "/api/auth/password", { body: { current_password: current, new_password: next } }),
     onSuccess: () => {
+      // design-exception: toast-success a changed password is nowhere on screen once the dialog closes
       toast.success(t("auth.password.changedToast"));
       onClose();
     },

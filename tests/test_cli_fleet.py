@@ -120,7 +120,7 @@ class TestAuthorizeCommand:
         bare = " ".join(CENTRAL_KEY.split()[:2])
         root_file.write_text(
             'restrict,port-forwarding,permitopen="127.0.0.1:8080",permitlisten="127.0.0.1:1",'
-            f'command="/usr/bin/false" {bare} noust-central:arennalabs\n'
+            f'command="/usr/bin/false" {bare} noust-central:example\n'
         )
 
         result = CliRunner().invoke(

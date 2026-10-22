@@ -1,192 +1,163 @@
 import { describe, expect, it } from "vitest";
 
-import { MACHINE } from "../../test/fakes";
-import type { AppInfo, Deployment } from "../apps/data";
-import { collectAttention } from "./attention";
+import type { AlertRuleList } from "../../api/queries/alerts";
+import type { OverviewAttentionItem } from "../../api/queries/overview";
+import type { ProbeList } from "../../api/queries/probes";
+import type { ApprovalList } from "../approvals/api";
+import { alertItems, approvalItems, attentionCounters, mergeAttention, noustItems, probeItems, recipeItems } from "./attention";
+import { attentionAction, attentionTarget } from "./attentionTarget";
 
-function app(domain: string, status: string): AppInfo {
-  return { domain, name: domain, status, active: status === "running", enabled: true, app_type: "nextjs", layout: "inplace", webhook_enabled: false, keep_releases: 5, zero_downtime: false, backup_before_update: true };
+const SINCE = 1_790_000_000;
+
+function rules(states: object[], over: object = {}): AlertRuleList {
+  return { items: [{ name: "disk-high", enabled: true, severity: "failed", states, ...over }], metrics: [], firing: states.length } as unknown as AlertRuleList;
 }
 
-function deploy(id: number, domain: string, status: string, error: string | null = null): Deployment {
-  return {
-    id,
-    domain,
-    status,
-    triggered_by: "panel",
-    git_commit: "c07d5e3",
-    git_branch: "main",
-    started_at: "2026-09-25T19:20:35",
-    finished_at: "2026-09-25T19:21:02",
-    duration_s: 27,
-    error,
-    has_log: true,
-    rollback_available: false,
-    schema_changed: false,
-    cancelled: false,
-  };
+function item(id: string, kind: string, severity: "fail" | "warn", title: string, reasons: object[] = []): OverviewAttentionItem {
+  return { id, subject: { kind, domain: title, name: title }, title, severity, reasons: reasons as OverviewAttentionItem["reasons"] };
 }
 
-const HEALTHY = { ...MACHINE, units: { running: 3, failed: 0, stopped: 1 } };
-
-describe("collectAttention", () => {
-  it("is empty on a healthy machine", () => {
-    expect(
-      collectAttention({
-        apps: [app("shop.example.net", "running"), app("example.org", "stopped")],
-        deployments: [deploy(2, "shop.example.net", "success")],
-        certificates: [],
-        observations: [],
-        machine: HEALTHY,
-      }),
-    ).toEqual([]);
-  });
-
-  it("names an app that serves in part as a warning, in the backend's own word", () => {
-    const items = collectAttention({
-      apps: [app("monorepo.example.com", "degraded")],
-      deployments: [],
-      certificates: [],
-      observations: [],
-      machine: HEALTHY,
-    });
-
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ title: "monorepo.example.com", severity: "warn" });
-    expect(items[0]?.reasons[0]).toMatchObject({ kind: "state", severity: "warn", summary: { key: "serviceState", status: "degraded" } });
-  });
-
-  it("names an app whose newest deploy failed, with the first line of the error verbatim", () => {
-    const items = collectAttention({
-      apps: [app("clientes.example.com", "stopped")],
-      deployments: [
-        deploy(12, "clientes.example.com", "failed", "npm ERR! code ELIFECYCLE\nnpm ERR! errno 1"),
-        deploy(11, "clientes.example.com", "success"),
-      ],
-      machine: HEALTHY,
-    });
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      title: "clientes.example.com",
+describe("alertItems", () => {
+  it("names each firing subject of an enabled rule, in the rule's severity, with when it began", () => {
+    const [first] = alertItems(rules([{ subject: "shop.example.com", state: "firing", since: SINCE, acknowledged_by: null }]));
+    expect(first).toMatchObject({
+      id: "alert:disk-high:shop.example.com",
       severity: "fail",
-      subject: { kind: "app", domain: "clientes.example.com" },
-      reasons: [{ summary: { key: "deployFailed" }, detail: "npm ERR! code ELIFECYCLE", deploymentId: 12 }],
+      subject: { kind: "alert", rule: "disk-high", subject: "shop.example.com" },
+      reasons: [{ kind: "alert", code: "alert_firing", actions: ["acknowledge_alert"] }],
     });
+    expect(first?.reasons[0]?.when).toBe(new Date(SINCE * 1000).toISOString());
   });
 
-  it("does not raise a deploy an operator cancelled: stored as failed, but nothing went wrong", () => {
-    const cancelled = { ...deploy(12, "shop.example.net", "failed"), cancelled: true, cancelled_by: "token:ci" };
-    expect(collectAttention({ apps: [app("shop.example.net", "running")], deployments: [cancelled], machine: HEALTHY })).toEqual([]);
+  it("says a rule with a warning severity is a warning, and the server's own subject is the rule's name alone", () => {
+    const [first] = alertItems(rules([{ subject: "", state: "firing", since: SINCE }], { severity: "warning" }));
+    expect(first).toMatchObject({ severity: "warn", title: "disk-high" });
   });
 
-  it("forgets a failure an app has since deployed over", () => {
-    const items = collectAttention({
-      apps: [app("shop.example.net", "running")],
-      deployments: [deploy(13, "shop.example.net", "success"), deploy(12, "shop.example.net", "failed", "boom")],
-    });
-    expect(items).toEqual([]);
+  it("keeps an alert somebody took, and offers to reopen it, because it is still firing", () => {
+    const [taken] = alertItems(rules([{ subject: "", state: "firing", since: SINCE, acknowledged_by: "alice", acknowledged_at: SINCE + 60 }]));
+    expect(taken?.reasons[0]).toMatchObject({ code: "alert_taken", params: { by: "alice" }, actions: ["reopen_alert"] });
+    expect(taken === undefined ? null : attentionAction(taken)).toMatchObject({ mode: "alert", kind: "reopen", rule: "disk-high" });
   });
 
-  it("ignores the history of an app that no longer exists", () => {
-    expect(collectAttention({ apps: [], deployments: [deploy(5, "gone.example.com", "failed")] })).toEqual([]);
+  it("leaves out what is quiet, a rule that is off and a missing answer", () => {
+    expect(alertItems(rules([{ subject: "", state: "ok", since: SINCE }]))).toEqual([]);
+    expect(alertItems(rules([{ subject: "", state: "firing", since: SINCE }], { enabled: false }))).toEqual([]);
+    expect(alertItems(undefined)).toEqual([]);
   });
+});
 
-  it("names apps in a problem state, from any of the backend's vocabularies", () => {
-    const items = collectAttention({ apps: [app("a.example.com", "Restarting"), app("b.example.com", "failed")] });
-    expect(items.map((item) => [item.title, item.severity])).toEqual([
-      ["b.example.com", "fail"],
-      ["a.example.com", "warn"],
-    ]);
-  });
-
-  it("groups everything about one domain under it, with the worst severity", () => {
-    const items = collectAttention({
-      apps: [app("example.com", "running")],
-      deployments: [deploy(3, "example.com", "rolled_back")],
-      certificates: [{ domain: "example.com", domains: [], days_remaining: 12, expires_on: "2026-10-07", auto_renew: true, source: "letsencrypt", challenge: "http-01", serves: [] }],
-    });
-    expect(items).toHaveLength(1);
-    expect(items[0]?.severity).toBe("warn");
-    expect(items[0]?.reasons.map((reason) => reason.summary)).toEqual([
-      { key: "deployRolledBack" },
-      { key: "certExpiresIn", days: 12 },
-    ]);
-  });
-
-  it("warns 21 days before a certificate expires and fails once it has", () => {
-    const items = collectAttention({
-      apps: [],
-      certificates: [
-        { domain: "ok.example.com", domains: [], days_remaining: 21, auto_renew: true, source: "letsencrypt", challenge: "http-01", serves: [] },
-        { domain: "soon.example.com", domains: [], days_remaining: 1, auto_renew: true, source: "letsencrypt", challenge: "http-01", serves: [] },
-        { domain: "late.example.com", domains: [], days_remaining: -3, expires_on: "2026-09-22", auto_renew: true, source: "letsencrypt", challenge: "http-01", serves: [] },
+describe("probeItems", () => {
+  it("lists the probes that are down, with the probe's own words about why", () => {
+    const list = {
+      items: [
+        { name: "shop", status: { state: "up", since: SINCE, last_error: null } },
+        { name: "blog", status: { state: "down", since: SINCE, last_error: "HTTP 503 Service Unavailable" } },
       ],
-    });
-    expect(items.map((item) => [item.title, item.severity, item.reasons[0]?.summary])).toEqual([
-      ["late.example.com", "fail", { key: "certExpired" }],
-      ["soon.example.com", "warn", { key: "certExpiresIn", days: 1 }],
-    ]);
-    expect(items[1]?.subject).toEqual({ kind: "certificate", domain: "soon.example.com" });
+    } as unknown as ProbeList;
+    expect(probeItems(list)).toMatchObject([{ id: "probe:blog", severity: "fail", reasons: [{ code: "probe_down", detail: "HTTP 503 Service Unavailable" }] }]);
+  });
+});
+
+describe("approvalItems", () => {
+  const list = {
+    approvals: [
+      { id: 7, state: "requested", can_decide: true, requester: { name: "bob" }, created_at: SINCE },
+      { id: 8, state: "requested", can_decide: false, requester: { name: "alice" }, created_at: SINCE },
+      { id: 9, state: "approved", can_decide: true, requester: { name: "bob" }, created_at: SINCE },
+    ],
+    pending: 2,
+  } as unknown as ApprovalList;
+
+  it("lists only the requests waiting for a decision this person may give", () => {
+    expect(approvalItems(list).map((entry) => entry.id)).toEqual(["approval:7"]);
+    expect(approvalItems(list)[0]?.reasons[0]).toMatchObject({ code: "approval_waiting", params: { by: "bob" } });
+  });
+});
+
+describe("noustItems and recipeItems", () => {
+  it("says a newer Noust is there, and when it fixes a security problem", () => {
+    expect(noustItems({ has_update: false, current_version: "4.0.0" })).toEqual([]);
+    expect(noustItems({ has_update: true, latest_version: "4.0.1", current_version: "4.0.0" })[0]?.reasons[0]).toMatchObject({ code: "noust_update", params: { version: "4.0.1" } });
+    expect(noustItems({ has_update: true, latest_version: "4.0.1", security_update: true, current_version: "4.0.0" })[0]?.reasons[0]?.code).toBe("noust_security_update");
   });
 
-  it("reports failed units the apps' own state does not already name", () => {
-    const machine = { ...MACHINE, units: { running: 3, failed: 2, stopped: 0 } };
-    const unnamed = collectAttention({ apps: [app("x.example.com", "stopped")], machine });
-    expect(unnamed.find((item) => item.subject.kind === "units")?.reasons[0]?.summary).toEqual({
-      key: "unitsFailedCount",
-      count: 2,
-    });
-    const named = collectAttention({ apps: [app("x.example.com", "failed"), app("y.example.com", "failed")], machine });
-    expect(named.some((item) => item.subject.kind === "units")).toBe(false);
-  });
-
-  it("names each failed or crash-looping Noust unit that belongs to no app, and links it", () => {
-    const unit = (name: string, active_state: string, sub_state: string, result = "success") => ({
-      name,
-      status: "stopped",
-      active: false,
-      enabled: true,
-      managed: true,
-      active_state,
-      sub_state,
-      result,
-    });
-    const items = collectAttention({
-      apps: [{ ...app("shop.example.com", "failed"), unit: "shop-example-com" }, app("old.example.com", "running")],
-      machine: { ...MACHINE, units: { running: 1, failed: 3, stopped: 0 } },
-      units: [
-        // The apps' own units: their state already says it, under the app's name.
-        unit("shop-example-com", "failed", "failed", "exit-code"),
-        unit("wasm-old-example-com", "failed", "failed", "exit-code"),
-        unit("queue-worker", "failed", "failed", "exit-code"),
-        unit("mailer", "activating", "auto-restart"),
-        unit("cron-cleanup", "inactive", "dead"),
-        { ...unit("sshd", "failed", "failed"), managed: false },
+  it("lists the applications whose recipe has a newer version", () => {
+    const installed = {
+      items: [
+        { domain: "blog.example.com", recipe: "ghost", update_available: true, installed_version: "5.1", latest_version: "5.2" },
+        { domain: "n8n.example.com", recipe: "n8n", update_available: false, installed_version: "1", latest_version: "1" },
       ],
-    });
-    const units = items.filter((item) => item.subject.kind === "unit");
-    expect(units.map((item) => [item.title, item.severity, item.reasons[0]?.summary, item.reasons[0]?.detail])).toEqual([
-      ["queue-worker", "fail", { key: "unitFailed" }, "Result=exit-code"],
-      ["mailer", "warn", { key: "unitRestarting" }, undefined],
-    ]);
-    expect(units[0]?.subject).toEqual({ kind: "unit", name: "queue-worker" });
-    // Named, so the machine's bare count is not repeated.
-    expect(items.some((item) => item.subject.kind === "units")).toBe(false);
+    };
+    expect(recipeItems(installed).map((entry) => entry.id)).toEqual(["recipe:blog.example.com"]);
+  });
+});
+
+describe("mergeAttention", () => {
+  it("puts the worst first and then orders by name, whoever said it", () => {
+    const merged = mergeAttention(
+      [item("app:b", "app", "warn", "b.example.com"), item("app:a", "app", "fail", "a.example.com")],
+      [item("alert:x", "alert", "fail", "x-rule"), item("approval:1", "approval", "warn", "#1")],
+    );
+    expect(merged.map((entry) => entry.id)).toEqual(["app:a", "alert:x", "approval:1", "app:b"]);
   });
 
-  it("lists open monitor findings, not acknowledged ones", () => {
-    const base = { pid: 4242, process_name: "xmrig", signal: "sustained high CPU", observed_at: "2026-09-25T18:00:00" };
-    const items = collectAttention({
-      observations: [
-        { ...base, id: 1, severity: "warning", acknowledged: false },
-        { ...base, id: 2, severity: "notice", acknowledged: true },
-      ],
-    });
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      title: "xmrig",
-      severity: "warn",
-      reasons: [{ summary: { key: "monitorFinding", severity: "warning", signal: "sustained high CPU" } }],
-    });
+  it("keeps an item both lists name once, with every reason and the worse severity", () => {
+    const state = { kind: "state", severity: "warn", code: "service_restarting" };
+    const cert = { kind: "certificate", severity: "fail", code: "certificate_expired" };
+    const merged = mergeAttention([item("app:shop", "app", "warn", "shop", [state])], [item("app:shop", "app", "fail", "shop", [cert])]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({ severity: "fail" });
+    expect(merged[0]?.reasons).toHaveLength(2);
+  });
+});
+
+describe("attentionCounters", () => {
+  it("counts what the sidebar shows beside Applications, Domains and Server from the one list", () => {
+    const counters = attentionCounters([
+      item("app:a", "app", "fail", "a.example.com", [{ kind: "state", severity: "fail", code: "service_failed" }]),
+      item("app:b", "app", "fail", "b.example.com", [{ kind: "deploy", severity: "fail", code: "deploy_failed" }]),
+      item("app:c", "app", "warn", "c.example.com", [{ kind: "certificate", severity: "warn", code: "certificate_expires_in" }]),
+      item("certificate:d", "certificate", "fail", "d.example.com", [{ kind: "certificate", severity: "fail", code: "certificate_expired" }]),
+      item("unit:noust-web", "unit", "fail", "noust-web", [{ kind: "unit", severity: "fail", code: "unit_failed" }]),
+      item("unit:noust-cron", "unit", "warn", "noust-cron", [{ kind: "unit", severity: "warn", code: "unit_restarting" }]),
+      item("alert:x", "alert", "fail", "x"),
+    ]);
+    expect(counters).toEqual({ appsFailed: 2, certificates: 2, certificatesExpired: 1, unitsFailed: 1 });
+  });
+});
+
+describe("attentionTarget and attentionAction", () => {
+  it("opens where each kind of item is dealt with, and offers the first thing to do there", () => {
+    const failedDeploy = item("app:shop", "app", "fail", "shop.example.com", [{ kind: "deploy", severity: "fail", code: "deploy_failed", deployment_id: 12 }]);
+    expect(attentionTarget(failedDeploy)).toEqual({ to: "/apps/$domain/deployments/$id", params: { domain: "shop.example.com", id: "12" } });
+    expect(attentionAction(failedDeploy)).toMatchObject({ mode: "open", kind: "viewLog" });
+
+    // A service that is down because its last deploy failed: the deploy's log is where it leads, not the diagnosis.
+    const downAfterDeploy = item("app:shop", "app", "fail", "shop.example.com", [
+      { kind: "state", severity: "fail", code: "service_failed" },
+      { kind: "deploy", severity: "fail", code: "deploy_failed", deployment_id: 12 },
+    ]);
+    expect(attentionTarget(downAfterDeploy)).toEqual({ to: "/apps/$domain/deployments/$id", params: { domain: "shop.example.com", id: "12" } });
+    expect(attentionAction(downAfterDeploy)).toMatchObject({ kind: "viewLog" });
+
+    const down = item("app:shop", "app", "fail", "shop.example.com", [{ kind: "state", severity: "fail", code: "service_failed" }]);
+    expect(attentionTarget(down)).toEqual({ to: "/apps/$domain/diagnose", params: { domain: "shop.example.com" } });
+    expect(attentionAction(down)).toMatchObject({ kind: "diagnose" });
+
+    const cert = item("certificate:d", "certificate", "warn", "d.example.com", [{ kind: "certificate", severity: "warn", code: "certificate_expires_in" }]);
+    expect(attentionTarget(cert)).toEqual({ to: "/domains", search: { q: "d.example.com" } });
+
+    expect(attentionTarget(item("unit:noust-web", "unit", "fail", "noust-web"))).toEqual({ to: "/server/services/$name", params: { name: "noust-web" } });
+    expect(attentionTarget(item("probe:blog", "probe", "fail", "blog"))?.to).toBe("/settings/probes");
+    expect(attentionTarget(item("approval:7", "approval", "warn", "#7"))?.to).toBe("/settings/approvals");
+    expect(attentionTarget(item("noust:update", "noust", "warn", "Noust"))?.to).toBe("/settings/about");
+    expect(attentionTarget(item("recipe:x", "recipe", "warn", "x"))?.to).toBe("/catalog/installed");
+  });
+
+  it("offers nothing for an item it does not know", () => {
+    const strange = item("x:1", "mystery", "warn", "x", [{ kind: "x", severity: "warn", code: "x" }]);
+    expect(attentionTarget(strange)).toBeNull();
+    expect(attentionAction(strange)).toBeNull();
   });
 });

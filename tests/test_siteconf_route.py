@@ -54,13 +54,13 @@ class TestProggest:
         assert result.highlight == ["s1", result.location_id, "u:nestjs_upstream"]
 
     def test_exact_match_wins_over_its_prefix(self, proggest):
-        result, loc = resolve(proggest, "/uaap/")
-        assert (loc.modifier, loc.path) == ("=", "/uaap/")
+        result, loc = resolve(proggest, "/portal/")
+        assert (loc.modifier, loc.path) == ("=", "/portal/")
         assert any("exact" in step for step in result.steps)
 
     def test_prefix_without_slash(self, proggest):
-        assert resolve(proggest, "/uaap/dashboard")[1].path == "/uaap"
-        assert resolve(proggest, "/uaap")[1].path == "/uaap"
+        assert resolve(proggest, "/portal/dashboard")[1].path == "/portal"
+        assert resolve(proggest, "/portal")[1].path == "/portal"
 
     def test_regexes_in_file_order(self, proggest):
         result, loc = resolve(proggest, "/.env")

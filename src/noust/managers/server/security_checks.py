@@ -1310,7 +1310,7 @@ class HardeningChecks:
 
     def _inline_secrets_check(self) -> Check:
         """
-        Find application units that still carry their variables inline (WASM 1.x).
+        Find application units that still carry their variables inline (1.x wrote them so).
 
         A unit is 0644 and ``systemctl show`` prints its environment to any
         local user; the variables belong in the application's 0600 ``.env``.
@@ -1579,19 +1579,6 @@ def run_checks(
     if report.complete:
         _keep(report)
     return report
-
-
-def hardening_checks(**kwargs: Any) -> list[Check]:
-    """
-    The list of checks, for a consumer that only wants the list (the ENS check).
-
-    Args:
-        **kwargs: Passed to :func:`run_checks`.
-
-    Returns:
-        The checks, in catalog order.
-    """
-    return run_checks(**kwargs).checks
 
 
 def cached_report() -> CheckReport | None:

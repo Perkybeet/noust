@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A tiny worker for the Compose scenarios: no port, no web, one heartbeat line a second.
 
-It stands for what ``licitaciones`` is in production: a stack that fetches things and sends
+It stands for what a notices worker is in production: a stack that fetches things and sends
 mail, running and healthy while publishing nothing. Noust has to judge it by its container.
 
 VERSION (a file baked into the image, changed by committing it)

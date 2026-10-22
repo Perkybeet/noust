@@ -89,6 +89,8 @@ def test_the_routes_are_an_administrators_to_change_and_a_readers_to_look() -> N
 
     assert routes[("GET", "/api/nodes/{node}/ssh")] == "fleet.read"
     assert routes[("PUT", "/api/nodes/{node}/ssh")] == "fleet.manage"
+    # Asking for the line makes the central open a connection to an address somebody typed.
+    assert routes[("POST", "/api/nodes/{node}/ssh/authorization")] == "fleet.manage"
 
 
 def test_a_server_with_no_options_says_the_defaults(client, central) -> None:
@@ -161,6 +163,79 @@ def test_a_fingerprint_is_checked_by_asking_the_bastion(signed, central) -> None
     assert NodeSSHOptions(central.store).get("web-2").bastion.host_key == BASTION_KEY
 
 
+def test_the_line_is_asked_for_before_the_bastion_is_set_and_nothing_changes(
+    signed, central
+) -> None:
+    # Setting a bastion opens the tunnel through it, which fails until the bastion authorizes the
+    # central: the operator needs the line first, as `noust node ssh NAME --bastion ... --show`
+    # gives it.
+    response = signed.post(
+        "/api/nodes/web-2/ssh/authorization",
+        json={"address": "hop@bastion.example.com:2222", "host_key": BASTION_KEY},
+    )
+
+    assert response.status_code == 200, response.text
+    line = response.json()["authorized_key_line"]
+    assert line.startswith("restrict,port-forwarding,permitopen=")
+    assert 'command="/usr/bin/false"' in line
+    assert NodeSSHOptions(central.store).get("web-2").bastion is None
+
+
+def test_the_line_for_a_proposed_bastion_is_the_one_the_terminal_prints(signed, central) -> None:
+    asked = signed.post(
+        "/api/nodes/web-2/ssh/authorization",
+        json={"address": "hop@bastion.example.com:2222", "host_key": BASTION_KEY},
+    ).json()["authorized_key_line"]
+
+    signed.put("/api/nodes/web-2/ssh", json=body())
+
+    assert signed.get("/api/nodes/web-2/ssh").json()["authorized_key_line"] == asked
+
+
+def test_the_line_of_a_bastion_is_asked_for_with_its_fingerprint(signed, central) -> None:
+    central.fleet.runner.script(["ssh-keyscan"], stdout=f"bastion.example.com {BASTION_KEY}\n")
+
+    response = signed.post(
+        "/api/nodes/web-2/ssh/authorization",
+        json={"address": "hop@bastion.example.com", "fingerprint": fingerprint(BASTION_KEY)},
+    )
+
+    assert response.status_code == 200, response.text
+    assert NodeSSHOptions(central.store).get("web-2").bastion is None
+
+
+def test_the_line_of_a_bastion_nobody_vouched_for_is_refused(signed, central) -> None:
+    response = signed.post(
+        "/api/nodes/web-2/ssh/authorization", json={"address": "hop@other.example.com"}
+    )
+
+    assert response.status_code == 400, response.text
+    assert "first use" in response.text
+
+
+def test_the_line_of_the_bastion_already_set_needs_no_key_again(signed, central) -> None:
+    signed.put("/api/nodes/web-2/ssh", json=body())
+
+    response = signed.post(
+        "/api/nodes/web-2/ssh/authorization", json={"address": "hop@bastion.example.com:2222"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["authorized_key_line"].startswith("restrict,")
+
+
+def test_a_reader_cannot_make_the_central_connect_to_an_address(client, central) -> None:
+    issued = get_token_manager().create_api_token("reader", "read")
+
+    response = client.post(
+        "/api/nodes/web-2/ssh/authorization",
+        json={"address": "hop@bastion.example.com", "host_key": BASTION_KEY},
+        headers={"Authorization": f"Bearer {issued['token']}"},
+    )
+
+    assert response.status_code == 403
+
+
 def test_removing_the_bastion_is_putting_none(signed, central) -> None:
     signed.put("/api/nodes/web-2/ssh", json=body())
 
@@ -193,6 +268,13 @@ def test_a_timeout_out_of_range_is_a_validation_error(signed, central) -> None:
 def test_a_node_that_is_not_registered_is_a_404(signed) -> None:
     assert signed.get("/api/nodes/nope/ssh").status_code == 404
     assert signed.put("/api/nodes/nope/ssh", json=body()).status_code == 404
+    assert (
+        signed.post(
+            "/api/nodes/nope/ssh/authorization",
+            json={"address": "hop@bastion.example.com", "host_key": BASTION_KEY},
+        ).status_code
+        == 404
+    )
 
 
 def test_a_read_token_cannot_change_them(client, central) -> None:

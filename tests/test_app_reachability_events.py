@@ -97,7 +97,7 @@ class TestTheEvents:
         self, ctx: NotificationContext
     ) -> None:
         notification = compose_app_unreachable(
-            "licitaciones.example.com",
+            "notices.example.com",
             ctx,
             since=SINCE,
             probe="worker-1: exited with code 1\nworker-2: restarting (last exit code 1)",

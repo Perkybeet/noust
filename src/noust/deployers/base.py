@@ -70,7 +70,6 @@ from noust.core.store import (
 from noust.core.utils import domain_to_app_name
 from noust.core.variables.model import BUILD
 from noust.core.variables.predefined import RELEASE_ENV_NAME, Deployment
-from noust.core.variables.resolver import Resolver
 from noust.core.versions import RuntimeRequest
 from noust.deployers.bluegreen import BlueGreen, adopt_for_new_app
 from noust.deployers.helpers import (
@@ -2057,13 +2056,6 @@ class BaseDeployer(AppDeployer):
             port=self.port,
         )
 
-    def _variables_resolver(self) -> Resolver:
-        """
-        Returns:
-            The resolver of this application's references for this deployment.
-        """
-        return self._variables.resolver()
-
     def _refresh_variables(self) -> None:
         """
         Resolve the application's references again, before anything is built.
@@ -2176,20 +2168,6 @@ class BaseDeployer(AppDeployer):
             ``shared/.env`` on releases, the application directory's in place.
         """
         return env_file_in(self.app_path, self._layout)
-
-    def check_dependencies(self) -> bool:
-        """
-        Check if system dependencies are installed.
-
-        Returns:
-            True if all dependencies are available.
-        """
-        for dep in self.SYSTEM_DEPS:
-            if not self.runner.exists(dep):
-                self.logger.warning(f"Missing dependency: {dep}")
-                return False
-
-        return True
 
     def _webserver_manager(self) -> NginxManager | ApacheManager:
         """
@@ -3918,17 +3896,6 @@ class BaseDeployer(AppDeployer):
             and filesystem.
         """
         return ReleaseBook(self.store, self.logger, self.fs, self.domain)
-
-    def _records_releases(self) -> int | None:
-        """
-        Tell whether release rows can be written, and for which application.
-
-        Returns:
-            The application id, or None under ``--dry-run`` (the store rolls
-            the app row back, so a release row would point at nothing) and
-            when the application is not registered.
-        """
-        return self._release_book().app_id()
 
     def _record_release_row(self, staged: StagedRelease) -> None:
         """

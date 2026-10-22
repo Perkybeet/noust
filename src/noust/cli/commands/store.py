@@ -27,6 +27,7 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core import legacy_names
 from noust.core.audit import record as audit_record
 from noust.core.config import Config, secure_write
 from noust.core.exceptions import ConfigError, NoustError
@@ -244,12 +245,12 @@ def _store_import(verbose: bool) -> int:
                         is_static = True
 
                 # The directory may be named after the domain, after the
-                # sanitised app name, or with the historical wasm- prefix.
+                # sanitised app name, or with the legacy unit prefix.
                 app_name = domain_to_app_name(domain)
                 possible_paths = [
                     config.apps_directory / app_name,
                     config.apps_directory / domain,
-                    config.apps_directory / f"wasm-{app_name}",
+                    config.apps_directory / f"{legacy_names.UNIT_PREFIX}{app_name}",
                 ]
 
                 app_path = None
@@ -324,20 +325,20 @@ def _store_import(verbose: bool) -> int:
 
     logger.step(3, 3, "Scanning systemd services")
     if SYSTEMD_DIR.exists():
-        service_files = list(SYSTEMD_DIR.glob("wasm-*.service"))
+        service_files = list(SYSTEMD_DIR.glob(f"{legacy_names.UNIT_PREFIX}*.service"))
         # Units deployed after the rename carry no prefix, so they are matched
         # on shape instead: a domain turned into a name always has a hyphen,
         # and a template unit (with @) never is one.
         for unit in SYSTEMD_DIR.glob("*.service"):
             name = unit.stem
-            if name.startswith("wasm-") or "-" not in name:
+            if name.startswith(legacy_names.UNIT_PREFIX) or "-" not in name:
                 continue
             if "@" not in name and name.count("-") >= 1:
                 service_files.append(unit)
 
         for service_file in service_files:
             service_name = service_file.stem
-            app_name = service_name[5:] if service_name.startswith("wasm-") else service_name
+            app_name = service_name.removeprefix(legacy_names.UNIT_PREFIX)
 
             if store.get_service(app_name):
                 continue

@@ -450,23 +450,6 @@ class AccessStore:
             cursor.execute("DELETE FROM access_bindings WHERE id = ?", (binding_id,))
         return found
 
-    def drop_scope(self, cursor: sqlite3.Cursor, scope_kind: str, scope_id: int) -> None:
-        """
-        Forget every binding at a scope that is being deleted.
-
-        Called by the writer of teams, projects and environments inside its own
-        transaction, so a binding never outlives what it pointed at.
-
-        Args:
-            cursor: A cursor inside that transaction.
-            scope_kind: ``team``, ``project`` or ``environment``.
-            scope_id: The row being deleted.
-        """
-        cursor.execute(
-            "DELETE FROM access_bindings WHERE scope_kind = ? AND scope_id = ?",
-            (scope_kind, scope_id),
-        )
-
     def projects_of_team(self, team_id: int) -> list[int]:
         """
         Args:
