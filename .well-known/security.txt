@@ -7,7 +7,7 @@ Contact: mailto:yago.lopez.adeje@gmail.com
 # fails if they disagree).
 # OWNER-TODO(security-pgp): optional. After publishing a key, add its URL:
 # Encryption: https://raw.githubusercontent.com/Perkybeet/noust/main/.well-known/pgp-key.txt
-Expires: 2027-04-11T00:00:00.000Z
+Expires: 2027-04-20T00:00:00.000Z
 Preferred-Languages: en, es
 Canonical: https://raw.githubusercontent.com/Perkybeet/noust/main/.well-known/security.txt
 Policy: https://github.com/Perkybeet/noust/blob/main/SECURITY.md
