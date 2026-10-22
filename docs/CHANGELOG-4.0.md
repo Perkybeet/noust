@@ -4,7 +4,7 @@ Changes since Noust 3.3.1. Upgrade notes are in [UPGRADING-4.0.md](UPGRADING-4.0
 the HTTP API can notice is in [API-CHANGELOG.md](API-CHANGELOG.md).
 
 4.0 adds teams, projects and environments, applications built from a Dockerfile, a registry image or
-Railpack, a catalogue of 142 recipes, database engines that Noust runs in containers beside the host's,
+Railpack, a catalogue of 143 recipes, database engines that Noust runs in containers beside the host's,
 a certificate of its own for any name of an application, per-site access control, single sign-on
 through four kinds of identity provider, servers created at a cloud provider and servers behind NAT,
 a one-command installer, and a console rebuilt around setting rows and one set of rules. It is a major
@@ -29,7 +29,14 @@ a repository may still use them.
 - **Scripts and cron jobs change.** `wasm` is not a command any more: use `noust` with the same
   arguments. `WASM_*` variables are not read: use `NOUST_*`. A script that names `/etc/wasm`,
   `/var/lib/wasm`, `/var/backups/wasm`, `/etc/nginx/wasm-upstreams` or `~/.local/share/wasm` must
-  change before the update, because the package removes those links when nothing uses them.
+  change before the update, because the package removes those links when nothing uses them. A script that
+  reads `noust db list --json` reads `app`: the `linked_app` key, which repeated it under the name 2.x
+  used, is gone.
+- **Some security friction is a choice now (item 83).** On the standard profile, which is the default,
+  the administrator holds every permission, a person may hold accounts of several roles, and a new account
+  is not held at the second-factor enrolment unless the console is published. A server that is on
+  `security.profile: ens-medium` keeps all of it. [UPGRADING-4.0.md](UPGRADING-4.0.md#what-else-changes-on-its-own)
+  says how to get the stricter behaviour back.
 - **What still works until 5.0.** The `X-WASM-CSRF` header, the WebSocket subprotocols `wasm.auth` and
   `wasm.token.`, `wasm.nginx.yaml` in a repository, the `?wasm_only=` filter of `GET /api/services` and
   API tokens with the old prefix (until each is revoked or expires). Backups and exports of 3.x are
@@ -242,10 +249,11 @@ a repository may still use them.
   recovery cannot finish. It uses the engine's own mechanism, so a server that loses Noust recovers by
   hand from the same files.
 - **TLS and replicas.** Instances can serve TLS with a certificate of Noust's own authority, and so can
-  PostgreSQL, MySQL and MariaDB on the host, renewed without a restart; Redis, Valkey and KeyDB in an
-  instance serve TLS on their one port. PostgreSQL read replicas on another server run over TLS with an
-  account that can only replicate, and MySQL and MariaDB replicas over verified TLS (`noust db replica`).
-  These have an API; the console does not draw replicas or the host engines' TLS yet [verificar].
+  PostgreSQL, MySQL and MariaDB on the host, renewed without a restart (`noust db tls`); Redis, Valkey and
+  KeyDB in an instance serve TLS on their one port. PostgreSQL read replicas on another server run over TLS
+  with an account that can only replicate, and MySQL and MariaDB replicas over verified TLS
+  (`noust db replica`). The console turns an instance's TLS on and renews it from the instance's menu; the
+  replicas and the host engines' TLS are driven from the command line and the API for now.
 - **Backup policies.** One policy covers every database of an engine with exclusions, can keep dumps by
   size as well as by number and age (here and at each destination), and can keep no copy on the server
   once every destination holds the dump. A database's users and every database of a cluster come in with
@@ -428,12 +436,18 @@ has no TLS.
   losing the way back, and the choice survives a restart ([sso.md](sso.md)).
 - **Email.** An invitation and a password reset can be mailed when the server has a mail channel.
 - **Compliance one control at a time (item 83).** A server on the standard profile no longer carries the
-  friction of the ENS profile. Each control is its own setting, permissive by default, and a framework is
-  a preset over the controls: ENS basic, medium and high, ISO/IEC 27001:2022 Annex A, NIS2 article 21, CIS
-  Controls v8 IG1 and IG2, SOC 2 Security and GDPR article 32. Several can be on and each control takes
-  the strictest value any of them asks for. `security.profile: ens-medium` keeps working and means ENS
-  medium is on ([COMPLIANCE.md](COMPLIANCE.md)) [verificar: what this changes on a server upgraded from
-  3.3.1 that never chose the ENS profile; see UPGRADING-4.0.md].
+  friction of the ENS profile: the administrator holds every permission instead of leaving accounts,
+  security settings and the audit log to a security officer and an auditor, a person may hold accounts of
+  several roles, and a new account is not held at the second-factor enrolment unless the console is
+  published. Each of these, and the others (a reason with every change, a second person for
+  root-equivalent actions, a sudo password, restricted tokens...), is a control with its own setting,
+  permissive by default, and a framework is a preset over the controls: ENS basic, medium and high,
+  ISO/IEC 27001:2022 Annex A, NIS2 article 21, CIS Controls v8 IG1 and IG2, SOC 2 Security and GDPR article
+  32. Several can be on and each control takes the strictest value any of them asks for.
+  `security.profile: ens-medium` keeps working and means ENS medium is on. A server that relied on the
+  stricter roles turns them back on with `noust compliance set roles_split on`, or by enabling a framework
+  ([COMPLIANCE.md](COMPLIANCE.md), and what changes on a server you update in
+  [UPGRADING-4.0.md](UPGRADING-4.0.md#what-else-changes-on-its-own)).
 - **What happens when the audit trail cannot be written.** `audit.on_failure` is `warn` (the default:
   the change goes through and the failure stays loud) or `refuse`, which is always the case under the ENS
   profile: the API answers 503 `audit_unavailable` and the command line exits before doing anything.
@@ -483,14 +497,19 @@ has no TLS.
 
 ## Recipes and catalogue
 
-- **142 recipes, up from 6.** 127 can be installed (4 native, 123 in Docker) and 15 are listed with the
-  reason they cannot. Every image is pinned by tag and by digest, CI refuses an image that moves, and every
-  recipe starts closed. 104 were written from the project's own documentation and 23 took part of their
-  wiring from Coolify's service templates (Apache-2.0), credited in the header of their file
-  ([recipes.md](recipes.md)).
-- **Proved in Docker.** The sixteen Compose recipes of the first wave were each installed, served through
-  nginx, restarted and deleted for real, and Qdrant was started with the smoke test. The rest are linted,
-  loaded and pinned. How many of the 142 have been started in Docker: [pendiente de cifra].
+- **143 recipes, up from 6.** 128 can be installed (5 native, 123 in Docker) and 15 are listed with the
+  reason they cannot. Every image is pinned by tag and by digest, the lint that runs in CI refuses a tag
+  that moves, and every recipe starts closed. 105 were written from the project's own documentation and 23
+  took part of their wiring from Coolify's service templates (Apache-2.0), credited in the header of their
+  file ([recipes.md](recipes.md)).
+- **Proved in Docker.** 97 of the 128 recipes you can install were started for real and answered their
+  health check: the sixteen Compose recipes of the first wave were each installed, served through nginx,
+  restarted and deleted; WordPress, Uptime Kuma, n8n and Umami are installed and deleted by the integration
+  suite; and 77 more were started by `scripts/recipe_smoke.py` against the image's own configuration (each
+  one ran its stack, passed its health check through nginx's headers and ended with no restarts and no
+  errors in its log). That run changed the recipe itself in 15 cases (a health path, a port, a password
+  rule, a mount, a driver the image lacks). The other 31 are linted, loaded and pinned, but have not been
+  started: `scripts/recipe_smoke.py NAME` is the way to try one.
 - **Using the catalogue.** Search by name, category, tag and kind; install from the console, the CLI or the
   API; `noust recipe outdated` shows which installed recipes have a newer version, and an update goes
   through the one update with its backup, health gate and way back. What a recipe needs from the server is
@@ -544,56 +563,108 @@ has no TLS.
 
 ## The console
 
+Everything here is compared with the console of 3.3.1. Screens that did not exist then are described
+where they are, not as a change.
+
 ### One register for every screen
 
 - **Every screen is written once.** The sidebar, the tab strips, the settings list, the breadcrumbs, the
   `g` shortcuts and the command palette read one register, and a test holds it to the router in both
-  directions. An old address redirects to the new one (see the table below), and an old name stays a
-  search word in the palette.
-- **Texts load by area.** The console's texts load by area, so its first screen carries only what it
-  draws and the rest arrives while the browser is idle. The script every page loads first went from
-  635.7 kB to about 455 kB gzipped.
+  directions. An old address redirects to its new one (see [Where things moved in the
+  console](#where-things-moved-in-the-console)), and an old name stays a search word in the palette and
+  in the filter of Settings.
+- **Texts load by area.** The first screen carries the words it draws and nothing else; the rest of the
+  language arrives while the browser is idle, so a console with many more screens does not make the first
+  one wait for them.
 - **A third language is a JSON file** anyone can contribute without TypeScript, held to English by tests
   ([TRANSLATING.md](TRANSLATING.md)).
 
-### Navigation, inbox, account and grouped settings
+### Finding your way
 
-[por completar tras UX-S2] None of this has landed yet; confirm each line when it does.
+- **A scope selector.** At the head of the sidebar (in the top bar on a narrow screen) it says whether the
+  console is on this server, on one of the others, on **All servers** or on **This central**. The server
+  selector of 3.3.1 lived in the top bar; this one is not drawn on a lone server with nobody else added.
+- **The sidebar follows the scope.** On a server: Overview, Projects (where teams, projects and
+  environments live), Applications, Databases, Domains, Backups and Cron; then Logs and Activity; then
+  Server; and Settings pinned under them. On **All servers** or **This central**: the fleet's seven pages
+  (Overview, Servers, Applications, Certificates, Backups, Updates and Activity). The strip of tabs the
+  fleet's pages drew is gone, because the sidebar lists the same pages; only Applications keeps a strip,
+  with its second view, **On several servers**.
+- **Recipes, the map and teams are views, not areas.** Recipes and Installed recipes belong to
+  Applications (they keep the address `/catalog`), the map of the server is the second view of Overview,
+  and Teams is a tab of Projects.
+- **The inbox.** A bell in the top bar opens **Needs you**, a state and not a story (a failed application,
+  a certificate about to expire, an alert that fires, a probe that is down, a request waiting for your
+  decision, a new Noust or a recipe with a newer version stay there while they are true, whether or not the
+  console was open when they happened), and **Recent**, what the server said while this tab was open (30 at
+  most; the history is Activity). A row has its severity, what is wrong, the system's own words in mono and
+  one button that goes to the thing. It is a popover from the `sm` breakpoint up and a drawer on a phone.
+  Alerts are taken and reopened from it.
+- **The account.** The avatar menu opens **Account** (profile and password) and **Sign-in security**
+  (authenticator app, passkeys and where you are signed in). Settings > Security is gone:
+  `/settings/security` opens Sign-in security, and what concerned the server (the security profile, the
+  compliance frameworks and the controls) is Settings > Controls.
+- **Settings in six groups that say whose they are.** This server, Monitoring and Developers describe the
+  server you chose; People and access, Governance and Fleet are the instance's. A filter appears from twelve
+  sections and finds a section by the name it had before, and on a phone the list is a page of its own.
+- **The palette** lists every screen of the register with where it lives, takes `>` for actions and `@` to
+  change scope, remembers the last three places, finds applications, databases, sites, certificates,
+  services, servers and recent deployments, and runs verbs such as restart, stop, start, roll back and
+  update. Every area of the sidebar has a `g` shortcut.
 
-- **The scope selector.** A selector at the head of the sidebar says whether the console is on this server,
-  on all servers or on the central, and the sidebar follows it: the usual areas in three groups on a
-  server, and seven fleet pages (Overview, Servers, Applications, Certificates, Backups, Updates,
-  Activity) on the fleet. The Catalog stops being an area: Recipes and Installed recipes become tabs of
-  Applications. The map becomes the second view of Overview, and Teams a tab of Projects. The strip of
-  eight tabs that the fleet's pages still draw goes away with the fleet screens [por completar tras
-  UX-D].
-- **The inbox.** A bell in the top bar opens "Needs you" (a state, not a story) and "Recent" (what the
-  server said while the tab was open, 30 at most), with one button per row.
-- **The account.** The avatar menu opens Account and Sign-in security. `/settings/security` moves to
-  `/account/security`, and the compliance frameworks and the security profile move to Controls.
-- **Settings in six groups that say whose they are.** This server, Monitoring and Developers; People and
-  access, Governance and Fleet. A filter appears from twelve sections.
-- **The palette** lists every screen of the register with its place, takes `>` for actions and `@` to
-  change scope, and every destination has a `g` shortcut.
+### The way in
+
+- **The installer ends with what to do next.** It prints the command that opens the tunnel to the console
+  with this server's address in it (a placeholder, and a sentence saying so, when it cannot tell), and the
+  link that opens the sign-in on the access token. The token is shown once, in the box above.
+- **The access token is the first administrator's way in.** The sign-in button says **Access token** (it
+  said "Emergency access"), the page opens on the field, and one form creates the first administrator and
+  signs in with it. **Protect your account** can wait (**Set up later**), except under a framework that
+  asks for a second factor or on a console that is published or listens beyond loopback. The token that
+  signed in is held in the page's memory for one use and handed to **Confirm it's you** unasked, so creating
+  the first account does not stop on a dialog; it is never stored.
+- **An empty server offers a first deploy.** The Overview shows one card, **Deploy your first app**, with
+  **Try a demo** (a tiny page on a temporary address, one click), **Use a repository**, four popular recipes
+  and **All recipes**, and under it **Then make it safe to leave alone** (backups, a copy off the server,
+  notifications and, while the account is not protected, **Protect your account**).
+- **The wizard reads what you give it.** A repository or a path pasted in the source step is read at once
+  and a line under the field says what was found, with **Change** (`Detected: Next.js with npm. Port 3000.
+  2 variables to fill in.`). The ways to start are **From GitHub**, **URL or path**, **A Docker image** and
+  **More ways** (Compose, a recipe, an import, a site already running). A server with no domain of its own
+  uses a temporary address (`shop.203-0-113-10.sslip.io`, made of the server's public address, so it resolves
+  here) and the first deploy needs no DNS; the summary says what was detected, the address and the variables,
+  each with **Change**.
+- **GitHub from the wizard.** On a server with no GitHub App the source step is the form that connects it,
+  and the wizard is found where it was left when GitHub sends the browser back. A private repository
+  reached over SSH that cannot be cloned shows git's own words, this server's public key in a box to copy and
+  the page of the repository where it is added.
+- **The deploy log opens with what was detected**: `Detected Node.js (package.json). Install: npm ci. Start:
+  npm run start. Port 3100.`, before anything runs.
+- **A recipe or an import ends on one card** that says it is live, the log, the address with copy and open,
+  whether HTTPS is ready (`HTTPS is ready.`, or `Served over HTTP: the certificate could not be issued.` with
+  **What certbot said** verbatim), and the next steps: your own domain, a database, a backup.
+- **The catalogue is a page of tiles**: the logo, the name, one line and **Use**, with a **Popular** row
+  before any filter.
 
 ### The application's page
 
-- **What is live, what is not applied, and how to go back.** Update is a split button (its menu has
-  Update without cache, and on releases Build without serving). "N not applied" and "Deploys paused" are
-  chips on the state line, not a banner. The overview shows Live now, the last deployments (and which
-  version kept serving through a failure), one health section with uptime, certificate, CPU and memory,
-  previews, where the application answers and whether a push deploys it. With the service down the page
-  says "Last version that served" and no row says Live.
-- **One list of deployments.** Search, state, branch and who started it filter the list from the address;
-  a press on a row opens it, its menu rolls back, and the build that waits is at the top with "Make it
-  serve". The whole history is asked at once, so filters see all of it.
-- **A failed deployment.** The error and Retry (or Retry without cache) are on the first screen at 1440
-  and at 390 pixels wide; the page says which version still serves; the log opens on its first error; the
-  excerpt shows the tool's words without its colour codes; and "Open Diagnose", "Edit environment" and
-  "Show it in the log" are beside it.
-- **Variables.** A variable is changed where it is read, a hidden value is never read to edit it
-  ("Replace value" or "Keep current value"), the row shows the old value struck and the new beside it, and
-  the bar saves only what changed ("Save and restart" or "Save only").
+- **What is live and what is not applied.** **Update** is a split button (its menu has
+  **Update without cache**, and on releases **Build without serving**), and Restart, Stop or Start and Roll
+  back are beside it. "N not applied" and "Deploys paused" are chips on the state line, not a banner. The
+  overview shows **Live now**, the last deployments (and which version kept serving through a failure), one
+  health section with uptime, certificate, CPU and memory, previews, where the application answers and
+  whether a push deploys it. With the service down the page says **Last version that served** and no row
+  says Live.
+- **One list of deployments.** Search, state, branch and who started it filter the list, and the filters are
+  in the address; a press on a row opens it, its menu rolls back, and the build that waits is at the top
+  with **Go live**. The filters look through the whole history the server keeps, not only the rows on screen.
+- **A failed deployment** shows the error and **Retry** (or **Retry without cache**) on the first screen at
+  1440 and at 390 pixels wide, says which version still serves, opens the log on its first error, shows the
+  tool's words without its colour codes, and has **Open Diagnose**, **Edit environment** and **Show it in
+  the log** beside it.
+- **Variables.** A variable is changed where it is read, a hidden value is never read to edit it (**Replace
+  value** or **Keep current value**), the row shows the old value struck and the new one beside it, and the
+  bar saves only what changed (**Save and restart** or **Save only**).
 - **Domains.** A domain is added in one press with its DNS asked when the field is left, and removing one
   is one question.
 
@@ -601,72 +672,95 @@ has no TLS.
 
 - **Six groups.** Code (Source, Build, Container), Deploys (Releases and rollback, Automation, Compose),
   Triggers (Deploy on push, Deploy hooks, Previews), Runtime (Resources, Processes, Mounts, Disk, Service
-  security), Access (Access, Protection) and Export and delete. Build commands and Builds are one page with
-  the build sandbox as a card. Automation holds automatic deploys, the pause after a rollback, the backup
-  an update requires, the copy of a stack's databases, freezes, scheduled updates and deploy limits;
-  Compose holds a stack's options, networks and registry accounts; Protection holds limits, headers,
-  HTTP/3, the firewall and client certificates.
-- **One way of saving.** These pages save from one save bar or a drawer, or their rows apply at once; the
-  per-card Save buttons and the banners are gone. Deploy on push is a stepper that draws the step the
-  setup is at, and does not send anyone to a terminal when this server's GitHub App covers the repository.
-- **Shorter pages.** The length of every settings page is measured and may only go down; Access went from
-  3,967 to 1,531 pixels and Deploys from 2,437 to 1,048 at 1440 by 900.
+  security), Access (Access, Protection) and Export and delete. In 3.3.1 there were nine sections in one list.
+  Build commands and Builds are one page, **Build**, with the build sandbox as a card (`/settings/builds`
+  opens it). Automation holds automatic deploys, the pause after a rollback, the backup an update requires,
+  the copy of a stack's databases, freezes, scheduled updates and deploy limits; Compose holds a stack's
+  options, networks and registry accounts; Protection holds limits, headers, HTTP/3, the firewall and client
+  certificates.
+- **One way of saving.** These pages save from one save bar or a drawer, or their rows apply at once; there
+  are no per-card Save buttons and no banners. Deploy on push is a stepper that draws the step the setup is
+  at, and does not send anyone to a terminal when this server's GitHub App covers the repository.
+- **Shorter pages.** The length of every settings page is measured at 1440 by 900 and may only go down.
 
-### Global settings, the server and access
+### Settings, the server and access
 
 - **Settings rows.** Console address, MCP, Approvals and Automatic updates say their state as a pill and
-  are rows, not blocks. Single sign-on is one list of connections (OpenID Connect, SAML, directory) with
-  one menu to add and one per row, and its empty states are one line (767 pixels instead of 2,244).
-- **One confirmation dialog.** Every question of the Server area (reboot, SSH fix, firewall, bans,
-  storage, swap, services restart, cleanup) is the same dialog, with the server's name typed for the
-  dangerous ones and the system's own refusal shown verbatim. A pending SSH or firewall change is a
-  sentence with its countdown and a drawer, and the reboot notice is one line (68 pixels, from 175).
-- **About** is three sections and shows the copyright, the licence with its text one click away, that
+  are rows, not blocks. Single sign-on is one list of connections (OpenID Connect, SAML, directory) with one
+  menu to add and one per row, and its empty states are one line.
+- **One confirmation dialog.** Every question of the Server area (reboot, SSH fix, firewall, bans, storage,
+  swap, services restart, cleanup) is the same dialog, with the server's name typed for the dangerous ones
+  and the system's own refusal shown verbatim. A pending SSH or firewall change is a sentence with its
+  countdown and a drawer, and the reboot notice is one line with a **Why** button.
+- **About Noust** is three sections and shows the copyright, the licence with its text one click away, that
   there is no warranty and where the source code is (item 85).
 - **The terminal** opens from one line, and the ENS report and the audit log say their verdict as a pill.
 - **Renamed sections:** see the table below.
 
+### Logs, alerts, backups and servers
+
+- **One page for logs.** **Logs** searches the applications or the system's journal (the **Where from**
+  choice; the system's journal is no longer Server > Logs, and `/server/logs` opens it). The same toolbar is
+  on every place that reads logs, an application's Logs tab included: a query box, the range (**Live** is the
+  first range and there is no Live switch), the syntax help and **Copy link to this search**. An
+  application's range can be **Since the last deploy**, and the line `Deploy #N started here` marks it.
+- **Alerts are taken and reopened with who and when**, in the settings row and in the inbox. The built-in
+  checks are boxes, and their number appears only while they are on; an empty field no longer means off.
+  The inbox, the sidebar and the settings pages share one answer to "which alert needs somebody", and a
+  probe that is switched off no longer counts as down.
+- **Channels, probes and the status page are rows.** The master switch of Channels is a row with its state,
+  events are groups ("4 of 5 sent"), and the metrics export is part of **Logs and metrics export**.
+- **Databases.** The list counts the databases with no backup schedule in a filter (**No schedule (N)**)
+  instead of a banner, restoring is one confirmation, and **Allow changes** in the query editor is a box with
+  its risk on the same line.
+- **A backup schedule is built from the same fields as every other one**: when, how many to keep, where to
+  send, and what not to keep here. Each destination is a block that fits a phone, and a retention limit is a
+  box that is ticked with the number it reveals, so "no limit" is a state the page shows and not an empty
+  field. "Schedule" is the only word for it.
+- **Servers are one list.** **Fleet > Servers** holds what Settings > Servers held (pause and resume
+  monitoring, the quiet reminders, creating a server at a provider); `/settings/servers` opens it with its
+  filters and the **Add a server** flow, and **Add a server** in the selector and the palette goes to it.
+  Removing a server is one question.
+- **Domains** list their DNS records, tunnel routes and site versions in the kit's list with state pills, a
+  site's editor asks once before it is left, and the DNS verdict of adding a domain is one line with its
+  records one press away.
+
 ### Forms, loading and leaving a page
 
-- **A form does not switch its button off for a missing value.** Pressing says what is missing and
-  focuses the field (so far in the forms of tokens, roles, accounts, services, the API reference and the
-  manifest).
-- **One question before leaving unsaved changes.** A form with unsaved changes asks once, with "Keep
-  editing" focused and "Discard changes" beside it.
+- **A form does not switch its button off for a missing value.** Pressing says what is missing and focuses
+  the field (in the forms of tokens, roles, accounts, services, the API reference, the manifest and the
+  schedules of Backups).
+- **One question before leaving unsaved changes.** A form with unsaved changes asks once, with **Keep
+  editing** focused and **Discard changes** beside it.
 - **Nothing moves as it loads.** Lists, cards and pages load through one skeleton, error and empty state,
-  and a test opens every route against a server that never answers. The databases list, a deployment and
-  the Deploys settings no longer shift what is on screen while they load.
+  and a test opens every route against a server that never answers.
 
-### Icons (item 86)
+### Words and icons (item 86)
 
-- **Object icons.** Sections and cards of the application page and of its settings, the verb buttons and
-  menu items of the Server area and of Settings, and the menus of single sign-on carry the icon of the
-  object or the verb they are about: achromatic, decorative and never in a tab.
-- **One map of icons for the objects** (an application, a database, a domain, a backup, a server...) read
-  by the register, so an object has one icon across the console [por completar tras UX-S2].
+- **One word for each thing, in both languages.** The Spanish console said Borrar, Eliminar and Quitar for
+  the same act and Leyendo for loading; it says Eliminar for delete, Quitar for remove and Cargando for
+  loading, one name for each state (En ejecución, Fallido), and archivo for a file. In English each thing has
+  one verb (`Retry` where it said "Deploy again", `Continue with GitHub` and `Continue with GitLab` where it
+  said "Confirm and continue", `Open access` and `Close access` for a database made reachable from the
+  network). A glossary of the interface and a test hold the words ([TRANSLATING.md](TRANSLATING.md)).
+- **Object icons.** Sections and cards of the application page and of its settings, the verb buttons and menu
+  items of the Server area and of Settings, and the menus of single sign-on carry the icon of the object or
+  the verb they are about: achromatic, decorative and never in a tab. One map holds the icon of each kind of
+  object (an application, a database, a domain, a backup, a server...) and the register reads it, so an
+  object has one icon across the console.
 
 ### Other changes across the console
 
 - **The kit and its rules.** Setting rows with their risk, lock and confirmation, one confirmation dialog,
-  split buttons, row lists and row menus, skeletons with the shape of what they stand for and dashboard
-  and settings templates are in the kit, with a gallery of all of it in both themes. Twenty-seven
-  structural rules, the glossary of the interface and the length of settings pages are held by tests, and
+  split buttons, row lists and row menus, skeletons with the shape of what they stand for and dashboard and
+  settings templates are in the kit, with a gallery of all of it in both themes. Twenty-seven structural
+  rules, the glossary of the interface and the length of settings pages are held by tests, and
   [DESIGN.md](DESIGN.md) says how a setting is a row, when a notice is allowed and who saves and confirms.
-- **Daily work.** An application's daily verbs are in its header (Restart, Stop or Start, Roll back
-  beside Update), lists page at 20, 50, 100 or all rows, and the palette finds databases, sites,
-  certificates, services, servers and deployments and runs actions.
-- **New application.** A new application from a public repository is four clicks and from a recipe three,
-  a container application is made from a Dockerfile, Railpack or a registry image in the wizard (an image
-  from a registry is no longer proposed 8080, the console's own port, but starts from 3000), and the
-  catalogue is a page of recipe cards.
-- **Logs and maps.** A log can be filtered by level, with its times hidden or taken to the whole screen; a
-  map shows how the server fits together, read from it, with nothing to arrange.
-- **Data, network and monitoring screens** [por completar tras UX-D]: alerts acknowledged with who and
-  when, one toolbar for every place that reads logs, a backup schedule built from the same fields as every
-  other one, and Fleet > Servers as the one list of servers.
-- **The way in** [por completar tras UX-W]: the access token as the first administrator's way in, the
-  link the installer prints, a temporary address for each application and what the deploy log says it
-  detected before anything runs.
+- **Daily work.** Lists page at 20, 50, 100 or all rows, remembered per list.
+- **New application.** From the Applications list, a new application from a public repository is four
+  clicks and from a recipe three, and a container application is made from a Dockerfile, Railpack or a registry image in the wizard (an
+  image from a registry is no longer proposed 8080, the console's own port, but starts from 3000).
+- **A map** shows how the server fits together, read from it, with nothing to arrange.
 
 ## Security and licences
 
@@ -679,8 +773,7 @@ has no TLS.
 - **Contributing.** One guide for contributors, `CONTRIBUTING.md`, which also says under which licence a
   contribution is made. The 2.x guide that GitHub showed first is gone.
 - **Signed releases.** From 4.0.0 on, a release tag is signed with the maintainer's SSH key, which GitHub
-  shows as verified; earlier tags are not signed [verificar: the v4.0.0 tag must be signed before it is
-  published]. Every file a release carries has a keyless-signed `SHA256SUMS` and a build-provenance
+  shows as verified; earlier tags are not signed. Every file a release carries has a keyless-signed `SHA256SUMS` and a build-provenance
   attestation, the wheel has its SBOM attested, the container image is signed and attested by digest,
   PyPI publishes with attestations, and a fixable critical vulnerability in the image holds the release
   back. The installer is published with its own signed checksum. The wheel and the source distribution
@@ -711,39 +804,9 @@ has no TLS.
 ## Where things moved in the console
 
 An address that changes redirects to the new one, and a screen that changed its name is still found by
-the old name in the command palette.
-
-| Before (3.3.1) | In 4.0 | Notes |
-|---|---|---|
-| `/teams` | `/projects/teams`, the Teams tab of Projects | Redirects, keeping the search |
-| `/apps/<app>/settings/builds` | `/apps/<app>/settings/build` | Build commands and Builds are one page, with the sandbox as a card |
-| `/services`, `/services/<name>` | `/server/services`, `/server/services/<name>` | Redirected since 3.1 |
-| Application settings: Deploys (one page of cards) | Releases and rollback (`/deploys`), Automation (`/automation`), Compose (`/compose`) | `/deploys` keeps its address |
-| Application settings: Access (one page of cards) | Access (`/access`) and Protection (`/protection`) | Limits, headers, HTTP/3, the firewall and client certificates are in Protection |
-| Application settings: registry accounts, in Deploys | Container | |
-| Application settings: 17 flat sections | Six groups: Code, Deploys, Triggers, Runtime, Access, Export and delete | |
-| Application overview: "How it runs", the cards, the deploy dots | Live now, last deployments, health, previews, where it answers | |
-| Application: the Releases section and the deployments table | One list of deployments, with filters in the address | |
-| Application: the pending-changes banner | An "N not applied" chip on the state line | |
-| Application: a rollback dialog from each place | One rollback question | |
-| "Unit security" | "Service security" | |
-| "Live version" | "Live now" | |
-| "Deliveries" of a webhook | "Pushes received" | |
-| Settings: Console access | Console address | |
-| Settings: Roles and access | Roles | |
-| Settings: Compliance | ENS report | Frameworks and controls move to Controls [por completar tras UX-S2] |
-| Settings: Cloud | Cloud providers | |
-| `/settings/security` | `/account/security` | [por completar tras UX-S2]: `/account`, `/account/security` and `/settings/controls` open the screen that holds the same thing today |
-| `/settings/servers` | `/fleet/servers` | [por completar tras UX-D] |
-| `/server/logs` | `/logs?source=system` | [por completar tras UX-D]: the System source of Logs |
-| Domains and certificates (the area) | Domains | [por completar tras UX-S2] |
-| Settings: Notifications, Alerts | Channels, Alert rules | [por completar tras UX-S2] |
-| Settings: Probes, Log shipping, About | Probes and status page, Logs and metrics export, About Noust | [por completar tras UX-S2] |
-| Account's "Security" | Sign-in security | [por completar tras UX-S2] |
-| Catalog (an area) | Recipes and Installed recipes, tabs of Applications; `/catalog` keeps its address | [por completar tras UX-S2] |
-| `/map` and "Map" in More actions | The second view of Overview | [por completar tras UX-S2] |
-| The Fleet's strip of eight tabs | The fleet's sidebar | [por completar tras UX-S2 y UX-D] |
-| Emergency access | Access token | [por completar tras UX-W] |
+its old name in the command palette and in the filter of Settings. Every screen of 3.3.1 that moved or was
+renamed, with where it is now and what its old address does, is the table in
+[UPGRADING-4.0.md](UPGRADING-4.0.md#where-it-is-now).
 
 ## Removed
 
@@ -761,36 +824,45 @@ the old name in the command palette.
   names stays and the command says what names it.
 - **The `renamed_from_wasm` field** of `GET /api/auth/session`, and the console's one-time notice about
   the rename.
-- **On the application's page**: the pending-changes banner, the "How it runs" section, the deploy dots,
-  the releases section and the "Environment saved" step.
+- **The `linked_app` key** of `noust db list --json`, which repeated `app` under the name 2.x used.
+- **In the console**: Settings > Security (see the table), Settings > Servers (Fleet > Servers is the one
+  list of servers), the Logs tab of Server (Logs > System), the strip of tabs of the fleet's pages, and, on
+  the application's page, the "How it runs" section, the deploy dots, the Releases section of Deployments
+  and the "Environment saved" step.
 
 ## API
 
-The API gains a version and a lot of operations, and removes nothing. The complete list, release by
-release and operation by operation, is [API-CHANGELOG.md](API-CHANGELOG.md); it lists this release under
-two headings, 3.4.0 (the first API version) and 4.0.0, because the work was first written down under the
-earlier number, and everything under both ships in 4.0.0.
+The API gains a version and 617 operations, and removes none. The complete list, release by release and
+operation by operation, is [API-CHANGELOG.md](API-CHANGELOG.md). It lists this release as one section, 4.0.0,
+and puts what can break a client first.
 
+- **Breaking.** None removes an operation, a parameter or a field. What a client of 3.3.1 can notice:
+  the session cookies and the CSRF header carry Noust's name (`noust_session`, `noust_csrf`, `X-Noust-CSRF`;
+  the header of before 4.0 is still accepted); `GET /api/auth/session` no longer answers `renamed_from_wasm`,
+  which a client reads as absent, which is what `false` meant; an application's export says `noust-app` and
+  `noust_version` (both spellings are read); a backup destination that does not connect is refused with
+  `400 destination_unreachable` unless `verify` is `false`; the administrator holds the security officer's
+  and the auditor's permissions on the standard profile; and an update is refused when the backup it needs
+  failed.
 - **Versioned.** Every route is also served at `/api/v1/...`, a response under `/api` carries
   `X-Noust-API-Version: 1`, and a deprecated operation announces itself with `Deprecation`, `Sunset` and
   `Link` headers. None is deprecated. The compatibility promise is held by a test against the API as 3.3.1
   shipped it, and all 433 operations of that baseline are kept.
-- **Added.** The API describes 1,048 operations, counted in `panel/openapi.json`, up from 433. The new
-  areas include teams, projects and environments, database instances, replicas and recovery to an instant,
-  the runtime of an application (processes, copies, hardening, tuning, mounts, files, disk, pending
-  changes), fleet placements, build servers and cloud servers, release bundles, domains and per-name
-  certificates, DNS accounts, the private authority, per-site policy, notification channels and alert
-  rules, probes, traffic, log search and shipping, single sign-on (OpenID Connect, SAML, LDAP, SCIM),
-  the manifest and the MCP endpoint. Existing operations gained fields: for example `audience` on
+- **Added.** The API describes 1,050 operations, counted in `panel/openapi.json`, up from 433. The new
+  areas include teams, projects and environments, database instances, replicas, imports and recovery to an
+  instant, the runtime of an application (processes, copies, hardening, tuning, mounts, files, disk, pending
+  changes), the deploy queue, recipes, uploads and pushes, volume and Noust-state backups and their
+  encryption, backup failures, the restore of a whole server, fleet placements, build servers and cloud
+  servers, release bundles, domains and per-name certificates, DNS accounts, the private authority, per-site
+  policy, notification channels and alert rules, probes, traffic, log search and shipping, single sign-on
+  (OpenID Connect, SAML, LDAP, SCIM), compliance, the terminal, the console's exposure on a name, the
+  manifest and the MCP endpoint. Existing operations gained fields: for example `audience` on
   `PATCH /api/apps/{domain}/env`, `no_cache` on a rebuild and `remove_volumes` and `remove_databases` on
-  deleting an application. [verificar: API-CHANGELOG.md does not yet list the routes of teams and
-  projects, the MCP endpoint, the server restore plan, backup failures and backup encryption.]
+  deleting an application.
 - **Changed, without breaking a client.** `GET /events` answers `429` to a credential that already holds
   sixteen event streams and ends a stream after twelve hours (the browser reconnects by itself); the
   anonymous rate limit, the sign-in lockout and the webhook budget count an IPv6 client by its /64; the
   text of the logs endpoints has credentials of a recognisable shape replaced by `***`.
 - **Removed.** Nothing.
-- **Breaking.** `GET /api/auth/session` no longer answers `renamed_from_wasm`; a client that read it reads
-  it as absent, which is what `false` meant.
 
-<!-- release summary: Teams, container apps, 142 recipes, engines in containers, per-name certificates and a rebuilt console; the wasm command, its packages and the old names are retired. -->
+<!-- release summary: Teams, container apps, 143 recipes, engines in containers, per-name certificates and a rebuilt console; the wasm command, its packages and the old names are retired. -->
