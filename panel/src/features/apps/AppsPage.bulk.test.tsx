@@ -75,6 +75,24 @@ describe("choosing applications", () => {
     expect(screen.getByRole("checkbox", { name: "Select shop.example.com" })).not.toBeChecked();
   });
 
+  it("keeps the domain as the title of each card on a phone, with the checkbox in its own slot beside it", async () => {
+    screenWidth(390);
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/apps": () => json(200, LIST),
+      "GET /api/deployments": () => json(200, { items: [], total: 0, next_before_id: null }),
+    });
+    renderConsole("/apps");
+    const list = await screen.findByRole("list", { name: /Applications/ });
+    const card = (await within(list).findByRole("checkbox", { name: "Select shop.example.com" })).closest("li") as HTMLElement;
+
+    // The first column is the title by default, and the checkbox column is before it: the domain is named as the
+    // title, or it falls to the line of values, cut to what is left of it beside the type and the last deploy.
+    const link = within(card).getByRole("link", { name: "shop.example.com" });
+    expect(link.closest("p")).toHaveClass("text-14");
+    expect(card.querySelectorAll("p")).toHaveLength(2);
+  });
+
   it("forgets a choice the filters have since hidden", async () => {
     const { user } = await appsAt();
     await choose(user, "shop.example.com", "blog.example.com");

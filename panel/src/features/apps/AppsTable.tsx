@@ -127,6 +127,9 @@ export function AppsTable({ apps, deploys, metrics, caption, loading = false, sk
     {
       id: "domain",
       header: t("apps.table.columnApplication"),
+      // Named: the first column is the title of a card by default, and with the selection column before it this one was
+      // drawn as a value at the end of a line, cut to a dozen characters, under an empty title.
+      card: "title",
       cell: (row) => <AppName t={t} app={row.app} />,
       sortValue: (row) => row.app.domain,
     },
