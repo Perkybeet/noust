@@ -118,7 +118,7 @@ async function confirmAsPerson(page: Page, who: Person): Promise<void> {
   await expect(dialog).toBeHidden();
 }
 
-serial("the first accounts are made from the console, and the new administrator enrols before anything else", async ({ page, consoleServer, problems }) => {
+serial("the first administrator is made from the console in one form, signed in, and enrols an authenticator on the step that follows", async ({ page, consoleServer, problems }) => {
   // Creating an account asks "Confirm it's you" by answering 403 first, by design.
   problems.expect(/status of 403 .* \/api\/auth\/accounts$/);
   await page.goto("/login?with=token");
@@ -143,20 +143,12 @@ serial("the first accounts are made from the console, and the new administrator 
   await confirm.getByLabel("Authentication code").fill(consoleServer.secondFactor());
   await confirm.getByRole("button", { name: "Confirm" }).click();
 
-  await expect(page.getByRole("heading", { level: 1, name: "Add a security officer" })).toBeVisible();
-  await page.getByRole("button", { name: "Name and email (optional)" }).click();
-  await page.getByLabel(/^Username/).fill("sec");
-  await page.getByLabel(/^Email/).fill("sec@example.com");
-  await page.getByLabel(/^Password/).fill("amber quarry window 57");
-  await page.getByRole("button", { name: "Create security officer" }).click();
-
-  // The administrator is signed in with what was just typed, and the policy asks for a second factor
-  // before anything else: setting one up comes first.
-  await expect(page.getByRole("heading", { level: 1, name: "Set up a second factor" })).toBeVisible();
-  await expect(page).toHaveURL(/\/welcome/);
+  // The standard profile has no security officer to add: the administrator is signed in with what was
+  // just typed and offered a second factor, which can wait. The authenticator's code is already there.
+  await expect(page.getByRole("heading", { level: 1, name: "Protect your account" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Set up later" })).toBeVisible();
   await stillness(page);
-  await expectNoA11yViolations(page, "the second factor check");
-  await page.getByRole("button", { name: "Use an authenticator app" }).click();
+  await expectNoA11yViolations(page, "protecting the first administrator");
   const secret = ((await page.getByTestId("totp-secret").textContent()) ?? "").replace(/\s+/g, "");
   expect(secret).toMatch(/^[A-Z2-7]{16,}$/);
   await page.getByLabel("Authentication code").fill(totpCode(secret));

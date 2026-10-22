@@ -56,6 +56,8 @@ test("an image from a registry is configured in the wizard and sent with its reg
 
   // What is about to happen, and not the password.
   await expect(stepTitle(page)).toHaveText("Deploy");
+  // How the container is run is under Details, with the registry account and what is never shown of it.
+  await page.getByRole("button", { name: "Details" }).click();
   await expect(page.getByText("Its password is sent once and never shown.")).toBeVisible();
   expect(await page.content()).not.toContain("tok_live_never_shown_123");
   await settle(page);
@@ -106,6 +108,7 @@ test("a repository with only a Dockerfile is configured as a container, its Dock
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 
   await expect(stepTitle(page)).toHaveText("Deploy");
+  await page.getByRole("button", { name: "Details" }).click();
   await expect(page.getByText("1 arguments and 1 secrets")).toBeVisible();
   expect(await page.content()).not.toContain("never_shown_456");
   const queued = page.waitForRequest((request) => request.url().endsWith("/api/apps") && request.method() === "POST");

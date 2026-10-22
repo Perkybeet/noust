@@ -28,6 +28,7 @@ import { Mono } from "../../components/ui/Mono";
 import { textLinkClassName } from "../../components/ui/TextLink";
 import { translate, useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { cx } from "../../lib/cx";
 import { useNode } from "../../nodes/useNode";
 import { normalizeDomain } from "../domains/names";
 import { imageProblem } from "../container/model";
@@ -1203,7 +1204,7 @@ export function NewAppWizard() {
         {...(locked ? {} : { onSelectStep: (id: string) => go(id as Step) })}
         title={view?.title ?? ""}
         description={view?.description}
-        {...(current !== "server" && current !== "source" && current !== "setup" && current !== "deploy" ? { summary: <SoFar t={t} kind={kind} source={inspected?.for ?? source} review={review} recipe={recipe} recipeForm={recipeForm} loaded={loaded} importForm={importForm} typeName={(type) => typeName(typeList, type)} /> } : {})}
+        {...(current !== "server" && current !== "source" && current !== "setup" && current !== "deploy" ? { summary: <SoFar t={t} kind={kind} source={inspected?.for ?? source} review={review} recipe={recipe} recipeForm={recipeForm} loaded={loaded} importForm={importForm} typeName={(type) => typeName(typeList, type)} onChangeType={kind === "code" && passedOver.includes("configure") ? () => go("configure") : undefined} /> } : {})}
         actions={view?.actions ?? { next: { onClick: () => undefined } }}
       >
         {view?.content}
@@ -1228,6 +1229,7 @@ function SoFar({
   loaded,
   importForm,
   typeName: nameOf,
+  onChangeType,
 }: {
   t: T;
   kind: StartKind;
@@ -1238,6 +1240,8 @@ function SoFar({
   loaded: LoadedExport | null;
   importForm: ImportForm | null;
   typeName: (type: string) => string;
+  /** Opens the Configuration step, which was passed over because nothing in it needed asking. */
+  onChangeType?: (() => void) | undefined;
 }) {
   const items: KeyValueItem[] = [];
   const domain = kind === "recipe" ? recipeForm?.domain : kind === "import" ? importForm?.domain : review?.domain;
@@ -1265,6 +1269,11 @@ function SoFar({
               ) : (
                 <Mono truncate>{item.value}</Mono>
               )}
+              {onChangeType !== undefined && item.label === t("newApp.deploy.type") ? (
+                <button type="button" onClick={onChangeType} className={cx("mt-0.5 block", textLinkClassName("inline", "cursor-pointer text-12"))}>
+                  {t("newApp.deploy.change")} <span className="sr-only">{t("newApp.deploy.type").toLowerCase()}</span>
+                </button>
+              ) : null}
             </dd>
           </div>
         ))}

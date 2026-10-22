@@ -74,7 +74,8 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   await recipes.getByRole("button", { name: "Use WordPress" }).click();
   // One step for a recipe: where it answers, and its variables, with a Deploy of its own.
   await expect(page.getByRole("heading", { level: 2, name: "Address and variables" })).toBeFocused();
-  // The archive and where its checksum is published, straight from wordpress.yaml.
+  // The archive and where its checksum is published, straight from wordpress.yaml, under Details.
+  await page.getByRole("button", { name: "Details" }).click();
   await expect(page.getByText("https://wordpress.org/latest.tar.gz", { exact: true })).toBeVisible();
   await page.getByLabel("Domain", { exact: true }).fill(domain);
   await expect(page.getByText(`${domain} points here`)).toBeVisible();

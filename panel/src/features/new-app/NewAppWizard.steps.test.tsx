@@ -135,6 +135,22 @@ describe("a public repository to its first build", () => {
     expect(screen.getByText("3050")).toBeInTheDocument();
   });
 
+  it("reaches the configuration from a step that has something to ask, through what was decided so far", { timeout: 30_000 }, async () => {
+    const { harness } = wizard("/apps/new", {
+      "POST /api/apps/inspect": () => json(200, { ...PLAIN, env_keys: [{ name: "API_TOKEN", default: null, secret: true, required: true }] }),
+    });
+    const { user } = harness;
+    await inspectPlain(user);
+    await user.type(screen.getByLabelText("Domain"), "blog.example.com");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    // The variable with no value is asked for, so the deploy is out of reach: the type must still be changeable.
+    await screen.findByRole("heading", { level: 2, name: "Variables" });
+    await user.click(screen.getByRole("button", { name: "Change type" }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Configuration" })).toBeInTheDocument();
+    // There is nothing to change it from on the step that is open.
+    expect(screen.queryByRole("button", { name: "Change type" })).not.toBeInTheDocument();
+  });
+
   it("goes Back from the deploy to the address, over the steps it passed", { timeout: 30_000 }, async () => {
     const { harness } = wizard("/apps/new");
     const { user } = harness;

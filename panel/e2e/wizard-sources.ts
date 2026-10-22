@@ -82,11 +82,12 @@ export async function continueTo(page: Page, step: "Address" | "Configuration" |
 
 /**
  * Opens the Configuration step. A project with one detected type has nothing to ask there, so
- * Continue passes over it (checklist M-12); the summary of the deploy says what was detected and
- * offers to change it, which is where this opens it from.
+ * Continue passes over it (checklist M-12); what was decided so far (beside the step, on the way)
+ * and the summary of the deploy (at the end) say the type and offer to change it, which is where
+ * this opens it from.
  */
 export async function openConfiguration(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Change detected" }).click();
+  await page.getByRole("button", { name: /^Change (detected|type)$/ }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Configuration" })).toBeFocused();
 }
 

@@ -197,7 +197,9 @@ test("Build shows the build cache, and process types only where the repository d
   await expectNoA11yViolations(page, "the build cache");
 });
 
-test("the wizard creates an application from a GitLab project and its branch", async ({ page, consoleServer }) => {
+test("the wizard creates an application from a GitLab project and its branch", async ({ page, consoleServer, problems }) => {
+  // A project chosen from a list is read at once, and the sandbox cannot clone from gitlab.com.
+  problems.expect(/status of 400 .* \/api\/apps\/inspect$/);
   await page.route("**/api/integrations/gitlab", async (route) => {
     await route.fulfill({ json: { connections: [GITLAB_CONNECTION], oauth_apps: [], redirect_uri: null } });
   });
@@ -258,7 +260,9 @@ test("the wizard reads an application from Coolify into the import review", asyn
   await expect(page.getByText(/An export of shop\.example\.com/)).toBeVisible();
 });
 
-test("the wizard deploys the workspaces of a monorepo, each on its own domain", async ({ page, consoleServer }) => {
+test("the wizard deploys the workspaces of a monorepo, each on its own domain", async ({ page, consoleServer, problems }) => {
+  // The source typed is read when the field is left, and the sandbox cannot clone from github.com.
+  problems.expect(/status of 400 .* \/api\/apps\/inspect$/);
   await answer(page, "**/api/workspaces/inspect", "POST", {
     tool: "turborepo",
     package_manager: "pnpm",
