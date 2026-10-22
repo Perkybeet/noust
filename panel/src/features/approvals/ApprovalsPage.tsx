@@ -286,7 +286,7 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
           </QueryState>
         </div>
       </Section>
-      <CommandHint label={t("approvals.page.fromTerminal")} command="noust approval list" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust approval list" />
       {opened !== null ? <ApprovalDrawer key={opened.id} approval={opened} onClose={() => setOpen(null)} /> : null}
     </Sections>
   );

@@ -137,15 +137,15 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
         open={open}
         onOpenChange={close}
         size="lg"
-        title={existing ? t("backups.destinationDialog.titleEdit", { name: existing.name }) : t("backups.destinationDialog.titleNew")}
+        title={existing ? t("common.words.editNamed", { name: existing.name }) : t("backups.destinationDialog.titleNew")}
         description={t("backups.destinationDialog.description")}
         footer={
           <>
             <Button disabled={saving} onClick={() => close(false)}>
-              {t("backups.common.cancel")}
+              {t("common.words.cancel")}
             </Button>
             <Button type="submit" form={formId} variant="primary" loading={saving} disabled={!canSubmit}>
-              {existing ? t("backups.common.save") : t("backups.destinationDialog.add")}
+              {existing ? t("common.words.save") : t("backups.destinationDialog.add")}
             </Button>
           </>
         }
@@ -153,7 +153,7 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
         <form id={formId} onSubmit={submit} className="flex flex-col gap-4">
           {existing === undefined ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t("backups.destinationDialog.nameLabel")} description={t("backups.destinationDialog.nameDescription")}>
+              <Field label={t("common.words.name")} description={t("backups.destinationDialog.nameDescription")}>
                 <Input
                   mono
                   value={name}

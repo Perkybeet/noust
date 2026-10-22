@@ -37,7 +37,6 @@ export const servers = {
     loadingLabel: "servers",
     tableCaption: "Servers this central manages",
     column: {
-      name: "Name",
       address: "Tunnel account and address",
       status: "Status",
       version: "Version",
@@ -63,7 +62,6 @@ export const servers = {
         "This central refuses to add its first server without it: whoever signs in here reaches every server it manages.",
       link: "Set up two-factor authentication",
     },
-    fromTerminal: "From a terminal",
     monitoring: {
       paused: "Monitoring paused",
       pausedWhy: "Monitoring paused: {reason}",
@@ -81,7 +79,6 @@ export const servers = {
       resumeFailedToast: "Monitoring of {name} could not be resumed",
     },
     removeDialog: {
-      title: "Remove {name}?",
       description:
         "The central closes its tunnel to {name} and forgets its key, token and pinned host key. When {name} answers, the central first revokes its token there, so the key it leaves behind opens nothing.",
       unreachable: "If {name} cannot be reached, run this on it, as root, to remove the central's key and revoke its token:",
@@ -104,12 +101,8 @@ export const servers = {
       join: "Join",
       result: "Result",
     },
-    cancel: "Cancel",
-    back: "Back",
     next: "I ran it: continue",
-    done: "Done",
     name: {
-      label: "Name",
       description: "How this console will call the server: 1 to 32 lower-case letters, digits and dashes, such as web-2.",
       invalid: "Use 1 to 32 lower-case letters, digits and dashes, starting and ending with a letter or digit.",
       showCommand: "Show the command",
@@ -281,7 +274,6 @@ export const servers = {
     identity: {
       title: "This central",
       description: "The Noust that manages the fleet, and what it does itself.",
-      name: "Name",
       role: "Role",
       roleServer: "Manages servers and deploys applications itself",
       roleHub: "A hub: manages servers, deploys nothing itself",

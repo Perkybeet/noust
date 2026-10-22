@@ -266,7 +266,7 @@ function uptimeFact(app: App, t: T): ReactNode {
   if (state === "static") return t("appPages.overview.alwaysOn");
   if (!app.active) return t("appPages.overview.notRunning");
   const since = parseTimestamp(app.uptime);
-  if (since === null) return t("appPages.overview.running");
+  if (since === null) return t("common.statusPill.running");
   return <UpFor since={since} locale={t.locale} />;
 }
 
@@ -278,7 +278,7 @@ function certificateFact(
   if (cert === undefined && error)
     return (
       <span className="text-fg-muted">
-        {t("appPages.overview.certificateUnknown")}
+        {t("common.statusPill.unknown")}
       </span>
     );
   if (cert === undefined) return <Skeleton className="h-4 w-24" />;
@@ -723,7 +723,7 @@ export function AppOverview({ domain }: { domain: string }) {
       <Reach app={app.data} t={t} />
       <CommandHint
         command={`noust status ${domain}`}
-        label={t("appPages.fromTerminal")}
+        label={t("common.words.fromTerminal")}
       />
     </div>
   );

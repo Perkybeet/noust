@@ -213,7 +213,7 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
             ? {
                 actions: (
                   <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={clear}>
-                    {t("teams.clearFilters")}
+                    {t("common.words.clearFilters")}
                   </Button>
                 ),
               }
@@ -233,7 +233,7 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
         mobile="cards"
         pagination="teams"
         rowActions={(team) => (
-          <Menu align="end" trigger={<IconButton label={t("teams.list.actionsFor", { name: team.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+          <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: team.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
             <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/teams/$team", params: { team: team.slug } })}>
               {t("teams.list.open")}
             </MenuItem>
@@ -257,7 +257,7 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
             title={t("teams.list.noMatch")}
             action={
               <Button size="sm" variant="ghost" onClick={clear}>
-                {t("teams.clearFilters")}
+                {t("common.words.clearFilters")}
               </Button>
             }
           />

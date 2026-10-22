@@ -171,7 +171,7 @@ export function CreateSiteDialog({ open, onOpenChange, detected, onCreated }: Cr
       footer={
         <>
           <Button disabled={create.isPending} onClick={() => close(false)}>
-            {t("domains.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={available.length === 0}>
             {form.ssl ? t("domains.createSiteDialog.createSiteAndCertificate") : t("domains.createSite")}

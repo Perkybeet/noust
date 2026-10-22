@@ -96,7 +96,7 @@ export function OwnRecipesDialog({ open, onOpenChange }: OwnRecipesDialogProps) 
           </Notice>
         ) : null}
         {send.isError ? <ErrorBlock live compact error={send.error} title={t("catalog.own.refused")} /> : null}
-        <CommandHint command="noust recipe add FILE" label={t("newApp.source.terminal")} />
+        <CommandHint command="noust recipe add FILE" label={t("common.words.fromTerminal")} />
       </div>
     </Dialog>
   );

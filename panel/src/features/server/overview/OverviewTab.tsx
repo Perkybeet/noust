@@ -133,7 +133,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
   return (
     <li className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-2.5">
       <StatusGlyph state={state} size={12} className={`shrink-0 ${stateTextClass(state)}`} />
-      <span className="sr-only">{item.severity === "critical" ? t("server.attention.critical") : t("server.attention.warning")}</span>
+      <span className="sr-only">{item.severity === "critical" ? t("server.attention.critical") : t("common.statusPill.warning")}</span>
       <div className="flex min-w-0 flex-1 basis-60 flex-col">
         <span className="text-13 text-fg">{attentionText(t, item)}</span>
         {/* A check's reason is the server's English prose: the Security tab shows it in full. */}
@@ -371,7 +371,7 @@ function OverviewLayout({ summary, security }: { summary: ServerSummary | undefi
         <Facts summary={summary} />
       </div>
       <Readings summary={summary} security={security} />
-      <CommandHint command="noust server status" label={t("server.fromTerminal")} />
+      <CommandHint command="noust server status" label={t("common.words.fromTerminal")} />
     </div>
   );
 }

@@ -2,10 +2,8 @@ import type { appPages as en } from "../en/appPages";
 import type { Catalog } from "../types";
 
 export const appPages: Catalog<typeof en> = {
-  fromTerminal: "Desde un terminal",
 
   common: {
-    cancel: "Cancelar",
     viewLog: "Ver registro",
     notRecorded: "No registrado",
     cpu: "CPU",
@@ -14,7 +12,7 @@ export const appPages: Catalog<typeof en> = {
   },
 
   job: {
-    deploy: { running: "Desplegando", title: "Desplegando {domain}", failed: "El despliegue de {domain} falló" },
+    deploy: { title: "Desplegando {domain}", failed: "El despliegue de {domain} falló" },
     update: { running: "Actualizando", title: "Actualizando {domain}", failed: "La actualización de {domain} falló" },
     rollback: { running: "Volviendo atrás", title: "Volviendo atrás {domain}", failed: "La vuelta atrás de {domain} falló" },
     restore: { running: "Restaurando", title: "Restaurando {domain}", failed: "La restauración de {domain} falló" },
@@ -85,7 +83,6 @@ export const appPages: Catalog<typeof en> = {
     couldNotCheck: "No se ha podido comprobar qué cambiaría al arrancar la unidad",
     failed: "No se ha podido devolver {domain} a Noust",
     action: "Devolverla",
-    terminal: "Desde un terminal",
     done: "{domain} vuelve a funcionar con su unidad",
   },
 
@@ -189,9 +186,7 @@ export const appPages: Catalog<typeof en> = {
     uptimeLabel: "Tiempo en marcha",
     alwaysOn: "Siempre activo",
     notRunning: "No está en ejecución",
-    running: "En ejecución",
     certificateLabel: "Certificado",
-    certificateUnknown: "Desconocido",
     certificateNone: "Ninguno",
     certificateIssued: "Emitido",
     certificateExpired: "Caducado",
@@ -244,7 +239,6 @@ export const appPages: Catalog<typeof en> = {
       schemaChangedBadge: "Base de datos cambiada",
       preDeploy: "Antes de servir",
       postDeploy: "Después de servir",
-      succeeded: "Correcto",
       exited: "Terminó con {code}",
       timedOut: "Se quedó sin tiempo",
       didNotRun: "No se ejecutó",
@@ -278,16 +272,13 @@ export const appPages: Catalog<typeof en> = {
       fetch: { label: "Obtener", doing: "Obteniendo el origen" },
       install: { label: "Instalar", doing: "Instalando dependencias" },
       build: { label: "Compilar", doing: "Compilando" },
-      activate: { label: "Iniciar", doing: "Arrancando la versión nueva" },
+      activate: { doing: "Arrancando la versión nueva" },
       health: { label: "Comprobar", doing: "Haciendo la comprobación de arranque" },
     },
 
     phaseTimeline: {
       ariaLabel: "Fases del despliegue",
       startedAt: "Iniciada {time}",
-      done: "Hecho",
-      inProgress: "En curso",
-      failed: "Fallida",
       waiting: "Esperando",
       notReached: "No alcanzada",
       notInLog: "No está en el registro",
@@ -306,7 +297,6 @@ export const appPages: Catalog<typeof en> = {
       rebuildDialogTitle: "¿Recompilar el commit {commit}?",
       rebuild: "Recompilar",
       rebuildNotStarted: "La recompilación no se inició",
-      retry: "Reintentar",
       retryFresh: "Reintentar sin caché",
       retryFailed: "No se pudo reintentar el despliegue",
       goBackToThis: "Volver a esta versión",
@@ -338,7 +328,6 @@ export const appPages: Catalog<typeof en> = {
         },
         default: { title: "El despliegue falló", hint: "El registro de abajo muestra hasta dónde llegó." },
       },
-      running: "En ejecución",
       runningFor: "En ejecución desde hace {duration}",
       notGitCheckout: "No es un checkout de git",
       copyCommit: "Copiar commit",
@@ -378,7 +367,6 @@ export const appPages: Catalog<typeof en> = {
       httpsReady: "HTTPS está listo.",
       httpOnly: "Se sirve por HTTP: ningún certificado cubre todavía esta dirección.",
       openDomains: "Abrir Dominios",
-      next: "Siguiente",
       nextDomain: "Añadir tu propio dominio",
       nextDatabase: "Añadir una base de datos",
       nextBackup: "Programar una copia de seguridad",
@@ -413,7 +401,6 @@ export const appPages: Catalog<typeof en> = {
       byLabel: "Iniciado por",
       everyone: "Todos",
       noMatch: "Ningún despliegue coincide",
-      clearFilters: "Quitar filtros",
       rollBackToThis: "Volver a este",
       commitCopied: "Se copió {commit}",
       commitNotCopied: "No se pudo copiar el commit",
@@ -452,7 +439,6 @@ export const appPages: Catalog<typeof en> = {
     whatTheChecksFound: "Lo que encontraron las comprobaciones",
     viewLogs: "Ver registros",
     rollBack: "Volver atrás…",
-    restart: "Reiniciar",
     checksCount: { one: "{count} comprobación:", other: "{count} comprobaciones:" },
     tally: {
       passed: { one: "superada", other: "superadas" },
@@ -475,7 +461,7 @@ export const appPages: Catalog<typeof en> = {
     queryLabel: "el diagnóstico de {domain}",
 
     verdict: { healthy: "Con buena salud", degraded: "Degradada", down: "Caída" },
-    status: { ok: "Superada", warn: "Aviso", fail: "Fallida", skip: "Omitida" },
+    status: { ok: "Superada", skip: "Omitida" },
     check: {
       unit: "Servicio",
       port: "Puerto a la escucha",

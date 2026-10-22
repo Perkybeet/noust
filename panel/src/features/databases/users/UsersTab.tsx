@@ -101,7 +101,7 @@ function NewUserDialog({
       description={t("databases.users.newDescription", { name })}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form="new-user-form" variant="primary" loading={create.isPending}>
             {t("databases.users.create")}
           </Button>
@@ -152,7 +152,7 @@ function ProfileDialog({ engine, name, entry, onClose }: { engine: string; name:
       description={t("databases.users.profileDescription", { name })}
       footer={
         <>
-          <Button onClick={onClose}>{t("databases.common.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           <Button variant="primary" loading={save.isPending} onClick={() => save.mutate()}>
             {t("databases.users.profileSave")}
           </Button>
@@ -315,7 +315,7 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
         )}
       </Section>
 
-      <CommandHint command={`noust db access ${name} -e ${engine}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db access ${name} -e ${engine}`} label={t("common.words.fromTerminal")} />
 
       <NewUserDialog
         engine={engine}

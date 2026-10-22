@@ -111,10 +111,10 @@ export function PlacementDialog({ placement, onClose }: PlacementDialogProps) {
       footer={
         <>
           <Button disabled={save.isPending} onClick={onClose}>
-            {t("placements.form.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
-            {t("placements.form.save")}
+            {t("common.words.save")}
           </Button>
         </>
       }

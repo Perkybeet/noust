@@ -350,7 +350,7 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
         </div>
       </div>
 
-      <CommandHint command={`noust db info ${name} -e ${engine}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db info ${name} -e ${engine}`} label={t("common.words.fromTerminal")} />
 
       <LinkDialog
         open={linking}

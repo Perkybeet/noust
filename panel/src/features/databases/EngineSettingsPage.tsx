@@ -240,7 +240,7 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
           {failure !== null ? <ErrorBlock live compact error={failure} title={t("databases.engineSettings.saveFailed", { engine: display })} /> : null}
         </div>
       </Card>
-      <CommandHint command={`noust db settings ${engine}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db settings ${engine}`} label={t("common.words.fromTerminal")} />
       <SaveBar
         changes={changes}
         saving={save.isPending && exposure === null}

@@ -4,7 +4,6 @@ import type { Catalog } from "../types";
 export const alerts: Catalog<typeof en> = {
   documentTitle: "Ajustes de alertas",
   loadingLabel: "las reglas de alerta",
-  fromTerminal: "Lo mismo, desde un terminal",
   notSaved: "No se guardaron los ajustes de alertas",
   metrics: {
     cpu: "CPU",
@@ -58,19 +57,12 @@ export const alerts: Catalog<typeof en> = {
     },
     server: "El servidor",
     switchLabel: "Juzgar {name}",
-    edit: "Editar",
-    editLabel: "Editar {name}",
-    remove: "Quitar",
-    removeLabel: "Quitar {name}",
-    removeTitle: "¿Quitar {name}?",
     removeDescription: "La regla deja de juzgarse y se olvida lo que había decidido. Lo que ya se envió no se retira.",
     switchFailed: "No se pudo cambiar la regla",
   },
   form: {
     newTitle: "Nueva regla de alerta",
-    editTitle: "Editar {name}",
     description: "Se activa cuando la medición lleva más allá del límite todo el tiempo pedido, y avisa cuando vuelve.",
-    nameLabel: "Nombre",
     nameDescription: "Minúsculas, dígitos, - y _. La línea de comandos nombra la regla así.",
     metricLabel: "Medición",
     metricHintServer: "Del servidor",

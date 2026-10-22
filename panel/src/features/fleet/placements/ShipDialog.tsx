@@ -120,7 +120,7 @@ export function ShipDialog({ placement, onClose }: ShipDialogProps) {
           {...(step === "plan"
             ? {
                 back: {
-                  label: t("placements.ship.back"),
+                  label: t("common.words.back"),
                   onClick: () => {
                     if (planning.isPending || running.isPending) return;
                     planning.reset();
@@ -333,7 +333,7 @@ export function BuilderDialog({ placement, onClose }: BuilderDialogProps) {
       footer={
         <>
           <Button disabled={save.isPending} onClick={onClose}>
-            {t("placements.builder.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -343,7 +343,7 @@ export function BuilderDialog({ placement, onClose }: BuilderDialogProps) {
               save.mutate(value);
             }}
           >
-            {t("placements.builder.save")}
+            {t("common.words.save")}
           </Button>
         </>
       }

@@ -150,18 +150,18 @@ export function ServiceLayout({ name }: { name: string }) {
                     </Link>
                     {service.active ? (
                       <Button icon={<Square aria-hidden="true" />} disabled={stop.isPending} onClick={() => setConfirmStop(true)}>
-                        {t("services.actions.stop")}
+                        {t("common.words.stop")}
                       </Button>
                     ) : (
                       <Button icon={<Play aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()}>
-                        {t("services.actions.start")}
+                        {t("common.words.start")}
                       </Button>
                     )}
                   </>
                 ),
                 primaryAction: (
                   <Button variant="primary" icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()}>
-                    {t("services.actions.restart")}
+                    {t("common.words.restart")}
                   </Button>
                 ),
                 overflow: (
@@ -217,7 +217,7 @@ export function ServiceLayout({ name }: { name: string }) {
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         server={node}
-        title={t("services.detail.deleteDialogTitle", { name })}
+        title={t("common.words.deleteNamed", { name })}
         description={t("services.detail.deleteDescription")}
         confirmText={name}
         actionLabel={t("services.detail.deleteService")}

@@ -124,11 +124,11 @@ function PolicyCard({
         data?.configured ? (
           <>
             <Button size="sm" onClick={onEdit}>
-              {t("databases.backups.policy.edit")}
+              {t("common.words.edit")}
             </Button>
             <Menu align="end" trigger={<IconButton size="sm" label={t("databases.backups.policy.more")} icon={<ICONS.more />} />}>
               <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(true)}>
-                {all ? t("policyScope.card.remove") : t("databases.backups.policy.remove")}
+                {all ? t("common.words.remove") : t("databases.backups.policy.remove")}
               </MenuItem>
             </Menu>
           </>
@@ -308,7 +308,7 @@ function PushDialog({ dump, onClose, onPush }: { dump: DatabaseBackup | null; on
       description={t.rich("databases.dumps.pushDescription", { dump: <Mono>{dump?.name ?? ""}</Mono> })}
       footer={
         <>
-          <Button onClick={onClose}>{t("databases.common.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           <Button
             variant="primary"
             loading={pending}
@@ -542,7 +542,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
               },
             ]}
             rowActions={(dump) => (
-              <Menu align="end" trigger={<IconButton size="sm" label={t("databases.dumps.actionsFor", { name: dump.name })} icon={<ICONS.more />} tooltip={false} />}>
+              <Menu align="end" trigger={<IconButton size="sm" label={t("common.rowActions", { name: dump.name })} icon={<ICONS.more />} tooltip={false} />}>
                 <MenuItem icon={<ArchiveRestore />} disabled={job.busy} onClick={() => setRestoring({ dump: dump.name })}>
                   {t("databases.dumps.restoreEllipsis")}
                 </MenuItem>
@@ -562,7 +562,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
                 </MenuItem>
                 <MenuSeparator />
                 <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleting(dump)}>
-                  {t("databases.dumps.delete")}
+                  {t("common.words.delete")}
                 </MenuItem>
               </Menu>
             )}
@@ -572,7 +572,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
 
       <RemoteDumps engine={engine} name={name} onRestore={setRestoring} />
 
-      <CommandHint command={`noust db backup-schedule set ${name} -e ${engine} --schedule daily`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db backup-schedule set ${name} -e ${engine} --schedule daily`} label={t("common.words.fromTerminal")} />
 
       {editing !== null ? (
         <PolicyDrawer

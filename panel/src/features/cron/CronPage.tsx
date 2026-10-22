@@ -75,7 +75,7 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
               title={t("cron.page.noMatch")}
               action={
                 <Button size="sm" variant="ghost" onClick={() => onSearchChange({})}>
-                  {t("cron.common.clearFilters")}
+                  {t("common.words.clearFilters")}
                 </Button>
               }
             />
@@ -110,7 +110,7 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
               />
             ),
           })}
-      {...(empty ? {} : { footer: <CommandHint command="noust cron list" label={t("cron.common.fromTerminal")} /> })}
+      {...(empty ? {} : { footer: <CommandHint command="noust cron list" label={t("common.words.fromTerminal")} /> })}
     >
       {content}
 

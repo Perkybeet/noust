@@ -32,7 +32,7 @@ import { connectionState } from "./gitlab";
 function State({ t, connection }: { t: T; connection: GitLabConnection }) {
   const state = connectionState(connection);
   if (state === "ok") return <StatusPill state="running" label={t("gitlab.state.ok")} appearance="inline" size="sm" />;
-  if (state === "failed") return <StatusPill state="failed" label={t("gitlab.state.failed")} appearance="inline" size="sm" />;
+  if (state === "failed") return <StatusPill state="failed" label={t("common.statusPill.failed")} appearance="inline" size="sm" />;
   return <StatusPill state="stopped" label={t("gitlab.state.unchecked")} appearance="inline" size="sm" />;
 }
 
@@ -125,7 +125,7 @@ function OAuthApps({ status }: { status: GitLabStatus }) {
               setRemoving(app);
             }}
           >
-            {t("gitlab.oauthApps.remove")}
+            {t("common.words.remove")}
           </Button>
         )}
       />
@@ -204,7 +204,7 @@ export function GitLabIntegration() {
                 density="compact"
                 mobile="cards"
                 rowActions={(connection) => (
-                  <Menu align="end" trigger={<IconButton label={t("gitlab.actions.more", { name: connection.name })} icon={<ICONS.more />} tooltip={false} />}>
+                  <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: connection.name })} icon={<ICONS.more />} tooltip={false} />}>
                     <MenuItem
                       onClick={() => {
                         check.mutate(connection.name);
@@ -219,7 +219,7 @@ export function GitLabIntegration() {
                         setRemoving(connection);
                       }}
                     >
-                      {t("gitlab.actions.remove")}
+                      {t("common.words.remove")}
                     </MenuItem>
                   </Menu>
                 )}
@@ -229,7 +229,7 @@ export function GitLabIntegration() {
           </div>
         )}
       </QueryState>
-      <CommandHint command="noust gitlab list" label={t("gitlab.fromTerminal")} />
+      <CommandHint command="noust gitlab list" label={t("common.words.sameFromTerminal")} />
       {connecting && query.data !== undefined ? (
         <ConnectGitLabDialog
           open

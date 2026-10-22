@@ -110,7 +110,7 @@ export function RestoreDialog({ engine, name, source, replaceOnly = false, onClo
       }
       footer={
         <>
-          <Button onClick={onClose}>{t("databases.common.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           <Button
             type="submit"
             form={formId}

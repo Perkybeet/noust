@@ -83,7 +83,7 @@ export function useProjectActions(resources: Pick<Resources, "held" | "known">, 
   };
 
   const rowMenu = (project: Project): ReactNode => (
-    <Menu align="end" trigger={<IconButton label={t("teams.projects.actionsFor", { name: project.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+    <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: project.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
       <MenuItem icon={<PanelTop />} onClick={() => void navigate(projectPath(project))}>
         {t("teams.projects.open")}
       </MenuItem>
@@ -141,7 +141,7 @@ export function useProjectActions(resources: Pick<Resources, "held" | "known">, 
           }}
           friction="simple"
           server={node}
-          title={t("teams.projects.deleteTitle", { name: deleting.name })}
+          title={t("common.words.deleteNamed", { name: deleting.name })}
           description={t("teams.projects.deleteDescription", { name: deleting.name })}
           actionLabel={t("teams.projects.deleteAction")}
           onConfirm={async () => {

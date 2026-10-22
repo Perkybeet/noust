@@ -6,7 +6,6 @@ export const overview = {
   newApplication: "New application",
   tabsLabel: "Overview sections",
   couldNotLoad: "Could not load the overview",
-  command: "From a terminal",
   range: {
     "1h": "Last hour",
     "24h": "Last 24 hours",
@@ -176,7 +175,6 @@ export const overview = {
   firstSteps: {
     title: "Deploy your first app",
     description: "This server runs nothing yet. Pick the quickest way to see something live.",
-    done: "Done",
     demo: {
       title: "Try a demo",
       description: "A tiny page on a temporary address. One click.",

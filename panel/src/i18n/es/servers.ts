@@ -33,7 +33,6 @@ export const servers: Catalog<typeof en> = {
     loadingLabel: "los servidores",
     tableCaption: "Servidores que gestiona esta central",
     column: {
-      name: "Nombre",
       address: "Cuenta y dirección del túnel",
       status: "Estado",
       version: "Versión",
@@ -59,7 +58,6 @@ export const servers: Catalog<typeof en> = {
         "Esta central se niega a añadir su primer servidor sin ella: quien inicia sesión aquí llega a todos los servidores que gestiona.",
       link: "Configurar la verificación en dos pasos",
     },
-    fromTerminal: "Desde un terminal",
     monitoring: {
       paused: "Vigilancia en pausa",
       pausedWhy: "Vigilancia en pausa: {reason}",
@@ -77,7 +75,6 @@ export const servers: Catalog<typeof en> = {
       resumeFailedToast: "No se pudo reanudar la vigilancia de {name}",
     },
     removeDialog: {
-      title: "¿Quitar {name}?",
       description:
         "La central cierra su túnel a {name} y olvida su clave, su token y su clave de host fijada. Si {name} responde, la central revoca antes su token allí, para que la clave que queda no abra nada.",
       unreachable: "Si no se puede llegar a {name}, ejecuta esto en él, como root, para quitar la clave de la central y revocar su token:",
@@ -100,12 +97,8 @@ export const servers: Catalog<typeof en> = {
       join: "Unir",
       result: "Resultado",
     },
-    cancel: "Cancelar",
-    back: "Atrás",
     next: "Ya lo ejecuté: continuar",
-    done: "Hecho",
     name: {
-      label: "Nombre",
       description: "Cómo llamará esta consola al servidor: de 1 a 32 letras minúsculas, dígitos y guiones, como web-2.",
       invalid: "Usa de 1 a 32 letras minúsculas, dígitos y guiones, empezando y terminando por una letra o un dígito.",
       showCommand: "Mostrar la orden",
@@ -278,7 +271,6 @@ export const servers: Catalog<typeof en> = {
     identity: {
       title: "Esta central",
       description: "El Noust que gestiona la flota, y lo que hace por sí mismo.",
-      name: "Nombre",
       role: "Rol",
       roleServer: "Gestiona servidores y despliega aplicaciones por sí misma",
       roleHub: "Un hub: gestiona servidores, no despliega nada por sí mismo",

@@ -235,7 +235,7 @@ function Form({ instance, status, onOpenChange, onQueued }: TuningDialogProps & 
           </div>
         ) : null}
         {apply.isError ? <ErrorBlock live compact error={apply.error} title={t("databases.tuning.failed")} /> : null}
-        <CommandHint command={`noust db instance limits ${instance.name}`} label={t("databases.common.fromTerminal")} />
+        <CommandHint command={`noust db instance limits ${instance.name}`} label={t("common.words.fromTerminal")} />
       </div>
     </Dialog>
   );

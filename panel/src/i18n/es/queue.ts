@@ -33,7 +33,6 @@ export const queue: Catalog<typeof en> = {
   },
   waitingForLine: "Esperando a {what}",
   cancel: {
-    button: "Cancelar",
     label: "Cancelar {name}",
     stopping: "Deteniendo…",
     stoppingNote: "Se le pidió que se detenga y está terminando. La cola avanza cuando acabe.",

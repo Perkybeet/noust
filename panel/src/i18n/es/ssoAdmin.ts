@@ -37,7 +37,6 @@ export const ssoAdmin: Catalog<typeof en> = {
       keepHelp: "Conserva la de al menos un administrador: el proveedor puede caerse, o estar mal configurado, el día que haga falta.",
       noAccounts: "No hay cuentas entre las que elegir.",
       action: "Desactivar contraseñas y llaves de acceso",
-      save: "Guardar",
       failed: "No se pudo cambiar el inicio de sesión",
     },
   },
@@ -67,8 +66,6 @@ export const ssoAdmin: Catalog<typeof en> = {
       auto: "Crea una cuenta",
     },
     test: "Probar",
-    edit: "Editar",
-    remove: "Quitar",
     redirect: {
       title: "Dirección que registrar en el proveedor",
       description:
@@ -77,7 +74,6 @@ export const ssoAdmin: Catalog<typeof en> = {
       name: "Dirección de redirección",
     },
     removeDialog: {
-      title: "Quitar {name}",
       description:
         "Su botón sale de la página de acceso y las personas vinculadas a él ya no pueden entrar por él. Sus cuentas siguen, con la contraseña y el segundo factor que tengan.",
       action: "Quitar proveedor",
@@ -88,20 +84,16 @@ export const ssoAdmin: Catalog<typeof en> = {
       passed: "El proveedor respondió como se esperaba.",
       failed: "El proveedor no respondió como se esperaba.",
       notice: "Esto lee el documento de descubrimiento y las claves del proveedor. No inicia sesión a nadie.",
-      close: "Cerrar",
       checkPassed: "Superada",
-      checkFailed: "Fallida",
       checkOutput: "Lo que respondió el proveedor a {check}",
     },
   },
   form: {
     createTitle: "Añadir un proveedor de identidad",
-    editTitle: "Editar {name}",
     description:
       "Cómo llega Noust al proveedor y a quién deja entrar. El secreto del cliente se guarda en este servidor, nunca en los ajustes que muestra la consola.",
     save: "Guardar proveedor",
     create: "Añadir proveedor",
-    cancel: "Cancelar",
     errorTitle: "No se pudo guardar el proveedor",
     mappingsLine: "La línea {line} no es una asignación. Escribe GRUPO=ROL, GRUPO=EQUIPO:ROL o GRUPO=ROL@EQUIPO/PROYECTO.",
     fields: {
@@ -112,7 +104,6 @@ export const ssoAdmin: Catalog<typeof en> = {
       kindGithubHelp: "Una OAuth App en github.com o en un GitHub Enterprise Server. Solo necesita un ID de cliente y un secreto.",
       githubHost: "GitHub Enterprise Server",
       githubHostHelp: "Déjalo vacío para github.com. Para un Enterprise Server, su dirección, por HTTPS. Registra en la OAuth App la dirección de retorno de más abajo.",
-      name: "Nombre",
       nameHelp: "Un nombre corto para el proveedor, en minúsculas, como corp o entra. No se puede cambiar después.",
       label: "Texto del botón",
       labelHelp: "La página de acceso dice «Iniciar sesión con» y esto.",

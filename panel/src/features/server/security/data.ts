@@ -75,7 +75,7 @@ export function severityLabel(t: T, severity: string): string {
     case "critical":
       return t("server.checks.severity.critical");
     case "warning":
-      return t("server.checks.severity.warning");
+      return t("common.statusPill.warning");
     case "low":
       return t("server.checks.severity.low");
     default:
@@ -101,7 +101,7 @@ export function checkState(t: T, check: Pick<SecurityCheck, "status" | "severity
     case "n/a":
       return { state: "stopped", label: t("server.checks.status.notApplicable") };
     default:
-      return { state: "unknown", label: t("server.checks.status.unknown") };
+      return { state: "unknown", label: t("common.statusPill.unknown") };
   }
 }
 

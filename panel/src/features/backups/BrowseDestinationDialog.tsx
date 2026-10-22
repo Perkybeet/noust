@@ -222,7 +222,7 @@ export function BrowseDestinationDialog({ destinations, initialDestination, open
         size="lg"
         title={t("backups.browseDialog.title")}
         description={t("backups.browseDialog.description")}
-        footer={<Button onClick={() => close(false)}>{t("backups.common.close")}</Button>}
+        footer={<Button onClick={() => close(false)}>{t("common.words.close")}</Button>}
       >
         <div className="flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-2">

@@ -147,7 +147,7 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
       footer={
         <>
           <Button disabled={create.isPending} onClick={() => close(false)}>
-            {t("services.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button variant="primary" loading={create.isPending} onClick={submit}>
             {t("services.createDialog.create")}
@@ -157,7 +157,7 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
     >
       <div id={formId} className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
-          <Field label={t("services.createDialog.nameLabel")} name="name" className="max-w-64 flex-1" error={tried && name.trim() === "" ? required : undefined}>
+          <Field label={t("common.words.name")} name="name" className="max-w-64 flex-1" error={tried && name.trim() === "" ? required : undefined}>
             <Input value={name} onValueChange={setName} mono placeholder="my-worker" autoComplete="off" spellCheck={false} />
           </Field>
           <SegmentedControl
@@ -240,7 +240,7 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
                       <IconButton
                         label={
                           row.key
-                            ? t("services.createDialog.removeVariableNamed", { name: row.key })
+                            ? t("common.words.removeNamed", { name: row.key })
                             : t("services.createDialog.removeVariable")
                         }
                         icon={<Trash2 />}

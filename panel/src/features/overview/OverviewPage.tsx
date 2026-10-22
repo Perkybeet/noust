@@ -124,7 +124,7 @@ export function OverviewPage({ range, onRangeChange }: OverviewPageProps) {
   const tabs = <LinkTabs label={t("overview.tabsLabel")} tabs={tabsOf(OVERVIEW_SCREENS)} />;
   const footer = (
     <CommandHint
-      label={t("overview.command")}
+      label={t("common.words.fromTerminal")}
       command={empty ? "noust create --temporary -s https://github.com/you/app" : "noust health"}
     />
   );

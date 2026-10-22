@@ -140,7 +140,6 @@ export const catalog: Catalog<typeof en> = {
     native: "De forma nativa",
     count: { one: "{count} receta", other: "{count} recetas" },
     countFiltered: "{shown} de {total} recetas",
-    clear: "Quitar filtros",
   },
   empty: {
     noMatch: "Ninguna receta coincide con estos filtros.",
@@ -169,7 +168,6 @@ export const catalog: Catalog<typeof en> = {
     goneReason: "La receta ya no está en el catálogo.",
     noChanges: "El catálogo no dice qué ha cambiado.",
     moreChanges: { one: "y {count} cambio más", other: "y {count} cambios más" },
-    update: "Actualizar",
     updateNamed: "Actualizar {domain}",
   },
   update: {
@@ -182,8 +180,6 @@ export const catalog: Catalog<typeof en> = {
     reading: "Cargando lo que pide esta versión",
     variables: "Esta versión declara variables que la aplicación puede no tener aún. Da un valor solo para una que le falte; deja el resto vacío.",
     variableHelp: "Solo si la aplicación todavía no la tiene.",
-    cancel: "Cancelar",
-    action: "Actualizar",
     failed: "{domain} no se actualizó",
     queued: "Actualización de {domain} en cola",
     running: "Actualizando {domain}",

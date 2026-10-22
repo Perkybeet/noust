@@ -42,12 +42,10 @@ export const accounts: Catalog<typeof en> = {
     countFiltered: "{shown} de {total} cuentas",
     caption: "Todas las cuentas",
     noMatch: "Ninguna cuenta coincide con estos filtros.",
-    clearFilters: "Quitar filtros",
     what: "las cuentas",
     emptyTitle: "Aún no hay cuentas",
     emptyDescription: "Mientras no haya ninguna, el token de acceso abre toda la consola. Crea las primeras cuentas y guarda el token para emergencias.",
     createFirst: "Crear las primeras cuentas",
-    fromTerminal: "Desde un terminal",
   },
   table: {
     account: "Cuenta",
@@ -82,7 +80,6 @@ export const accounts: Catalog<typeof en> = {
   fields: {
     username: "Usuario",
     usernameHint: "Lo que la persona escribe para iniciar sesión: minúsculas, dígitos, puntos, guiones y guiones bajos. No se puede cambiar.",
-    displayName: "Nombre",
     person: "Correo",
     personHint: "Identifica a la persona, para distinguir las cuentas de una misma persona. También sirve para iniciar sesión mientras solo una cuenta lo tenga.",
     role: "Rol",
@@ -152,7 +149,6 @@ export const accounts: Catalog<typeof en> = {
     doneToast: "Se restableció el segundo factor de {name}",
   },
   remove: {
-    title: "¿Quitar {name}?",
     description:
       "La cuenta, sus sesiones y sus tokens desaparecen para siempre. Mejor desactivarla: el nombre de una cuenta eliminada en el registro de auditoría ya no nombra a nadie.",
     action: "Quitar cuenta",

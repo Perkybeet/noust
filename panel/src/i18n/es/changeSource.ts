@@ -32,7 +32,6 @@ export const changeSource: Catalog<typeof en> = {
     uploadDescription: "Para código que no está en un repositorio. El archivo se extrae en este servidor y pasa a ser el origen.",
     check: "Comprobar el nuevo origen",
     apply: "Cambiar el origen",
-    cancel: "Cancelar",
     notChecked: "No se pudo comprobar el nuevo origen",
     notChanged: "No se cambió el origen de {domain}",
   },
@@ -47,7 +46,6 @@ export const changeSource: Catalog<typeof en> = {
   done: {
     title: "{domain} se despliega desde el nuevo origen",
     body: "Lo que sirve ahora sigue sirviendo. La próxima actualización compila el nuevo origen.",
-    build: "Actualizar",
     queued: "Actualización de {domain} en cola",
     queueFailed: "No se pudo poner en cola la actualización de {domain}",
   },

@@ -11,7 +11,6 @@ export const policyScope: Catalog<typeof en> = {
     covers: "Cubre",
     coversThis: "Todas las bases de datos de {engine}, incluida {name}",
     leavesThisOut: "Todas las bases de datos de {engine}, menos {name}",
-    remove: "Quitar",
     removeTitle: "Quitar la política de todas las bases de datos de {engine}",
     removeDescription:
       "Ninguna base de datos se copia ya con ella y la programación se detiene. Los volcados ya hechos se quedan. Las bases de datos con política propia la conservan.",

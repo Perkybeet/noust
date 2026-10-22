@@ -5,7 +5,6 @@
 export const alerts = {
   documentTitle: "Alerts settings",
   loadingLabel: "the alert rules",
-  fromTerminal: "The same, from a terminal",
   notSaved: "The alert settings were not saved",
   metrics: {
     cpu: "CPU",
@@ -59,19 +58,12 @@ export const alerts = {
     },
     server: "The server",
     switchLabel: "Judge {name}",
-    edit: "Edit",
-    editLabel: "Edit {name}",
-    remove: "Remove",
-    removeLabel: "Remove {name}",
-    removeTitle: "Remove {name}?",
     removeDescription: "The rule stops being judged and what it had decided is forgotten. Nothing already sent is taken back.",
     switchFailed: "Could not change the rule",
   },
   form: {
     newTitle: "New alert rule",
-    editTitle: "Edit {name}",
     description: "Fires when the measurement has been past the limit for the whole time asked, and says when it comes back.",
-    nameLabel: "Name",
     nameDescription: "Lowercase letters, digits, - and _. The command line refers to the rule by it.",
     metricLabel: "Measurement",
     metricHintServer: "Of the server",

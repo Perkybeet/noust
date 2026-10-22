@@ -272,7 +272,7 @@ export function MetricsTab({ engine, name, range, onRangeChange }: MetricsTabPro
         )}
       </Section>
 
-      <CommandHint command={`noust db metrics ${engine} ${name}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db metrics ${engine} ${name}`} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

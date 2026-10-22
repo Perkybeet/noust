@@ -2,7 +2,6 @@ import type { containers as en } from "../en/containers";
 import type { Catalog } from "../types";
 
 export const containers: Catalog<typeof en> = {
-  fromTerminal: "Desde un terminal",
   restart: {
     unlessStopped: "Salvo que se detenga",
     always: "Siempre",
@@ -56,10 +55,8 @@ export const containers: Catalog<typeof en> = {
     titleRailpack: "Variables de Railpack",
     description: "Se escriben en el historial de la imagen, así que nunca un secreto: se rechaza un nombre o un valor que lo parezca. Usa un secreto de compilación para esos.",
     descriptionRailpack: "Railpack las lee como sus variables, como RAILPACK_NODE_VERSION. Nunca un secreto: usa un secreto de compilación.",
-    name: "Nombre",
     value: "Valor",
     add: "Añadir argumento",
-    remove: "Quitar {name}",
     removeEmpty: "Quitar argumento",
   },
   secrets: {
@@ -74,7 +71,6 @@ export const containers: Catalog<typeof en> = {
     removeEmpty: "Quitar secreto",
     stored: "Guardado en el servidor",
     willRemove: "Se quita al guardar",
-    removeAction: "Quitar",
     removeStored: "Quitar {id}",
     undo: "Conservar",
     keep: "Conservar {id}",

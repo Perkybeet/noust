@@ -23,13 +23,10 @@ export const gitlab: Catalog<typeof en> = {
   },
   state: {
     ok: "Funciona",
-    failed: "Fallido",
     unchecked: "Sin comprobar",
   },
   actions: {
-    more: "Acciones de {name}",
     test: "Comprobar la conexión",
-    remove: "Quitar",
     tested: "{name} está conectada a {host}",
     testFailed: "La conexión {name} no funcionó",
   },
@@ -37,7 +34,6 @@ export const gitlab: Catalog<typeof en> = {
     title: "Conectar GitLab",
     description: "Elige cómo inicia sesión este servidor en GitLab.",
     way: "Iniciar sesión con",
-    name: "Nombre",
     nameDescription: "Cómo llamar a la conexión, por ejemplo trabajo. Minúsculas, dígitos y guiones.",
     host: "Dirección de GitLab",
     hostDescription: "El host sin https://, como gitlab.com o gitlab.example.com.",
@@ -46,7 +42,6 @@ export const gitlab: Catalog<typeof en> = {
     tokenAction: "Conectar",
     failed: "No se pudo conectar GitLab",
     connected: "{name} se conectó a {host}",
-    cancel: "Cancelar",
     oauthHelp: "GitLab te pide aprobar este servidor y te devuelve aquí. Necesita una aplicación OAuth registrada en GitLab para este host.",
     redirect: "URI de redirección que registrar en GitLab",
     noRedirect: "La consola no tiene una dirección pública a la que GitLab pueda devolver el navegador.",
@@ -66,7 +61,6 @@ export const gitlab: Catalog<typeof en> = {
     caption: "Aplicaciones OAuth de GitLab",
     columnHost: "GitLab",
     columnId: "ID de la aplicación",
-    remove: "Quitar",
     removeLabel: "Quitar la aplicación de {host}",
     removeTitle: "¿Quitar la aplicación OAuth de {host}?",
     removeDescription: "Las conexiones hechas con ella siguen funcionando hasta que caduque su token. Después, iniciar sesión en {host} necesita registrar la aplicación de nuevo.",
@@ -114,5 +108,4 @@ export const gitlab: Catalog<typeof en> = {
     notConnected: "GitLab todavía no está conectado.",
     connect: "Conectar GitLab",
   },
-  fromTerminal: "Lo mismo, desde un terminal",
 };

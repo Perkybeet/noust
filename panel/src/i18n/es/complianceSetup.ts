@@ -96,7 +96,6 @@ export const complianceSetup: Catalog<typeof en> = {
       value: "Valor",
       noLimit: "Sin límite",
       stricter: "Un marco pide {floor} o más estricto.",
-      save: "Guardar",
       failed: "No se pudo cambiar el control",
     },
   },

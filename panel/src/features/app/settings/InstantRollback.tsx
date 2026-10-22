@@ -404,7 +404,7 @@ function TurnOnRollback({ app, open, onOpenChange }: { app: App; open: boolean; 
   const steps: WizardStep[] = [
     { id: "plan", label: t("appSettings.releases.migrate.stepPlan") },
     { id: "confirm", label: t("appSettings.releases.migrate.stepConfirm") },
-    { id: "done", label: t("appSettings.releases.migrate.stepDone") },
+    { id: "done", label: t("common.words.done") },
   ];
   const planReady = plan.data !== null && plan.data !== undefined;
 
@@ -420,8 +420,8 @@ function TurnOnRollback({ app, open, onOpenChange }: { app: App; open: boolean; 
     actions = (
       <WizardActions
         className="w-full"
-        back={{ label: t("appSettings.cancel"), onClick: close }}
-        next={{ label: t("appSettings.releases.migrate.continue"), onClick: () => setStep("confirm") }}
+        back={{ label: t("common.words.cancel"), onClick: close }}
+        next={{ label: t("common.words.continue"), onClick: () => setStep("confirm") }}
         missing={planReady ? undefined : t("appSettings.releases.migrate.planMissing")}
       />
     );
@@ -461,7 +461,7 @@ function TurnOnRollback({ app, open, onOpenChange }: { app: App; open: boolean; 
           {summary.persistent.length > 0 ? ` ${t("appSettings.releases.migrate.doneKept", { list: summary.persistent.join(", ") })}` : ""}
         </Notice>
       ) : null;
-    actions = <WizardActions className="w-full" next={{ label: t("appSettings.releases.migrate.finish"), onClick: close }} />;
+    actions = <WizardActions className="w-full" next={{ label: t("common.words.done"), onClick: close }} />;
   }
 
   return (

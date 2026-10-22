@@ -18,7 +18,7 @@ export function phaseLabel(t: T, key: PhaseKey): string {
     case "build":
       return t("appPages.deployments.phases.build.label");
     case "activate":
-      return t("appPages.deployments.phases.activate.label");
+      return t("common.words.start");
     case "health":
       return t("appPages.deployments.phases.health.label");
   }
@@ -49,11 +49,11 @@ interface NodeLook {
 function look(t: T, state: PhaseState, afterFailure: boolean): NodeLook {
   switch (state) {
     case "done":
-      return { node: "border-transparent bg-ok-soft text-ok", glyph: <Check aria-hidden="true" className="size-icon-md" />, word: t("appPages.deployments.phaseTimeline.done") };
+      return { node: "border-transparent bg-ok-soft text-ok", glyph: <Check aria-hidden="true" className="size-icon-md" />, word: t("common.words.done") };
     case "running":
-      return { node: "border-transparent bg-warn-soft text-warn", glyph: <StatusGlyph state="deploying" size={16} />, word: t("appPages.deployments.phaseTimeline.inProgress") };
+      return { node: "border-transparent bg-warn-soft text-warn", glyph: <StatusGlyph state="deploying" size={16} />, word: t("common.deployState.inProgress") };
     case "failed":
-      return { node: "border-transparent bg-fail-soft text-fail", glyph: <StatusGlyph state="failed" size={16} />, word: t("appPages.deployments.phaseTimeline.failed") };
+      return { node: "border-transparent bg-fail-soft text-fail", glyph: <StatusGlyph state="failed" size={16} />, word: t("common.words.failedFeminine") };
     case "pending":
       return { node: "border-border bg-surface text-idle", glyph: <StatusGlyph state="stopped" size={14} />, word: t("appPages.deployments.phaseTimeline.waiting") };
     case "unrecorded":

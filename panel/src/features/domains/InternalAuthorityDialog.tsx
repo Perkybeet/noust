@@ -124,7 +124,7 @@ function Made({ overview, authority, onRemoved }: { overview: InternalCa; author
           { label: t("internalCa.signsForLabel"), value: authority.permitted_dns.join(", ") },
           { label: t("internalCa.signsRangesLabel"), value: authority.permitted_networks.join(", ") },
           { label: t("internalCa.keptLabel"), value: String(authority.issued), copy: false },
-          { label: t("internalCa.trustedHereLabel"), value: overview.trusted_here ? t("internalCa.yes") : t("internalCa.no"), mono: false, copy: false },
+          { label: t("internalCa.trustedHereLabel"), value: overview.trusted_here ? t("common.words.yes") : t("common.words.no"), mono: false, copy: false },
         ]}
       />
       <div className="flex flex-wrap gap-2">

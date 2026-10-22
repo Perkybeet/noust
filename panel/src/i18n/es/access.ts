@@ -28,7 +28,6 @@ export const access: Catalog<typeof en> = {
     column: { account: "Cuenta", role: "Rol", where: "Dónde", granted: "Concedido" },
     custom: "Personalizado",
     manageInTeam: "Se gestiona en el equipo",
-    revoke: "Revocar",
     revokeLabel: "Revocar {role} a {account}",
     revokeDialog: {
       title: "Revocar {role} a {account}",
@@ -63,9 +62,7 @@ export const access: Catalog<typeof en> = {
     permissionCount: { one: "{count} permiso", other: "{count} permisos" },
     view: "Ver",
     viewLabel: "Ver {role}",
-    edit: "Editar",
     editLabel: "Editar {role}",
-    delete: "Eliminar",
     deleteLabel: "Eliminar {role}",
     deleteDialog: {
       title: "Eliminar {role}",
@@ -81,7 +78,6 @@ export const access: Catalog<typeof en> = {
       description:
         "Un rol es un conjunto de permisos que ya existen. Dónde se puede tener se deduce de ellos: un rol que solo ejecuta aplicaciones se puede tener en un proyecto; uno que gobierna pertenece a un equipo o al servidor.",
       viewDescription: "Un rol incluido no se puede cambiar. Esto es lo que tiene.",
-      name: "Nombre",
       nameHelp: "Un nombre corto en minúsculas, como release-manager. No se puede cambiar después.",
       label: "Etiqueta",
       labelHelp: "Lo que muestra la consola. Por defecto es el nombre.",
@@ -94,7 +90,6 @@ export const access: Catalog<typeof en> = {
       noPermissions: "Elige al menos un permiso.",
       save: "Guardar rol",
       create: "Definir rol",
-      cancel: "Cancelar",
       errorTitle: "No se pudo guardar el rol",
     },
   },

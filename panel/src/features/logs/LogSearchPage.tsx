@@ -154,7 +154,7 @@ export function LogSearchPage({ search, onSearchChange }: LogSearchPageProps) {
           }
         />
       }
-      footer={<CommandHint command={searchCommand(search)} label={t("logSearch.fromTerminal")} />}
+      footer={<CommandHint command={searchCommand(search)} label={t("common.words.fromTerminal")} />}
     >
       {fleet ? (
         <div className="flex min-w-0 flex-col gap-4">

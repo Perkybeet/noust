@@ -13,12 +13,7 @@ export const dumpImport = {
     options: "Options",
     import: "Import",
   },
-  cancel: "Cancel",
-  back: "Back",
-  next: "Continue",
   start: "Import",
-  close: "Close",
-  done: "Done",
   target: {
     engine: "Engine",
     enginePlaceholder: "Choose an engine",

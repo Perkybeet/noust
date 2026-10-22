@@ -75,7 +75,7 @@ export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: 
       footer={
         removing ? (
           <>
-            <Button onClick={() => close(false)}>{t("backups.common.cancel")}</Button>
+            <Button onClick={() => close(false)}>{t("common.words.cancel")}</Button>
             <Button
               variant="primary"
               disabled={showKey.data === undefined || !saved}
@@ -89,7 +89,7 @@ export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: 
           </>
         ) : (
           <Button variant="primary" disabled={showKey.data === undefined || !saved} onClick={() => close(false)}>
-            {t("backups.showKeyDialog.done")}
+            {t("common.words.done")}
           </Button>
         )
       }

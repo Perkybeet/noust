@@ -12,7 +12,6 @@ export const autoUpdate = {
   checkOffBody: "The update check is off (updates.check), so this server does not know what there is to install. Turn the check on, or turn this off.",
   notSupported: "This installation cannot update itself from here.",
   set: "Set up",
-  edit: "Edit",
   channelWords: {
     security: "its security fixes",
     patch: "its patch releases",
@@ -42,7 +41,6 @@ export const autoUpdate = {
   },
   outcome: {
     updated: "Updated",
-    failed: "Failed",
     skipped: "Nothing installed",
     updatedTo: "Updated from {from} to {to}",
   },
@@ -62,8 +60,6 @@ export const autoUpdate = {
     everyDay: "Every day",
     chooseDays: "Only some days",
     daysRequired: "Choose at least one day.",
-    save: "Save",
-    cancel: "Cancel",
     saveFailed: "Could not save the automatic update",
     saved: "Automatic updates saved",
   },

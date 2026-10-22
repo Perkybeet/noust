@@ -21,7 +21,7 @@ export function DeleteSettings() {
   const t = useT();
   const app = useSettingsApp();
   const domain = app.domain;
-  useSubsectionTitle("appSettings.nav.delete", domain);
+  useSubsectionTitle("common.words.delete", domain);
   const sudoFirst = useSudoFirst();
   const [open, setOpen] = useState(false);
   const Delete = ICONS.delete;
@@ -35,7 +35,7 @@ export function DeleteSettings() {
 
   return (
     <>
-      <DangerZone title={t("appSettings.danger.title")} description={t("appSettings.danger.description")}>
+      <DangerZone title={t("common.words.delete")} description={t("appSettings.danger.description")}>
       <DangerAction
         title={adopted ? t("runtime.adopted.stopManagingSettings") : t("appSettings.danger.actionTitle")}
         description={
@@ -55,7 +55,7 @@ export function DeleteSettings() {
         }
       />
       </DangerZone>
-      <CommandHint command={adopted ? `noust delete ${domain}` : `noust delete ${domain} --keep-files`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={adopted ? `noust delete ${domain}` : `noust delete ${domain} --keep-files`} label={t("common.words.fromTerminal")} />
       <DeleteAppDialog app={app} open={open} onOpenChange={setOpen} />
     </>
   );

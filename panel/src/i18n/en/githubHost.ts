@@ -13,5 +13,4 @@ export const githubHost = {
   failed: "The address could not be saved",
   fact: "GitHub",
   factDescription: "The host the App lives on. It cannot change while the App exists.",
-  fromTerminal: "The same, from a terminal",
 } as const;

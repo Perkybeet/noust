@@ -71,7 +71,7 @@ function FollowTagsDialog({ app, onOpenChange }: { app: App; onOpenChange: (open
       footer={
         <>
           <Button disabled={follow.isPending} onClick={() => onOpenChange(false)}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form="follow-tags" variant="primary" loading={follow.isPending}>
             {t("appSettings.tags.action")}

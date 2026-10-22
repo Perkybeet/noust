@@ -486,8 +486,8 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
     footer = (
       <WizardActions
         className="w-full"
-        back={{ label: t("dumpImport.cancel"), onClick: close }}
-        next={{ label: t("dumpImport.next"), onClick: nextFromDump }}
+        back={{ label: t("common.words.cancel"), onClick: close }}
+        next={{ label: t("common.words.continue"), onClick: nextFromDump }}
         {...(missingOnDump !== undefined ? { missing: missingOnDump, onMissing: () => (upload.phase === "idle" ? fileRef.current?.focus() : undefined) } : {})}
       />
     );
@@ -533,7 +533,7 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
       <WizardActions
         className="w-full"
         back={{
-          label: t("dumpImport.back"),
+          label: t("common.words.back"),
           onClick: () => {
             if (!importMutation.isPending) setStep("dump");
           },
@@ -578,7 +578,7 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
           </Link>
         ) : null}
         <Button variant="primary" onClick={close}>
-          {finished ? t("dumpImport.done") : t("dumpImport.close")}
+          {finished ? t("common.words.done") : t("common.words.close")}
         </Button>
       </>
     );

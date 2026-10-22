@@ -12,5 +12,4 @@ export const githubHost: Catalog<typeof en> = {
   failed: "No se pudo guardar la dirección",
   fact: "GitHub",
   factDescription: "El host donde vive la App. No puede cambiar mientras la App exista.",
-  fromTerminal: "Lo mismo, desde un terminal",
 };

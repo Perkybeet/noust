@@ -259,7 +259,7 @@ export function DeployKeysSection() {
         )}
       </QueryState>
       <PinnedHosts />
-      <CommandHint command="noust app deploy-key list" label={t("sources.fromTerminal")} />
+      <CommandHint command="noust app deploy-key list" label={t("common.words.sameFromTerminal")} />
     </Section>
   );
 }

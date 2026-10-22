@@ -94,7 +94,6 @@ export const fleet: Catalog<typeof en> = {
     tabsLabel: "Vistas de la flota",
     addServer: "Añadir un servidor",
     runAction: "Ejecutar una acción",
-    fromTerminal: "Desde un terminal",
     loadFailed: "No se pudo cargar la flota",
     empty: {
       title: "Esta flota aún no tiene servidores",
@@ -145,7 +144,6 @@ export const fleet: Catalog<typeof en> = {
     state: "Estado",
     everyState: "Todos los estados",
     noMatch: "Ninguna fila coincide con estos filtros",
-    clear: "Quitar filtros",
   },
   server: {
     open: "Abrir {name}",
@@ -158,7 +156,6 @@ export const fleet: Catalog<typeof en> = {
     unreachable: "No responde",
     unsupported: "Noust anterior",
     forbidden: "Rechazado",
-    error: "Fallido",
   },
   partial: {
     title: {
@@ -301,7 +298,6 @@ export const fleet: Catalog<typeof en> = {
     invalidFormat: "Escribe cada etiqueta como clave=valor, separadas por comas.",
     invalidCharacters: "Usa letras, dígitos, puntos, guiones y guiones bajos en claves y valores, empezando por una letra o un dígito.",
     save: "Guardar etiquetas",
-    cancel: "Cancelar",
     failed: "No se pudieron guardar las etiquetas de {name}",
     none: "Ninguna",
     notForCentral: "Las etiquetas agrupan los servidores de la central, no la central",
@@ -481,8 +477,6 @@ export const fleet: Catalog<typeof en> = {
       servers: "Servidores",
       plan: "Plan",
     },
-    next: "Continuar",
-    back: "Atrás",
     showPlan: "Ver el plan",
     action: {
       legend: "Qué ejecutar",
@@ -622,10 +616,6 @@ export const fleet: Catalog<typeof en> = {
     output: "Lo que dijo {name}",
     items: "Cada aplicación",
     state: {
-      queued: "En cola",
-      running: "En curso",
-      succeeded: "Correcto",
-      failed: "Fallido",
       skipped: "Saltado",
       unreachable: "No responde",
       refused: "Rechazado",
@@ -646,13 +636,9 @@ export const fleet: Catalog<typeof en> = {
       rolled_back: { one: "{count} devuelto", other: "{count} devueltos" },
     },
     status: {
-      queued: "En cola",
-      running: "En curso",
       succeeded: "Correcta",
-      failed: "Fallida",
       aborted: "Parada tras demasiados fallos",
       interrupted: "Interrumpida",
-      unknown: "Desconocido",
     },
     reason: {
       policy: "Este servidor no deja a esta central hacer esto",

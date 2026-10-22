@@ -134,7 +134,7 @@ export function HttpChannel({ spec, stored, name = spec.id, label = spec.label, 
           added
             ? {
                 label: t("notifyRouting.more.remove"),
-                title: t("notifyRouting.more.removeTitle", { name }),
+                title: t("common.words.removeNamedQuestion", { name }),
                 description: t("notifyRouting.more.removeDescription", { name }),
                 run: async () => {
                   await removeNotificationChannel(name);

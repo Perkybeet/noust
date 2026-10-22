@@ -3,8 +3,6 @@ import type { Catalog } from "../types";
 
 export const appSettings: Catalog<typeof en> = {
   documentTitle: "{section} - Ajustes - {domain}",
-  cancel: "Cancelar",
-  fromTerminal: "Desde un terminal",
   loading: "Cargando los ajustes",
   jobFailedSilently: "La tarea falló sin decir por qué. Su registro está en la página Actividad.",
   nav: {
@@ -21,7 +19,6 @@ export const appSettings: Catalog<typeof en> = {
     source: "Origen",
     previews: "Vistas previas",
     export: "Exportar",
-    delete: "Eliminar",
   },
   groups: {
     code: "Código",
@@ -56,8 +53,6 @@ export const appSettings: Catalog<typeof en> = {
     service: "Servicio",
     runsAs: "Se ejecuta como",
     startsAtBoot: "Arranca con el servidor",
-    yes: "Sí",
-    no: "No",
     servedBy: "La sirve",
     servedByStatic: "El servidor web, sin proceso",
     notRecorded: "No registrado",
@@ -102,13 +97,11 @@ export const appSettings: Catalog<typeof en> = {
       title: "Activar la vuelta atrás instantánea en {domain}",
       stepPlan: "Qué cambia",
       stepConfirm: "Activar",
-      stepDone: "Hecho",
       planIntro: "Un ensayo, leído del disco: esto es lo que haría activarla. Todavía no ha cambiado nada.",
       reading: "Cargando la carpeta de la aplicación…",
       planFailed: "No se pudo averiguar qué cambia",
       alreadyOn: "Esta aplicación ya tiene la vuelta atrás instantánea.",
       checkAgain: "Comprobar de nuevo",
-      continue: "Continuar",
       planMissing: "Espera a que termine el ensayo, o vuelve a comprobarlo si falló.",
       restartTitle: "La aplicación se reinicia una vez",
       restartBody:
@@ -122,7 +115,6 @@ export const appSettings: Catalog<typeof en> = {
       doneFiles: "{filesBefore} archivos antes, {filesAfter} después ({bytes}): no se eliminó nada.",
       doneKept: "Se conserva en shared/: {list}.",
       doneAnnounce: "La vuelta atrás instantánea está activada en {domain}",
-      finish: "Hecho",
     },
     whatTurningOnDoes: "Qué hace activarla",
   },
@@ -615,15 +607,11 @@ export const appSettings: Catalog<typeof en> = {
       other: "No son nombres de variable: {list}. Un nombre son letras, dígitos y guiones bajos, y no empieza por un dígito.",
     },
     statusPending: "Pendiente",
-    statusDeploying: "Desplegando",
     statusReady: "Lista",
-    statusFailed: "Fallida",
     statusRemoving: "Eliminando",
-    statusUnknown: "Desconocido",
     stateTitle: "Vistas previas de esta aplicación",
   },
   danger: {
-    title: "Eliminar",
     description: "Lo que no se puede deshacer, apartado de todo lo demás.",
     actionTitle: "Eliminar esta aplicación",
     actionDescription:

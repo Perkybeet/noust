@@ -206,7 +206,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
       footer={
         <>
           <Button disabled={add.isPending} onClick={() => close(false)}>
-            {t("domains.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button
             type="submit"

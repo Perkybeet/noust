@@ -41,7 +41,7 @@ export function DeploysSettings() {
         <InstantRollbackCard app={app} retention={retention} />
         {unit ? <StartupCheckCard app={app} check={check} /> : <StaticStartupNote />}
         {unit ? <ZeroDowntimeCard app={app} status={zeroDowntime} drain={drain} /> : null}
-        <CommandHint command={releases ? `noust releases list ${domain}` : `noust app migrate ${domain}`} label={t("appSettings.fromTerminal")} />
+        <CommandHint command={releases ? `noust releases list ${domain}` : `noust app migrate ${domain}`} label={t("common.words.fromTerminal")} />
       </Section>
       {hasFields ? <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} /> : null}
     </>

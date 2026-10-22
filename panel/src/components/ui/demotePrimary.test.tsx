@@ -60,7 +60,7 @@ describe("DemotePrimary", () => {
         </Dialog>
       </DemotePrimary>,
     );
-    expect(await screen.findByRole("button", { name: "Update" })).toHaveAttribute("data-variant", "primary");
+    expect(await screen.findByRole("button", { name: "Update now" })).toHaveAttribute("data-variant", "primary");
   });
 
   it("does not reach into a drawer either", async () => {

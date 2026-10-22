@@ -99,7 +99,7 @@ export function VolumePolicyDrawer({ domain: fixed, policy, taken, open, onOpenC
       description={t("volumeBackups.form.description")}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("volumeBackups.form.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {t("volumeBackups.form.save")}
           </Button>

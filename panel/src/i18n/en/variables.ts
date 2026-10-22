@@ -9,7 +9,6 @@
  * (`{syntax}`, `{scopes}`) so the message stays plain.
  */
 export const variables = {
-  cancel: "Cancel",
   nav: {
     teamTab: {
       label: "Variables",
@@ -60,7 +59,6 @@ export const variables = {
   },
   shared: {
     queryLabel: "the shared variables",
-    fromTerminal: "From a terminal",
     team: {
       documentTitle: "Variables - {team}",
     },
@@ -85,7 +83,6 @@ export const variables = {
     tableCaption: "Shared variables of {scope}",
     tableCaptionPreview: "Variables for the previews of {scope}",
     notePreview: "A preview gets these when it is built, whatever the application's settings copy. A change reaches the previews built from now on; the ones running keep what they have until they are rebuilt.",
-    nameHeader: "Name",
     valueHeader: "Value",
     updatedHeader: "Changed",
     changedBy: "by {actor}",
@@ -99,18 +96,13 @@ export const variables = {
     emptyTitle: "No shared variables",
     emptyDescription: "A variable defined once here is shared by reference, so changing it changes it for every application that refers to it.",
     emptyInline: "No shared variables yet.",
-    actions: "Actions for {name}",
-    edit: "Edit",
     usage: "Who uses it",
-    remove: "Delete",
     saved: "{name} saved",
     deleted: "{name} deleted",
     saveFailed: "Could not save {name}",
     dialog: {
       addTitle: "Add a shared variable",
-      editTitle: "Edit {name}",
       description: "Saved at once and used by the applications that refer to it.",
-      nameLabel: "Name",
       nameDescription: "Letters, digits and underscores, not starting with a digit.",
       valueLabel: "Value",
       valueDescription: "Kept as you type it. An empty value is a value.",
@@ -137,7 +129,6 @@ export const variables = {
       description: "Applications whose variables refer to it, among those you can see.",
       none: "No application refers to it.",
       list: "Applications that refer to {name}",
-      close: "Close",
     },
   },
   providers: {
@@ -151,7 +142,6 @@ export const variables = {
     description: "Where values live that Noust must not store. A variable refers to one with {syntax}, and the value is fetched at every deploy. If the manager cannot answer, the deploy stops before anything is built.",
     queryLabel: "the secret managers",
     tableCaption: "Secret managers set up on this server",
-    nameHeader: "Name",
     kindHeader: "Manager",
     addressHeader: "Address",
     teamHeader: "Available to",
@@ -163,10 +153,7 @@ export const variables = {
     emptyTitle: "No secret manager",
     emptyDescription: "Add Vault, Doppler or Infisical, then refer to a secret in it from any variable. Noust never stores its value.",
     add: "Add secret manager",
-    actions: "Actions for {name}",
     test: "Test connection",
-    edit: "Edit",
-    remove: "Remove",
     testOk: "{name} answered and accepted its token",
     testFailed: "{name} did not accept the connection",
     saved: "{name} saved",
@@ -178,15 +165,12 @@ export const variables = {
       infisical: "Infisical",
     },
     removeDialog: {
-      title: "Remove {name}?",
       description: "Its token is deleted from this server. Variables that refer to it fail their next deploy until they are changed.",
       action: "Remove secret manager",
     },
     dialog: {
       addTitle: "Add a secret manager",
-      editTitle: "Edit {name}",
       description: "Noust reads from it at every deploy. Give it a token that can only read what the applications need.",
-      nameLabel: "Name",
       nameDescription: "What references call it: lowercase letters, digits and dashes.",
       nameRequired: "Give it a name.",
       nameInvalid: "Use lowercase letters, digits and dashes, starting and ending with a letter or digit.",

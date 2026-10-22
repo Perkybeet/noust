@@ -70,9 +70,9 @@ function UnitRow({ t, status }: { t: T; status: MonitorStatus }) {
             state={status.active ? "running" : "stopped"}
             label={
               status.active
-                ? t("server.monitor.running")
+                ? t("common.statusPill.running")
                 : status.enabled
-                  ? t("server.monitor.stopped")
+                  ? t("common.statusPill.stopped")
                   : t("server.monitor.installedNotRunning")
             }
           />
@@ -99,11 +99,11 @@ function UnitRow({ t, status }: { t: T; status: MonitorStatus }) {
             )}
             {status.active ? (
               <Button icon={<Square aria-hidden="true" />} size="sm" disabled={stop.isPending} onClick={() => stop.mutate()}>
-                {t("server.monitor.stop")}
+                {t("common.words.stop")}
               </Button>
             ) : (
               <Button icon={<Play aria-hidden="true" />} size="sm" loading={start.isPending} onClick={() => start.mutate()}>
-                {t("server.monitor.start")}
+                {t("common.words.start")}
               </Button>
             )}
           </>

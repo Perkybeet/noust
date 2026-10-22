@@ -28,7 +28,7 @@ function Drill({ drill }: { drill: RestoreDrill }) {
   return (
     <li className="flex min-w-0 flex-col gap-2 px-3 py-3">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Badge tone={drill.ok ? "ok" : "fail"}>{drill.ok ? t("backups.drills.passed") : t("backups.drills.failed")}</Badge>
+        <Badge tone={drill.ok ? "ok" : "fail"}>{drill.ok ? t("backups.drills.passed") : t("common.words.failedFeminine")}</Badge>
         <RelativeTime value={drill.started_at} className="text-12 text-fg-muted" />
         <span className="text-12 text-fg-faint">{drill.trigger === "schedule" ? t("backups.drills.byTimer") : t("backups.drills.byHand")}</span>
         {drill.backup_id ? <Mono truncate title={drill.backup_id}>{drill.backup_id}</Mono> : null}
@@ -42,7 +42,7 @@ function Drill({ drill }: { drill: RestoreDrill }) {
                 <span className="flex flex-wrap items-center gap-2">
                   <Mono>{step.name}</Mono>
                   <Badge tone={step.skipped ? "neutral" : step.ok ? "ok" : "fail"}>
-                    {step.skipped ? t("backups.drills.skipped") : step.ok ? t("backups.drills.stepOk") : t("backups.drills.stepFailed")}
+                    {step.skipped ? t("backups.drills.skipped") : step.ok ? t("backups.drills.stepOk") : t("common.statusPill.failed")}
                   </Badge>
                 </span>
                 <SystemOutput label={t("backups.drills.stepOutput", { name: step.name })} maxHeight="max-h-32">

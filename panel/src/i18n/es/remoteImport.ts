@@ -33,5 +33,4 @@ export const remoteImport: Catalog<typeof en> = {
   notDeployableBody: "Ejecutaba una imagen, un Dockerfile o un archivo Compose, que una exportación no lleva. Este comando crea el equivalente aquí.",
   warnings: "Lo que no tiene equivalente aquí",
   label: "{platform}: {name}",
-  fromTerminal: "Lo mismo, desde un terminal",
 };

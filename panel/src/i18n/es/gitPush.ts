@@ -37,7 +37,6 @@ export const gitPush: Catalog<typeof en> = {
     stepsDescription: "Añade el remoto una vez y haz push de la rama cuando quieras desplegarla.",
     keysTitle: "Quién puede hacer push",
     noKeys: "Ninguna clave puede hacer push todavía. Añade una abajo.",
-    columnName: "Nombre",
     columnType: "Tipo",
     columnFingerprint: "Huella",
     keysCaption: "Claves que pueden hacer push a esta aplicación",

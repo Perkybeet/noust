@@ -3,7 +3,6 @@
  * new-application wizard and an application's Container settings), and the secrets it keeps.
  */
 export const containers = {
-  fromTerminal: "From a terminal",
   restart: {
     unlessStopped: "Unless stopped",
     always: "Always",
@@ -57,10 +56,8 @@ export const containers = {
     titleRailpack: "Railpack variables",
     description: "Written into the image's history, so never a secret: a name or a value that looks like one is refused. Use a build secret for those.",
     descriptionRailpack: "Railpack reads these as its variables, such as RAILPACK_NODE_VERSION. Never a secret: use a build secret.",
-    name: "Name",
     value: "Value",
     add: "Add argument",
-    remove: "Remove {name}",
     removeEmpty: "Remove argument",
   },
   secrets: {
@@ -75,7 +72,6 @@ export const containers = {
     removeEmpty: "Remove secret",
     stored: "Kept on the server",
     willRemove: "Removed when you save",
-    removeAction: "Remove",
     removeStored: "Remove {id}",
     undo: "Keep",
     keep: "Keep {id}",

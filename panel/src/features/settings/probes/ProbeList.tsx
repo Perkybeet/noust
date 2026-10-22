@@ -177,22 +177,22 @@ function ProbeRow({ probe }: { probe: Probe }) {
           </Button>
           <Button
             size="sm"
-            aria-label={t("probes.editLabel", { name: probe.name })}
+            aria-label={t("common.words.editNamed", { name: probe.name })}
             onClick={() => {
               setEditing(true);
             }}
           >
-            {t("probes.edit")}
+            {t("common.words.edit")}
           </Button>
           <Button
             size="sm"
             variant="ghost"
-            aria-label={t("probes.removeLabel", { name: probe.name })}
+            aria-label={t("common.words.removeNamed", { name: probe.name })}
             onClick={() => {
               setRemoving(true);
             }}
           >
-            {t("probes.remove")}
+            {t("common.words.remove")}
           </Button>
         </div>
       </div>
@@ -220,9 +220,9 @@ function ProbeRow({ probe }: { probe: Probe }) {
         friction="simple"
         open={removing}
         onOpenChange={setRemoving}
-        title={t("probes.removeTitle", { name: probe.name })}
+        title={t("common.words.removeNamedQuestion", { name: probe.name })}
         description={t("probes.removeDescription")}
-        actionLabel={t("probes.remove")}
+        actionLabel={t("common.words.remove")}
         destructive
         onConfirm={async () => {
           await removeProbe(probe.name);

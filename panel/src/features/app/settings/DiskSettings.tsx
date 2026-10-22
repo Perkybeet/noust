@@ -246,7 +246,7 @@ function DiskCard({ app, disk, limit }: { app: App; disk: UseQueryResult<AppDisk
           <KernelQuota disk={disk.data} domain={domain} />
         </div>
       </Card>
-      <CommandHint command={`noust app disk ${domain} --measure --limit 2048`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={`noust app disk ${domain} --measure --limit 2048`} label={t("common.words.fromTerminal")} />
     </>
   );
 }

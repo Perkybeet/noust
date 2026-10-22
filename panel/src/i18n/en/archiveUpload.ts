@@ -13,7 +13,6 @@ export const archiveUpload = {
   progress: "{received} of {size}",
   waiting: "The connection dropped. Trying again by itself (attempt {attempt}).",
   paused: "The upload stopped after {received}. The server keeps what it has: retry to go on from there.",
-  retry: "Retry",
   cancel: "Cancel the upload",
   cancelled: "The upload was cancelled. Nothing was kept.",
   failed: "The archive was not accepted",

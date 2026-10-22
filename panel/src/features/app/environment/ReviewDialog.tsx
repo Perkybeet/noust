@@ -166,7 +166,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, merge, audience = [
       footer={
         <>
           <Button disabled={save.isPending} onClick={close}>
-            {t("environment.cancel")}
+            {t("common.words.cancel")}
           </Button>
           {isStatic ? (
             <Button variant="primary" loading={save.isPending} disabled={blocked} onClick={() => write(false)}>

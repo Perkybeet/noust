@@ -40,7 +40,7 @@ function columnsFor(t: T, locked: boolean, access: ReadonlyMap<string, AccessCei
   return [
     {
       id: "name",
-      header: t("servers.settings.column.name"),
+      header: t("common.words.name"),
       sortValue: (node) => node.name,
       cell: (node) => <Mono className="font-medium">{node.name}</Mono>,
     },
@@ -300,7 +300,7 @@ export function ServersSettings({ adding: addingProp, onAddingChange }: ServersS
             />
           )}
         </QueryState>
-        <CommandHint label={t("servers.settings.fromTerminal")} command="noust node list" />
+        <CommandHint label={t("common.words.fromTerminal")} command="noust node list" />
       </Section>
 
       <AddServer

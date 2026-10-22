@@ -4,11 +4,7 @@
  * namespaces).
  */
 export const appPages = {
-  /** Leads a CommandHint into the equivalent CLI command. */
-  fromTerminal: "From a terminal",
-
   common: {
-    cancel: "Cancel",
     viewLog: "View log",
     notRecorded: "Not recorded",
     cpu: "CPU",
@@ -18,7 +14,7 @@ export const appPages = {
 
   /** What is being done to an app right now, by job type (the backend's JobType). */
   job: {
-    deploy: { running: "Deploying", title: "Deploying {domain}", failed: "Deploy of {domain} failed" },
+    deploy: { title: "Deploying {domain}", failed: "Deploy of {domain} failed" },
     update: { running: "Updating", title: "Updating {domain}", failed: "Update of {domain} failed" },
     rollback: { running: "Rolling back", title: "Rolling {domain} back", failed: "Rollback of {domain} failed" },
     restore: { running: "Restoring", title: "Restoring {domain}", failed: "Restore of {domain} failed" },
@@ -89,7 +85,6 @@ export const appPages = {
     couldNotCheck: "Could not check what starting the unit would change",
     failed: "Could not hand {domain} back to Noust",
     action: "Hand it back",
-    terminal: "From a terminal",
     done: "{domain} runs under its unit again",
   },
 
@@ -193,9 +188,7 @@ export const appPages = {
     uptimeLabel: "Uptime",
     alwaysOn: "Always on",
     notRunning: "Not running",
-    running: "Running",
     certificateLabel: "Certificate",
-    certificateUnknown: "Unknown",
     certificateNone: "None",
     certificateIssued: "Issued",
     certificateExpired: "Expired",
@@ -248,7 +241,6 @@ export const appPages = {
       schemaChangedBadge: "Database changed",
       preDeploy: "Before serving",
       postDeploy: "After serving",
-      succeeded: "Succeeded",
       exited: "Exited with {code}",
       timedOut: "Ran out of time",
       didNotRun: "Did not run",
@@ -281,16 +273,13 @@ export const appPages = {
       fetch: { label: "Fetch", doing: "Fetching the source" },
       install: { label: "Install", doing: "Installing dependencies" },
       build: { label: "Build", doing: "Building" },
-      activate: { label: "Start", doing: "Starting the new version" },
+      activate: { doing: "Starting the new version" },
       health: { label: "Check", doing: "Running the startup check" },
     },
 
     phaseTimeline: {
       ariaLabel: "Deploy phases",
       startedAt: "Started {time}",
-      done: "Done",
-      inProgress: "In progress",
-      failed: "Failed",
       waiting: "Waiting",
       notReached: "Not reached",
       notInLog: "Not in the log",
@@ -309,7 +298,6 @@ export const appPages = {
       rebuildDialogTitle: "Rebuild commit {commit}?",
       rebuild: "Rebuild",
       rebuildNotStarted: "The rebuild did not start",
-      retry: "Retry",
       retryFresh: "Retry without cache",
       retryFailed: "Could not retry the deployment",
       goBackToThis: "Go back to this version",
@@ -341,7 +329,6 @@ export const appPages = {
         },
         default: { title: "The deploy failed", hint: "The log below shows how far it got." },
       },
-      running: "Running",
       runningFor: "Running for {duration}",
       notGitCheckout: "Not a git checkout",
       copyCommit: "Copy commit",
@@ -381,7 +368,6 @@ export const appPages = {
       httpsReady: "HTTPS is ready.",
       httpOnly: "Served over HTTP: no certificate covers this address yet.",
       openDomains: "Open Domains",
-      next: "Next",
       nextDomain: "Add your own domain",
       nextDatabase: "Add a database",
       nextBackup: "Schedule a backup",
@@ -416,7 +402,6 @@ export const appPages = {
       byLabel: "Started by",
       everyone: "Everyone",
       noMatch: "No deployment matches",
-      clearFilters: "Clear filters",
       rollBackToThis: "Roll back to this",
       commitCopied: "Copied {commit}",
       commitNotCopied: "Could not copy the commit",
@@ -455,7 +440,6 @@ export const appPages = {
     whatTheChecksFound: "What the checks found",
     viewLogs: "View logs",
     rollBack: "Roll back…",
-    restart: "Restart",
     checksCount: { one: "{count} check:", other: "{count} checks:" },
     tally: {
       passed: { one: "passed", other: "passed" },
@@ -478,7 +462,7 @@ export const appPages = {
     queryLabel: "the diagnosis of {domain}",
 
     verdict: { healthy: "Healthy", degraded: "Degraded", down: "Down" },
-    status: { ok: "Passed", warn: "Warning", fail: "Failed", skip: "Skipped" },
+    status: { ok: "Passed", skip: "Skipped" },
     check: {
       unit: "Service",
       port: "Listening port",

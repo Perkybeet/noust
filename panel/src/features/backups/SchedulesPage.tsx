@@ -54,7 +54,7 @@ function ScheduleActions({ schedule, onEdit, onRemove }: { schedule: BackupSched
   return (
     <Menu align="end" trigger={<IconButton label={t("backups.schedules.actionsFor", { domain: schedule.domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
       <MenuItem icon={<CalendarClock />} onClick={onEdit}>
-        {t("backups.common.edit")}
+        {t("common.words.edit")}
       </MenuItem>
       <MenuSeparator />
       <MenuItem icon={<ICONS.delete />} destructive onClick={onRemove}>
@@ -192,7 +192,7 @@ export function SchedulesPage() {
   return (
     <BackupsListPage
       {...(hasApps ? { primaryAction: newButton("primary") } : {})}
-      {...(empty ? {} : { footer: <CommandHint command="noust backup schedule list" label={t("backups.common.fromTerminal")} /> })}
+      {...(empty ? {} : { footer: <CommandHint command="noust backup schedule list" label={t("common.words.fromTerminal")} /> })}
     >
       {content}
       {creating ? <ScheduleDialog open onOpenChange={(next) => !next && setCreating(false)} /> : null}

@@ -12,7 +12,6 @@ export const policyScope = {
     covers: "Covers",
     coversThis: "Every {engine} database, {name} included",
     leavesThisOut: "Every {engine} database, but not {name}",
-    remove: "Remove",
     removeTitle: "Remove the policy for every {engine} database",
     removeDescription: "No database is backed up by it any more, and the schedule stops. The dumps already taken stay. Databases with a policy of their own keep it.",
     removeAction: "Remove policy",

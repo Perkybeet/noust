@@ -2,7 +2,6 @@ import type { variables as en } from "../en/variables";
 import type { Catalog } from "../types";
 
 export const variables: Catalog<typeof en> = {
-  cancel: "Cancelar",
   nav: {
     teamTab: {
       label: "Variables",
@@ -53,7 +52,6 @@ export const variables: Catalog<typeof en> = {
   },
   shared: {
     queryLabel: "las variables compartidas",
-    fromTerminal: "Desde un terminal",
     team: {
       documentTitle: "Variables - {team}",
     },
@@ -78,7 +76,6 @@ export const variables: Catalog<typeof en> = {
     tableCaption: "Variables compartidas de {scope}",
     tableCaptionPreview: "Variables para las vistas previas de {scope}",
     notePreview: "Una vista previa las recibe al compilarse, sea cual sea lo que copian los ajustes de la aplicación. Un cambio llega a las vistas previas que se compilen desde ahora; las que ya están en marcha conservan lo que tienen hasta que se recompilen.",
-    nameHeader: "Nombre",
     valueHeader: "Valor",
     updatedHeader: "Cambiado",
     changedBy: "por {actor}",
@@ -92,18 +89,13 @@ export const variables: Catalog<typeof en> = {
     emptyTitle: "Sin variables compartidas",
     emptyDescription: "Una variable definida una vez aquí se comparte por referencia: al cambiarla cambia para toda aplicación que se refiera a ella.",
     emptyInline: "Aún no hay variables compartidas.",
-    actions: "Acciones de {name}",
-    edit: "Editar",
     usage: "Quién la usa",
-    remove: "Eliminar",
     saved: "{name} guardada",
     deleted: "{name} eliminada",
     saveFailed: "No se pudo guardar {name}",
     dialog: {
       addTitle: "Añadir una variable compartida",
-      editTitle: "Editar {name}",
       description: "Se guarda al instante y la usan las aplicaciones que se refieren a ella.",
-      nameLabel: "Nombre",
       nameDescription: "Letras, dígitos y guiones bajos, sin empezar por un dígito.",
       valueLabel: "Valor",
       valueDescription: "Se guarda tal como lo escribes. Un valor vacío es un valor.",
@@ -130,7 +122,6 @@ export const variables: Catalog<typeof en> = {
       description: "Aplicaciones cuyas variables se refieren a ella, entre las que puedes ver.",
       none: "Ninguna aplicación se refiere a ella.",
       list: "Aplicaciones que se refieren a {name}",
-      close: "Cerrar",
     },
   },
   providers: {
@@ -144,7 +135,6 @@ export const variables: Catalog<typeof en> = {
     description: "Donde viven los valores que Noust no debe guardar. Una variable se refiere a uno con {syntax} y el valor se obtiene en cada despliegue. Si el gestor no responde, el despliegue se detiene antes de compilar nada.",
     queryLabel: "los gestores de secretos",
     tableCaption: "Gestores de secretos configurados en este servidor",
-    nameHeader: "Nombre",
     kindHeader: "Gestor",
     addressHeader: "Dirección",
     teamHeader: "Disponible para",
@@ -156,10 +146,7 @@ export const variables: Catalog<typeof en> = {
     emptyTitle: "Sin gestores de secretos",
     emptyDescription: "Añade Vault, Doppler o Infisical y refiérete a un secreto suyo desde cualquier variable. Noust nunca guarda su valor.",
     add: "Añadir gestor de secretos",
-    actions: "Acciones de {name}",
     test: "Probar la conexión",
-    edit: "Editar",
-    remove: "Quitar",
     testOk: "{name} respondió y aceptó su token",
     testFailed: "{name} no aceptó la conexión",
     saved: "{name} guardado",
@@ -171,15 +158,12 @@ export const variables: Catalog<typeof en> = {
       infisical: "Infisical",
     },
     removeDialog: {
-      title: "¿Quitar {name}?",
       description: "Su token se elimina de este servidor. Las variables que se refieren a él fallan en su próximo despliegue hasta que las cambies.",
       action: "Quitar gestor de secretos",
     },
     dialog: {
       addTitle: "Añadir un gestor de secretos",
-      editTitle: "Editar {name}",
       description: "Noust lee de él en cada despliegue. Dale un token que solo pueda leer lo que las aplicaciones necesitan.",
-      nameLabel: "Nombre",
       nameDescription: "Cómo lo llaman las referencias: minúsculas, dígitos y guiones.",
       nameRequired: "Ponle un nombre.",
       nameInvalid: "Usa minúsculas, dígitos y guiones, empezando y terminando por una letra o un dígito.",

@@ -21,7 +21,6 @@ export const logSearch = {
   level: { all: "Every level", err: "Errors", warning: "Warnings and errors", info: "Information and worse" },
   windowLabel: "How far back",
   window: { "15m": "15 minutes", "1h": "1 hour", "6h": "6 hours", "24h": "24 hours", "7d": "7 days" },
-  fromTerminal: "From a terminal",
   loading: "Searching the logs",
   viewerLabel: "Matching log lines",
   loadFailed: "Could not search the logs",

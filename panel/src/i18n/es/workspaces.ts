@@ -27,7 +27,4 @@ export const workspaces: Catalog<typeof en> = {
   queuedTitle: "Se están creando las aplicaciones",
   queuedBody: "Cada una se construye por su cuenta. Síguela desde su página.",
   open_app: "Abrir {domain}",
-  close: "Cerrar",
-  cancel: "Cancelar",
-  fromTerminal: "Lo mismo, desde un terminal",
 };

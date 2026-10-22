@@ -65,7 +65,7 @@ export function SiteState({ enabled, size = "sm" }: { enabled: boolean; size?: "
  * "+N more" tail; the full list is always in the title. */
 function ServedNames({ names }: { names: readonly string[] }) {
   const t = useT();
-  if (names.length === 0) return <span className="text-fg-muted">{t("domains.unknown")}</span>;
+  if (names.length === 0) return <span className="text-fg-muted">{t("common.statusPill.unknown")}</span>;
   const { shown, rest } = truncatedNames(names);
   return (
     <span className="flex min-w-0 items-center gap-1.5" title={names.join(", ")}>
@@ -215,13 +215,13 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
             title={t("domains.sitesTab.noSiteMatch")}
             action={
               <Button size="sm" variant="ghost" onClick={() => onSearchChange({})}>
-                {t("domains.clearFilters")}
+                {t("common.words.clearFilters")}
               </Button>
             }
           />
         }
         rowActions={(site) => (
-          <Menu align="end" trigger={<IconButton label={t("domains.actionsFor", { name: site.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+          <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: site.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
             <MenuItem icon={<FileCode />} onClick={() => open(site)}>
               {t("domains.sitesTab.editConfiguration")}
             </MenuItem>
@@ -236,7 +236,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
             )}
             <MenuSeparator />
             <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(site)}>
-              {t("domains.delete")}
+              {t("common.words.delete")}
             </MenuItem>
           </Menu>
         )}
@@ -279,7 +279,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
               />
             ),
           })}
-      {...(empty ? {} : { footer: <CommandHint command="noust site list" label={t("domains.fromTerminal")} /> })}
+      {...(empty ? {} : { footer: <CommandHint command="noust site list" label={t("common.words.fromTerminal")} /> })}
     >
       {empty || !server ? null : <UnknownHostsCard />}
       {content}
@@ -302,7 +302,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
         onOpenChange={(next) => {
           if (!next) setDeleting(null);
         }}
-        title={deleting ? t("domains.deleteNamedTitle", { name: deleting.name }) : t("domains.deleteSite")}
+        title={deleting ? t("common.words.deleteNamed", { name: deleting.name }) : t("domains.deleteSite")}
         description={t("domains.deleteSiteDescription")}
         confirmText={deleting?.name ?? ""}
         actionLabel={t("domains.deleteSite")}

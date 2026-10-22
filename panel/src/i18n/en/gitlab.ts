@@ -25,13 +25,10 @@ export const gitlab = {
   },
   state: {
     ok: "Works",
-    failed: "Failed",
     unchecked: "Not checked",
   },
   actions: {
-    more: "Actions for {name}",
     test: "Check the connection",
-    remove: "Remove",
     tested: "{name} is connected to {host}",
     testFailed: "The connection {name} did not work",
   },
@@ -39,7 +36,6 @@ export const gitlab = {
     title: "Connect GitLab",
     description: "Choose how this server signs in to GitLab.",
     way: "Sign in with",
-    name: "Name",
     nameDescription: "What to call the connection, such as work. Lowercase letters, digits and dashes.",
     host: "GitLab address",
     hostDescription: "The host without https://, such as gitlab.com or gitlab.example.com.",
@@ -48,7 +44,6 @@ export const gitlab = {
     tokenAction: "Connect",
     failed: "GitLab could not be connected",
     connected: "{name} was connected to {host}",
-    cancel: "Cancel",
     oauthHelp: "GitLab asks you to approve this server, then sends you back here. It needs an OAuth application registered in GitLab for this host.",
     redirect: "Redirect URI to register in GitLab",
     noRedirect: "The console has no public address for GitLab to send the browser back to.",
@@ -68,7 +63,6 @@ export const gitlab = {
     caption: "GitLab OAuth applications",
     columnHost: "GitLab",
     columnId: "Application ID",
-    remove: "Remove",
     removeLabel: "Remove the application of {host}",
     removeTitle: "Remove the OAuth application of {host}?",
     removeDescription: "Connections made with it keep working until their token expires. After that, signing in to {host} needs the application registered again.",
@@ -116,5 +110,4 @@ export const gitlab = {
     notConnected: "GitLab is not connected yet.",
     connect: "Connect GitLab",
   },
-  fromTerminal: "The same, from a terminal",
 } as const;

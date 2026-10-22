@@ -7,8 +7,6 @@
  */
 export const appSettings = {
   documentTitle: "{section} - Settings - {domain}",
-  cancel: "Cancel",
-  fromTerminal: "From a terminal",
   loading: "Loading the settings",
   jobFailedSilently: "The job failed without saying why. Its log is on the Activity page.",
   nav: {
@@ -25,7 +23,6 @@ export const appSettings = {
     source: "Source",
     previews: "Previews",
     export: "Export",
-    delete: "Delete",
   },
   /** The headings of the list of subsections: whose the sections are. */
   groups: {
@@ -61,8 +58,6 @@ export const appSettings = {
     service: "Service",
     runsAs: "Runs as",
     startsAtBoot: "Starts at boot",
-    yes: "Yes",
-    no: "No",
     servedBy: "Served by",
     servedByStatic: "The web server, no process",
     notRecorded: "Not recorded",
@@ -107,13 +102,11 @@ export const appSettings = {
       title: "Turn on instant rollback for {domain}",
       stepPlan: "What changes",
       stepConfirm: "Turn on",
-      stepDone: "Done",
       planIntro: "A dry run, read from the disk: this is what turning it on would do. Nothing has changed yet.",
       reading: "Loading the app's folder…",
       planFailed: "Could not work out what changes",
       alreadyOn: "This app has instant rollback already.",
       checkAgain: "Check again",
-      continue: "Continue",
       planMissing: "Wait for the dry run to finish, or check again if it failed.",
       restartTitle: "The app restarts once",
       restartBody:
@@ -127,7 +120,6 @@ export const appSettings = {
       doneFiles: "{filesBefore} files before, {filesAfter} after ({bytes}): nothing was deleted.",
       doneKept: "Kept in shared/: {list}.",
       doneAnnounce: "Instant rollback is on for {domain}",
-      finish: "Done",
     },
     whatTurningOnDoes: "What turning it on does",
   },
@@ -617,15 +609,11 @@ export const appSettings = {
       other: "Not variable names: {list}. A name is letters, digits and underscores, and does not start with a digit.",
     },
     statusPending: "Pending",
-    statusDeploying: "Deploying",
     statusReady: "Ready",
-    statusFailed: "Failed",
     statusRemoving: "Removing",
-    statusUnknown: "Unknown",
     stateTitle: "Previews for this app",
   },
   danger: {
-    title: "Delete",
     description: "What cannot be undone, set apart from everything else.",
     actionTitle: "Delete this application",
     actionDescription: "Stops it and removes its service and its web server site. Its files and certificate go only if you tick them in the next step; backups are always kept.",

@@ -181,14 +181,14 @@ export function ActivityTab({ search, onSearchChange }: ActivityTabProps) {
                     onSearchChange({});
                   }}
                 >
-                  {t("fleet.filters.clear")}
+                  {t("common.words.clearFilters")}
                 </Button>
               }
             />
           )
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet activity" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet activity" />
     </div>
   );
 }

@@ -110,7 +110,7 @@ function DestinationRow({
         className="w-20 shrink-0"
       />
       <IconButton
-        label={t("backups.scheduleDialog.removeDestination", { name: entry.name })}
+        label={t("common.words.removeNamed", { name: entry.name })}
         icon={<ICONS.close />}
         size="sm"
         onClick={onRemove}
@@ -229,7 +229,7 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
       footer={
         <>
           <Button disabled={save.isPending} onClick={() => close(false)}>
-            {t("backups.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button
             type="submit"
@@ -238,7 +238,7 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
             loading={save.isPending}
             disabled={(existing === undefined && domain.trim() === "") || (preset === "custom" && customCalendar.trim() === "")}
           >
-            {existing ? t("backups.common.save") : t("backups.scheduleDialog.create")}
+            {existing ? t("common.words.save") : t("backups.scheduleDialog.create")}
           </Button>
         </>
       }
@@ -352,7 +352,7 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
                 size="sm"
               />
               <Button size="sm" type="button" icon={<ICONS.add aria-hidden="true" />} disabled={destinationToAdd === "" || save.isPending} onClick={addDestination}>
-                {t("backups.common.add")}
+                {t("common.words.add")}
               </Button>
             </div>
           )}

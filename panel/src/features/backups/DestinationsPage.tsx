@@ -73,7 +73,7 @@ function RemoveDestinationDialog({
         if (!next) setForce(false);
         onOpenChange(next);
       }}
-      title={t("backups.destinations.removeDialog.title", { name: destination.name })}
+      title={t("common.words.removeNamed", { name: destination.name })}
       description={
         force
           ? t("backups.destinations.removeDialog.descriptionForce", { leftBehind })
@@ -115,7 +115,7 @@ function DestinationActions({
 
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={t("backups.destinations.actionsFor", { name: destination.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: destination.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
         <MenuItem icon={<Wifi />} disabled={testState?.checking === true} onClick={onTest}>
           {t("backups.destinations.test.label")}
         </MenuItem>
@@ -123,7 +123,7 @@ function DestinationActions({
           {t("backups.destinations.browse")}
         </MenuItem>
         <MenuItem icon={<Pencil />} onClick={() => setEditOpen(true)}>
-          {t("backups.common.edit")}
+          {t("common.words.edit")}
         </MenuItem>
         {destination.encrypted ? (
           <MenuItem icon={<KeyRound />} onClick={() => setKeyOpen(true)}>
@@ -132,7 +132,7 @@ function DestinationActions({
         ) : null}
         <MenuSeparator />
         <MenuItem icon={<ICONS.delete />} destructive onClick={() => (keyed ? setRemoveKeyOpen(true) : setRemoveOpen(true))}>
-          {t("backups.destinations.remove")}
+          {t("common.words.remove")}
         </MenuItem>
       </Menu>
       {editOpen ? <DestinationDialog existing={destination} open onOpenChange={setEditOpen} /> : null}
@@ -193,7 +193,7 @@ export function DestinationsPage() {
   };
 
   const columns: Column<Destination>[] = [
-    { id: "name", header: t("backups.destinations.columns.name"), mono: true, cell: (row) => row.name, sortValue: (row) => row.name },
+    { id: "name", header: t("common.words.name"), mono: true, cell: (row) => row.name, sortValue: (row) => row.name },
     {
       id: "connection",
       header: t("backups.destinations.columns.connection"),
@@ -309,7 +309,7 @@ export function DestinationsPage() {
           }
         : {})}
       primaryAction={addButton("primary")}
-      {...(empty ? {} : { footer: <CommandHint command="noust backup destination list" label={t("backups.common.fromTerminal")} /> })}
+      {...(empty ? {} : { footer: <CommandHint command="noust backup destination list" label={t("common.words.fromTerminal")} /> })}
     >
       {inClear.length > 0 ? (
         <Notice

@@ -4,10 +4,8 @@ import type { Catalog } from "../types";
 export const ldapAdmin: Catalog<typeof en> = {
   form: {
     createTitle: "Añadir un directorio",
-    editTitle: "Editar {name}",
     description:
       "La conexión va cifrada y se verifica el certificado. Un directorio en una red privada se permite nombrando su dirección en security.allow_private_hosts.",
-    name: "Nombre",
     nameHelp: "Un nombre corto en minúsculas, como corp o ad. No se puede cambiar después.",
     label: "Etiqueta",
     labelHelp: "Lo que dice la página de inicio de sesión.",
@@ -24,7 +22,6 @@ export const ldapAdmin: Catalog<typeof en> = {
     mappingsLine: "La línea {line} no es una asignación. Escribe GRUPO=ROL, GRUPO=EQUIPO:ROL o GRUPO=ROL@EQUIPO/PROYECTO.",
     create: "Añadir directorio",
     save: "Guardar directorio",
-    cancel: "Cancelar",
     errorTitle: "No se guardó el directorio",
     service: {
       title: "La cuenta que busca",
@@ -59,7 +56,6 @@ export const ldapAdmin: Catalog<typeof en> = {
     },
   },
   removeDialog: {
-    title: "¿Quitar {name}?",
     description: "Su contraseña se olvida y la gente vinculada a él ya no podrá iniciar sesión con él. Sus cuentas se quedan como están.",
     action: "Quitar directorio",
   },

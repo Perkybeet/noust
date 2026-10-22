@@ -100,7 +100,7 @@ function AddAccountDialog({ open, kinds, onClose }: { open: boolean; kinds: read
       }
     >
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <Field label={t("network.dns.nameLabel")} description={t("network.dns.nameHelp")} error={problem ?? fields?.["name"] ?? null}>
+        <Field label={t("common.words.name")} description={t("network.dns.nameHelp")} error={problem ?? fields?.["name"] ?? null}>
           <Input mono value={name} onValueChange={setName} autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={40} />
         </Field>
         <Field label={t("network.dns.kindLabel")} nativeLabel={false} description={kind?.help}>
@@ -183,7 +183,7 @@ function SettingsDialog({ account, onClose }: { account: DnsAccount | null; onCl
             {t("common.confirmDialog.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
-            {t("network.dns.save")}
+            {t("common.words.save")}
           </Button>
         </>
       }
@@ -327,7 +327,7 @@ export function DnsAccountsPage() {
         </Button>
       }
       {...(empty ? {} : { secondaryActions: <Button onClick={() => setShowRecords(true)}>{t("network.dns.managed")}</Button> })}
-      footer={<CommandHint command="noust dns provider list" label={t("domains.fromTerminal")} />}
+      footer={<CommandHint command="noust dns provider list" label={t("common.words.fromTerminal")} />}
     >
       {accounts.isError && accounts.data === undefined ? (
         <ErrorBlock error={accounts.error} title={t("network.dns.listFailed")} onRetry={() => void accounts.refetch()} retrying={accounts.isRefetching} />
@@ -353,7 +353,7 @@ export function DnsAccountsPage() {
           getRowId={(account) => account.name}
           loading={accounts.isPending}
           rowActions={(account) => (
-            <Menu align="end" trigger={<IconButton label={t("domains.actionsFor", { name: account.name })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
+            <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: account.name })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
               <MenuItem icon={<RotateCw />} disabled={verify.isPending} onClick={() => verify.mutate(account)}>
                 {t("network.dns.verify")}
               </MenuItem>
@@ -379,7 +379,7 @@ export function DnsAccountsPage() {
         friction="simple"
         server={node}
         destructive
-        title={t("network.dns.removeTitle", { name: removing?.name ?? "" })}
+        title={t("common.words.removeNamed", { name: removing?.name ?? "" })}
         description={t("network.dns.removeDescription")}
         actionLabel={t("network.dns.remove")}
         onConfirm={async () => {

@@ -95,7 +95,7 @@ export function CreateBackupDialog({ open, onOpenChange, domain: fixedDomain }: 
       footer={
         <>
           <Button disabled={create.isPending} onClick={() => close(false)}>
-            {t("backups.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={target.trim() === ""}>
             {t("backups.createDialog.submit")}

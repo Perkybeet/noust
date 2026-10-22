@@ -4,7 +4,6 @@ import type { Catalog } from "../types";
 export const probes: Catalog<typeof en> = {
   documentTitle: "Sondas",
   loadingLabel: "las sondas",
-  fromTerminal: "Desde un terminal",
   title: "Sondas",
   description:
     "Direcciones que Noust consulta con un reloj, desde donde se ejecuta: si el nombre resuelve, si el certificado vale, si la página dice lo que debe. Si una deja de responder, se avisa por los canales de notificación.",
@@ -27,11 +26,6 @@ export const probes: Catalog<typeof en> = {
   },
   switchLabel: "Consultar {name}",
   switchFailed: "No se pudo cambiar la sonda",
-  edit: "Editar",
-  editLabel: "Editar {name}",
-  remove: "Quitar",
-  removeLabel: "Quitar {name}",
-  removeTitle: "¿Quitar {name}?",
   removeDescription: "Nada consulta ya esta dirección y su historial se va con ella. Lo que ya se envió no se retira.",
   check: {
     button: "Consultar ahora",
@@ -50,11 +44,9 @@ export const probes: Catalog<typeof en> = {
   },
   form: {
     newTitle: "Nueva sonda",
-    editTitle: "Editar {name}",
     description: "Una dirección, y cómo es una buena respuesta.",
     save: "Guardar sonda",
     saveErrorTitle: "No se pudo guardar la sonda",
-    nameLabel: "Nombre",
     nameDescription: "Minúsculas, dígitos, - y _. La línea de comandos se refiere a ella por este nombre.",
     urlLabel: "Dirección",
     urlDescription: "http:// o https://. Sin usuario ni contraseña, y sin ninguna clave: la dirección se muestra en listas y en mensajes.",
@@ -91,13 +83,10 @@ export const probes: Catalog<typeof en> = {
     notPublished: "No está en un nombre propio: sirve tú la carpeta de arriba, o ponla en uno.",
     publishedOn: "Publicada en {domain}.",
     open: "Abrir {domain}",
-    done: "Hecho",
-    close: "Cerrar",
     publish: {
       button: "Publicar en un nombre",
       title: "Publicar la página de estado",
       description: "Crea un sitio del servidor web y un certificado para un nombre propio, y los anota para que al retirar la página se quite eso y nada más.",
-      domainLabel: "Nombre",
       domainDescription: "Un nombre que apunte a este servidor y no sea el de una aplicación.",
       skipDns: "No comprobar que el nombre apunte aquí",
       skipDnsDescription: "Para un servidor tras NAT, donde el nombre resuelve al router.",

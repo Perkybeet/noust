@@ -70,7 +70,7 @@ export function LabelsDialog({ node, labels, onClose }: LabelsDialogProps) {
       footer={
         <>
           <Button disabled={save.isPending} onClick={onClose}>
-            {t("fleet.labels.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {t("fleet.labels.save")}

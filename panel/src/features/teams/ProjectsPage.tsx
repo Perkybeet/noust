@@ -145,7 +145,7 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
             ? {
                 actions: (
                   <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={clear}>
-                    {t("teams.clearFilters")}
+                    {t("common.words.clearFilters")}
                   </Button>
                 ),
               }
@@ -168,7 +168,7 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
             title={t("teams.projects.noMatch")}
             action={
               <Button size="sm" variant="ghost" onClick={clear}>
-                {t("teams.clearFilters")}
+                {t("common.words.clearFilters")}
               </Button>
             }
           />

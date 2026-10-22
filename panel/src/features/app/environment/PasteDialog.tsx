@@ -107,7 +107,7 @@ export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialo
       description={t("environment.pasteDialog.description")}
       footer={
         <>
-          <Button onClick={() => close(false)}>{t("environment.cancel")}</Button>
+          <Button onClick={() => close(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" disabled={count === 0 || blocking}>
             {count === 0 ? t("environment.pasteDialog.stageEmpty") : t("environment.pasteDialog.stage", { count })}
           </Button>

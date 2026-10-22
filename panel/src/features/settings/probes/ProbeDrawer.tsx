@@ -78,7 +78,7 @@ export function ProbeDrawer({ probe, open, onOpenChange }: ProbeDrawerProps) {
         if (!next) reset();
         onOpenChange(next);
       }}
-      title={probe === undefined ? t("probes.form.newTitle") : t("probes.form.editTitle", { name: probe.name })}
+      title={probe === undefined ? t("probes.form.newTitle") : t("common.words.editNamed", { name: probe.name })}
       description={t("probes.form.description")}
       footer={
         <>
@@ -99,7 +99,7 @@ export function ProbeDrawer({ probe, open, onOpenChange }: ProbeDrawerProps) {
     >
       <form id={formId} noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-5">
         <FormFailure error={split.form} title={t("probes.form.saveErrorTitle")} />
-        <Field label={t("probes.form.nameLabel")} description={t("probes.form.nameDescription")} error={message("name")}>
+        <Field label={t("common.words.name")} description={t("probes.form.nameDescription")} error={message("name")}>
           <Input
             mono
             autoComplete="off"

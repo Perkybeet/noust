@@ -126,7 +126,7 @@ export function UploadCertificateDialog({ open, onClose }: { open: boolean; onCl
       }
     >
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <Field label={t("network.upload.nameLabel")} description={t("network.upload.nameHelp")} error={problem ?? fields?.["name"] ?? null}>
+        <Field label={t("common.words.name")} description={t("network.upload.nameHelp")} error={problem ?? fields?.["name"] ?? null}>
           <Input mono value={name} onValueChange={setName} autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={63} />
         </Field>
         <PemField

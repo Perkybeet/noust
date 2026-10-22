@@ -55,7 +55,7 @@ export function AdoptedOverview({ app, resources }: { app: App; resources: React
           )}
         </Card>
       </Section>
-      <CommandHint command={`noust status ${app.domain}`} label={t("appPages.fromTerminal")} />
+      <CommandHint command={`noust status ${app.domain}`} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

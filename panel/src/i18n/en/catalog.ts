@@ -136,7 +136,6 @@ export const catalog = {
     native: "Natively",
     count: { one: "{count} recipe", other: "{count} recipes" },
     countFiltered: "{shown} of {total} recipes",
-    clear: "Clear filters",
   },
   empty: {
     noMatch: "No recipe matches these filters.",
@@ -165,7 +164,6 @@ export const catalog = {
     goneReason: "The recipe is no longer in the catalog.",
     noChanges: "The catalog does not say what changed.",
     moreChanges: { one: "and {count} more change", other: "and {count} more changes" },
-    update: "Update",
     updateNamed: "Update {domain}",
   },
   update: {
@@ -178,8 +176,6 @@ export const catalog = {
     reading: "Loading what this version asks for",
     variables: "This version declares variables the application may not have yet. Give a value only for one it lacks; leave the rest empty.",
     variableHelp: "Only if the application does not have it yet.",
-    cancel: "Cancel",
-    action: "Update",
     failed: "{domain} was not updated",
     queued: "Update of {domain} queued",
     running: "Updating {domain}",

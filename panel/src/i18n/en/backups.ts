@@ -3,14 +3,7 @@ export const backups = {
   area: "Backups",
 
   common: {
-    cancel: "Cancel",
-    save: "Save",
-    close: "Close",
-    edit: "Edit",
-    add: "Add",
     restore: "Restore",
-    clearFilters: "Clear filters",
-    fromTerminal: "From a terminal",
   },
 
   fields: {
@@ -28,7 +21,6 @@ export const backups = {
   page: {
     title: "Backups",
     description: "Copies of your apps' files, .env and databases, and when they are made.",
-    backUpNow: "Back up now",
     loadError: "Could not load backups",
   },
 
@@ -67,7 +59,6 @@ export const backups = {
     // into "1 of 1 applications".
     countFiltered: "{shown} of {total} applications",
     noMatch: "No application matches these filters.",
-    actionsFor: "Actions for {domain}",
     removed: "No longer deployed",
     notScheduled: "Not scheduled",
     copiedTo: "Also copied to {names}",
@@ -86,7 +77,6 @@ export const backups = {
       never: "No backups",
     },
     actions: {
-      backUpNow: "Back up now",
       viewBackups: "View backups",
       restoreLatest: "Restore the latest…",
       schedule: "Schedule backups…",
@@ -116,14 +106,12 @@ export const backups = {
     notQueued: "The restore test of {domain} was not queued",
     empty: "No restore test has run yet. Run one to know the newest backup comes back.",
     passed: "Passed",
-    failed: "Failed",
     byTimer: "Scheduled",
     byHand: "By hand",
     steps: { one: "{count} step", other: "{count} steps" },
     stepOutput: "Output of the step {name}",
     stepsLabel: "What the test checked",
     stepOk: "Passed",
-    stepFailed: "Failed",
     skipped: "Not tried",
   },
   history: {
@@ -135,7 +123,6 @@ export const backups = {
     },
     caption: "Backups of {domain}",
     empty: "No backups of {domain} yet.",
-    backUpNow: "Back up now",
     actionsFor: "Actions for {id}",
     columns: {
       created: "Created",
@@ -323,7 +310,6 @@ export const backups = {
     maxAgeShort: "Days",
     maxAgeDescription: "Blank keeps them however old they are.",
     maxAgeOn: "Delete after (days) on {name}",
-    removeDestination: "Remove {name}",
     dumpDatabases: "Include its databases",
     destinationsLegend: "Also copy to",
     destinationsHint: "Each backup is also sent to these destinations. Their limits are optional: blank keeps every copy sent there.",
@@ -342,7 +328,6 @@ export const backups = {
     add: "Add destination",
     loadError: "Could not load the destinations",
     caption: "Backup destinations",
-    actionsFor: "Actions for {name}",
     encrypted: "Encrypted",
     notEncrypted: "Not encrypted",
     credentials: {
@@ -357,9 +342,7 @@ export const backups = {
       failed: "Could not encrypt the credentials",
     },
     showKey: "Show encryption key",
-    remove: "Remove",
     columns: {
-      name: "Name",
       connection: "Connection",
       backend: "Kind",
       encryption: "Encryption",
@@ -378,7 +361,6 @@ export const backups = {
       unreachable: "{name} could not be reached",
     },
     removeDialog: {
-      title: "Remove {name}",
       leftBehindKeyed: "Backups already copied there stay there, readable only with the key you saved.",
       leftBehind: "Backups already copied there stay there.",
       descriptionForce: "A schedule still copies backups here. Removing it anyway takes it out of those schedules. {leftBehind}",
@@ -394,10 +376,8 @@ export const backups = {
 
   destinationDialog: {
     titleNew: "Add backup destination",
-    titleEdit: "Edit {name}",
     description: "Another place backups are copied to, on a schedule or by hand.",
     add: "Add destination",
-    nameLabel: "Name",
     nameDescription: "Lowercase letters, digits and '-'. It also names the rclone remote.",
     backendLabel: "Backend",
     chooseBackend: "Choose a backend",
@@ -434,7 +414,6 @@ export const backups = {
     savedLabel: "I have saved this key somewhere safe",
     nudge: "Save the key and tick the box first. Losing it makes every backup on this destination unrecoverable.",
     continueToRemove: "Continue to remove",
-    done: "Done",
     error: "The key could not be read",
   },
 

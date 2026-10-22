@@ -19,7 +19,7 @@ export function TestResultDialog({ name, result, onClose }: { name: string; resu
       size="md"
       title={t("ssoAdmin.providers.testResult.title", { name })}
       description={t("ssoAdmin.providers.testResult.notice")}
-      footer={<Button onClick={onClose}>{t("ssoAdmin.providers.testResult.close")}</Button>}
+      footer={<Button onClick={onClose}>{t("common.words.close")}</Button>}
     >
       <div className="flex flex-col gap-4">
         <Notice tone={result.ok ? "success" : "error"} live>
@@ -32,7 +32,7 @@ export function TestResultDialog({ name, result, onClose }: { name: string; resu
                 <Mono tone="default">{check.name}</Mono>
                 <StatusPill
                   state={check.ok ? "running" : "failed"}
-                  label={check.ok ? t("ssoAdmin.providers.testResult.checkPassed") : t("ssoAdmin.providers.testResult.checkFailed")}
+                  label={check.ok ? t("ssoAdmin.providers.testResult.checkPassed") : t("common.words.failedFeminine")}
                   appearance="inline"
                   size="sm"
                 />

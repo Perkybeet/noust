@@ -187,7 +187,7 @@ export function FirstSteps({ overview }: { overview: Overview }) {
                 {step.done ? (
                   <span className="flex items-center gap-1.5 text-13 text-fg-muted">
                     <Done aria-hidden="true" className="size-icon-sm" />
-                    {t("overview.firstSteps.done")}
+                    {t("common.words.done")}
                   </span>
                 ) : (
                   <Link to={step.to} className={buttonClassName("secondary", "sm")}>

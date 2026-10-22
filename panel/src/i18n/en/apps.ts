@@ -16,13 +16,11 @@ export const apps = {
     everyState: "Every state",
     typeLabel: "Type",
     everyType: "Every type",
-    clearFilters: "Clear filters",
     count: { one: "{count} application", other: "{count} applications" },
     countFiltered: "{shown} of {total} applications",
     caption: "Applications",
     captionFiltered: "Applications matching the filters",
     noMatchTitle: "No application matches these filters",
-    fromTerminal: "From a terminal",
   },
   table: {
     columnState: "State",
@@ -37,11 +35,8 @@ export const apps = {
     previewOf: "Preview of {parent}",
   },
   rowActions: {
-    aria: "Actions for {domain}",
     open: "Open",
     logs: "Logs",
-    restart: "Restart",
-    update: "Update",
   },
   bulk: {
     selectColumn: "Select",
@@ -65,7 +60,6 @@ export const apps = {
     updateNote: "Updates are queued and built one at a time.",
     working: "Working",
     nothingNew: "Nothing new to deploy",
-    failed: "Failed",
     held: "Not done",
     waitingApproval: "Waiting for a second person to approve it.",
     summary: "To do: {run} of {total}. Skipped: {skipped}.",
@@ -78,11 +72,9 @@ export const apps = {
       start: { one: "Start {count} application", other: "Start {count} applications" },
     },
     retry: "Retry failed",
-    close: "Close",
   },
   nothingNew: {
     title: "Nothing new to deploy to {domain}",
-    cancel: "Cancel",
     rebuildAnyway: "Rebuild anyway",
   },
   actions: {

@@ -58,8 +58,6 @@ export const publicAccess = {
       choose: "Choose",
       review: "Review",
     },
-    cancel: "Cancel",
-    back: "Back",
     review: "Review",
     submit: "Open access",
     port: "Port",

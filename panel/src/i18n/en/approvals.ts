@@ -57,7 +57,6 @@ export const approvals = {
     reasonHint: "Kept with the request and in the audit log.",
     reasonMissing: "Say why you need it.",
     ask: "Ask for approval",
-    cancel: "Cancel",
     waitingTitle: "Waiting for approval",
     waitingDescription: "Another person has to approve this before it runs: {approvers}. This dialog updates when they decide.",
     approvedTitle: "Approved",
@@ -69,7 +68,6 @@ export const approvals = {
     leaveWaiting: "Leave it waiting",
     later: "Later",
     runNow: "Run it now",
-    close: "Close",
     openInbox: "Open approvals",
     loadFailed: "Could not check the request",
   },
@@ -107,7 +105,6 @@ export const approvals = {
     noneWaiting: "Nothing waits for approval.",
     none: "No requests here.",
     what: "the requests",
-    fromTerminal: "From a terminal",
   },
   table: {
     request: "Request",

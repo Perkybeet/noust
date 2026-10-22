@@ -449,7 +449,7 @@ export function SummaryTab() {
         />
       </Card>
       <FleetMetricsCard />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet status" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet status" />
     </div>
   );
 }

@@ -30,8 +30,6 @@ export const internalCa: Catalog<typeof en> = {
   signsRangesLabel: "Y para direcciones en",
   keptLabel: "Certificados guardados",
   trustedHereLabel: "Este servidor confía en ella",
-  yes: "Sí",
-  no: "No",
   downloadPem: "Descargar el certificado (.crt)",
   downloadDer: "Descargar para Windows o Android (.cer)",
   trustHere: "Confiar en ella en este servidor",

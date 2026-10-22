@@ -110,7 +110,7 @@ function PageJobDialog({ doing, open, onClose, domain }: { doing: Doing; open: b
               </ExternalLink>
             ) : null}
             <Button variant="primary" disabled={running} onClick={close}>
-              {finished ? t("probes.page.done") : t("probes.page.close")}
+              {finished ? t("common.words.done") : t("common.words.close")}
             </Button>
           </>
         )
@@ -127,7 +127,7 @@ function PageJobDialog({ doing, open, onClose, domain }: { doing: Doing; open: b
                 if (name.trim() !== "" && !start.isPending) start.mutate();
               }}
             >
-              <Field label={t("probes.page.publish.domainLabel")} description={t("probes.page.publish.domainDescription")}>
+              <Field label={t("common.words.name")} description={t("probes.page.publish.domainDescription")}>
                 <Input
                   ref={nameRef}
                   mono

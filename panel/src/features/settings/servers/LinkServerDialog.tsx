@@ -298,7 +298,7 @@ export function LinkServerDialog({ open, onClose }: LinkServerDialogProps) {
           </Notice>
         ) : null}
         <form id={formId} noValidate onSubmit={submitInvite} className="flex flex-col gap-4">
-          <Field label={t("servers.add.name.label")} description={t("servers.add.name.description")} error={nameError}>
+          <Field label={t("common.words.name")} description={t("servers.add.name.description")} error={nameError}>
             <Input
               ref={nameRef}
               mono
@@ -378,7 +378,7 @@ export function LinkServerDialog({ open, onClose }: LinkServerDialogProps) {
       <Fragment key="invite">
         <WizardActions
           className="w-full"
-          back={{ label: t("servers.add.cancel"), onClick: close }}
+          back={{ label: t("common.words.cancel"), onClick: close }}
           next={{
             label: t("servers.add.next"),
             onClick: () => {
@@ -427,7 +427,7 @@ export function LinkServerDialog({ open, onClose }: LinkServerDialogProps) {
         <WizardActions
           className="w-full"
           back={{
-            label: t("servers.add.back"),
+            label: t("common.words.back"),
             onClick: () => {
               if (!accept.isPending) setStep("invite");
             },
@@ -443,12 +443,12 @@ export function LinkServerDialog({ open, onClose }: LinkServerDialogProps) {
       added !== null ? (
         <Fragment key="done">
           <Button variant="primary" onClick={close}>
-            {t("servers.add.done")}
+            {t("common.words.done")}
           </Button>
         </Fragment>
       ) : (
         <Fragment key="try-again">
-          <Button onClick={close}>{t("servers.add.cancel")}</Button>
+          <Button onClick={close}>{t("common.words.cancel")}</Button>
           <Button
             type="button"
             variant="primary"

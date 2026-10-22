@@ -12,12 +12,7 @@ export const dumpImport: Catalog<typeof en> = {
     options: "Opciones",
     import: "Importación",
   },
-  cancel: "Cancelar",
-  back: "Atrás",
-  next: "Continuar",
   start: "Importar",
-  close: "Cerrar",
-  done: "Hecho",
   target: {
     engine: "Motor",
     enginePlaceholder: "Elige un motor",

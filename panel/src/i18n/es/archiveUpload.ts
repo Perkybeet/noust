@@ -12,7 +12,6 @@ export const archiveUpload: Catalog<typeof en> = {
   progress: "{received} de {size}",
   waiting: "Se cortó la conexión. Se reintenta solo (intento {attempt}).",
   paused: "La subida se detuvo tras {received}. El servidor conserva lo recibido: reintenta para seguir desde ahí.",
-  retry: "Reintentar",
   cancel: "Cancelar la subida",
   cancelled: "Se canceló la subida. No se guardó nada.",
   failed: "No se aceptó el archivo",

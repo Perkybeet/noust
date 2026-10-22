@@ -425,7 +425,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
           saving: save.isPending,
           busy: edit.isPending,
         }}
-        footer={<CommandHint command={`noust site show ${site}`} label={t("domains.fromTerminal")} />}
+        footer={<CommandHint command={`noust site show ${site}`} label={t("common.words.fromTerminal")} />}
       >
         {config.isError && config.data === undefined ? (
           <ErrorBlock error={config.error} title={t("domains.siteConfigPage.couldNotReadConfig", { site })} onRetry={() => void config.refetch()} retrying={config.isRefetching} />
@@ -505,7 +505,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
       <ConfirmDialog
         open={deleting}
         onOpenChange={setDeleting}
-        title={t("domains.deleteNamedTitle", { name: site })}
+        title={t("common.words.deleteNamed", { name: site })}
         description={t("domains.deleteSiteDescription")}
         confirmText={site}
         actionLabel={t("domains.deleteSite")}

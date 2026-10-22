@@ -137,7 +137,7 @@ export function ExtensionsCard({ engine, name }: { engine: string; name: string 
             </ul>
           )}
           {query.data.source !== "" ? <p className="text-12 text-fg-muted">{query.data.source}</p> : null}
-          <CommandHint command={`noust db extension list ${name} -e ${engine} --all`} label={t("databases.common.fromTerminal")} />
+          <CommandHint command={`noust db extension list ${name} -e ${engine} --all`} label={t("common.words.fromTerminal")} />
         </div>
       )}
       {adding ? <AddDialog engine={engine} name={name} offered={offered} loaded={names} onOpenChange={(open) => (open ? undefined : setAdding(false))} /> : null}

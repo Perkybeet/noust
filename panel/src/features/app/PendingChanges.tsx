@@ -104,7 +104,7 @@ export function PendingDialog({ domain, pending, open, onOpenChange }: { domain:
       description={t("runtime.pending.dialogDescription", { domain })}
       footer={
         <>
-          <Button onClick={done}>{t("runtime.pending.close")}</Button>
+          <Button onClick={done}>{t("common.words.close")}</Button>
           {needs === "rebuild" ? (
             <Button
               variant="primary"

@@ -8,7 +8,6 @@ export const overview: Catalog<typeof en> = {
   newApplication: "Nueva aplicación",
   tabsLabel: "Secciones del resumen",
   couldNotLoad: "No se pudo cargar el resumen",
-  command: "Desde un terminal",
   range: {
     "1h": "Última hora",
     "24h": "Últimas 24 horas",
@@ -180,7 +179,6 @@ export const overview: Catalog<typeof en> = {
   firstSteps: {
     title: "Despliega tu primera aplicación",
     description: "Este servidor todavía no ejecuta nada. Elige la forma más rápida de ver algo en marcha.",
-    done: "Hecho",
     demo: {
       title: "Prueba una demostración",
       description: "Una página diminuta en una dirección temporal. Un clic.",

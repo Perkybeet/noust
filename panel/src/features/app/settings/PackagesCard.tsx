@@ -67,7 +67,7 @@ function PackagesDrawer({ domain, state, onClose }: { domain: string; state: App
       footer={
         <>
           <Button disabled={save.isPending} onClick={onClose}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={!changed}>
             {t("appPackages.save")}

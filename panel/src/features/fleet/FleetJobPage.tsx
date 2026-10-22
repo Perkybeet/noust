@@ -188,7 +188,7 @@ function RetryDialog({ t, job, onClose }: { t: T; job: FleetJob; onClose: () => 
       footer={
         <>
           <Button disabled={run.isPending} onClick={onClose}>
-            {t("fleet.labels.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button
             variant="primary"

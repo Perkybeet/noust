@@ -12,10 +12,8 @@ export const samlAdmin = {
     "A SAML provider posts a form from its own site, and a browser sends the sign-in cookie with it only over HTTPS. Serve the console over TLS.",
   form: {
     createTitle: "Add a SAML provider",
-    editTitle: "Edit {name}",
     description:
       "Assertions must be signed by one of the certificates below. Encrypted assertions are refused: the connection is already encrypted.",
-    name: "Name",
     nameHelp: "A short name in lower case, such as corp or entra. It cannot change later.",
     label: "Label",
     labelHelp: "The name on its sign-in button.",
@@ -23,7 +21,6 @@ export const samlAdmin = {
     mappingsLine: "Line {line} is not a mapping. Write GROUP=ROLE, GROUP=TEAM:ROLE or GROUP=ROLE@TEAM/PROJECT.",
     create: "Add provider",
     save: "Save provider",
-    cancel: "Cancel",
     errorTitle: "The provider was not saved",
     register: {
       title: "Register this server with the provider",
@@ -64,7 +61,6 @@ export const samlAdmin = {
     contextsHelp: "One of these must be reported, such as urn:oasis:names:tc:SAML:2.0:ac:classes:TimeSyncToken. Empty asks for none.",
   },
   removeDialog: {
-    title: "Remove {name}?",
     description: "People linked to it can no longer sign in with it. Their accounts stay as they are.",
     action: "Remove provider",
   },

@@ -31,8 +31,6 @@ export const volumeBackups: Catalog<typeof en> = {
     action: "Poner una política",
   },
   actions: {
-    for: "Acciones de {domain}",
-    runNow: "Hacer copia ahora",
     edit: "Editar la política",
     open: "Abrir sus copias",
     remove: "Quitar la política",
@@ -140,7 +138,6 @@ export const volumeBackups: Catalog<typeof en> = {
     enabledHelp: "Desactivada, la política conserva sus ajustes y no corre nada.",
     save: "Guardar política",
     saveFailed: "No se pudo guardar la política",
-    cancel: "Cancelar",
     pathsInvalid: "Una carpeta es una ruta relativa dentro de los datos de la aplicación, sin .. ni barra inicial: {entries}.",
   },
   table: {
@@ -159,7 +156,6 @@ export const volumeBackups: Catalog<typeof en> = {
     restore: "Restaurar…",
     verify: "Comprobarla",
     push: "Enviar a…",
-    delete: "Eliminar",
   },
   restore: {
     title: "Restaurar los datos de {domain}",

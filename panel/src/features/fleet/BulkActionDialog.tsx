@@ -537,7 +537,7 @@ export function BulkActionDialog({ initial, onClose }: BulkActionDialogProps) {
   const runCount = planning.data?.plan.summary["run"] ?? 0;
   const next =
     step === "action"
-      ? { label: t("fleet.bulk.next"), onClick: () => setStep("servers") }
+      ? { label: t("common.words.continue"), onClick: () => setStep("servers") }
       : step === "servers"
         ? { label: t("fleet.bulk.showPlan"), onClick: goToPlan }
         : {
@@ -563,7 +563,7 @@ export function BulkActionDialog({ initial, onClose }: BulkActionDialogProps) {
           {...(step !== "action"
             ? {
                 back: {
-                  label: t("fleet.bulk.back"),
+                  label: t("common.words.back"),
                   onClick: () => {
                     if (pending) return;
                     if (step === "plan") {

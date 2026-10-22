@@ -53,7 +53,7 @@ export function PushBackupDialog({ backup, open, onOpenChange }: PushBackupDialo
       footer={
         <>
           <Button disabled={push.isPending} onClick={() => close(false)}>
-            {t("backups.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={push.isPending} disabled={destination === ""}>
             {t("backups.pushDialog.submit")}

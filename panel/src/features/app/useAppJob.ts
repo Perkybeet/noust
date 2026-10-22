@@ -9,7 +9,7 @@ import type { MessageKey } from "../../i18n";
 
 /** How a job on an app is named while it runs and when it ends (the backend's JobType). */
 const JOB_KEYS: Readonly<Record<string, { running: MessageKey; title: MessageKey; failed: MessageKey }>> = {
-  deploy: { running: "appPages.job.deploy.running", title: "appPages.job.deploy.title", failed: "appPages.job.deploy.failed" },
+  deploy: { running: "common.statusPill.deploying", title: "appPages.job.deploy.title", failed: "appPages.job.deploy.failed" },
   update: { running: "appPages.job.update.running", title: "appPages.job.update.title", failed: "appPages.job.update.failed" },
   rollback: { running: "appPages.job.rollback.running", title: "appPages.job.rollback.title", failed: "appPages.job.rollback.failed" },
   restore: { running: "appPages.job.restore.running", title: "appPages.job.restore.title", failed: "appPages.job.restore.failed" },

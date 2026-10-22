@@ -28,7 +28,4 @@ export const workspaces = {
   queuedTitle: "The applications are being created",
   queuedBody: "Each one builds on its own. Follow it from its page.",
   open_app: "Open {domain}",
-  close: "Close",
-  cancel: "Cancel",
-  fromTerminal: "The same, from a terminal",
 } as const;

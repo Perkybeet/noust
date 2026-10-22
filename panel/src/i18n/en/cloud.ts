@@ -6,12 +6,7 @@ export const cloud = {
     loadingLabel: "Loading the servers and accounts",
   },
 
-  common: {
-    cancel: "Cancel",
-    close: "Close",
-  },
 
-  fromTerminal: "From a terminal",
 
   provider: {
     hetzner: {
@@ -38,7 +33,6 @@ export const cloud = {
     replaceDescription: "The new token is checked with the provider before it replaces the old one.",
     add: "Add account",
     replace: "Replace token",
-    name: "Name",
     nameHelp: "What you call this account here. Lower-case letters, digits and dashes.",
     nameInvalid: "Use 1 to 32 lower-case letters, digits and dashes, such as hetzner-prod.",
     provider: "Provider",
@@ -81,7 +75,6 @@ export const cloud = {
     noNote: "No note",
     verify: "Check the token now",
     replaceToken: "Replace the token",
-    remove: "Remove",
     removeTitle: "Remove the account {name}?",
     removeBody: "Its token is deleted from this central. Servers already created keep running at the provider.",
     removeForce: "Servers made with this account are still on record. Without its token this central cannot delete them or read their power state. Remove it anyway?",
@@ -112,28 +105,23 @@ export const cloud = {
     kindConfig: "#cloud-config",
     kindConfigHelp: "A fragment of cloud-init settings: packages, files, commands.",
     column: {
-      name: "Name",
       kind: "Kind",
       size: "Size",
       description: "What it does",
     },
     noDescription: "No description",
     view: "View",
-    edit: "Edit",
     copy: "Copy as a new script",
-    delete: "Delete",
     deleteTitle: "Delete {name}?",
     deleteBody: "Servers already created keep what it did. New ones will not run it.",
     deleteAction: "Delete script",
     savedToast: "Script {name} saved",
     deletedToast: "Script {name} deleted",
     viewTitle: "{name}",
-    editTitle: "Edit {name}",
     newTitle: "New boot script",
     builtinNote: "This one ships with Noust and cannot be changed. Copy it to start your own.",
     dialogDescription: "It is checked when you save it: the server tells you why when it is refused.",
     save: "Save script",
-    name: "Name",
     nameHelp: "Lower-case letters, digits, dots, dashes and underscores.",
     nameInvalid: "Use 1 to 64 lower-case letters, digits, dots, dashes and underscores, such as swap-4g.",
     kind: "Kind",
@@ -205,7 +193,6 @@ export const cloud = {
       review: "Review",
       create: "Create",
     },
-    name: "Name",
     nameHelp: "What the server is called here and at the provider. Lower-case letters, digits and dashes.",
     account: "Provider account",
     accountHelp: "The token it is created with.",
@@ -213,8 +200,6 @@ export const cloud = {
     noAccountTitle: "Add a provider account first",
     noAccountBody: "Creating a server needs a token of your provider.",
     howItWorks: "This central chooses the server's SSH host key before the machine exists and checks it when it answers, logs in once with a key it generates and then forgets, and joins the server exactly as 'Add a server' does. No fleet token travels to the provider.",
-    next: "Next",
-    back: "Back",
     toReview: "Review",
     problem: {
       name: "Use 1 to 32 lower-case letters, digits and dashes, such as web-2.",
@@ -255,7 +240,6 @@ export const cloud = {
     deleteOnFailure: "Delete the machine if it does not join the fleet",
     deleteOnFailureHelp: "Otherwise it stays, with the reason, so you can look at it. It is billed until you delete it.",
     review: {
-      name: "Name",
       provider: "Provider",
       where: "Location",
       plan: "Size",
@@ -284,7 +268,5 @@ export const cloud = {
       tryAgain: "Back to the review",
       failedHint: "If the machine was created it is on record under Servers created here, with the reason, and billed until you delete it.",
     },
-    done: "Done",
-    close: "Close",
   },
 } as const;

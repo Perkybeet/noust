@@ -32,8 +32,6 @@ export const volumeBackups = {
     action: "Set a policy",
   },
   actions: {
-    for: "Actions for {domain}",
-    runNow: "Back up now",
     edit: "Edit the policy",
     open: "Open its backups",
     remove: "Remove the policy",
@@ -139,7 +137,6 @@ export const volumeBackups = {
     enabledHelp: "Off, the policy keeps its settings and nothing runs.",
     save: "Save policy",
     saveFailed: "Could not save the policy",
-    cancel: "Cancel",
     pathsInvalid: "A folder is a relative path inside the application's data, without .. or a leading slash: {entries}.",
   },
   table: {
@@ -158,7 +155,6 @@ export const volumeBackups = {
     restore: "Restore…",
     verify: "Check it",
     push: "Send to…",
-    delete: "Delete",
   },
   restore: {
     title: "Restore the data of {domain}",

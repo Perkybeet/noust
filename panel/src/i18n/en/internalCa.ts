@@ -28,8 +28,6 @@ export const internalCa = {
   signsRangesLabel: "And for addresses in",
   keptLabel: "Certificates kept",
   trustedHereLabel: "Trusted by this server",
-  yes: "Yes",
-  no: "No",
   downloadPem: "Download the certificate (.crt)",
   downloadDer: "Download for Windows or Android (.cer)",
   trustHere: "Trust it on this server",

@@ -5,14 +5,7 @@ export const backups: Catalog<typeof en> = {
   area: "Copias de seguridad",
 
   common: {
-    cancel: "Cancelar",
-    save: "Guardar",
-    close: "Cerrar",
-    edit: "Editar",
-    add: "Añadir",
     restore: "Restaurar",
-    clearFilters: "Quitar filtros",
-    fromTerminal: "Desde un terminal",
   },
 
   fields: {
@@ -30,7 +23,6 @@ export const backups: Catalog<typeof en> = {
   page: {
     title: "Copias de seguridad",
     description: "Copias de los archivos, el .env y las bases de datos de tus apps, y cuándo se hacen.",
-    backUpNow: "Hacer copia ahora",
     loadError: "No se pudieron cargar las copias de seguridad",
   },
 
@@ -67,7 +59,6 @@ export const backups: Catalog<typeof en> = {
     count: { one: "{count} aplicación", other: "{count} aplicaciones" },
     countFiltered: "{shown} de {total} aplicaciones",
     noMatch: "Ninguna aplicación coincide con estos filtros.",
-    actionsFor: "Acciones de {domain}",
     removed: "Ya no está desplegada",
     notScheduled: "Sin programar",
     copiedTo: "También se copia a {names}",
@@ -86,7 +77,6 @@ export const backups: Catalog<typeof en> = {
       never: "Sin copias",
     },
     actions: {
-      backUpNow: "Hacer copia ahora",
       viewBackups: "Ver copias",
       restoreLatest: "Restaurar la última…",
       schedule: "Programar copias…",
@@ -116,14 +106,12 @@ export const backups: Catalog<typeof en> = {
     notQueued: "No se puso en cola la prueba de restauración de {domain}",
     empty: "Todavía no se ha hecho ninguna prueba. Haz una para saber que la última copia se recupera.",
     passed: "Superada",
-    failed: "Fallida",
     byTimer: "Programada",
     byHand: "A mano",
     steps: { one: "{count} paso", other: "{count} pasos" },
     stepOutput: "Salida del paso {name}",
     stepsLabel: "Lo que comprobó la prueba",
     stepOk: "Superado",
-    stepFailed: "Fallido",
     skipped: "No se intentó",
   },
   history: {
@@ -135,7 +123,6 @@ export const backups: Catalog<typeof en> = {
     },
     caption: "Copias de {domain}",
     empty: "Todavía no hay copias de {domain}.",
-    backUpNow: "Hacer copia ahora",
     actionsFor: "Acciones de {id}",
     columns: {
       created: "Creada",
@@ -323,7 +310,6 @@ export const backups: Catalog<typeof en> = {
     maxAgeShort: "Días",
     maxAgeDescription: "En blanco las conserva tengan la antigüedad que tengan.",
     maxAgeOn: "Eliminar tras (días) en {name}",
-    removeDestination: "Quitar {name}",
     dumpDatabases: "Incluir sus bases de datos",
     destinationsLegend: "Copiar también a",
     destinationsHint: "Cada copia se envía también a estos destinos. Sus límites son opcionales: en blanco se conserva cada copia enviada.",
@@ -343,7 +329,6 @@ export const backups: Catalog<typeof en> = {
     add: "Añadir destino",
     loadError: "No se pudieron cargar los destinos",
     caption: "Destinos de copias de seguridad",
-    actionsFor: "Acciones de {name}",
     encrypted: "Cifrado",
     notEncrypted: "No cifrado",
     credentials: {
@@ -358,9 +343,7 @@ export const backups: Catalog<typeof en> = {
       failed: "No se pudieron cifrar las credenciales",
     },
     showKey: "Mostrar clave de cifrado",
-    remove: "Quitar",
     columns: {
-      name: "Nombre",
       connection: "Conexión",
       backend: "Tipo",
       encryption: "Cifrado",
@@ -379,7 +362,6 @@ export const backups: Catalog<typeof en> = {
       unreachable: "No se pudo contactar con {name}",
     },
     removeDialog: {
-      title: "Quitar {name}",
       leftBehindKeyed: "Las copias ya enviadas allí se quedan allí, legibles solo con la clave que guardaste.",
       leftBehind: "Las copias ya enviadas allí se quedan allí.",
       descriptionForce: "Una programación todavía copia aquí. Quitarlo de todas formas lo saca de esas programaciones. {leftBehind}",
@@ -395,10 +377,8 @@ export const backups: Catalog<typeof en> = {
 
   destinationDialog: {
     titleNew: "Añadir destino de copias de seguridad",
-    titleEdit: "Editar {name}",
     description: "Otro sitio al que se copian las copias de seguridad, con una programación o a mano.",
     add: "Añadir destino",
-    nameLabel: "Nombre",
     nameDescription: "Letras minúsculas, dígitos y '-'. También da nombre al remoto de rclone.",
     backendLabel: "Backend",
     chooseBackend: "Elige un backend",
@@ -435,7 +415,6 @@ export const backups: Catalog<typeof en> = {
     savedLabel: "He guardado esta clave en un lugar seguro",
     nudge: "Guarda la clave y marca la casilla primero. Perderla hace que todas las copias de seguridad de este destino queden irrecuperables.",
     continueToRemove: "Continuar para quitarlo",
-    done: "Hecho",
     error: "No se pudo leer la clave",
   },
 

@@ -150,7 +150,7 @@ export function RolloutDialog({ placement, members, onClose }: RolloutDialogProp
           {...(step === "plan"
             ? {
                 back: {
-                  label: t("placements.rollout.back"),
+                  label: t("common.words.back"),
                   onClick: () => {
                     if (planning.isPending || running.isPending) return;
                     planning.reset();
@@ -349,7 +349,7 @@ export function CopyDialog({ placement, servers, onClose }: CopyDialogProps) {
           {...(step === "plan"
             ? {
                 back: {
-                  label: t("placements.copy.back"),
+                  label: t("common.words.back"),
                   onClick: () => {
                     if (planning.isPending || running.isPending) return;
                     planning.reset();

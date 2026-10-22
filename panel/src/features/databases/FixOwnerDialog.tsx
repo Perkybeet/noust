@@ -49,7 +49,7 @@ export function FixOwnerDialog({ engine, name, owner, onClose }: FixOwnerDialogP
       description={t("databases.fixOwner.description")}
       footer={
         <>
-          <Button onClick={onClose}>{t("databases.common.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           <Button variant="primary" loading={apply.isPending} disabled={plan.data === undefined || nothing} onClick={() => apply.mutate()}>
             {t("databases.fixOwner.apply")}
           </Button>

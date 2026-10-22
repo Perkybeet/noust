@@ -11,35 +11,35 @@ describe("serviceState", () => {
   it("is running when active and systemd reports nothing more specific", () => {
     expect(serviceState({ active: true, active_state: null, sub_state: null, result: null })).toEqual({
       state: "running",
-      label: "services.state.running",
+      label: "common.statusPill.running",
     });
     // Falls back to the bare `active` flag when the finer fields are absent entirely.
-    expect(serviceState({ active: true })).toEqual({ state: "running", label: "services.state.running" });
+    expect(serviceState({ active: true })).toEqual({ state: "running", label: "common.statusPill.running" });
   });
 
   it("is running when active_state says active, even with a quiet sub_state", () => {
     expect(
       serviceState({ active: true, active_state: "active", sub_state: "running", result: "success" }),
-    ).toEqual({ state: "running", label: "services.state.running" });
+    ).toEqual({ state: "running", label: "common.statusPill.running" });
   });
 
   it("is stopped when inactive and nothing says otherwise", () => {
     expect(serviceState({ active: false, active_state: "inactive", sub_state: "dead", result: "success" })).toEqual({
       state: "stopped",
-      label: "services.state.stopped",
+      label: "common.statusPill.stopped",
     });
-    expect(serviceState({ active: false })).toEqual({ state: "stopped", label: "services.state.stopped" });
+    expect(serviceState({ active: false })).toEqual({ state: "stopped", label: "common.statusPill.stopped" });
   });
 
   it("is failed - the state word stays Failed - with systemd's own result word as a separate detail", () => {
     expect(serviceState({ active: false, active_state: "failed", sub_state: "failed", result: "exit-code" })).toEqual({
       state: "failed",
-      label: "services.state.failed",
+      label: "common.statusPill.failed",
       detail: "exit-code",
     });
     expect(serviceState({ active: false, active_state: "failed", sub_state: "failed", result: "signal" })).toEqual({
       state: "failed",
-      label: "services.state.failed",
+      label: "common.statusPill.failed",
       detail: "signal",
     });
   });
@@ -47,11 +47,11 @@ describe("serviceState", () => {
   it("is failed without a specific word when result is missing or success", () => {
     expect(serviceState({ active: false, active_state: "failed", sub_state: "failed", result: null })).toEqual({
       state: "failed",
-      label: "services.state.failed",
+      label: "common.statusPill.failed",
     });
     expect(serviceState({ active: false, active_state: "failed", sub_state: "failed", result: "success" })).toEqual({
       state: "failed",
-      label: "services.state.failed",
+      label: "common.statusPill.failed",
     });
   });
 

@@ -8,12 +8,7 @@ export const cloud: Catalog<typeof en> = {
     loadingLabel: "Cargando los servidores y las cuentas",
   },
 
-  common: {
-    cancel: "Cancelar",
-    close: "Cerrar",
-  },
 
-  fromTerminal: "Desde un terminal",
 
   provider: {
     hetzner: {
@@ -38,7 +33,6 @@ export const cloud: Catalog<typeof en> = {
     replaceDescription: "El nuevo token se comprueba con el proveedor antes de sustituir al anterior.",
     add: "Añadir cuenta",
     replace: "Cambiar token",
-    name: "Nombre",
     nameHelp: "Cómo llamas a esta cuenta aquí. Letras minúsculas, dígitos y guiones.",
     nameInvalid: "Usa de 1 a 32 letras minúsculas, dígitos y guiones, como hetzner-prod.",
     provider: "Proveedor",
@@ -78,7 +72,6 @@ export const cloud: Catalog<typeof en> = {
     noNote: "Sin nota",
     verify: "Comprobar el token ahora",
     replaceToken: "Cambiar el token",
-    remove: "Quitar",
     removeTitle: "¿Quitar la cuenta {name}?",
     removeBody: "Su token se elimina de esta central. Los servidores ya creados siguen funcionando en el proveedor.",
     removeForce:
@@ -107,28 +100,23 @@ export const cloud: Catalog<typeof en> = {
     kindConfig: "#cloud-config",
     kindConfigHelp: "Un fragmento de ajustes de cloud-init: paquetes, archivos, órdenes.",
     column: {
-      name: "Nombre",
       kind: "Tipo",
       size: "Tamaño",
       description: "Qué hace",
     },
     noDescription: "Sin descripción",
     view: "Ver",
-    edit: "Editar",
     copy: "Copiar como script nuevo",
-    delete: "Eliminar",
     deleteTitle: "¿Eliminar {name}?",
     deleteBody: "Los servidores ya creados conservan lo que hizo. Los nuevos no lo ejecutarán.",
     deleteAction: "Eliminar script",
     savedToast: "Script {name} guardado",
     deletedToast: "Script {name} eliminado",
     viewTitle: "{name}",
-    editTitle: "Editar {name}",
     newTitle: "Nuevo script de arranque",
     builtinNote: "Este viene con Noust y no se puede cambiar. Cópialo para empezar el tuyo.",
     dialogDescription: "Se comprueba al guardarlo: el servidor dice por qué si lo rechaza.",
     save: "Guardar script",
-    name: "Nombre",
     nameHelp: "Letras minúsculas, dígitos, puntos, guiones y guiones bajos.",
     nameInvalid: "Usa de 1 a 64 letras minúsculas, dígitos, puntos, guiones y guiones bajos, como swap-4g.",
     kind: "Tipo",
@@ -195,7 +183,6 @@ export const cloud: Catalog<typeof en> = {
       review: "Revisar",
       create: "Crear",
     },
-    name: "Nombre",
     nameHelp: "Cómo se llama el servidor aquí y en el proveedor. Letras minúsculas, dígitos y guiones.",
     account: "Cuenta de proveedor",
     accountHelp: "El token con el que se crea.",
@@ -203,8 +190,6 @@ export const cloud: Catalog<typeof en> = {
     noAccountTitle: "Añade primero una cuenta de proveedor",
     noAccountBody: "Crear un servidor necesita un token de tu proveedor.",
     howItWorks: "Esta central elige la clave de host SSH del servidor antes de que exista la máquina y la comprueba cuando responde, entra una sola vez con una clave que genera y luego olvida, y une el servidor exactamente como «Añadir un servidor». Ningún token de flota viaja al proveedor.",
-    next: "Siguiente",
-    back: "Atrás",
     toReview: "Revisar",
     problem: {
       name: "Usa de 1 a 32 letras minúsculas, dígitos y guiones, como web-2.",
@@ -245,7 +230,6 @@ export const cloud: Catalog<typeof en> = {
     deleteOnFailure: "Eliminar la máquina si no se une a la flota",
     deleteOnFailureHelp: "Si no, se queda, con el motivo, para que puedas mirarla. Se factura hasta que la elimines.",
     review: {
-      name: "Nombre",
       provider: "Proveedor",
       where: "Ubicación",
       plan: "Tamaño",
@@ -274,7 +258,5 @@ export const cloud: Catalog<typeof en> = {
       tryAgain: "Volver a la revisión",
       failedHint: "Si la máquina llegó a crearse consta en Servidores creados aquí, con el motivo, y se factura hasta que la elimines.",
     },
-    done: "Hecho",
-    close: "Cerrar",
   },
 };

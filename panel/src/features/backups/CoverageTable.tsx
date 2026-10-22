@@ -37,10 +37,10 @@ export interface CoverageActions {
 function RowActions({ row, actions }: { row: CoverageRow; actions: CoverageActions }) {
   const t = useT();
   return (
-    <Menu align="end" trigger={<IconButton label={t("backups.coverage.actionsFor", { domain: row.domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+    <Menu align="end" trigger={<IconButton label={t("common.words.actionsForDomain", { domain: row.domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
       {row.deployed ? (
         <MenuItem icon={<Play />} onClick={() => actions.onBackUp(row.domain)}>
-          {t("backups.coverage.actions.backUpNow")}
+          {t("common.words.backUpNow")}
         </MenuItem>
       ) : null}
       <MenuItem icon={<History />} onClick={() => actions.onOpen(row)}>

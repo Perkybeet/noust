@@ -166,9 +166,9 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
         onRowActivate={openRow}
         mobile="cards"
         rowActions={(row) => (
-          <Menu align="end" trigger={<IconButton size="sm" label={t("volumeBackups.actions.for", { domain: row.domain })} icon={<ICONS.more />} tooltip={false} />}>
+          <Menu align="end" trigger={<IconButton size="sm" label={t("common.words.actionsForDomain", { domain: row.domain })} icon={<ICONS.more />} tooltip={false} />}>
             <MenuItem disabled={job.busy || run.isPending} onClick={() => run.mutate(row)}>
-              {t("volumeBackups.actions.runNow")}
+              {t("common.words.backUpNow")}
             </MenuItem>
             <MenuItem onClick={() => setEditing({ domain: row.domain, policy: row.policy })}>{row.policy === null ? t("volumeBackups.detail.setPolicy") : t("volumeBackups.actions.edit")}</MenuItem>
             <MenuItem onClick={() => openRow(row)}>{t("volumeBackups.actions.open")}</MenuItem>
@@ -194,7 +194,7 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
         </Button>
       }
       {...(job.notice !== null ? { notice: job.notice } : {})}
-      {...(rows.length > 0 ? { footer: <CommandHint command="noust backup volumes schedule set shop.example.com --schedule daily" label={t("backups.common.fromTerminal")} /> } : {})}
+      {...(rows.length > 0 ? { footer: <CommandHint command="noust backup volumes schedule set shop.example.com --schedule daily" label={t("common.words.fromTerminal")} /> } : {})}
     >
       {content}
 

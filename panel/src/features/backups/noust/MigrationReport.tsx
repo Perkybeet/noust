@@ -7,7 +7,7 @@ import type { T } from "../../../i18n";
 import type { MigrationReportView } from "./migration";
 
 function stateWord(t: T, state: string): string {
-  return state === "done" ? t("selfBackup.migrate.report.copied") : state === "failed" ? t("selfBackup.migrate.report.failed") : t("selfBackup.migrate.report.skipped");
+  return state === "done" ? t("selfBackup.migrate.report.copied") : state === "failed" ? t("common.statusPill.failed") : t("selfBackup.migrate.report.skipped");
 }
 
 /**
@@ -40,7 +40,7 @@ export function MigrationReport({ report }: { report: MigrationReportView }) {
             ))}
           </ol>
         </div>
-        <CommandHint command="noust server migrate check" label={t("backups.common.fromTerminal")} />
+        <CommandHint command="noust server migrate check" label={t("common.words.fromTerminal")} />
       </div>
     </Notice>
   );

@@ -81,7 +81,7 @@ function SaveDialog({ open, onOpenChange, engine, name, statement }: { open: boo
       description={t("databases.query.saveDescription")}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form="save-query-form" variant="primary" loading={save.isPending}>
             {t("databases.query.saveAction")}
           </Button>
@@ -89,7 +89,7 @@ function SaveDialog({ open, onOpenChange, engine, name, statement }: { open: boo
       }
     >
       <form id="save-query-form" noValidate onSubmit={submit} className="flex flex-col gap-5">
-        <Field label={t("databases.query.saveName")} error={error}>
+        <Field label={t("common.words.name")} error={error}>
           <Input value={label} onValueChange={(value: string) => setLabel(value)} maxLength={120} />
         </Field>
         <Checkbox checked={anyDatabase} onCheckedChange={setAnyDatabase} label={t("databases.query.anyDatabase")} description={t("databases.query.anyDatabaseHelp")} />
@@ -226,7 +226,7 @@ export function QueryTab({ engine, name }: { engine: string; name: string }) {
                 <MenuItem onClick={() => plan(true)}>{t("databases.query.explainAnalyze")}</MenuItem>
               </Menu>
               <Button size="sm" variant="ghost" icon={<Save aria-hidden="true" />} onClick={() => setSaving(statementOf(editor.current, text))} disabled={text.trim() === ""}>
-                {t("databases.query.save")}
+                {t("common.words.save")}
               </Button>
               {!wide ? (
                 <Button size="sm" variant="ghost" icon={<History aria-hidden="true" />} onClick={() => setLibraryOpen(true)}>
@@ -323,7 +323,7 @@ export function QueryTab({ engine, name }: { engine: string; name: string }) {
         </div>
         {wide ? <aside className="w-80 shrink-0">{library}</aside> : null}
       </div>
-      <CommandHint command={`noust db query ${name} "SELECT 1" -e ${engine}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db query ${name} "SELECT 1" -e ${engine}`} label={t("common.words.fromTerminal")} />
       {!wide ? (
         <Drawer open={libraryOpen} onOpenChange={setLibraryOpen} size="md" title={t("databases.query.library")}>
           {library}

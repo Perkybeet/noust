@@ -65,7 +65,6 @@ export const manifestPreview: Catalog<typeof en> = {
     appEnv: "Fijar variables",
     appBackups: "Programar copias",
   },
-  command: "Desde un terminal",
   commandPlan: "noust --context prod manifest plan noust-manifest.yaml",
   commandExport: "noust --context prod manifest export > noust-manifest.yaml",
 };

@@ -65,7 +65,6 @@ export const manifestPreview = {
     appEnv: "Set variables",
     appBackups: "Schedule backups",
   },
-  command: "From a terminal",
   commandPlan: "noust --context prod manifest plan noust-manifest.yaml",
   commandExport: "noust --context prod manifest export > noust-manifest.yaml",
 } as const;

@@ -92,8 +92,8 @@ export function sortEngines<T extends { name: string }>(engines: readonly T[]): 
 /** An engine's life on this machine, as a state of the console's vocabulary. */
 export function engineState(engine: Pick<Engine, "installed" | "running">): { state: Status; label: PlainKey } {
   if (!engine.installed) return { state: "stopped", label: "databases.engine.state.notInstalled" };
-  if (engine.running) return { state: "running", label: "databases.engine.state.running" };
-  return { state: "stopped", label: "databases.engine.state.stopped" };
+  if (engine.running) return { state: "running", label: "common.statusPill.running" };
+  return { state: "stopped", label: "common.statusPill.stopped" };
 }
 
 type SupportStatus = "ended" | "ending_soon" | "supported";

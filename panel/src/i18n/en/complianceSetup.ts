@@ -91,7 +91,6 @@ export const complianceSetup = {
       value: "Value",
       noLimit: "No limit",
       stricter: "A framework asks for {floor} or stricter.",
-      save: "Save",
       failed: "Could not change the control",
     },
   },

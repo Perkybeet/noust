@@ -18,13 +18,11 @@ export const apps: Catalog<typeof en> = {
     everyState: "Cualquier estado",
     typeLabel: "Tipo",
     everyType: "Cualquier tipo",
-    clearFilters: "Quitar filtros",
     count: { one: "{count} aplicación", other: "{count} aplicaciones" },
     countFiltered: "{shown} de {total} aplicaciones",
     caption: "Aplicaciones",
     captionFiltered: "Aplicaciones que coinciden con los filtros",
     noMatchTitle: "Ninguna aplicación coincide con estos filtros",
-    fromTerminal: "Desde un terminal",
   },
   table: {
     columnState: "Estado",
@@ -39,11 +37,8 @@ export const apps: Catalog<typeof en> = {
     previewOf: "Vista previa de {parent}",
   },
   rowActions: {
-    aria: "Acciones de {domain}",
     open: "Abrir",
     logs: "Registros",
-    restart: "Reiniciar",
-    update: "Actualizar",
   },
   bulk: {
     selectColumn: "Seleccionar",
@@ -67,7 +62,6 @@ export const apps: Catalog<typeof en> = {
     updateNote: "Las actualizaciones se encolan y se construyen de una en una.",
     working: "En curso",
     nothingNew: "Nada nuevo que desplegar",
-    failed: "Fallida",
     held: "No hecha",
     waitingApproval: "Espera a que otra persona la apruebe.",
     summary: "Por hacer: {run} de {total}. Omitidas: {skipped}.",
@@ -80,11 +74,9 @@ export const apps: Catalog<typeof en> = {
       start: { one: "Iniciar {count} aplicación", other: "Iniciar {count} aplicaciones" },
     },
     retry: "Reintentar las fallidas",
-    close: "Cerrar",
   },
   nothingNew: {
     title: "No hay nada nuevo que desplegar en {domain}",
-    cancel: "Cancelar",
     rebuildAnyway: "Recompilar de todos modos",
   },
   actions: {

@@ -126,22 +126,22 @@ function RuleRow({ rule, metrics }: { rule: AlertRule; metrics: readonly AlertMe
           />
           <Button
             size="sm"
-            aria-label={t("alerts.rules.editLabel", { name: rule.name })}
+            aria-label={t("common.words.editNamed", { name: rule.name })}
             onClick={() => {
               setEditing(true);
             }}
           >
-            {t("alerts.rules.edit")}
+            {t("common.words.edit")}
           </Button>
           <Button
             size="sm"
             variant="ghost"
-            aria-label={t("alerts.rules.removeLabel", { name: rule.name })}
+            aria-label={t("common.words.removeNamed", { name: rule.name })}
             onClick={() => {
               setRemoving(true);
             }}
           >
-            {t("alerts.rules.remove")}
+            {t("common.words.remove")}
           </Button>
         </div>
       </div>
@@ -157,9 +157,9 @@ function RuleRow({ rule, metrics }: { rule: AlertRule; metrics: readonly AlertMe
         friction="simple"
         open={removing}
         onOpenChange={setRemoving}
-        title={t("alerts.rules.removeTitle", { name: rule.name })}
+        title={t("common.words.removeNamedQuestion", { name: rule.name })}
         description={t("alerts.rules.removeDescription")}
-        actionLabel={t("alerts.rules.remove")}
+        actionLabel={t("common.words.remove")}
         destructive
         onConfirm={async () => {
           await removeAlertRule(rule.name);

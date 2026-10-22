@@ -115,7 +115,6 @@ export const DIVERGENCE_EXCEPTIONS: Readonly<Record<string, string>> = {
   Live: "two senses the glossary keeps apart: \"En producción\" (the version that serves) and \"En directo\" (a stream)",
   Open: "a verb (\"Abrir\", a button) and a firewall verdict (\"Abierto\")",
   Reboot: "a noun (\"Reinicio\", a column) and a verb (\"Reiniciar\", a button)",
-  "Remove {name}": "a person takes the personal a (\"Quitar a {name}\"), a thing does not",
   "Removed {name}": "a person takes the personal a (\"Se quitó a {name}\"), a thing does not",
   Runs: "\"Se ejecuta\" (when it runs) and \"Ejecuciones\" (the runs, a plural noun)",
   Search: "a noun (\"Búsqueda\", a category) and a verb (\"Buscar\", a placeholder)",

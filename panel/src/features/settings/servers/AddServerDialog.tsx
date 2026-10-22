@@ -333,7 +333,7 @@ export function AddServerDialog({ open, onClose }: AddServerDialogProps) {
         </Notice>
         <form id={nameFormId} noValidate onSubmit={submitName} className="flex flex-col gap-4">
           <Field
-            label={t("servers.add.name.label")}
+            label={t("common.words.name")}
             description={t("servers.add.name.description")}
             error={nameError}
             action={
@@ -391,7 +391,7 @@ export function AddServerDialog({ open, onClose }: AddServerDialogProps) {
       <Fragment key="authorize">
         <WizardActions
           className="w-full"
-          back={{ label: t("servers.add.cancel"), onClick: close }}
+          back={{ label: t("common.words.cancel"), onClick: close }}
           next={{
             label: t("servers.add.next"),
             onClick: () => {
@@ -462,7 +462,7 @@ export function AddServerDialog({ open, onClose }: AddServerDialogProps) {
         <WizardActions
           className="w-full"
           back={{
-            label: t("servers.add.back"),
+            label: t("common.words.back"),
             onClick: () => {
               if (!add.isPending) setStep("authorize");
             },
@@ -482,12 +482,12 @@ export function AddServerDialog({ open, onClose }: AddServerDialogProps) {
       added !== null ? (
         <Fragment key="done">
           <Button variant="primary" onClick={close}>
-            {t("servers.add.done")}
+            {t("common.words.done")}
           </Button>
         </Fragment>
       ) : (
         <Fragment key="try-again">
-          <Button onClick={close}>{t("servers.add.cancel")}</Button>
+          <Button onClick={close}>{t("common.words.cancel")}</Button>
           <Button
             type="button"
             variant="primary"

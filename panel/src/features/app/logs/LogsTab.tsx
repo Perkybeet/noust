@@ -99,7 +99,7 @@ function Journal({ domain, t }: { domain: string; t: T }) {
           emptyMessage={stream.status === "open" ? t("appPages.logs.emptyOpen") : t("appPages.logs.emptyConnecting")}
         />
       </div>
-      <CommandHint command={`noust logs ${domain} --follow`} label={t("appPages.fromTerminal")} />
+      <CommandHint command={`noust logs ${domain} --follow`} label={t("common.words.fromTerminal")} />
     </div>
   );
 }
@@ -182,7 +182,7 @@ function SiteLogs({ domain, kind, t }: { domain: string; kind: SiteLogKind; t: T
           emptyMessage={t("appPages.logs.siteEmpty")}
         />
       </div>
-      <CommandHint command={`noust site logs ${domain} --kind ${kind}`} label={t("appPages.fromTerminal")} />
+      <CommandHint command={`noust site logs ${domain} --kind ${kind}`} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

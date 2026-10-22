@@ -139,7 +139,7 @@ export function UnitFilePage({ name }: { name: string }) {
         testing: verifyUnit.isPending && !updateConfig.isPending,
         saving: updateConfig.isPending,
       }}
-      footer={<CommandHint command={`noust service status ${name}`} label={t("services.fromTerminal")} />}
+      footer={<CommandHint command={`noust service status ${name}`} label={t("common.words.fromTerminal")} />}
     >
       <QueryState query={config} label={t("services.unitEditor.what")} skeleton={<Skeleton className="h-96 w-full rounded-control" />}>
         {() =>

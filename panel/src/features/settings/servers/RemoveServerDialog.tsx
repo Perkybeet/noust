@@ -36,7 +36,7 @@ export function RemoveServerDialog({ name, open, onOpenChange }: RemoveServerDia
       <ConfirmDialog
         open={open}
         onOpenChange={onOpenChange}
-        title={t("servers.settings.removeDialog.title", { name })}
+        title={t("common.words.removeNamedQuestion", { name })}
         description={
           <>
             {t("servers.settings.removeDialog.description", { name })}

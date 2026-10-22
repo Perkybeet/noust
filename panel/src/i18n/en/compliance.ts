@@ -32,7 +32,6 @@ export const compliance = {
     partialTitle: "Some checks could not run",
     partial: "Their results are missing from what follows. What the server says:",
     partialLabel: "Checks that could not run",
-    fromTerminal: "From a terminal",
   },
   verdict: {
     fail: { one: "{count} check is not met", other: "{count} checks are not met" },

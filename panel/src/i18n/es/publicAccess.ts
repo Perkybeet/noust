@@ -57,8 +57,6 @@ export const publicAccess: Catalog<typeof en> = {
       choose: "Elegir",
       review: "Revisar",
     },
-    cancel: "Cancelar",
-    back: "Atrás",
     review: "Revisar",
     submit: "Abrir el acceso",
     port: "Puerto",

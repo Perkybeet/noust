@@ -16,7 +16,7 @@ export function ProbeSettings() {
     <Sections>
       <ProbeList />
       <StatusPageSection />
-      <CommandHint command="noust probe list" label={t("probes.fromTerminal")} />
+      <CommandHint command="noust probe list" label={t("common.words.fromTerminal")} />
     </Sections>
   );
 }

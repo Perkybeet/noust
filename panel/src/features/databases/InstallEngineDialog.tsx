@@ -100,7 +100,7 @@ export function InstallEngineDialog({ open, onOpenChange, engine: preset, onQueu
       description={t("databases.install.description")}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" icon={<Download aria-hidden="true" />} loading={install.isPending} disabled={chosen === undefined}>
             {chosen !== undefined ? t("databases.install.submit", { engine: chosen.display_name }) : t("databases.engines.install")}
           </Button>

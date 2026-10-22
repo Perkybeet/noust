@@ -59,7 +59,6 @@ export const approvals: Catalog<typeof en> = {
     reasonHint: "Se guarda con la solicitud y en el registro de auditoría.",
     reasonMissing: "Di por qué lo necesitas.",
     ask: "Pedir aprobación",
-    cancel: "Cancelar",
     waitingTitle: "Esperando la aprobación",
     waitingDescription: "Otra persona tiene que aprobarlo antes de que se ejecute: {approvers}. Este diálogo se actualiza cuando lo decidan.",
     approvedTitle: "Aprobada",
@@ -71,7 +70,6 @@ export const approvals: Catalog<typeof en> = {
     leaveWaiting: "Dejarla pendiente",
     later: "Más tarde",
     runNow: "Ejecutar ahora",
-    close: "Cerrar",
     openInbox: "Abrir aprobaciones",
     loadFailed: "No se pudo comprobar la solicitud",
   },
@@ -109,7 +107,6 @@ export const approvals: Catalog<typeof en> = {
     noneWaiting: "Nada espera aprobación.",
     none: "No hay solicitudes aquí.",
     what: "las solicitudes",
-    fromTerminal: "Desde un terminal",
   },
   table: {
     request: "Solicitud",

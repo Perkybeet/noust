@@ -151,7 +151,7 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
       description={scope === "all" ? t("policyScope.drawer.descriptionAll", { engine: display }) : t("databases.policy.description", { name })}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {t("databases.policy.save")}
           </Button>

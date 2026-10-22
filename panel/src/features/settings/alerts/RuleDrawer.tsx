@@ -82,7 +82,7 @@ export function RuleDrawer({ rule, metrics, open, onOpenChange }: RuleDrawerProp
         if (!next) reset();
         onOpenChange(next);
       }}
-      title={rule === undefined ? t("alerts.form.newTitle") : t("alerts.form.editTitle", { name: rule.name })}
+      title={rule === undefined ? t("alerts.form.newTitle") : t("common.words.editNamed", { name: rule.name })}
       description={t("alerts.form.description")}
       footer={
         <>
@@ -103,7 +103,7 @@ export function RuleDrawer({ rule, metrics, open, onOpenChange }: RuleDrawerProp
     >
       <form id={formId} noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-5">
         <FormFailure error={split.form} title={t("alerts.form.saveErrorTitle")} />
-        <Field label={t("alerts.form.nameLabel")} description={t("alerts.form.nameDescription")} error={message("name")}>
+        <Field label={t("common.words.name")} description={t("alerts.form.nameDescription")} error={message("name")}>
           <Input
             mono
             autoComplete="off"

@@ -32,7 +32,7 @@ import type { InstanceActions } from "./useInstanceActions";
 /** What Docker says of an instance, as the state the console draws and its word. */
 function stateOf(t: T, instance: DbInstance): { state: "running" | "stopped" | "deploying" | "unknown"; word: string } {
   if (instance.state !== "ready") return { state: "deploying", word: t("databases.instances.states.changing") };
-  if (instance.running) return { state: "running", word: t("databases.instances.states.running") };
+  if (instance.running) return { state: "running", word: t("common.statusPill.running") };
   if (instance.status === "stopped") return { state: "stopped", word: t("databases.instances.states.stopped") };
   return { state: "unknown", word: t("databases.instances.states.other") };
 }
@@ -41,7 +41,7 @@ function stateOf(t: T, instance: DbInstance): { state: "running" | "stopped" | "
 function moveState(t: T, state: string): string {
   switch (state) {
     case "done":
-      return t("databases.moves.states.done");
+      return t("common.words.done");
     case "failed":
       return t("databases.moves.states.failed");
     case "rolled_back":
@@ -189,7 +189,7 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
   const budget = query.data?.budget;
 
   const columns: Column<DbInstance>[] = [
-    { id: "name", header: t("databases.instances.name"), card: "title", cell: (row) => <Mono tone="default">{row.name}</Mono> },
+    { id: "name", header: t("common.words.name"), card: "title", cell: (row) => <Mono tone="default">{row.name}</Mono> },
     {
       id: "state",
       header: t("databases.engines.state"),
@@ -265,11 +265,11 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
               <Menu align="end" trigger={<IconButton label={t("databases.instances.actionsFor", { name: row.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
                 {row.running ? (
                   <MenuItem icon={<Square />} disabled={stop.isPending} onClick={() => stop.mutate(row)}>
-                    {t("databases.engines.stop")}
+                    {t("common.words.stop")}
                   </MenuItem>
                 ) : (
                   <MenuItem icon={<Play />} disabled={start.isPending || row.state !== "ready"} onClick={() => start.mutate(row)}>
-                    {t("databases.engines.start")}
+                    {t("common.words.start")}
                   </MenuItem>
                 )}
                 <MenuItem icon={<ArrowUpFromLine />} disabled={actions.busy || !row.running} onClick={() => setUpgrading(row)}>
@@ -327,7 +327,7 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
           open
           onOpenChange={(open) => (open ? undefined : setRemoving(null))}
           server={node}
-          title={t("databases.instances.removeTitle", { name: removing.name })}
+          title={t("common.words.removeNamedQuestion", { name: removing.name })}
           description={t("databases.instances.removeDescription")}
           actionLabel={t("databases.instances.removeAction")}
           confirmText={removing.name}

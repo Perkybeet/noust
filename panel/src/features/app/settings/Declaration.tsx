@@ -112,7 +112,7 @@ function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boo
       footer={
         <>
           <Button disabled={run.isPending} onClick={close}>
-            {t("declaration.dialog.close")}
+            {t("common.words.close")}
           </Button>
           {result?.applied ? null : (
             <>

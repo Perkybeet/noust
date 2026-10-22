@@ -234,14 +234,14 @@ export function BackupsTab({ search, onSearchChange }: BackupsTabProps) {
                     onSearchChange({});
                   }}
                 >
-                  {t("fleet.filters.clear")}
+                  {t("common.words.clearFilters")}
                 </Button>
               }
             />
           )
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet backups" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet backups" />
     </div>
   );
 }

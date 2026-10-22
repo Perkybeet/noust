@@ -19,7 +19,6 @@ export const logSearch: Catalog<typeof en> = {
   level: { all: "Todos los niveles", err: "Errores", warning: "Avisos y errores", info: "Información y peor" },
   windowLabel: "Hasta cuándo atrás",
   window: { "15m": "15 minutos", "1h": "1 hora", "6h": "6 horas", "24h": "24 horas", "7d": "7 días" },
-  fromTerminal: "Desde un terminal",
   loading: "Buscando en los registros",
   viewerLabel: "Líneas de registro que coinciden",
   loadFailed: "No se pudo buscar en los registros",

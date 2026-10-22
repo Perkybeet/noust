@@ -248,7 +248,7 @@ function Logs({ search, onSearchChange }: LogsTabProps) {
         />
       </div>
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-        <CommandHint command={logsCommand(search)} label={t("server.fromTerminal")} />
+        <CommandHint command={logsCommand(search)} label={t("common.words.fromTerminal")} />
         {result?.truncated === true && lines < MORE_LINES ? (
           <Button size="sm" variant="ghost" onClick={() => setLines(MORE_LINES)}>
             {t("server.logs.more", { count: MORE_LINES })}

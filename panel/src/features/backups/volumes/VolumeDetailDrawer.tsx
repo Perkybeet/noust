@@ -67,7 +67,7 @@ function BackupActions({ backup, busy, onRestore, onVerify, onPush, onDelete }: 
       </MenuItem>
       <MenuSeparator />
       <MenuItem icon={<Trash2 />} destructive onClick={onDelete}>
-        {t("volumeBackups.table.delete")}
+        {t("common.words.delete")}
       </MenuItem>
     </Menu>
   );
@@ -116,12 +116,12 @@ export function VolumeDetailDrawer({ row, open, onOpenChange, onEdit, onRun, onR
             policy !== null ? (
               <>
                 <Button size="sm" disabled={busy} onClick={onRun}>
-                  {t("volumeBackups.actions.runNow")}
+                  {t("common.words.backUpNow")}
                 </Button>
                 <Button size="sm" onClick={onEdit}>
                   {t("volumeBackups.actions.edit")}
                 </Button>
-                <Menu align="end" trigger={<IconButton size="sm" label={t("volumeBackups.actions.for", { domain: row.domain })} icon={<ICONS.more />} />}>
+                <Menu align="end" trigger={<IconButton size="sm" label={t("common.words.actionsForDomain", { domain: row.domain })} icon={<ICONS.more />} />}>
                   <MenuItem icon={<Trash2 />} destructive onClick={onRemove}>
                     {t("volumeBackups.actions.remove")}
                   </MenuItem>

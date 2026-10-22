@@ -155,7 +155,7 @@ function PlacementCard({ placement }: { placement: Placement }) {
               void queryClient.invalidateQueries({ queryKey: placementKeys.one(placement.domain) });
             }}
           />
-          <Menu align="end" trigger={<IconButton label={t("placements.card.actionsFor", { domain: placement.domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+          <Menu align="end" trigger={<IconButton label={t("common.words.actionsForDomain", { domain: placement.domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
             <MenuItem
               icon={<Rocket />}
               onClick={() => {
@@ -323,7 +323,7 @@ export function PlacementsTab() {
           ))}
         </div>
       )}
-      <CommandHint label={t("placements.fromTerminal")} command="noust fleet placement status shop.example.com" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet placement status shop.example.com" />
       {placing ? (
         <PlacementDialog
           placement={null}

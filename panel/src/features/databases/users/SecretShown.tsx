@@ -26,7 +26,7 @@ export function SecretShown({ secret, onClose }: SecretShownProps) {
       description={secret?.description}
       footer={
         <Button variant="primary" onClick={onClose}>
-          {t("databases.secret.done")}
+          {t("common.words.done")}
         </Button>
       }
     >

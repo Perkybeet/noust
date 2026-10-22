@@ -263,7 +263,7 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
         </>
       )}
 
-      {list.length > 0 ? <CommandHint command={`noust db links ${domain}`} label={t("databases.common.fromTerminal")} /> : null}
+      {list.length > 0 ? <CommandHint command={`noust db links ${domain}`} label={t("common.words.fromTerminal")} /> : null}
 
       <SqliteSection domain={domain} />
 

@@ -125,7 +125,7 @@ function Form({
           {t("common.confirmDialog.cancel")}
         </Button>
         <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
-          {t("network.authority.save")}
+          {t("common.words.save")}
         </Button>
       </div>
     </form>

@@ -101,7 +101,7 @@ function CreateDialog({ open, accounts, onClose }: { open: boolean; accounts: re
       }
     >
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <Field label={t("network.tunnels.nameLabel")} description={t("network.tunnels.nameHelp")} error={problem !== null && !NAME.test(name) ? problem : (fields?.["name"] ?? null)}>
+        <Field label={t("common.words.name")} description={t("network.tunnels.nameHelp")} error={problem !== null && !NAME.test(name) ? problem : (fields?.["name"] ?? null)}>
           <Input mono value={name} onValueChange={setName} autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={40} />
         </Field>
         <Field label={t("network.tunnels.accountLabel")} description={t("network.tunnels.accountHelp")} nativeLabel={false} error={problem !== null && NAME.test(name) ? problem : (fields?.["account"] ?? null)}>
@@ -394,7 +394,7 @@ export function TunnelsPage() {
             ),
           }
         : {})}
-      footer={<CommandHint command="noust tunnel list" label={t("domains.fromTerminal")} />}
+      footer={<CommandHint command="noust tunnel list" label={t("common.words.fromTerminal")} />}
     >
       {tunnels.isError && tunnels.data === undefined ? (
         <ErrorBlock error={tunnels.error} title={t("network.tunnels.listFailed")} onRetry={() => void tunnels.refetch()} retrying={tunnels.isRefetching} />
@@ -425,7 +425,7 @@ export function TunnelsPage() {
           loading={tunnels.isPending}
           onRowActivate={(row) => setOpen(row.name)}
           rowActions={(row) => (
-            <Menu align="end" trigger={<IconButton label={t("domains.actionsFor", { name: row.name })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
+            <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: row.name })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
               <MenuItem icon={<Plus />} disabled={row.state !== "ready"} onClick={() => setRouting(row)}>
                 {t("network.tunnels.routeAdd")}
               </MenuItem>
@@ -466,7 +466,7 @@ export function TunnelsPage() {
         confirmText={deleting?.name ?? ""}
         server={node}
         destructive
-        title={t("network.tunnels.deleteTitle", { name: deleting?.name ?? "" })}
+        title={t("common.words.deleteNamed", { name: deleting?.name ?? "" })}
         description={t("network.tunnels.deleteDescription")}
         actionLabel={t("network.tunnels.delete")}
         onConfirm={async () => {

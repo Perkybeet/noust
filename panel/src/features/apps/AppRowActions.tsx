@@ -31,7 +31,7 @@ export function AppRowActions({ app }: { app: AppInfo }) {
   const unit = hasUnit(app);
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={t("apps.rowActions.aria", { domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <Menu align="end" trigger={<IconButton label={t("common.words.actionsForDomain", { domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
         <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/apps/$domain", params: { domain } })}>
           {t("apps.rowActions.open")}
         </MenuItem>
@@ -40,10 +40,10 @@ export function AppRowActions({ app }: { app: AppInfo }) {
         </MenuItem>
         <MenuSeparator />
         <MenuItem icon={<RotateCw />} disabled={!unit || restart.isPending} onClick={() => restart.mutate()}>
-          {t("apps.rowActions.restart")}
+          {t("common.words.restart")}
         </MenuItem>
         <MenuItem icon={<CircleArrowUp />} disabled={update.isPending || app.app_type === "adopted"} onClick={() => update.mutate()}>
-          {t("apps.rowActions.update")}
+          {t("common.words.update")}
         </MenuItem>
         {move.available || promote.available || clone.available ? <MenuSeparator /> : null}
         {promote.available ? (

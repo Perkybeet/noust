@@ -121,7 +121,7 @@ export function CreateLinkDialog({ domain, open, onOpenChange, onQueued }: Creat
       description={t("databases.appTab.createDescription", { domain })}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={!usable}>
             {t("databases.appTab.createAction")}
           </Button>
@@ -149,7 +149,7 @@ export function CreateLinkDialog({ domain, open, onOpenChange, onQueued }: Creat
           />
         )}
         <Field
-          label={slot ? t("databases.appTab.slot") : t("databases.fields.name")}
+          label={slot ? t("databases.appTab.slot") : t("common.words.name")}
           optional
           description={plan.data ? t.rich("databases.appTab.nameDefault", { name: <Mono>{plan.data.database}</Mono> }) : undefined}
           error={errors.name}
