@@ -80,7 +80,9 @@ export function Meter({
       aria-valuetext={text}
       className={cx("flex min-w-0 flex-col", size === "sm" ? "gap-1" : "gap-1.5", className)}
     >
-      <div className="flex items-baseline justify-between gap-3">
+      {/* The small meter is 96px wide in the top bar: with its value and its warning glyph beside it, "Memoria" does not fit
+          with a 12px gap and loses its last letters exactly when the level is a problem. */}
+      <div className={cx("flex items-baseline justify-between", size === "sm" ? "gap-1.5" : "gap-3")}>
         <BaseMeter.Label className={cx("truncate text-fg-muted", size === "sm" ? "text-12" : "text-13")}>
           {label}
         </BaseMeter.Label>
