@@ -6,7 +6,7 @@ messages go, who hears which, and what happens when a destination does not answe
 that produces some of them is described in [MONITOR.md](MONITOR.md); every setting is listed in
 [CONFIG.md](CONFIG.md).
 
-Everything here is in the console under Settings > Notifications and Settings > Alerts, and in
+Everything here is in the console under Settings > Channels and Settings > Alert rules, and in
 the command line as `noust notify ...` and `noust alert ...`. They are two views of the same
 `notifications.*` settings, so a change in one is a change in the other.
 
@@ -75,7 +75,7 @@ noust notify channel remove oncall
 A name is lower-case letters, digits, `-` and `_`, starting with a letter. At most 32 channels
 may exist. Removing one of the thirteen defaults (one of each type) empties it instead.
 
-In the console, Settings > Notifications has an "Add a channel" button for these; the new
+In the console, Settings > Channels has an "Add a channel" button for these; the new
 channel opens its own drawer to ask for the destination.
 
 Credentials are asked for with `--secret KEY` (a hidden prompt) or `--secret-stdin KEY`, never as
@@ -107,7 +107,7 @@ not know, is final (no retries, the provider's own words are kept in the record 
 provider that is busy or unreachable is tried again like any destination. Credentials are write-only
 everywhere (`***` in `noust config show`, never in the API), and the address of every provider is
 fixed: the only typed value that reaches a URL is the SES region, checked to be one. Leaving the
-provider empty goes back to SMTP. In the console it is Settings > Notifications > Email > "Send
+provider empty goes back to SMTP. In the console it is Settings > Channels > Email > "Send
 through".
 
 ## What each channel hears
@@ -212,7 +212,7 @@ team, and sudo mode to change one):
 * Another team's channels do not exist for a member: the team's path answers 404, the configuration a
   member reads leaves them out, and testing one by its key says there is no such channel. The
   administrator sees them all, with their team, in Settings and in `GET /api/notifications/channels`.
-* The team's own page has them too: **Teams > the team > Notifications**.
+* The team's own page has them too: **Projects > Teams > the team > Notifications**.
 
 ## Paging someone
 
@@ -258,7 +258,7 @@ noust notify retry                      # what is due now
 noust notify retry 42                   # one delivery, with a fresh set of attempts
 ```
 
-The same record is in the console under Settings > Notifications, with what the destination
+The same record is in the console under Settings > Channels, with what the destination
 said, verbatim, and a "Send now" button on whatever can be sent again. A delivery that was given
 up on raises `notify.delivery_failed` in the audit log, never the message itself.
 
@@ -319,7 +319,7 @@ The checks have their own settings, all under `monitor.`:
 | `os_patches_check_hours` | `24` | 0 turns it off |
 | `token_warning_days` | `7` | 0 turns it off |
 
-They are in Settings > Alerts, under "Built-in checks".
+They are in Settings > Alert rules, under "Built-in checks".
 
 ## Alert rules
 
@@ -368,7 +368,7 @@ A rule fires only when most of the minutes in its window were actually measured,
 that was stopped for an hour does not fire a rule because of the silence, and it clears only when
 every reading of the last minute is inside the limit.
 
-Rules are in Settings > Alerts, with what is firing now. Changing a rule forgets what the old
+Rules are in Settings > Alert rules, with what is firing now. Changing a rule forgets what the old
 limit had decided: a rule moved from 90 to 95 is not firing because of 92.
 
 ### Taking an alert
@@ -381,7 +381,7 @@ noust alert ack errors --app shop.example.com --by alice
 noust alert unack cpu-high                            # hand it back
 ```
 
-In the console it is the button on the alert in Settings > Alerts. Taking it stops the rule's
+In the console it is the button on the alert in Settings > Alert rules, and in the inbox. Taking it stops the rule's
 reminders (`--remind`), tells every channel who took it (`alert_acknowledged`, "alice is looking
 into it") and, on a PagerDuty channel, acknowledges the incident the firing opened, which stops
 PagerDuty escalating it to the next person. It does not clear the alert: that still happens, and

@@ -13,14 +13,14 @@ files disagree.
 | A release that is | May contain | May not contain |
 |---|---|---|
 | **Patch** (`3.3.1`) | Fixes for defects and security problems. | A new screen or a changed one, a changed documented behaviour, a new setting that changes what runs, a change to the store's schema. |
-| **Minor** (`3.4.0`) | New capabilities, new screens and settings, a store schema change, behaviour changes that are listed. | Anything that makes the previous minor's documented API stop working: the API only grows. |
+| **Minor** (`4.1.0`) | New capabilities, new screens and settings, a store schema change, behaviour changes that are listed. | Anything that makes the previous minor's documented API stop working: the API only grows. |
 | **Major** (`4.0.0`) | Removals and incompatible changes, each listed in its upgrade guide, after the deprecation period. | Surprises: a removal that was not announced. |
 
 What this means in practice:
 
 - **A patch is safe to apply without reading anything.** Because it changes no schema, the
   [way back](downgrading.md) from a patch to the minor's first release is always the package
-  manager's downgrade. (The 3.1 line had seventeen patch releases; from 3.4 they follow this
+  manager's downgrade. (The 3.1 line had seventeen patch releases; from 4.0 they follow this
   rule: a change that adds capability waits for the next minor.)
 - **A minor comes with an upgrade guide**, `UPGRADING-X.Y.md`, that says what you will notice,
   what changes on its own, how a fleet upgrades and how to roll back
@@ -78,7 +78,7 @@ the support window below is how long a line gets fixes.
 ## Updating by itself
 
 A server can install Noust's new releases without anyone pressing a button. It is off until you turn it
-on (Settings > About > Automatic updates, or `noust self-update set --enable`), and it is narrower than
+on (Settings > About Noust > Automatic updates, or `noust self-update set --enable`), and it is narrower than
 an update you start:
 
 | You choose | Values | What it means |
@@ -103,7 +103,7 @@ What does not depend on what you choose:
   to install, so it installs nothing. A release that is published but whose package your server's
   source has not built yet (`on the way`) is waited for inside the window.
 - **Every run is written down:** in the audit trail (`system.auto_update`, with the versions and why)
-  and in Settings > About, with the server's own words when it did not install or failed. There is no
+  and in Settings > About Noust, with the server's own words when it did not install or failed. There is no
   notification for it yet; the audit trail ships to journald or syslog like every event.
 
 `noust self-update` shows what is set, when the window next opens and what the last run did; `noust
@@ -126,7 +126,7 @@ A 2.x server upgrades to 3.3.x first: [upgrading-3.0.md](UPGRADING-3.0.md).
 
 | You want | Read |
 |---|---|
-| What changed in a minor | `CHANGELOG-X.Y.md` ([3.3](CHANGELOG-3.3.md), [3.2](CHANGELOG-3.2.md), [3.1](CHANGELOG-3.1.md)) |
-| What to do when you upgrade | `UPGRADING-X.Y.md` ([3.3](UPGRADING-3.3.md)), and the console: Settings > About > What's new |
+| What changed in a minor | `CHANGELOG-X.Y.md` ([4.0](CHANGELOG-4.0.md), [3.3](CHANGELOG-3.3.md), [3.2](CHANGELOG-3.2.md), [3.1](CHANGELOG-3.1.md)) |
+| What to do when you upgrade | `UPGRADING-X.Y.md` ([4.0](UPGRADING-4.0.md), [3.3](UPGRADING-3.3.md)), and the console: Settings > About Noust > What's new |
 | Changes to the API | [the API changelog](API-CHANGELOG.md) |
 | How to go back | [downgrading.md](downgrading.md) |

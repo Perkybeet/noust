@@ -36,7 +36,7 @@ that need attention, the Noust units and the last lines of the console's journal
   says it is secret). Read it before you post it anyway: a report is a copy of your server.
 - **Domains and the host's name are included.** `noust support report --hide-domains` replaces them
   with `app-1`, `app-2` and `host` through the whole document, consistently.
-- **From the console**, Settings > About has the same report with a Copy button.
+- **From the console**, Settings > About Noust has the same report with a Copy button.
 - For a problem with one application, add `noust diagnose DOMAIN`.
 - `--output FILE` writes it to a file only you can read; `--json` prints it as data.
 

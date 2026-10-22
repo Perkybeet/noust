@@ -64,7 +64,7 @@ the code, and how to verify a release.
   another's files. An application from before 3.2 keeps the shared account (`service_user`,
   `www-data`) until `noust app identity migrate` moves it, and while it does, it can read the
   files, including the `.env`, of every other application on that account. A monorepo created
-  from 3.4 runs all its workspaces' units as one account of its own, and an older one moves with
+  from 4.0 runs all its workspaces' units as one account of its own, and an older one moves with
   the same command. A Docker Compose stack has no account (its processes are its containers'), so
   the compose check keeps it to its own files instead: a bind mount of Noust's configuration and
   secrets, of what contains them (`/`, `/etc`, `/var`) or of another application's tree is
@@ -524,9 +524,9 @@ once in `noust.web.permissions.roles`:
   more.
 - **Sudo mode and approvals come on top of the permission**, never instead of it.
 - **Teams narrow what a role reaches, never widen the server.** The five roles are instance roles
-  (3.4): `admin`, `security` and `auditor` see every team; a `viewer` or `operator` sees the teams
+  (4.0): `admin`, `security` and `auditor` see every team; a `viewer` or `operator` sees the teams
   it belongs to. See [Teams](#teams).
-- **Roles are held where they are given** (3.4). A role can be given on an environment, a project,
+- **Roles are held where they are given** (4.0). A role can be given on an environment, a project,
   a team or the whole server, and holds only there; roles of your own can be defined from the
   permissions above, which never mix governing with running the server. Under the ENS profile an
   account has one role and none is given on the whole server (the `single_role_per_account`
@@ -618,7 +618,7 @@ principal; Noust keeps its principals simple instead.
 What a support question usually needs is one of these, and each leaves the trail honest:
 
 * **What does she hold, and where?** `noust access list --user maria` (her bindings), `noust team
-  members TEAM` and `noust user list`; in the console, Settings > Roles and access and
+  members TEAM` and `noust user list`; in the console, Settings > Roles and
   Settings > Accounts. A resource of another team reads as absent (`404`) to her by design, and so
   does a project she holds no role in.
 * **What does she see?** As root on the server, issue a read-only, short-lived token that acts for her
@@ -840,7 +840,7 @@ outside its COPY data is refused before anything is dropped, pg_dump's own
   in `security.allow_private_hosts` (`noust config set security.allow_private_hosts nas.lan --list`),
   so a NAS or a MinIO on your own network is a decision and not a default. Every later use, which
   is every scheduled backup, refuses only what can never be a destination (the cloud metadata
-  service, `0.0.0.0/8`, `::`, link-local), so a destination made before 3.4 on your LAN keeps
+  service, `0.0.0.0/8`, `::`, link-local), so a destination made before 4.0 on your LAN keeps
   working until you test it. A source archive URL is judged the same way before the download and
   on every redirect hop. Names that do not resolve yet are accepted when configured and judged
   again when used. The guard compares the address a name resolves to when it asks; rclone and the
@@ -876,7 +876,7 @@ server installs from (apt, dnf, zypper, or PyPI for pip) for the version it can 
 fixes a vulnerability, the check says so apart from an ordinary update: a release whose GitHub
 title ends in `(security release)` (written by the release workflow when a changelog bullet starts
 with `SECURITY:`) is shown in the CLI banner, in `noust health`, in `GET /api/system/version` and in
-Settings > About, with the advisory its notes name. The list of recent releases is read only when a
+Settings > About Noust, with the advisory its notes name. The list of recent releases is read only when a
 newer release exists at all. `noust config set updates.check false` turns it off. A server can also
 be told to install what the check finds by itself, inside a window, for the releases you name and never a
 new major version (`noust self-update`, see [release-policy.md](release-policy.md#updating-by-itself)); it
@@ -1097,7 +1097,7 @@ MEDIUM, expects (sessions, lockout, passwords, token lifetimes, audit retention,
 `--reason`, backup encryption, the console's certificate), stated once in
 `noust.core.ens.profile` and read by every area. `noust ens check` compares the server with it
 (exit 0, 1 or 2), `noust ens report` writes the evidence bundle, and the console shows both under
-Settings > Security > Compliance. Code can be restricted to named origins with
+Settings > ENS report. Code can be restricted to named origins with
 `security.allowed_sources`. The full mapping to the RD 311/2022 measures, and what stays the
 organisation's, is in [ENS.md](ENS.md).
 

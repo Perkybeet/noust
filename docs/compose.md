@@ -279,7 +279,7 @@ gives it and shows the result as Docker says it. Fixing a shared network is edit
 compose file: give it a network of its own, or `internal: true` for one that needs no way out.
 
 API: `GET /api/apps/{domain}/networks` (`apps.read`; an application of another team is a 404, and
-one that does not run in Docker answers that it has no network). Console: **Settings, Deploys,
+one that does not run in Docker answers that it has no network). Console: **Application, Settings, Compose,
 Docker networks**, for a Compose stack. The listing is Docker's, read when the page is opened.
 
 ## Operator hooks

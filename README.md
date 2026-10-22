@@ -1,3 +1,12 @@
+> **Noust 4.0** adds teams, projects and environments, applications built from a Dockerfile, a
+> registry image or Railpack, a catalogue of 143 recipes, database engines that Noust runs in
+> containers beside the host's, a certificate of its own for any name of an application, single
+> sign-on, servers created at a cloud provider, a one-command installer and a console arranged
+> around what you do. It retires the command, the packages and the names the product had before
+> 3.0, and a server still on 2.x goes through 3.3.1 first: read
+> [docs/UPGRADING-4.0.md](docs/UPGRADING-4.0.md) before updating, and see
+> [docs/CHANGELOG-4.0.md](docs/CHANGELOG-4.0.md).
+>
 > **Noust 3.3** shows the databases a server really has: the ones in Docker containers, the
 > applications that already use each one, and why an engine does not let Noust in. Engines can be
 > installed in the version you choose and tuned from the console. See
@@ -67,7 +76,7 @@ from the CLI, a browser console and a JSON API.
 - **A distribution package.** Installed with `apt`, `dnf` or `zypper`, or from PyPI.
 - **Atomic deploys with instant rollback.** Each deploy builds in its own directory, is
   activated behind a health check, rolls back by itself when it does not answer, and any
-  release still on disk can be reactivated in seconds. From 3.4 a new application that runs a
+  release still on disk can be reactivated in seconds. From 4.0 a new application that runs a
   process behind nginx starts as two instances (blue and green): the next release starts
   beside the old one and nginx switches only once it answers; static and PHP sites already
   switch with one atomic rename, and a Docker Compose stack gets the same through a relay,
@@ -298,8 +307,8 @@ their deployments, releases, live logs, metrics, environment, database, domains,
 settings; databases with a data browser and a SQL console; backups, schedules and remote
 destinations; certificates and sites, each site as text, as a structure you can edit visually
 and as an animated diagram of what reaches what, with a "try a URL" that shows which location
-answers; the server (updates, security, storage, services, logs, system); cron; an activity
-timeline, and a panel that answers "what happened here" for any stretch you select on a chart;
+answers; the server (updates, security, storage, services, system); cron; one page of logs for
+the applications and the system's journal; an activity timeline, and a panel that answers "what happened here" for any stretch you select on a chart;
 and settings, accounts, approvals, the audit log and compliance. On a central, fleet-wide views
 and bulk actions.
 The new-application wizard deploys from a repository, a recipe or an exported application.
@@ -382,7 +391,7 @@ network.
 noust app zero-downtime shop.example.com on
 ```
 
-On by default for applications created from 3.4 (`deploy.zero_downtime`); opt-in for the
+On by default for applications created from 4.0 (`deploy.zero_downtime`); opt-in for the
 ones from before, with the command above. The application runs as two instances of one systemd
 template unit, each on its own port and release, behind an nginx upstream. An activation starts the idle
 instance on the new release, passes the health gate on its port, moves the upstream with
@@ -515,9 +524,9 @@ noust recipe outdated                               # installed recipes the cata
 noust recipe update vault.example.com               # through the one update: backup, health gate, way back
 ```
 
-127 applications: WordPress (PHP-FPM and MariaDB), Uptime Kuma, Umami (PostgreSQL) and n8n
-run natively from a source pinned to a tag or checked against a published checksum; the other
-123 run in Docker, as a Compose stack behind nginx whose images are pinned by tag and by
+128 applications: WordPress (PHP-FPM and MariaDB), Uptime Kuma, Umami (PostgreSQL), n8n and a
+one-page demo (Hello) run natively from a source pinned to a tag or checked against a published
+checksum; the other 123 run in Docker, as a Compose stack behind nginx whose images are pinned by tag and by
 digest. Some are one container (Vaultwarden, Memos, Syncthing, Grafana, Jellyfin, ntfy, Actual
 Budget, CyberChef...); the rest bring the database they need as a service of their stack, which
 Noust dumps before every update (Gitea, Forgejo, Nextcloud, Ghost, Plausible, Matomo, Mattermost,
@@ -716,13 +725,13 @@ its first answer after), `deploy_hook_failed`, reboots, approvals and, on a cent
 unreachable, recovered or with a changed host key. They come from every deployment: the CLI's, the console's, webhooks' and previews'. A
 failure carries the health gate's evidence, and every message names its server
 (`server.name`). Configure
-them in the console (Settings > Notifications) or with
+them in the console (Settings > Channels) or with
 `noust config set notifications.<key> <value>`, and test a channel with
 `noust notify test slack`. They are written in English or Spanish
 (`notifications.language`). Private and loopback destinations are refused unless listed in
 `notifications.allow_private_hosts`.
 
-Deploy on push: in the console (application > Settings > Webhook) or with
+Deploy on push: in the console (application > Settings > Deploy on push) or with
 `POST /api/apps/{domain}/webhook-secret`, create a secret, and point a GitHub, Gitea,
 GitLab or Bitbucket Cloud webhook at `https://<console>/hooks/deploy/<domain>`, which the forge must be able to
 reach. Signatures are verified; only pushes to the branch the application deploys update it
@@ -764,10 +773,13 @@ noust ens check                                                         # agains
 
 People sign in with their own account, each with one role: `viewer` (sees, changes nothing),
 `operator` (also restarts, deploys, rolls back, renews, backs up), `admin` (also creates,
-configures, deletes and reads secrets), `security` (accounts, security settings and the audit
-log; deploys nothing) and `auditor` (reads everything, including the audit log). Every account
-has a second factor, an authenticator app or a passkey. One person cannot hold roles that go
-against each other without a documented exception. Until the first account exists, the access
+configures, deletes and reads secrets, and holds accounts, security settings and the audit log
+unless the roles are split, as they are under ENS medium), `security` (accounts, security
+settings and the audit log; deploys nothing) and `auditor` (reads everything, including the
+audit log). A second factor, an authenticator app or a passkey, is asked of every account where
+a compliance framework requires it and wherever the console is published; elsewhere an account
+sets it up when it likes. Where the separation of duties is on, one person cannot hold roles that
+go against each other without a documented exception. Until the first account exists, the access
 token works exactly as before; afterwards it is emergency access.
 
 Every change, from the console, the API or the CLI (`--reason` says why), is recorded in an audit
@@ -843,8 +855,9 @@ names the person, not the central. Anything a server marks as needing confirmati
 is asked on the central, and the server refuses the call anyway if the central did not vouch
 for it.
 
-The console has a server selector (every page also exists at `/n/<server>/...`) and a Fleet page
-with fleet-wide views - summary, servers, applications, certificates, backups, updates and
+The console has a scope selector at the head of its sidebar (every page also exists at
+`/n/<server>/...`): one server, **All servers** or **This central**. All servers is the fleet,
+with fleet-wide views - overview, servers, applications, certificates, backups, updates and
 activity, each row linking to its server - and bulk actions: renew certificates, back up and
 verify, update or restart applications, update Noust or the operating system, on servers chosen
 by name or label, with a plan first, batches, a canary and a retry of what failed. A server that
@@ -1053,6 +1066,9 @@ paths; `noust setup retire-links` removes the ones nothing uses.
 
 ## Documentation
 
+- [docs/CHANGELOG-4.0.md](docs/CHANGELOG-4.0.md): what changed in 4.0
+- [docs/UPGRADING-4.0.md](docs/UPGRADING-4.0.md): upgrading a 3.3 server or fleet to 4.0, where the screens went, and rolling back
+- [docs/API-CHANGELOG.md](docs/API-CHANGELOG.md): what changed in the HTTP API, for people who write against it
 - [docs/CHANGELOG-3.3.md](docs/CHANGELOG-3.3.md): what changed in 3.3
 - [docs/UPGRADING-3.3.md](docs/UPGRADING-3.3.md): upgrading a 3.2 server or fleet to 3.3
 - [docs/build.md](docs/build.md): the `build:` block (commands, base directory, publish directory), pinned runtimes, the Node frameworks and Python servers

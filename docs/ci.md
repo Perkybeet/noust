@@ -113,7 +113,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: npm ci && npm test
-      - uses: Perkybeet/noust/packaging/github-action@v3.4.0
+      - uses: Perkybeet/noust/packaging/github-action@v4.0.0
         with:
           url: https://noust.example.com
           token: ${{ secrets.NOUST_TOKEN }}
@@ -146,7 +146,7 @@ Build an image in the same workflow, then deploy exactly that tag:
         with:
           push: true
           tags: ghcr.io/acme/shop:${{ github.sha }}
-      - uses: Perkybeet/noust/packaging/github-action@v3.4.0
+      - uses: Perkybeet/noust/packaging/github-action@v4.0.0
         with:
           url: https://noust.example.com
           token: ${{ secrets.NOUST_TOKEN }}
@@ -175,4 +175,4 @@ deploy:
 ```
 
 For Forgejo and Gitea Actions, the GitHub Action runs unchanged
-(`uses: https://github.com/Perkybeet/noust/packaging/github-action@v3.4.0`).
+(`uses: https://github.com/Perkybeet/noust/packaging/github-action@v4.0.0`).

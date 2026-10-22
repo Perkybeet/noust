@@ -1,6 +1,6 @@
 # Variables, references and secret managers
 
-An application's variables are the ones in its own `.env`. From 3.4 a value can also **refer** to
+An application's variables are the ones in its own `.env`. From 4.0 a value can also **refer** to
 something defined elsewhere, so a setting that is the same for ten applications is written once,
 a secret that must not be kept in Noust stays in the manager that holds it, and the build and the
 running application can be given different variables.
