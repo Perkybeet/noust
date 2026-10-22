@@ -206,7 +206,7 @@ export const rollout = {
     buildOnlyQueued: "Building {domain} without serving it",
     buildOnlyFailed: "Could not build {domain} without serving it",
     buildOnlyHint:
-      "Builds the branch into a release that waits. Make it serve from Deployments when you want it live.",
+      "Builds the branch into a release that waits. Press Go live in Deployments when you want it to serve.",
   },
   hooks: {
     previewPostCreate: "After a preview is first served",

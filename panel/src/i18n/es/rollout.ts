@@ -206,7 +206,7 @@ export const rollout: Catalog<typeof en> = {
     buildOnlyQueued: "Compilando {domain} sin ponerla en servicio",
     buildOnlyFailed: "No se pudo compilar {domain} sin ponerla en servicio",
     buildOnlyHint:
-      "Compila la rama en una release que espera. Ponla en servicio desde Despliegues cuando quieras que esté en producción.",
+      "Compila la rama en una release que espera. Pulsa Poner en producción en Despliegues cuando quieras que sirva.",
   },
   hooks: {
     previewPostCreate: "Después de servir una vista previa por primera vez",
