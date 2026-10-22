@@ -32,7 +32,7 @@ only; one that sees every team can deploy several at once.
 
 The call goes to the console's API, so the runner must be able to reach it:
 
-- publish the console over TLS: `noust console expose noust.example.com` (it
+- publish the console over TLS: `noust console expose --domain noust.example.com` (it
   refuses while any account can sign in without a second factor, and an
   allow-list restricts who may reach it);
 - or run the pipeline on a runner that is on the same network, or connected
