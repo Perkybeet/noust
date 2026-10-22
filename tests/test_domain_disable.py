@@ -62,7 +62,6 @@ class TestTheStore:
         assert records["example.com"].enabled is True
 
     def test_switching_off_keeps_the_row_its_port_and_its_kind(self, store: NoustStore) -> None:
-
         store.create_app(App(domain="example.com", app_path="/srv/example"))
         store.add_domain("example.com", "shop.example.com", "alias")
         store.set_domain_port("example.com", "shop.example.com", 9000)
@@ -77,20 +76,17 @@ class TestTheStore:
         assert served == ["example.com"]
 
     def test_the_primary_cannot_be_switched_off(self, store: NoustStore) -> None:
-
         store.create_app(App(domain="example.com", app_path="/srv/example"))
 
         with pytest.raises(DomainError, match="primary"):
             store.set_domain_enabled("example.com", "example.com", False)
 
     def test_a_name_the_application_does_not_have_is_not_found(self, store: NoustStore) -> None:
-
         store.create_app(App(domain="example.com", app_path="/srv/example"))
 
         assert store.set_domain_enabled("example.com", "nope.example.com", False) is False
 
     def test_switching_on_again_is_how_it_comes_back(self, store: NoustStore) -> None:
-
         store.create_app(App(domain="example.com", app_path="/srv/example"))
         store.add_domain("example.com", "shop.example.com", "alias")
         store.set_domain_enabled("example.com", "shop.example.com", False)
@@ -331,7 +327,6 @@ class TestTheCommands:
 class TestTheApi:
     @pytest.fixture
     def client(self, store: NoustStore) -> TestClient:
-
         store.create_app(App(domain="example.com", app_path="/var/www/apps/example.com"))
         app = FastAPI()
         install_error_handlers(app)
@@ -347,7 +342,6 @@ class TestTheApi:
     def test_switching_off_calls_the_function_and_queues_the_certificate(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-
         seen: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []
         primary = DomainRecord(domain="example.com", kind="primary")
         shop = DomainRecord(domain="shop.example.com", kind="alias", enabled=False)
@@ -371,7 +365,6 @@ class TestTheApi:
     def test_switching_on_calls_the_other_function(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-
         seen: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []
         primary = DomainRecord(domain="example.com", kind="primary")
         shop = DomainRecord(domain="shop.example.com", kind="alias")

@@ -483,7 +483,6 @@ class TestCreatingNamesWhereItGoes:
     """``noust create`` runs the deploy inside the project it is told, and says nothing else."""
 
     def command(self, store: NoustStore) -> click.Command:
-
         @click.command()
         @click.option("--domain", required=True)
         @placed_in_a_project

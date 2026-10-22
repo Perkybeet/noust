@@ -340,7 +340,6 @@ class TestInvitingByMail:
     def test_an_invitation_is_mailed_when_an_address_is_given(
         self, client: TestClient, mailer: FakeMailer
     ) -> None:
-
         response = self._invite(client, email="pablo@example.com")
 
         assert response.status_code == 201, response.text
@@ -353,7 +352,6 @@ class TestInvitingByMail:
     def test_without_an_address_nothing_is_mailed(
         self, client: TestClient, mailer: FakeMailer
     ) -> None:
-
         response = self._invite(client)
 
         assert response.json()["emailed"] is False
@@ -385,7 +383,6 @@ class TestInvitingByMail:
     def test_an_address_that_is_not_one_is_refused(
         self, client: TestClient, mailer: FakeMailer
     ) -> None:
-
         assert self._invite(client, email="not-an-address").status_code == 400
 
 
