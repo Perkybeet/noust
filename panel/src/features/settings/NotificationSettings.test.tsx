@@ -235,7 +235,7 @@ describe("Settings > Notifications", () => {
     // Every event, by area, each group saying how many of its events are sent.
     expect(screen.getByRole("button", { name: /^Deploys/ })).toBeInTheDocument();
     // Deploys: deploy_hook_failed is missing from the file, so it is sent (on by default). Backups
-    // lists the events 3.4 added, which are on by default as well: deploy_started and
+    // lists the events 4.0 added, which are on by default as well: deploy_started and
     // backup_success ship off, everything else is on.
     expect(screen.getAllByText("4 of 5 sent")).toHaveLength(1);
     expect(screen.getAllByText("5 of 6 sent")).toHaveLength(1);

@@ -34,7 +34,7 @@ import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 /** Select's value for "no filter": an option needs a value. */
 const ALL = "__all";
 
-/** The capability this source needs of the server on screen: a node older than 3.4 has no query. */
+/** The capability this source needs of the server on screen: a node older than 4.0 has no query. */
 const SEARCH_CAPABILITY = "GET /api/server/logs/search";
 
 export interface SystemLogsProps {

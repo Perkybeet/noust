@@ -85,7 +85,7 @@ export function RestoreDrillsSection({ domain }: { domain: string }) {
   });
   const title = t("backups.drills.title");
 
-  // A server older than 3.4 has no restore tests: nothing to offer.
+  // A server older than 4.0 has no restore tests: nothing to offer.
   if (query.isError && olderServer(query.error)) return null;
   const action = (
     <Button size="sm" icon={<VERB_ICONS.test aria-hidden="true" />} loading={run.isPending} onClick={() => run.mutate()}>

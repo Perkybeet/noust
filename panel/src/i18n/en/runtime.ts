@@ -1,5 +1,5 @@
 /**
- * The words of how an application runs and is operated (3.4): reading a deploy's log by level,
+ * The words of how an application runs and is operated (4.0): reading a deploy's log by level,
  * how going back is done, the check a release must pass, what an application is set to that
  * it does not run with yet, its sandbox, its copies and processes, its mounts and files, and
  * where its logs are shipped.

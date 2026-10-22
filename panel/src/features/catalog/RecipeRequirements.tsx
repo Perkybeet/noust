@@ -62,7 +62,7 @@ export function RecipeRequirements({ name, install, level = 3 }: RecipeRequireme
       </Subsection>
     );
   }
-  // A server older than 3.4 cannot say: the install form works as it always did.
+  // A server older than 4.0 cannot say: the install form works as it always did.
   if (query.isError && olderServer(query.error)) return null;
   if (query.isError) {
     return (
