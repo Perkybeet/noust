@@ -9716,7 +9716,7 @@
     "other": "{count} parados"
   },
   "overview.figures.apps.static": "{count} em modo estático",
-  "overview.figures.apps.allRunning": "Todas em execução",
+  "overview.figures.apps.allRunning": "Todas ativas",
   "overview.figures.apps.aria": "Aplicações: {running} em execução, {failed} com falha, {stopped} paradas, {static} estáticas",
   "overview.figures.apps.unmanaged": {
     "one": "{count} fora do Noust",
@@ -9740,8 +9740,8 @@
   "overview.figures.certificates.allValid": "Todos válidos",
   "overview.figures.certificates.none": "Nenhum",
   "overview.figures.certificates.expiring": {
-    "one": "{count} prestes a expirar",
-    "other": "{count} prestes a expirar"
+    "one": "{count} a vencer",
+    "other": "{count} a vencer"
   },
   "overview.figures.certificates.expired": {
     "one": "{count} expirado",
@@ -9759,7 +9759,7 @@
   "overview.figures.certificates.aria": "Certificados: {total}, {expiring} prestes a expirar, {expired} expirados",
   "overview.figures.backups.label": "Backups, últimas 24 h",
   "overview.figures.backups.ofApps": "{done} de {total} aplicações",
-  "overview.figures.backups.notScheduled": "Sem agendamento",
+  "overview.figures.backups.notScheduled": "Não agendados",
   "overview.figures.backups.notScheduledDetail": "Nenhuma aplicação tem agendamento",
   "overview.figures.backups.unprotected": {
     "one": "{count} aplicação agendada ficou sem backup",
@@ -9789,7 +9789,7 @@
     "other": "{count} pendentes"
   },
   "overview.figures.updates.upToDate": "Em dia",
-  "overview.figures.updates.notChecked": "Ainda não verificado",
+  "overview.figures.updates.notChecked": "Não verificadas",
   "overview.figures.updates.unsupported": "Indisponível",
   "overview.figures.updates.unsupportedDetail": "Sem suporte neste sistema",
   "overview.figures.updates.security": {

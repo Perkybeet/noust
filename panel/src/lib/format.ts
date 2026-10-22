@@ -43,8 +43,10 @@ function dateFormat(locale: Locale, options: Intl.DateTimeFormatOptions): Intl.D
 function relativeFormat(locale: Locale): Intl.RelativeTimeFormat {
   let format = relativeFormats.get(locale);
   if (format === undefined) {
-    // Narrow is the compact form the tables have room for: "3m ago", "hace 3 min".
-    format = new Intl.RelativeTimeFormat(locale, { style: "narrow", numeric: "always" });
+    // Narrow is the compact form the tables have room for: "3m ago", "hace 3 min". French's narrow
+    // form is a bare sign ("-5 h"), which reads as arithmetic: there the short one says "il y a 5 h".
+    const narrow = new Intl.RelativeTimeFormat(locale, { style: "narrow", numeric: "always" });
+    format = /^[-+\u2212]/.test(narrow.format(-1, "hour")) ? new Intl.RelativeTimeFormat(locale, { style: "short", numeric: "always" }) : narrow;
     relativeFormats.set(locale, format);
   }
   return format;

@@ -9705,8 +9705,8 @@
   "overview.figures.label": "Chiffres clés",
   "overview.figures.couldNotRead": "Lecture impossible",
   "overview.figures.apps.label": "Applications",
-  "overview.figures.apps.running": "{count} en cours d'exécution",
-  "overview.figures.apps.noneYet": "Aucune pour l'instant",
+  "overview.figures.apps.running": "{count} actives",
+  "overview.figures.apps.noneYet": "Aucune",
   "overview.figures.apps.failed": {
     "one": "{count} en échec",
     "other": "{count} en échec"
@@ -9716,7 +9716,7 @@
     "other": "{count} arrêtées"
   },
   "overview.figures.apps.static": "{count} statiques",
-  "overview.figures.apps.allRunning": "Toutes en cours d'exécution",
+  "overview.figures.apps.allRunning": "Toutes actives",
   "overview.figures.apps.aria": "Applications : {running} en cours d'exécution, {failed} en échec, {stopped} arrêtées, {static} statiques",
   "overview.figures.apps.unmanaged": {
     "one": "{count} hors de Noust",
@@ -9724,7 +9724,7 @@
   },
   "overview.figures.apps.ariaUnmanaged": "Applications : {running} en cours d'exécution, {failed} en échec, {stopped} arrêtées, {static} statiques, {unmanaged} en cours d'exécution hors de Noust",
   "overview.figures.deploys.label": "Déploiements aujourd'hui",
-  "overview.figures.deploys.none": "Aucun aujourd'hui",
+  "overview.figures.deploys.none": "Aucun",
   "overview.figures.deploys.succeeded": {
     "one": "{count} réussi",
     "other": "{count} réussis"
@@ -9740,8 +9740,8 @@
   "overview.figures.certificates.allValid": "Tous valides",
   "overview.figures.certificates.none": "Aucun",
   "overview.figures.certificates.expiring": {
-    "one": "{count} bientôt expiré",
-    "other": "{count} bientôt expirés"
+    "one": "{count} à échéance",
+    "other": "{count} à échéance"
   },
   "overview.figures.certificates.expired": {
     "one": "{count} expiré",
@@ -9757,7 +9757,7 @@
   },
   "overview.figures.certificates.noneDetail": "Aucun site n'a encore HTTPS",
   "overview.figures.certificates.aria": "Certificats : {total}, {expiring} bientôt expirés, {expired} expirés",
-  "overview.figures.backups.label": "Sauvegardes, dernières 24 h",
+  "overview.figures.backups.label": "Sauvegardes, 24 h",
   "overview.figures.backups.ofApps": "{done} applications sur {total}",
   "overview.figures.backups.notScheduled": "Non planifiées",
   "overview.figures.backups.notScheduledDetail": "Aucune application n'a de planification",
@@ -9789,7 +9789,7 @@
     "other": "{count} en attente"
   },
   "overview.figures.updates.upToDate": "À jour",
-  "overview.figures.updates.notChecked": "Pas encore vérifié",
+  "overview.figures.updates.notChecked": "Non vérifiées",
   "overview.figures.updates.unsupported": "Non disponible",
   "overview.figures.updates.unsupportedDetail": "Non pris en charge sur ce système",
   "overview.figures.updates.security": {
