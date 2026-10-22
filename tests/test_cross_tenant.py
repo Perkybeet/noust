@@ -5,7 +5,7 @@
 A member of one team cannot list, read, change or delete another team's resources.
 
 Two teams, ``acme`` and ``globex``, share a server (I-01, I-04). What these
-tests pin is the promise of the 3.4 design: whatever a route is asked about,
+tests pin is the promise of the 4.0 design: whatever a route is asked about,
 what is outside the asker's teams reads as not there - the same 404 as a
 resource that does not exist, never a 403 that would say it does - for
 applications, their sites, databases and backup schedules, their history, and

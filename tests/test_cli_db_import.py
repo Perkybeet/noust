@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``noust db import`` (3.4, checklist H-18).
+``noust db import`` (4.0, checklist H-18).
 
 The command line of the import the console does through the API: any file on
 the server, what it is read from its bytes, the same safety copy, and nothing

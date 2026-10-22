@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``noust restore-server``: from a bundle to answering applications (3.4, checklist H-28).
+``noust restore-server``: from a bundle to answering applications (4.0, checklist H-28).
 
 The state is restored for real (over real openssl, from a real bundle of a
 server with an application, its schedule, its data policy and its databases);

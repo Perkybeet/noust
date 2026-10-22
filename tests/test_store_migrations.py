@@ -643,7 +643,7 @@ class TestSchemaV13Migration:
 
 
 class TestSchemaV14Migration:
-    """Schema v14: one fragment per 3.4 area, empty until each lane fills its own."""
+    """Schema v14: one fragment per 4.0 area, empty until each lane fills its own."""
 
     # What a lane would add: a table, an index on it and a column on an older table.
     SQL = """
@@ -722,7 +722,7 @@ class TestSchemaV14Migration:
 
 
 class TestAStoreStampedV14WithoutItsTables:
-    """A build of 3.4 that stamped 14 before every area had its fragment."""
+    """A build of 4.0 that stamped 14 before every area had its fragment."""
 
     def test_the_missing_tables_columns_and_indexes_are_added_on_open(
         self, fresh, tmp_path, monkeypatch

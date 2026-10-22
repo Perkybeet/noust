@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Moving a database to another engine (3.4, C-21 and the way C-13 moves a version).
+Moving a database to another engine (4.0, C-21 and the way C-13 moves a version).
 
 What is pinned is what makes a move safe to start:
 

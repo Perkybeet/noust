@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The four ``deploy`` settings of 3.4: what they default to and what refuses them.
+The four ``deploy`` settings of 4.0: what they default to and what refuses them.
 
 ``noust config set deploy.max_concurrent_builds 3`` is how an operator sizes the
 queue, so the keys are validated where every write passes, and read in one

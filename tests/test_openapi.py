@@ -156,7 +156,7 @@ class TestTheSchemaCarriesTheRealVersion:
     """
     The reported defect: ``info.version`` was the literal ``1.0.0`` whatever
     release was running, so the schema an operator fetched from their panel
-    named a version that never existed. Since 3.4 ``info.version`` is the
+    named a version that never existed. Since 4.0 ``info.version`` is the
     API's own version, the one a compatibility promise is made against, and
     the release that serves it is ``info.x-noust-version``.
     """

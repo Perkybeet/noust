@@ -176,7 +176,7 @@ def test_the_server_turning_it_off_leaves_the_pipeline_as_it_was(
     asking: list[delivery.DeliverySettings],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Not even a skipped step shows: line for line what deploys did before 3.4."""
+    """Not even a skipped step shows: line for line what deploys did before 4.0."""
     asking[0] = delivery.DeliverySettings(zero_downtime=False)
     machine.git.publish(node_tree(tmp_path / "v1"))
     calls = adoptions(monkeypatch)

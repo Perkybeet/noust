@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-TLS for the engines Noust runs (3.4, C-25).
+TLS for the engines Noust runs (4.0, C-25).
 
 The machine is :class:`~tests.database_instance_support.DockerHost` with an openssl in
 front of it, so the certificate is really asked for, written where the container reads

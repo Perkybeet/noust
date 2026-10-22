@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``noust self-backup`` and ``noust restore-server`` at the terminal (3.4, H-27 and H-28).
+``noust self-backup`` and ``noust restore-server`` at the terminal (4.0, H-27 and H-28).
 
 The passphrase of a bundle is never an argument: these tests hold the commands
 to that (a prompt, a file only root can read, the environment, one line of

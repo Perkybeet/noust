@@ -1,5 +1,5 @@
 # The harness image (Dockerfile.systemd) with the language toolchains the native deployers of
-# 3.4 build with, for tests/integration/toolchains_run.py.
+# 4.0 build with, for tests/integration/toolchains_run.py.
 #
 # Each toolchain is installed the way the deployer's own advice tells an operator to
 # (TOOLCHAIN_PACKAGES in deployers/jvm.py, dotnet.py and elixir.py, install_suggestion in

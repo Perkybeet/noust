@@ -247,7 +247,7 @@ def test_export_carries_the_definition(shop: App, cron: FakeCron) -> None:
         "ttl_hours": 48,
         "allow_bots": True,
         "exclude_env": ["STRIPE_KEY"],
-        # How previews are made came with 3.4; this application was set up before it.
+        # How previews are made came with 4.0; this application was set up before it.
         "inherit_env": "all",
         "allow_env": [],
         "data_mode": "shared",

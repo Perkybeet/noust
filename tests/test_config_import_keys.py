@@ -1,7 +1,7 @@
 # Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""The two settings of the dump import (3.4, H-18): the upload cap and the folders paths are read from."""
+"""The two settings of the dump import (4.0, H-18): the upload cap and the folders paths are read from."""
 
 from __future__ import annotations
 
