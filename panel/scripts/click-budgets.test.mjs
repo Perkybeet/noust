@@ -16,10 +16,16 @@ describe("the click budgets", () => {
     expect(budgetOf("T09").budget).toBe(4);
   });
 
-  it("never allow more clicks than 3.3.1 took", () => {
+  it("never allow more clicks than 3.3.1 took, unless the row says why", () => {
     for (const row of BUDGETS) {
-      if (row.was !== null) expect(row.budget, `${row.id} may take ${String(row.budget)} and 3.3.1 took ${String(row.was)}`).toBeLessThanOrEqual(row.was);
+      if (row.was === null) continue;
+      if (row.raised === undefined) expect(row.budget, `${row.id} may take ${String(row.budget)} and 3.3.1 took ${String(row.was)}`).toBeLessThanOrEqual(row.was);
+      else expect(row.budget, `${row.id} says why it is raised and is not`).toBeGreaterThan(row.was);
     }
+  });
+
+  it("raise a budget in one place only, the row that was walked and found to need the click", () => {
+    expect(BUDGETS.filter((row) => row.raised !== undefined).map((row) => row.id)).toEqual(["T07c"]);
   });
 
   it("end on an address no deeper than the register allows, and need no more than four clicks", () => {

@@ -29,7 +29,7 @@ import path from "node:path";
 import { csrf, forgetApp } from "./apps-cleanup";
 import { BUDGETS, budgetOf, renderTable } from "./budgets";
 import { MEASURE_ONLY, clicks, countClicks, depthOf, elevate, inViewport, report, startCounting, withinBudget } from "./clicks";
-import { expect, settle, signIn, startConsoleServer, test } from "./fixtures";
+import { expect, settle, signIn, startConsoleServer, test, totpCode } from "./fixtures";
 import type { ConsoleServer, RunningServer } from "./fixtures";
 import { wizardSource } from "./wizard-sources";
 
@@ -39,6 +39,13 @@ const LIVE_APP = "pedidos.example.org";
 const FAILED_APP = "clientes.example.com";
 const SITE_APP = "example.net";
 const PHONE = { width: 390, height: 844 };
+
+/** The console under test is the committed build of 3.3.1 (`NOUST_E2E_BASELINE=3.3.1`): the few walks that cannot tell it by what is on screen take its path. */
+const BASELINE = process.env.NOUST_E2E_BASELINE;
+
+// Measuring an older console, a control that is not there is the answer ("no path"), not a thing to wait two
+// minutes for: an action gives up in a few seconds and the walk says so.
+if (MEASURE_ONLY) test.use({ actionTimeout: 8_000 });
 
 /** The table of budgets is data a walk indexes by id: a row twice, or an id nobody walks, is a typo. */
 test("the table of budgets has one row per task and every row is walked", () => {
@@ -159,9 +166,9 @@ async function readSource(page: Page): Promise<void> {
 }
 
 /** A public repository from the Applications list to the request that makes the application. */
-async function repositoryWalk(page: Page, domain: string): Promise<void> {
-  await page.getByRole("link", { name: "New application", exact: true }).click();
-  await page.getByLabel("Repository or directory").fill(await wizardSource(page, "landing"));
+async function repositoryWalk(page: Page, domain: string, source?: string): Promise<void> {
+  await page.getByRole("link", { name: "New application", exact: true }).first().click();
+  await page.getByLabel("Repository or directory").fill(source ?? (await wizardSource(page, "landing")));
   await readSource(page);
   await expect(stepTitle(page).first()).toBeVisible();
   // A server with no domain of its own passes the address over (the demo's temporary name); one with them asks.
@@ -232,10 +239,10 @@ test.describe("an application's daily verbs", () => {
 
     await walked(page, "T07o", async () => {
       await press(page, "Roll back", "Roll back…");
-      await expect(page.getByRole("alertdialog", { name: `Roll back ${SHOP}` })).toBeVisible();
+      await expect(rollbackDialog(page, SHOP)).toBeVisible();
     });
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("alertdialog", { name: `Roll back ${SHOP}` })).toBeHidden();
+    await expect(rollbackDialog(page, SHOP)).toBeHidden();
 
     await startCounting(page);
     await walked(page, "T08a", async () => {
@@ -268,7 +275,8 @@ test.describe("an application's logs", () => {
     await walked(page, "T04b", async () => {
       await sections(page).getByRole("link", { name: "Deployments" }).click();
       const table = page.getByRole("region", { name: `Deploys of ${RELEASES_APP}, newest first` });
-      await table.getByRole("button", { name: /^Deployment \d+$/ }).first().click();
+      // A row is a button that opens its page in 4.0, and was a link to it before.
+      await table.getByRole("button", { name: /^Deployment \d+$/ }).or(table.getByRole("link", { name: /^Deployment \d+$/ })).first().click();
       await expect(page.getByRole("region", { name: /^Build log of deployment \d+ of / })).toBeVisible();
     });
 
@@ -290,9 +298,14 @@ test.describe("an application's logs", () => {
       await sections(page).getByRole("link", { name: "Logs" }).click();
       const journal = page.getByRole("region", { name: `Logs of ${RELEASES_APP}` });
       await expect(journal).toBeVisible();
-      const errors = page.getByRole("group", { name: "Filter by level" }).getByRole("button", { name: /^Errors?\b/ });
+      // A chip of the level in 4.0; before it, the "Errors" choice of "Which lines".
+      const chip = page.getByRole("group", { name: "Filter by level" }).getByRole("button", { name: /^Errors?\b/ });
+      const choice = page.getByRole("radio", { name: "Errors", exact: true });
+      await expect(chip.or(choice).first()).toBeVisible();
+      const chips = (await chip.count()) > 0;
+      const errors = chips ? chip : choice;
       await errors.click();
-      await expect(errors).toHaveAttribute("aria-pressed", "true");
+      await expect(errors).toHaveAttribute(chips ? "aria-pressed" : "aria-checked", "true");
     });
   });
 });
@@ -320,16 +333,16 @@ test.describe("on a phone, the incident verbs", () => {
       await expect(header(page).locator("[data-state]").first()).toBeVisible();
     });
     await walked(page, "T07p", async () => {
-      await header(page).getByRole("button", { name: "Roll back", exact: true }).click();
-      await expect(page.getByRole("alertdialog", { name: `Roll back ${SHOP}` })).toBeVisible();
+      await press(page, "Roll back", "Roll back…");
+      await expect(rollbackDialog(page, SHOP)).toBeVisible();
     });
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("alertdialog", { name: `Roll back ${SHOP}` })).toBeHidden();
+    await expect(rollbackDialog(page, SHOP)).toBeHidden();
 
     await startCounting(page);
     await walked(page, "T08p", async () => {
       const restarted = page.waitForResponse((response) => response.url().endsWith(`/api/apps/${SHOP}/restart`) && response.request().method() === "POST");
-      await header(page).getByRole("button", { name: "Restart", exact: true }).click();
+      await press(page, "Restart", "Restart");
       await restarted;
     });
 
@@ -399,9 +412,10 @@ async function forward(page: Page, domain: string, release: string): Promise<voi
   }
 }
 
-/** The question every way back opens, and the answer that goes: it names the version it goes back to. */
+/** The question every way back opens. */
 function rollbackDialog(page: Page, domain: string) {
-  return page.getByRole("alertdialog", { name: `Roll back ${domain}` });
+  // An alert dialog in 4.0; before it a plain dialog with the same title.
+  return page.getByRole("alertdialog", { name: `Roll back ${domain}` }).or(page.getByRole("dialog", { name: `Roll back ${domain}` }));
 }
 
 /**
@@ -409,7 +423,8 @@ function rollbackDialog(page: Page, domain: string) {
  * waits for the request that goes back.
  */
 async function answerRollback(page: Page, domain: string): Promise<void> {
-  const dialog = rollbackDialog(page, domain);
+  // Before 4.0 the question of a deployment's page had a title of its own: any dialog that is open is the question.
+  const dialog = MEASURE_ONLY ? page.getByRole("alertdialog").or(page.getByRole("dialog")).last() : rollbackDialog(page, domain);
   await expect(dialog).toBeVisible();
   if (!MEASURE_ONLY) {
     // What goes back, what stays and what happens to the automatic deploys are said before anything is pressed.
@@ -436,7 +451,7 @@ test.describe("an application's updates, failures and ways back", () => {
         await view.click();
       } else {
         await sections(page).getByRole("link", { name: "Deployments" }).click();
-        await page.getByRole("region", { name: new RegExp(`^Deploys of ${LIVE_APP}`) }).getByRole("button", { name: /^Deployment \d+$/ }).first().click();
+        await page.getByRole("region", { name: new RegExp(`^Deploys of ${LIVE_APP}`) }).getByRole("link", { name: /^Deployment \d+$/ }).or(page.getByRole("button", { name: /^Deployment \d+$/ })).first().click();
       }
       await expect(page.getByRole("region", { name: /^Build log of deployment \d+ of / }).or(page.getByRole("dialog"))).toBeVisible();
     });
@@ -461,9 +476,11 @@ test.describe("an application's updates, failures and ways back", () => {
         await expect(page.getByRole("heading", { level: 1, name: FAILED_APP })).toBeVisible();
       });
       await walked(page, "T05", async () => {
+        await expect(page.getByText(/^The last deploy failed/)).toBeVisible();
+        // The banner's own link; before 3.2 the banner did not say it was one, and the page has no other "View log".
         const banner = page.locator('[data-variant="banner"]');
-        await expect(banner).toBeVisible();
-        await banner.getByRole("link", { name: /^View logs?$/ }).click();
+        const scope = (await banner.count()) > 0 ? banner : page.locator("main");
+        await scope.getByRole("link", { name: /^View logs?$/ }).first().click();
         await expect(page).toHaveURL(/\/deployments\/\d+$/);
       });
       if (!MEASURE_ONLY) {
@@ -495,9 +512,9 @@ test.describe("an application's updates, failures and ways back", () => {
       if ((await retry.count()) > 0) {
         await retry.click();
       } else {
-        await page.getByRole("button", { name: "More actions" }).click();
-        await page.getByRole("menuitem", { name: /^Rebuild/ }).click();
-        await page.getByRole("alertdialog").getByRole("button", { name: /^Rebuild/ }).click();
+        // Before "Retry": the page's "Rebuild this commit", and the question it asks.
+        await page.getByRole("button", { name: "Rebuild this commit" }).click();
+        await page.getByRole("alertdialog").or(page.getByRole("dialog")).getByRole("button", { name: /^Rebuild/ }).click();
       }
       await queued;
     });
@@ -528,7 +545,7 @@ test.describe("an application's updates, failures and ways back", () => {
     );
     const before = await serving(page, RELEASES_APP);
     await walked(page, "T07b", async () => {
-      const direct = page.getByRole("button", { name: "Go back to this version" });
+      const direct = page.getByRole("button", { name: "Go back to this version" }).first();
       if ((await direct.count()) > 0) {
         await direct.click();
       } else {
@@ -548,8 +565,14 @@ test.describe("an application's updates, failures and ways back", () => {
     const id = await goBackTarget(page, RELEASES_APP);
     await walked(page, "T07c", async () => {
       const table = page.getByRole("region", { name: `Deploys of ${RELEASES_APP}, newest first` });
-      await table.getByRole("button", { name: `Actions for #${String(id)}` }).click();
-      await page.getByRole("menuitem", { name: /^Roll back to this/ }).click();
+      const menu = table.getByRole("button", { name: `Actions for #${String(id)}` });
+      if ((await menu.count()) > 0) {
+        await menu.click();
+        await page.getByRole("menuitem", { name: /^Roll back to this/ }).click();
+      } else {
+        // Before the row had a menu the Deployments tab had a list of the versions on disk, a button each, for the question.
+        await page.getByLabel(`Versions of ${RELEASES_APP}, newest first`).getByRole("button", { name: "Go back to this version" }).first().click();
+      }
       await answerRollback(page, RELEASES_APP);
     });
     await forward(page, RELEASES_APP, before);
@@ -565,13 +588,28 @@ test.describe("an application's updates, failures and ways back", () => {
     let written: { set: Record<string, string>; unset: string[] } | undefined;
     await walked(page, "T09", async () => {
       await sections(page).getByRole("link", { name: "Environment" }).click();
-      await page.getByRole("table", { name: `Environment variables of ${RELEASES_APP}` }).getByText("LOG_LEVEL", { exact: true }).click();
+      const table = page.getByRole("table", { name: `Environment variables of ${RELEASES_APP}` });
+      if (BASELINE === "3.3.1") {
+        // Before a row opened on press: its menu, then Edit.
+        await table.getByRole("button", { name: "Actions for LOG_LEVEL" }).click();
+        await page.getByRole("menuitem", { name: "Edit" }).click();
+      } else {
+        await table.getByText("LOG_LEVEL", { exact: true }).click();
+      }
       const dialog = page.getByRole("dialog", { name: "Edit LOG_LEVEL" });
       await dialog.getByLabel("Value").fill("debug");
       await dialog.getByRole("button", { name: /^Update( variable)?$/ }).click();
-      const patch = page.waitForRequest((request) => request.method() === "PATCH" && request.url().endsWith(`/api/apps/${RELEASES_APP}/env`), { timeout: 30_000 });
-      await page.getByRole("button", { name: "Save and restart", exact: true }).click();
-      written = (await patch).postDataJSON() as typeof written;
+      const patch = page.waitForRequest((request) => /^(PATCH|PUT)$/.test(request.method()) && request.url().endsWith(`/api/apps/${RELEASES_APP}/env`), { timeout: 30_000 });
+      if (BASELINE === "3.3.1") {
+        // Before the bar saved what changed: a review of the whole file, its save, and the question about the restart.
+        await page.getByRole("button", { name: "Review and save" }).click();
+        await page.getByRole("dialog", { name: "Review changes" }).getByRole("button", { name: "Save changes" }).click();
+        await patch;
+        await page.getByRole("button", { name: "Restart now" }).click();
+      } else {
+        await page.getByRole("button", { name: "Save and restart", exact: true }).click();
+        written = (await patch).postDataJSON() as typeof written;
+      }
     });
     if (!MEASURE_ONLY) {
       // Nothing was read in clear to do it, and only what changed was written.
@@ -595,6 +633,9 @@ test.describe("an application's updates, failures and ways back", () => {
       const dialog = page.getByRole("dialog", { name: `Add a domain to ${SITE_APP}` });
       await dialog.getByLabel("Domain").fill(alias);
       await dialog.getByLabel("Domain").blur();
+      // Before the field asked DNS when it was left, a button did.
+      const check = dialog.getByRole("button", { name: "Check DNS" });
+      if ((await check.count()) > 0) await check.click();
       const added = page.waitForRequest((request) => request.url().endsWith(`/api/apps/${SITE_APP}/domains`) && request.method() === "POST");
       await dialog.getByRole("button", { name: /^Add (domain|anyway)$/ }).click();
       await added;
@@ -612,7 +653,14 @@ test.describe("an application's updates, failures and ways back", () => {
       await expect(page.getByRole("heading", { level: 1, name: SHOP })).toBeVisible();
     });
     await walked(page, "T12", async () => {
-      await page.getByRole("link", { name: "Edit limits" }).click();
+      const edit = page.getByRole("link", { name: "Edit limits" });
+      if ((await edit.count()) > 0) {
+        await edit.click();
+      } else {
+        // Before the overview's meter had the link: the Settings tab and its Resources section.
+        await sections(page).getByRole("link", { name: "Settings" }).click();
+        await page.getByRole("navigation", { name: "Application settings" }).getByRole("link", { name: "Resources" }).click();
+      }
       await page.getByRole("textbox", { name: "Memory", exact: true }).fill("256");
       const patched = page.waitForRequest((request) => request.url().endsWith(`/api/apps/${SHOP}/limits`) && request.method() === "PATCH");
       await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -645,53 +693,66 @@ test.describe("from any page", () => {
    * The twelve pages an operator is most likely to look for by name, as the palette words them and where they are:
    * the five that were not found at all (a tab of an area, the terminal, the export to Prometheus) and seven that were.
    */
-  const FINDINGS = [
+  const FINDINGS: readonly { name: string; to: string; was?: { name: string; to: string } }[] = [
     { name: "Terminal", to: "/server/terminal" },
     { name: "Schedules", to: "/backups/schedules" },
     { name: "DNS", to: "/domains/dns" },
     { name: "Ports", to: "/domains/ports" },
-    { name: "Logs and metrics export", to: "/settings/log-shipping" },
-    { name: "System updates", to: "/server/updates" },
-    { name: "Alert rules", to: "/settings/alerts" },
-    { name: "Channels", to: "/settings/notifications" },
+    { name: "Logs and metrics export", to: "/settings/log-shipping", was: { name: "Log shipping", to: "/settings/log-shipping" } },
+    { name: "System updates", to: "/server/updates", was: { name: "Updates", to: "/server/updates" } },
+    { name: "Alert rules", to: "/settings/alerts", was: { name: "Alerts", to: "/settings/alerts" } },
+    { name: "Channels", to: "/settings/notifications", was: { name: "Notifications", to: "/settings/notifications" } },
     { name: "Accounts", to: "/settings/accounts" },
-    { name: "API tokens", to: "/settings/tokens" },
+    { name: "API tokens", to: "/settings/tokens", was: { name: "Tokens", to: "/settings/tokens" } },
     { name: "Map", to: "/map" },
-    { name: "Sign-in security", to: "/account/security" },
-  ] as const;
+    { name: "Sign-in security", to: "/account/security", was: { name: "Security", to: "/settings/security" } },
+  ];
 
   test("T14: every one of twelve pages is found by its name with the keyboard alone, and in two clicks with the pointer", async ({ page, consoleServer }) => {
+    // Twelve pages, two loads each; an older console that finds none of them waits for each.
+    test.setTimeout(300_000);
     await startAt(page, consoleServer, "T14", "/databases", async () => {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     });
-    const search = page.getByRole("combobox", { name: "Search apps, databases, domains, servers, settings and actions" });
+    const search = page.getByRole("dialog").getByRole("combobox");
     const worst = { clicks: 0, task: "" };
-    for (const entry of FINDINGS) {
-      // With the keyboard: Ctrl+K, the name, Enter. Not a click.
-      await page.goto("/databases");
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-      await startCounting(page);
-      await page.keyboard.press("Control+k");
-      await search.fill(entry.name);
-      await page.keyboard.press("Enter");
-      await expect(page, `${entry.name} by keyboard`).toHaveURL(new RegExp(`${entry.to.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}(\\?.*)?$`));
-      expect(await clicks(page), `${entry.name} took a click by keyboard`).toBe(0);
+    const missed: string[] = [];
+    for (const found of FINDINGS) {
+      // Measuring 3.3.1, a page is asked for by the name it had.
+      const entry = BASELINE === "3.3.1" && found.was !== undefined ? found.was : found;
+      try {
+        // With the keyboard: Ctrl+K, the name, Enter. Not a click.
+        await page.goto("/databases");
+        await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+        await startCounting(page);
+        await page.keyboard.press("Control+k");
+        await search.fill(entry.name);
+        await page.keyboard.press("Enter");
+        await expect(page, `${entry.name} by keyboard`).toHaveURL(new RegExp(`${entry.to.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}(\\?.*)?$`));
+        expect(await clicks(page), `${entry.name} took a click by keyboard`).toBe(0);
 
-      // With the pointer: the search button, then the result.
-      await page.goto("/databases");
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-      await startCounting(page);
-      await page.getByRole("button", { name: /^Search/ }).first().click();
-      await search.fill(entry.name);
-      await page.getByRole("option").first().click();
-      await expect(page, `${entry.name} by pointer`).toHaveURL(new RegExp(`${entry.to.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}(\\?.*)?$`));
-      const used = await clicks(page);
-      if (used > worst.clicks) {
-        worst.clicks = used;
-        worst.task = entry.name;
+        // With the pointer: the search button, then the result.
+        await page.goto("/databases");
+        await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+        await startCounting(page);
+        await page.getByRole("button", { name: /^Search/ }).first().click();
+        await search.fill(entry.name);
+        await page.getByRole("option").first().click();
+        await expect(page, `${entry.name} by pointer`).toHaveURL(new RegExp(`${entry.to.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}(\\?.*)?$`));
+        const used = await clicks(page);
+        if (used > worst.clicks) {
+          worst.clicks = used;
+          worst.task = entry.name;
+        }
+      } catch (error) {
+        // An older console is asked all the same, and says which pages its search did not find.
+        if (!MEASURE_ONLY) throw error;
+        missed.push(entry.name);
+        console.log(`NOT FOUND ${entry.name}: ${(error instanceof Error ? error.message : String(error)).split("\n")[0] ?? ""}`);
       }
     }
-    withinBudget("T14", `the slowest of twelve pages found by name was "${worst.task}"`, worst.clicks, budgetOf("T14").budget);
+    if (missed.length > 0) console.log(`NOT FOUND BY NAME (${String(missed.length)} of ${String(FINDINGS.length)}): ${missed.join(", ")}`);
+    withinBudget("T14", `the slowest of ${String(FINDINGS.length - missed.length)} of ${String(FINDINGS.length)} pages found by name was "${worst.task}"`, worst.clicks, budgetOf("T14").budget);
   });
 });
 
@@ -713,6 +774,8 @@ function canMakeEmptyServer(): boolean {
   return emptySupported;
 }
 
+const FIRST_RUN_PASSWORD = "a-long-password-for-the-first-run";
+
 /**
  * Walks the first run of a server with nothing on it to its Overview: the link the installer prints,
  * the access token, the first administrator, and "Set up later". None of it is counted: the tasks
@@ -724,7 +787,7 @@ async function firstRun(page: Page, server: RunningServer): Promise<void> {
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Create the administrator" })).toBeVisible();
   await page.getByLabel("Username").fill("admin");
-  await page.getByLabel("Password", { exact: true }).fill("a-long-password-for-the-first-run");
+  await page.getByLabel("Password", { exact: true }).fill(FIRST_RUN_PASSWORD);
   await page.getByRole("button", { name: "Create administrator" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Protect your account" })).toBeVisible();
   await page.getByRole("button", { name: "Set up later" }).click();
@@ -764,15 +827,26 @@ test.describe("a server with nothing on it", () => {
     await withoutGitHubApp(page);
     await firstRun(page, server);
     // The source the wizard is pointed at: this server has none seeded, so it gets the one a static site needs.
-    const apps = (await (await page.request.get("/api/config/apps-directory")).json()) as { apps_directory: string };
+    const asked = await page.request.get(`${server.url}/api/config/apps-directory`);
+    expect(asked.ok(), await asked.text()).toBe(true);
+    const apps = (await asked.json()) as { apps_directory: string };
     const landing = path.join(path.dirname(apps.apps_directory), "src", "landing");
     mkdirSync(landing, { recursive: true });
     writeFileSync(path.join(landing, "index.html"), '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Landing</title></head><body><h1>Coming soon</h1></body></html>\n');
-    await page.goto("/apps");
+    await page.goto(`${server.url}/apps`);
     await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
+    // Reading a directory of the server asks to confirm it is the operator, which needs a second factor the
+    // first run let the operator set up later: it is set up here, and sudo mode is entered, without a click counted.
+    const headers = await csrf(page);
+    const enrol = (await (await page.request.post(`${server.url}/api/auth/2fa/enroll`, { headers })).json()) as { secret: string };
+    const confirmed = await page.request.post(`${server.url}/api/auth/2fa/confirm`, { data: { code: totpCode(enrol.secret) }, headers });
+    expect(confirmed.ok(), await confirmed.text()).toBe(true);
+    const { backup_codes: codes } = (await confirmed.json()) as { backup_codes: string[] };
+    const elevated = await page.request.post(`${server.url}/api/auth/elevate`, { data: { code: codes[0] }, headers });
+    expect(elevated.ok(), await elevated.text()).toBe(true);
     await settle(page);
     await startCounting(page);
-    await walked(page, "T02a", () => repositoryWalk(page, "budget-empty.example.net"));
+    await walked(page, "T02a", () => repositoryWalk(page, "budget-empty.example.net", landing));
     await expect(page).toHaveURL(/\/apps\/[^/]+\/deployments\/\d+$/, { timeout: 30_000 });
   });
 
