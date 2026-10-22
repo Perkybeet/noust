@@ -1191,6 +1191,33 @@ class TestRestore:
         assert "unexpected EOF" in str(failure.value)
         assert "safety copy" in str(failure.value).lower()
 
+    def test_a_failed_restore_as_a_new_database_leaves_no_database_behind(
+        self, backups: DatabaseBackups, engine: type[BaseDatabaseManager]
+    ) -> None:
+        # The retry the error asks for (--as-superuser) would find the name taken by the husk of the
+        # first attempt: nothing existed under it, so nothing is lost by taking it away again.
+        taken = backups.dump("postgresql", "shop")
+        engine.state["fail_load"] = "pg_restore: error: must be able to SET ROLE"  # type: ignore[attr-defined]
+
+        with pytest.raises(DatabaseBackupError) as failure:
+            backups.restore("postgresql", "shop", taken.name, new_name="shop_copy")
+
+        assert "must be able to SET ROLE" in str(failure.value)
+        assert "shop_copy" not in engine.state["dbs"]  # type: ignore[attr-defined]
+        assert backups.service.store.get_database("shop_copy", "postgresql") is None
+        assert "shop" in engine.state["dbs"]  # type: ignore[attr-defined]
+
+    def test_a_failed_restore_into_a_database_that_was_there_is_not_dropped_by_the_cleanup(
+        self, backups: DatabaseBackups, engine: type[BaseDatabaseManager]
+    ) -> None:
+        taken = backups.dump("postgresql", "shop")
+        engine.state["fail_load"] = "pg_restore: error: unexpected EOF"  # type: ignore[attr-defined]
+
+        with pytest.raises(DatabaseBackupError):
+            backups.restore("postgresql", "shop", taken.name, safety_backup=False)
+
+        assert "shop" in engine.state["dbs"]  # type: ignore[attr-defined]
+
     def test_redis_cannot_restore_as_a_new_database(
         self, tmp_path: Path, runner: RcloneRunner
     ) -> None:
