@@ -582,17 +582,17 @@ where they are, not as a change.
 ### Finding your way
 
 - **A scope selector.** At the head of the sidebar (in the top bar on a narrow screen) it says whether the
-  console is on this server, on one of the others, on **All servers** or on **This central**. The server
-  selector of 3.3.1 lived in the top bar; this one is not drawn on a lone server with nobody else added.
+  console is on this server, on one of the others, on **All servers** or on **This central** (3.3.1 had
+  this selector in the top bar). It is not drawn on a lone server with nobody else added.
 - **The sidebar follows the scope.** On a server: Overview, Projects (where teams, projects and
   environments live), Applications, Databases, Domains, Backups and Cron; then Logs and Activity; then
   Server; and Settings pinned under them. On **All servers** or **This central**: the fleet's seven pages
   (Overview, Servers, Applications, Certificates, Backups, Updates and Activity). The strip of tabs the
   fleet's pages drew is gone, because the sidebar lists the same pages; only Applications keeps a strip,
   with its second view, **On several servers**.
-- **Recipes, the map and teams are views, not areas.** Recipes and Installed recipes belong to
-  Applications (they keep the address `/catalog`), the map of the server is the second view of Overview,
-  and Teams is a tab of Projects.
+- **Recipes, the map and teams are views, not areas.** The catalogue is no longer an area of the sidebar:
+  Recipes and Installed recipes are under Applications (they keep the address `/catalog`). The map of the
+  server is the second view of Overview, and Teams is a tab of Projects.
 - **The inbox.** A bell in the top bar opens **Needs you**, a state and not a story (a failed application,
   a certificate about to expire, an alert that fires, a probe that is down, a request waiting for your
   decision, a new Noust or a recipe with a newer version stay there while they are true, whether or not the
