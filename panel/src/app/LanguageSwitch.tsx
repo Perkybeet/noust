@@ -11,7 +11,9 @@ export interface LanguageSwitchProps {
  * One button per language offered (English, Español, and any released community language, see
  * `LOCALE_CHOICES`), pressed-or-not like the theme switch. Each is written in its
  * own language and marked with `lang`, so it is recognisable and pronounced correctly whatever
- * the console currently speaks. The switch applies at once: nothing to save.
+ * the console currently speaks. The switch applies at once: nothing to save. Past three languages
+ * the buttons wrap two to a row: the session menu is 288px wide, and "Português (Brasil)" beside
+ * five others in one row would be cut.
  */
 export function LanguageSwitch({ className }: LanguageSwitchProps) {
   const t = useT();
@@ -20,7 +22,11 @@ export function LanguageSwitch({ className }: LanguageSwitchProps) {
     <div
       role="group"
       aria-label={t("language.label")}
-      className={cx("flex rounded-control border border-border bg-bg-sunken p-0.5", className)}
+      className={cx(
+        LOCALE_CHOICES.length > 3 ? "grid grid-cols-2 gap-0.5" : "flex",
+        "rounded-control border border-border bg-bg-sunken p-0.5",
+        className,
+      )}
     >
       {LOCALE_CHOICES.map(({ value, label }) => (
         <button
