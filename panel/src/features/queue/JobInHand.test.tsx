@@ -164,7 +164,14 @@ describe("a request for an update that is already waiting", () => {
     await waitFor(() => {
       expect(backend.callsTo("POST /api/jobs/update")).toHaveLength(1);
     });
-    expect(await screen.findByText(`${TAB_DOMAIN} was already waiting for an update. This request joined it: one update builds the branch as it is when its turn comes, so nothing is lost and nothing builds twice.`)).toBeInTheDocument();
+    // The notice follows the request's answer and the queue's refetch: a slow runner takes more than findBy's one second.
+    expect(
+      await screen.findByText(
+        `${TAB_DOMAIN} was already waiting for an update. This request joined it: one update builds the branch as it is when its turn comes, so nothing is lost and nothing builds twice.`,
+        {},
+        { timeout: 5_000 },
+      ),
+    ).toBeInTheDocument();
   });
 });
 
