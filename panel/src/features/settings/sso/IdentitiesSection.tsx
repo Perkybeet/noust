@@ -181,7 +181,7 @@ export function IdentitiesSection() {
       <QueryState
         query={query}
         label={t("ssoAdmin.loadingLabel")}
-        skeleton={<DataTable caption={t("ssoAdmin.identities.tableCaption")} columns={columns} rows={[]} getRowId={(identity) => String(identity.id)} loading mobile="cards" skeletonRows={2} />}
+        skeleton={<DataTable caption={t("ssoAdmin.identities.tableCaption")} columns={columns} rows={[]} getRowId={(identity) => String(identity.id)} loading skeletonRows={2} />}
         isEmpty={(data) => data.identities.length === 0}
         empty={<EmptyState variant="inline" title={t("ssoAdmin.identities.emptyTitle")} description={t("ssoAdmin.identities.emptyDescription")} action={link} />}
       >
@@ -191,7 +191,6 @@ export function IdentitiesSection() {
             columns={columns}
             rows={data.identities}
             getRowId={(identity) => String(identity.id)}
-            mobile="cards"
             rowActions={(identity) => (
               <RowAction
                 label={t("ssoAdmin.identities.unlinkLabel", { account: identity.account, provider: identity.provider })}

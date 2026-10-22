@@ -239,7 +239,7 @@ export function PlanView({ t, plan, action }: { t: T; plan: FleetPlan; action: K
           ))}
         </ol>
       ) : null}
-      <DataTable caption={t("fleet.bulk.plan.caption")} columns={planColumns(t, plan.strategy["canary"])} rows={plan.nodes} getRowId={(node) => node.node} density="compact" mobile="cards" />
+      <DataTable caption={t("fleet.bulk.plan.caption")} columns={planColumns(t, plan.strategy["canary"])} rows={plan.nodes} getRowId={(node) => node.node} density="compact" />
       {plan.requires_elevation ? <Notice>{t("fleet.bulk.plan.elevation")}</Notice> : null}
       {action === "noust_update" ? <Notice>{t("fleet.bulk.plan.centralLast")}</Notice> : null}
       {action === "os_updates" ? <Notice tone="warning">{t("fleet.bulk.plan.noReboot")}</Notice> : null}

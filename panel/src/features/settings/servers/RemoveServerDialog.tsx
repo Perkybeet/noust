@@ -33,7 +33,7 @@ export function RemoveServerDialog({ name, open, onOpenChange }: RemoveServerDia
 
   return (
     <>
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         open={open}
         onOpenChange={onOpenChange}
         title={t("servers.settings.removeDialog.title", { name })}

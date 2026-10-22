@@ -231,7 +231,6 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
         loading={org.loading}
         skeletonRows={2}
         defaultSort={{ column: "team", direction: "ascending" }}
-        mobile="cards"
         pagination="teams"
         rowActions={(team) => (
           <Menu align="end" trigger={<IconButton label={t("teams.list.actionsFor", { name: team.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>

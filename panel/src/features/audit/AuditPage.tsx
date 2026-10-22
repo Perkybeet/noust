@@ -336,7 +336,6 @@ function ReviewsSection({ t }: { t: T }) {
           rows={items}
           getRowId={(item) => item.timestamp}
           density="compact"
-          mobile="cards"
           loading={query.isPending}
           skeletonRows={1}
           empty={<EmptyState variant="inline" title={t("audit.reviews.none")} />}
@@ -458,7 +457,6 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
                 getRowId={(entry) => entry.id ?? `${entry.timestamp}-${entry.action}-${entry.actor}`}
                 density="compact"
                 layout="fixed"
-                mobile="cards"
                 loading
                 skeletonRows={8}
               />
@@ -472,7 +470,6 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
                 getRowId={(entry) => entry.id ?? `${entry.timestamp}-${entry.action}-${entry.actor}`}
                 density="compact"
                 layout="fixed"
-                mobile="cards"
                 onRowActivate={setOpen}
                 empty={<EmptyState variant="inline" title={isFiltered(search) ? t("audit.page.noMatch") : t("audit.page.none")} />}
               />

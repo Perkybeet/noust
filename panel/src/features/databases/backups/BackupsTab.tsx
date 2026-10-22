@@ -379,7 +379,6 @@ function RemoteDumps({ engine, name, onRestore }: { engine: string; name: string
           loading={remote.data === undefined}
           skeletonRows={3}
           getRowId={(dump) => dump.name}
-          mobile="cards"
           empty={<EmptyState variant="inline" title={t("databases.remote.empty", { destination })} />}
           columns={[
             {
@@ -491,7 +490,6 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
             skeletonRows={4}
             getRowId={(dump) => dump.name}
             onRowActivate={setOpened}
-            mobile="cards"
             empty={<EmptyState variant="inline" title={t("databases.dumps.empty")} description={t("databases.dumps.emptyHint")} />}
             columns={[
               {
@@ -617,7 +615,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
         }}
       />
       {deleting !== null ? (
-        <ConfirmDialog
+        <ConfirmDialog friction="type"
           open
           onOpenChange={(open) => (open ? undefined : setDeleting(null))}
           title={t("databases.dumps.deleteTitle")}

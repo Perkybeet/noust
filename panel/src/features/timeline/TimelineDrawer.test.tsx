@@ -3,7 +3,7 @@ import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, crea
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Timeline, TimelineEvent, TimelineMinute } from "../../api/queries/timeline";
 import { createQueryClient } from "../../app/App";
@@ -12,6 +12,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import { TimelineDrawer } from "./TimelineDrawer";
 import { busiestMinute, filterEvents, logLines, unitsOf } from "./timelineData";
+import { screenWidth } from "../app/testRoutes";
 
 const START = 1_759_390_000;
 const END = START + 3_600;
@@ -73,6 +74,11 @@ async function renderDrawer(ui: ReactNode) {
 }
 
 describe("TimelineDrawer", () => {
+  // These lists are tables from 640px and cards below it: the tests read the table.
+  beforeEach(() => {
+    screenWidth(1440);
+  });
+
   it("links to the same stretch in the logs, where the query language can search all of it, narrowed to the application", async () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/timeline": () => json(200, { ...TIMELINE, app: "shop.example.com" }) });
     await renderDrawer(<TimelineDrawer stretch={[START, END]} app="shop.example.com" onClose={vi.fn()} />);

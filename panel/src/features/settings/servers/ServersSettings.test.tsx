@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
@@ -8,6 +8,7 @@ import { fakeBackend, json, problem } from "../../../test/fakes";
 import type { FakeBackend } from "../../../test/fakes";
 import { DB1, SSH_TIMEOUT, WEB2, centralSession, fleetRoutes } from "../../fleet/testFixtures";
 import { CODE_FIELDS, joinCodeOf } from "./joinCode.test";
+import { screenWidth } from "../../app/testRoutes";
 
 const KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGk3 noust-central@nas";
 const AUTHORIZE = `noust fleet authorize --central-key '${KEY}' --name nas`;
@@ -106,6 +107,11 @@ async function enroll(user: ReturnType<typeof renderConsole>["user"], address = 
 }
 
 describe("Settings > Servers", () => {
+  // These lists are tables from 640px and cards below it: the tests read the table.
+  beforeEach(() => {
+    screenWidth(1440);
+  });
+
   it("lists the servers with their address and status, and passes axe", { timeout: 20_000 }, async () => {
     serversBackend();
     const { container } = renderConsole("/settings/servers");

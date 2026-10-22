@@ -201,7 +201,6 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   } else {
     content = (
       <DataTable
-        mobile="cards"
         pagination="sites"
         caption={filtered ? t("domains.sitesTab.tableCaptionFiltered") : t("domains.sitesTab.tableCaption")}
         columns={columns}
@@ -297,7 +296,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
           }
         }}
       />
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         open={deleting !== null}
         onOpenChange={(next) => {
           if (!next) setDeleting(null);

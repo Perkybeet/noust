@@ -196,7 +196,6 @@ function CleanupRuns({ runs }: { runs: CleanupRun[] }) {
         rows={runs}
         getRowId={(row) => String(row.id)}
         caption={t("server.storage.history.caption")}
-        mobile="cards"
         empty={<EmptyState variant="inline" title={t("server.storage.history.empty")} />}
         rowActions={(row) => (
           <Button size="sm" variant="ghost" onClick={() => setOpened(row)} aria-label={t("server.storage.history.detailFor", { id: row.id })}>

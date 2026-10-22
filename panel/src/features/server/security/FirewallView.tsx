@@ -135,7 +135,6 @@ function Ports({ firewall }: { firewall: Firewall }) {
           rows={sortPorts(firewall.ports)}
           getRowId={(row) => `${row.proto}:${row.address}:${String(row.port)}`}
           caption={t("server.firewall.ports.caption")}
-          mobile="cards"
           density="compact"
           empty={<EmptyState variant="inline" title={t("server.firewall.ports.none")} />}
         />
@@ -170,7 +169,6 @@ function Rules({ firewall, onDelete }: { firewall: Firewall; onDelete: (rule: Fi
         rows={firewall.firewall.rules}
         getRowId={(row) => row.id}
         caption={t("server.firewall.rules.caption")}
-        mobile="cards"
         density="compact"
         empty={<EmptyState variant="inline" title={t("server.firewall.rules.none")} />}
         rowActions={(row) =>

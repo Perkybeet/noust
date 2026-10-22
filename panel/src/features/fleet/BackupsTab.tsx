@@ -217,7 +217,6 @@ export function BackupsTab({ search, onSearchChange }: BackupsTabProps) {
         getRowId={(row) => `${originOf(row).node}:${field(row, "domain") ?? ""}`}
         loading={view.isPending}
         skeletonRows={6}
-        mobile="cards"
         pagination="fleet-backups"
         empty={
           rows.length === 0 && view.data !== undefined ? (

@@ -283,7 +283,6 @@ function Keys({ hostname }: { hostname: string }) {
           caption={t("server.ssh.keys.caption")}
           loading={keys.isPending}
           skeletonRows={2}
-          mobile="cards"
           empty={<EmptyState variant="inline" title={t("server.ssh.keys.none")} />}
           rowActions={(row) => (
             <Menu align="end" trigger={<IconButton label={t("server.ssh.keys.actionsFor", { fingerprint: row.key.fingerprint })} icon={<ICONS.more />} size="sm" tooltip={false} />}>

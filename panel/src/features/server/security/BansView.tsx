@@ -74,7 +74,6 @@ function Jails({ state }: { state: Fail2ban }) {
           rows={state.jails}
           getRowId={(row) => row.name}
           caption={t("server.bans.jailsCaption")}
-          mobile="cards"
           density="compact"
           empty={<EmptyState variant="inline" title={t("server.bans.noJails")} />}
         />

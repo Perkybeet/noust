@@ -135,7 +135,7 @@ export function TeamSettings() {
         </DangerZone>
       ) : null}
       <CommandHint command={`noust team rename ${team.slug} "New name"`} label={t("teams.fromTerminal")} />
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         open={deleting}
         onOpenChange={setDeleting}
         server={node}

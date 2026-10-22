@@ -444,7 +444,6 @@ export function SummaryTab() {
           getRowId={(row) => originOf(row).node}
           loading={loading}
           skeletonRows={3}
-          mobile="cards"
           className="rounded-none border-0 shadow-none"
         />
       </Card>

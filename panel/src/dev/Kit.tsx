@@ -255,7 +255,6 @@ function Empties() {
       >
         <div className="w-full">
           <DataTable
-            mobile="cards"
             caption="Applications"
             columns={COLUMNS}
             rows={SAMPLE_APPS.slice(0, 4)}
@@ -356,7 +355,7 @@ function Friction() {
             />
           </Item>
           <Item label='friction="type"'>
-            <ConfirmDialog
+            <ConfirmDialog friction="type"
               title="Delete shop.example.com"
               description="Stops the service and removes its files and site. Backups are kept."
               confirmText="shop.example.com"

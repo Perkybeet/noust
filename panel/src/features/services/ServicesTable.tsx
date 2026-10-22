@@ -157,7 +157,6 @@ export function ServicesTable({ services, caption, loading = false, empty, rowAc
       getRowId={(row) => row.name}
       caption={caption}
       loading={loading}
-      mobile="cards"
       pagination="services"
       {...(empty !== undefined ? { empty } : {})}
       {...(rowActions ? { rowActions } : {})}

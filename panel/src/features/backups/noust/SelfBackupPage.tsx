@@ -251,7 +251,6 @@ export function SelfBackupPage() {
               loading={data === undefined}
               skeletonRows={3}
               getRowId={(bundle) => bundle.name}
-              mobile="cards"
               empty={<EmptyState variant="inline" title={t("selfBackup.table.empty")} description={t("selfBackup.table.emptyHint")} />}
               columns={[
                 {

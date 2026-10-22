@@ -176,7 +176,6 @@ export function SchedulesPage() {
   } else {
     content = (
       <DataTable
-        mobile="cards"
         columns={columns}
         rows={schedules.data?.schedules ?? []}
         getRowId={(row) => row.domain}

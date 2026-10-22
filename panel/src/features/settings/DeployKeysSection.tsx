@@ -190,7 +190,6 @@ function PinnedHosts() {
             rows={data.hosts}
             getRowId={(host) => host.host}
             density="compact"
-            mobile="cards"
             rowActions={(host) => (
               <Button
                 size="sm"
@@ -255,7 +254,6 @@ export function DeployKeysSection() {
             rows={data.keys}
             getRowId={(key) => key.name}
             density="compact"
-            mobile="cards"
           />
         )}
       </QueryState>

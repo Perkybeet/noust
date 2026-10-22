@@ -1,11 +1,12 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { screenWidth } from "../app/testRoutes";
 
 const NOW = Date.now() / 1000;
 
@@ -44,6 +45,11 @@ async function expectToast(text: string): Promise<void> {
 }
 
 describe("Account > Sign-in security", () => {
+  // These lists are tables from 640px and cards below it: the tests read the table.
+  beforeEach(() => {
+    screenWidth(1440);
+  });
+
   it("sets up two-factor authentication: QR and key, a code, then the backup codes once", { timeout: 20_000 }, async () => {
     const twoFactor = { enabled: false };
     const backend = fakeBackend(

@@ -98,7 +98,7 @@ export function GrantsSection() {
       <QueryState
         query={query}
         label={t("access.loadingLabel")}
-        skeleton={<DataTable caption={t("access.grants.tableCaption")} columns={columns} rows={[]} getRowId={(binding) => String(binding.id)} loading mobile="cards" skeletonRows={3} />}
+        skeleton={<DataTable caption={t("access.grants.tableCaption")} columns={columns} rows={[]} getRowId={(binding) => String(binding.id)} loading skeletonRows={3} />}
         isEmpty={(data) => data.bindings.length === 0}
         empty={<EmptyState variant="firstUse" level={3} icon={<UsersRound />} title={t("access.grants.emptyTitle")} description={t("access.grants.emptyDescription")} action={grant} command="noust access grant maria --role admin --team acme --project web" />}
       >
@@ -108,7 +108,6 @@ export function GrantsSection() {
             columns={columns}
             rows={data.bindings}
             getRowId={(binding) => `${String(binding.id)}-${binding.username}-${binding.scope}`}
-            mobile="cards"
             pagination="access-grants"
             rowActions={(binding) =>
               binding.id === 0 ? (

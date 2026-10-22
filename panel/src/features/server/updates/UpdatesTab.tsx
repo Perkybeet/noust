@@ -165,7 +165,6 @@ function RecentRuns() {
         loading={runs.isPending}
         skeletonRows={3}
         density="compact"
-        mobile="cards"
         onRowActivate={setOpen}
       />
       <Drawer
@@ -398,7 +397,6 @@ function Packages({ updates }: { updates: Updates }) {
         rows={shown}
         getRowId={(row) => row.name}
         caption={t("server.updates.table.caption")}
-        mobile="cards"
         density="compact"
       />
       {sorted.length > SHOWN_PACKAGES ? (

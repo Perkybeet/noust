@@ -174,7 +174,7 @@ export function McpSettings() {
 
             <Section title={t("mcpSettings.tools.title")} description={t("mcpSettings.tools.description")}>
               <div className="flex flex-col gap-4">
-                <DataTable caption={t("mcpSettings.tools.tableCaption")} columns={columns} rows={status.tools} getRowId={(tool) => tool.name} mobile="cards" pagination="mcp-tools" />
+                <DataTable caption={t("mcpSettings.tools.tableCaption")} columns={columns} rows={status.tools} getRowId={(tool) => tool.name} pagination="mcp-tools" />
                 <KeyValueList
                   items={[
                     { label: t("mcpSettings.tools.prompts"), value: status.prompts.join(", "), mono: true, copy: false },

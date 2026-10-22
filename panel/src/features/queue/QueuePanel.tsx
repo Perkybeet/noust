@@ -154,7 +154,6 @@ export function QueuePanelView({ queue, domain, onOpenLog }: QueuePanelProps & {
         rows={entries}
         getRowId={(entry) => entry.id}
         density="compact"
-        mobile="cards"
         rowActions={(entry) => (
           <span className="flex items-center gap-1">
             {onOpenLog !== undefined ? (

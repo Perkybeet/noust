@@ -140,7 +140,6 @@ export function ActivityTable({ rows, caption, loading = false, empty, onOpenJob
 
   return (
     <DataTable
-      mobile="cards"
       columns={columns}
       rows={rows}
       getRowId={(row) => row.id}

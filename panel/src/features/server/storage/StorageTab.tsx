@@ -257,7 +257,6 @@ function ImagesDrawer({ onClose }: { onClose: () => void }) {
           caption={t("server.storage.imagesCaption")}
           loading={images.isPending}
           skeletonRows={3}
-          mobile="cards"
           empty={<EmptyState variant="inline" title={t("server.storage.noImages")} />}
           rowActions={(row) => (
             <Button size="sm" variant="ghost" onClick={() => setRemoving(row.id)} aria-label={t("server.storage.removeImage", { image: `${row.repository}:${row.tag}` })}>
@@ -340,7 +339,6 @@ function Candidates({ storage, open }: { storage: Storage | undefined; open: (op
         // One id can measure several places (Noust's logs are three directories).
         getRowId={(row) => `${row.id}:${row.detail}`}
         caption={t("server.storage.candidatesCaption")}
-        mobile="cards"
         empty={<EmptyState variant="inline" title={t("server.storage.noCandidates")} />}
         rowActions={(row) =>
           row.id === "docker-images" ? (

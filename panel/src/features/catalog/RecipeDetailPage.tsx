@@ -270,7 +270,6 @@ export function RecipeDetailPage({ name }: { name: string }) {
               caption={t("catalog.detail.images.caption")}
               rows={recipe.images}
               getRowId={(row) => row.service}
-              mobile="cards"
               columns={[
                 { id: "service", header: t("catalog.detail.images.service"), cell: (row) => <Mono>{row.service}</Mono>, card: "title" },
                 { id: "image", header: t("catalog.detail.images.image"), cell: (row) => <Mono truncate>{`${row.repository}:${row.tag}`}</Mono> },
@@ -326,7 +325,6 @@ export function RecipeDetailPage({ name }: { name: string }) {
               rows={recipe.variables}
               getRowId={(row) => row.name}
               columns={variableColumns(t)}
-              mobile="cards"
               pagination="recipe-variables"
             />
           </Section>

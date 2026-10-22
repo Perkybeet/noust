@@ -502,7 +502,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
           }}
         />
       ) : null}
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         open={deleting}
         onOpenChange={setDeleting}
         title={t("domains.deleteNamedTitle", { name: site })}

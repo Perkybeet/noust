@@ -154,7 +154,6 @@ export function CoverageTable({ rows, caption, loading = false, skeletonRows, em
 
   return (
     <DataTable
-      mobile="cards"
       columns={columns}
       rows={rows}
       getRowId={(row) => row.domain}

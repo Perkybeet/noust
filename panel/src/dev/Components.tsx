@@ -283,7 +283,7 @@ function Overlays() {
             </Dialog>
           </Item>
           <Item label="Type to confirm">
-            <ConfirmDialog
+            <ConfirmDialog friction="type"
               title="Delete shop.example.dev"
               description="Stops the service, removes the nginx site and the release directories. Backups and the database are kept."
               confirmText="shop.example.dev"
@@ -297,7 +297,7 @@ function Overlays() {
             />
           </Item>
           <Item label="Options that destroy more, unchecked">
-            <ConfirmDialog
+            <ConfirmDialog friction="type"
               title="Delete legacy.example.dev"
               description="Stops the service and removes the site. Backups are kept."
               confirmText="legacy.example.dev"
@@ -314,7 +314,7 @@ function Overlays() {
             </ConfirmDialog>
           </Item>
           <Item label="Failure shown verbatim">
-            <ConfirmDialog
+            <ConfirmDialog friction="type"
               title="Stop worker.example.dev"
               description="The worker stops taking jobs. Jobs in progress are cancelled."
               confirmText="worker.example.dev"
@@ -843,7 +843,6 @@ function Tables() {
           columns={COLUMNS.slice(0, 3)}
           rows={PAGED_APPS}
           getRowId={(row) => row.domain}
-          mobile="cards"
           pagination="gallery-applications"
         />
       </div>

@@ -282,7 +282,6 @@ export function DestinationsPage() {
   } else {
     content = (
       <DataTable
-        mobile="cards"
         columns={columns}
         rows={list}
         getRowId={(row) => row.name}

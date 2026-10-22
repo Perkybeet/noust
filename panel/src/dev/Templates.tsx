@@ -89,7 +89,6 @@ function ListDemo() {
       footer={<CommandHint command="noust list" label="From a terminal" />}
     >
       <DataTable
-        mobile="cards"
         caption="Applications"
         columns={APP_COLUMNS}
         rows={rows}

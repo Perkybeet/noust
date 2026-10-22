@@ -331,7 +331,7 @@ export function SecretManagers() {
         <QueryState
           query={providers}
           label={t("variables.providers.queryLabel")}
-          skeleton={<DataTable caption={caption} columns={columns} rows={[]} getRowId={(provider) => provider.name} density="compact" mobile="cards" skeletonRows={2} loading />}
+          skeleton={<DataTable caption={caption} columns={columns} rows={[]} getRowId={(provider) => provider.name} density="compact" skeletonRows={2} loading />}
           isEmpty={(data) => data.providers.length === 0}
           empty={
             <EmptyState
@@ -344,7 +344,7 @@ export function SecretManagers() {
             />
           }
         >
-          {() => <DataTable caption={caption} columns={columns} rows={list} getRowId={(provider) => provider.name} rowActions={rowActions} density="compact" mobile="cards" defaultSort={{ column: "name", direction: "ascending" }} />}
+          {() => <DataTable caption={caption} columns={columns} rows={list} getRowId={(provider) => provider.name} rowActions={rowActions} density="compact" defaultSort={{ column: "name", direction: "ascending" }} />}
         </QueryState>
       </Section>
       <CommandHint command="noust secrets list" label={t("variables.shared.fromTerminal")} />

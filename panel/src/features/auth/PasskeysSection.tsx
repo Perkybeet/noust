@@ -285,7 +285,6 @@ export function PasskeysSection() {
           rows={passkeys}
           getRowId={(passkey) => String(passkey.id)}
           density="compact"
-          mobile="cards"
           loading={query.isPending}
           skeletonRows={1}
           empty={

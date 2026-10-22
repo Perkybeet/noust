@@ -110,7 +110,6 @@ function Moves({ actions }: { actions: InstanceActions }) {
         caption={t("databases.moves.caption")}
         loading={query.isPending}
         skeletonRows={2}
-        mobile="cards"
         rowActions={(row) =>
           row.can_roll_back ? (
             <Menu align="end" trigger={<IconButton label={t("databases.moves.actionsFor", { number: row.id })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
@@ -259,7 +258,6 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
             caption={t("databases.instances.runCaption")}
             loading={query.isPending}
             skeletonRows={2}
-            mobile="cards"
             empty={<p className="text-13 text-fg-muted">{t("databases.instances.runEmpty")}</p>}
             rowActions={(row) => (
               <Menu align="end" trigger={<IconButton label={t("databases.instances.actionsFor", { name: row.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
@@ -323,7 +321,7 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
         />
       ) : null}
       {removing !== null ? (
-        <ConfirmDialog
+        <ConfirmDialog friction="type"
           open
           onOpenChange={(open) => (open ? undefined : setRemoving(null))}
           server={node}

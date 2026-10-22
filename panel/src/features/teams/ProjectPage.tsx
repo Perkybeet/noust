@@ -236,12 +236,12 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
             </Section>
             {databases.length > 0 ? (
               <Section title={t("teams.project.databases")} icon={OBJECT_ICONS.database} badge={<Badge>{databases.length}</Badge>}>
-                <DataTable columns={databaseColumns} rows={databases} getRowId={(database) => `${database.engine}:${database.name}`} caption={t("teams.project.databasesCaption", { name: current?.name ?? slug })} mobile="cards" pagination="databases" defaultSort={{ column: "name", direction: "ascending" }} />
+                <DataTable columns={databaseColumns} rows={databases} getRowId={(database) => `${database.engine}:${database.name}`} caption={t("teams.project.databasesCaption", { name: current?.name ?? slug })} pagination="databases" defaultSort={{ column: "name", direction: "ascending" }} />
               </Section>
             ) : null}
             {sites.length > 0 ? (
               <Section title={t("teams.project.sites")} icon={OBJECT_ICONS.site} badge={<Badge>{sites.length}</Badge>}>
-                <DataTable columns={siteColumns} rows={sites} getRowId={(site) => `${site.webserver}:${site.name}`} caption={t("teams.project.sitesCaption", { name: current?.name ?? slug })} mobile="cards" pagination="sites" defaultSort={{ column: "name", direction: "ascending" }} />
+                <DataTable columns={siteColumns} rows={sites} getRowId={(site) => `${site.webserver}:${site.name}`} caption={t("teams.project.sitesCaption", { name: current?.name ?? slug })} pagination="sites" defaultSort={{ column: "name", direction: "ascending" }} />
               </Section>
             ) : null}
           </>

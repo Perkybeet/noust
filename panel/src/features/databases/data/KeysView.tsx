@@ -163,7 +163,6 @@ export function KeysView({ engine, name, search, onSearchChange }: { engine: str
           loading={scan.isPending}
           skeletonRows={8}
           onRowActivate={setOpen}
-          mobile="cards"
           empty={<EmptyState variant="inline" title={search.match !== undefined || search.type !== undefined ? t("databases.keys.noMatch") : t("databases.keys.empty")} />}
           columns={[
             { id: "key", header: t("databases.keys.key"), card: "title", cell: (key) => <Mono truncate>{key.key}</Mono> },

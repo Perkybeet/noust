@@ -123,7 +123,6 @@ export function FleetMetricsCard() {
             getRowId={(row) => originOf(row).node}
             loading={query.isPending}
             skeletonRows={3}
-            mobile="cards"
             empty={<EmptyState variant="inline" title={t("fleetCompare.metrics.none")} />}
             className="rounded-none border-0 shadow-none"
           />

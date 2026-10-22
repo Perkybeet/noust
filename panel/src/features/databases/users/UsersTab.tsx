@@ -239,7 +239,6 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
             loading={access.isPending}
             skeletonRows={3}
             getRowId={(entry) => `${entry.username}@${entry.host}`}
-            mobile="cards"
             empty={<EmptyState variant="inline" title={t("databases.users.empty")} />}
             columns={[
               {

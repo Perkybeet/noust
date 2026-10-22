@@ -296,7 +296,6 @@ export function FleetJobPage({ id }: { id: string }) {
             getRowId={(node) => node.node}
             loading={job.isPending}
             skeletonRows={3}
-            mobile="cards"
           />
         </div>
       )}

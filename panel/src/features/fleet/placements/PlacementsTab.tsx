@@ -229,7 +229,7 @@ function PlacementCard({ placement }: { placement: Placement }) {
           <Skeleton className="h-10 w-full" />
         </div>
       ) : (
-        <DataTable caption={t("placements.card.caption", { domain: placement.domain })} columns={columns(t)} rows={servers} getRowId={(row) => row.node} density="compact" mobile="cards" />
+        <DataTable caption={t("placements.card.caption", { domain: placement.domain })} columns={columns(t)} rows={servers} getRowId={(row) => row.node} density="compact" />
       )}
       {open === "rollout" ? <RolloutDialog placement={placement} members={placement.members} onClose={close} /> : null}
       {open === "copy" ? <CopyDialog placement={placement} servers={servers} onClose={close} /> : null}

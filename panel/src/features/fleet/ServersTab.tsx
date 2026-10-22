@@ -397,7 +397,6 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
         getRowId={(row) => originOf(row).node}
         loading={view.isPending}
         skeletonRows={3}
-        mobile="cards"
         pagination="fleet-servers"
         rowActions={(row) => (
           <RowActions

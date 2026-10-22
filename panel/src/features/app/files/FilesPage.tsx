@@ -547,7 +547,7 @@ function EntryActions({
         />
       ) : null}
       {isDir ? (
-        <ConfirmDialog confirmText={entry.name} {...confirmation} />
+        <ConfirmDialog friction="type" confirmText={entry.name} {...confirmation} />
       ) : (
         <ConfirmDialog friction="simple" {...confirmation} />
       )}

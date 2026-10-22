@@ -192,7 +192,6 @@ export function VolumeDetailDrawer({ row, open, onOpenChange, onEdit, onRun, onR
             density="compact"
             rows={row.backups}
             getRowId={(backup) => backup.id}
-            mobile="cards"
             empty={<EmptyState variant="inline" title={t("volumeBackups.detail.noBackups")} description={t("volumeBackups.detail.noBackupsHint")} />}
             columns={[
               {

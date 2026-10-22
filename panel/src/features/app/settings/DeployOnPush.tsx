@@ -386,7 +386,6 @@ function PushesReceived({ domain, status }: { domain: string; status: WebhookSta
             loading
             skeletonRows={Math.min(Math.max(total, 1), RECEIVED_SHOWN)}
             density="compact"
-            mobile="cards"
           />
         }
         isEmpty={(data) => data.items.length === 0}
@@ -399,7 +398,6 @@ function PushesReceived({ domain, status }: { domain: string; status: WebhookSta
             rows={data.items}
             getRowId={(row) => String(row.id)}
             density="compact"
-            mobile="cards"
           />
         )}
       </QueryState>

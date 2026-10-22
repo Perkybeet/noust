@@ -153,7 +153,6 @@ export function PolicySection() {
           rows={profile.data?.baseline ?? []}
           getRowId={(item) => item.key}
           density="compact"
-          mobile="cards"
           loading={profile.isPending}
           skeletonRows={4}
         />

@@ -509,7 +509,6 @@ export function EnvironmentTab({ domain }: { domain: string }) {
             getRowId={(row) => row.name}
             rowActions={rowActions}
             density="compact"
-            mobile="cards"
             skeletonRows={8}
             loading
           />
@@ -539,7 +538,6 @@ export function EnvironmentTab({ domain }: { domain: string }) {
               if (row.state !== "removed") edit(row);
             }}
             density="compact"
-            mobile="cards"
           />
         )}
       </QueryState>

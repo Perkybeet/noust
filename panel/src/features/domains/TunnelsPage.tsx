@@ -417,7 +417,6 @@ export function TunnelsPage() {
         />
       ) : (
         <DataTable
-          mobile="cards"
           caption={t("network.tunnels.tableCaption")}
           columns={columns}
           rows={rows}

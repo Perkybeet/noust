@@ -153,7 +153,7 @@ export function TokensSettings() {
         <QueryState
           query={query}
           label={t("settings.tokens.loadingLabel")}
-          skeleton={<DataTable caption={t("settings.tokens.tableCaption")} columns={columns} rows={[]} getRowId={(token) => String(token.id)} loading mobile="cards" skeletonRows={2} />}
+          skeleton={<DataTable caption={t("settings.tokens.tableCaption")} columns={columns} rows={[]} getRowId={(token) => String(token.id)} loading skeletonRows={2} />}
           isEmpty={(data) => data.tokens.length === 0}
           empty={
             <EmptyState
@@ -173,7 +173,6 @@ export function TokensSettings() {
               columns={columns}
               rows={sortTokens(data.tokens)}
               getRowId={(token) => String(token.id)}
-              mobile="cards"
               rowActions={(token) =>
                 tokenState(token) === "active" ? (
                   <>

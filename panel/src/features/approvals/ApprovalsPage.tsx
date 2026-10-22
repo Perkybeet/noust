@@ -260,7 +260,7 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
           <QueryState
             query={query}
             label={t("approvals.page.what")}
-            skeleton={<DataTable caption={t("approvals.page.caption")} columns={columns} rows={[]} getRowId={(item) => String(item.id)} mobile="cards" loading skeletonRows={2} />}
+            skeleton={<DataTable caption={t("approvals.page.caption")} columns={columns} rows={[]} getRowId={(item) => String(item.id)} loading skeletonRows={2} />}
           >
             {() => (
               <DataTable
@@ -268,7 +268,6 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
                 columns={columns}
                 rows={shown}
                 getRowId={(item) => String(item.id)}
-                mobile="cards"
                 onRowActivate={(item) => setOpen(item.id)}
                 rowActions={(item) => (
                   <Button size="sm" variant="ghost" aria-label={t("approvals.table.openLabel", { id: item.id })} onClick={() => setOpen(item.id)}>

@@ -148,7 +148,6 @@ export function TeamMembers() {
       loading={loading}
       skeletonRows={3}
       defaultSort={{ column: "role", direction: "descending" }}
-      mobile="cards"
       {...(governs
         ? {
             rowActions: (member: Member) => {

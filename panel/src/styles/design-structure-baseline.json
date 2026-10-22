@@ -8,7 +8,6 @@
       "features/catalog/RecipeRequirements.tsx": 1,
       "features/databases/instances/InstancesSection.tsx": 2,
       "features/databases/instances/TuningDialog.tsx": 1,
-      "features/domains/IssueCertificateDialog.tsx": 1,
       "features/domains/SiteHistoryDialog.tsx": 2,
       "features/domains/SitesPage.tsx": 2
     },
@@ -72,8 +71,7 @@
       "features/backups/BackupsPage.tsx": 1,
       "features/backups/noust/SelfBackupPage.tsx": 1,
       "features/databases/public/PublicAccessSection.tsx": 2,
-      "features/settings/NotificationSettings.tsx": 1,
-      "features/settings/TwoFactorSection.tsx": 2
+      "features/settings/NotificationSettings.tsx": 1
     },
     "field-error-by-hand": {
       "features/backups/policy/SendToFields.tsx": 1,

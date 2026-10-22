@@ -237,7 +237,7 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
         <Outlet />
       </DetailPage>
       {data !== undefined ? (
-        <ConfirmDialog
+        <ConfirmDialog friction="type"
           open={dropping}
           onOpenChange={setDropping}
           title={t("databases.drop.title", { name })}

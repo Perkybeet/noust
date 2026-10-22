@@ -330,7 +330,7 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
       <QueryState
         query={query}
         label={t("variables.shared.queryLabel")}
-        skeleton={<DataTable caption={caption} columns={columns} rows={[]} getRowId={(variable) => variable.name} density="compact" mobile="cards" skeletonRows={3} loading />}
+        skeleton={<DataTable caption={caption} columns={columns} rows={[]} getRowId={(variable) => variable.name} density="compact" skeletonRows={3} loading />}
         isEmpty={(data) => data.variables.length === 0}
         empty={
           inlineEmpty ? (
@@ -357,7 +357,6 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
               getRowId={(variable) => variable.name}
               rowActions={rowActions}
               density="compact"
-              mobile="cards"
               defaultSort={{ column: "name", direction: "ascending" }}
             />
             <p className="max-w-measure text-12 text-pretty text-fg-muted">{scope.kind === "preview" ? t("variables.shared.notePreview") : t("variables.shared.note")}</p>

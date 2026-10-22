@@ -164,7 +164,6 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
         skeletonRows={3}
         getRowId={(row) => row.domain}
         onRowActivate={openRow}
-        mobile="cards"
         rowActions={(row) => (
           <Menu align="end" trigger={<IconButton size="sm" label={t("volumeBackups.actions.for", { domain: row.domain })} icon={<ICONS.more />} tooltip={false} />}>
             <MenuItem disabled={job.busy || run.isPending} onClick={() => run.mutate(row)}>

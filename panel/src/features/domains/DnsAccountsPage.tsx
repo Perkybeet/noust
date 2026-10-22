@@ -346,7 +346,6 @@ export function DnsAccountsPage() {
         />
       ) : (
         <DataTable
-          mobile="cards"
           caption={t("network.dns.tableCaption")}
           columns={columns}
           rows={accounts.data?.accounts ?? []}

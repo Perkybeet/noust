@@ -231,7 +231,6 @@ function ExceptionsSection({ t, canManage, onAdd }: { t: T; canManage: boolean; 
           rows={live}
           getRowId={(item) => String(item.id)}
           density="compact"
-          mobile="cards"
           loading={query.isPending}
           skeletonRows={1}
           empty={<EmptyState variant="inline" title={t("accounts.exceptions.none")} />}
@@ -318,7 +317,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
       skeleton={
         <div className="flex min-w-0 flex-col gap-4">
           <Skeleton className="h-control-md w-full max-w-md rounded-control" />
-          <DataTable caption={t("accounts.page.caption")} columns={columns} rows={[]} getRowId={(account) => account.username} mobile="cards" loading skeletonRows={3} />
+          <DataTable caption={t("accounts.page.caption")} columns={columns} rows={[]} getRowId={(account) => account.username} loading skeletonRows={3} />
         </div>
       }
       isEmpty={() => all.length === 0}
@@ -392,7 +391,6 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
             columns={columns}
             rows={shown}
             getRowId={(account) => account.username}
-            mobile="cards"
             {...(canManage ? { rowActions: (account: Account) => <AccountActions t={t} account={account} self={account.username === me} onOpen={setPending} /> } : {})}
             empty={
               <EmptyState

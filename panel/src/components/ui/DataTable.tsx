@@ -72,11 +72,10 @@ export interface DataTableProps<T> {
   empty?: ReactNode;
   density?: "compact" | "comfortable";
   /**
-   * Below 640px: `cards` draws each row as a card (state, name, the rest on one line) with its
-   * actions always in view; `scroll` keeps the table and scrolls it sideways, for a table whose
-   * columns are the point (a parameter list, a diff) and that no card can hold. Lists of a T1
-   * page use `cards`. The default is `scroll` while the pages that rely on it move; it becomes
-   * `cards` (`DEFAULT_MOBILE`) with the last of them.
+   * Below 640px: `cards` (the default) draws each row as a card (state, name, the rest on one
+   * line) with its actions always in view; `scroll` keeps the table and scrolls it sideways, for
+   * a table whose columns are the point (a parameter list, a diff) and that no card can hold.
+   * Say `scroll` only for that reason: a list never says `cards`, it is what a table does.
    */
   mobile?: "scroll" | "cards";
   /**
@@ -96,12 +95,8 @@ export interface DataTableProps<T> {
   className?: string;
 }
 
-/**
- * What a table does under 640px when it is not told. `cards` is what the console wants everywhere
- * (DESIGN 6.8); the tables that still rely on this are `scroll`, and changing it is one line and
- * the tests of the pages that read a table in a window jsdom thinks is a phone.
- */
-export const DEFAULT_MOBILE: NonNullable<DataTableProps<unknown>["mobile"]> = "scroll";
+/** What a table does under 640px when it is not told: the console's lists are cards on a phone (DESIGN 6.8). */
+const DEFAULT_MOBILE: NonNullable<DataTableProps<unknown>["mobile"]> = "cards";
 
 /** The smallest page size: a list this short has nothing to page, so no control is drawn. */
 const SMALLEST_PAGE = 20;

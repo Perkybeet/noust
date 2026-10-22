@@ -410,7 +410,6 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
               rows={pages.data === undefined ? undefined : rows}
               getRowId={(row) => (row.kind === "built" ? `built-${row.release.id}` : String(row.deployment.id))}
               density="compact"
-              mobile="cards"
               skeletonRows={6}
               pagination="deployments"
               rowActions={rowActions}

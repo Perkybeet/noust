@@ -126,7 +126,6 @@ export function FleetSummary({ state }: { state: FleetSummaryState }) {
           rows={rows}
           getRowId={(row) => row.key}
           density="compact"
-          mobile="cards"
           loading={state.loading}
           skeletonRows={2}
           className="rounded-none border-0 shadow-none"

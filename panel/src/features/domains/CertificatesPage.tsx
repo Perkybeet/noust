@@ -297,7 +297,6 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
   } else {
     content = (
       <DataTable
-        mobile="cards"
         pagination="certificates"
         caption={filtered ? t("domains.certificatesTab.tableCaptionFiltered") : t("domains.certificatesTab.tableCaption")}
         columns={columns}
@@ -465,7 +464,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
         onClose={() => setOpened(null)}
         onRenew={(cert) => renew.mutate({ cert, force: true })}
       />
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         open={revoking !== null}
         onOpenChange={(open) => {
           if (!open) setRevoking(null);
@@ -481,7 +480,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
           toast.success(t("domains.certificatesTab.revokedToast", { domain: revoking.domain }));
         }}
       />
-      <ConfirmDialog
+      <ConfirmDialog friction="type"
         open={deleting !== null}
         onOpenChange={(open) => {
           if (!open) setDeleting(null);

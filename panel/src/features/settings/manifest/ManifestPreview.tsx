@@ -102,7 +102,6 @@ function Result({ plan, apply }: { plan: ManifestPlan; apply: ReactNode }) {
           columns={columns}
           rows={plan.actions}
           getRowId={(action) => `${action.kind}:${action.target}:${action.summary}`}
-          mobile="cards"
         />
       )}
       {plan.warnings.length > 0 ? (

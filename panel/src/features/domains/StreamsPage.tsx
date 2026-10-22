@@ -284,7 +284,6 @@ export function StreamsPage() {
         />
       ) : (
         <DataTable
-          mobile="cards"
           caption={t("network.ports.tableCaption")}
           columns={columns}
           rows={rows}

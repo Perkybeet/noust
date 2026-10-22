@@ -93,7 +93,7 @@ export function RolesSection() {
       <QueryState
         query={query}
         label={t("access.loadingLabel")}
-        skeleton={<DataTable caption={t("access.roles.tableCaption")} columns={columns} rows={[]} getRowId={(role) => role.name} loading mobile="cards" skeletonRows={4} />}
+        skeleton={<DataTable caption={t("access.roles.tableCaption")} columns={columns} rows={[]} getRowId={(role) => role.name} loading skeletonRows={4} />}
       >
         {(data) => (
           <>
@@ -102,7 +102,6 @@ export function RolesSection() {
               columns={columns}
               rows={data.roles}
               getRowId={(role) => role.name}
-              mobile="cards"
               rowActions={(role) =>
                 role.built_in ? (
                   <RowAction

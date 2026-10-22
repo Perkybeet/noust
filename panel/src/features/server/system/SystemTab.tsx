@@ -117,7 +117,6 @@ function ProcessesView() {
                 sort={tableSort}
                 onSortChange={sortBy}
                 density="compact"
-                mobile="cards"
                 empty={<EmptyState variant="inline" title={t("server.processes.none")} />}
               />
             ) : (
@@ -129,7 +128,6 @@ function ProcessesView() {
                 sort={tableSort}
                 onSortChange={sortBy}
                 density="compact"
-                mobile="cards"
                 empty={<EmptyState variant="inline" title={t("server.processes.none")} />}
               />
             )}
@@ -192,7 +190,6 @@ function NetworkView() {
             getRowId={(row) => row.name}
             caption={t("server.network.caption")}
             density="compact"
-            mobile="cards"
             empty={<EmptyState variant="inline" title={t("server.network.none")} />}
           />
         </Card>

@@ -31,7 +31,7 @@ function names(): string[] {
 }
 
 function table(rows: Row[], pagination: string | null = "apps") {
-  return <DataTable caption="Applications" columns={COLUMNS} rows={rows} getRowId={(row) => row.name} {...(pagination !== null ? { pagination } : {})} />;
+  return <DataTable mobile="scroll" caption="Applications" columns={COLUMNS} rows={rows} getRowId={(row) => row.name} {...(pagination !== null ? { pagination } : {})} />;
 }
 
 async function choose(size: string): Promise<void> {
@@ -147,7 +147,7 @@ describe("DataTable paging (checklist M-51)", () => {
 
   it("keeps the arrow keys inside the page that is shown", async () => {
     const onRowActivate = vi.fn();
-    render(<DataTable caption="Applications" columns={COLUMNS} rows={rowsOf(45)} getRowId={(row) => row.name} onRowActivate={onRowActivate} pagination="apps" />);
+    render(<DataTable mobile="scroll" caption="Applications" columns={COLUMNS} rows={rowsOf(45)} getRowId={(row) => row.name} onRowActivate={onRowActivate} pagination="apps" />);
     screen.getByRole("button", { name: "app-020" }).focus();
     await userEvent.keyboard("{ArrowDown}");
     expect(screen.getByRole("button", { name: "app-020" })).toHaveFocus();
@@ -166,7 +166,7 @@ describe("DataTable paging (checklist M-51)", () => {
       removeListener: () => undefined,
       dispatchEvent: () => false,
     }));
-    render(<DataTable mobile="cards" caption="Applications" columns={COLUMNS} rows={rowsOf(45)} getRowId={(row) => row.name} pagination="apps" />);
+    render(<DataTable caption="Applications" columns={COLUMNS} rows={rowsOf(45)} getRowId={(row) => row.name} pagination="apps" />);
     expect(within(screen.getByRole("list", { name: "Applications" })).getAllByRole("listitem")).toHaveLength(20);
     await userEvent.click(screen.getByRole("button", { name: "Next page" }));
     expect(screen.getByText("Showing 21–40 of 45")).toBeInTheDocument();

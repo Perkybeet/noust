@@ -298,7 +298,7 @@ export function ConnectionsSection() {
         query={list}
         label={t("ssoAdmin.connections.what")}
         skeleton={
-          <DataTable caption={t("ssoAdmin.connections.tableCaption")} columns={columns} rows={[]} getRowId={(connection) => `${connection.kind}:${connection.name}`} loading mobile="cards" skeletonRows={2} />
+          <DataTable caption={t("ssoAdmin.connections.tableCaption")} columns={columns} rows={[]} getRowId={(connection) => `${connection.kind}:${connection.name}`} loading skeletonRows={2} />
         }
         isEmpty={(connections) => connections.length === 0}
         empty={
@@ -317,7 +317,6 @@ export function ConnectionsSection() {
               columns={columns}
               rows={rows}
               getRowId={(connection) => `${connection.kind}:${connection.name}`}
-              mobile="cards"
               onRowActivate={edit}
               rowActions={(connection) => (
                 <RowMenu name={connection.name}>
