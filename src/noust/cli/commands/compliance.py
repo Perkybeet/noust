@@ -5,7 +5,7 @@
 The ``noust compliance`` command group: frameworks, controls and how they combine.
 
 A front end over :mod:`noust.core.compliance`, the same code ``/api/compliance``
-serves the console's Settings > Security > Compliance from. Nothing is on by
+serves the console's Settings > Compliance from. Nothing is on by
 default; ``enable`` turns on a framework, which is a preset over the controls, and
 says first which controls it will change and the clause each one serves. Several
 frameworks may be on, and the strictest value of each control wins.

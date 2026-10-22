@@ -47,7 +47,12 @@ from noust.deployers.domains import (
     set_domain_port,
 )
 from noust.deployers.name_certificates import NameBinding, bindings, set_certificate
-from noust.deployers.temporary_domain import is_temporary, suggest
+from noust.deployers.temporary_domain import (
+    NoPublicAddressError,
+    application_name,
+    is_temporary,
+    suggest,
+)
 from noust.managers.site_policy import SitePolicyManager
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain, strict_server_name
@@ -793,35 +798,83 @@ class TemporaryNameResponse(BaseModel):
         service: The service that answers it.
         declared: Whether the address was declared (``dns.public_addresses``) rather than
             read from a network interface.
+        available: Only present, as false, when this server has no public address to make a name
+            of (it is behind NAT and none is declared): the name and the address are then empty.
+            An answer, not an error: the console asks on every new application.
+        reason: With ``available`` false, why not.
+        hint: With ``available`` false, how to declare the address.
     """
 
     address: str
     domain: str
-    service: str
+    service: str = "sslip.io"
     declared: bool = False
+    available: bool | None = None
+    reason: str | None = None
+    hint: str | None = None
 
 
-@dns_router.get("/temporary", response_model=TemporaryNameResponse)
+@dns_router.get(
+    "/temporary", response_model=TemporaryNameResponse, response_model_exclude_unset=True
+)
 def get_temporary_name(
     session: Annotated[dict[str, Any], Depends(get_current_session)],
+    prefix: Annotated[
+        str | None,
+        Query(
+            max_length=120,
+            description="What the application is called, for a name of its own "
+            "(shop.203-0-113-10.sslip.io). Numbered when another application has it.",
+        ),
+    ] = None,
+    source: Annotated[
+        str | None,
+        Query(
+            max_length=2048,
+            description="What it is deployed from, when it has no name yet: the name is read "
+            "out of the repository, archive or directory. A prefix wins over it.",
+        ),
+    ] = None,
+    image: Annotated[
+        str | None,
+        Query(
+            max_length=512,
+            description="The registry image it is deployed from; read like a source.",
+        ),
+    ] = None,
 ) -> TemporaryNameResponse:
     """
     Work out a temporary name for this server, to add to an application like any other.
 
     It is made of the server's public address (``203-0-113-10.sslip.io``), which sslip.io
     answers with that address, so the name resolves here and a certificate can be ordered.
-    Nothing is added: the caller adds it with ``POST /api/apps/{domain}/domains``.
+    With a prefix it is the name of one application (``shop.203-0-113-10.sslip.io``), free
+    among the names and the application names of the server. Nothing is added: the caller
+    adds it with ``POST /api/apps/{domain}/domains``, or deploys an application under it.
 
     Args:
         session: Authenticated session, injected.
+        prefix: What the application is called.
+        source: What it is deployed from, read for its name when no prefix is given.
+        image: The registry image it is deployed from, read the same way.
 
     Returns:
-        The name and the address it is made of.
+        The name and the address it is made of; for a server with no public address, an answer
+        that says ``available: false`` with why and how to declare one (200, not an error).
 
     Raises:
-        DomainError: This server has no public address (400, saying how to declare one).
+        DomainError: Ninety-nine applications already have the prefix (400).
     """
-    found = suggest()
+    try:
+        found = suggest(application_name(prefix=prefix, source=source, image=image))
+    except NoPublicAddressError as error:
+        return TemporaryNameResponse(
+            address="",
+            domain="",
+            available=False,
+            reason=error.message,
+            hint=error.details or None,
+        )
     return TemporaryNameResponse(
         address=found.address, domain=found.domain, service=found.service, declared=found.declared
     )

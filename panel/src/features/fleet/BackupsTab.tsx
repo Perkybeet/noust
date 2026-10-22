@@ -4,6 +4,7 @@ import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { textLinkClassName } from "../../components/ui/TextLink";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
@@ -51,7 +52,7 @@ export function coverageOf(row: FleetRow, now: Date = new Date()): Coverage {
   return "ok";
 }
 
-const NAME_LINK = "min-w-0 rounded-chip font-medium text-fg hover:underline hover:underline-offset-2";
+const NAME_LINK = textLinkClassName("inline", "min-w-0", "row");
 
 function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<FleetRow>[] {
   return [
@@ -143,6 +144,7 @@ export function BackupsTab({ search, onSearchChange }: BackupsTabProps) {
     onSearchChange(patchSearch(search, patch), { replace });
   };
 
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (view.isError && view.data === undefined) {
     return <ErrorBlock error={view.error} title={t("fleet.page.loadFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />;
   }

@@ -1,37 +1,46 @@
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Checkbox } from "../../components/ui/Checkbox";
+import { ChoiceCards } from "../../components/ui/ChoiceCards";
+import { CopyValue } from "../../components/ui/CopyValue";
 import { Field } from "../../components/ui/Field";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { useT } from "../../i18n";
 import { DnsVerdict } from "../domains/DnsVerdict";
 import { normalizeDomain } from "../domains/names";
 import type { DomainDnsCheck } from "./useDomainDnsCheck";
-import { canIncludeWww } from "./wizard";
+import { canIncludeWww, withAddressMode } from "./wizard";
+import type { AddressChoice, AddressMode } from "./wizard";
 
 function DnsSkeleton() {
   const t = useT();
   return (
-    <div aria-busy="true" className="flex flex-col gap-3 rounded-card border border-border p-3">
-      <span className="sr-only">{t("newApp.review.checkingDns")}</span>
+    <LoadingRegion label={t("newApp.review.checkingDns")} className="flex items-center gap-2">
+      <Skeleton className="size-4" />
       <Skeleton className="h-4 w-56" />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Skeleton className="h-10" />
-        <Skeleton className="h-10" />
-      </div>
-    </div>
+    </LoadingRegion>
   );
 }
 
+/**
+ * What the address fields read and write. A start that has no temporary address to offer (an
+ * export, which brings its own) leaves the last three out and is only the domain.
+ */
 export interface AddressValue {
   domain: string;
   includeWww: boolean;
   ssl: boolean;
+  addressMode?: AddressMode;
+  temporaryDomain?: string;
+  ownDomain?: string;
 }
 
 export interface AddressFieldsProps {
   value: AddressValue;
-  onChange: (patch: Partial<AddressValue>) => void;
+  /** What changed. Switching between the two addresses changes all of them at once. */
+  onChange: (patch: Partial<AddressChoice>) => void;
   error: string | undefined;
   /** Where the typed domain points, from `useDomainDnsCheck`, owned by the step so it can check on submit. */
   dns: DomainDnsCheck;
@@ -41,12 +50,15 @@ export interface AddressFieldsProps {
   options?: boolean;
 }
 
-/**
- * Where a new application answers: the domain, where it points right now (checked as it is
- * typed, a warning and never a block), and whether it also answers on www and over HTTPS.
- * One implementation for every way of starting an application.
- */
-export function AddressFields({ value, onChange, error, dns, description, options = true }: AddressFieldsProps) {
+/** A domain of the operator's own: typed, where it points right now (a warning and never a block), www and HTTPS. */
+function OwnDomain({
+  value,
+  onChange,
+  error,
+  dns,
+  description,
+  options,
+}: Omit<AddressFieldsProps, "options" | "description"> & { description?: string | undefined; options: boolean }) {
   const t = useT();
   const domain = normalizeDomain(value.domain);
   return (
@@ -92,6 +104,46 @@ export function AddressFields({ value, onChange, error, dns, description, option
           onCheckedChange={(ssl) => onChange({ ssl })}
         />
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Where a new application answers. On a server that can make one, two ways: a temporary address
+ * made of the server's own (something to open before any DNS) and a domain of the operator's. On a
+ * server that cannot, or for an import, the domain alone. One implementation for every way of
+ * starting an application.
+ */
+export function AddressFields({ value, onChange, error, dns, description, options = true }: AddressFieldsProps) {
+  const t = useT();
+  const mode = value.addressMode;
+  const temporary = value.temporaryDomain ?? "";
+  const own = <OwnDomain value={value} onChange={onChange} error={error} dns={dns} options={options} {...(description !== undefined ? { description } : {})} />;
+  if (mode === undefined || temporary === "") return own;
+  return (
+    <div className="flex flex-col gap-5">
+      <ChoiceCards<AddressMode>
+        legend={t("newApp.address.legend")}
+        options={[
+          { value: "temporary", label: t("newApp.address.temporary"), description: t("newApp.address.temporaryDescription") },
+          { value: "own", label: t("newApp.address.own"), description: t("newApp.address.ownDescription") },
+        ]}
+        value={mode}
+        onValueChange={(next) => {
+          const { domain, addressMode, temporaryDomain, ownDomain, includeWww, ssl } = withAddressMode(value as AddressChoice, next);
+          onChange({ domain, addressMode, temporaryDomain, ownDomain, includeWww, ssl });
+        }}
+        error={mode === "temporary" ? error : undefined}
+      />
+      {mode === "temporary" ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-13 font-medium text-fg">{t("newApp.address.willAnswer")}</p>
+          <CopyValue value={`https://${temporary}`} label={t("newApp.address.copy")} name={t("newApp.address.willAnswer")} />
+          <InlineMessage tone="info">{t("newApp.address.temporaryHelp")}</InlineMessage>
+        </div>
+      ) : (
+        own
+      )}
     </div>
   );
 }

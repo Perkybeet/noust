@@ -1,12 +1,14 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Cable, Download, FileUp, KeyRound, Link2, PanelTop, Play, RotateCw, Tags, Trash2, UsersRound, X } from "lucide-react";
+import { BellOff, BellRing, Cable, Download, FileUp, KeyRound, Link2, PanelTop, Play, RotateCw, Tags, Trash2, UsersRound, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { sessionQuery } from "../../api/queries/auth";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { RowMenu } from "../../components/page/RowMenu";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
@@ -14,17 +16,20 @@ import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { IconButton } from "../../components/ui/IconButton";
-import { ICONS } from "../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { InlineMessage } from "../../components/ui/InlineMessage";
+import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
+import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { downloadText } from "../../lib/clipboard";
 import { describeError } from "../../lib/errors";
+import { MonitoringNote } from "../settings/servers/MonitoringNote";
+import { PauseMonitoringDialog } from "../settings/servers/PauseMonitoringDialog";
 import { RemoveServerDialog } from "../settings/servers/RemoveServerDialog";
-import { nodeKeys, testNode } from "./nodes";
+import { nodeKeys, nodesQuery, setNodeMonitoring, testNode } from "./nodes";
+import type { NodeMonitoring } from "./nodes";
 import { useFleetActions } from "./BulkActionDialog";
 import { accessOf, fleetKeys, formatLabels, labelsOf, noustOf, originOf, outcomeKind } from "./data";
 import type { FleetRow, NodeOutcome } from "./data";
@@ -64,6 +69,8 @@ function AccessCell({ t, row }: { t: T; row: FleetRow }) {
 interface RowHandlers {
   selected: ReadonlySet<string>;
   onSelect: (node: string, checked: boolean) => void;
+  /** How long each server has been silent, or that its monitoring is paused. */
+  monitoring: ReadonlyMap<string, NodeMonitoring | null>;
 }
 
 function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: RowHandlers): Column<FleetRow>[] {
@@ -103,7 +110,13 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
       card: "status",
       cell: (row) => {
         const outcome = outcomes.get(originOf(row).node);
-        return outcome === undefined ? <EmptyCell reason={t("fleet.summary.notRead")} /> : <OutcomePill outcome={outcome} />;
+        if (outcome === undefined) return <EmptyCell reason={t("fleet.summary.notRead")} />;
+        return (
+          <span className="flex min-w-0 flex-col items-start gap-1">
+            <OutcomePill outcome={outcome} />
+            <MonitoringNote monitoring={handlers.monitoring.get(originOf(row).node) ?? null} />
+          </span>
+        );
       },
     },
     {
@@ -164,18 +177,25 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
 
 type Tool = "connection" | "inventory" | "link" | "rekey" | "team";
 
-function RowActions({
+function ServerMenu({
   t,
   row,
+  paused,
   onLabels,
   onRemove,
   onTool,
+  onPause,
+  onResume,
 }: {
   t: T;
   row: FleetRow;
+  /** Its monitoring is paused for maintenance. */
+  paused: boolean;
   onLabels: () => void;
   onRemove: () => void;
   onTool: (tool: Tool) => void;
+  onPause: () => void;
+  onResume: () => void;
 }) {
   const origin = originOf(row);
   const navigate = useNavigate();
@@ -223,7 +243,7 @@ function RowActions({
     },
   });
   return (
-    <Menu align="end" trigger={<IconButton label={t("fleet.servers.actionsFor", { name: origin.node })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+    <RowMenu name={origin.node}>
       <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/", search: { node: origin.local ? undefined : origin.node } })}>
         {t("fleet.servers.open")}
       </MenuItem>
@@ -235,6 +255,15 @@ function RowActions({
           <MenuItem icon={<Tags />} onClick={onLabels}>
             {t("fleet.servers.editLabels")}
           </MenuItem>
+          {paused ? (
+            <MenuItem icon={<BellRing />} onClick={onResume}>
+              {t("servers.settings.monitoring.resume")}
+            </MenuItem>
+          ) : (
+            <MenuItem icon={<BellOff />} onClick={onPause}>
+              {t("servers.settings.monitoring.pause")}
+            </MenuItem>
+          )}
           <MenuItem
             icon={<Play />}
             onClick={() => {
@@ -293,7 +322,7 @@ function RowActions({
           </MenuItem>
         </>
       )}
-    </Menu>
+    </RowMenu>
   );
 }
 
@@ -316,6 +345,24 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
   const [removing, setRemoving] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [tool, setTool] = useState<{ kind: Tool; node: string } | null>(null);
+  const [pausing, setPausing] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  // The monitoring state is the servers list's own (`/api/nodes`); the fleet view answers for the rest.
+  const nodes = useQuery(nodesQuery());
+  const { data: session } = useQuery(sessionQuery());
+  const monitoring = useMemo(() => new Map((nodes.data?.items ?? []).map((node) => [node.name, node.monitoring ?? null] as const)), [nodes.data]);
+  const resume = useMutation({
+    mutationFn: (name: string) => setNodeMonitoring(name, false),
+    // No success toast: the note under the server goes and the menu says "Pause monitoring" again.
+    onError: (error, name) => {
+      const described = describeError(error);
+      toast.error(t("servers.settings.monitoring.resumeFailedToast", { name }), { ...(described.hint !== null ? { description: described.hint } : {}), detail: described.detail });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: nodeKeys.all });
+      void queryClient.invalidateQueries({ queryKey: fleetKeys.all });
+    },
+  });
 
   const rows = useMemo(() => view.data?.items ?? [], [view.data]);
   const shown = rows.filter((row) => {
@@ -329,12 +376,25 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
     onSearchChange(patchSearch(search, patch), { replace });
   };
 
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (view.isError && view.data === undefined) {
     return <ErrorBlock error={view.error} title={t("fleet.page.loadFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />;
   }
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      {session !== undefined && !session.totp_enabled ? (
+        // The central refuses to add a server while anyone can sign in without a second factor: said before it is tried.
+        <InlineMessage
+          trailing={
+            <TextLink to="/settings/security" size="ui">
+              {t("servers.settings.twoFactor.link")}
+            </TextLink>
+          }
+        >
+          {t("servers.settings.twoFactor.title")}
+        </InlineMessage>
+      ) : null}
       <PartialNotice view={view.data} />
       <FilterBar
         label={t("fleet.servers.filterLabel")}
@@ -383,6 +443,7 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
       <DataTable
         caption={t("fleet.servers.caption")}
         columns={columns(t, view.outcomes, {
+          monitoring,
           selected,
           onSelect: (node, checked) => {
             setSelected((current) => {
@@ -400,9 +461,16 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
         mobile="cards"
         pagination="fleet-servers"
         rowActions={(row) => (
-          <RowActions
+          <ServerMenu
             t={t}
             row={row}
+            paused={monitoring.get(originOf(row).node)?.paused === true}
+            onPause={() => {
+              setPausing(originOf(row).node);
+            }}
+            onResume={() => {
+              resume.mutate(originOf(row).node);
+            }}
             onLabels={() => {
               setLabelling(row);
             }}
@@ -440,6 +508,16 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
           labels={labelsOf(labelling)}
           onClose={() => {
             setLabelling(null);
+          }}
+        />
+      ) : null}
+      {pausing !== null ? (
+        <PauseMonitoringDialog
+          key={pausing}
+          name={pausing}
+          open
+          onOpenChange={(open) => {
+            if (!open) setPausing(null);
           }}
         />
       ) : null}

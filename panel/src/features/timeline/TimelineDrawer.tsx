@@ -15,6 +15,8 @@ import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { Drawer } from "../../components/ui/Drawer";
 import { EmptyCell } from "../../components/ui/EmptyCell";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { LogViewer } from "../../components/ui/LogViewer";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
@@ -126,9 +128,9 @@ function SourceNotices({ sources }: { sources: readonly TimelineSourceStatus[] }
     const source = sourceName(t, status.source);
     if (status.state === "withheld") {
       notes.push(
-        <Notice key={status.source} tone="info">
+        <InlineMessage key={status.source} tone="info">
           {t.rich("timeline.withheld", { source, permission: <Mono>{status.permission ?? ""}</Mono> })}
-        </Notice>,
+        </InlineMessage>,
       );
     } else if (status.state === "failed") {
       notes.push(
@@ -141,9 +143,9 @@ function SourceNotices({ sources }: { sources: readonly TimelineSourceStatus[] }
       );
     } else if (status.state === "shown" && status.truncated && status.source !== "processes") {
       notes.push(
-        <Notice key={status.source} tone="info">
+        <InlineMessage key={status.source} tone="info">
           {t("timeline.truncated", { source, count: status.count })}
-        </Notice>,
+        </InlineMessage>,
       );
     }
   }
@@ -235,13 +237,9 @@ function ProcessesSection({ data, stretch }: { data: Timeline; stretch: ChartWin
   return (
     <Subsection title={t("timeline.processes.title")} description={t("timeline.processes.description")}>
       <div className="flex flex-col gap-4">
-        {notes.length > 0 ? (
-          <Notice tone="info">
-            <div className="flex flex-col gap-1">{notes}</div>
-          </Notice>
-        ) : null}
+        {notes.length > 0 ? <div className="flex flex-col gap-1.5">{notes}</div> : null}
         {minutes.length === 0 ? (
-          <p className="text-13 text-fg-muted">{t("timeline.processes.empty")}</p>
+          <EmptyState variant="inline" title={t("timeline.processes.empty")} />
         ) : (
           <>
             <div
@@ -386,7 +384,7 @@ function EventsSection({ data, stretch, app, onClose }: { data: Timeline; stretc
         // The journal's own page asks the same stretch with the query language, for the whole of it.
         shownSources.includes("journal") ? (
           // Going there leaves the drawer behind: on the page it was opened from, it would stay over the new search.
-          <TextLink to="/server/logs" search={{ from: data.start, to: data.end, ...(app !== undefined ? { q: `@app:${app}` } : {}) }} size="ui" onClick={onClose}>
+          <TextLink to="/logs" search={{ source: "system", from: data.start, to: data.end, ...(app !== undefined ? { q: `@app:${app}` } : {}) }} size="ui" onClick={onClose}>
             {t("timeline.events.searchLogs")}
           </TextLink>
         ) : undefined

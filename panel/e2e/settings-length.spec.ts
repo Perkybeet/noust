@@ -87,7 +87,6 @@ const SERVER_SETTINGS: readonly Route[] = [
   { id: "settings-approvals", path: "/settings/approvals" },
   { id: "settings-audit", path: "/settings/audit" },
   { id: "settings-compliance", path: "/settings/compliance" },
-  { id: "settings-servers", path: "/settings/servers" },
   { id: "settings-cloud", path: "/settings/cloud" },
   { id: "settings-central", path: "/settings/central" },
   { id: "settings-controls", path: "/settings/controls" },
@@ -131,6 +130,7 @@ const NOT_A_SUBSECTION: Readonly<Record<string, string>> = {
   "apps/$domain/settings/container.tsx": "only a container application has it, and the seeded machine has none",
   "apps/$domain/settings/compose.tsx": "only a Compose stack has it, and the seeded machine has none",
   "apps/$domain/settings/builds.tsx": "it redirects to Build: the sandbox is a card of that page since 4.0",
+  "settings/servers.tsx": "it redirects to Fleet > Servers: the fleet's list is the one list of servers since 4.0",
 };
 
 /** The route files under a settings directory of src/routes, as `settings/x.tsx` relative to _console. */

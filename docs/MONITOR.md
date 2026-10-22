@@ -83,7 +83,7 @@ Every scan interval (60 seconds by default, never less than 10):
 | System updates | The package manager has updates waiting, every `monitor.os_patches_check_hours` (24; 0 turns it off). Security ones are named and repeated weekly; ordinary ones are announced once per new set and at most weekly; a check that cannot be made is announced once per stretch. Nothing is installed. | notification `os_patches` |
 | API tokens | A token expires within `monitor.token_warning_days` (7; 0 turns it off), expires today, or expired in the last week; once per stage and token. | notification `token_expiring` |
 | Probes | An address the monitor asks from outside the application stops answering what the probe asks of it (`fail_after` bad answers in a row), and answers again. See [probes.md](probes.md). | notifications `probe_failed`, `probe_recovered` |
-| Alert rules | Every rule of [Settings > Alerts](notifications.md#alert-rules) is judged against the recorded history; a subject that stayed past its limit for the whole duration fires, and one that is back inside clears. | notifications `alert_firing`, `alert_resolved` |
+| Alert rules | Every rule of [Settings > Alert rules](notifications.md#alert-rules) is judged against the recorded history; a subject that stayed past its limit for the whole duration fires, and one that is back inside clears. | notifications `alert_firing`, `alert_resolved` |
 | Web server | nginx (or Apache, for the sites that use it) fell. See [The web server](#the-web-server). Looked at every `monitor.webserver_check_seconds` (60; 0 turns it off). | notification `unit_failed` (`webserver.*`) |
 | Containers | A container of a Compose stack that Docker restarted `monitor.container_restart_limit` times (5; 0 turns it off) since the monitor first saw it. See [Containers that keep restarting](#containers-that-keep-restarting). Looked at every `monitor.container_check_seconds` (60). | notification `container_restart_loop` |
 | Security releases | The update check found a Noust release that fixes a vulnerability and this server runs an earlier one. Once per release and again every `monitor.security_renotify_hours` (72; 0 never) while it stays behind; looked at every `monitor.security_check_hours` (6; 0 turns it off). `updates.check: false` silences it. | notification `security_release` |
@@ -246,7 +246,7 @@ the median beside it) and the visitors as tiles above the charts.
 
 ## Comparing servers
 
-A central keeps no series of its own. `noust fleet metrics --metric cpu --window 24h` (and the Fleet page's
+A central keeps no series of its own. `noust fleet metrics --metric cpu --window 24h` (and the fleet Overview's
 metrics comparison, `GET /api/fleet/metrics`) asks every server for the same metric over the same window, from
 each one's own recorded history, and puts the answers side by side: the points, the latest value, the average and
 the peak. `--metric` is one of `cpu`, `memory`, `swap`, `disk`, `load`, `net_rx` and `net_tx` (memory, swap and
@@ -437,7 +437,7 @@ The events above (`unit_failed`, `app_unreachable`, `app_recovered`, `cert_expir
 `probe_failed`, `probe_recovered`, `security_release`, `container_restart_loop` and `recipe_outdated`) go through Noust's notification channels (webhook, Slack,
 Discord, Telegram, email, Pushover, ntfy, Gotify, Teams, Mattermost, Matrix, Lark, PagerDuty, and any
 others you add by name), which are
-configured under `notifications.*` in the console's Settings > Notifications or with `noust notify`
+configured under `notifications.*` in the console's Settings > Channels or with `noust notify`
 and `noust config set`, and only when `notifications.enabled` is on and the event is enabled. Each
 channel can hear its own events, only some applications, and not at night; a delivery that fails
 is tried again and kept on record. All of that is in [notifications.md](notifications.md). Test a

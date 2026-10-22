@@ -53,10 +53,10 @@ describe("the verbs of the console", () => {
   });
 
   it("call the fleet's updates view what it holds: Noust and the system", () => {
-    expect(en.fleet.tabs.updates).toMatch(/Noust/);
-    expect(en.fleet.tabs.updates).toMatch(/system/i);
-    expect(es.fleet.tabs.updates).toMatch(/Noust/);
-    expect(es.fleet.tabs.updates).toMatch(/sistema/i);
+    expect(en.fleet.tabs.command.updates).toMatch(/Noust/);
+    expect(en.fleet.tabs.command.updates).toMatch(/system/i);
+    expect(es.fleet.tabs.command.updates).toMatch(/Noust/);
+    expect(es.fleet.tabs.command.updates).toMatch(/sistema/i);
   });
 
   it("keep 'Update Noust' for Noust itself, never for an application", () => {
@@ -67,7 +67,9 @@ describe("the verbs of the console", () => {
 
   it("have no button called Deploy that only opens a form: the entry points say New application", () => {
     expect(en.apps.newApplication).toBe("New application");
-    expect(en.overview.firstSteps.deploy.action).toBe("New application");
+    // The Overview of an empty server names what each button does instead: a demo, a repository.
+    expect(en.overview.firstSteps.demo.action).toBe("Try a demo");
+    expect(en.overview.firstSteps.repository.action).not.toMatch(/deploy/i);
     expect(en.shell.commands.newApplication).toBe("New application");
   });
 });

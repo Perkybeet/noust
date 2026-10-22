@@ -1,6 +1,6 @@
 # The MCP endpoint
 
-Noust 3.4 speaks the **Model Context Protocol** (MCP) over Streamable HTTP, so an MCP client - an editor, a command-line tool, a script - is given tools to **inspect, deploy
+Noust 4.0 speaks the **Model Context Protocol** (MCP) over Streamable HTTP, so an MCP client - an editor, a command-line tool, a script - is given tools to **inspect, deploy
 and control** applications with the address of the console and an API token. It is a client of the API like any other: a tool call is a
 request to the console's own routes, made as the token, through the same permissions, team scope,
 approvals and audit trail. There is no second implementation of anything.

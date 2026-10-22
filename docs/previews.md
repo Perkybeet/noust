@@ -50,7 +50,7 @@ noust preview vars set shop.example.com NEXTAUTH_URL '{{app.URL}}'
 
 A variable defined for previews wins over the application's of the same name. A value made of
 references ([variables.md](variables.md)) is copied as the references, so `{{app.URL}}` is the
-preview's own address and not production's. `--env-mode all` is how previews were made before 3.4
+preview's own address and not production's. `--env-mode all` is how previews were made before 4.0
 (every variable but `--exclude-env`); the settings page says so for as long as it is in force.
 
 **Data.** By default a preview gets an **empty database of its own** when the application has one,

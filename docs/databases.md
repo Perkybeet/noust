@@ -1,7 +1,7 @@
 # Databases
 
 Noust manages the databases of the server it runs on: the engines installed on the host, the
-database containers Docker runs (from 3.3), and, from 3.4, the **instances** it runs itself: another
+database containers Docker runs (from 3.3), and, from 4.0, the **instances** it runs itself: another
 version of an engine, or one the host does not provide, in a container of its own. The console's
 Databases area and `noust db` are two faces of the same code.
 

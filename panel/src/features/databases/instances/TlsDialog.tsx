@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { RotateCw } from "lucide-react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -14,6 +15,7 @@ import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
@@ -21,6 +23,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatDate, parseTimestamp } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 const MODES: readonly TlsMode[] = ["off", "optional", "required"];
 
@@ -57,9 +60,9 @@ function Certificate({ status }: { status: TlsStatus }) {
   return (
     <div className="flex flex-col gap-3">
       {certificate.expiring ? (
-        <Notice tone="warning" title={t("databases.tls.expiring")}>
-          {t("databases.tls.daysLeft", { count: certificate.days_left })}
-        </Notice>
+        <InlineMessage>
+          {t("databases.tls.daysLeft", { count: certificate.days_left })}. {t("databases.tls.expiring")}
+        </InlineMessage>
       ) : null}
       <KeyValueList
         items={[
@@ -84,10 +87,9 @@ function Plan({ plan }: { plan: UseQueryResult<TlsPlan> }) {
   const t = useT();
   if (plan.isPending) {
     return (
-      <div aria-busy="true">
-        <span className="sr-only">{t("databases.tls.planning")}</span>
+      <LoadingRegion label={t("databases.tls.planning")}>
         <Skeleton className="h-24 w-full rounded-control" />
-      </div>
+      </LoadingRegion>
     );
   }
   if (plan.isError) return <ErrorBlock compact error={plan.error} title={t("databases.tls.planFailed")} />;
@@ -179,10 +181,11 @@ export function TlsDialog({ instance, onOpenChange, onQueued }: TlsDialogProps) 
         <>
           <Button onClick={() => onOpenChange(false)}>{t("common.confirmDialog.cancel")}</Button>
           {current !== "off" ? (
-            <Button disabled={apply.isPending} onClick={() => setRenewing(true)}>
+            <Button icon={<RotateCw aria-hidden="true" />} disabled={apply.isPending} onClick={() => setRenewing(true)}>
               {t("databases.tls.renew")}
             </Button>
           ) : null}
+          {/* design-exception: submit-disabled-invalid it waits for the status it changes, and the server's own blockers are listed above it */}
           <Button variant="primary" disabled={blocked || status.data === undefined || apply.isPending} loading={apply.isPending} onClick={() => apply.mutate()}>
             {t("databases.tls.apply")}
           </Button>
@@ -192,9 +195,9 @@ export function TlsDialog({ instance, onOpenChange, onQueued }: TlsDialogProps) 
       <div className="flex flex-col gap-5">
         {status.isError ? <ErrorBlock compact error={status.error} title={t("databases.tls.readFailed")} onRetry={() => void status.refetch()} /> : null}
         {status.isPending ? (
-          <div aria-busy="true">
+          <LoadingRegion label={t("databases.tls.loading")}>
             <Skeleton className="h-32 w-full rounded-control" />
-          </div>
+          </LoadingRegion>
         ) : null}
         {status.data !== undefined ? (
           <>

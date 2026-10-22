@@ -9,6 +9,8 @@ import { Badge } from "../../components/ui/Badge";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { StatusPill } from "../../components/ui/StatusPill";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { useT } from "../../i18n";
 import { olderServer } from "../app/settings/queries";
 
@@ -31,7 +33,7 @@ function Requirement({ item }: { item: RecipeRequirement }) {
     <li className="flex min-w-0 flex-col gap-1 px-3 py-2">
       <span className="flex flex-wrap items-center gap-2">
         <Mono>{item.name}</Mono>
-        <Badge tone={item.met ? "ok" : "warn"}>{item.met ? t("catalog.requirements.met") : t("catalog.requirements.missing")}</Badge>
+        <StatusPill state={item.met ? "running" : "warning"} label={item.met ? t("catalog.requirements.met") : t("catalog.requirements.missing")} size="sm" />
         {!item.met && item.installable ? <Badge>{t("catalog.requirements.installable")}</Badge> : null}
       </span>
       <span className="text-12 text-pretty text-fg-muted">{item.detail}</span>
@@ -54,10 +56,9 @@ export function RecipeRequirements({ name, install, level = 3 }: RecipeRequireme
   if (query.isPending) {
     return (
       <Subsection title={title} level={level}>
-        <div aria-busy="true">
-          <span className="sr-only">{t("catalog.requirements.loading")}</span>
+        <LoadingRegion label={t("catalog.requirements.loading")}>
           <Skeleton className="h-16 w-full rounded-control" />
-        </div>
+        </LoadingRegion>
       </Subsection>
     );
   }

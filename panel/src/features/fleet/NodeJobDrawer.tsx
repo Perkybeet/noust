@@ -37,6 +37,7 @@ import { useJobStream } from "../../realtime/sockets";
 import { NODE_JOB_VIEW, SKIP_REASONS, batchOf, nodeErrorOf, nodeJobState, textOf } from "./data";
 import type { FleetNodeState } from "./data";
 import { HrefLink, ServerLink } from "./links";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 /** The actions that act on each application, and so have a result per application. */
 export const PER_APP_ACTIONS: ReadonlySet<string> = new Set(["apps_update", "apps_restart", "backups_run", "backups_verify"]);
@@ -156,15 +157,15 @@ function NodeJobLog({ server, jobId }: { server: string; jobId: string }) {
   const current: Job | null = stream.job ?? job.data ?? null;
   const lines = useMemo(() => (finished && log.data !== undefined && log.data.content !== "" ? contentToLines(log.data.content) : entriesToLines(current)), [finished, log.data, current]);
 
+  // design-exception: hand-error-ternary the drawer shows the job's own stream first and only needs the read for the finished log
   if (job.isError && job.data === undefined) {
     return <ErrorBlock compact error={job.error} title={t("fleet.jobs.drawer.logFailed", { name: server })} onRetry={() => void job.refetch()} />;
   }
   if (job.data === undefined) {
     return (
-      <div aria-busy="true">
-        <span className="sr-only">{t("fleet.jobs.drawer.logLoading", { name: server })}</span>
+      <LoadingRegion label={t("fleet.jobs.drawer.logLoading", { name: server })}>
         <Skeleton className="h-80 w-full rounded-card" />
-      </div>
+      </LoadingRegion>
     );
   }
   return (

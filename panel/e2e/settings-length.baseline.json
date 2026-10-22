@@ -30,11 +30,11 @@
     },
     "settings-alerts": {
       "path": "/settings/alerts",
-      "height": 1551,
-      "reason": "The rules and the built-in checks, which are turned off by writing 0 in a field; each check becomes a row with its threshold (SW-8)."
+      "height": 1482,
+      "reason": "The rules and the monitor's ten built-in checks on one page, each a row with its own threshold; the checks are a list of their own and can leave for a subsection."
     },
-    "settings-probes": { "path": "/settings/probes", "height": 844 },
-    "settings-log-shipping": { "path": "/settings/log-shipping", "height": 521 },
+    "settings-probes": { "path": "/settings/probes", "height": 643 },
+    "settings-log-shipping": { "path": "/settings/log-shipping", "height": 1089 },
     "settings-tokens": { "path": "/settings/tokens", "height": 427 },
     "settings-api": { "path": "/settings/api", "height": 1163 },
     "settings-manifest": { "path": "/settings/manifest", "height": 568 },
@@ -53,7 +53,6 @@
       "height": 4802,
       "reason": "The frameworks, their controls and the ENS report in one page; the frameworks and the security profile move to Controls and the report stays."
     },
-    "settings-servers": { "path": "/settings/servers", "height": 428 },
     "settings-cloud": { "path": "/settings/cloud", "height": 1167 },
     "settings-central": { "path": "/settings/central", "height": 468 },
     "settings-controls": {

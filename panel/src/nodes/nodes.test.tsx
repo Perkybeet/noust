@@ -322,7 +322,7 @@ describe("the three contexts", () => {
     await user.click(await trigger("Server: all servers"));
     await user.click(await screen.findByRole("menuitemradio", { name: /^This central/ }));
     await waitFor(() => {
-      expect(history.location.pathname).toBe("/settings/servers");
+      expect(history.location.pathname).toBe("/settings/central");
     });
     expect(await trigger("Server: this central, web-01")).toBeInTheDocument();
     // This central has no bar of its own: the fleet's, with Settings below it.

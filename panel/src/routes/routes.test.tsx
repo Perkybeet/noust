@@ -59,7 +59,6 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/settings/compliance", "Settings", "ENS category MEDIUM"],
   ["/settings/about", "Settings", "Version"],
   ["/settings/integrations", "Settings", "GitHub"],
-  ["/settings/servers", "Settings", "Servers"],
   ["/settings/cloud", "Settings", "Provider accounts"],
   ["/fleet", "Fleet", "No servers in this fleet yet"],
 ];

@@ -9,7 +9,7 @@ written in Spanish because its readers are Spanish auditors and security officer
 - **Noust is a component, not a certified system.** An ENS certificate is issued to the
   organisation's information system; Noust is not in the CCN's CPSTIC catalogue. What Noust
   does is enforce what a component can enforce and produce the evidence an auditor asks for.
-- **Compliance is chosen, never the default** (3.4). Every control is a switch of its own and
+- **Compliance is chosen, never the default** (4.0). Every control is a switch of its own and
   frameworks are presets over them: **ENS BÁSICA, MEDIA and ALTA** are three, beside ISO/IEC 27001,
   NIS2, CIS Controls v8, SOC 2 and GDPR art. 32, and several can be on together (each control takes
   the strictest value any asks). Nothing is on until it is chosen: `noust compliance enable
@@ -27,8 +27,7 @@ written in Spanish because its readers are Spanish auditors and security officer
   security.profile ens-medium`.
 - **`noust ens check`** compares the server with the profile, check by check, each mapped to its
   RD 311/2022 measure, and exits 0/1/2 like a monitoring check. **`noust ens report`** writes the
-  evidence bundle (JSON and Markdown, hashed). The console shows both under Settings > Security >
-  Compliance (`GET /api/ens/check`, `GET /api/ens/report`).
+  evidence bundle (JSON and Markdown, hashed). The console shows both under Settings > ENS report (`GET /api/ens/check`, `GET /api/ens/report`).
 - Evidence commands: `noust audit verify|review|export`, `noust ens access-review`,
   `noust ens inventory`, `noust backup verify`, `noust central backup`, `noust incident freeze`.
 - What stays the organisation's (policy, roles and their appointment, risk analysis, personnel,
@@ -83,7 +82,7 @@ noust config set security.profile ens-medium   # el ajuste de siempre: significa
 noust ens profile                               # qué fija el perfil y cuál está activo
 ```
 
-Desde la 3.4 el cumplimiento es **elegido, nunca el valor por defecto**. Cada control (aprobación
+Desde la 4.0 el cumplimiento es **elegido, nunca el valor por defecto**. Cada control (aprobación
 por cuatro ojos, un motivo por cambio, separación de funciones, límites de sesión, cifrado de
 copias...) tiene su propio ajuste, y un **marco** es un preajuste que activa los controles que
 ayudan con una norma y dice la cláusula que sirve cada uno. ENS MEDIA es exactamente lo que fue

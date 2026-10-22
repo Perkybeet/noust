@@ -12,6 +12,7 @@ import { Spinner } from "../../../components/ui/Spinner";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
+import { hasDraft } from "../../new-app/draft";
 import { parseCallback } from "./github";
 import type { CallbackRequest } from "./github";
 
@@ -72,8 +73,10 @@ export function GitHubCallback() {
     onSuccess: (message) => {
       toast.success(message);
       void queryClient.invalidateQueries({ queryKey: githubKeys.all });
-      // Replace: the one-time code must not be one Back away from being posted again.
-      void navigate({ to: "/settings/integrations", replace: true });
+      // Replace: the one-time code must not be one Back away from being posted again. Connecting
+      // that began in the new-application wizard ends back in it, where the operator left it.
+      if (hasDraft()) void navigate({ to: "/apps/new", search: { resume: 1 }, replace: true });
+      else void navigate({ to: "/settings/integrations", replace: true });
     },
   });
 

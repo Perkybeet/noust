@@ -20,7 +20,7 @@ import { Input } from "../../components/ui/Input";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Select } from "../../components/ui/Select";
-import { Switch } from "../../components/ui/Switch";
+import { Checkbox } from "../../components/ui/Checkbox";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import {
@@ -562,7 +562,7 @@ function LocationRow({ location, depth, server, ctx, notes }: { location: SiteLo
                     ]}
                   />
                 </Field>
-                <Switch
+                <Checkbox
                   label={t("domains.siteStructure.websocketSwitch")}
                   checked={location.settings.websocket}
                   disabled={ctx.editing}

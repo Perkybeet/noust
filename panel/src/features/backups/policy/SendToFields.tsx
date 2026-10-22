@@ -4,6 +4,7 @@ import { backupDestinationsQuery } from "../../../api/queries/backupDestinations
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { FieldGroup } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import type { DestinationDraft } from "./limits";
@@ -42,8 +43,7 @@ export function SendToFields({ words, value, onChange, error, enabled = true }: 
   const available = destinations.data?.destinations ?? [];
   const patch = (name: string, next: Partial<DestinationDraft>): void => onChange(value.map((item) => (item.name === name ? { ...item, ...next } : item)));
   return (
-    <fieldset className="flex min-w-0 flex-col gap-3">
-      <legend className="mb-3 text-13 font-medium text-fg">{words.legend}</legend>
+    <FieldGroup legend={words.legend} error={error}>
       {destinations.isError ? (
         <ErrorBlock compact error={destinations.error} title={words.failed} onRetry={() => void destinations.refetch()} />
       ) : available.length === 0 && destinations.data !== undefined ? (
@@ -103,7 +103,6 @@ export function SendToFields({ words, value, onChange, error, enabled = true }: 
           })}
         </ul>
       )}
-      {error !== undefined ? <p className="text-12 text-fail">{error}</p> : null}
-    </fieldset>
+    </FieldGroup>
   );
 }

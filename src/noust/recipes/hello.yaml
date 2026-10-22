@@ -1,0 +1,35 @@
+# Hello is the demo behind "Try a demo" on a server that runs nothing yet: one static page, written
+# for Noust (src/noust/recipes/assets/hello/index.html), with no data, no database, no build and
+# nothing to download. It is the smallest thing that can answer on an address, so the first
+# deployment of a person with no domain ends in a URL that works within seconds.
+#
+# The page is the recipe's own file, copied as it is into the application's directory; nothing
+# is fetched, so the version below is the recipe's own number, not a project's.
+schema: 2
+name: hello
+kind: native
+title: Hello
+slogan: A one-page demo, to see Noust serve something on its own address.
+description: A single static page with no data and nothing to configure. Deploy it to see the whole path from a server with nothing on it to a page that answers, then delete it.
+category: utilities
+tags: [demo, static, starter]
+logo: logo.svg
+version: "1.0.0"
+revision: 1
+updated: 2026-10-21
+homepage: https://github.com/Perkybeet/noust
+docs: https://github.com/Perkybeet/noust/blob/main/docs/first-application.md
+repository: https://github.com/Perkybeet/noust
+license: AGPL-3.0-or-later
+needs:
+  - Nothing beyond Noust and its web server
+app_type: static
+source:
+  template:
+    index.html: index.html
+layout: releases
+health:
+  path: /
+  expect: "200"
+notes:
+  - "Open {{ url }}: that page is the demo. Delete the application when you are done with it, or keep it to see how a deployment is updated."

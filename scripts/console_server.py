@@ -209,6 +209,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--empty",
+        action="store_true",
+        help=(
+            "seed a server just installed, with nothing deployed, and a public address "
+            "declared (dns.public_addresses), so the first-run walk (the access token, the "
+            "first administrator, the demo and the temporary address) has something to start "
+            "from (panel/e2e/first-run.spec.ts)"
+        ),
+    )
+    parser.add_argument(
         "--hostname",
         default=None,
         help=(
@@ -514,8 +524,18 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
 
+#: The public address an ``--empty`` server declares. A server in a sandbox has none of its own
+#: (its interfaces are private) and the temporary address is made of one; this one is a real
+#: public address that nothing here ever connects to.
+EMPTY_PUBLIC_ADDRESS = "93.184.216.34"
+
+
 def write_config(
-    sandbox: Sandbox, *, central_role: str | None = None, ssl_email: str = "ops@example.com"
+    sandbox: Sandbox,
+    *,
+    central_role: str | None = None,
+    ssl_email: str = "ops@example.com",
+    public_address: str | None = None,
 ) -> None:
     """
     Write the Noust configuration the sandboxed machine runs with.
@@ -527,6 +547,8 @@ def write_config(
             as ``server`` (see ``noust.central.role``).
         ssl_email: The certificate contact address to write; ``--showcase`` gives its own
             agency's, so nothing this server writes to disk carries example.com.
+        public_address: ``dns.public_addresses`` to declare, for ``--empty``: the address a
+            temporary name is made of. Left out, the sandbox has none.
     """
     import yaml
 
@@ -544,6 +566,8 @@ def write_config(
     }
     if central_role is not None:
         config["central"] = {"role": central_role}
+    if public_address is not None:
+        config["dns"] = {"public_addresses": [public_address]}
     sandbox.config_file.write_text(yaml.safe_dump(config, sort_keys=True), encoding="utf-8")
     sandbox.config_file.chmod(0o600)
 
@@ -2858,6 +2882,47 @@ def make_runner(
 # ---------------------------------------------------------------------------
 # Seeding what the store cannot hold
 # ---------------------------------------------------------------------------
+
+
+def seed_empty_machine(
+    sandbox: Sandbox,
+) -> tuple[dict[str, Unit], dict[str, int], dict[str, str], list[str]]:
+    """
+    Seed a server just installed: the store, the database engines, the console, nothing else.
+
+    No application, site, certificate, backup, job, cron entry or monitor notice: the Overview
+    of a server like this offers the first application, and the first-run walk starts from it.
+
+    Args:
+        sandbox: The sandbox.
+
+    Returns:
+        The unit model, each unit's port, each unit's domain and the domains holding
+        certificates - what :func:`make_runner` answers from; all but the units are empty.
+    """
+    from noust.core.store import get_store
+    from tests.panel_factory import seed_empty_console_state
+
+    store = get_store(sandbox.store_file)
+    seed_empty_console_state(store)
+    units: dict[str, Unit] = {}
+    for engine, active in (
+        ("postgresql", "active"),
+        ("mysql", "active"),
+        ("redis-server", "inactive"),
+    ):
+        units[engine] = Unit(
+            active=active, pid=900 + len(engine) if active == "active" else 0, managed=False
+        )
+    quiet_process_sampling()
+    # The web server and the certificate authority a deploy talks to, and the sources the wizard
+    # can read, with no site and no certificate of their own.
+    seed_domains_and_sources(
+        sandbox, store, units, [], server_names=None, proggest=False, extra_zones=("sslip.io",)
+    )
+    units["php8.3-fpm"] = Unit(active="active", pid=912, managed=False)
+    seed_console_service(sandbox, units)
+    return units, {}, {}, []
 
 
 def seed_machine(
@@ -6120,9 +6185,10 @@ def seed_domains_and_sources(
     cert_domains: list[str],
     *,
     expired_certificate: bool = False,
-    server_names: tuple[str, Sequence[str]] = ("example.net", ("www", "shop", "status")),
+    server_names: tuple[str, Sequence[str]] | None = ("example.net", ("www", "shop", "status")),
     cert_alt_names: dict[str, str] | None = None,
     proggest: bool = True,
+    extra_zones: Sequence[str] = (),
 ) -> None:
     """
     Seed the web server, certificates, DNS and sources the domain pages and the wizard need.
@@ -6141,11 +6207,15 @@ def seed_domains_and_sources(
         expired_certificate: Seed the first certificate as expired.
         server_names: A site's domain, and the extra names to give it (unqualified: "www",
             not "www.<domain>") - see :func:`seed_sites_server_names`. Defaults to the
-            default machine's own "example.net"; ``--showcase`` passes one of its own.
+            default machine's own "example.net"; ``--showcase`` passes one of its own; ``None``
+            (``--empty``) seeds no site at all.
         cert_alt_names: See :meth:`_DomainsWebTools.seed`'s own ``alt_names``
             (``--showcase`` only).
         proggest: Seed the operator's Proggest sites (:func:`seed_proggest_site`);
             the showcase's invented agency has none.
+        extra_zones: Registrable domains the modelled DNS answers for besides those of the
+            seeded applications: ``--empty`` has none, and answers for ``sslip.io`` as the real
+            service does, so a temporary address resolves and its certificate is issued.
     """
     import functools
     import socket as socket_module
@@ -6160,7 +6230,9 @@ def seed_domains_and_sources(
     tempfile.tempdir = str(scratch)
     _domains_redirect_managers()
 
-    zones = frozenset(".".join(app.domain.split(".")[-2:]) for app in store.list_apps())
+    zones = frozenset(
+        [*(".".join(app.domain.split(".")[-2:]) for app in store.list_apps()), *extra_zones]
+    )
     tools = _DomainsWebTools(sandbox, zones)
     tools.seed(cert_domains, first_expired=expired_certificate, alt_names=cert_alt_names)
 
@@ -6204,7 +6276,8 @@ def seed_domains_and_sources(
     domains_api.check_dns = modelled  # type: ignore[assignment]
 
     _domains_site_files(store)
-    seed_sites_server_names(*server_names)
+    if server_names is not None:
+        seed_sites_server_names(*server_names)
     _domains_wizard_sources(sandbox)
     if proggest:
         seed_proggest_site(sandbox, tools)
@@ -9976,7 +10049,12 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
         ssl_email = f"ops@{AGENCY_DOMAIN}"
     else:
         ssl_email = "ops@example.com"
-    write_config(sandbox, central_role=args.central_role, ssl_email=ssl_email)
+    write_config(
+        sandbox,
+        central_role=args.central_role,
+        ssl_email=ssl_email,
+        public_address=EMPTY_PUBLIC_ADDRESS if args.empty else None,
+    )
     forbid_real_processes()
     set_fs(make_sandbox_filesystem(sandbox))
     if args.showcase:
@@ -10006,6 +10084,8 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
             seeded_ports: dict[str, int] = {}
             seeded_domains: dict[str, str] = {}
             seeded_certs: list[str] = []
+        elif args.empty:
+            seeded_units, seeded_ports, seeded_domains, seeded_certs = seed_empty_machine(sandbox)
         else:
             seeded_units, seeded_ports, seeded_domains, seeded_certs = seed_machine(
                 sandbox,
@@ -10028,10 +10108,10 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     model_server_host(sandbox, args.hostname or socket.gethostname(), units)
     with contextlib.redirect_stdout(sys.stderr):
         seed_server_analysis()
-    if args.central_role != "hub" and not args.showcase:
+    if args.central_role != "hub" and not args.showcase and not args.empty:
         with contextlib.redirect_stdout(sys.stderr):
             seed_databases(sandbox)
-    if args.central_role != "hub" and not args.showcase:
+    if args.central_role != "hub" and not args.showcase and not args.empty:
         # Deploys tests.panel_factory's own "lanzamiento.example.org": nothing the
         # documentation screenshots need, and exactly the example.org the showcase exists
         # to keep out of them.

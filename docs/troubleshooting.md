@@ -135,8 +135,13 @@ computer, open a tunnel and browse to it:
 
 ```bash
 ssh -N -L 8080:127.0.0.1:8080 root@server.example.com
-# then open http://127.0.0.1:8080
+# then open http://127.0.0.1:8080/login?with=token
 ```
+
+The installer prints exactly this, with the server's own address in it, and the link opens the
+sign-in on the access token. When it could not tell the address (a machine behind NAT, or one whose
+only address is private) it says so and leaves `<your server's public address>` to replace with the
+one you SSH to.
 
 If that is refused, on the server: `noust web status` (is it running), `journalctl -u noust-web`
 (why not) and `noust web enable` (set it up as a service). To reach it without a tunnel, publish it
@@ -151,7 +156,7 @@ noust setup doctor
 ```
 
 lists what is missing and the command that fixes each item; the console shows the same under
-**Settings > About > Installation check**. Then:
+**Settings > About Noust > Installation check**. Then:
 
 - **The installer refused the platform (exit status 3).** The distribution or the processor is not
   on the list ([platforms.md](PLATFORMS.md)). `--force --target <repository directory>` tries

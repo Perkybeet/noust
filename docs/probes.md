@@ -11,7 +11,7 @@ A probe that stops answering is told through the [notification channels](notific
 (`probe_failed`) and told again when it answers (`probe_recovered`). The probes you mark public are the
 components of a **status page** you can put on a name of its own.
 
-Everything here is in the console under Settings > Probes and in the command line as `noust probe ...`;
+Everything here is in the console under Settings > Probes and status page and in the command line as `noust probe ...`;
 both are views of the same probes, the monitor asks them (`noust monitor enable`), and the API is
 `/api/probes` ([api.md](api.md)).
 

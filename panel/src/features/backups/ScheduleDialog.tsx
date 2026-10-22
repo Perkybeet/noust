@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
-import { backupDestinationsQuery } from "../../api/queries/backupDestinations";
 import type { BackupSchedule } from "../../api/queries/backups";
 import { backupSchedulesQuery } from "../../api/queries/backups";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -11,32 +10,22 @@ import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
-import { IconButton } from "../../components/ui/IconButton";
-import { ICONS } from "../../components/ui/icons";
-import { Input } from "../../components/ui/Input";
-import { Mono } from "../../components/ui/Mono";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
-import type { T } from "../../i18n";
-import { gbValue, validGb } from "./policy/limits";
+import { DEFAULT_SCHEDULE, scheduleExpression, scheduleForm, validTime } from "../databases/backups/schedule";
+import type { ScheduleForm } from "../databases/backups/schedule";
+import { GbField } from "./policy/GbField";
+import { KeepFields } from "./policy/KeepFields";
+import { MAX_COUNT, MAX_DAYS, destinationsValid, gbValue, limitText, validGb, validLimit } from "./policy/limits";
+import type { DestinationDraft } from "./policy/limits";
 import { RemoteOnlyField } from "./policy/RemoteOnlyField";
+import { ScheduleFields } from "./policy/ScheduleFields";
+import { SendToFields } from "./policy/SendToFields";
 import type { CreateScheduleInput, ScheduleDestinationInput } from "./useBackupActions";
 import { useBackupActions } from "./useBackupActions";
 
 /** The application choice that schedules every application without a schedule at once. */
 export const EVERY_APP = "*";
-
-function presets(t: T): { value: string; label: string }[] {
-  return [
-    { value: "hourly", label: t("backups.scheduleDialog.presets.hourly") },
-    { value: "daily", label: t("backups.scheduleDialog.presets.daily") },
-    { value: "weekly", label: t("backups.scheduleDialog.presets.weekly") },
-    { value: "monthly", label: t("backups.scheduleDialog.presets.monthly") },
-    { value: "custom", label: t("backups.scheduleDialog.presets.custom") },
-  ];
-}
-
-const KNOWN = new Set(["hourly", "daily", "weekly", "monthly"]);
 
 /** What a new schedule keeps unless the operator changes it; the API's own defaults too. */
 const NEW_SCHEDULE_KEEP = 7;
@@ -44,80 +33,24 @@ const NEW_SCHEDULE_MAX_AGE = 30;
 
 type RetentionMode = "server" | "own";
 
-/** A retention limit as the form holds it: blank for "none", which the API takes as null. */
-function limitText(value: number | null | undefined): string {
-  return value === null || value === undefined ? "" : String(value);
-}
+type ErrorKey = "domain" | "schedule" | "time" | "count" | "days" | "gb" | "destinations";
 
 /** A number typed for an optional field: blank stays unset rather than becoming 0. */
 function optionalNumber(value: string): number | undefined {
   const trimmed = value.trim();
   if (trimmed === "") return undefined;
-  const parsed = Number(trimmed);
+  const parsed = Number(trimmed.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-/**
- * One destination this schedule copies to, with its own optional limits. The column's words
- * are said once above the rows; each input's accessible name names the destination too, so two
- * rows' inputs are never the same to a screen reader.
- */
-function DestinationRow({
-  entry,
-  onChange,
-  onRemove,
-  disabled,
-}: {
-  entry: ScheduleDestinationInput;
-  onChange: (next: ScheduleDestinationInput) => void;
-  onRemove: () => void;
-  disabled: boolean;
-}) {
-  const t = useT();
-  return (
-    <li className="flex items-center gap-3 rounded-control border border-border bg-bg-sunken px-3 py-2">
-      <Mono truncate className="min-w-0 flex-1 text-13">
-        {entry.name}
-      </Mono>
-      <Input
-        aria-label={t("backups.scheduleDialog.keepOn", { name: entry.name })}
-        size="sm"
-        mono
-        inputMode="numeric"
-        value={entry.retentionCount !== undefined ? String(entry.retentionCount) : ""}
-        onValueChange={(next: string) => onChange({ ...entry, retentionCount: optionalNumber(next) })}
-        disabled={disabled}
-        className="w-20 shrink-0"
-      />
-      <Input
-        aria-label={t("backups.scheduleDialog.maxAgeOn", { name: entry.name })}
-        size="sm"
-        mono
-        inputMode="numeric"
-        value={entry.retentionDays !== undefined ? String(entry.retentionDays) : ""}
-        onValueChange={(next: string) => onChange({ ...entry, retentionDays: optionalNumber(next) })}
-        disabled={disabled}
-        className="w-20 shrink-0"
-      />
-      <Input
-        aria-label={t("backups.scheduleDialog.keepGbOn", { name: entry.name })}
-        size="sm"
-        mono
-        inputMode="decimal"
-        value={entry.retentionGb !== undefined ? String(entry.retentionGb) : ""}
-        onValueChange={(next: string) => onChange({ ...entry, retentionGb: optionalNumber(next.replace(",", ".")) })}
-        disabled={disabled}
-        className="w-20 shrink-0"
-      />
-      <IconButton
-        label={t("backups.scheduleDialog.removeDestination", { name: entry.name })}
-        icon={<ICONS.close />}
-        size="sm"
-        onClick={onRemove}
-        disabled={disabled}
-      />
-    </li>
-  );
+/** The destinations as the API's input: a blank limit is none, not zero. */
+function destinationInput(sends: readonly DestinationDraft[]): ScheduleDestinationInput[] {
+  return sends.map((entry) => ({
+    name: entry.name,
+    retentionCount: optionalNumber(entry.count),
+    retentionDays: optionalNumber(entry.days),
+    retentionGb: optionalNumber(entry.gb ?? ""),
+  }));
 }
 
 export interface ScheduleDialogProps {
@@ -130,21 +63,23 @@ export interface ScheduleDialogProps {
 }
 
 /**
- * Creates or edits an application's backup schedule: when it runs (a preset or a calendar
- * expression), how many of its backups it keeps, and any destinations each backup is copied
- * to. Creating can also cover every application that has no schedule yet, in one go. Editing
- * sends the same shape through `PUT /{domain}` instead of posting again.
+ * Creates or edits an application's backup schedule: when it runs, how many of its backups it
+ * keeps and for how long, and the destinations each backup is copied to. It is made of the same
+ * fields every schedule of the console is made of (`policy/`: when, keep, send to, keep nothing
+ * here), so a destination is a block of its own that wraps on a phone instead of a row of
+ * four inputs that leave its name no room. Creating can also cover every application that has
+ * no schedule yet, in one go. Editing sends the same shape through `PUT /{domain}`.
  */
 export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }: ScheduleDialogProps) {
   const t = useT();
   const formId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
   const apps = useQuery({ ...appsQuery(), enabled: open && existing === undefined });
-  const destinations = useQuery({ ...backupDestinationsQuery(), enabled: open });
   const schedules = useQuery({ ...backupSchedulesQuery(), enabled: open });
   const serverDefault = schedules.data?.default_retention_count;
   const [domain, setDomain] = useState(existing?.domain ?? preset0 ?? "");
-  const [preset, setPreset] = useState(existing !== undefined && KNOWN.has(existing.schedule) ? existing.schedule : "daily");
-  const [customCalendar, setCustomCalendar] = useState(existing?.on_calendar ?? "");
+  // The stored expression first: "daily" is an alias whose time is not the form's default.
+  const [schedule, setSchedule] = useState<ScheduleForm>(() => (existing !== undefined ? scheduleForm(existing.on_calendar !== "" ? existing.on_calendar : existing.schedule) : DEFAULT_SCHEDULE));
   // An existing schedule's retention is shown as it is: a schedule adopted from a 2.1 timer has
   // none of its own, and pre-filling 7/30 here is how saving it used to prune most of its backups.
   const [retentionMode, setRetentionMode] = useState<RetentionMode>(
@@ -157,17 +92,16 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
   // Read from the schedule and given back: a schedule set to keep nothing here from the terminal
   // must not be turned back into one that does by saving it in the console.
   const [remoteOnly, setRemoteOnly] = useState(existing?.remote_only ?? false);
-  const [scheduleDestinations, setScheduleDestinations] = useState<ScheduleDestinationInput[]>(
+  const [sends, setSends] = useState<DestinationDraft[]>(
     (existing?.destinations ?? []).map((entry) => ({
       name: entry.name,
-      retentionCount: entry.retention_count ?? undefined,
-      retentionDays: entry.retention_days ?? undefined,
-      retentionGb: entry.retention_gb ?? undefined,
+      count: limitText(entry.retention_count),
+      days: limitText(entry.retention_days),
+      gb: limitText(entry.retention_gb),
     })),
   );
-  const [destinationToAdd, setDestinationToAdd] = useState("");
+  const [errors, setErrors] = useState<Partial<Record<ErrorKey, string>>>({});
   const { createSchedule, createSchedules, updateSchedule } = useBackupActions();
-  const gbInvalid = retentionMode === "own" && !validGb(retentionGb);
   const everyApp = existing === undefined && domain === EVERY_APP;
   const save = existing !== undefined ? updateSchedule : everyApp ? createSchedules : createSchedule;
 
@@ -177,24 +111,40 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
   const close = (next: boolean): void => {
     if (!next && save.isPending) return;
     onOpenChange(next);
-    if (!next) save.reset();
+    if (!next) {
+      save.reset();
+      setErrors({});
+    }
   };
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
+    // Pressing says what is missing and goes to it, instead of a button that stays grey.
+    const found: Partial<Record<ErrorKey, string>> = {};
     const targetDomain = existing?.domain ?? domain.trim();
-    if (targetDomain === "" || gbInvalid) return;
-    const schedule = preset === "custom" ? customCalendar.trim() : preset;
-    if (schedule === "") return;
+    if (targetDomain === "") found.domain = t("backups.fields.chooseApplication");
+    if (schedule.frequency === "custom" && schedule.custom.trim() === "") found.schedule = t("databases.policy.customRequired");
+    if (schedule.frequency !== "hourly" && schedule.frequency !== "custom" && !validTime(schedule.time)) found.time = t("databases.policy.timeInvalid");
+    if (retentionMode === "own") {
+      if (!validLimit(retentionCount, MAX_COUNT)) found.count = t("databases.policy.countInvalid");
+      if (!validLimit(retentionDays, MAX_DAYS)) found.days = t("databases.policy.daysInvalid");
+      if (!validGb(retentionGb)) found.gb = t("backups.scheduleDialog.keepGbInvalid");
+    }
+    if (!destinationsValid(sends)) found.destinations = t("databases.policy.destinationLimitInvalid");
+    setErrors(found);
+    if (Object.keys(found).length > 0) {
+      requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+      return;
+    }
     const input = (name: string): CreateScheduleInput => ({
       domain: name,
-      schedule,
+      schedule: scheduleExpression(schedule),
       retentionCount: retentionMode === "server" ? null : (optionalNumber(retentionCount) ?? null),
       retentionDays: retentionMode === "server" ? null : (optionalNumber(retentionDays) ?? null),
       retentionGb: retentionMode === "server" ? null : gbValue(retentionGb),
       includeDatabases,
       remoteOnly,
-      destinations: scheduleDestinations,
+      destinations: destinationInput(sends),
     });
     if (everyApp) {
       createSchedules.mutate(unscheduled.map(input), { onSuccess: () => close(false) });
@@ -207,17 +157,6 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
     ...(unscheduled.length > 1 ? [{ value: EVERY_APP, label: t("backups.scheduleDialog.everyApp", { count: unscheduled.length }) }] : []),
     ...(apps.data?.apps ?? []).map((app) => ({ value: app.domain, label: app.domain })),
   ];
-  const addedNames = new Set(scheduleDestinations.map((entry) => entry.name));
-  const addableOptions = (destinations.data?.destinations ?? [])
-    .filter((entry) => !addedNames.has(entry.name))
-    .map((entry) => ({ value: entry.name, label: entry.name }));
-  const noDestinations = destinations.data?.destinations.length === 0;
-
-  const addDestination = (): void => {
-    if (destinationToAdd === "") return;
-    setScheduleDestinations((current) => [...current, { name: destinationToAdd }]);
-    setDestinationToAdd("");
-  };
 
   return (
     <Dialog
@@ -231,41 +170,35 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
           <Button disabled={save.isPending} onClick={() => close(false)}>
             {t("backups.common.cancel")}
           </Button>
-          <Button
-            type="submit"
-            form={formId}
-            variant="primary"
-            loading={save.isPending}
-            disabled={(existing === undefined && domain.trim() === "") || (preset === "custom" && customCalendar.trim() === "")}
-          >
+          <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {existing ? t("backups.common.save") : t("backups.scheduleDialog.create")}
           </Button>
         </>
       }
     >
-      <form id={formId} onSubmit={submit} className="flex flex-col gap-5">
-        <div className="grid gap-5 sm:grid-cols-2">
-          {existing === undefined ? (
-            <Field label={t("backups.fields.application")} nativeLabel={false}>
-              <Select
-                aria-label={t("backups.fields.application")}
-                value={domain}
-                onValueChange={setDomain}
-                placeholder={apps.isPending ? t("backups.fields.loadingApplications") : t("backups.fields.chooseApplication")}
-                options={domainOptions}
-                disabled={apps.isPending || domainOptions.length === 0}
-              />
-            </Field>
-          ) : null}
-          <Field label={t("backups.scheduleDialog.scheduleLabel")} name="schedule" nativeLabel={false}>
-            <Select aria-label={t("backups.scheduleDialog.scheduleLabel")} value={preset} onValueChange={setPreset} options={presets(t)} />
-          </Field>
-        </div>
-        {preset === "custom" ? (
-          <Field label={t("backups.scheduleDialog.calendarLabel")} description={t("backups.scheduleDialog.calendarDescription")}>
-            <Input mono value={customCalendar} onValueChange={setCustomCalendar} placeholder="*-*-* 03:30:00" autoComplete="off" spellCheck={false} />
+      <form id={formId} ref={formRef} noValidate onSubmit={submit} className="flex flex-col gap-6">
+        {existing === undefined ? (
+          <Field label={t("backups.fields.application")} nativeLabel={false} error={errors.domain}>
+            <Select
+              aria-label={t("backups.fields.application")}
+              value={domain}
+              onValueChange={(next) => {
+                setDomain(next);
+                setErrors((previous) => {
+                  const next = { ...previous };
+                  delete next.domain;
+                  return next;
+                });
+              }}
+              placeholder={apps.isPending ? t("backups.fields.loadingApplications") : t("backups.fields.chooseApplication")}
+              options={domainOptions}
+              disabled={apps.isPending || domainOptions.length === 0}
+            />
           </Field>
         ) : null}
+
+        <ScheduleFields value={schedule} onChange={setSchedule} scheduleError={errors.schedule} timeError={errors.time} />
+
         <Field
           label={t("backups.scheduleDialog.retention.label")}
           nativeLabel={false}
@@ -274,7 +207,7 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
               ? t("backups.scheduleDialog.retention.newDescription", { keep: NEW_SCHEDULE_KEEP, days: NEW_SCHEDULE_MAX_AGE })
               : retentionMode === "server"
                 ? t("backups.scheduleDialog.retention.serverDescription")
-                : t("backups.scheduleDialog.retention.ownDescription")
+                : undefined
           }
         >
           <Select
@@ -294,79 +227,55 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
           />
         </Field>
         {retentionMode === "own" ? (
-          <div className="grid grid-cols-3 gap-5">
-            <Field label={t("backups.scheduleDialog.keepLabel")} description={t("backups.scheduleDialog.keepDescription")}>
-              <Input mono inputMode="numeric" value={retentionCount} onValueChange={setRetentionCount} />
-            </Field>
-            <Field label={t("backups.scheduleDialog.maxAgeLabel")} description={t("backups.scheduleDialog.maxAgeDescription")}>
-              <Input mono inputMode="numeric" value={retentionDays} onValueChange={setRetentionDays} />
-            </Field>
-            <Field label={t("backups.scheduleDialog.keepGbLabel")} description={t("backups.scheduleDialog.keepGbDescription")} error={gbInvalid ? t("backups.scheduleDialog.keepGbInvalid") : undefined}>
-              <Input mono inputMode="decimal" value={retentionGb} onValueChange={setRetentionGb} suffix="GB" />
-            </Field>
-          </div>
+          <KeepFields
+            words={{
+              legend: t("backups.scheduleDialog.retention.ownOption"),
+              count: t("backups.scheduleDialog.keepLabel"),
+              countHelp: t("backups.scheduleDialog.keepDescription"),
+              days: t("backups.scheduleDialog.maxAgeLabel"),
+              daysHelp: t("backups.scheduleDialog.maxAgeDescription"),
+              note: t("backups.scheduleDialog.retention.ownDescription"),
+            }}
+            count={retentionCount}
+            days={retentionDays}
+            onCount={setRetentionCount}
+            onDays={setRetentionDays}
+            countError={errors.count}
+            daysError={errors.days}
+          >
+            <GbField label={t("backups.scheduleDialog.keepGbLabel")} help={t("backups.scheduleDialog.keepGbDescription")} value={retentionGb} onChange={setRetentionGb} error={errors.gb} />
+          </KeepFields>
         ) : null}
         <Checkbox checked={includeDatabases} onCheckedChange={setIncludeDatabases} label={t("backups.scheduleDialog.dumpDatabases")} />
 
-        <fieldset className="flex flex-col gap-3">
-          <legend className="mb-1 text-13 font-medium text-fg">{t("backups.scheduleDialog.destinationsLegend")}</legend>
-          <p className="text-12 text-fg-muted">
-            {noDestinations ? t("backups.scheduleDialog.noDestinations") : t("backups.scheduleDialog.destinationsHint")}
-          </p>
-          {scheduleDestinations.length > 0 ? (
-            <div className="flex flex-col gap-1.5">
-              {/* The columns' words, once: the inputs below carry them with each destination's name. */}
-              <div aria-hidden="true" className="flex items-center gap-3 px-3 text-12 text-fg-muted">
-                <span className="flex-1">{t("backups.fields.destination")}</span>
-                <span className="w-20 shrink-0">{t("backups.scheduleDialog.keepLabel")}</span>
-                <span className="w-20 shrink-0">{t("backups.scheduleDialog.maxAgeShort")}</span>
-                <span className="w-20 shrink-0">{t("backups.scheduleDialog.keepGbShort")}</span>
-                <span className="size-control-sm shrink-0" />
-              </div>
-            <ul className="flex flex-col gap-2">
-              {scheduleDestinations.map((entry) => (
-                <DestinationRow
-                  key={entry.name}
-                  entry={entry}
-                  disabled={save.isPending}
-                  onChange={(next) => {
-                    setScheduleDestinations((current) => current.map((item) => (item.name === next.name ? next : item)));
-                  }}
-                  onRemove={() => {
-                    setScheduleDestinations((current) => current.filter((item) => item.name !== entry.name));
-                  }}
-                />
-              ))}
-            </ul>
-            </div>
-          ) : null}
-          {noDestinations ? null : (
-            <div className="flex items-center gap-2">
-              <Select
-                aria-label={t("backups.scheduleDialog.addDestinationAria")}
-                value={destinationToAdd}
-                onValueChange={setDestinationToAdd}
-                placeholder={destinations.isPending ? t("backups.fields.loadingDestinations") : t("backups.scheduleDialog.chooseDestinationToAdd")}
-                options={addableOptions}
-                disabled={save.isPending || destinations.isPending || addableOptions.length === 0}
-                size="sm"
-              />
-              <Button size="sm" type="button" icon={<ICONS.add aria-hidden="true" />} disabled={destinationToAdd === "" || save.isPending} onClick={addDestination}>
-                {t("backups.common.add")}
-              </Button>
-            </div>
-          )}
-          <RemoteOnlyField
-            words={{
-              label: t("backups.scheduleDialog.remoteOnly"),
-              help: t("backups.scheduleDialog.remoteOnlyHelp"),
-              needsDestination: t("backups.scheduleDialog.remoteOnlyNeedsDestination"),
-            }}
-            value={remoteOnly}
-            onChange={setRemoteOnly}
-            destinations={scheduleDestinations.length}
-          />
-        </fieldset>
+        <SendToFields
+          enabled={open}
+          words={{
+            legend: t("backups.scheduleDialog.destinationsLegend"),
+            none: t("backups.scheduleDialog.noDestinations"),
+            noneHint: t("backups.scheduleDialog.noDestinationsHint"),
+            failed: t("backups.destinations.loadError"),
+            keepAll: t("databases.policy.keepAll"),
+            countSuffix: t("backups.scheduleDialog.backupsSuffix"),
+            daysSuffix: t("databases.policy.daysSuffix"),
+            countFor: (name) => t("backups.scheduleDialog.keepOn", { name }),
+            daysFor: (name) => t("backups.scheduleDialog.maxAgeOn", { name }),
+            gbFor: (name) => t("backups.scheduleDialog.keepGbOn", { name }),
+          }}
+          value={sends}
+          onChange={setSends}
+          error={errors.destinations}
+        />
+        <RemoteOnlyField
+          words={{
+            label: t("backups.scheduleDialog.remoteOnly"),
+            help: t("backups.scheduleDialog.remoteOnlyHelp"),
+            needsDestination: t("backups.scheduleDialog.remoteOnlyNeedsDestination"),
+          }}
+          value={remoteOnly}
+          onChange={setRemoteOnly}
+          destinations={sends.length}
+        />
 
         {save.isError ? (
           <ErrorBlock live compact error={save.error} title={everyApp ? t("backups.scheduleDialog.someFailed") : t("backups.scheduleDialog.error")} />

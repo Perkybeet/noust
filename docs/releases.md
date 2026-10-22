@@ -157,7 +157,7 @@ change: its check is its files.
 
 #### The request, a command, and the timing
 
-Since 3.4 the check can say more about the request, can be a command instead of a request, and
+Since 4.0 the check can say more about the request, can be a command instead of a request, and
 has the timing of a container's health check. Each option not named keeps its value.
 
 | Option | Accepts | Default |
@@ -255,7 +255,7 @@ An application in place that wants the first row can have it: `noust app migrate
 ## Zero downtime by default
 
 Activating a release by swapping `current` and restarting the unit leaves the application
-without a process for as long as it takes to start. Since 3.4 an application **created** on the
+without a process for as long as it takes to start. Since 4.0 an application **created** on the
 releases layout that serves HTTP through a port behind nginx (Node.js, Next.js, Python, Vite)
 avoids that from its first deployment: once the first release answers, it is turned into the
 two instances of blue/green (`noust app zero-downtime DOMAIN on`, the same code, undone whole
@@ -703,7 +703,7 @@ noust releases receive shop.example.com shop.noust-release.tar.gz --sha256 4b1c.
 A central can drive both ends: it picks the builder, asks it for the bundle and carries it to the
 servers that run the application over the fleet's own tunnels, in chunks, with the same checksum and
 the same health gate. That is [building on one server and running on others](CENTRAL.md#building-on-one-server-and-running-on-others)
-(`noust fleet placement ship`, `/api/fleet/placements/{domain}/ship` and Fleet > On several servers).
+(`noust fleet placement ship`, `/api/fleet/placements/{domain}/ship` and Fleet > Applications > On several servers).
 The file is still the whole interface when no central is involved, so anything that moves a file
 (scp, a CI artifact store) carries it as well.
 
@@ -838,7 +838,7 @@ the error says so.
 
 #### Kept images and instant rollback
 
-Since 3.4 a stack that builds its images from a repository keeps the images of the releases it
+Since 4.0 a stack that builds its images from a repository keeps the images of the releases it
 served, so going back to one is the same instant operation it is on the release layout, instead
 of building the old commit again (minutes, and everything the build needed).
 
@@ -1043,14 +1043,14 @@ successful deployment went live with warnings: a `post_deploy` hook failed). Old
 none of them. An adopted stack's history starts with one row, the adoption, at the commit that
 was checked out. See [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback).
 
-Since 3.4 a deployment's log can be read by what matters: `noust app deploy-log DOMAIN [ID]
+Since 4.0 a deployment's log can be read by what matters: `noust app deploy-log DOMAIN [ID]
 --level error --search text --sanitize`, the same filters on `GET /api/deployments/{id}/log`, and
 in the console's deployment page. `--sanitize` masks what only looks like a credential, to
 share the log. See [runtime.md](runtime.md#reading-a-deployments-log). A row also says, as
 `rollback_method`, how going back to it is done ([above](#how-going-back-is-done)).
 
-Since 3.4 a deployment an operator cancelled while it built ends with the status `failed` and
+Since 4.0 a deployment an operator cancelled while it built ends with the status `failed` and
 says so with `cancelled`, `cancelled_at` and `cancelled_by` (the status column cannot hold a
-new value on a store from before 3.4): the overview does not count it as a failure and does not
+new value on a store from before 4.0): the overview does not count it as a failure and does not
 list the application as needing attention, `noust diagnose` does not blame it, and a
 notification channel is not told it failed. See [Cancelling a deployment](#cancelling-a-deployment).

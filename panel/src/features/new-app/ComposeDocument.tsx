@@ -68,8 +68,9 @@ function Services({ analysis }: { analysis: ComposeAnalysis }) {
 function Converted({ adjustments, warnings, count }: { adjustments: readonly string[]; warnings: readonly string[]; count: number }) {
   const t = useT();
   return (
-    <Notice tone="info" title={t("newApp.compose.coolify.title")}>
-      <div className="flex flex-col gap-2">
+    // What the conversion did is the server's report, not a condition to fix: a card, not a notice.
+    <Card title={t("newApp.compose.coolify.title")} padding="sm">
+      <div className="flex flex-col gap-2 text-13 text-pretty text-fg">
         <p>{t("newApp.compose.coolify.body", { count })}</p>
         {adjustments.length > 0 ? (
           <ul aria-label={t("newApp.compose.coolify.changed")} className="flex list-disc flex-col gap-1 pl-5">
@@ -86,7 +87,7 @@ function Converted({ adjustments, warnings, count }: { adjustments: readonly str
           </ul>
         ) : null}
       </div>
-    </Notice>
+    </Card>
   );
 }
 

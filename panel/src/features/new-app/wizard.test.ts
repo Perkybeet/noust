@@ -6,7 +6,10 @@ import {
   WIZARD_STEPS,
   canIncludeWww,
   createAppBody,
+  dnsQuestion,
   errorsOf,
+  hasOwnDomain,
+  isTemporaryDomain,
   nextStep,
   previousStep,
   stepOfField,
@@ -24,6 +27,7 @@ import {
   stepAsks,
   typeName,
   typeOptions,
+  withAddressMode,
   withProposal,
 } from "./wizard";
 import type { AppTypeOption, Inspection, PathRow, PlatformProposal, ReviewForm } from "./wizard";
@@ -663,5 +667,80 @@ describe("a container application (checklist A-31, A-14)", () => {
   it("sends a refusal of a container's field to the Configuration step, where it is fixed", () => {
     const refused = new ApiError(400, "validationerror", "API_TOKEN looks like a secret", null, { build_args: "API_TOKEN looks like a secret" });
     expect(refusalOf(refused)).toMatchObject({ step: "configure", fields: { build_args: "API_TOKEN looks like a secret" } });
+  });
+});
+
+describe("the address of a first deploy (the temporary address, 4.2)", () => {
+  const TEMPORARY = "shop.93-184-216-34.sslip.io";
+  const defaults = { webserver: "nginx" as const, taken: new Map<number, string>() };
+  const firstDeploy = { ...NOBODY, ownDomains: false, temporaryAvailable: true };
+  const typed = (patch: Partial<ReviewForm> = {}): ReviewForm => ({ ...initialReview(INSPECTION, { ...defaults, temporary: TEMPORARY }), ...patch });
+
+  it("knows a temporary address by the service that answers it, and no other", () => {
+    expect(isTemporaryDomain("shop.93-184-216-34.sslip.io")).toBe(true);
+    expect(isTemporaryDomain("93-184-216-34.SSLIP.IO")).toBe(true);
+    expect(isTemporaryDomain("sslip.io.example.com")).toBe(false);
+    expect(isTemporaryDomain("shop.example.com")).toBe(false);
+  });
+
+  it("starts on the temporary address where the server has no domain of its own yet", () => {
+    expect(typed()).toMatchObject({ domain: TEMPORARY, addressMode: "temporary", ssl: true, includeWww: false });
+  });
+
+  it("starts on a domain of its own, still empty, where the server already has one", () => {
+    const form = initialReview(INSPECTION, { ...defaults, temporary: TEMPORARY, ownDomains: true });
+    expect(form).toMatchObject({ domain: "", addressMode: "own", temporaryDomain: TEMPORARY });
+  });
+
+  it("starts on a domain of its own where the server cannot make a temporary address", () => {
+    expect(initialReview(INSPECTION, defaults)).toMatchObject({ domain: "", addressMode: "own", temporaryDomain: "" });
+  });
+
+  it("passes the address over when the temporary one is chosen and nothing else could be asked", () => {
+    const ask = (review: ReviewForm, context = firstDeploy) => stepAsks("address", "code", { inspection: INSPECTION, review, context });
+    expect(ask(typed())).toBe(false);
+    // The operator has domains of their own: they usually want one, so it asks.
+    expect(ask(typed(), { ...firstDeploy, ownDomains: true })).toBe(true);
+    // They opened the step to choose their own.
+    expect(ask(typed({ addressMode: "own", domain: "" }))).toBe(true);
+    // Nothing to offer in its place.
+    expect(ask(typed(), { ...firstDeploy, temporaryAvailable: false })).toBe(true);
+  });
+
+  it("asks again for the name when the source changes and the address was the temporary one", () => {
+    const again = initialReview(INSPECTION, { ...defaults, temporary: "blog.93-184-216-34.sslip.io" }, typed());
+    expect(again).toMatchObject({ domain: "blog.93-184-216-34.sslip.io", addressMode: "temporary" });
+  });
+
+  it("keeps the domain the operator typed when the source changes", () => {
+    const own = typed({ addressMode: "own", domain: "shop.example.com" });
+    const again = initialReview(INSPECTION, { ...defaults, temporary: "blog.93-184-216-34.sslip.io" }, own);
+    expect(again).toMatchObject({ domain: "shop.example.com", addressMode: "own", temporaryDomain: "blog.93-184-216-34.sslip.io" });
+  });
+
+  it("switches between the two without losing either", () => {
+    const own = withAddressMode(typed(), "own");
+    expect(own).toMatchObject({ addressMode: "own", domain: "" });
+    const typedOwn = { ...own, domain: "shop.example.com" };
+    expect(withAddressMode(typedOwn, "temporary")).toMatchObject({ addressMode: "temporary", domain: TEMPORARY, ssl: true, includeWww: false });
+    expect(withAddressMode(withAddressMode(typedOwn, "temporary"), "own").domain).toBe("shop.example.com");
+  });
+
+  it("is sent over HTTPS without www: the certificate is tried, and the deploy does not fail on it", () => {
+    const body = createAppBody({ source: "https://github.com/acme/shop.git", branch: "" }, typed({ includeWww: true }));
+    expect(body).toMatchObject({ domain: TEMPORARY, ssl: true, include_www: false });
+  });
+
+  it("is judged as any domain is, and is never a DNS question", () => {
+    expect(reviewProblems(typed(), NOBODY)["domain"]).toBeUndefined();
+    expect(reviewProblems(typed(), { ...NOBODY, domains: new Set([TEMPORARY]) })["domain"]).toMatch(/already/);
+    expect(dnsQuestion(typed())).toBe("");
+    expect(dnsQuestion(typed({ addressMode: "own", domain: "Shop.Example.com" }))).toBe("shop.example.com");
+  });
+
+  it("counts the domains of its own among those deployed", () => {
+    expect(hasOwnDomain(new Set(["a.93-184-216-34.sslip.io"]))).toBe(false);
+    expect(hasOwnDomain(new Set(["a.93-184-216-34.sslip.io", "shop.example.com"]))).toBe(true);
+    expect(hasOwnDomain(new Set())).toBe(false);
   });
 });

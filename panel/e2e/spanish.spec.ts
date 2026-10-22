@@ -50,9 +50,10 @@ for (const mode of ["recipe", "import"] as const) {
     await page.setViewportSize(DESKTOP);
     await useSpanish(page);
     await signInSpanish(page, consoleServer, "/apps/new");
-    const choice = page.getByRole("radiogroup", { name: spanish.newApp.modes.label }).getByRole("radio", { name: spanish.newApp.modes[mode] });
-    await choice.click();
-    await expect(choice).toHaveAttribute("aria-checked", "true");
+    // The rest of the ways are behind "More ways", which then carries the name of the one chosen.
+    await page.getByRole("button", { name: spanish.newApp.modes.more, exact: true }).click();
+    await page.getByRole("menuitem", { name: spanish.newApp.modes[mode], exact: true }).click();
+    await expect(page.getByRole("button", { name: spanish.newApp.modes[mode], exact: true })).toHaveAttribute("aria-current", "true");
     if (mode === "recipe") await expect(page.getByRole("button", { name: /WordPress/ })).toBeVisible();
     else await expect(page.getByLabel(spanish.newApp.importApp.file)).toBeVisible();
     await settle(page);

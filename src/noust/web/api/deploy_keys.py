@@ -167,6 +167,20 @@ class DeployKeyTestResponse(BaseModel):
     message: str
 
 
+class ServerKeyResponse(BaseModel):
+    """
+    The key git signs in with for a repository that has no deploy key of its own.
+
+    Attributes:
+        public_key: The OpenSSH public key line to add at the code host; null when the server
+            has no such key (``noust setup ssh --generate`` makes one).
+        fingerprint: ``SHA256:...``; null when there is no key.
+    """
+
+    public_key: str | None = None
+    fingerprint: str | None = None
+
+
 class PinnedHostResponse(BaseModel):
     """
     A host key Noust pinned the first time it reached a code host.
@@ -521,6 +535,28 @@ def list_deploy_keys(
     manager = _manager(session)
     keys = [_key(manager, key) for key in manager.keys()]
     return DeployKeyListResponse(keys=keys, total=len(keys))
+
+
+@keys_router.get("/server", response_model=ServerKeyResponse)
+def get_server_key(
+    session: Annotated[dict, Depends(get_current_session)],
+) -> ServerKeyResponse:
+    """
+    Show the public half of the server-wide SSH key.
+
+    A private repository over ssh fails to clone before an application exists, and the
+    person starting one needs the key to add at the code host. Only the public line is
+    ever returned; there is nothing to create here (that is ``noust setup ssh``, which
+    writes into the home of the account Noust runs as).
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        The key, or nothing when the server has none.
+    """
+    public_key, fingerprint = _manager(session).server_key()
+    return ServerKeyResponse(public_key=public_key, fingerprint=fingerprint)
 
 
 @keys_router.get("/hosts", response_model=PinnedHostsResponse)

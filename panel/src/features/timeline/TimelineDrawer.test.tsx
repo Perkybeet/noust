@@ -80,7 +80,8 @@ describe("TimelineDrawer", () => {
     const drawer = await screen.findByRole("dialog", { name: "What happened in this stretch" });
     const link = await within(drawer).findByRole("link", { name: "Search these logs" });
     const url = new URL(link.getAttribute("href") ?? "", "http://console");
-    expect(url.pathname).toBe("/server/logs");
+    expect(url.pathname).toBe("/logs");
+    expect(url.searchParams.get("source")).toBe("system");
     expect(url.searchParams.get("from")).toBe(String(START));
     expect(url.searchParams.get("to")).toBe(String(END));
     expect(url.searchParams.get("q")).toBe("@app:shop.example.com");

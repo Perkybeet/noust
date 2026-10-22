@@ -17,7 +17,12 @@ function saveBar(page: Page) {
 }
 
 function group(page: Page, title: string) {
-  return page.locator("details").filter({ has: page.locator("summary", { hasText: title }) });
+  return page.locator('[data-slot="disclosure-card"]').filter({ has: page.getByRole("button", { name: new RegExp(`^${title}`) }) });
+}
+
+/** The line that opens a group and says how many of its events are sent. */
+function opener(page: Page, title: string) {
+  return group(page, title).getByRole("button", { name: new RegExp(`^${title}`) });
 }
 
 async function storedEvents(page: Page): Promise<{ events: Record<string, boolean>; language?: string }> {
@@ -28,8 +33,8 @@ async function storedEvents(page: Page): Promise<{ events: Record<string, boolea
 test("turns the deploy started event on and the rolled back one off, with the language, and back", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/settings/notifications");
   const deploys = group(page, "Deploys");
-  await expect(deploys.locator("summary")).toContainText("4 of 5 sent");
-  await deploys.locator("summary").click();
+  await expect(opener(page, "Deploys")).toContainText("4 of 5 sent");
+  await opener(page, "Deploys").click();
   const started = deploys.getByRole("checkbox", { name: /^Deploy started/ });
   const rolledBack = deploys.getByRole("checkbox", { name: /^Deploy rolled back/ });
   // The defaults: a rollback is worth a message, every attempt starting is noise - and says so.
@@ -55,8 +60,8 @@ test("turns the deploy started event on and the rolled back one off, with the la
   expect(stored.language).toBe("es");
 
   await page.reload();
-  await expect(group(page, "Deploys").locator("summary")).toContainText("4 of 5 sent");
-  await group(page, "Deploys").locator("summary").click();
+  await expect(opener(page, "Deploys")).toContainText("4 of 5 sent");
+  await opener(page, "Deploys").click();
   await expect(group(page, "Deploys").getByRole("checkbox", { name: /^Deploy started/ })).toBeChecked();
 
   // Leave the worker's server as it was.

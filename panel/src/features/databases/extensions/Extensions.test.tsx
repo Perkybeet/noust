@@ -68,9 +68,11 @@ describe("the extensions of a PostgreSQL database", { timeout: 60_000 }, () => {
 
     expect(within(dialog).getByText("This extension is not trusted")).toBeInTheDocument();
     expect(within(dialog).getByRole("checkbox", { name: "Also load what it needs: postgis" })).not.toBeChecked();
-    expect(within(dialog).getByRole("button", { name: "Add extension" })).toBeDisabled();
+    // Pressing without it says what is missing, and loads nothing.
+    await user.click(within(dialog).getByRole("button", { name: "Add extension" }));
+    expect(within(dialog).getByText("Tick the box to load what it needs too.")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("checkbox", { name: "Also load what it needs: postgis" }));
-    expect(within(dialog).getByRole("button", { name: "Add extension" })).toBeEnabled();
+    expect(within(dialog).queryByText("Tick the box to load what it needs too.")).not.toBeInTheDocument();
   });
 
   it("shows what the server refused, as it said it", async () => {

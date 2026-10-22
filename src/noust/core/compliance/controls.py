@@ -28,9 +28,11 @@ console and the generated ``docs/COMPLIANCE.md`` agree on one definition
   ``None`` is none, the weakest.
 
 What is **not** a control: sudo mode itself ("Confirm it's you" before a
-destructive action), a person never changing or elevating their own account, and
-the second factor every account enrols. They are how the console stays safe for
-one person and are the same under every configuration.
+destructive action) and a person never changing or elevating their own account.
+They are how the console stays safe for one person and are the same under every
+configuration. The second factor is a control (``second_factor``) since 4.0: where
+nothing asks for it an account may set it up later, until the console is published
+on a public name, which ``noust console expose`` refuses without one in any case.
 """
 
 from __future__ import annotations
@@ -285,6 +287,7 @@ CONTROLS: tuple[Control, ...] = (
     _flag("separation_of_duties", GROUP_ACCESS, "security.separation_of_duties"),
     _flag("single_role_per_account", GROUP_ACCESS, "security.single_role_per_account"),
     _flag("sso_no_admin", GROUP_ACCESS, "security.sso_no_admin"),
+    _flag("second_factor", GROUP_ACCESS, "security.second_factor"),
     _flag("approvals", GROUP_ACCESS, "approval.enabled"),
     _flag("restricted_tokens", GROUP_ACCESS, "security.restricted_tokens"),
     Control(
@@ -512,6 +515,11 @@ DESCRIPTIONS: dict[str, str] = {
     "sso_no_admin": (
         "An identity provider never hands out the admin role, by default or by group: "
         "a person grants it."
+    ),
+    "second_factor": (
+        "Every account enrols an authenticator or a passkey before it can do anything else. "
+        "Where nothing asks for it, an account may set it up later, until the console is "
+        "published on a public name."
     ),
     "approvals": (
         "Root-equivalent actions, servers and role changes wait for a second person to approve them."

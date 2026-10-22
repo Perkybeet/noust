@@ -158,6 +158,7 @@ export function TableView({ engine, name, schema, relation, search, onSearchChan
             ) : null}
           </div>
 
+          {/* design-exception: hand-error-ternary the grid keeps its columns while the rows load, so the header never jumps */}
           {rows.isError && rows.data === undefined ? (
             <ErrorBlock error={rows.error} title={t("databases.data.rowsFailed")} onRetry={() => void rows.refetch()} retrying={rows.isRefetching} />
           ) : (

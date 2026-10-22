@@ -73,7 +73,7 @@ test("sets up channels in their drawers and reports what the receiving server an
     await expect(row(page, "Slack").getByRole("button", { name: "Set up Slack" })).toBeVisible();
 
     // Allow this machine as a destination, which the SSRF guard refuses otherwise.
-    await page.locator("summary", { hasText: "Private destinations" }).click();
+    await page.getByRole("button", { name: /^Private destinations/ }).click();
     await page.getByLabel(/Allowed private hosts/).fill("127.0.0.1");
     await saveBar(page).getByRole("button", { name: "Save" }).click();
     await confirmItsYou(page, consoleServer);
@@ -125,7 +125,9 @@ test("sets up channels in their drawers and reports what the receiving server an
     await expect(toggle).not.toBeChecked();
     await toggle.click();
     await expect(toggle).toBeChecked();
-    await expect(page.getByText("On: the events chosen below go to 2 channels.")).toBeVisible();
+    await expect(page.getByText("The events chosen below go to 2 channels.")).toBeVisible();
+    // A press while the write is still in flight is ignored (the switch draws its arc): wait for it to land.
+    await expect(toggle).not.toHaveAttribute("aria-busy", "true");
     await toggle.click();
     await expect(toggle).not.toBeChecked();
 

@@ -21,6 +21,7 @@ import { PlanView } from "../BulkActionDialog";
 import { fleetKeys } from "../data";
 import { COMMIT, DOMAIN, GIT_TAG, IMAGE_TAG, lacking, parseFailures, parseSerial, placementKeys, rolloutBody, runCopy, runRollout, sources } from "../placements";
 import type { ActionAnswer, CopyBody, Placement, PlacementServer, RolloutBody, RolloutWhat } from "../placements";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 /** The plan of a rollout or a copy, with what the central says about it, and the failures of either call. */
 function Planned({
@@ -45,11 +46,10 @@ function Planned({
   const t = useT();
   if (planning.isPending) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-3">
-        <span className="sr-only">{t("fleet.bulk.plan.loading")}</span>
+      <LoadingRegion label={t("fleet.bulk.plan.loading")} className="flex flex-col gap-3">
         <Skeleton className="h-4 w-80 max-w-full" />
         <Skeleton className="h-24 w-full" />
-      </div>
+      </LoadingRegion>
     );
   }
   if (planning.isError) return <ErrorBlock live error={planning.error} title={failedTitle} onRetry={onRetry} />;

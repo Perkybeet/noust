@@ -21,7 +21,7 @@ export async function useSpanish(page: Page): Promise<void> {
 
 /** Signs in through the sign-in page as it reads in Spanish. */
 export async function signInSpanish(page: Page, server: ConsoleServer, next?: string): Promise<void> {
-  // The access token is emergency access since accounts (3.1): `with=token` opens on it.
+  // The access token is the first way in, and the installer prints its link: `with=token` opens on it.
   await page.goto(next === undefined ? "/login?with=token" : `/login?with=token&next=${encodeURIComponent(next)}`);
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   await page.getByLabel(spanish.auth.accessToken).fill(server.token);
@@ -75,6 +75,8 @@ const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   { page: "catalog", text: /^Open WebUI$/, origin: "a recipe's name" },
   // The deployer registry's display name of a type, which the application's header shows as the server wrote it.
   { page: "container settings", text: /^Container$/, origin: "deployers/container.py DISPLAY_NAME" },
+  // The status page's title is the operator's: the seeded server's page is titled "Status", and the probes' page shows it as the help of its title row.
+  { page: "settings-probes", text: /^Status$/, origin: "the status page's title, as the operator wrote it" },
   // core/teams: the default team, project and environment are named "Default" and "default",
   // and the pages of teams and projects show names as the operator (or the server) gave them.
   ...["projects", "project", "teams", "projects-teams", "team", "team-members", "team-settings", "team-variables", "team-notifications"].map((page) => ({

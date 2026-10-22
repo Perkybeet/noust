@@ -11,15 +11,18 @@ import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Mono } from "../../components/ui/Mono";
+import { RowList } from "../../components/ui/RowList";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { DnsConflictDialog } from "./DnsConflictDialog";
 import { conflictOf } from "./dnsConflict";
 import type { RecordConflict } from "./dnsConflict";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 /** What the provider would do about a name, in words. */
 function actionWords(t: T, plan: DnsPlan): string {
@@ -69,12 +72,11 @@ export function AppDnsSection({ domain }: { domain: string }) {
   });
 
   return (
-    <Section title={t("network.appDns.title")} description={t("network.appDns.description", { domain })}>
+    <Section icon={OBJECT_ICONS.dns} title={t("network.appDns.title")} description={t("network.appDns.description", { domain })}>
       {dns.isPending ? (
-        <div aria-busy="true">
-          <span className="sr-only">{t("network.appDns.loading")}</span>
+        <LoadingRegion label={t("network.appDns.loading")}>
           <Skeleton className="h-16 rounded-card" />
-        </div>
+        </LoadingRegion>
       ) : dns.isError ? (
         <ErrorBlock error={dns.error} title={t("network.appDns.readFailed", { domain })} onRetry={() => void dns.refetch()} retrying={dns.isRefetching} />
       ) : (
@@ -90,32 +92,36 @@ export function AppDnsSection({ domain }: { domain: string }) {
               }
             />
           ) : (
-            <ul aria-label={t("network.appDns.plansLabel", { domain })} className="flex flex-col divide-y divide-border rounded-control border border-border">
+            <RowList aria-label={t("network.appDns.plansLabel", { domain })}>
               {dns.data.plans.map((plan) => (
-                <li key={`${plan.hostname}-${plan.type}-${plan.content}`} className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2">
+                <RowList.Item
+                  key={`${plan.hostname}-${plan.type}-${plan.content}`}
+                  actions={
+                    plan.action === "exists" ? undefined : plan.action === "conflict" ? (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (plan.record_id && plan.current) setConflict({ hostname: plan.hostname, record_id: plan.record_id, current: plan.current, wanted: plan.content });
+                        }}
+                      >
+                        {t("network.appDns.replace")}
+                      </Button>
+                    ) : (
+                      <Button size="sm" icon={<Plus aria-hidden="true" />} loading={ensure.isPending && ensure.variables.hostname === plan.hostname} onClick={() => ensure.mutate(plan)}>
+                        {t("network.appDns.makeRecord")}
+                      </Button>
+                    )
+                  }
+                >
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <Mono truncate>{plan.hostname}</Mono>
                     <span className="text-12 text-fg-muted">
                       <Mono>{`${plan.type} ${plan.content}`}</Mono> · {actionWords(t, plan)}
                     </span>
                   </div>
-                  {plan.action === "exists" ? null : plan.action === "conflict" ? (
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (plan.record_id && plan.current) setConflict({ hostname: plan.hostname, record_id: plan.record_id, current: plan.current, wanted: plan.content });
-                      }}
-                    >
-                      {t("network.appDns.replace")}
-                    </Button>
-                  ) : (
-                    <Button size="sm" icon={<Plus aria-hidden="true" />} loading={ensure.isPending && ensure.variables.hostname === plan.hostname} onClick={() => ensure.mutate(plan)}>
-                      {t("network.appDns.makeRecord")}
-                    </Button>
-                  )}
-                </li>
+                </RowList.Item>
               ))}
-            </ul>
+            </RowList>
           )}
           {dns.data.unmanaged.length > 0 && dns.data.plans.length > 0 ? (
             <p className="text-13 text-fg-muted">{t("network.appDns.unmanaged", { names: dns.data.unmanaged.join(", ") })}</p>

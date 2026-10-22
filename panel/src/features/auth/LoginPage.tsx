@@ -13,7 +13,7 @@ export interface LoginPageProps {
   next: string;
   /** The operator was sent here because their session ended. */
   expired: boolean;
-  /** Open on the access token (a link from a runbook, `?with=token`). */
+  /** Open on the access token (the link the installer prints, `?with=token`). */
   initialMode?: LoginMode;
   /** The ticket an identity provider's answer left (`?sso=`), collected on arrival. */
   sso?: string;
@@ -22,8 +22,10 @@ export interface LoginPageProps {
 }
 
 /**
- * The sign-in screen (T7). A person's account first; the access token is emergency access,
- * with its own title and the terminal's way to print it.
+ * The sign-in screen (T7). A person's account first, with the access token one button away for
+ * whoever has no account yet; the link the installer prints opens on the token. What the token
+ * is for is said under its field only to someone who came to it from the account form: the
+ * installer's link needs no warning.
  */
 export function LoginPage({ next, expired, initialMode = "account", sso, ssoError }: LoginPageProps) {
   const t = useT();
@@ -32,13 +34,13 @@ export function LoginPage({ next, expired, initialMode = "account", sso, ssoErro
 
   return (
     <AuthFrame
-      title={mode === "account" ? t("auth.area") : t("auth.emergency.title")}
-      description={mode === "account" ? t("auth.account.description") : t("auth.emergency.description")}
+      title={mode === "account" ? t("auth.area") : t("auth.token.title")}
+      description={mode === "account" ? t("auth.account.description") : t("auth.token.description")}
       footer={
         mode === "account" ? (
           <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.account.forgot")}</p>
         ) : (
-          <CommandHint label={t("auth.emergency.lostIt")} command="noust web token" />
+          <CommandHint label={t("auth.token.lostIt")} command="noust web token" />
         )
       }
     >
@@ -47,6 +49,7 @@ export function LoginPage({ next, expired, initialMode = "account", sso, ssoErro
         expired={expired}
         mode={mode}
         onModeChange={setMode}
+        recoveryHelp={initialMode !== "token"}
         {...(sso !== undefined ? { sso } : {})}
         {...(ssoError !== undefined ? { ssoError } : {})}
       />

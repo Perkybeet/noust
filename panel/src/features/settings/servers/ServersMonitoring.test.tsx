@@ -25,24 +25,24 @@ function serversWith(monitoring: Record<string, unknown> | null, other: Record<s
   });
 }
 
-describe("Settings > Servers, monitoring", () => {
+describe("Fleet > Servers, monitoring", () => {
   it("says nothing under a server that answers, and what is wrong under one that does not", async () => {
     serversWith(SILENT, DOWN);
-    renderConsole("/settings/servers");
+    renderConsole("/fleet/servers");
     expect(await screen.findByText(/^Not answering since/)).toBeInTheDocument();
     expect(screen.getByText(/^Declared down, silent since/)).toBeInTheDocument();
   });
 
   it("shows a paused server as paused, with the reason", { timeout: 20_000 }, async () => {
     serversWith(PAUSED);
-    const { container } = renderConsole("/settings/servers");
+    const { container } = renderConsole("/fleet/servers");
     expect(await screen.findByText("Monitoring paused: Kernel update")).toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
   });
 
   it("pauses a server with a reason and resumes it", { timeout: 20_000 }, async () => {
     const backend = serversWith(null);
-    const { user } = renderConsole("/settings/servers");
+    const { user } = renderConsole("/fleet/servers");
     await user.click(await screen.findByRole("button", { name: "Actions for web-2" }));
     await user.click(await screen.findByRole("menuitem", { name: "Pause monitoring" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Pause the monitoring of web-2?" });

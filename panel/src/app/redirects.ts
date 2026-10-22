@@ -20,10 +20,10 @@ export const REDIRECT_ROWS = [
   { from: "/teams", to: "/projects/teams", state: "live" },
   { from: "/services", to: "/server/services", state: "live" },
   { from: "/services/$name", to: "/server/services/$name", state: "live" },
-  { from: "/server/logs", to: "/logs", search: { source: "system" }, state: "pending", after: "D: Logs gains the System source" },
+  { from: "/server/logs", to: "/logs", search: { source: "system" }, state: "live" },
   // The account page has no filters to carry: what the old address carried is dropped.
   { from: "/settings/security", to: "/account/security", state: "live", plain: true },
-  { from: "/settings/servers", to: "/fleet/servers", state: "pending", after: "D: the fleet's servers list is the one list" },
+  { from: "/settings/servers", to: "/fleet/servers", state: "live" },
   { from: "/apps/$domain/settings/builds", to: "/apps/$domain/settings/build", state: "live" },
 ] as const;
 

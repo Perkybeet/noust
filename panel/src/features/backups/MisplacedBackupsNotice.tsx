@@ -39,7 +39,6 @@ export function MisplacedBackupsNotice() {
             </li>
           ))}
         </ul>
-        <p className="text-12">{t.rich("backups.misplaced.dryRunHint", { flag: <Mono tone="default">--dry-run</Mono> })}</p>
       </div>
     </Notice>
   );

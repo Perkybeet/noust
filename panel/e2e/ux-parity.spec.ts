@@ -185,5 +185,5 @@ test("the palette finds what a machine holds, by name, and opens it", async ({ p
   await expect(page.getByRole("option").first()).toContainText("New application from a recipe");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/apps\/new\?start=recipe$/);
-  await expect(page.getByRole("radio", { name: "From a recipe" })).toBeChecked();
+  await expect(page.getByRole("button", { name: "From a recipe", exact: true })).toHaveAttribute("aria-current", "true");
 });

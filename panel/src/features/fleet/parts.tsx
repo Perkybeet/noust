@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { ReactNode } from "react";
 
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { textLinkClassName } from "../../components/ui/TextLink";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
@@ -28,7 +29,7 @@ export function OutcomePill({ outcome }: { outcome: NodeOutcome }) {
   return <StatusPill state={view.state} label={t(view.label)} appearance="inline" size="sm" />;
 }
 
-const NAME_LINK = "min-w-0 rounded-chip font-medium text-fg hover:underline hover:underline-offset-2";
+const NAME_LINK = textLinkClassName("inline", "min-w-0", "row");
 
 /**
  * The server a row came from, named in mono and opening that server; this central is said to

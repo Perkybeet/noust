@@ -550,6 +550,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("deploy_keys", "list_pinned_hosts"): ("GET", "/api/deploy-keys/hosts", "apps.read", False),
     ("deploy_keys", "pin_host"): ("POST", "/api/deploy-keys/hosts", "server.host_access", True),
     ("deploy_keys", "forget_pinned_host"): ("DELETE", "/api/deploy-keys/hosts/{host}", "server.host_access", True),
+    ("deploy_keys", "get_server_key"): ("GET", "/api/deploy-keys/server", "apps.read", False),
     ("deployments", "rebuild_deployment"): ("POST", "/api/apps/{domain}/deployments/{deployment_id}/rebuild", "apps.deploy", False),
     ("deployments", "rollback_deployment"): ("POST", "/api/apps/{domain}/deployments/{deployment_id}/rollback", "apps.deploy", False),
     ("deployments", "list_deployments"): ("GET", "/api/deployments", "apps.read", False),
@@ -5340,7 +5341,7 @@ class Databases:
 
 
 class DeployKeys:
-    """Deploy keys: 4 operations."""
+    """Deploy keys: 5 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5376,6 +5377,14 @@ class DeployKeys:
 
         Needs: permission `server.host_access`, sudo mode."""
         return self._call("DELETE", f"/api/deploy-keys/hosts/{quote(str(host), safe='')}", query=None, body=None)
+
+    def get_server_key(self) -> "ServerKeyResponse":
+        """GET /api/deploy-keys/server
+
+        Get Server Key
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/deploy-keys/server", query=None, body=None)
 
 
 
@@ -5633,13 +5642,13 @@ class Domains:
         Needs: permission `apps.read`."""
         return self._call("GET", "/api/domains/dns", query={"name": name}, body=None)
 
-    def get_temporary_name(self) -> "TemporaryNameResponse":
+    def get_temporary_name(self, *, prefix: Union[str, None] = None, source: Union[str, None] = None, image: Union[str, None] = None) -> "TemporaryNameResponse":
         """GET /api/domains/temporary
 
         Get Temporary Name
 
         Needs: permission `apps.read`."""
-        return self._call("GET", "/api/domains/temporary", query=None, body=None)
+        return self._call("GET", "/api/domains/temporary", query={"prefix": prefix, "source": source, "image": image}, body=None)
 
     def get_cloudflare_ranges(self) -> "RangesResponse":
         """GET /api/policy/cloudflare-ranges

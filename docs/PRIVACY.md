@@ -27,7 +27,7 @@ About and the fleet's "target version" know that a newer release exists.
 |---|---|---|
 | The newest version this installation can install | The package repository it upgrades from (apt, dnf or zypper repository on `download.opensuse.org`, or `pypi.org` for pip) | An update is only announced once your package manager can install it |
 | The newest published release, and recent releases to spot a security one | `api.github.com` (`/repos/Perkybeet/noust/releases`) | To tell "on the way" from "not released" |
-| The release notes of a version, before you update to it | The same GitHub release | Settings > About shows them before you decide |
+| The release notes of a version, before you update to it | The same GitHub release | Settings > About Noust shows them before you decide |
 
 What leaves your server: the request itself. The destination sees your server's IP address, as any
 request shows it, and a `User-Agent` of `noust-update-check`. There is no version, no host name, no

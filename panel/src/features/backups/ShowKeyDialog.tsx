@@ -76,6 +76,7 @@ export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: 
         removing ? (
           <>
             <Button onClick={() => close(false)}>{t("backups.common.cancel")}</Button>
+            {/* design-exception: submit-disabled-invalid the box that says the key was written down is the point of this dialog: there is no field to complete */}
             <Button
               variant="primary"
               disabled={showKey.data === undefined || !saved}
@@ -88,6 +89,7 @@ export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: 
             </Button>
           </>
         ) : (
+          // design-exception: submit-disabled-invalid the box that says the key was written down is the point of this dialog
           <Button variant="primary" disabled={showKey.data === undefined || !saved} onClick={() => close(false)}>
             {t("backups.showKeyDialog.done")}
           </Button>

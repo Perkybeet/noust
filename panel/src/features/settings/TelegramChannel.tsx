@@ -12,6 +12,7 @@ import { Field } from "../../components/ui/Field";
 import { ICONS } from "../../components/ui/icons";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
+import { RowList } from "../../components/ui/RowList";
 import { useT } from "../../i18n";
 import { ChannelDrawer, ChannelRow, SecretInput, testReasonFor, useChannelTest, useRefreshConfig } from "./channelParts";
 import { splitConfigErrors } from "./formErrors";
@@ -72,13 +73,34 @@ function ChatFinder({ tokenSaved, tokenTyped, chatId, onPick }: { tokenSaved: bo
         </div>
       ) : null}
       {chats !== undefined && chats.length > 0 ? (
-        <ul aria-label={t("settings.notifications.telegram.chatsListLabel")} className="flex min-w-0 flex-col divide-y divide-border rounded-control border border-border bg-bg-sunken">
+        <RowList aria-label={t("settings.notifications.telegram.chatsListLabel")}>
           {chats.map((chat) => {
             const name = telegramChatName(chat, t.locale);
             const chosen = chatId.trim() === String(chat.id);
             return (
-              <li key={chat.id} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 py-1.5 pr-1.5 pl-3">
-                <div className="flex min-w-0 flex-1 flex-col">
+              <RowList.Item
+                key={chat.id}
+                actions={
+                  chosen ? (
+                    <span className="flex h-control-sm shrink-0 items-center gap-1.5 px-2 text-12 text-fg">
+                      <ICONS.copied aria-hidden="true" className="size-icon-sm" />
+                      {t("settings.notifications.telegram.chosen")}
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={t("settings.notifications.telegram.useChat", { name })}
+                      onClick={() => {
+                        onPick(chat);
+                      }}
+                    >
+                      {t("settings.notifications.telegram.useButton")}
+                    </Button>
+                  )
+                }
+              >
+                <div className="flex min-w-0 flex-col">
                   <span className="truncate text-13 text-fg" translate="no">
                     {name}
                   </span>
@@ -88,27 +110,10 @@ function ChatFinder({ tokenSaved, tokenTyped, chatId, onPick }: { tokenSaved: bo
                     <Mono tone="muted">{chat.id}</Mono>
                   </span>
                 </div>
-                {chosen ? (
-                  <span className="flex h-control-sm shrink-0 items-center gap-1.5 px-2 text-12 text-fg">
-                    <ICONS.copied aria-hidden="true" className="size-icon-sm" />
-                    {t("settings.notifications.telegram.chosen")}
-                  </span>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label={t("settings.notifications.telegram.useChat", { name })}
-                    onClick={() => {
-                      onPick(chat);
-                    }}
-                  >
-                    {t("settings.notifications.telegram.useButton")}
-                  </Button>
-                )}
-              </li>
+              </RowList.Item>
             );
           })}
-        </ul>
+        </RowList>
       ) : null}
     </div>
   );

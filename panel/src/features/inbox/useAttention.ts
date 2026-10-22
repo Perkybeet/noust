@@ -44,9 +44,9 @@ export function refreshAttention(queryClient: QueryClient): void {
  * application with the catalog), so the bell does not ask for it on every page: it counts what the
  * console already holds, and the inbox, once opened, reads it (`deep`).
  *
- * The alerts and the probes are the console's own reads of them (`api/queries`); a selector that a
- * settings page owns replaces `alertItems` and `probeItems` with the same output without touching
- * anything here.
+ * The alerts and the probes are the console's own reads of them (`api/queries`); which of them
+ * need somebody is the settings pages' own definition (`selectFiringAlerts`, `selectFailingProbes`),
+ * which `alertItems` and `probeItems` turn into items.
  */
 export function useExtraAttention(deep = false): readonly OverviewAttentionItem[] {
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
