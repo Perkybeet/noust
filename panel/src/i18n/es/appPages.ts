@@ -530,7 +530,7 @@ export const appPages: Catalog<typeof en> = {
     refresh: "Recargar",
     containersNote: "Lo que imprimieron los contenedores, leído de nuevo cada 5 segundos.",
     emptyContainers: "Los contenedores todavía no han impreso nada.",
-    readingContainers: "Leyendo la salida de los contenedores.",
+    readingContainers: "Cargando la salida de los contenedores.",
     containersFailed: "No se pudo leer la salida de los contenedores",
     containersFailedHint: "La consola los lee con docker compose logs. Ejecutarlo en un terminal muestra si Docker responde.",
     sourceLabel: "Qué registro",

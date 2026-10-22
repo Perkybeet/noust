@@ -533,7 +533,7 @@ export const appPages = {
     refresh: "Refresh",
     containersNote: "What the containers printed, read again every 5 seconds.",
     emptyContainers: "The containers have printed nothing yet.",
-    readingContainers: "Reading the containers' output.",
+    readingContainers: "Loading the containers' output.",
     containersFailed: "The containers' output could not be read",
     containersFailedHint: "The console reads them with docker compose logs. Running it in a terminal shows whether Docker answers.",
     staticTitle: "A static site has no process to log",
