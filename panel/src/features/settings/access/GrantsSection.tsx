@@ -119,7 +119,7 @@ export function GrantsSection() {
               ) : (
                 <RowAction
                   label={t("access.grants.revokeLabel", { role: roleLabel(binding.role), account: binding.username })}
-                  text={t("access.grants.revoke")}
+                  text={t("common.words.revoke")}
                   icon={<ICONS.delete />}
                   onClick={() => {
                     setRevoking(binding);

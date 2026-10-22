@@ -120,6 +120,7 @@ export function ActivityTab({ search, onSearchChange }: ActivityTabProps) {
     onSearchChange(patchSearch(search, patch), { replace });
   };
 
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (view.isError && view.data === undefined) {
     return <ErrorBlock error={view.error} title={t("fleet.page.loadFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />;
   }
@@ -180,14 +181,14 @@ export function ActivityTab({ search, onSearchChange }: ActivityTabProps) {
                     onSearchChange({});
                   }}
                 >
-                  {t("fleet.filters.clear")}
+                  {t("common.words.clearFilters")}
                 </Button>
               }
             />
           )
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet activity" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet activity" />
     </div>
   );
 }

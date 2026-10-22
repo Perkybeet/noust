@@ -75,7 +75,7 @@ describe("KeyValueList", () => {
       await setLocale("es");
     });
     render(<KeyValueList items={ITEMS} />);
-    expect(screen.getByText("Sin establecer")).toBeInTheDocument();
+    expect(screen.getByText("Sin definir")).toBeInTheDocument();
     // The item's own label is caller-supplied data, not translated; only "Copy" is.
     expect(screen.getByRole("button", { name: "Copiar directory" })).toBeInTheDocument();
   });

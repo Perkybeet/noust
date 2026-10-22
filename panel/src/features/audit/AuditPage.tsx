@@ -428,7 +428,7 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
               ? {
                   actions: (
                     <Button variant="ghost" onClick={() => onSearchChange({})}>
-                      {t("audit.page.clearFilters")}
+                      {t("common.words.clearFilters")}
                     </Button>
                   ),
                 }
@@ -483,7 +483,7 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
         </div>
       </Section>
       <ReviewsSection t={t} />
-      <CommandHint label={t("audit.page.fromTerminal")} command="noust audit verify && noust audit list" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust audit verify && noust audit list" />
       {open !== null ? (
         <EntryDrawer
           entry={open}

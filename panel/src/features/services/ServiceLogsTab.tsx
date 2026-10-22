@@ -32,7 +32,7 @@ export function ServiceLogsTab({ name }: { name: string }) {
         />
       </div>
       {stream.truncated ? <p className="text-12 text-fg-faint">{t("services.detail.truncated")}</p> : null}
-      <CommandHint command={`noust server logs ${name} -f`} label={t("services.fromTerminal")} />
+      <CommandHint command={`noust server logs ${name} -f`} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

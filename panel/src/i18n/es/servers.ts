@@ -3,7 +3,7 @@ import type { Catalog } from "../types";
 
 export const servers: Catalog<typeof en> = {
   nav: {
-    fleet: { label: "Flota", keywords: "servidores nodos central vps máquinas", goTo: "Ir a la flota" },
+    fleet: { keywords: "servidores nodos central vps máquinas", },
     settingsTab: {
       label: "Servidores",
       keywords: "flota nodos central ssh túnel añadir servidor código de unión",
@@ -16,7 +16,6 @@ export const servers: Catalog<typeof en> = {
   },
 
   fleet: {
-    notRead: "Sin leer",
     hub: {
       title: "Esta central no despliega nada por sí misma",
       description:
@@ -26,45 +25,14 @@ export const servers: Catalog<typeof en> = {
   },
 
   settings: {
-    documentTitle: "Ajustes de servidores",
-    title: "Servidores",
-    description:
-      "Los servidores que gestiona esta central. Llega a cada uno por un túnel SSH hasta su consola, con una clave que solo puede reenviar ese puerto y nunca ejecutar una orden.",
-    loadingLabel: "los servidores",
-    tableCaption: "Servidores que gestiona esta central",
-    column: {
-      name: "Nombre",
-      address: "Cuenta y dirección del túnel",
-      status: "Estado",
-      version: "Versión",
-      access: "Esta central puede",
-      lastSeen: "Visto por última vez",
-    },
-    addServer: "Añadir un servidor",
-    createAtProvider: "Crear en un proveedor",
     linkedAddress: "Llama él: puerto {port} de esta central",
-    test: "Probar",
-    testLabel: "Probar {name}",
     testedToast: "{name} respondió en {latency} ms",
     testedDescription: "Ejecuta Noust {version}.",
     testFailedToast: "{name} no respondió",
-    open: "Abrir",
-    openLabel: "Abrir {name}",
-    remove: "Quitar",
-    removeLabel: "Quitar {name}",
-    never: "Nunca",
-    empty: {
-      title: "Aún no hay servidores",
-      description:
-        "Añade un servidor para gestionarlo desde esta consola. Autorizas a la central en el propio servidor, donde ya eres root; la central nunca obtiene una shell allí.",
-    },
     twoFactor: {
       title: "Activa primero la verificación en dos pasos",
-      description:
-        "Esta central se niega a añadir su primer servidor sin ella: quien inicia sesión aquí llega a todos los servidores que gestiona.",
       link: "Configurar la verificación en dos pasos",
     },
-    fromTerminal: "Desde una terminal",
     monitoring: {
       paused: "Vigilancia en pausa",
       pausedWhy: "Vigilancia en pausa: {reason}",
@@ -75,14 +43,12 @@ export const servers: Catalog<typeof en> = {
       pauseTitle: "¿Pausar la vigilancia de {name}?",
       pauseDescription: "Mientras esté en pausa, la central no pregunta cómo está {name}, no lo cuenta como caído y nunca lo anuncia, así que un mantenimiento no dispara una alarma. Lo último que respondió sigue en pantalla. Reanúdala cuando termines.",
       pauseAction: "Pausar la vigilancia",
-      reason: "Motivo",
+      reason: "Por qué",
       reasonHelp: "Se muestra junto al servidor, para que quien mire después sepa que fue a propósito.",
       pausedToast: "Vigilancia de {name} en pausa",
-      resumedToast: "Vigilancia de {name} reanudada",
       resumeFailedToast: "No se pudo reanudar la vigilancia de {name}",
     },
     removeDialog: {
-      title: "¿Quitar {name}?",
       description:
         "La central cierra su túnel a {name} y olvida su clave, su token y su clave de host fijada. Si {name} responde, la central revoca antes su token allí, para que la clave que queda no abra nada.",
       unreachable: "Si no se puede llegar a {name}, ejecuta esto en él, como root, para quitar la clave de la central y revocar su token:",
@@ -105,12 +71,8 @@ export const servers: Catalog<typeof en> = {
       join: "Unir",
       result: "Resultado",
     },
-    cancel: "Cancelar",
-    back: "Atrás",
     next: "Ya lo ejecuté: continuar",
-    done: "Hecho",
     name: {
-      label: "Nombre",
       description: "Cómo llamará esta consola al servidor: de 1 a 32 letras minúsculas, dígitos y guiones, como web-2.",
       invalid: "Usa de 1 a 32 letras minúsculas, dígitos y guiones, empezando y terminando por una letra o un dígito.",
       showCommand: "Mostrar la orden",
@@ -120,13 +82,13 @@ export const servers: Catalog<typeof en> = {
     access: {
       label: "Esta central puede",
       description: "Lo máximo que esta central puede hacer en él. Lo aplica el servidor, pida lo que pida esta central.",
-      adminHint: "Desplegar, configurar y borrar, como en el propio servidor",
+      adminHint: "Desplegar, configurar y eliminar, como en el propio servidor",
       deployHint: "Operar, actualizar y volver atrás sus aplicaciones",
       readHint: "Verlo todo, no cambiar nada",
     },
     authorize: {
       whereTitle: "Ejecútala en el otro servidor: el que estás añadiendo",
-      where: "No aquí en {central}. Abre una terminal en el servidor que añades, como root, y ejecuta allí la orden de abajo.",
+      where: "No aquí en {central}. Abre un terminal en el servidor que añades, como root, y ejecuta allí la orden de abajo.",
       intro: "En {name}, como root, ejecuta esta orden. Imprime un código de unión en una línea: cópialo para el paso siguiente.",
       commandLabel: "Orden para ejecutar en {name}",
       copy: "Copiar la orden",
@@ -150,7 +112,6 @@ export const servers: Catalog<typeof en> = {
         wrongPrefix: "Un código de unión empieza por noust-join:v1:. Copia la línea entera que imprimió noust fleet authorize en el servidor.",
         unreadable: "Empieza como un código de unión pero no se lee como tal: vuelve a copiar la línea entera, sin cortarla.",
       },
-      summaryTitle: "Código de unión leído",
       summary: "Para {node}: su cuenta de túnel {user} en el puerto SSH {port}, su consola en el puerto {console}, Noust {version}.",
       otherCentral: "Este código se hizo para la central {central}, no para esta ({name}). El servidor lo rechazaría.",
       otherKey: "Este código se hizo para otra clave distinta de la que mostró esta central en el primer paso. Vuelve a ejecutar la orden del primer paso.",
@@ -198,7 +159,7 @@ export const servers: Catalog<typeof en> = {
     notReady: {
       title: "Esta central no está preparada para servidores que llaman a ella",
       listLabel: "Lo que falta",
-      run: "Prepárala desde una terminal de esta central, como root",
+      run: "Prepárala desde un terminal de esta central, como root",
     },
     host: {
       label: "Dirección a la que llama el servidor",
@@ -218,7 +179,7 @@ export const servers: Catalog<typeof en> = {
     inviteFailed: "No se pudo invitar al servidor",
     command: {
       whereTitle: "Ejecútalo en el otro servidor: el que estás añadiendo",
-      where: "No aquí, en {central}. Abre una terminal en el servidor que añades, como root, y ejecuta allí el comando de abajo.",
+      where: "No aquí, en {central}. Abre un terminal en el servidor que añades, como root, y ejecuta allí el comando de abajo.",
       intro: "En {name}, como root, ejecuta este comando. Mantiene abierta una conexión con esta central e imprime un código de enlace en una línea: cópialo para el paso siguiente.",
       label: "Comando que ejecutar en {name}",
       copy: "Copiar el comando",
@@ -242,7 +203,6 @@ export const servers: Catalog<typeof en> = {
         wrongPrefix: "Un código de enlace empieza por noust-link:v1:. Copia la línea entera que imprimió noust fleet link en el servidor.",
         unreadable: "Empieza como un código de enlace pero no se lee como tal: copia la línea entera de nuevo, sin cortarla.",
       },
-      summaryTitle: "Código de enlace leído",
       summary: "Para {node}: su consola en el puerto {console}, Noust {version}.",
       otherNode: "Este código es de un servidor llamado {node}, no {name}. Esta central lo rechazaría.",
       otherCentral: "Este código se hizo para la central {central}, no para esta ({name}). Esta central lo rechazaría.",
@@ -260,7 +220,6 @@ export const servers: Catalog<typeof en> = {
   // Los secretos sellados de la central
 
   lock: {
-    title: "Esta central está bloqueada",
     description:
       "Sus secretos están sellados en reposo: las claves y los tokens que llegan a tus servidores están cifrados con una frase de paso que no se guarda en ningún sitio. Hasta que los desbloquees, nada llega a los servidores.",
     passphraseLabel: "Frase de paso",
@@ -271,7 +230,7 @@ export const servers: Catalog<typeof en> = {
     continueNote: "La consola sigue funcionando en esta máquina; sus servidores quedan fuera de alcance hasta que la desbloquees.",
     lostPassphrase: "Nadie puede recuperar una frase de paso perdida. Sin ella, hay que volver a autorizar todos los servidores.",
     unlockedToast: "Desbloqueada: los servidores vuelven a estar al alcance",
-    fromTerminal: "O desde una terminal en la central",
+    fromTerminal: "O desde un terminal en la central",
     bannerTitle: "Esta central está bloqueada",
     bannerDescription: "Sus servidores están fuera de alcance hasta que desbloquees sus secretos sellados.",
     bannerAction: "Desbloquear",
@@ -280,11 +239,10 @@ export const servers: Catalog<typeof en> = {
 
   central: {
     documentTitle: "Ajustes de la central",
-    fromTerminal: "Desde una terminal en la central",
+    fromTerminal: "Desde un terminal en la central",
     identity: {
       title: "Esta central",
       description: "El Noust que gestiona la flota, y lo que hace por sí mismo.",
-      name: "Nombre",
       role: "Rol",
       roleServer: "Gestiona servidores y despliega aplicaciones por sí misma",
       roleHub: "Un hub: gestiona servidores, no despliega nada por sí mismo",

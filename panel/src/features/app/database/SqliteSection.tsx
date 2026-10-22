@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Search, ShieldQuestion } from "lucide-react";
 
 import { isApiError, request } from "../../../api/client";
 import { appSqliteQuery } from "../../../api/queries/databases";
@@ -10,9 +11,11 @@ import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
@@ -32,15 +35,15 @@ function CheckResult({ result, t }: { result: SqliteCheck; t: T }) {
   }
   if (!result.complete) {
     return (
-      <Notice live tone="warning" title={t("databases.appTab.sqlite.checkPartialTitle")}>
-        {t("databases.appTab.sqlite.checkPartialBody")}
-      </Notice>
+      <InlineMessage live>
+        {t("databases.appTab.sqlite.checkPartialTitle")}. {t("databases.appTab.sqlite.checkPartialBody")}
+      </InlineMessage>
     );
   }
   return (
-    <Notice live tone="success" title={t("databases.appTab.sqlite.checkOk", { seconds: String(result.seconds) })}>
-      {t("databases.appTab.sqlite.checkOkBody", { path: result.path })}
-    </Notice>
+    <InlineMessage live tone="success">
+      {t("databases.appTab.sqlite.checkOk", { seconds: String(result.seconds) })}. {t("databases.appTab.sqlite.checkOkBody", { path: result.path })}
+    </InlineMessage>
   );
 }
 
@@ -69,10 +72,10 @@ function FileCard({ domain, file, t }: { domain: string; file: SqliteFile; t: T 
       title={<Mono className="break-all">{file.path}</Mono>}
       actions={
         <>
-          <Button size="sm" variant="ghost" loading={check.isPending && !check.variables} disabled={check.isPending} onClick={() => check.mutate(false)}>
+          <Button icon={<ShieldQuestion aria-hidden="true" />} size="sm" variant="ghost" loading={check.isPending && !check.variables} disabled={check.isPending} onClick={() => check.mutate(false)}>
             {t("databases.appTab.sqlite.check")}
           </Button>
-          <Button size="sm" variant="ghost" loading={check.isPending && check.variables} disabled={check.isPending} onClick={() => check.mutate(true)}>
+          <Button icon={<Search aria-hidden="true" />} size="sm" variant="ghost" loading={check.isPending && check.variables} disabled={check.isPending} onClick={() => check.mutate(true)}>
             {t("databases.appTab.sqlite.checkFull")}
           </Button>
         </>
@@ -102,20 +105,21 @@ export function SqliteSection({ domain }: { domain: string }) {
   const found = useQuery(appSqliteQuery(domain));
   // A server that does not have the endpoint yet (an older node behind a central) answers 404 or 405.
   if (found.isError && isApiError(found.error) && (found.error.status === 404 || found.error.status === 405)) return null;
+  // design-exception: hand-error-ternary an application without SQLite files shows nothing at all, so there is no skeleton to stand in for it
   if (found.isError && found.data === undefined) {
     return <ErrorBlock error={found.error} title={t("databases.appTab.sqlite.loadFailed")} onRetry={() => void found.refetch()} retrying={found.isRefetching} />;
   }
   const data = found.data;
   if (data === undefined || data.files.length === 0) return null;
   return (
-    <Section title={t("databases.appTab.sqlite.title")} description={t("databases.appTab.sqlite.intro")}>
-      {data.truncated ? <Notice tone="info">{t("databases.appTab.sqlite.truncated")}</Notice> : null}
+    <Section icon={OBJECT_ICONS.database} title={t("databases.appTab.sqlite.title")} description={t("databases.appTab.sqlite.intro")}>
+      {data.truncated ? <InlineMessage tone="info">{t("databases.appTab.sqlite.truncated")}</InlineMessage> : null}
       <ul className="grid gap-4 lg:grid-cols-2">
         {data.files.map((file) => (
           <FileCard key={file.path} domain={domain} file={file} t={t} />
         ))}
       </ul>
-      <CommandHint command={`noust db sqlite list ${domain}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db sqlite list ${domain}`} label={t("common.words.fromTerminal")} />
     </Section>
   );
 }

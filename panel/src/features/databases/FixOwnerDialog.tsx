@@ -10,6 +10,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 export interface FixOwnerDialogProps {
   engine: string;
@@ -49,7 +50,8 @@ export function FixOwnerDialog({ engine, name, owner, onClose }: FixOwnerDialogP
       description={t("databases.fixOwner.description")}
       footer={
         <>
-          <Button onClick={onClose}>{t("databases.common.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
+          {/* design-exception: submit-disabled-invalid it waits for the plan it applies, and has nothing to do when the plan changes nothing */}
           <Button variant="primary" loading={apply.isPending} disabled={plan.data === undefined || nothing} onClick={() => apply.mutate()}>
             {t("databases.fixOwner.apply")}
           </Button>
@@ -59,11 +61,10 @@ export function FixOwnerDialog({ engine, name, owner, onClose }: FixOwnerDialogP
       {plan.isError ? (
         <ErrorBlock compact error={plan.error} title={t("databases.fixOwner.planFailed")} onRetry={() => void plan.refetch()} />
       ) : plan.data === undefined ? (
-        <div aria-busy="true" className="flex flex-col gap-2">
-          <span className="sr-only">{t("databases.fixOwner.loading")}</span>
+        <LoadingRegion label={t("databases.fixOwner.loading")} className="flex flex-col gap-2">
           <Skeleton className="h-4 w-1/2" />
           <Skeleton className="h-24 w-full" />
-        </div>
+        </LoadingRegion>
       ) : (
         <div className="flex flex-col gap-4">
           <KeyValueList

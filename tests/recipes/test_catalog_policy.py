@@ -25,8 +25,8 @@ from noust.recipes.model import Recipe
 
 DOCS = Path(__file__).resolve().parents[2] / "docs" / "recipes.md"
 
-#: The recipes this release lists with the reason a person can check, written in the 3.4 wave.
-LISTED_IN_34 = {
+#: The recipes this release lists with the reason a person can check, written in the 4.0 wave.
+LISTED_IN_40 = {
     "appwrite",
     "bookstack",
     "cal-com",
@@ -152,7 +152,7 @@ def test_the_licences_that_are_not_open_source_are_the_ones_the_policy_names() -
     }
 
 
-@pytest.mark.parametrize("name", sorted(LISTED_IN_34))
+@pytest.mark.parametrize("name", sorted(LISTED_IN_40))
 def test_a_listed_recipe_says_where_its_reason_was_read_and_when(name: str) -> None:
     """A claim about someone else's project names the file or page and the day, or the tag."""
     recipe = get_recipe(name)

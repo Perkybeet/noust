@@ -279,7 +279,7 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
               retry.mutate({ id: deployment.id }, { onError: (error) => reportActionError(t("appPages.deployments.actions.retryFailed"), error) });
             }}
           >
-            {t("appPages.deployments.actions.retry")}
+            {t("common.words.retry")}
           </MenuItem>
         ) : null}
         {failed && commit === null ? (
@@ -326,7 +326,7 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
         title={t("appPages.deployments.tab.noMatch")}
         action={
           <Button size="sm" variant="ghost" onClick={() => onSearchChange({})}>
-            {t("appPages.deployments.tab.clearFilters")}
+            {t("common.words.clearFilters")}
           </Button>
         }
       />
@@ -394,7 +394,7 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
                 ? {
                     actions: (
                       <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={() => onSearchChange({})}>
-                        {t("appPages.deployments.tab.clearFilters")}
+                        {t("common.words.clearFilters")}
                       </Button>
                     ),
                   }

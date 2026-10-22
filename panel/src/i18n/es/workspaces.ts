@@ -16,7 +16,6 @@ export const workspaces: Catalog<typeof en> = {
   problems: "Lo que se encontró mal",
   applications: "Aplicaciones",
   libraries: "No son aplicaciones",
-  type: "Tipo",
   dependsOn: "Depende de",
   watches: "Se despliega cuando cambia",
   domainFor: "Dominio de {name}",
@@ -28,7 +27,4 @@ export const workspaces: Catalog<typeof en> = {
   queuedTitle: "Se están creando las aplicaciones",
   queuedBody: "Cada una se construye por su cuenta. Síguela desde su página.",
   open_app: "Abrir {domain}",
-  close: "Cerrar",
-  cancel: "Cancelar",
-  fromTerminal: "Lo mismo, desde un terminal",
 };

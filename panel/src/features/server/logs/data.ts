@@ -1,130 +1,64 @@
 /**
- * The Logs tab's filters, as they live in the URL, the query they become, and how a journal entry
- * is printed. The unit and level pickers are shortcuts for the fields of the query language
- * (`@unit:`, `@level:`): the server judges one query, written back to the operator as it was
- * understood, so the pickers and the search box can never disagree about what is being asked.
+ * How a journal entry is printed, and the address the system's logs had before they became a
+ * source of Logs (`/server/logs?unit=nginx.service&priority=err&range=24h`), still read so that an
+ * old link, a bookmark and the buttons of other pages that name it land on the same lines.
  */
 
 import type { LogLine } from "../../../components/ui/LogViewer";
-import type { JournalContext, JournalSearch, JournalSearchFilters } from "../queries";
+import { validateLogsSearch } from "../../logs/data";
+import type { LogsSearch } from "../../logs/data";
+import type { JournalContext, JournalSearch } from "../queries";
 
-export const RANGES = ["1h", "24h", "7d", "boot", "previous"] as const;
-export type LogRange = (typeof RANGES)[number];
-
-export const PRIORITIES = ["err", "warning", "notice", "info"] as const;
-export type LogPriority = (typeof PRIORITIES)[number];
-
-/** The pseudo unit that reads the kernel's messages. */
-export const KERNEL = "kernel";
-
-/** The most entries examined by a search at first, and by "look further". */
-export const SCAN = 5_000;
-export const SCAN_FURTHER = 20_000;
-
-export interface LogsSearch {
+/** What the old address could carry. */
+export interface LegacyJournalSearch {
   unit?: string;
-  priority?: LogPriority;
-  range?: Exclude<LogRange, "1h">;
-  /** The query: words, `@unit:`, `@app:`, `@level:`, `-`, `AND`, `OR`, quotes, groups. */
+  priority?: string;
+  range?: string;
+  /** Never part of the old address's own form, but written in its documentation as a journal time (`-1h`). */
+  since?: string;
   q?: string;
-  /** A stretch picked elsewhere (a chart, the timeline), Unix seconds: it replaces the range. */
   from?: number;
   to?: number;
 }
 
-function text(value: unknown, max = 500): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed === "" ? undefined : trimmed.slice(0, max);
-}
-
-function seconds(value: unknown): number | undefined {
-  const parsed = typeof value === "number" ? value : typeof value === "string" && /^\d{1,11}$/.test(value) ? Number(value) : Number.NaN;
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
-}
-
-/** Reads the search params, dropping anything malformed instead of failing. */
-export function validateLogsSearch(search: Record<string, unknown>): LogsSearch {
-  const unit = text(search["unit"], 200);
-  const q = text(search["q"]);
-  const priority = search["priority"];
-  const range = search["range"];
-  const from = seconds(search["from"]);
-  const to = seconds(search["to"]);
-  // A stretch is both ends or neither, and it runs forward.
-  const stretch = from !== undefined && to !== undefined && to > from;
+/** Reads the old address's params without judging them: `toLogsSearch` does. */
+export function validateLegacySearch(search: Record<string, unknown>): LegacyJournalSearch {
+  const pick = (key: string): string | undefined => (typeof search[key] === "string" ? search[key] : undefined);
+  const unit = pick("unit");
+  const priority = pick("priority");
+  const range = pick("range");
+  const since = pick("since");
+  const q = pick("q");
+  const stretch = validateLogsSearch({ from: search["from"], to: search["to"] });
   return {
     ...(unit !== undefined ? { unit } : {}),
-    ...(typeof priority === "string" && (PRIORITIES as readonly string[]).includes(priority) ? { priority: priority as LogPriority } : {}),
-    ...(typeof range === "string" && range !== "1h" && (RANGES as readonly string[]).includes(range) ? { range: range as Exclude<LogRange, "1h"> } : {}),
+    ...(priority !== undefined ? { priority } : {}),
+    ...(range !== undefined ? { range } : {}),
+    ...(since !== undefined ? { since } : {}),
     ...(q !== undefined ? { q } : {}),
-    ...(stretch ? { from, to } : {}),
+    ...(stretch.from !== undefined && stretch.to !== undefined ? { from: stretch.from, to: stretch.to } : {}),
   };
 }
 
-/** A unit name or a query word, as the language writes it: quoted when it has a space or a quote. */
-function fieldValue(value: string): string {
-  return /[\s"()]/.test(value) ? `"${value.replaceAll('"', "")}"` : value;
-}
+/** The journal times the old address documented, as the ranges of Logs. */
+const JOURNAL_TIMES: Readonly<Record<string, string>> = { "-15min": "15m", "-1h": "1h", "-6h": "6h", "-24h": "24h", "-7d": "7d" };
 
 /**
- * The query the page asks: the pickers as fields, then what was typed. The kernel is not a unit
- * but a source of its own (`--dmesg`), asked for by a parameter.
+ * What Logs asks for the same lines: the system as the source, `range` as `since`, `priority` as
+ * `level`; the rest keeps its name. Anything the old address said that Logs does not read is dropped
+ * by the same validation the page itself uses.
  */
-export function effectiveQuery(search: LogsSearch): string {
-  return [
-    search.unit !== undefined && search.unit !== KERNEL ? `@unit:${fieldValue(search.unit)}` : "",
-    search.priority !== undefined ? `@level:${search.priority}` : "",
-    search.q ?? "",
-  ]
-    .filter((part) => part !== "")
-    .join(" ");
-}
-
-/** The API's parameters for what the URL asks: the default range is the last hour. */
-export function searchFilters(search: LogsSearch, lines: number, scan: number): JournalSearchFilters {
-  const range: LogRange = search.range ?? "1h";
-  const stretch = search.from !== undefined && search.to !== undefined;
-  return {
-    query: effectiveQuery(search),
-    lines,
-    scan,
-    ...(search.unit === KERNEL ? { kernel: true } : {}),
-    ...(stretch ? { since: `@${String(search.from)}`, until: `@${String(search.to)}` } : {}),
-    ...(!stretch && range === "1h" ? { since: "-1h" } : {}),
-    ...(!stretch && range === "24h" ? { since: "-24h" } : {}),
-    ...(!stretch && range === "7d" ? { since: "-7d" } : {}),
-    ...(!stretch && range === "boot" ? { boot: 0 } : {}),
-    ...(!stretch && range === "previous" ? { boot: -1 } : {}),
-  };
-}
-
-/**
- * The stretch the page is looking at, for "what happened here": the one it was given, or the hours
- * the range names ending now. A boot is not a stretch of time the page knows.
- *
- * @param now - The moment the range ends, Unix seconds.
- */
-export function stretchOf(search: LogsSearch, now: number): [number, number] | null {
-  if (search.from !== undefined && search.to !== undefined) return [search.from, search.to];
-  const hours: Record<string, number | undefined> = { "1h": 1, "24h": 24, "7d": 168 };
-  const span = hours[search.range ?? "1h"];
-  return span === undefined ? null : [now - span * 3600, now];
-}
-
-/** The command that reads the same thing from a terminal. */
-export function logsCommand(search: LogsSearch): string {
-  const parts = ["noust server logs"];
-  if (search.unit === KERNEL) parts.push("-k");
-  const query = effectiveQuery(search);
-  if (query !== "") parts.push(`-Q '${query.replaceAll("'", "'\\''")}'`);
-  if (search.from !== undefined && search.to !== undefined) parts.push(`--since @${String(search.from)} --until @${String(search.to)}`);
-  else if ((search.range ?? "1h") === "1h") parts.push("--since -1h");
-  else if (search.range === "24h") parts.push("--since -24h");
-  else if (search.range === "7d") parts.push("--since -7d");
-  else if (search.range === "boot") parts.push("-b 0");
-  else if (search.range === "previous") parts.push("-b -1");
-  return parts.join(" ");
+export function toLogsSearch(old: LegacyJournalSearch): LogsSearch {
+  const since = old.range ?? (old.since !== undefined ? JOURNAL_TIMES[old.since] : undefined);
+  return validateLogsSearch({
+    source: "system",
+    q: old.q,
+    unit: old.unit,
+    level: old.priority,
+    since,
+    from: old.from,
+    to: old.to,
+  });
 }
 
 type Entry = JournalSearch["entries"][number];

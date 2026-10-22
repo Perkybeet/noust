@@ -163,7 +163,7 @@ UNVERSIONED_SCHEMA_TTL_SECONDS = 300.0
 _MAX_ERROR_BODY = 64 * 1024
 
 #: The largest OpenAPI document read from a node. Noust's own (committed at
-#: panel/openapi.json) is a few MiB since 3.4; this gives it ample headroom
+#: panel/openapi.json) is a few MiB since 4.0; this gives it ample headroom
 #: without letting a misbehaving or hostile node make the central buffer an
 #: unbounded body in memory for every proxied call.
 _MAX_SCHEMA_BYTES = 32 * 1024 * 1024

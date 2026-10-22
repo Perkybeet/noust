@@ -1,30 +1,26 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { inPlace } from "../../../app/searchNavigation";
-import { ServersSettings } from "../../../features/settings/servers/ServersSettings";
+import { validateFleetSearch } from "../../../features/fleet/filters";
+import type { FleetSearch } from "../../../features/fleet/filters";
 
-interface ServersSearch {
-  /** The "Add a server" flow is open: the Fleet page links straight to it. */
+interface ServersSearch extends FleetSearch {
+  /** The "Add a server" flow was open: the Fleet page links straight to it. */
   add?: true;
 }
 
 function validateSearch(search: Record<string, unknown>): ServersSearch {
-  return search["add"] === true || search["add"] === "true" || search["add"] === 1 ? { add: true } : {};
+  const add = search["add"] === true || search["add"] === "true" || search["add"] === 1;
+  return { ...validateFleetSearch(search), ...(add ? { add: true as const } : {}) };
 }
 
-/** Settings > Servers: the servers this central manages. */
+/**
+ * Settings > Servers was a second list of the servers; the fleet's is the one list now, and the
+ * old address (with its filters, and the "Add a server" flow it opened) goes there.
+ */
 export const Route = createFileRoute("/_console/settings/servers")({
   validateSearch,
-  component: ServersRoute,
+  beforeLoad: ({ search }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/fleet/servers", search, replace: true });
+  },
 });
-
-function ServersRoute() {
-  const { add } = Route.useSearch();
-  const navigate = Route.useNavigate();
-  return (
-    <ServersSettings
-      adding={add === true}
-      onAddingChange={(adding) => void navigate({ search: adding ? { add: true } : {}, ...inPlace({ replace: true }) })}
-    />
-  );
-}

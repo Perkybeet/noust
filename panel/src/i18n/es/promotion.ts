@@ -8,7 +8,7 @@ export const promotion: Catalog<typeof en> = {
     title: "Promover {domain}",
     description:
       "La release que sirve {domain} se copia a la misma app en otro entorno de su proyecto y se activa allí, sin volver a compilarse. Debe pasar allí la comprobación de arranque; si no, vuelve lo que servía.",
-    loading: "Leyendo adónde se puede promover {domain}",
+    loading: "Cargando adónde se puede promover {domain}",
     loadFailed: "No se pudo leer adónde se puede promover {domain}",
     release: "Release",
     commit: "Commit",
@@ -33,7 +33,7 @@ export const promotion: Catalog<typeof en> = {
     menuDescription: "Crea otra app con estos ajustes, en este o en otro entorno",
     title: "Clonar {domain}",
     description:
-      "Una app nueva con los ajustes, variables, hooks, tags, tareas programadas y vistas previas de esta, desplegada desde el mismo origen y compilada, comprobada y registrada como cualquier otra. Sus datos no se copian, ni los nombres en los que esta app también responde.",
+      "Una app nueva con los ajustes, variables, hooks, etiquetas, tareas programadas y vistas previas de esta, desplegada desde el mismo origen y compilada, comprobada y registrada como cualquier otra. Sus datos no se copian, ni los nombres en los que esta app también responde.",
     domainLabel: "Dominio del clon",
     domainDescription: "Donde responde el clon, como staging.example.com.",
     domainRequired: "Indica el dominio en el que responde el clon.",

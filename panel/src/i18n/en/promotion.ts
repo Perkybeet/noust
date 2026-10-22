@@ -10,7 +10,7 @@ export const promotion = {
     title: "Promote {domain}",
     description:
       "The release that serves {domain} is copied to the same app in another environment of its project and activated there, without being built again. It must pass the startup check there, and what served there comes back if it does not.",
-    loading: "Reading where {domain} can be promoted",
+    loading: "Loading where {domain} can be promoted",
     loadFailed: "Could not read where {domain} can be promoted",
     release: "Release",
     commit: "Commit",

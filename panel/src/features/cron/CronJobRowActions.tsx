@@ -25,7 +25,7 @@ export function CronJobRowActions({ job, onEdit, onViewRuns }: CronJobRowActions
 
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={t("cron.table.actionsFor", { name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
         <MenuItem icon={<Play />} disabled={run.isPending} onClick={() => run.mutate(name)}>
           {t("cron.actions.runNow")}
         </MenuItem>
@@ -33,7 +33,7 @@ export function CronJobRowActions({ job, onEdit, onViewRuns }: CronJobRowActions
           {t("cron.actions.viewRuns")}
         </MenuItem>
         <MenuItem icon={<Pencil />} onClick={() => onEdit(job)}>
-          {t("cron.common.edit")}
+          {t("common.words.edit")}
         </MenuItem>
         <MenuSeparator />
         {job.enabled ? (
@@ -56,7 +56,7 @@ export function CronJobRowActions({ job, onEdit, onViewRuns }: CronJobRowActions
         friction="simple"
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={t("cron.deleteDialog.title", { name })}
+        title={t("common.words.deleteNamed", { name })}
         description={t("cron.deleteDialog.description")}
         actionLabel={t("cron.actions.deleteJob")}
         onConfirm={async () => {

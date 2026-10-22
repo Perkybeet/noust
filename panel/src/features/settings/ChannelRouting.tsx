@@ -7,7 +7,8 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId, useMemo, useState } from "react";
+import { Route } from "lucide-react";
+import { useId, useMemo, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { configKeys, configQuery } from "../../api/queries/config";
@@ -22,7 +23,6 @@ import { Drawer } from "../../components/ui/Drawer";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
-import { Switch } from "../../components/ui/Switch";
 import { useT } from "../../i18n";
 import { EVENT_GROUPS, eventSpec, readNotificationSettings } from "./notifications";
 import type { EventGroupId } from "./notifications";
@@ -64,6 +64,7 @@ export function RoutingButton({ name, label }: { name: string; label: string }) 
     <>
       <Button
         size="sm"
+        icon={<Route aria-hidden="true" />}
         aria-label={t("notifyRouting.buttonLabel", { label })}
         onClick={() => {
           setOpen(true);
@@ -81,6 +82,7 @@ function RoutingDrawer({ channel, label, open, onOpenChange }: { channel: Notifi
   const queryClient = useQueryClient();
   const config = useQuery(configQuery());
   const formId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
   const serverEvents = useMemo(() => (config.data === undefined ? {} : readNotificationSettings(config.data.config).events), [config.data]);
   const initial = useMemo(() => routingFormFrom(channel, serverEvents), [channel, serverEvents]);
   const [draft, setDraft] = useState<RoutingForm | null>(null);
@@ -108,7 +110,13 @@ function RoutingDrawer({ channel, label, open, onOpenChange }: { channel: Notifi
   };
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (dirty && timesOk && !save.isPending) save.mutate();
+    if (!dirty || save.isPending) return;
+    // A time that is not one is said beside its box already: pressing Save goes to the first.
+    if (!timesOk) {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+      return;
+    }
+    save.mutate();
   };
 
   return (
@@ -132,13 +140,13 @@ function RoutingDrawer({ channel, label, open, onOpenChange }: { channel: Notifi
           >
             {t("settings.shared.done")}
           </Button>
-          <Button type="submit" form={formId} variant={dirty ? "primary" : "secondary"} disabled={!dirty || !timesOk} loading={save.isPending}>
+          <Button type="submit" form={formId} variant={dirty ? "primary" : "secondary"} disabled={!dirty} loading={save.isPending}>
             {t("settings.shared.save")}
           </Button>
         </>
       }
     >
-      <form id={formId} noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-8">
+      <form id={formId} ref={formRef} noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-8">
         <FormFailure error={save.error} title={t("notifyRouting.saveErrorTitle", { label })} />
         <EventsPart form={form} edit={edit} />
         <RoutePart route={form.route} onChange={(route) => edit((current) => ({ ...current, route }))} />
@@ -314,7 +322,7 @@ function FloodPart({ flood, onChange }: { flood: FloodForm; onChange: (flood: Fl
   const bad = flood.on && !isFloodValid(flood);
   return (
     <Subsection title={t("notifyRouting.flood.title")} description={t("notifyRouting.flood.description")}>
-      <Switch
+      <Checkbox
         label={t("notifyRouting.flood.switchLabel")}
         checked={flood.on}
         onCheckedChange={(next) => {
@@ -361,7 +369,7 @@ function SummaryPart({ summary, onChange }: { summary: SummaryForm; onChange: (s
   };
   return (
     <Subsection title={t("notifyRouting.recap.title")} description={t("notifyRouting.recap.description")}>
-      <Switch
+      <Checkbox
         label={t("notifyRouting.recap.switchLabel")}
         checked={summary.on}
         onCheckedChange={(next) => {
@@ -433,7 +441,7 @@ function QuietPart({ quiet, onChange }: { quiet: QuietForm; onChange: (quiet: Qu
   const badEnd = quiet.on && !isClock(quiet.end);
   return (
     <Subsection title={t("notifyRouting.quiet.title")} description={t("notifyRouting.quiet.description")}>
-      <Switch
+      <Checkbox
         label={t("notifyRouting.quiet.switchLabel")}
         checked={quiet.on}
         onCheckedChange={(next) => {

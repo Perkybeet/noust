@@ -542,7 +542,7 @@ export function DeployOnPush() {
       {status.isPending ? null : (
         <>
           <GitPushCard app={app} />
-          <CommandHint command={`noust app webhook show ${domain}`} label={t("appSettings.fromTerminal")} />
+          <CommandHint command={`noust app webhook show ${domain}`} label={t("common.words.fromTerminal")} />
         </>
       )}
       {branchPin.dialogs}

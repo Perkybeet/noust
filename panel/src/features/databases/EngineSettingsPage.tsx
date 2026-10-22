@@ -13,6 +13,7 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Field } from "../../components/ui/Field";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
@@ -192,19 +193,19 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
   return (
     <>
       {outcome !== null ? (
-        <Notice tone="success" live>
-          <span className="flex flex-col gap-1">
-            <span>{outcomeText(t, outcome)}</span>
-            {outcome.exposed ? <span>{t("databases.engineSettings.exposed", { engine: display })}</span> : null}
-            {(outcome.warnings ?? []).map((warning) => (
-              <span key={warning}>{warning}</span>
-            ))}
-          </span>
-        </Notice>
+        <div className="flex flex-col gap-1.5">
+          <InlineMessage tone="success" live>
+            {outcomeText(t, outcome)}
+          </InlineMessage>
+          {outcome.exposed ? <InlineMessage>{t("databases.engineSettings.exposed", { engine: display })}</InlineMessage> : null}
+          {(outcome.warnings ?? []).map((warning) => (
+            <InlineMessage key={warning}>{warning}</InlineMessage>
+          ))}
+        </div>
       ) : null}
       <Card>
         <div className="flex flex-col gap-5">
-          <p className="max-w-measure text-13 text-fg-muted">{t("databases.engineSettings.emptyHelp", { engine: display })}</p>
+          <p className="max-w-measure text-13 text-fg-muted">{t("databases.engineSettings.unsetHelp", { engine: display })}</p>
           <div className="grid gap-5 lg:grid-cols-2">
             {data.settings.map((setting) => {
               const value = draft[setting.key] ?? "";
@@ -240,7 +241,7 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
           {failure !== null ? <ErrorBlock live compact error={failure} title={t("databases.engineSettings.saveFailed", { engine: display })} /> : null}
         </div>
       </Card>
-      <CommandHint command={`noust db settings ${engine}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db settings ${engine}`} label={t("common.words.fromTerminal")} />
       <SaveBar
         changes={changes}
         saving={save.isPending && exposure === null}

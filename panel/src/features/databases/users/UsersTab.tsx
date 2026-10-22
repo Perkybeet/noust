@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Eye, KeyRound, Trash2, UserCog } from "lucide-react";
+import { Eye, KeyRound, Trash2, UserCog, Users } from "lucide-react";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -9,24 +9,25 @@ import { accessQuery, databaseKeys, databaseOverviewQuery } from "../../../api/q
 import type { AccessEntry } from "../../../api/queries/databases";
 import { jobKeys } from "../../../api/queries/jobs";
 import { CommandHint } from "../../../components/page/CommandHint";
-import { ErrorBlock } from "../../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
+import { RowMenu } from "../../../components/page/RowMenu";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
+import { Checkbox } from "../../../components/ui/Checkbox";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import { Dialog } from "../../../components/ui/Dialog";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
-import { IconButton } from "../../../components/ui/IconButton";
 import { ICONS } from "../../../components/ui/icons";
 import { Input } from "../../../components/ui/Input";
-import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Select } from "../../../components/ui/Select";
-import { Switch } from "../../../components/ui/Switch";
+import { SkeletonRows } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
@@ -101,7 +102,7 @@ function NewUserDialog({
       description={t("databases.users.newDescription", { name })}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form="new-user-form" variant="primary" loading={create.isPending}>
             {t("databases.users.create")}
           </Button>
@@ -152,7 +153,7 @@ function ProfileDialog({ engine, name, entry, onClose }: { engine: string; name:
       description={t("databases.users.profileDescription", { name })}
       footer={
         <>
-          <Button onClick={onClose}>{t("databases.common.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           <Button variant="primary" loading={save.isPending} onClick={() => save.mutate()}>
             {t("databases.users.profileSave")}
           </Button>
@@ -219,25 +220,23 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-8">
       <Section
+        icon={Users}
         title={t("databases.users.title")}
         description={t("databases.users.description")}
         actions={
           <>
-            {hidden > 0 ? <Switch checked={showSystem} onCheckedChange={setShowSystem} label={t("databases.users.showSystem", { count: hidden })} /> : null}
+            {hidden > 0 ? <Checkbox checked={showSystem} onCheckedChange={setShowSystem} label={t("databases.users.showSystem", { count: hidden })} /> : null}
             <Button size="sm" icon={<Add aria-hidden="true" />} onClick={() => setCreating(true)}>
               {t("databases.users.new")}
             </Button>
           </>
         }
       >
-        {access.isError && access.data === undefined ? (
-          <ErrorBlock error={access.error} title={t("databases.users.loadFailed")} onRetry={() => void access.refetch()} retrying={access.isRefetching} />
-        ) : (
+        <QueryState query={access} label={t("databases.users.noun")} skeleton={<SkeletonRows rows={3} />}>
+          {() => (
           <DataTable<AccessEntry>
             caption={t("databases.users.caption", { name })}
             rows={shown}
-            loading={access.isPending}
-            skeletonRows={3}
             getRowId={(entry) => `${entry.username}@${entry.host}`}
             empty={<EmptyState variant="inline" title={t("databases.users.empty")} />}
             columns={[
@@ -289,7 +288,7 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
             ]}
             rowActions={(entry) =>
               entry.internal ? null : (
-                <Menu align="end" trigger={<IconButton size="sm" label={t("databases.users.actionsFor", { user: entry.username })} icon={<ICONS.more />} tooltip={false} />}>
+                <RowMenu name={entry.username}>
                   {profiles ? (
                     <MenuItem icon={<UserCog />} onClick={() => setChanging(entry)}>
                       {t("databases.users.changeAccess")}
@@ -307,14 +306,15 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
                   <MenuItem icon={<Trash2 />} destructive disabled={(entry.apps ?? []).length > 0} onClick={() => setDeleting(entry)}>
                     {(entry.apps ?? []).length > 0 ? t("databases.users.deleteLinked") : t("databases.users.delete")}
                   </MenuItem>
-                </Menu>
+                </RowMenu>
               )
             }
           />
-        )}
+          )}
+        </QueryState>
       </Section>
 
-      <CommandHint command={`noust db access ${name} -e ${engine}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db access ${name} -e ${engine}`} label={t("common.words.fromTerminal")} />
 
       <NewUserDialog
         engine={engine}

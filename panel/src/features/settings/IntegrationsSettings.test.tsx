@@ -80,7 +80,7 @@ function integrations(status: GitHubStatus, extra: Record<string, RouteHandler> 
 async function confirmItsMe(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
   const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
   await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-  await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+  await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 }
 
 async function expectToast(text: string): Promise<void> {

@@ -19,7 +19,6 @@ export const declaration: Catalog<typeof en> = {
     pruneDescription: "Sin esto, los dominios y las tareas solo se añaden. Las variables nunca se quitan.",
     startFromNow: "Empezar por lo que funciona ahora",
     startFailed: "No se pudo leer la declaración de {domain}",
-    close: "Cerrar",
     applyNow: "Aplicarla",
     applied: "Se aplicó la declaración a {domain}",
     partly: "{count} parte(s) no se aplicaron",

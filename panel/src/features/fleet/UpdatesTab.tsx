@@ -3,14 +3,13 @@ import { Play, RotateCw } from "lucide-react";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { RowMenu } from "../../components/page/RowMenu";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { IconButton } from "../../components/ui/IconButton";
-import { ICONS } from "../../components/ui/icons";
-import { Menu, MenuItem } from "../../components/ui/Menu";
+import { MenuItem } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
@@ -44,12 +43,12 @@ function needs(row: FleetRow, what: (typeof UPDATE_STATES)[number]): boolean {
 }
 
 /** A server's own menu: renewing its package lists, which is what a release that is behind waits for. */
-function RowActions({ t, row, onRefresh }: { t: T; row: FleetRow; onRefresh: (node: string) => void }) {
+function UpdateMenu({ t, row, onRefresh }: { t: T; row: FleetRow; onRefresh: (node: string) => void }) {
   const origin = originOf(row);
   if (origin.local) return null;
   const behind = noustOf(row).state === "index_behind";
   return (
-    <Menu align="end" trigger={<IconButton label={t("fleet.updates.actionsFor", { name: origin.node })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+    <RowMenu name={origin.node}>
       <MenuItem
         icon={<RotateCw />}
         onClick={() => {
@@ -58,7 +57,7 @@ function RowActions({ t, row, onRefresh }: { t: T; row: FleetRow; onRefresh: (no
       >
         {behind ? t("fleet.updates.refreshBehind") : t("fleet.updates.refreshLists")}
       </MenuItem>
-    </Menu>
+    </RowMenu>
   );
 }
 
@@ -174,6 +173,7 @@ export function UpdatesTab({ search, onSearchChange }: UpdatesTabProps) {
     onSearchChange(patchSearch(search, patch), { replace });
   };
 
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (view.isError && view.data === undefined) {
     return <ErrorBlock error={view.error} title={t("fleet.page.loadFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />;
   }
@@ -245,7 +245,7 @@ export function UpdatesTab({ search, onSearchChange }: UpdatesTabProps) {
         loading={view.isPending}
         skeletonRows={3}
         rowActions={(row) => (
-          <RowActions
+          <UpdateMenu
             t={t}
             row={row}
             onRefresh={(node) => {
@@ -266,13 +266,13 @@ export function UpdatesTab({ search, onSearchChange }: UpdatesTabProps) {
                   onSearchChange({});
                 }}
               >
-                {t("fleet.filters.clear")}
+                {t("common.words.clearFilters")}
               </Button>
             }
           />
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet updates" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet updates" />
     </div>
   );
 }

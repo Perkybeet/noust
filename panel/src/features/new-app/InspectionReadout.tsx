@@ -136,7 +136,7 @@ export function InspectionReadout({ inspection, types, source }: { inspection: I
             <dl className="flex flex-col rounded-control border border-border bg-bg-sunken px-3 py-1.5">
               <Command step={t("newApp.readout.install")} argv={inspection.install_command.join(" ")} none={t("newApp.readout.nothingToInstall")} />
               <Command step={t("newApp.readout.build")} argv={inspection.build_command.join(" ")} none={t("newApp.readout.nothingToBuild")} />
-              <Command step={t("newApp.readout.start")} argv={inspection.start_command} none={t("newApp.readout.noProcess")} />
+              <Command step={t("common.words.start")} argv={inspection.start_command} none={t("newApp.readout.noProcess")} />
             </dl>
             <p className="text-12 text-fg-muted">
               {keys.length === 0

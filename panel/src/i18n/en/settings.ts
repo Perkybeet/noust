@@ -1,6 +1,5 @@
 /** Strings of the console's settings area: General, Security, Notifications, Tokens, Integrations, About. */
 export const settings = {
-  area: "Settings",
   page: {
     title: "Settings",
     description: "How Noust runs on this machine and who can reach the console.",
@@ -10,13 +9,7 @@ export const settings = {
     cancel: "Cancel",
     done: "Done",
     save: "Save",
-    saveChanges: "Save changes",
-    discard: "Discard",
-    unsavedChanges: "Unsaved changes",
     loading: "Loading {label}",
-    loadFailed: "Could not load {label}",
-    fromTerminal: "From a terminal",
-    opensInNewTab: "(opens in a new tab)",
   },
 
   // -------------------------------------------------------------------------------------
@@ -84,7 +77,6 @@ export const settings = {
   // Security
 
   security: {
-    documentTitle: "Security settings",
     duration: {
       days: { one: "{count} day", other: "{count} days" },
       hours: { one: "{count} hour", other: "{count} hours" },
@@ -107,7 +99,6 @@ export const settings = {
       status: {
         onTitle: "On",
         onDescription: "Sign-in asks for a code from your authenticator app after the access token.",
-        codesLeft: "{left} of {total} backup codes left",
         codesLow: "Replace them with a new set before they run out.",
         offTitle: "Off",
         offDescription: "Anyone holding the access token can sign in and act as root on this server.",
@@ -184,22 +175,10 @@ export const settings = {
       signedOutCount: { one: "Signed out {count} other session", other: "Signed out {count} other sessions" },
       tokenCredentialHint: "This console is signed in with an API token, not a browser session. Sign in through the browser to use this.",
       revokeOthersFailed: "Could not sign out other sessions",
-      serverSaidLabel: "What the server said",
     },
     lockout: {
-      title: "Lockout policy",
-      description: "How the console answers repeated failed sign-ins. Set under web in config.yaml and read when the console starts, so a change applies after a restart.",
-      loadingLabel: "the lockout policy",
-      notSet: "Not set",
-      maxFailedAttemptsLabel: "Failed sign-ins before lockout",
-      maxFailedAttemptsHint: "Per client address. Wrong codes when turning two-factor off count too.",
-      lockoutLastsLabel: "Lockout lasts",
       requestLimitLabel: "Request limit",
-      requestLimitOff: "Off",
       requestLimitValue: "{count} requests {window}",
-      requestLimitHint: "Counted per client address.",
-      sessionLifetimeLabel: "Session lifetime",
-      sessionLifetimeHint: "Renewed while the session is in use.",
       allowedAddressesLabel: "Allowed addresses",
       anyAddress: "Any address",
     },
@@ -222,7 +201,7 @@ export const settings = {
     revokedNotApplicable: "Does not apply to a revoked token",
     never: "Never",
     createToken: "Create token",
-    loadingLabel: "API tokens",
+    loadingLabel: "the API tokens",
     tableCaption: "API tokens",
     emptyTitle: "No API tokens yet",
     revokeLabel: "Revoke {name}",
@@ -277,14 +256,13 @@ export const settings = {
     notSaved: "The notification settings were not saved",
     fromTerminal: "Send a test from a terminal",
     delivery: {
-      onTitle: "Notifications are on",
-      offTitle: "Notifications are off",
-      problemTitle: "On, but no channel is set up",
       switchLabel: "Send notifications",
-      off: "Off: nothing is sent. Tests are sent anyway, so you can try a channel first.",
-      offNoChannel: "Off: nothing is sent. Set up a channel below and send it a test, then turn this on.",
-      on: { one: "On: the events chosen below go to {count} channel.", other: "On: the events chosen below go to {count} channels." },
-      onNoChannel: "On, but no channel is set up yet: nothing is sent.",
+      on: "On",
+      off: "Off",
+      onNoChannel: "On, no channel",
+      helpOff: "Nothing is sent, but a test still goes out, so a channel can be tried first.",
+      helpNoChannel: "Nothing is sent until a channel is set up and tested.",
+      helpOn: { one: "The events chosen below go to {count} channel.", other: "The events chosen below go to {count} channels." },
       turnOnFailed: "Could not turn notifications on",
       turnOffFailed: "Could not turn notifications off",
     },
@@ -326,7 +304,7 @@ export const settings = {
         generatedHint: "Copy it to your endpoint now: once saved it is never shown again.",
         stopSigning: "Stop signing deliveries",
         signed: "Signed with a secret.",
-        unsigned: "Deliveries are not signed.",
+        unsigned: "Messages are not signed.",
       },
       slack: {
         label: "Slack",
@@ -442,8 +420,7 @@ export const settings = {
     email: {
       label: "Email",
       description: "Sent through your SMTP server. The resource monitor's reports use the same account.",
-      loading: "Loading the SMTP settings",
-      loadFailed: "Could not read the SMTP settings",
+      noun: "the email settings",
       saveErrorTitle: "Could not save email",
       sendsTo: { one: "To {count} recipient, through {host}.", other: "To {count} recipients, through {host}." },
       sendsVia: { one: "To {count} recipient, through {provider}.", other: "To {count} recipients, through {provider}." },
@@ -522,8 +499,8 @@ export const settings = {
         restoreFailed: { label: "Restore failed", description: "A backup could not be put back." },
         certExpiring: { label: "Certificate expiring or expired", description: "Before a certificate expires, and when it has." },
         unitFailed: { label: "Service down, and back", description: "A watched service stopped running, and when it recovers." },
-        appUnreachable: { label: "Application not answering", description: "Its service runs but it fails its health check: three probes in a row over at least a minute, once per outage. A stack with no web is judged by its containers." },
-        appRecovered: { label: "Application answering again", description: "It passes its health check again after an outage." },
+        appUnreachable: { label: "Application not answering", description: "Its service runs but it fails its startup check: three probes in a row over at least a minute, once per outage. A stack with no web is judged by its containers." },
+        appRecovered: { label: "Application answering again", description: "It passes its startup check again after an outage." },
         diskThreshold: { label: "Disk almost full, and back", description: "A disk passed its threshold, and when it drops below." },
         backupFailed: { label: "Backup failed", description: "A scheduled or manual backup failed." },
         destinationUnreachable: { label: "A destination went away", description: "A place backups are sent to stopped answering, so the copies there are not being made." },
@@ -691,7 +668,7 @@ export const settings = {
       failedInstallation: "The installation was not recorded",
       conversionHint: "GitHub's code works once and for an hour, and the creation must finish within ten minutes of starting. Start again from Settings, Integrations.",
       installationHint: "Check that the App was installed from this server's App page, then sync the installations.",
-      confirmAndContinue: "Confirm and continue",
+      confirmAndContinue: "Continue with GitHub",
       createdToast: "Created the GitHub App {name}",
       installedToast: "Installed the GitHub App on {account}",
       updatedToast: "Updated the installation on {account}",
@@ -707,7 +684,7 @@ export const settings = {
 
   about: {
     documentTitle: "About",
-    loading: "Reading the version and the automatic updates",
+    loading: "Loading the version and the automatic updates",
     method: {
       apt: "the apt repository",
       rpm: "the RPM repository ({tool})",
@@ -762,7 +739,7 @@ export const settings = {
     },
     updateNotes: {
       summary: "What {version} changes",
-      loading: "Reading the release notes",
+      loading: "Loading the release notes",
       unavailable: "The release notes could not be read from here.",
       openRelease: "Open the release on GitHub",
       actionNeeded: { one: "{count} line needs you to act.", other: "{count} lines need you to act." },
@@ -776,7 +753,7 @@ export const settings = {
       readyWithWarnings: { one: "Ready, with {count} warning", other: "Ready, with {count} warnings" },
       notReady: { one: "{count} thing a deployment needs is missing", other: "{count} things a deployment needs are missing" },
       listLabel: "Checks of {section}",
-      status: { ok: "OK", info: "Optional", warn: "Warning", fail: "Missing" },
+      status: { ok: "Passed", info: "Optional", warn: "Warning", fail: "Missing" },
       fix: "Fix",
       fromTerminal: "From a terminal",
     },

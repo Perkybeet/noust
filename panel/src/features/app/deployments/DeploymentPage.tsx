@@ -126,7 +126,7 @@ function Elapsed({ deployment, t }: { deployment: Deployment; t: T }) {
     return (
       <>
         {started === null
-          ? t("appPages.deployments.page.running")
+          ? t("common.statusPill.running")
           : t("appPages.deployments.page.runningFor", {
               duration: formatDuration(
                 Math.max(0, (now - started.getTime()) / 1000),
@@ -223,7 +223,7 @@ function hookOutcome(
   if (hook.ok)
     return {
       state: "running",
-      word: t("appPages.deployments.hooks.succeeded"),
+      word: t("common.deployState.succeeded"),
     };
   return {
     state: "failed",

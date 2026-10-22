@@ -260,7 +260,7 @@ function ImagesDrawer({ onClose }: { onClose: () => void }) {
           empty={<EmptyState variant="inline" title={t("server.storage.noImages")} />}
           rowActions={(row) => (
             <Button size="sm" variant="ghost" onClick={() => setRemoving(row.id)} aria-label={t("server.storage.removeImage", { image: `${row.repository}:${row.tag}` })}>
-              {t("server.storage.remove")}
+              {t("common.words.remove")}
             </Button>
           )}
         />
@@ -427,7 +427,7 @@ function StorageView() {
         </div>
         <CleanupScheduleCard />
       </div>
-      <CommandHint command="noust server storage" label={t("server.fromTerminal")} />
+      <CommandHint command="noust server storage" label={t("common.words.fromTerminal")} />
       {opened?.kind === "clean" && opened.candidate.action != null ? <CleanupDialog action={opened.candidate.action} onClose={() => setOpened(null)} /> : null}
       {opened?.kind === "images" ? <ImagesDrawer onClose={() => setOpened(null)} /> : null}
     </div>

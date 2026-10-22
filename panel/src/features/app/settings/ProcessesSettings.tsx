@@ -341,14 +341,14 @@ function ProcessDialog({
       size="md"
       title={
         editing
-          ? t("runtime.processes.dialogEditTitle", { name: process.name })
+          ? t("common.words.editNamed", { name: process.name })
           : t("runtime.processes.dialogAddTitle")
       }
       description={t("runtime.processes.dialogDescription")}
       footer={
         <>
           <Button disabled={save.isPending} onClick={() => close(false)}>
-            {t("appPages.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button
             type="submit"
@@ -368,7 +368,7 @@ function ProcessDialog({
         className="flex flex-col gap-5"
       >
         <Field
-          label={t("runtime.processes.nameLabel")}
+          label={t("common.words.name")}
           description={t("runtime.processes.nameDescription")}
           error={shown("name") ?? serverError("name")}
         >
@@ -525,7 +525,7 @@ function ScaleDialog({
       footer={
         <>
           <Button disabled={scale.isPending} onClick={() => close(false)}>
-            {t("appPages.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button
             type="submit"
@@ -611,7 +611,7 @@ function ProcessActions({
         align="end"
         trigger={
           <IconButton
-            label={t("runtime.processes.actionsFor", { name: process.name })}
+            label={t("common.rowActions", { name: process.name })}
             icon={<ICONS.more />}
             size="sm"
             tooltip={false}
@@ -619,7 +619,7 @@ function ProcessActions({
         }
       >
         <MenuItem icon={<Pencil />} onClick={onEdit}>
-          {t("runtime.processes.edit")}
+          {t("common.words.edit")}
         </MenuItem>
         <MenuItem icon={<Scaling />} onClick={onScale}>
           {t("runtime.processes.scale")}
@@ -630,16 +630,16 @@ function ProcessActions({
           destructive
           onClick={() => setRemoving(true)}
         >
-          {t("runtime.processes.remove")}
+          {t("common.words.remove")}
         </MenuItem>
       </Menu>
       <ConfirmDialog
         friction="simple"
         open={removing}
         onOpenChange={setRemoving}
-        title={t("runtime.processes.removeTitle", { name: process.name })}
+        title={t("common.words.removeNamedQuestion", { name: process.name })}
         description={t("runtime.processes.removeDescription")}
-        actionLabel={t("runtime.processes.remove")}
+        actionLabel={t("common.words.remove")}
         destructive
         onConfirm={async () => {
           await remove.mutateAsync();
@@ -674,7 +674,7 @@ function ProcessRow({
       </div>
       <span className="text-12 text-fg-muted">
         {process.instances === 0
-          ? t("runtime.processes.stopped")
+          ? t("common.statusPill.stopped")
           : t("runtime.processes.runningOf", {
               running,
               instances: process.instances,

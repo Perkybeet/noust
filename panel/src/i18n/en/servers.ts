@@ -1,7 +1,7 @@
 /** Strings of the fleet: the Fleet page, Settings > Servers, the central's lock and its hub role. */
 export const servers = {
   nav: {
-    fleet: { label: "Fleet", keywords: "servers nodes central vps machines", goTo: "Go to fleet" },
+    fleet: { keywords: "servers nodes central vps machines", },
     settingsTab: {
       label: "Servers",
       keywords: "fleet nodes central ssh tunnel add server join code",
@@ -17,7 +17,6 @@ export const servers = {
   // What a hub says on the Fleet, and a server not read yet
 
   fleet: {
-    notRead: "Not read",
     hub: {
       title: "This central deploys nothing itself",
       description:
@@ -27,48 +26,17 @@ export const servers = {
   },
 
   // -------------------------------------------------------------------------------------
-  // Settings > Servers
+  // Servers: monitoring, removal and the manual add flows
 
   settings: {
-    documentTitle: "Servers settings",
-    title: "Servers",
-    description:
-      "The servers this central manages. It reaches each through an SSH tunnel to the server's console, with a key that can forward that one port and never run a command.",
-    loadingLabel: "servers",
-    tableCaption: "Servers this central manages",
-    column: {
-      name: "Name",
-      address: "Tunnel account and address",
-      status: "Status",
-      version: "Version",
-      access: "This central may",
-      lastSeen: "Last seen",
-    },
-    addServer: "Add a server",
-    createAtProvider: "Create at a provider",
     linkedAddress: "Dials in: port {port} of this central",
-    test: "Test",
-    testLabel: "Test {name}",
     testedToast: "{name} answered in {latency} ms",
     testedDescription: "It runs Noust {version}.",
     testFailedToast: "{name} did not answer",
-    open: "Open",
-    openLabel: "Open {name}",
-    remove: "Remove",
-    removeLabel: "Remove {name}",
-    never: "Never",
-    empty: {
-      title: "No servers yet",
-      description:
-        "Add a server to manage it from this console. You authorize the central on the server itself, where you are already root; the central never gets a shell there.",
-    },
     twoFactor: {
       title: "Turn on two-factor sign-in first",
-      description:
-        "This central refuses to add its first server without it: whoever signs in here reaches every server it manages.",
       link: "Set up two-factor authentication",
     },
-    fromTerminal: "From a terminal",
     monitoring: {
       paused: "Monitoring paused",
       pausedWhy: "Monitoring paused: {reason}",
@@ -82,11 +50,9 @@ export const servers = {
       reason: "Why",
       reasonHelp: "Shown beside the server, so whoever looks later knows it was on purpose.",
       pausedToast: "Monitoring of {name} paused",
-      resumedToast: "Monitoring of {name} resumed",
       resumeFailedToast: "Monitoring of {name} could not be resumed",
     },
     removeDialog: {
-      title: "Remove {name}?",
       description:
         "The central closes its tunnel to {name} and forgets its key, token and pinned host key. When {name} answers, the central first revokes its token there, so the key it leaves behind opens nothing.",
       unreachable: "If {name} cannot be reached, run this on it, as root, to remove the central's key and revoke its token:",
@@ -109,12 +75,8 @@ export const servers = {
       join: "Join",
       result: "Result",
     },
-    cancel: "Cancel",
-    back: "Back",
     next: "I ran it: continue",
-    done: "Done",
     name: {
-      label: "Name",
       description: "How this console will call the server: 1 to 32 lower-case letters, digits and dashes, such as web-2.",
       invalid: "Use 1 to 32 lower-case letters, digits and dashes, starting and ending with a letter or digit.",
       showCommand: "Show the command",
@@ -152,7 +114,6 @@ export const servers = {
         wrongPrefix: "A join code starts with noust-join:v1:. Copy the whole line noust fleet authorize printed on the server.",
         unreadable: "This starts like a join code but does not read as one: copy the whole line again, without cutting it.",
       },
-      summaryTitle: "Join code read",
       summary: "For {node}: its tunnel account {user} on SSH port {port}, its console on port {console}, Noust {version}.",
       otherCentral: "This code was made for the central {central}, not for this one ({name}). The server would refuse it.",
       otherKey: "This code was made for another key than the one this central showed in the first step. Run the command from the first step again.",
@@ -242,7 +203,6 @@ export const servers = {
         wrongPrefix: "A link code starts with noust-link:v1:. Copy the whole line noust fleet link printed on the server.",
         unreadable: "This starts like a link code but does not read as one: copy the whole line again, without cutting it.",
       },
-      summaryTitle: "Link code read",
       summary: "For {node}: its console on port {console}, Noust {version}.",
       otherNode: "This code is for a server called {node}, not {name}. This central would refuse it.",
       otherCentral: "This code was made for the central {central}, not for this one ({name}). This central would refuse it.",
@@ -260,7 +220,6 @@ export const servers = {
   // The central's sealed secrets
 
   lock: {
-    title: "This central is locked",
     description:
       "Its secrets are sealed at rest: the keys and tokens that reach your servers are encrypted under a passphrase that is written nowhere. Until you unlock them, nothing reaches the servers.",
     passphraseLabel: "Passphrase",
@@ -287,7 +246,6 @@ export const servers = {
     identity: {
       title: "This central",
       description: "The Noust that manages the fleet, and what it does itself.",
-      name: "Name",
       role: "Role",
       roleServer: "Manages servers and deploys applications itself",
       roleHub: "A hub: manages servers, deploys nothing itself",

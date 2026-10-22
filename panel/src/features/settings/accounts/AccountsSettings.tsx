@@ -379,7 +379,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
               ? {
                   actions: (
                     <Button variant="ghost" onClick={() => onSearchChange({})}>
-                      {t("accounts.page.clearFilters")}
+                      {t("common.words.clearFilters")}
                     </Button>
                   ),
                 }
@@ -398,7 +398,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
                 title={t("accounts.page.noMatch")}
                 action={
                   <Button size="sm" variant="ghost" onClick={() => onSearchChange({})}>
-                    {t("accounts.page.clearFilters")}
+                    {t("common.words.clearFilters")}
                   </Button>
                 }
               />
@@ -420,7 +420,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
       </Section>
       {!empty ? <ExceptionsSection t={t} canManage={canManage} onAdd={() => setPending({ kind: "exception", person: "" })} /> : null}
       {!empty ? <AccessReviewSection canManage={canManage} /> : null}
-      <CommandHint label={t("accounts.page.fromTerminal")} command="noust user list" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust user list" />
 
       {pending?.kind === "invite" ? <InviteDialog open accounts={all} recover={pending.recover} onClose={() => setPending(null)} /> : null}
       {pending?.kind === "email" ? <EmailDialog account={pending.account} onClose={() => setPending(null)} /> : null}
@@ -453,7 +453,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
           onOpenChange={(next) => {
             if (!next) setPending(null);
           }}
-          title={t("accounts.remove.title", { name: pending.account.username })}
+          title={t("common.words.removeNamedQuestion", { name: pending.account.username })}
           description={t("accounts.remove.description")}
           actionLabel={t("accounts.remove.action")}
           onConfirm={async () => {

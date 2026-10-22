@@ -2,14 +2,12 @@ import type { overview as en } from "../en/overview";
 import type { Catalog } from "../types";
 
 export const overview: Catalog<typeof en> = {
-  area: "Resumen",
   title: "Resumen",
   description: "Cómo está este servidor, qué necesita de ti y qué ha pasado últimamente.",
   version: "Noust {version}",
   newApplication: "Nueva aplicación",
   tabsLabel: "Secciones del resumen",
   couldNotLoad: "No se pudo cargar el resumen",
-  command: "Desde una terminal",
   range: {
     "1h": "Última hora",
     "24h": "Últimas 24 horas",
@@ -28,7 +26,7 @@ export const overview: Catalog<typeof en> = {
     couldNotRead: "No se pudo leer",
     apps: {
       label: "Aplicaciones",
-      running: "{count} en marcha",
+      running: "{count} en ejecución",
       noneYet: "Ninguna todavía",
       failed: { one: "{count} fallida", other: "{count} fallidas" },
       stopped: { one: "{count} parada", other: "{count} paradas" },
@@ -83,7 +81,7 @@ export const overview: Catalog<typeof en> = {
       label: "Actualizaciones del sistema",
       pending: { one: "{count} pendiente", other: "{count} pendientes" },
       upToDate: "Al día",
-      notChecked: "Sin comprobar",
+      notChecked: "Sin comprobar todavía",
       unsupported: "No disponible",
       unsupportedDetail: "No compatible con este sistema",
       security: { one: "{count} de seguridad", other: "{count} de seguridad" },
@@ -96,7 +94,7 @@ export const overview: Catalog<typeof en> = {
     title: "Requiere atención",
     itemsSr: "Elementos: ",
     checking: "Comprobando el servidor",
-    emptyTitle: "Nada requiere atención.",
+    emptyTitle: "Nada requiere atención",
     emptyDescription:
       "Ningún servicio ni despliegue fallido, ningún certificado que caduque en tres semanas, ningún hallazgo abierto del monitor.",
     announceEmpty: "Nada requiere atención",
@@ -117,11 +115,9 @@ export const overview: Catalog<typeof en> = {
     openServiceAria: "Abrir el servicio {name}",
     openFinding: "Revisarlo",
     openFindingAria: "Revisar el proceso {name} en el servidor",
-    services: "Servicios",
     serviceFailed: "El servicio ha fallado",
     serviceRestarting: "systemd sigue reiniciando el servicio",
     runningOutsideUnit: "Sus contenedores están en marcha con la unidad parada: Noust no la supervisa",
-    serviceState: "El servicio está en el estado {label}",
     noAnswer: "El servicio está en marcha, pero nada responde en su puerto",
     deployFailed: "El último despliegue falló",
     deployRolledBack: "El último despliegue se revirtió",
@@ -131,10 +127,6 @@ export const overview: Catalog<typeof en> = {
     certValidUntil: "Válido hasta {date}",
     unitFailed: "El servicio ha fallado",
     unitRestarting: "systemd sigue reiniciando el servicio",
-    unitsFailedCount: {
-      one: "{count} servicio de Noust ha fallado",
-      other: "{count} servicios de Noust han fallado",
-    },
     monitor: {
       nameNotice: "Su nombre coincide con una herramienta que conviene revisar",
       nameWarning: "Su nombre coincide con una herramienta que hay que revisar",
@@ -147,7 +139,7 @@ export const overview: Catalog<typeof en> = {
   activity: {
     title: "Actividad reciente",
     all: "Toda la actividad",
-    emptyTitle: "Todavía no ha pasado nada.",
+    emptyTitle: "Todavía no ha pasado nada",
     emptyDescription: "Los despliegues, actualizaciones, copias y restauraciones aparecen aquí según se ejecutan.",
     today: "Hoy",
     yesterday: "Ayer",
@@ -166,7 +158,7 @@ export const overview: Catalog<typeof en> = {
     used: "En uso",
     in: "Entrada",
     out: "Salida",
-    loadingRange: "Leyendo: {range}…",
+    loadingRange: "Cargando: {range}…",
     couldNotLoad: "No se pudo cargar el historial de la máquina",
   },
   history: {
@@ -187,7 +179,6 @@ export const overview: Catalog<typeof en> = {
   firstSteps: {
     title: "Despliega tu primera aplicación",
     description: "Este servidor todavía no ejecuta nada. Elige la forma más rápida de ver algo en marcha.",
-    done: "Hecho",
     demo: {
       title: "Prueba una demostración",
       description: "Una página diminuta en una dirección temporal. Un clic.",

@@ -307,7 +307,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
   const columns: Column<EnvRow>[] = [
     {
       id: "name",
-      header: t("environment.tab.nameHeader"),
+      header: t("common.words.name"),
       width: "w-2/5",
       cell: (row) => {
         const note = row.state === "removed" ? "" : commentOf(row.name);
@@ -410,10 +410,10 @@ export function EnvironmentTab({ domain }: { domain: string }) {
     const verdict = row.current !== null && row.state !== "removed" ? secrets.get(row.name) : undefined;
     const choice = verdict !== undefined ? secrecyChoice(verdict) : null;
     return (
-      <Menu align="end" trigger={<IconButton size="sm" label={t("environment.tab.actionsAria", { name: row.name })} icon={<ICONS.more />} tooltip={false} />}>
+      <Menu align="end" trigger={<IconButton size="sm" label={t("common.rowActions", { name: row.name })} icon={<ICONS.more />} tooltip={false} />}>
         {row.state !== "removed" ? (
           <MenuItem icon={<Pencil />} onClick={() => edit(row)}>
-            {t("environment.tab.edit")}
+            {t("common.words.edit")}
           </MenuItem>
         ) : null}
         {row.state === "unchanged" ? (
@@ -423,7 +423,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
               stage([{ kind: "remove", name: row.name }], t("environment.tab.willBeRemoved", { name: row.name }));
             }}
           >
-            {t("environment.tab.remove")}
+            {t("common.words.remove")}
           </MenuItem>
         ) : (
           <MenuItem icon={<OBJECT_ICONS.rollback />} onClick={() => undo(row.name)}>
@@ -560,7 +560,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
             }}
             onSave={() => saveAs(true)}
             saving={save.isPending}
-            saveLabel={isStatic ? t("environment.tab.save") : t("environment.tab.saveAndRestart")}
+            saveLabel={isStatic ? t("common.words.save") : t("environment.tab.saveAndRestart")}
             {...(isStatic
               ? {}
               : {
@@ -577,7 +577,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
               {t.rich("environment.tab.storedIn", { file: <Mono tone="muted">{file}</Mono> })}
               <CopyButton value={file} label={t("environment.tab.copyPath")} />
             </p>
-            <CommandHint command={`noust env show ${domain}`} label={t("environment.fromTerminal")} />
+            <CommandHint command={`noust env show ${domain}`} label={t("common.words.fromTerminal")} />
           </div>
         </>
       )}

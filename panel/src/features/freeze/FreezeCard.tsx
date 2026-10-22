@@ -157,7 +157,7 @@ export function FreezeDialog({ domain, open, onOpenChange }: { domain: string | 
       footer={
         <>
           <Button disabled={pending} onClick={() => onOpenChange(false)}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={pending}>
             {t("rollout.freeze.create")}

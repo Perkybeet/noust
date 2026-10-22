@@ -55,8 +55,8 @@ def test_a_schema_first_appears_in_a_minor_release_never_in_a_patch() -> None:
 def test_the_table_only_moves_forward() -> None:
     releases = [store_compat.release_key(SCHEMA_RELEASES[s]) for s in sorted(SCHEMA_RELEASES)]
 
+    # A release may bring several schemas (4.0.0 goes through 14 to 15), never an older one.
     assert releases == sorted(releases)
-    assert len(set(releases)) == len(releases)
 
 
 @pytest.mark.parametrize(
@@ -68,8 +68,9 @@ def test_the_table_only_moves_forward() -> None:
         ("3.1.17", 12),
         ("3.2.0", 13),
         ("3.3.1", 13),
-        ("v3.4.0", 14),
-        ("4.0.0", 15),
+        ("3.9.0", 13),
+        ("v4.0.0", 15),
+        ("4.0.3", 15),
     ],
 )
 def test_a_release_understands_up_to_the_schema_it_or_an_earlier_one_wrote(
@@ -84,7 +85,7 @@ def test_a_release_older_than_the_table_understands_nothing_it_lists() -> None:
 
 @pytest.mark.parametrize(
     ("schema", "release"),
-    [(8, "2.0.0"), (11, "3.0.0"), (13, "3.2.0"), (14, "3.4.0")],
+    [(8, "2.0.0"), (11, "3.0.0"), (13, "3.2.0"), (14, "4.0.0"), (15, "4.0.0")],
 )
 def test_the_oldest_release_that_opens_a_store_is_the_one_that_wrote_its_schema(
     schema: int, release: str
@@ -250,15 +251,23 @@ def test_the_plan_is_json_ready(tmp_path: Path) -> None:
 # -- the way back, for real
 
 
+#: The release before this one, and the schema an upgrade from it finds on disk.
+PREVIOUS_RELEASE = max(
+    (r for r in SCHEMA_RELEASES.values() if store_compat.schema_of_release(r) < SCHEMA_VERSION),
+    key=store_compat.release_key,
+)
+PREVIOUS_SCHEMA = store_compat.schema_of_release(PREVIOUS_RELEASE)
+
+
 def migrated_store(tmp_path: Path) -> tuple[NoustStore, Path]:
-    """A store stamped one schema behind, as an upgrade finds it, opened by the current code."""
+    """A store stamped at the previous release's schema, as an upgrade finds it, opened now."""
     db = tmp_path / "noust.db"
     NoustStore.reset_instance()
     NoustStore(db)
     NoustStore.reset_instance()
     connection = sqlite3.connect(db)
     connection.execute("DELETE FROM schema_version")
-    connection.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION - 1,))
+    connection.execute("INSERT INTO schema_version (version) VALUES (?)", (PREVIOUS_SCHEMA,))
     connection.commit()
     connection.close()
     NoustStore.reset_instance()
@@ -269,10 +278,10 @@ def test_opening_an_older_store_keeps_a_copy_that_a_later_open_can_use(tmp_path:
     store, db = migrated_store(tmp_path)
 
     copies = store_compat.kept_copies(db)
-    assert copies and copies[0].schema == SCHEMA_VERSION - 1
+    assert copies and copies[0].schema == PREVIOUS_SCHEMA
     assert store_compat.read_schema(db) == SCHEMA_VERSION
-    # The release that wrote the schema one behind is the one that can use the copy.
-    plan_back = plan(SCHEMA_RELEASES[SCHEMA_VERSION - 1], SCHEMA_VERSION, copies, db_path=db)
+    # The release before this one cannot open the store, and can open the copy.
+    plan_back = plan(PREVIOUS_RELEASE, SCHEMA_VERSION, copies, db_path=db)
     assert not plan_back.compatible
     assert plan_back.copy == copies[0]
     NoustStore.reset_instance()
@@ -280,7 +289,7 @@ def test_opening_an_older_store_keeps_a_copy_that_a_later_open_can_use(tmp_path:
     # Put the copy where the plan says: the store opens again, on its own schema, and migrates.
     restored = db.with_name("restored.db")
     restored.write_bytes(plan_back.copy.path.read_bytes())
-    assert store_compat.read_schema(restored) == SCHEMA_VERSION - 1
+    assert store_compat.read_schema(restored) == PREVIOUS_SCHEMA
     NoustStore.reset_instance()
     NoustStore(restored)
     assert store_compat.read_schema(restored) == SCHEMA_VERSION

@@ -22,7 +22,7 @@ A project that publishes a build per commit and no release is pinned to the newe
 and digest, and says so. A project that publishes only a floating tag (`latest`, `stable`) cannot be a
 recipe: a tag names a release or it is not a pin. It is listed as unavailable, with the reason.
 
-Look in the catalogue first: `noust recipe list -q NAME` (or the Catalog page). One that is listed
+Look in the catalogue first: `noust recipe list -q NAME` (or the Recipes view of Applications). One that is listed
 as unavailable names the reason it is.
 
 ## 2. Ask for it

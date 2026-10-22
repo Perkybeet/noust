@@ -30,7 +30,7 @@ export function ComposeStackSettings() {
         <ComposeSettingsCard domain={domain} options={options} />
         <StackNetworksCard domain={domain} />
         {useRegistries ? <RegistryLoginsCard choice={registries} /> : null}
-        <CommandHint command={`noust app compose show ${domain}`} label={t("composeSettings.fromTerminal")} />
+        <CommandHint command={`noust app compose show ${domain}`} label={t("common.words.sameFromTerminal")} />
       </Section>
       <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
     </>

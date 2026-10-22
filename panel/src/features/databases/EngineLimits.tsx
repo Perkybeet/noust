@@ -5,17 +5,17 @@ import { isApiError, request } from "../../api/client";
 import { databaseKeys, engineLimitsQuery } from "../../api/queries/databases";
 import type { EngineLimits as EngineLimitsData, EngineLimitsOutcome } from "../../api/queries/databases";
 import { CommandHint } from "../../components/page/CommandHint";
-import { LoadingRegion } from "../../components/page/LoadingRegion";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { Section } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Field } from "../../components/ui/Field";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
-import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
@@ -165,16 +165,16 @@ function LimitsForm({ engine, display, data }: { engine: string; display: string
   return (
     <>
       {outcome !== null ? (
-        <Notice tone="success" live>
-          <span className="flex flex-col gap-1">
-            <span>{outcome.changed.length > 0 ? t("databases.engineSettings.limits.applied", { engine: display }) : t("databases.engineSettings.limits.unchanged", { engine: display })}</span>
-            {(outcome.warnings ?? []).map((warning) => (
-              <span key={warning}>{warning}</span>
-            ))}
-          </span>
-        </Notice>
+        <div className="flex flex-col gap-1.5">
+          <InlineMessage tone="success" live>
+            {outcome.changed.length > 0 ? t("databases.engineSettings.limits.applied", { engine: display }) : t("databases.engineSettings.limits.unchanged", { engine: display })}
+          </InlineMessage>
+          {(outcome.warnings ?? []).map((warning) => (
+            <InlineMessage key={warning}>{warning}</InlineMessage>
+          ))}
+        </div>
       ) : null}
-      {elsewhere.length > 0 ? <Notice tone="info">{t("databases.engineSettings.limits.elsewhere", { names: elsewhere.join(", "), unit: data.unit })}</Notice> : null}
+      {elsewhere.length > 0 ? <InlineMessage tone="info">{t("databases.engineSettings.limits.elsewhere", { names: elsewhere.join(", "), unit: data.unit })}</InlineMessage> : null}
       <Card>
         <div className="flex flex-col gap-5">
           {data.memory_in_use_mb !== null && data.memory_in_use_mb !== undefined ? (
@@ -196,6 +196,7 @@ function LimitsForm({ engine, display, data }: { engine: string; display: string
           </div>
           {failure !== null ? <ErrorBlock live compact error={failure} title={t("databases.engineSettings.limits.saveFailed", { engine: display })} /> : null}
           <div>
+            {/* design-exception: card-save The limits are a systemd drop-in applied by an action of their own, on the page whose one bar saves the settings above: a second bar would fight it for the bottom edge. */}
             <Button
               loading={save.isPending && warnings === null}
               disabled={changes === 0 || Object.keys(errors).length > 0}
@@ -206,7 +207,7 @@ function LimitsForm({ engine, display, data }: { engine: string; display: string
           </div>
         </div>
       </Card>
-      <CommandHint command={`noust db limits ${engine}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db limits ${engine}`} label={t("common.words.fromTerminal")} />
       {warnings !== null ? (
         <ConfirmDialog
           open
@@ -243,16 +244,10 @@ export function EngineLimits({ engine, display }: { engine: string; display: str
   // A server that does not have the endpoint yet (an older node behind a central) answers 404 or 405.
   if (limits.isError && isApiError(limits.error) && (limits.error.status === 404 || limits.error.status === 405)) return null;
   return (
-    <Section title={t("databases.engineSettings.limits.title")} description={t("databases.engineSettings.limits.description", { engine: display })}>
-      {limits.isError && limits.data === undefined ? (
-        <ErrorBlock error={limits.error} title={t("databases.engineSettings.limits.loadFailed", { engine: display })} onRetry={() => void limits.refetch()} retrying={limits.isRefetching} />
-      ) : limits.data === undefined ? (
-        <LoadingRegion label={t("databases.engineSettings.limits.loading")}>
-          <Skeleton className="h-48 w-full rounded-card" />
-        </LoadingRegion>
-      ) : (
-        <LimitsForm engine={engine} display={display} data={limits.data} />
-      )}
+    <Section icon={OBJECT_ICONS.limits} title={t("databases.engineSettings.limits.title")} description={t("databases.engineSettings.limits.description", { engine: display })}>
+      <QueryState query={limits} label={t("databases.engineSettings.limits.noun", { engine: display })} skeleton={<Skeleton className="h-48 w-full rounded-card" />}>
+        {(data) => <LimitsForm engine={engine} display={display} data={data} />}
+      </QueryState>
     </Section>
   );
 }

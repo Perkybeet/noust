@@ -179,7 +179,7 @@ export function mergeActivity({ jobs, jobsComplete, entries, auditComplete, acto
 /** `noust.web.jobs.JobType`, in the console's words. */
 const JOB_ACTION_LABELS: Readonly<Record<string, PlainKey>> = {
   deploy: "activity.jobAction.deploy",
-  update: "activity.jobAction.update",
+  update: "common.words.update",
   backup: "activity.jobAction.backup",
   restore: "activity.jobAction.restore",
   rollback: "activity.jobAction.rollback",
@@ -189,7 +189,7 @@ const JOB_ACTION_LABELS: Readonly<Record<string, PlainKey>> = {
   cert_renew: "activity.jobAction.certRenew",
   service_action: "activity.jobAction.serviceAction",
   site_action: "activity.jobAction.siteAction",
-  delete: "activity.jobAction.delete",
+  delete: "common.words.delete",
   zero_downtime: "activity.jobAction.zeroDowntime",
   app_exec: "activity.jobAction.appExec",
   custom: "activity.jobAction.custom",
@@ -291,18 +291,18 @@ function capitalise(text: string): string {
 
 /** `result` values the audit log writes (`grep -rho 'result="[a-z]*"' src/noust/web`), as keys. */
 const AUDIT_RESULT_STATUS: Readonly<Record<string, { state: StatusView["state"]; key: PlainKey; attention: boolean }>> = {
-  success: { state: "running", key: "activity.auditResult.success", attention: false },
-  ok: { state: "running", key: "activity.auditResult.ok", attention: false },
+  success: { state: "running", key: "common.deployState.succeeded", attention: false },
+  ok: { state: "running", key: "common.deployState.succeeded", attention: false },
   denied: { state: "failed", key: "activity.auditResult.denied", attention: true },
-  failure: { state: "failed", key: "activity.auditResult.failure", attention: true },
+  failure: { state: "failed", key: "common.statusPill.failed", attention: true },
   locked: { state: "failed", key: "activity.auditResult.locked", attention: true },
-  warning: { state: "warning", key: "activity.auditResult.warning", attention: true },
+  warning: { state: "warning", key: "common.statusPill.warning", attention: true },
 };
 
 /** Maps an audit entry's result to the same state language as an app's or a job's status. */
 export function auditResultStatus(t: T, result: string): StatusView {
   const word = result.trim();
-  if (word === "") return { state: "unknown", label: t("activity.auditResult.unknown"), attention: false };
+  if (word === "") return { state: "unknown", label: t("common.statusPill.unknown"), attention: false };
   const known = AUDIT_RESULT_STATUS[word.toLowerCase()];
   if (known !== undefined) return { state: known.state, label: t(known.key), attention: known.attention };
   // The security middleware's generic per-request entry (`noust.web.server`) writes
@@ -457,17 +457,17 @@ export const AUDIT_RESULTS: ReadonlySet<string> = new Set(["success", "ok", "den
 
 const JOB_RESULT_WORDS: Readonly<Record<string, PlainKey>> = {
   completed: "activity.jobStatus.completed",
-  failed: "activity.jobStatus.failed",
+  failed: "common.words.failedFeminine",
   cancelled: "activity.jobStatus.cancelled",
   pending: "activity.jobStatus.pending",
-  running: "activity.jobStatus.running",
+  running: "common.deployState.inProgress",
 };
 
 const AUDIT_RESULT_WORDS: Readonly<Record<string, PlainKey>> = {
-  success: "activity.auditResult.success",
-  ok: "activity.auditResult.ok",
+  success: "common.deployState.succeeded",
+  ok: "common.deployState.succeeded",
   denied: "activity.auditResult.denied",
-  failure: "activity.auditResult.failure",
+  failure: "common.statusPill.failed",
   locked: "activity.auditResult.locked",
 };
 

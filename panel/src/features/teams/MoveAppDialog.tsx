@@ -70,7 +70,7 @@ function MoveForm({ app, onClose }: { app: MovableApp; onClose: () => void }) {
       footer={
         <>
           <Button disabled={pending} onClick={onClose}>
-            {t("teams.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={pending} disabled={unchanged}>
             {t("teams.move.submit")}

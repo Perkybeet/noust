@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download, ShieldPlus } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -14,6 +15,7 @@ import { Checkbox } from "../../components/ui/Checkbox";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
+import { ICONS } from "../../components/ui/icons";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
@@ -23,6 +25,7 @@ import { downloadBase64, downloadText } from "../../lib/clipboard";
 import { formatDate } from "../../lib/format";
 import { reportActionError } from "../apps/useAppActions";
 import { IssuedList, SignForm, TrustSteps, listOf } from "./InternalAuthorityPanels";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 /** The base64 of a PEM certificate is the certificate itself in the binary form (DER). */
 function derOf(pem: string): string {
@@ -124,14 +127,14 @@ function Made({ overview, authority, onRemoved }: { overview: InternalCa; author
           { label: t("internalCa.signsForLabel"), value: authority.permitted_dns.join(", ") },
           { label: t("internalCa.signsRangesLabel"), value: authority.permitted_networks.join(", ") },
           { label: t("internalCa.keptLabel"), value: String(authority.issued), copy: false },
-          { label: t("internalCa.trustedHereLabel"), value: overview.trusted_here ? t("internalCa.yes") : t("internalCa.no"), mono: false, copy: false },
+          { label: t("internalCa.trustedHereLabel"), value: overview.trusted_here ? t("common.words.yes") : t("common.words.no"), mono: false, copy: false },
         ]}
       />
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => downloadText("ca.crt", pem, "application/x-pem-file")}>{t("internalCa.downloadPem")}</Button>
-        <Button onClick={() => downloadBase64("ca.cer", derOf(pem), "application/x-x509-ca-cert")}>{t("internalCa.downloadDer")}</Button>
+        <Button icon={<Download aria-hidden="true" />} onClick={() => downloadText("ca.crt", pem, "application/x-pem-file")}>{t("internalCa.downloadPem")}</Button>
+        <Button icon={<Download aria-hidden="true" />} onClick={() => downloadBase64("ca.cer", derOf(pem), "application/x-x509-ca-cert")}>{t("internalCa.downloadDer")}</Button>
         {overview.system_store !== null ? (
-          <Button loading={trust.isPending} onClick={() => trust.mutate(!overview.trusted_here)}>
+          <Button icon={<ShieldPlus aria-hidden="true" />} loading={trust.isPending} onClick={() => trust.mutate(!overview.trusted_here)}>
             {overview.trusted_here ? t("internalCa.untrustHere") : t("internalCa.trustHere")}
           </Button>
         ) : null}
@@ -147,7 +150,7 @@ function Made({ overview, authority, onRemoved }: { overview: InternalCa; author
         <SignForm authority={authority} />
       </Subsection>
       <div className="flex justify-start">
-        <Button variant="danger" onClick={() => setRemoving(true)}>
+        <Button icon={<ICONS.delete aria-hidden="true" />} onClick={() => setRemoving(true)}>
           {t("internalCa.remove")}
         </Button>
       </div>
@@ -198,10 +201,9 @@ export function InternalAuthorityDialog({ open, onClose }: { open: boolean; onCl
       {overview.isError ? (
         <ErrorBlock compact error={overview.error} title={t("internalCa.readFailed")} onRetry={() => void overview.refetch()} retrying={overview.isRefetching} />
       ) : overview.data === undefined ? (
-        <div aria-busy="true">
-          <span className="sr-only">{t("internalCa.loading")}</span>
+        <LoadingRegion label={t("internalCa.loading")}>
           <Skeleton className="h-40 rounded-card" />
-        </div>
+        </LoadingRegion>
       ) : overview.data.authority === null ? (
         <MakeForm onMade={() => void overview.refetch()} />
       ) : (

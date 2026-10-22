@@ -10,10 +10,8 @@ export const samlAdmin: Catalog<typeof en> = {
     "Un proveedor SAML envía un formulario desde su sitio, y el navegador solo manda la cookie de inicio de sesión con él por HTTPS. Sirve la consola con TLS.",
   form: {
     createTitle: "Añadir un proveedor SAML",
-    editTitle: "Editar {name}",
     description:
       "Las aserciones deben ir firmadas por uno de los certificados de abajo. Las aserciones cifradas se rechazan: la conexión ya va cifrada.",
-    name: "Nombre",
     nameHelp: "Un nombre corto en minúsculas, como corp o entra. No se puede cambiar después.",
     label: "Etiqueta",
     labelHelp: "El nombre en su botón de inicio de sesión.",
@@ -21,7 +19,6 @@ export const samlAdmin: Catalog<typeof en> = {
     mappingsLine: "La línea {line} no es una correspondencia. Escribe GRUPO=ROL, GRUPO=EQUIPO:ROL o GRUPO=ROL@EQUIPO/PROYECTO.",
     create: "Añadir proveedor",
     save: "Guardar proveedor",
-    cancel: "Cancelar",
     errorTitle: "No se guardó el proveedor",
     register: {
       title: "Registra este servidor en el proveedor",
@@ -62,7 +59,6 @@ export const samlAdmin: Catalog<typeof en> = {
     contextsHelp: "Debe informarse una de ellas, como urn:oasis:names:tc:SAML:2.0:ac:classes:TimeSyncToken. Vacío no exige ninguna.",
   },
   removeDialog: {
-    title: "¿Quitar {name}?",
     description: "Las personas vinculadas a él ya no podrán iniciar sesión con él. Sus cuentas se quedan como están.",
     action: "Quitar proveedor",
   },

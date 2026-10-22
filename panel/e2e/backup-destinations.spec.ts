@@ -96,7 +96,9 @@ test("adding an SFTP destination lists it; one that cannot be reached says so in
   await page.getByRole("button", { name: "Add destination" }).click();
   const dialog = page.getByRole("dialog", { name: "Add backup destination" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Add destination" })).toBeDisabled();
+  // Pressing it empty says what is missing, under the field, and sends nothing.
+  await dialog.getByRole("button", { name: "Add destination" }).click();
+  await expect(dialog.getByText("This field is required.").first()).toBeVisible();
 
   await dialog.getByLabel("Name", { exact: true }).fill(name);
   await dialog.getByRole("combobox", { name: "Backend" }).click();
@@ -257,7 +259,7 @@ test("a schedule copies to both destinations, each with its own retention", asyn
   await expect(row.getByText("Every day at 02:00", { exact: true })).toBeVisible();
   await expect(row.getByText("*-*-* 02:00:00", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Actions for the schedule on shop.example.net" }).click();
+  await page.getByRole("button", { name: "Actions for shop.example.net" }).click();
   await page.getByRole("menuitem", { name: "Edit" }).click();
   const dialog = page.getByRole("dialog", { name: "Edit the schedule for shop.example.net" });
   await expect(dialog).toBeVisible();
@@ -267,6 +269,34 @@ test("a schedule copies to both destinations, each with its own retention", asyn
   await expect(dialog.getByLabel(`Delete after (days) on ${ENCRYPTED}`)).toHaveValue("");
   await settle(page);
   await expectNoA11yViolations(page, "a schedule with destinations");
+});
+
+test("a schedule's destinations fit a phone: each name keeps its own line, each limit its box, and nothing scrolls sideways", async ({ page, consoleServer }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page, consoleServer, "/backups/schedules");
+  await page.getByRole("button", { name: "Actions for shop.example.net" }).click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
+  const dialog = page.getByRole("dialog", { name: "Edit the schedule for shop.example.net" });
+  await expect(dialog.getByLabel(`Keep on ${SFTP}`, { exact: true })).toBeVisible();
+  await settle(page);
+
+  for (const name of [SFTP, ENCRYPTED]) {
+    // The destination's name is what the operator reads to know which limits these are: it is not cut to nothing.
+    const label = dialog.getByRole("checkbox", { name });
+    const box = await label.boundingBox();
+    expect(box?.width ?? 0, `the checkbox of ${name}`).toBeGreaterThan(8);
+    const text = dialog.getByText(name, { exact: true }).first();
+    const shown = await text.boundingBox();
+    expect(shown?.width ?? 0, `the name ${name} keeps room to be read`).toBeGreaterThan(60);
+    for (const field of [`Keep on ${name}`, `Delete after (days) on ${name}`]) {
+      const input = await dialog.getByLabel(field, { exact: true }).boundingBox();
+      expect(input?.width ?? 0, field).toBeGreaterThan(40);
+    }
+  }
+  // The dialog does not scroll sideways: every limit is inside it.
+  const overflow = await dialog.evaluate((element) => element.scrollWidth - element.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  await expectNoA11yViolations(page, "a schedule's destinations at 390 px");
 });
 
 test("copying a local backup to a destination queues a job that finishes", async ({ page, consoleServer, problems }) => {
@@ -282,7 +312,9 @@ test("copying a local backup to a destination queues a job that finishes", async
   await page.getByRole("menuitem", { name: "Copy to destination…" }).click();
   const dialog = page.getByRole("dialog", { name: `Copy ${backup.backup_id}` });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Copy" })).toBeDisabled();
+  // Pressing it without a destination says so under the field and queues nothing.
+  await dialog.getByRole("button", { name: "Copy" }).click();
+  await expect(dialog.locator(".text-fail", { hasText: "Choose a destination" })).toBeVisible();
   await dialog.getByRole("combobox", { name: "Destination" }).click();
   await page.getByRole("option", { name: ENCRYPTED, exact: true }).click();
   await settle(page);

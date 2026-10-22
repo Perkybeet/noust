@@ -222,7 +222,7 @@ function Form({ build, appType, domain, children }: { build: AppBuild; appType: 
       </Card>
       {save.isError && !placed ? <ErrorBlock live compact error={save.error} title={t("appBuild.saveFailed", { domain })} /> : null}
       {children}
-      <CommandHint command={`noust app build set ${domain} --start 'node dist/server.js' --runtime node@22`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={`noust app build set ${domain} --start 'node dist/server.js' --runtime node@22`} label={t("common.words.fromTerminal")} />
       <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
       <ConfirmDialog
         open={removing}

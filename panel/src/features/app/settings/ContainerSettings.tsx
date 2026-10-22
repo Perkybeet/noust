@@ -163,7 +163,7 @@ function Form({ settings, domain }: { settings: Settings; domain: string }) {
       ) : null}
       <CommandHint
         command={`noust app container set ${domain} --container-port 3000 --volume /data`}
-        label={t("appSettings.fromTerminal")}
+        label={t("common.words.fromTerminal")}
       />
       <SaveBar
         changes={bar.changes}

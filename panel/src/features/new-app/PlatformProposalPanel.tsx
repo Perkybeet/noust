@@ -51,7 +51,7 @@ export function PlatformProposalPanel({ proposal, used, onUse, healthErrors = []
   const commands = [
     { label: t("newApp.proposal.install"), argv: proposal.install_command ?? null },
     { label: t("newApp.proposal.build"), argv: proposal.build_command ?? null },
-    { label: t("newApp.proposal.start"), argv: proposal.start_command ?? null },
+    { label: t("common.words.start"), argv: proposal.start_command ?? null },
   ].filter((entry): entry is { label: string; argv: string } => entry.argv !== null && entry.argv.trim() !== "");
   const path = proposal.health_path ?? null;
   const timeout = proposal.health_timeout ?? null;

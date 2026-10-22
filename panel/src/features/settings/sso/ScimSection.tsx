@@ -115,10 +115,10 @@ export function ScimSection() {
               onRowActivate={(source) => setEditing(source)}
               rowActions={(source) => (
                 <RowMenu name={source.name}>
-                  <MenuItem icon={<Pencil />} onClick={() => setEditing(source)}>{t("scimAdmin.editText")}</MenuItem>
+                  <MenuItem icon={<Pencil />} onClick={() => setEditing(source)}>{t("common.words.edit")}</MenuItem>
                   <MenuSeparator />
                   <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(source)}>
-                    {t("scimAdmin.removeText")}
+                    {t("common.words.remove")}
                   </MenuItem>
                 </RowMenu>
               )}
@@ -147,7 +147,7 @@ export function ScimSection() {
           onOpenChange={(next) => {
             if (!next) setRemoving(null);
           }}
-          title={t("scimAdmin.remove.title", { name: removing.name })}
+          title={t("common.words.removeNamedQuestion", { name: removing.name })}
           description={t("scimAdmin.remove.description")}
           actionLabel={t("scimAdmin.remove.action")}
           destructive

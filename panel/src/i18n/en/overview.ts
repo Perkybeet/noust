@@ -1,13 +1,11 @@
 /** Strings of the console's overview area: how this server is doing, at a glance. */
 export const overview = {
-  area: "Overview",
   title: "Overview",
   description: "How this server is doing, what needs you and what happened lately.",
   version: "Noust {version}",
   newApplication: "New application",
   tabsLabel: "Overview sections",
   couldNotLoad: "Could not load the overview",
-  command: "From a terminal",
   range: {
     "1h": "Last hour",
     "24h": "Last 24 hours",
@@ -94,7 +92,7 @@ export const overview = {
     title: "Needs attention",
     itemsSr: "Items: ",
     checking: "Checking the server",
-    emptyTitle: "Nothing needs attention.",
+    emptyTitle: "Nothing needs attention",
     emptyDescription: "No failed services or deploys, no certificate expiring within three weeks, no open monitor findings.",
     announceEmpty: "Nothing needs attention",
     announceCount: { one: "{count} item needs attention", other: "{count} items need attention" },
@@ -114,11 +112,9 @@ export const overview = {
     openServiceAria: "Open the service {name}",
     openFinding: "Look at it",
     openFindingAria: "Look at the process {name} on the server",
-    services: "Services",
     serviceFailed: "The service has failed",
     serviceRestarting: "systemd keeps restarting the service",
     runningOutsideUnit: "Its containers run while its unit is stopped: Noust is not supervising it",
-    serviceState: "The service is in state {label}",
     noAnswer: "The service runs, but nothing answers on its port",
     deployFailed: "Last deploy failed",
     deployRolledBack: "Last deploy was rolled back",
@@ -128,10 +124,6 @@ export const overview = {
     certValidUntil: "Valid until {date}",
     unitFailed: "The service has failed",
     unitRestarting: "systemd keeps restarting the service",
-    unitsFailedCount: {
-      one: "{count} of Noust's services has failed",
-      other: "{count} of Noust's services have failed",
-    },
     monitor: {
       nameNotice: "Its name matches a tool worth a look",
       nameWarning: "Its name matches a tool that needs a look",
@@ -144,7 +136,7 @@ export const overview = {
   activity: {
     title: "Recent activity",
     all: "All activity",
-    emptyTitle: "Nothing has happened yet.",
+    emptyTitle: "Nothing has happened yet",
     emptyDescription: "Deploys, updates, backups and restores appear here as they run.",
     today: "Today",
     yesterday: "Yesterday",
@@ -163,7 +155,7 @@ export const overview = {
     used: "Used",
     in: "In",
     out: "Out",
-    loadingRange: "Reading the {range}…",
+    loadingRange: "Loading the {range}…",
     couldNotLoad: "Could not load the machine's history",
   },
   history: {
@@ -183,7 +175,6 @@ export const overview = {
   firstSteps: {
     title: "Deploy your first app",
     description: "This server runs nothing yet. Pick the quickest way to see something live.",
-    done: "Done",
     demo: {
       title: "Try a demo",
       description: "A tiny page on a temporary address. One click.",

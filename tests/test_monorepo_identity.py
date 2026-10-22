@@ -4,7 +4,7 @@
 """
 A monorepo created now runs as an account of its own (checklist L-14).
 
-Until 3.4 a monorepo was the one application that ran several units and kept
+Until 4.0 a monorepo was the one application that ran several units and kept
 them on the shared account, because the account was only ever given to a unit
 named like its application. Its workspaces' units now name the account
 themselves, so one compromised workspace cannot read another application's

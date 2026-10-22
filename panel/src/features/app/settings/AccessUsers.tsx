@@ -105,7 +105,7 @@ function PasswordDialog({ domain, name, open, onOpenChange, onSaved }: PasswordD
     >
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
         {name === null ? (
-          <Field label={t("network.access.users.nameLabel")} description={t("network.access.users.nameHelp")} error={nameError}>
+          <Field label={t("common.words.name")} description={t("network.access.users.nameHelp")} error={nameError}>
             <Input mono value={typed} onValueChange={setTyped} autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={64} />
           </Field>
         ) : null}
@@ -157,7 +157,7 @@ export function AccessUsers({ domain, policy }: { domain: string; policy: AppPol
               actions={
                 <>
                   <IconButton label={`${t("network.access.users.change")}: ${name}`} icon={<KeyRound />} size="sm" onClick={() => setDialog({ name })} />
-                  <IconButton label={`${t("network.access.users.remove")}: ${name}`} icon={<ICONS.delete />} size="sm" onClick={() => setRemoving(name)} />
+                  <IconButton label={`${t("common.words.remove")}: ${name}`} icon={<ICONS.delete />} size="sm" onClick={() => setRemoving(name)} />
                 </>
               }
             >
@@ -192,7 +192,7 @@ export function AccessUsers({ domain, policy }: { domain: string; policy: AppPol
             {onlyAccount ? <> {t("network.access.users.removeLast")}</> : null}
           </>
         }
-        actionLabel={t("network.access.users.remove")}
+        actionLabel={t("common.words.remove")}
         destructive
         onConfirm={async () => {
           if (removing === null) return;

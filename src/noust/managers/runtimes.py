@@ -4,7 +4,7 @@
 """
 The language runtimes an application can be pinned to.
 
-Until 3.4 an application ran on whatever Node, Python and PHP the server's
+Until 4.0 an application ran on whatever Node, Python and PHP the server's
 package manager had put there, so one server could not host a project that
 needs Node 20 and another that needs Node 22, and a distribution upgrade
 changed the runtime of every application at its next restart. A project now
@@ -172,7 +172,7 @@ class RuntimeChoice:
     Attributes:
         request: What the project asked for.
         runtime: The runtime to use; None means the server's own, as
-            before 3.4 (nothing is put on ``PATH``).
+            before 4.0 (nothing is put on ``PATH``).
         reason: One sentence for the deployment's log.
         warning: Set when the deployment goes on with something other than
             what was asked for.

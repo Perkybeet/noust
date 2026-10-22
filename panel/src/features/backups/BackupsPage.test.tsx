@@ -271,7 +271,7 @@ describe("the Backups tab", () => {
 
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
       expect([...document.querySelectorAll(".toast")].some((toast) => toast.textContent.includes("Backup deleted: b-3"))).toBe(true);
@@ -389,12 +389,14 @@ describe("the Backups tab", () => {
     });
   });
 
-  it("invites a schedule when applications exist but none has a backup", async () => {
+  it("says it row by row, not in a banner, when applications exist but none has a backup", async () => {
     fakeBackend(backupsRoutes([]));
     const { user } = renderConsole("/backups");
-    expect(await screen.findByText("None of your applications has a backup yet")).toBeInTheDocument();
-    expect(within(await appRow("shop.example.com")).getByText("No backups")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Schedule backups" }));
+    const row = await appRow("shop.example.com");
+    expect(within(row).getByText("No backups")).toBeInTheDocument();
+    expect(screen.queryByText("None of your applications has a backup yet")).not.toBeInTheDocument();
+    await user.click(within(row).getByRole("button", { name: "Actions for shop.example.com" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Schedule backups…" }));
     expect(await screen.findByRole("dialog", { name: "New backup schedule" })).toBeInTheDocument();
   });
 
@@ -437,7 +439,7 @@ describe("the Backups tab", () => {
     expect(notice).toHaveTextContent("3 backups in /root");
     expect(notice).toHaveTextContent("1 backup in /var/backups/noust");
     expect(notice).toHaveTextContent("noust backup import /root");
-    expect(notice).toHaveTextContent("Add --dry-run to the command to see what would move first, without moving anything.");
+    expect(notice).toHaveTextContent("--dry-run shows what would move");
     // The disk could not be read: said so, never an empty meter.
     expect(screen.getByText("Disk: free space unknown")).toBeInTheDocument();
     await expectNoAxeViolations(container);

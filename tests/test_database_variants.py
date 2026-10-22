@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-PostgreSQL with an extension already installed: the image variants of an instance (3.4, C-10).
+PostgreSQL with an extension already installed: the image variants of an instance (4.0, C-10).
 
 PostGIS and pgvector are files on disk, so an instance that needs one runs the project's own image.
 A variant is that image: the same engine and the same majors, another repository and its own tags.

@@ -8,7 +8,7 @@ A team groups people; a project groups what they run; an environment is a
 stage of a project (production, staging). Every application, site, database
 and backup schedule belongs to one project and one environment, and a
 principal sees only the teams it belongs to (I-01, I-02, I-04, I-10 of the
-3.4 checklist). A team is a boundary of permissions and organisation, not of
+4.0 checklist). A team is a boundary of permissions and organisation, not of
 execution: applications still share one kernel, and the console says so.
 
 The pieces, each stated once:

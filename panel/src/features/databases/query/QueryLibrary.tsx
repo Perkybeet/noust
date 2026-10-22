@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Eraser, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { databaseKeys, historyQuery, savedQueriesQuery } from "../../../api/queries/databases";
 import type { HistoryEntry, SavedQuery } from "../../../api/queries/databases";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Button } from "../../../components/ui/Button";
@@ -20,13 +21,13 @@ import type { T } from "../../../i18n";
 import { formatCount, formatDecimal } from "../../../lib/format";
 import { reportActionError } from "../../apps/useAppActions";
 
-function ListSkeleton() {
+function ListSkeleton({ label }: { label: string }) {
   return (
-    <div aria-busy="true" className="flex flex-col gap-2 pt-2">
+    <LoadingRegion label={label} className="flex flex-col gap-2 pt-2">
       {[0, 1, 2, 3].map((index) => (
         <Skeleton key={index} className="h-12 w-full" />
       ))}
-    </div>
+    </LoadingRegion>
   );
 }
 
@@ -45,7 +46,7 @@ function HistoryItem({ entry, onPick, t }: { entry: HistoryEntry; onPick: (state
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-12 text-fg-muted">
           <span className="inline-flex items-center gap-1">
             <StatusGlyph state={failed ? "failed" : "running"} size={10} className={stateTextClass(failed ? "failed" : "running")} />
-            {failed ? t("databases.library.failed") : entry.mode === "write" ? t("databases.library.wrote") : t("databases.library.read")}
+            {failed ? t("common.words.failedFeminine") : entry.mode === "write" ? t("databases.library.wrote") : t("databases.library.read")}
           </span>
           {entry.row_count != null ? <span>{t("databases.library.rows", { count: entry.row_count, rows: formatCount(entry.row_count, t.locale) })}</span> : null}
           {entry.duration_ms != null ? <span>{t("databases.library.ms", { ms: formatDecimal(entry.duration_ms, t.locale) })}</span> : null}
@@ -66,7 +67,7 @@ function SavedItem({ saved, onPick, onDelete, t }: { saved: SavedQuery; onPick: 
         </Mono>
         {saved.database === "" ? <span className="text-12 text-fg-faint">{t("databases.library.anyDatabase")}</span> : null}
       </button>
-      <IconButton size="sm" label={t("databases.library.deleteSaved", { name: saved.name })} icon={<Trash2 />} onClick={onDelete} className="mt-1.5" />
+      <IconButton size="sm" label={t("common.words.deleteNamed", { name: saved.name })} icon={<Trash2 />} onClick={onDelete} className="mt-1.5" />
     </li>
   );
 }
@@ -103,7 +104,7 @@ export function QueryLibrary({ engine, name, onPick }: { engine: string; name: s
         {history.isError ? (
           <ErrorBlock compact error={history.error} title={t("databases.library.historyFailed")} onRetry={() => void history.refetch()} />
         ) : history.data === undefined ? (
-          <ListSkeleton />
+          <ListSkeleton label={t("databases.library.loading")} />
         ) : history.data.entries.length === 0 ? (
           <EmptyState variant="inline" title={t("databases.library.noHistory")} />
         ) : (
@@ -114,7 +115,7 @@ export function QueryLibrary({ engine, name, onPick }: { engine: string; name: s
               ))}
             </ul>
             <div>
-              <Button size="sm" variant="ghost" onClick={() => setClearing(true)}>
+              <Button icon={<Eraser aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setClearing(true)}>
                 {t("databases.library.clear")}
               </Button>
             </div>
@@ -125,7 +126,7 @@ export function QueryLibrary({ engine, name, onPick }: { engine: string; name: s
         {saved.isError ? (
           <ErrorBlock compact error={saved.error} title={t("databases.library.savedFailed")} onRetry={() => void saved.refetch()} />
         ) : saved.data === undefined ? (
-          <ListSkeleton />
+          <ListSkeleton label={t("databases.library.loading")} />
         ) : saved.data.queries.length === 0 ? (
           <EmptyState variant="inline" title={t("databases.library.noSaved")} />
         ) : (

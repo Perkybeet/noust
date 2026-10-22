@@ -54,7 +54,7 @@ VISIBLE_STATES = {
 #: Job types that build an application, by the value the store records. They
 #: are the ones that may overlap, up to ``deploy.max_concurrent_builds`` (and
 #: never two on one application); every other job runs alone, as every job did
-#: before 3.4, because a restore, an operating system update or a certificate
+#: before 4.0, because a restore, an operating system update or a certificate
 #: round trip is not something to run beside a build.
 BUILD_JOB_TYPES = frozenset({"deploy", "update"})
 

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The composers of what the 3.4 monitor watches beyond units, certificates and disks.
+The composers of what the 4.0 monitor watches beyond units, certificates and disks.
 
 The same rules as :mod:`noust.core.notifications.composers` (a title that is a
 state and nothing else, one sentence, the server first, a program's own words

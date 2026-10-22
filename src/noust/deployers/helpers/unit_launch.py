@@ -237,7 +237,7 @@ def with_release_env(unit: str, line: str) -> str:
 
 def attach_release_env(services: Any, unit: str, directory: str) -> str | None:
     """
-    Make a unit written before 3.4 load the variables Noust says about a deployment.
+    Make a unit written before 4.0 load the variables Noust says about a deployment.
 
     An update does not write the unit again, so an application created earlier gets the line
     the first time it is updated, as a text edit that changes nothing else.

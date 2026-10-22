@@ -36,7 +36,7 @@ test("a rule is two clicks from the list, says what it watches, and goes when it
   problems.expect(/status of 400 .* \/api\/alerts\/rules\/disk-full$/);
   await signIn(page, consoleServer, "/settings/alerts");
   await expect(page.getByText("No alert rules yet")).toBeVisible();
-  await expect(page.getByText("No alert is firing.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "New rule" })).toHaveCount(1);
 
   // The two clicks: New rule, Save rule. What is typed is not a click.
   await page.evaluate(() => {
@@ -67,12 +67,13 @@ test("a rule is two clicks from the list, says what it watches, and goes when it
 
   const created = row(page, "disk-full");
   await expect(created.getByText("CPU above 85% for 5m 00s")).toBeVisible();
-  await expect(created.getByText("OK", { exact: true })).toBeVisible();
+  await expect(created.getByText("Normal", { exact: true })).toBeVisible();
   await expect(created.getByText("On the server.")).toBeVisible();
   await expect(page.getByText("No alert is firing.")).toBeVisible();
 
   // Edited: the name does not change, the limit is written as it was typed.
-  await created.getByRole("button", { name: "Edit disk-full" }).click();
+  await created.getByRole("button", { name: "Actions for disk-full" }).click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
   const edit = page.getByRole("dialog", { name: "Edit disk-full" });
   await expect(edit.getByLabel("Name")).toHaveAttribute("readonly", "");
   await expect(edit.getByLabel("Limit")).toHaveValue("85");
@@ -83,7 +84,8 @@ test("a rule is two clicks from the list, says what it watches, and goes when it
   await expect(created.getByText("Off", { exact: true })).toBeVisible();
   await page.reload();
   await expect(row(page, "disk-full").getByText("Off", { exact: true })).toBeVisible();
-  await row(page, "disk-full").getByRole("button", { name: "Remove disk-full" }).click();
+  await row(page, "disk-full").getByRole("button", { name: "Actions for disk-full" }).click();
+  await page.getByRole("menuitem", { name: "Remove" }).click();
   await page.getByRole("alertdialog", { name: "Remove disk-full?" }).getByRole("button", { name: "Remove" }).click();
   await expect(page.getByText("No alert rules yet")).toBeVisible();
 });
@@ -92,9 +94,9 @@ test("the built-in checks are one form: only what changed is written, and the ba
   problems.expect(/status of 403 .* \/api\/config$/);
   problems.expect(/status of 400 .* \/api\/config$/);
   await signIn(page, consoleServer, "/settings/alerts");
-  const disk = page.getByLabel("Disk almost full at (%)");
+  const disk = page.getByLabel("Almost full at (%)");
   await expect(disk).toHaveValue("90");
-  await expect(page.getByLabel("Certificates, days before they expire")).toHaveValue("14");
+  await expect(page.getByLabel("Days before they expire")).toHaveValue("14");
 
   await disk.fill("120");
   await page.getByRole("region", { name: "Unsaved changes" }).getByRole("button", { name: "Save" }).click();
@@ -107,8 +109,8 @@ test("the built-in checks are one form: only what changed is written, and the ba
   await page.getByRole("region", { name: "Unsaved changes" }).getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("region", { name: "Unsaved changes" }).getByText("No unsaved changes")).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("Disk almost full at (%)")).toHaveValue("95");
-  await expect(page.getByLabel("Certificates, days before they expire")).toHaveValue("14");
+  await expect(page.getByLabel("Almost full at (%)")).toHaveValue("95");
+  await expect(page.getByLabel("Days before they expire")).toHaveValue("14");
   await settle(page);
   await expectNoA11yViolations(page, "the alerts page");
 });

@@ -34,7 +34,7 @@ export const terminal = {
   },
   actions: {
     open: "Open terminal",
-    opening: "Opening...",
+    opening: "Opening…",
     end: "End session",
     newSession: "Open a new terminal",
     display: "Display",
@@ -132,7 +132,7 @@ export const terminal = {
     timeoutLabel: "Time limit",
     timeoutHelp: "Seconds. It is stopped when it runs out.",
     run: "Run command",
-    running: "Running",
+    running: "Running…",
     again: "Run another",
     outputLabel: "Log of the command in {domain}",
     outputEmpty: "Nothing was logged.",

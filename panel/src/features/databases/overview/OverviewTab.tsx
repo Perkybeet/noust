@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
@@ -36,6 +37,7 @@ import { ALL_DATABASES, effectivePolicy, newestDumps, policyProtection, protecti
 import { TEXT_LINK } from "../ui";
 import { profileLabel } from "../users/profiles";
 import { VerifiedMark } from "../VerifiedMark";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 /** How many accounts the overview names before sending to the Users tab. */
 const ACCESS_SHOWN = 5;
@@ -100,14 +102,13 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
   if (data === undefined) {
     if (overview.isError) return null; // The layout's banner says it, with Try again.
     return (
-      <div aria-busy="true" className="flex flex-col gap-8">
-        <span className="sr-only">{t("databases.overview.loading")}</span>
+      <LoadingRegion label={t("databases.overview.loading")} className="flex flex-col gap-8">
         <TilesSkeleton />
         <div className="grid gap-4 lg:grid-cols-2">
           <Skeleton className="h-48 rounded-card" />
           <Skeleton className="h-48 rounded-card" />
         </div>
-      </div>
+      </LoadingRegion>
     );
   }
 
@@ -230,7 +231,7 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
             description={t("databases.overview.usedByDescription")}
             padding="sm"
             actions={
-              <Button size="sm" disabled={database.missing} onClick={() => setLinking(true)}>
+              <Button icon={<Link2 aria-hidden="true" />} size="sm" disabled={database.missing} onClick={() => setLinking(true)}>
                 {t("databases.overview.linkApp")}
               </Button>
             }
@@ -350,7 +351,7 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
         </div>
       </div>
 
-      <CommandHint command={`noust db info ${name} -e ${engine}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db info ${name} -e ${engine}`} label={t("common.words.fromTerminal")} />
 
       <LinkDialog
         open={linking}

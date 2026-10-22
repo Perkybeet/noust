@@ -12,7 +12,6 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { FeatureState } from "../../components/ui/FeatureState";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import { useOnArrival } from "../../lib/useArrival";
@@ -73,7 +72,6 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
   const loading = apps.isPending || backups.isPending;
   const hasApps = (apps.data?.apps.length ?? 0) > 0;
   const nothing = !loading && rows.length === 0;
-  const noneBackedUp = !loading && hasApps && (backups.data?.backups.length ?? 0) === 0;
   const drawerRow = search.domain === undefined ? null : (rows.find((row) => row.domain === search.domain) ?? null);
 
   const set = (patch: SearchPatch, replace = true): void => {
@@ -98,28 +96,15 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
 
   const backUpButton = hasApps ? (
     <Button variant="primary" icon={<Play aria-hidden="true" />} onClick={() => setOpen({ kind: "create" })}>
-      {t("backups.page.backUpNow")}
+      {t("common.words.backUpNow")}
     </Button>
   ) : undefined;
 
-  const notice = misplaced ? (
-    <MisplacedBackupsNotice />
-  ) : noneBackedUp ? (
-    // Scheduled backups are off for every application: the feature's state, not a message.
-    <FeatureState
-      state="off"
-      title={t("backups.coverage.noneBackedUp.title")}
-      action={
-        <Button size="sm" onClick={() => setOpen({ kind: "schedule", domain: "", existing: null })}>
-          {t("backups.coverage.noneBackedUp.action")}
-        </Button>
-      }
-    >
-      {t("backups.coverage.noneBackedUp.description")}
-    </FeatureState>
-  ) : undefined;
+  // Each row already says "No backups" and offers its schedule: nothing above the table repeats it.
+  const notice = misplaced ? <MisplacedBackupsNotice /> : undefined;
 
   let content;
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (backups.isError && backups.data === undefined) {
     content = <ErrorBlock error={backups.error} title={t("backups.page.loadError")} onRetry={() => void backups.refetch()} retrying={backups.isRefetching} />;
   } else if (nothing) {
@@ -150,7 +135,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
             title={t("backups.coverage.noMatch")}
             action={
               <Button size="sm" variant="ghost" onClick={() => onSearchChange(search.domain !== undefined ? { domain: search.domain } : {})}>
-                {t("backups.common.clearFilters")}
+                {t("common.words.clearFilters")}
               </Button>
             }
           />
@@ -201,7 +186,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
             ),
           })}
       // The first-use state says its own command: one per view.
-      {...(nothing ? {} : { footer: <CommandHint command="noust backup list" label={t("backups.common.fromTerminal")} /> })}
+      {...(nothing ? {} : { footer: <CommandHint command="noust backup list" label={t("common.words.fromTerminal")} /> })}
     >
       {content}
 

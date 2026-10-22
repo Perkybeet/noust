@@ -134,11 +134,11 @@ def render_command(command: click.Command, path: tuple[str, ...]) -> list[str]:
     lines.append("")
 
     if isinstance(command, click.Group):
+        from noust.cli.app import documented_commands
+
         ctx = click.Context(command)
-        for child_name in command.list_commands(ctx):
-            child = command.get_command(ctx, child_name)
-            if child is not None:
-                lines += render_command(child, (*path, child_name))
+        for child_name, child in documented_commands(command, ctx):
+            lines += render_command(child, (*path, child_name))
 
     return lines
 

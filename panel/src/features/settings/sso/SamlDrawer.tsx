@@ -119,12 +119,12 @@ export function SamlDrawer({ provider, onClose }: SamlDrawerProps) {
         if (!next && !save.isPending) onClose();
       }}
       size="md"
-      title={creating ? t("samlAdmin.form.createTitle") : t("samlAdmin.form.editTitle", { name: provider.name })}
+      title={creating ? t("samlAdmin.form.createTitle") : t("common.words.editNamed", { name: provider.name })}
       description={t("samlAdmin.form.description")}
       footer={
         <>
           <Button disabled={save.isPending} onClick={onClose}>
-            {t("samlAdmin.form.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {creating ? t("samlAdmin.form.create") : t("samlAdmin.form.save")}
@@ -156,7 +156,7 @@ export function SamlDrawer({ provider, onClose }: SamlDrawerProps) {
         ) : null}
 
         {creating ? (
-          <Field label={t("samlAdmin.form.name")} description={t("samlAdmin.form.nameHelp")} error={tried && draft.name.trim() === "" ? required : undefined}>
+          <Field label={t("common.words.name")} description={t("samlAdmin.form.nameHelp")} error={tried && draft.name.trim() === "" ? required : undefined}>
             <Input
               mono
               autoComplete="off"

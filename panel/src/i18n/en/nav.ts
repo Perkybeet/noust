@@ -34,7 +34,7 @@ export const nav = {
   /** After a destination's name, for assistive technology: "Services 1 failed". */
   failed: { one: "{count} failed", other: "{count} failed" },
   /** After Activity's name, for assistive technology: "Activity 2 running". */
-  running: { one: "{count} running", other: "{count} running" },
+  running: { one: "{count} in progress", other: "{count} in progress" },
   /** After a destination's name: "Domains 2 certificates need renewing". */
   expiring: { one: "{count} certificate needs renewing", other: "{count} certificates need renewing" },
   overview: { label: "Overview", keywords: "home dashboard health", goTo: "Go to overview" },
@@ -42,7 +42,6 @@ export const nav = {
   apps: { label: "Applications", keywords: "apps sites deploy", goTo: "Go to applications" },
   catalog: { keywords: "catalog catalogue recipes templates one-click marketplace store install apps" },
   databases: { label: "Databases", keywords: "mysql postgres redis mongodb sql", goTo: "Go to databases" },
-  services: { label: "Services", keywords: "systemd units daemons" },
   cron: { label: "Cron", keywords: "schedule timers jobs", goTo: "Go to cron" },
   domains: { label: "Domains", keywords: "ssl tls https certbot nginx apache sites certificates dns", goTo: "Go to domains" },
   backups: { label: "Backups", keywords: "restore snapshots", goTo: "Go to backups" },
@@ -76,7 +75,7 @@ export const nav = {
     settings: { label: "Settings", keywords: "rename delete name" },
   },
   settingsTabs: {
-    general: { label: "General", keywords: "apps directory web server email language", command: "General settings" },
+    general: { label: "General", command: "General settings" },
     notifications: {
       label: "Channels",
       keywords: "notifications alerts email slack webhook channels where messages go",

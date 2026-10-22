@@ -466,7 +466,7 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
     )
     wait_page(sc, BG_DOMAIN, "ok 1", f"{old} {BG_DOMAIN}")
     # 3.3.1 makes a plain application; blue/green is the command that follows (the default only
-    # from 3.4), and it is what writes the wasm_bg_ upstream and the instances of a template.
+    # from 4.0), and it is what writes the wasm_bg_ upstream and the instances of a template.
     sc.run(
         f"noust app zero-downtime {BG_DOMAIN} on --drain 2",
         timeout=300,

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-PostgreSQL extensions of a database (3.4, C-10): the manager, ``noust db extension`` and the API.
+PostgreSQL extensions of a database (4.0, C-10): the manager, ``noust db extension`` and the API.
 
 The engine is an in-memory PostgreSQL that offers a list of extensions and loads or drops them
 per database, and records every statement it was sent. What is defended:

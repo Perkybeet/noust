@@ -1,14 +1,11 @@
 /** Strings of the console's catalogue of recipes: its page, its cards, one recipe's page, and the recipes installed. */
 export const catalog = {
-  area: "Catalog",
   page: {
     title: "Catalog",
     description: "Applications ready to deploy. Each one is pinned to a version, runs the way its project intends, and brings the variables and services it needs.",
   },
   tabs: {
     label: "Catalog sections",
-    browse: "Browse",
-    installed: "Installed",
   },
   own: {
     open: "Add a recipe",
@@ -118,7 +115,6 @@ export const catalog = {
     docs: "Docs",
     docsOf: "Documentation of {title}",
     details: "Details",
-    detailsOf: "Details of {title}",
     updated: "Updated {date}",
     yours: "Yours",
     package: "From a package",
@@ -140,7 +136,6 @@ export const catalog = {
     native: "Natively",
     count: { one: "{count} recipe", other: "{count} recipes" },
     countFiltered: "{shown} of {total} recipes",
-    clear: "Clear filters",
   },
   empty: {
     noMatch: "No recipe matches these filters.",
@@ -169,7 +164,6 @@ export const catalog = {
     goneReason: "The recipe is no longer in the catalog.",
     noChanges: "The catalog does not say what changed.",
     moreChanges: { one: "and {count} more change", other: "and {count} more changes" },
-    update: "Update",
     updateNamed: "Update {domain}",
   },
   update: {
@@ -179,11 +173,9 @@ export const catalog = {
     noChanges: "The catalog does not say what changed in this version.",
     safeTitle: "It goes back when it does not start",
     safe: "Noust copies the application first (the databases of a Docker stack included), builds the new version and checks that it answers. When it does not, the version that served is put back and the error says why. The variables the application has keep their values.",
-    reading: "Reading what this version asks for",
+    reading: "Loading what this version asks for",
     variables: "This version declares variables the application may not have yet. Give a value only for one it lacks; leave the rest empty.",
     variableHelp: "Only if the application does not have it yet.",
-    cancel: "Cancel",
-    action: "Update",
     failed: "{domain} was not updated",
     queued: "Update of {domain} queued",
     running: "Updating {domain}",

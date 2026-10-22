@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { isApiError } from "../../api/client";
@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
@@ -48,6 +49,8 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
   const [keyPassword, setKeyPassword] = useState("");
   const [keyPassword2, setKeyPassword2] = useState("");
   const [revealFor, setRevealFor] = useState<string | null>(null);
+  const [pressed, setPressed] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const { create, update } = useDestinationActions();
 
   const saving = create.isPending || update.isPending;
@@ -62,6 +65,7 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
     setUseExistingKey(false);
     setKeyPassword("");
     setKeyPassword2("");
+    setPressed(false);
     create.reset();
     update.reset();
   };
@@ -77,6 +81,9 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
   const oauth = OAUTH_BACKENDS.has(backend);
   const configuredSecrets = new Set(existing?.configured_secret_fields ?? []);
 
+  const required = t("backups.fields.required");
+  const missingField = (field: { key: string; required: boolean; secret: boolean }): boolean =>
+    field.required && (values[field.key] ?? "").trim() === "" && !(field.secret && configuredSecrets.has(field.key));
   const givesKey = existing === undefined && encrypted && useExistingKey;
   const canSubmit =
     backend !== "" &&
@@ -90,7 +97,13 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
    * a destination that is down on purpose (a NAS that is off at night) can still be recorded.
    */
   const send = (verify: boolean): void => {
-    if (!canSubmit || saving) return;
+    if (saving) return;
+    if (!canSubmit) {
+      // Pressing says which field is missing and goes to it, instead of a button that stays grey.
+      setPressed(true);
+      requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+      return;
+    }
     const payload = fieldsPayload(fields, values);
     const wasEncrypted = existing?.encrypted ?? false;
     const onSuccess = (): void => {
@@ -137,23 +150,23 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
         open={open}
         onOpenChange={close}
         size="lg"
-        title={existing ? t("backups.destinationDialog.titleEdit", { name: existing.name }) : t("backups.destinationDialog.titleNew")}
+        title={existing ? t("common.words.editNamed", { name: existing.name }) : t("backups.destinationDialog.titleNew")}
         description={t("backups.destinationDialog.description")}
         footer={
           <>
             <Button disabled={saving} onClick={() => close(false)}>
-              {t("backups.common.cancel")}
+              {t("common.words.cancel")}
             </Button>
-            <Button type="submit" form={formId} variant="primary" loading={saving} disabled={!canSubmit}>
-              {existing ? t("backups.common.save") : t("backups.destinationDialog.add")}
+            <Button type="submit" form={formId} variant="primary" loading={saving}>
+              {existing ? t("common.words.save") : t("backups.destinationDialog.add")}
             </Button>
           </>
         }
       >
-        <form id={formId} onSubmit={submit} className="flex flex-col gap-4">
+        <form id={formId} ref={formRef} noValidate onSubmit={submit} className="flex flex-col gap-4">
           {existing === undefined ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t("backups.destinationDialog.nameLabel")} description={t("backups.destinationDialog.nameDescription")}>
+              <Field label={t("common.words.name")} description={t("backups.destinationDialog.nameDescription")} error={pressed && name.trim() === "" ? required : undefined}>
                 <Input
                   mono
                   value={name}
@@ -165,7 +178,7 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
                   disabled={saving}
                 />
               </Field>
-              <Field label={t("backups.destinationDialog.backendLabel")} nativeLabel={false}>
+              <Field label={t("backups.destinationDialog.backendLabel")} nativeLabel={false} error={pressed && backend === "" ? required : undefined}>
                 {backends.isPending ? (
                   <Skeleton className="h-8 w-full rounded-control" />
                 ) : (
@@ -207,9 +220,9 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
           {backend !== "" && !backends.isPending ? (
             <>
               {oauth ? (
-                <Notice>
+                <InlineMessage tone="info">
                   {t.rich("backups.destinationDialog.oauthNote", { command: <Mono>{`rclone authorize "${backend}"`}</Mono> })}
-                </Notice>
+                </InlineMessage>
               ) : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 {fields.map((field) => {
@@ -220,6 +233,7 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
                       label={field.label}
                       optional={!field.required}
                       description={field.help !== "" ? field.help : undefined}
+                      error={pressed && missingField(field) ? required : undefined}
                     >
                       {choices.length > 0 ? (
                         <Select
@@ -274,7 +288,7 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
                     />
                     {useExistingKey ? (
                       <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label={t("backups.fields.password")}>
+                        <Field label={t("backups.fields.password")} error={pressed && keyPassword.trim() === "" ? required : undefined}>
                           <SecretInput
                             label={t("backups.fields.password")}
                             placeholder=""
@@ -284,7 +298,7 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
                             onChange={setKeyPassword}
                           />
                         </Field>
-                        <Field label={t("backups.fields.password2")}>
+                        <Field label={t("backups.fields.password2")} error={pressed && keyPassword2.trim() === "" ? required : undefined}>
                           <SecretInput
                             label={t("backups.fields.password2")}
                             placeholder=""

@@ -1,6 +1,6 @@
 # Single sign-on, directories and provisioning
 
-Noust 3.4 lets people sign in to the console with the identity provider the organisation already
+Noust 4.0 lets people sign in to the console with the identity provider the organisation already
 has: Keycloak, Authentik, Okta, Auth0, Microsoft Entra, Google Workspace, or any server that speaks
 **OpenID Connect** with the authorization code flow. The operator configures one or more providers;
 the sign-in page then shows a button, "Sign in with *Acme SSO*", above the password form.
@@ -516,7 +516,7 @@ a short list is the point).
   checked where the last way in would be taken away: removing or disabling a provider, unlinking a
   person, or shortening the exempt list while passwords are off is refused when it would leave nobody.
 * The sign-in page then offers the providers first and keeps the account form behind "Sign in with a
-  password or a passkey", with the emergency access where it was.
+  password or a passkey", with the Access token button where it was.
 * Sessions that are open stay open; nothing is signed out by the switch.
 * It is an audit event, `auth.local_login.change`, and a refusal names who would have been left.
 

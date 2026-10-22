@@ -78,7 +78,7 @@ function PauseDialog({ domain, open, onOpenChange }: { domain: string; open: boo
       footer={
         <>
           <Button disabled={pause.isPending} onClick={() => onOpenChange(false)}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={pause.isPending}>
             {t("rollout.auto.pauseAction")}

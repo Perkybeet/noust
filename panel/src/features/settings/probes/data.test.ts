@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { Probe } from "../../../api/queries/probes";
+import type { Probe, ProbeList } from "../../../api/queries/probes";
 import { bindT } from "../../../i18n";
-import { emptyProbe, lastAnswer, probeBody, probeFormFrom, standing, stretch, uptimeText } from "./data";
+import { emptyProbe, lastAnswer, probeBody, probeFormFrom, selectFailingProbes, standing, stretch, uptimeText } from "./data";
 
 const en = bindT("en");
 
@@ -96,5 +96,31 @@ describe("how a probe stands", () => {
     expect(stretch(1000, null, 1900, "en")).toBe("15m 00s");
     // A clock a little behind the server's is never a negative stretch.
     expect(stretch(1000, undefined, 900, "en")).not.toContain("-");
+  });
+});
+
+describe("the probes that are down", () => {
+  const down = (name: string, since: number, extra: Partial<Probe> = {}): Probe =>
+    probe({ name, status: { state: "down", since, failures: 3, last_checked: 500, last_status: 503, last_latency_ms: 40, last_error: "HTTP 503" }, ...extra });
+  const list = (items: Probe[]): ProbeList => ({ items, down: items.length, status_page: {} }) as unknown as ProbeList;
+
+  it("is nothing before the probes are read, and nothing when all answer", () => {
+    expect(selectFailingProbes(undefined)).toEqual([]);
+    expect(selectFailingProbes(list([probe()]))).toEqual([]);
+  });
+
+  it("lists the ones that are down with since when and what they last said, the longest first", () => {
+    const found = selectFailingProbes(list([down("blog", 900), probe({ name: "ok" }), down("shop", 300)]));
+    expect(found.map((item) => item.name)).toEqual(["shop", "blog"]);
+    expect(found[0]).toEqual({ name: "shop", address: "https://shop.example.com/health", since: 300, lastError: "HTTP 503", failures: 3 });
+  });
+
+  it("leaves out a probe that is switched off: it is not asked, so it is not down", () => {
+    expect(selectFailingProbes(list([down("shop", 300, { enabled: false })]))).toEqual([]);
+  });
+
+  it("carries no error when the answer had none", () => {
+    const [found] = selectFailingProbes(list([down("shop", 300, { status: { state: "down", since: 300, failures: 1, last_checked: 400, last_status: null, last_latency_ms: null, last_error: null } })]));
+    expect(found?.lastError).toBeNull();
   });
 });

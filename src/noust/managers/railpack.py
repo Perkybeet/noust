@@ -4,7 +4,7 @@
 """
 Railpack: building an image from source code without a Dockerfile.
 
-Noust does not reimplement Nixpacks or Railpack (decision D1 of the 3.4
+Noust does not reimplement Nixpacks or Railpack (decision D1 of the 4.0
 design). A container application can be built by Railpack when its binary is
 on the server, and ``noust setup railpack`` puts it there: one release of the
 project, pinned in this module, downloaded over HTTPS, checked against the

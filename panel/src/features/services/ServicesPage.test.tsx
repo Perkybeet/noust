@@ -149,7 +149,7 @@ describe("the services tab", () => {
     expect(screen.getByText("1 of 2 services")).toBeInTheDocument();
 
     await user.type(screen.getByRole("searchbox", { name: "Search services" }), "shop");
-    expect(await screen.findByText("No service matches these filters.")).toBeInTheDocument();
+    expect(await screen.findByText("No service matches these filters")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
     await waitFor(() => {
       expect(location().search).toEqual({});
@@ -194,7 +194,7 @@ describe("the services tab", () => {
 
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     expect(await screen.findByText("Created e2e-worker")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/services")).toHaveLength(2);

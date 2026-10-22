@@ -43,8 +43,9 @@ test("a second Slack by name, set up in the drawer it opens, limited to an appli
   await page.getByRole("button", { name: "Add a channel" }).click();
   const add = page.getByRole("dialog", { name: "Add a channel" });
   await add.getByLabel("Name").fill("Slack Staging");
-  // A name the server would refuse is not sent.
-  await expect(add.getByRole("button", { name: "Add channel" })).toBeDisabled();
+  // A name the server would refuse is not sent: pressing says what is wrong with it.
+  await add.getByRole("button", { name: "Add channel" }).click();
+  await expect(add.getByText("A name starts with a lowercase letter and has up to 32 of them, digits, - and _.")).toBeVisible();
   await add.getByLabel("Name").fill("slack-staging");
   await add.getByRole("button", { name: "Add channel" }).click();
   await confirmItsYou(page, consoleServer);
@@ -64,7 +65,7 @@ test("a second Slack by name, set up in the drawer it opens, limited to an appli
   await more.getByRole("button", { name: "Routing for slack-staging" }).click();
   const routing = page.getByRole("dialog", { name: "Routing for slack-staging" });
   await routing.getByRole("textbox", { name: /^Applications/ }).fill("tienda.example.org, *.staging.example.org");
-  await routing.getByRole("switch", { name: "Hold messages during quiet hours" }).click();
+  await routing.getByRole("checkbox", { name: "Hold messages during quiet hours" }).click();
   await routing.getByLabel("Time zone").fill("Europe/Madrid");
   await stillness(page);
   await expectNoA11yViolations(page, "a channel's routing drawer");
@@ -144,7 +145,7 @@ test("the new channel types have a row each, and the record of deliveries says n
   await pushover.getByRole("button", { name: "Done" }).click();
   await expect(row(page, "Pushover").getByText("On", { exact: true })).toBeVisible();
 
-  await expect(page.getByRole("heading", { name: "Deliveries" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent messages" })).toBeVisible();
   await expect(page.getByText("Nothing has been sent yet.")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the notifications page with its routing, more channels and deliveries");

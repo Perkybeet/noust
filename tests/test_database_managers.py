@@ -429,7 +429,7 @@ def test_postgres_restore_gives_the_dump_to_psql_as_its_stdin(
     """
     The runner opens the 0600 root-owned backup and hands it to psql: no copy, no hand-over.
 
-    Until 3.4 psql opened a copy staged for the postgres account in a directory under the
+    Until 4.0 psql opened a copy staged for the postgres account in a directory under the
     backups, which that account could not reach when /var/backups/noust was not
     world-traversable ("could not open input file ... Permission denied").
     """

@@ -129,7 +129,7 @@ export function MachinesSection({ canCreate, onCreate }: { canCreate: boolean; o
       >
         {(machines) => <DataTable caption={t("cloud.machines.caption")} columns={columns} rows={machines} getRowId={(machine) => machine.node} rowActions={(machine) => <MachineActions machine={machine} />} />}
       </QueryState>
-      <CommandHint label={t("cloud.fromTerminal")} command="noust fleet cloud server list" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet cloud server list" />
     </Section>
   );
 }

@@ -1,5 +1,5 @@
-import { area, tab, tabItem } from "../../app/navCore";
-import type { Dest, Strip, TabItem } from "../../app/navCore";
+import { area, tab } from "../../app/navCore";
+import type { Dest, Strip } from "../../app/navCore";
 import type { PlainKey } from "../../i18n";
 
 // The fleet is a scope, not one destination of a server's bar (2.3 of the navigation design): its
@@ -48,28 +48,5 @@ const activity = view("fleet.activity", "/fleet/activity", "nav.fleetBar.activit
  */
 export const FLEET_SCREENS: Strip = [overview, servers, apps, placements, certificates, backups, updates, activity];
 
-export interface FleetTabItem extends TabItem {
-  /** Its name in the command palette, where it stands alone: "Certificates on every server". */
-  command: PlainKey;
-}
-
-const STRIP_LABEL: Readonly<Record<string, PlainKey>> = {
-  fleet: "fleet.tabs.summary",
-  "fleet.servers": "fleet.tabs.servers",
-  "fleet.apps": "fleet.tabs.apps",
-  "fleet.certificates": "fleet.tabs.certificates",
-  "fleet.backups": "fleet.tabs.backups",
-  "fleet.updates": "fleet.tabs.updates",
-  "fleet.activity": "fleet.tabs.activity",
-};
-
-/**
- * The strip the fleet's pages still draw above their content, for as long as they draw one: the
- * sidebar of the fleet scope has taken its place, and the page that draws it (features/fleet) is
- * the one to stop.
- */
-export const FLEET_TABS: readonly FleetTabItem[] = FLEET_SCREENS.map((entry, index): FleetTabItem => {
-  if (entry.command === undefined) throw new Error(`the fleet view "${entry.id}" has no palette phrase`);
-  // The strip keeps the names it always had ("Noust and system updates"): the sidebar's are shorter, for a column of one word each.
-  return { ...tabItem(entry, index === 0), label: STRIP_LABEL[entry.id] ?? tabItem(entry, index === 0).label, command: entry.command };
-});
+/** The two views of the fleet's applications, every server's and those that run on several: the one strip the fleet's pages draw. */
+export const FLEET_APPS_SCREENS: Strip = [apps, placements];

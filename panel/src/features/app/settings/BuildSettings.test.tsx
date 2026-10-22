@@ -104,7 +104,7 @@ describe("the Build commands subsection", () => {
     await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     const elevate = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(elevate).getByRole("textbox"), "123456");
-    await user.click(within(elevate).getByRole("button", { name: "Confirm" }));
+    await user.click(within(elevate).getByRole("button", { name: "Continue" }));
     await waitFor(() => expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/build`)).toHaveLength(1));
   });
 

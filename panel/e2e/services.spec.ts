@@ -94,7 +94,7 @@ test("saving the unit file asks to confirm it's you, then says it was saved", as
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   await expect(confirm).toBeVisible();
   await page.getByLabel("Authentication code").fill(consoleServer.secondFactor());
-  await page.getByRole("button", { name: "Confirm" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(confirm).toBeHidden();
 
   await expect(page.getByText("Saved.", { exact: true })).toBeVisible();

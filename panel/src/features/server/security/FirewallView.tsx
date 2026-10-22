@@ -288,7 +288,7 @@ function FirewallPanel({ data }: { data: Firewall }) {
       <Ports firewall={data} />
       {state.backend !== "none" ? <Rules firewall={data} onDelete={(target) => setOpened({ kind: "delete", rule: target })} /> : null}
       <Protected firewall={data} />
-      <CommandHint command="noust server security firewall status" label={t("server.fromTerminal")} />
+      <CommandHint command="noust server security firewall status" label={t("common.words.fromTerminal")} />
 
       {opened?.kind === "enable" ? (
         <ConfirmDialog

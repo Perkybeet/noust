@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Backups of an application's data: persistent paths and Docker volumes (3.4, checklist H-23).
+Backups of an application's data: persistent paths and Docker volumes (4.0, checklist H-23).
 
 What is pinned here is what an operator learns on the worst day:
 

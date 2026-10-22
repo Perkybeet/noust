@@ -7,7 +7,7 @@ Discord notifications: the embed, the optional mention and the plain-text fallba
 
 The embed itself (title, description, the state's colour, fields, a footer, a
 timestamp and the link to the console) is covered with the other renderers in
-``test_notification_renderers.py``; what is held here is what 3.4 adds:
+``test_notification_renderers.py``; what is held here is what 4.0 adds:
 
 - an operator may name a role and/or a user to ping, and only a **critical**
   event (state ``failed``) pings them, in the message ``content`` where Discord

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-What an instance may use, and how it is probed (3.4, C-30 and C-31).
+What an instance may use, and how it is probed (4.0, C-30 and C-31).
 
 The machine is :class:`~tests.database_instance_support.DockerHost`, so a change is really
 written to the Compose file *on disk*, the unit restarts and the container is made from that

@@ -1,4 +1,5 @@
 import { Section } from "../../components/page/Section";
+import { Gauge } from "lucide-react";
 import { CommandHint } from "../../components/page/CommandHint";
 import { Card } from "../../components/ui/Card";
 import { CopyValue } from "../../components/ui/CopyValue";
@@ -35,7 +36,7 @@ export function MetricsExportSection() {
   const { host, protocol } = window.location;
   const scheme = protocol === "http:" ? "http" : "https";
   return (
-    <Section title={t("metricsExport.title")} description={t("metricsExport.description")}>
+    <Section icon={Gauge} title={t("metricsExport.title")} description={t("metricsExport.description")}>
       <Card>
         <div className="flex min-w-0 flex-col gap-4">
           <div className="flex min-w-0 flex-col gap-1.5">

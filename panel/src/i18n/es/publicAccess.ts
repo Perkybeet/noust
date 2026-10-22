@@ -4,22 +4,23 @@ import type { Catalog } from "../types";
 export const publicAccess: Catalog<typeof en> = {
   title: "Acceso público",
   description:
-    "Abre esta base de datos a un cliente de tu propio ordenador, en un puerto que elijas. Es privada hasta que lo hagas, y puedes volver a hacerla privada cuando quieras.",
+    "Abre esta base de datos a un cliente de tu propio ordenador, en un puerto que elijas. Es privada hasta que lo hagas, y puedes cerrar el acceso de nuevo cuando quieras.",
   loadFailed: "No se pudo leer si esta base de datos es pública",
+  loading: "Cargando si esta base de datos es pública",
   state: {
     private: "Privada",
     privateBody: "El motor no escucha fuera de este servidor. Accedes a esta base de datos desde aquí, o a través de un túnel SSH.",
-    public: "Pública en el puerto {port}",
+    public: "Pública",
     publicBody:
       "Un cliente fuera de este servidor puede llegar a la base de datos con la cuenta que Noust creó para ella. Cualquiera que alcance el puerto puede probar su contraseña.",
-    notAnswering: "Pública, pero el puerto no responde",
-    notAnsweringBody: "El proxy que reenvía el puerto no está escuchando. Haz la base de datos privada y ábrela de nuevo, o arranca el proxy otra vez.",
+    notAnswering: "No responde",
+    notAnsweringBody: "El proxy que reenvía el puerto no está escuchando. Cierra el acceso y ábrelo de nuevo, o inicia el proxy otra vez.",
     closing: "Haciéndose privada",
-    closingBody: "Un intento anterior de hacerla privada no terminó. Vuelve a hacerla privada para terminarlo.",
+    closingBody: "Un intento anterior de cerrar el acceso no terminó. Cierra el acceso de nuevo para terminarlo.",
   },
   actions: {
-    open: "Hacer pública…",
-    close: "Hacer privada",
+    open: "Abrir el acceso…",
+    close: "Cerrar el acceso",
     reveal: "Mostrar la conexión",
   },
   facts: {
@@ -41,27 +42,24 @@ export const publicAccess: Catalog<typeof en> = {
     allowed: "{backend} permite el puerto desde {sources}",
     allowedAnyone: "{backend} permite el puerto desde cualquiera",
     none: "Noust no cambió ningún cortafuegos: solo el de tu propia red limita quién llega al puerto",
-    unknown: "Sin registrar",
   },
   profile: {
     owner: "Propietaria",
     read_write: "Lectura y escritura",
     read_only: "Solo lectura",
-    ownerHelp: "Crea, cambia y borra todo en esta base de datos. Para un cliente de escritorio con el que administras.",
+    ownerHelp: "Crea, cambia y elimina todo en esta base de datos. Para un cliente de escritorio con el que administras.",
     read_writeHelp: "Lee y cambia filas, pero no puede cambiar la estructura.",
     read_onlyHelp: "Solo lee. La cuenta más segura para una herramienta de informes.",
   },
   dialog: {
-    title: "Hacer pública {name}",
+    title: "Abrir el acceso a {name}",
     description: "Noust abre un puerto, crea una cuenta solo para esta base de datos y avisa al cortafuegos. No se cambia nada hasta que confirmes el último paso.",
     steps: {
       choose: "Elegir",
       review: "Revisar",
     },
-    cancel: "Cancelar",
-    back: "Atrás",
     review: "Revisar",
-    submit: "Hacerla pública",
+    submit: "Abrir el acceso",
     port: "Puerto",
     portHelp: "De 1024 a 65535. Déjalo vacío para usar uno libre junto al del propio motor.",
     portInvalid: "Usa un número entero de 1024 a 65535.",
@@ -97,7 +95,7 @@ export const publicAccess: Catalog<typeof en> = {
     accept: "Lo entiendo y quiero la base de datos pública",
     acceptRequired: "Marca la casilla para aceptar lo que se lista arriba.",
     planFailed: "Noust no puede abrir esta base de datos a la red",
-    submitFailed: "No se pudo hacer pública la base de datos",
+    submitFailed: "No se pudo abrir el acceso a la base de datos",
   },
   secret: {
     title: "Conexión a {name}",
@@ -110,13 +108,10 @@ export const publicAccess: Catalog<typeof en> = {
     url: "Cadena de conexión",
   },
   close: {
-    title: "Hacer privada {name}",
+    title: "Cerrar el acceso a {name}",
     description:
       "Noust quita el proxy, la regla del cortafuegos que añadió, la exigencia de TLS y la cuenta que creó para el acceso público. La base de datos y sus datos se quedan, y las conexiones abiertas terminan ahora.",
-    action: "Hacerla privada",
-    failed: "No se pudo hacer privada la base de datos",
-    done: "{name} vuelve a ser privada",
+    action: "Cerrar el acceso",
   },
   revealFailed: "No se pudo mostrar la conexión",
-  opened: "{name} es pública en el puerto {port}",
 };

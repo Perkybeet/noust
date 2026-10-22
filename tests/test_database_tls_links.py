@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-An application that verifies the engine's certificate (3.4, C-26).
+An application that verifies the engine's certificate (4.0, C-26).
 
 A link may say how the application treats the engine's certificate, and what is pinned is
 that Noust never says what it cannot keep:

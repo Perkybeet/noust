@@ -228,7 +228,7 @@ export async function confirmItsYou(page: Page, server: ConsoleServer): Promise<
   await expect(dialog).toBeVisible();
   if (server.totpSecret !== null) await dialog.getByLabel("Authentication code").fill(server.secondFactor());
   else await dialog.getByLabel("Access token").fill(server.token);
-  await dialog.getByRole("button", { name: "Confirm" }).click();
+  await dialog.getByRole("button", { name: "Continue" }).click();
   await expect(dialog).toBeHidden();
 }
 

@@ -167,7 +167,7 @@ describe("doing it", () => {
     expect(within(dialog).getByText(/systemctl restart admin-example-com failed: Unit entered failed state/)).toBeInTheDocument();
     expect(backend.callsTo("POST /api/apps/blog.example.com/restart")).toHaveLength(1);
 
-    await user.click(within(dialog).getByRole("button", { name: "Retry the failed" }));
+    await user.click(within(dialog).getByRole("button", { name: "Retry failed" }));
 
     expect(await within(dialog).findByText("Done: 3 of 3")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/apps/admin.example.com/restart")).toHaveLength(2);

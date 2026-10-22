@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-What a database backup policy covers (3.4, checklist H-02): all of an engine, minus what is left out.
+What a database backup policy covers (4.0, checklist H-02): all of an engine, minus what is left out.
 
 Pinned here:
 

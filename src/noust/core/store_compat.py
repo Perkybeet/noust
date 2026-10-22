@@ -31,7 +31,8 @@ from pathlib import Path
 from typing import Any
 
 #: The first release that writes each schema version. A release understands every schema up to
-#: the highest one at or before it in this table. Releases before 2.0.0 are not listed.
+#: the highest one at or before it in this table. Releases before 2.0.0 are not listed. A release
+#: can bring more than one: 4.0.0 migrates a store through 14 to 15, and no release stops at 14.
 SCHEMA_RELEASES: dict[int, str] = {
     8: "2.0.0",
     9: "2.1.0",
@@ -39,7 +40,7 @@ SCHEMA_RELEASES: dict[int, str] = {
     11: "3.0.0",
     12: "3.1.0",
     13: "3.2.0",
-    14: "3.4.0",
+    14: "4.0.0",
     15: "4.0.0",
 }
 

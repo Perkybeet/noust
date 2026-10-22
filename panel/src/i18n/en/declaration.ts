@@ -20,7 +20,6 @@ export const declaration = {
     pruneDescription: "Without this, domains and tasks are only added. Variables are never removed.",
     startFromNow: "Start from what runs now",
     startFailed: "Could not read the declaration of {domain}",
-    close: "Close",
     applyNow: "Apply it",
     applied: "The declaration was applied to {domain}",
     partly: "{count} part(s) were not applied",

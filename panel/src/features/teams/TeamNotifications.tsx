@@ -154,7 +154,7 @@ function TeamChannelDrawer({ team, channel, types, open, onOpenChange }: DrawerP
     ? undefined
     : {
         label: t("notifyRouting.team.remove"),
-        title: t("notifyRouting.team.removeTitle", { name: channel.name }),
+        title: t("common.words.removeNamedQuestion", { name: channel.name }),
         description: t("notifyRouting.team.removeDescription"),
         run: async () => {
           await removeTeamChannel(team, channel.name);
@@ -185,7 +185,7 @@ function TeamChannelDrawer({ team, channel, types, open, onOpenChange }: DrawerP
       <FormFailure error={save.error} title={t("notifyRouting.team.saveFailed", { name: channelName === "" ? team : channelName })} />
       {creating ? (
         <>
-          <Field label={t("notifyRouting.more.nameLabel")} description={t("notifyRouting.team.nameDescription")} error={name !== "" && !NAME_SHAPE.test(name) ? t("notifyRouting.team.nameInvalid") : undefined}>
+          <Field label={t("common.words.name")} description={t("notifyRouting.team.nameDescription")} error={name !== "" && !NAME_SHAPE.test(name) ? t("notifyRouting.team.nameInvalid") : undefined}>
             <Input
               mono
               autoComplete="off"

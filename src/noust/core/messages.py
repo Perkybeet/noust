@@ -581,7 +581,7 @@ _PLURAL_FORMS: dict[str, dict[Locale, tuple[str, str]]] = {
     "process": {"en": ("process", "processes"), "es": ("proceso", "procesos")},
 }
 
-# The words of the 3.4 monitor's new notifications are their own table, merged
+# The words of the 4.0 monitor's new notifications are their own table, merged
 # here so there is one catalog (and one test of it). Imported after the
 # definitions above because that module only borrows this one's types.
 from noust.core.messages_ops import OPS_MESSAGES, OPS_PLURALS  # noqa: E402

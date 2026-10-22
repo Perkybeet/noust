@@ -4,7 +4,7 @@
 """
 How long an install and a build may take, per application and per server (checklist A-48).
 
-Until 3.4 the limits were two constants (1800 s and 2700 s). The build block's ``timeout`` gives
+Until 4.0 the limits were two constants (1800 s and 2700 s). The build block's ``timeout`` gives
 an application its own, ``deploy.install_timeout`` and ``deploy.build_timeout`` give the server's,
 and a step that runs out of time says which setting to raise and that more time will not help a
 build that is stuck.

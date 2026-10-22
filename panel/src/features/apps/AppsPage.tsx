@@ -227,7 +227,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
                     ) : null}
                     {filtered ? (
                       <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={clear}>
-                        {t("apps.page.clearFilters")}
+                        {t("common.words.clearFilters")}
                       </Button>
                     ) : null}
                   </>
@@ -238,7 +238,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
       }
       // Drawn with the rows, not before: under a list of unknown length it would only be pushed
       // down the page when they arrive.
-      {...(apps.isPending ? {} : { footer: <CommandHint command="noust list" label={t("apps.page.fromTerminal")} /> })}
+      {...(apps.isPending ? {} : { footer: <CommandHint command="noust list" label={t("common.words.fromTerminal")} /> })}
     >
       <AppsTable
         apps={shown}
@@ -266,7 +266,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
             title={t("apps.page.noMatchTitle")}
             action={
               <Button size="sm" variant="ghost" onClick={clear}>
-                {t("apps.page.clearFilters")}
+                {t("common.words.clearFilters")}
               </Button>
             }
           />

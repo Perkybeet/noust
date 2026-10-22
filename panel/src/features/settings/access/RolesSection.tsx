@@ -116,7 +116,7 @@ export function RolesSection() {
                   <span className="flex items-center gap-1">
                     <RowAction
                       label={t("access.roles.editLabel", { role: role.label })}
-                      text={t("access.roles.edit")}
+                      text={t("common.words.edit")}
                       icon={<Pencil />}
                       onClick={() => {
                         setOpen(role);
@@ -124,7 +124,7 @@ export function RolesSection() {
                     />
                     <RowAction
                       label={t("access.roles.deleteLabel", { role: role.label })}
-                      text={t("access.roles.delete")}
+                      text={t("common.words.delete")}
                       icon={<ICONS.delete />}
                       onClick={() => {
                         setDeleting(role);

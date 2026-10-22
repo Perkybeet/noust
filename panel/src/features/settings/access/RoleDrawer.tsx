@@ -85,11 +85,11 @@ export function RoleDrawer({ role, catalog, onClose }: RoleDrawerProps) {
       description={readOnly ? t("access.roles.drawer.viewDescription") : t("access.roles.drawer.description")}
       footer={
         readOnly ? (
-          <Button onClick={onClose}>{t("access.roles.drawer.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
         ) : (
           <>
             <Button disabled={save.isPending} onClick={onClose}>
-              {t("access.roles.drawer.cancel")}
+              {t("common.words.cancel")}
             </Button>
             <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
               {creating ? t("access.roles.drawer.create") : t("access.roles.drawer.save")}
@@ -118,7 +118,7 @@ export function RoleDrawer({ role, catalog, onClose }: RoleDrawerProps) {
         {!readOnly ? (
           <>
             {creating ? (
-              <Field label={t("access.roles.drawer.name")} description={t("access.roles.drawer.nameHelp")} error={errors.fields.name ?? (tried && name.trim() === "" ? t("settings.shared.required") : undefined)}>
+              <Field label={t("common.words.name")} description={t("access.roles.drawer.nameHelp")} error={errors.fields.name ?? (tried && name.trim() === "" ? t("settings.shared.required") : undefined)}>
                 <Input mono autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={32} value={name} onValueChange={setName} />
               </Field>
             ) : null}

@@ -1,17 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { inPlace } from "../../../app/searchNavigation";
-import { LogsTab } from "../../../features/server/logs/LogsTab";
-import { validateLogsSearch } from "../../../features/server/logs/data";
+import { toLogsSearch, validateLegacySearch } from "../../../features/server/logs/data";
 
-/** The journal of any unit: `/server/logs?unit=nginx.service&priority=err&since=-1h`. */
+/**
+ * The system's logs became a source of Logs in 4.0: the old address keeps working, with its
+ * service, level, range, words and stretch (`/server/logs?unit=nginx.service` opens
+ * `/logs?source=system&unit=nginx.service`).
+ */
 export const Route = createFileRoute("/_console/server/logs")({
-  validateSearch: validateLogsSearch,
-  component: LogsRoute,
+  validateSearch: validateLegacySearch,
+  beforeLoad: ({ search }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/logs", search: toLogsSearch(search), replace: true });
+  },
 });
-
-function LogsRoute() {
-  const search = Route.useSearch();
-  const navigate = Route.useNavigate();
-  return <LogsTab search={search} onSearchChange={(next) => void navigate({ search: next, ...inPlace({ replace: true }) })} />;
-}

@@ -5,16 +5,11 @@ export const enroll: Catalog<typeof en> = {
   title: "Añadir un servidor",
   description: "Dale a Noust una dirección y una forma de entrar, una vez. Instala Noust en el servidor si falta, autoriza ahí a esta central y lo une.",
   steps: { server: "Servidor", hostKey: "Clave del host", add: "Añadirlo" },
-  cancel: "Cancelar",
-  back: "Atrás",
   next: "Comprobar la clave del host",
   submit: "Añadir el servidor",
-  done: "Hecho",
-  close: "Cerrar",
   manualInstead: "Autorizarlo con un comando en el servidor",
   linkInstead: "No se puede llegar a él desde fuera: que llame él a esta central",
   server: {
-    name: "Nombre",
     nameHelp: "Cómo llamará esta consola al servidor: de 1 a 32 letras minúsculas, dígitos y guiones, como web-2.",
     nameInvalid: "Usa de 1 a 32 letras minúsculas, dígitos y guiones, empezando y acabando con una letra o un dígito.",
     host: "Dirección",
@@ -49,7 +44,7 @@ export const enroll: Catalog<typeof en> = {
     passphraseHelp: "Solo si la clave tiene una.",
     onceTitle: "Se usa una vez y no se guarda en ningún sitio",
     onceBody:
-      "La credencial se envía en esta petición y llega a ssh por su entorno o por un fichero en una carpeta privada, en memoria, que se borra después. Esta central no la guarda, no la imprime en un registro, no la conserva en el registro de la tarea ni la pone en la auditoría, y esta página la olvida en cuanto se envía.",
+      "La credencial se envía en esta petición y llega a ssh por su entorno o por un archivo en una carpeta privada, en memoria, que se elimina después. Esta central no la guarda, no la imprime en un registro, no la conserva en el registro de la tarea ni la pone en la auditoría, y esta página la olvida en cuanto se envía.",
   },
   hostKey: {
     title: "¿Es esta la clave del servidor?",

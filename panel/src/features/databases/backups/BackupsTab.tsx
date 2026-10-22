@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArchiveRestore, CloudUpload, Download, FlaskConical, ShieldQuestion, Trash2, Upload } from "lucide-react";
+import { ArchiveRestore, CalendarClock, CloudUpload, Download, FlaskConical, ShieldQuestion, Trash2, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -12,6 +12,7 @@ import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/Key
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
+import { RowMenu } from "../../../components/page/RowMenu";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -23,6 +24,7 @@ import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
 import { IconButton } from "../../../components/ui/IconButton";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { ICONS } from "../../../components/ui/icons";
 import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
@@ -124,11 +126,11 @@ function PolicyCard({
         data?.configured ? (
           <>
             <Button size="sm" onClick={onEdit}>
-              {t("databases.backups.policy.edit")}
+              {t("common.words.edit")}
             </Button>
             <Menu align="end" trigger={<IconButton size="sm" label={t("databases.backups.policy.more")} icon={<ICONS.more />} />}>
               <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(true)}>
-                {all ? t("policyScope.card.remove") : t("databases.backups.policy.remove")}
+                {all ? t("common.words.remove") : t("databases.backups.policy.remove")}
               </MenuItem>
             </Menu>
           </>
@@ -152,7 +154,7 @@ function PolicyCard({
                 ? t("policyScope.card.coveredBy", { engine: display })
                 : t("databases.backups.policy.none")}
           </p>
-          <Button size="sm" onClick={onEdit}>
+          <Button icon={<CalendarClock aria-hidden="true" />} size="sm" onClick={onEdit}>
             {all ? t("policyScope.card.set") : t("databases.backups.policy.set")}
           </Button>
         </div>
@@ -191,7 +193,7 @@ function PolicyCard({
                         <span key={destination.name} className="flex flex-wrap items-center gap-x-2">
                           <Mono>{destination.name}</Mono>
                           <span className="text-12 text-fg-muted">{retentionWords(t, destination.retention_count, destination.retention_days)}</span>
-                          {!destination.exists ? <span className="text-12 text-fail">{t("databases.backups.policy.destinationGone")}</span> : null}
+                          {!destination.exists ? <StatusPill appearance="inline" size="sm" state="failed" label={t("databases.backups.policy.destinationGone")} /> : null}
                         </span>
                       ))}
                     </span>
@@ -218,7 +220,7 @@ function PolicyCard({
               {data.last_error}
             </SystemOutput>
           ) : null}
-          {data.enabled && data.timer?.installed !== true ? <p className="text-12 text-fail">{t("databases.backups.policy.timerMissing")}</p> : null}
+          {data.enabled && data.timer?.installed !== true ? <InlineMessage tone="error">{t("databases.backups.policy.timerMissing")}</InlineMessage> : null}
         </div>
       )}
       <ConfirmDialog
@@ -295,10 +297,12 @@ function DumpDrawer({ dump, onClose }: { dump: DatabaseBackup; onClose: () => vo
 function PushDialog({ dump, onClose, onPush }: { dump: DatabaseBackup | null; onClose: () => void; onPush: (destination: string) => Promise<void> }) {
   const t = useT();
   const destinations = useQuery({ ...backupDestinationsQuery(), enabled: dump !== null });
-  const [destination, setDestination] = useState<string | null>(null);
+  const [picked, setDestination] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<unknown>(null);
   const list = destinations.data?.destinations ?? [];
+  // The first destination unless another is chosen: there is always a choice once any exists.
+  const destination = picked ?? list[0]?.name ?? null;
   return (
     <Dialog
       open={dump !== null}
@@ -308,7 +312,8 @@ function PushDialog({ dump, onClose, onPush }: { dump: DatabaseBackup | null; on
       description={t.rich("databases.dumps.pushDescription", { dump: <Mono>{dump?.name ?? ""}</Mono> })}
       footer={
         <>
-          <Button onClick={onClose}>{t("databases.common.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
+          {/* design-exception: submit-disabled-invalid no destination exists, which the dialog says; with one, the first is already chosen */}
           <Button
             variant="primary"
             loading={pending}
@@ -480,6 +485,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
           )
         }
       >
+        {/* design-exception: hand-error-ternary the table draws its own skeleton rows and its own empty state */}
         {dumps.isError && dumps.data === undefined ? (
           <ErrorBlock error={dumps.error} title={t("databases.dumps.loadFailed")} onRetry={() => void dumps.refetch()} retrying={dumps.isRefetching} />
         ) : (
@@ -540,7 +546,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
               },
             ]}
             rowActions={(dump) => (
-              <Menu align="end" trigger={<IconButton size="sm" label={t("databases.dumps.actionsFor", { name: dump.name })} icon={<ICONS.more />} tooltip={false} />}>
+              <RowMenu name={dump.name}>
                 <MenuItem icon={<ArchiveRestore />} disabled={job.busy} onClick={() => setRestoring({ dump: dump.name })}>
                   {t("databases.dumps.restoreEllipsis")}
                 </MenuItem>
@@ -560,9 +566,9 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
                 </MenuItem>
                 <MenuSeparator />
                 <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleting(dump)}>
-                  {t("databases.dumps.delete")}
+                  {t("common.words.delete")}
                 </MenuItem>
-              </Menu>
+              </RowMenu>
             )}
           />
         )}
@@ -570,7 +576,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
 
       <RemoteDumps engine={engine} name={name} onRestore={setRestoring} />
 
-      <CommandHint command={`noust db backup-schedule set ${name} -e ${engine} --schedule daily`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db backup-schedule set ${name} -e ${engine} --schedule daily`} label={t("common.words.fromTerminal")} />
 
       {editing !== null ? (
         <PolicyDrawer

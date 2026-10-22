@@ -11,11 +11,12 @@ import { ErrorBlock } from "../../../components/page/QueryState";
 import { Stepper } from "../../../components/page/Stepper";
 import { WizardActions } from "../../../components/page/Wizard";
 import { Button, buttonClassName } from "../../../components/ui/Button";
-import { CopyTextButton } from "../../../components/ui/CopyTextButton";
+import { CopyValue } from "../../../components/ui/CopyValue";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { ICONS } from "../../../components/ui/icons";
 import { Input } from "../../../components/ui/Input";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
@@ -62,18 +63,8 @@ function AuthorizeCommand({ t, name, command }: { t: T; name: string; command: s
       <span id={labelId} className="text-13 font-medium text-fg">
         {t("servers.add.authorize.commandLabel", { name })}
       </span>
-      <code
-        aria-labelledby={labelId}
-        translate="no"
-        data-testid="authorize-command"
-        className="rounded-control border border-border-strong bg-bg-sunken px-3 py-2 text-12 break-all text-fg select-all"
-      >
-        {command}
-      </code>
-      <div>
-        <CopyTextButton value={command} variant="secondary">
-          {t("servers.add.authorize.copy")}
-        </CopyTextButton>
+      <div data-testid="authorize-command">
+        <CopyValue value={command} label={t("servers.add.authorize.copy")} name={t("servers.add.authorize.commandLabel", { name })} />
       </div>
     </div>
   );
@@ -84,7 +75,7 @@ function CodeSummary({ t, summary, centralName, fingerprintMatches }: { t: T; su
   const otherCentral = summary.central !== null && centralName !== null && summary.central !== centralName;
   return (
     <div className="flex flex-col gap-2">
-      <Notice tone={otherCentral || fingerprintMatches === false ? "warning" : "success"} title={t("servers.add.join.summaryTitle")}>
+      <InlineMessage tone={otherCentral || fingerprintMatches === false ? "warning" : "success"}>
         {t.rich("servers.add.join.summary", {
           node: <Mono key="node">{summary.node ?? "?"}</Mono>,
           user: <Mono key="user">{summary.sshUser}</Mono>,
@@ -92,12 +83,10 @@ function CodeSummary({ t, summary, centralName, fingerprintMatches }: { t: T; su
           console: <Mono key="console">{String(summary.consolePort)}</Mono>,
           version: <Mono key="version">{summary.version}</Mono>,
         })}
-      </Notice>
-      {otherCentral ? (
-        <Notice tone="warning">{t("servers.add.join.otherCentral", { central: summary.central ?? "", name: centralName })}</Notice>
-      ) : null}
-      {fingerprintMatches === false ? <Notice tone="warning">{t("servers.add.join.otherKey")}</Notice> : null}
-      {summary.sshUser === "root" ? <Notice>{t("servers.add.join.rootAccount")}</Notice> : null}
+      </InlineMessage>
+      {otherCentral ? <InlineMessage>{t("servers.add.join.otherCentral", { central: summary.central ?? "", name: centralName })}</InlineMessage> : null}
+      {fingerprintMatches === false ? <InlineMessage>{t("servers.add.join.otherKey")}</InlineMessage> : null}
+      {summary.sshUser === "root" ? <InlineMessage tone="info">{t("servers.add.join.rootAccount")}</InlineMessage> : null}
     </div>
   );
 }
@@ -333,7 +322,7 @@ export function AddServerDialog({ open, onClose }: AddServerDialogProps) {
         </Notice>
         <form id={nameFormId} noValidate onSubmit={submitName} className="flex flex-col gap-4">
           <Field
-            label={t("servers.add.name.label")}
+            label={t("common.words.name")}
             description={t("servers.add.name.description")}
             error={nameError}
             action={
@@ -391,7 +380,7 @@ export function AddServerDialog({ open, onClose }: AddServerDialogProps) {
       <Fragment key="authorize">
         <WizardActions
           className="w-full"
-          back={{ label: t("servers.add.cancel"), onClick: close }}
+          back={{ label: t("common.words.cancel"), onClick: close }}
           next={{
             label: t("servers.add.next"),
             onClick: () => {
@@ -426,7 +415,7 @@ export function AddServerDialog({ open, onClose }: AddServerDialogProps) {
           />
         </Field>
         {reading !== null && !reading.ok && reading.problem !== "empty" && codeError === null ? (
-          <Notice tone="warning">{t(PROBLEM_WORDS[reading.problem])}</Notice>
+          <InlineMessage>{t(PROBLEM_WORDS[reading.problem])}</InlineMessage>
         ) : null}
         {reading?.ok === true ? <CodeSummary t={t} summary={reading.summary} centralName={centralName} fingerprintMatches={fingerprintMatches} /> : null}
         <Field
@@ -462,7 +451,7 @@ export function AddServerDialog({ open, onClose }: AddServerDialogProps) {
         <WizardActions
           className="w-full"
           back={{
-            label: t("servers.add.back"),
+            label: t("common.words.back"),
             onClick: () => {
               if (!add.isPending) setStep("authorize");
             },
@@ -482,12 +471,12 @@ export function AddServerDialog({ open, onClose }: AddServerDialogProps) {
       added !== null ? (
         <Fragment key="done">
           <Button variant="primary" onClick={close}>
-            {t("servers.add.done")}
+            {t("common.words.done")}
           </Button>
         </Fragment>
       ) : (
         <Fragment key="try-again">
-          <Button onClick={close}>{t("servers.add.cancel")}</Button>
+          <Button onClick={close}>{t("common.words.cancel")}</Button>
           <Button
             type="button"
             variant="primary"

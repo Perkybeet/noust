@@ -225,7 +225,7 @@ function System({ view, onViewChange }: SystemTabProps) {
         className="self-start"
       />
       {view === "network" ? <NetworkView /> : view === "monitor" ? <MonitorCard /> : <ProcessesView />}
-      <CommandHint command="noust server time status" label={t("server.fromTerminal")} />
+      <CommandHint command="noust server time status" label={t("common.words.fromTerminal")} />
     </div>
   );
 }

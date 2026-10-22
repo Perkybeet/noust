@@ -7,7 +7,6 @@
  */
 export const fleet = {
   selector: {
-    label: "Server",
     views: "Views",
     servers: "Servers",
     trigger: "Server: {name}",
@@ -72,13 +71,6 @@ export const fleet = {
   // The Fleet's pages
 
   tabs: {
-    summary: "Summary",
-    servers: "Servers",
-    apps: "Applications",
-    certificates: "Certificates",
-    backups: "Backups",
-    updates: "Noust and system updates",
-    activity: "Activity",
     command: {
       summary: "Fleet summary",
       servers: "Servers of the fleet",
@@ -89,7 +81,6 @@ export const fleet = {
       activity: "Activity on every server",
     },
     keywords: {
-      summary: "fleet overview dashboard all servers",
       servers: "fleet nodes labels access version",
       apps: "fleet all applications sites",
       certificates: "fleet ssl tls https expiry renew",
@@ -99,12 +90,12 @@ export const fleet = {
     },
   },
   page: {
+    createAtProvider: "Create at a provider",
     title: "Fleet",
     description: "Every server this central manages, at once.",
-    tabsLabel: "Fleet views",
+    tabsLabel: "Fleet application views",
     addServer: "Add a server",
     runAction: "Run an action",
-    fromTerminal: "From a terminal",
     loadFailed: "Could not load the fleet",
     empty: {
       title: "No servers in this fleet yet",
@@ -139,7 +130,7 @@ export const fleet = {
     noust: "Noust",
     method: "Updates with",
     osUpdates: "System updates",
-    reboot: "Restart",
+    reboot: "Reboot",
     when: "When",
     action: "Action",
     result: "Result",
@@ -155,7 +146,6 @@ export const fleet = {
     state: "State",
     everyState: "Every state",
     noMatch: "No rows match these filters",
-    clear: "Clear filters",
   },
   server: {
     open: "Open {name}",
@@ -168,7 +158,6 @@ export const fleet = {
     unreachable: "Not answering",
     unsupported: "Older Noust",
     forbidden: "Refused",
-    error: "Failed",
   },
   partial: {
     title: {
@@ -302,7 +291,6 @@ export const fleet = {
     updateAvailable: "{version} available",
     now: "Now",
     never: "Never",
-    actionsFor: "Actions for {name}",
     open: "Open",
     test: "Test the connection",
     editLabels: "Edit labels",
@@ -317,7 +305,6 @@ export const fleet = {
     invalidFormat: "Write each label as key=value, separated by commas.",
     invalidCharacters: "Use letters, digits, dots, dashes and underscores in keys and values, starting with a letter or digit.",
     save: "Save labels",
-    cancel: "Cancel",
     failed: "Could not save the labels of {name}",
     none: "None",
     notForCentral: "Labels group the central's servers, not the central",
@@ -413,7 +400,6 @@ export const fleet = {
         other: "{count} wait for their packages to be published.",
       },
     },
-    actionsFor: "Actions for {name}",
     refreshLists: "Refresh package lists",
     refreshBehind: "Refresh package lists (its index is behind)",
     noMethod: "Not known",
@@ -492,7 +478,7 @@ export const fleet = {
     },
     placement_ship: {
       label: "Build on one server, run on others",
-      description: "One server builds the application once; every other server receives that release and switches to it behind its health check.",
+      description: "One server builds the application once; every other server receives that release and switches to it behind its startup check.",
     },
   },
   bulk: {
@@ -503,8 +489,6 @@ export const fleet = {
       servers: "Servers",
       plan: "Plan",
     },
-    next: "Continue",
-    back: "Back",
     showPlan: "Show the plan",
     action: {
       legend: "What to run",
@@ -640,15 +624,10 @@ export const fleet = {
     drawerTitle: "This action on {name}",
     why: "Why",
     started: "Started",
-    nodeJobs: "Jobs on the server",
     notYet: "Not yet",
     output: "What {name} said",
     items: "Each application",
     state: {
-      queued: "Queued",
-      running: "Running",
-      succeeded: "Succeeded",
-      failed: "Failed",
       skipped: "Skipped",
       unreachable: "Not answering",
       refused: "Refused",
@@ -658,7 +637,7 @@ export const fleet = {
     },
     count: {
       queued: { one: "{count} queued", other: "{count} queued" },
-      running: { one: "{count} running", other: "{count} running" },
+      running: { one: "{count} in progress", other: "{count} in progress" },
       succeeded: { one: "{count} succeeded", other: "{count} succeeded" },
       failed: { one: "{count} failed", other: "{count} failed" },
       skipped: { one: "{count} skipped", other: "{count} skipped" },
@@ -669,13 +648,9 @@ export const fleet = {
       rolled_back: { one: "{count} put back", other: "{count} put back" },
     },
     status: {
-      queued: "Queued",
-      running: "Running",
       succeeded: "Succeeded",
-      failed: "Failed",
       aborted: "Stopped after too many failures",
       interrupted: "Interrupted",
-      unknown: "Unknown",
     },
     reason: {
       policy: "This server does not let this central do this",
@@ -688,7 +663,7 @@ export const fleet = {
       error: "It could not be checked",
     },
     retry: {
-      button: { one: "Retry the failed one", other: "Retry the {count} failed" },
+      button: { one: "Retry failed", other: "Retry {count} failed" },
       title: "Retry the servers that did not get done",
       description: "Failed and unreachable servers, and those skipped for a reason that may not hold any more.",
       failed: "Could not start the retry",

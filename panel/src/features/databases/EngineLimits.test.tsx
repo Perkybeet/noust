@@ -110,14 +110,14 @@ describe("an engine's resource limits", { timeout: 40_000 }, () => {
 
     // The section shows its loading state until the 404 comes back, then it is gone.
     await waitFor(() => expect(screen.queryByRole("heading", { name: "Resource limits" })).not.toBeInTheDocument());
-    expect(screen.queryByText("Could not read the limits of PostgreSQL")).not.toBeInTheDocument();
+    expect(screen.queryByText("Could not load the limits of PostgreSQL")).not.toBeInTheDocument();
     expect(screen.getByLabelText("max_connections")).toBeInTheDocument();
   });
 
   it("says when the limits cannot be read, without losing the settings above", async () => {
     await limitsAt({ "GET /api/databases/engines/postgresql/limits": () => problem(500, "databaseengineerror", "systemd did not answer") }, false);
 
-    expect(await screen.findByText("Could not read the limits of PostgreSQL")).toBeInTheDocument();
+    expect(await screen.findByText("Could not load the limits of PostgreSQL")).toBeInTheDocument();
     expect(screen.getByLabelText("max_connections")).toBeInTheDocument();
   });
 });

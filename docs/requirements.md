@@ -43,7 +43,7 @@ directory, its own data and the system packages), not "the root": a server whose
 volume of its own is judged by that volume. Memory is the kernel's, or the container's limit when
 that is lower.
 
-`noust setup doctor` (and **Settings > About > Installation check**) shows the machine against
+`noust setup doctor` (and **Settings > About Noust > Installation check**) shows the machine against
 these sizes and says **who holds ports 80 and 443**: the web server, a container that publishes
 them (another platform's proxy, a Compose stack), or another program such as Caddy or Apache,
 with the command that frees them. The installer asks the same before it installs the web server.

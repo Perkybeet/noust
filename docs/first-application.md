@@ -15,8 +15,7 @@ what they leave out are in `tests/integration/results/first-deploy.json`; the bu
 ## Before you start
 
 - **Noust is installed and the server is ready.** `noust setup doctor` lists what a deployment
-  needs and fixes nothing it is not told to; the console shows the same under **Settings > About >
-  Installation check**. Every line should be green, or a warning you understand
+  needs and fixes nothing it is not told to; the console shows the same under **Settings > About Noust > Installation check**. Every line should be green, or a warning you understand
   ([platforms.md](PLATFORMS.md) has the install).
 - **A name for it, if you have one.** Create an `A` record (and `AAAA` if the server has IPv6) for
   the domain you will use, `shop.example.com` below, at your DNS provider. Noust checks it before
@@ -98,8 +97,7 @@ noust releases rollback shop.example.com   # back to the previous release, in se
 ```
 
 In the console, the application's page has **Update** and **Roll back**; the Deployments tab keeps
-every build's log. To deploy on every push, the application's **Settings > Webhook** (**Deploy on
-push**) shows the address and secret to give your Git host (`noust app webhook show
+every build's log. To deploy on every push, the application's **Settings > Deploy on push** shows the address and secret to give your Git host (`noust app webhook show
 shop.example.com`), or connect the GitHub App for a GitHub repository. [releases.md](releases.md) has the whole model.
 
 ## 3. Add a database
@@ -155,8 +153,8 @@ previous version back when it fails): `noust recipe update vault.example.com`.
 The Overview's first steps also ask for these, and each is a minute:
 
 - **Notifications**, so a failed deploy or a certificate about to expire reaches you, not a
-  customer: **Settings > Notifications** (email, Telegram, Slack, Discord, or a webhook).
-- **Two-step verification** on your account: **Settings > Security**. It is also what lets you
+  customer: **Settings > Channels** (email, Telegram, Slack, Discord, or a webhook).
+- **Two-step verification** on your account: **Account > Sign-in security** (the avatar menu). It is also what lets you
   publish the console on a name of your own (`noust console expose`).
 - **A backup destination off the server**, from step 4.
 

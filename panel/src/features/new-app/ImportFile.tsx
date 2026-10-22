@@ -73,7 +73,7 @@ export function ImportFile({ loaded, problem, types, onFile, onRemote }: ImportF
         <RemoteImport onLoaded={onRemote} />
       </Disclosure>
 
-      <CommandHint command="noust app import app.noust-app.json --domain example.com" label={t("newApp.source.terminal")} />
+      <CommandHint command="noust app import app.noust-app.json --domain example.com" label={t("common.words.fromTerminal")} />
     </div>
   );
 }

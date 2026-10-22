@@ -11,7 +11,7 @@ from a registry and named for the release. That one name is what makes a
 release an image, and going back to one a rename of a compose file.
 
 **The build runs in the Docker daemon, not in the build sandbox.** This is the
-documented exception (decision D2 of the 3.4 design) every Compose build
+documented exception (decision D2 of the 4.0 design) every Compose build
 already is: ``docker build`` hands the Dockerfile to a daemon that is root, so
 the sandbox of ``noust-build`` cannot hold it. What this module does about it
 is what can be done from here: it never reads a file the repository points out

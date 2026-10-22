@@ -250,7 +250,7 @@ export function useSiteAdoption(): SiteAdoptionState {
 
       {ready ? <Plan plan={previewed.answer} t={t} /> : null}
 
-      <CommandHint command={`noust app adopt-site ${shownDomain}`} label={t("newApp.source.terminal")} />
+      <CommandHint command={`noust app adopt-site ${shownDomain}`} label={t("common.words.fromTerminal")} />
     </div>
   );
 

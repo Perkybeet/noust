@@ -6,10 +6,7 @@ export const audit = {
     command: "Audit log",
   },
   outcome: {
-    ok: "Done",
-    failure: "Failed",
     denied: "Refused",
-    warning: "Warning",
   },
   trail: {
     intactTitle: "The audit log is intact",
@@ -40,7 +37,6 @@ export const audit = {
     everyCategory: "Every category",
     everyOutcome: "Every outcome",
     count: { one: "{count} event", other: "{count} events" },
-    clearFilters: "Clear filters",
     caption: "Audit events",
     none: "No events yet.",
     noMatch: "No event matches these filters.",
@@ -49,7 +45,6 @@ export const audit = {
     correlationTitle: "One request",
     correlation: "Only the events of {id}: what one request, command or job did.",
     correlationClear: "Show all",
-    fromTerminal: "From a terminal",
   },
   table: {
     event: "Event",

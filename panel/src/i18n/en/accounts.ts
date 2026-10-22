@@ -43,12 +43,10 @@ export const accounts = {
     countFiltered: "{shown} of {total} accounts",
     caption: "Every account",
     noMatch: "No account matches these filters.",
-    clearFilters: "Clear filters",
     what: "the accounts",
     emptyTitle: "No accounts yet",
     emptyDescription: "Until there is one, the access token opens the whole console. Create the first accounts, then keep the token for emergencies.",
     createFirst: "Create the first accounts",
-    fromTerminal: "From a terminal",
   },
   table: {
     account: "Account",
@@ -72,7 +70,7 @@ export const accounts = {
     unlock: "Unlock",
     changeRole: "Change role",
     newInvitation: "Send a new invitation",
-    mailAddress: "Mail address...",
+    mailAddress: "Mail address…",
     resetFactor: "Reset second factor",
     disable: "Disable",
     enable: "Enable",
@@ -83,7 +81,6 @@ export const accounts = {
   fields: {
     username: "Username",
     usernameHint: "What the person types to sign in: lowercase letters, digits, dots, dashes and underscores. It cannot be changed.",
-    displayName: "Name",
     person: "Email",
     personHint: "Identifies the person, to keep one person's accounts apart. It signs in too while only one account has it.",
     role: "Role",
@@ -153,7 +150,6 @@ export const accounts = {
     doneToast: "Reset the second factor of {name}",
   },
   remove: {
-    title: "Remove {name}?",
     description:
       "The account, its sessions and its tokens are gone for good. Prefer disabling: a removed account's name in the audit log no longer names anyone.",
     action: "Remove account",

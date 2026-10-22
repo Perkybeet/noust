@@ -132,12 +132,12 @@ export function DirectoryDrawer({ directory, onClose }: DirectoryDrawerProps) {
         if (!next && !save.isPending) onClose();
       }}
       size="md"
-      title={creating ? t("ldapAdmin.form.createTitle") : t("ldapAdmin.form.editTitle", { name: directory.name })}
+      title={creating ? t("ldapAdmin.form.createTitle") : t("common.words.editNamed", { name: directory.name })}
       description={t("ldapAdmin.form.description")}
       footer={
         <>
           <Button disabled={save.isPending} onClick={onClose}>
-            {t("ldapAdmin.form.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {creating ? t("ldapAdmin.form.create") : t("ldapAdmin.form.save")}
@@ -159,7 +159,7 @@ export function DirectoryDrawer({ directory, onClose }: DirectoryDrawerProps) {
         ) : null}
 
         {creating ? (
-          <Field label={t("ldapAdmin.form.name")} description={t("ldapAdmin.form.nameHelp")} error={tried && draft.name.trim() === "" ? required : undefined}>
+          <Field label={t("common.words.name")} description={t("ldapAdmin.form.nameHelp")} error={tried && draft.name.trim() === "" ? required : undefined}>
             <Input
               mono
               autoComplete="off"

@@ -28,7 +28,7 @@ from noust.recipes.logos import validate_svg
 from noust.recipes.model import Recipe
 from noust.recipes.variables import DeploymentContext, resolve_variables
 
-#: The recipes of the 2.3 catalogue, now in the 3.4 format.
+#: The recipes of the 2.3 catalogue, now in the 4.0 format.
 MIGRATED = {"wordpress", "uptime-kuma", "umami", "n8n"}
 #: Listed, not deployable, with the reason.
 UNAVAILABLE = {
@@ -123,7 +123,7 @@ def test_the_recipes_left_out_say_why(name: str) -> None:
 
 
 def test_ghost_and_plausible_carry_the_databases_they_needed() -> None:
-    """Listed as unavailable until 3.4, they now run with MySQL 8 and with PostgreSQL and ClickHouse."""
+    """Listed as unavailable until 4.0, they now run with MySQL 8 and with PostgreSQL and ClickHouse."""
     ghost, plausible = get_recipe("ghost"), get_recipe("plausible")
 
     assert ghost.available and plausible.available

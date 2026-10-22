@@ -36,7 +36,6 @@ export const queue = {
   },
   waitingForLine: "Waiting for {what}",
   cancel: {
-    button: "Cancel",
     label: "Cancel {name}",
     stopping: "Stopping…",
     stoppingNote: "It was asked to stop and is winding down. The queue moves on when it has.",

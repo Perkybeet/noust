@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-What 3.4 added after teams holds the scope too: deploy keys, an application's
+What 4.0 added after teams holds the scope too: deploy keys, an application's
 https credential, databases open to the network, the engine on offer, an
 application's build block, container settings and recipe, and the backups.
 

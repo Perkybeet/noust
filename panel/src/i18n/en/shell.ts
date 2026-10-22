@@ -4,7 +4,6 @@
  * error boundary). Destinations themselves live in nav.ts.
  */
 export const shell = {
-  area: "Noust Console",
   /** The wordmark's product suffix (Logo's `product` prop), apart from "Noust Console" above. */
   consoleProduct: "Console",
   /** The sidebar's logo link, which doubles as the overview link. */

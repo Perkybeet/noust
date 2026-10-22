@@ -116,7 +116,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "server-security-firewall", path: "/server/security?view=firewall" },
   { name: "server-security-bans", path: "/server/security?view=bans" },
   { name: "server-storage", path: "/server/storage" },
-  { name: "server-logs", path: "/server/logs" },
+  { name: "logs-system", path: "/logs?source=system" },
   { name: "server-system", path: "/server/system" },
   { name: "server-terminal", path: "/server/terminal" },
   { name: "settings", path: "/settings" },
@@ -143,7 +143,6 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "fleet", path: "/fleet" },
   // 3.4: the applications that run on more than one server (none recorded on a plain server).
   { name: "fleet-placements", path: "/fleet/placements" },
-  { name: "settings-servers", path: "/settings/servers" },
   // 3.4: servers made at a cloud provider, and the boot scripts they start with.
   { name: "settings-cloud", path: "/settings/cloud" },
   // Where GitHub sends the browser back. The states that change nothing: an installation an

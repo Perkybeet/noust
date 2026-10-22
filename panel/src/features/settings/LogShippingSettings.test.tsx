@@ -51,7 +51,7 @@ async function shipping(drains: object[] = [LOKI], extra: Record<string, RouteHa
     ...extra,
   });
   const harness = renderConsole("/settings/log-shipping");
-  await screen.findByRole("heading", { level: 2, name: "Log shipping" });
+  await screen.findByRole("heading", { level: 2, name: "Logs and metrics export" });
   return { ...harness, backend };
 }
 
@@ -120,7 +120,11 @@ describe("where the logs of applications are shipped", () => {
         keep_secret: false,
       });
     });
-    expect(await screen.findByText("Saved grafana")).toBeInTheDocument();
+    // The dialog closing is the answer: no toast says what the screen already shows.
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Add a destination" })).toBeNull();
+    });
+    expect(screen.queryByText("Saved grafana")).toBeNull();
   });
 
   it("needs a dataset and a token for Axiom, and says so where they go", async () => {

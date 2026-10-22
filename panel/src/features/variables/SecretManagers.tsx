@@ -114,7 +114,7 @@ function ProviderForm({ formId, target, kinds, onSubmit, onPending }: FormProps)
   return (
     <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={t("variables.providers.dialog.nameLabel")} description={editing ? undefined : t("variables.providers.dialog.nameDescription")} error={nameError}>
+        <Field label={t("common.words.name")} description={editing ? undefined : t("variables.providers.dialog.nameDescription")} error={nameError}>
           <Input mono autoComplete="off" autoCapitalize="off" spellCheck={false} placeholder="vault" value={name} disabled={editing} onValueChange={setName} />
         </Field>
         <Field label={t("variables.providers.dialog.kindLabel")} nativeLabel={false}>
@@ -192,12 +192,12 @@ function ProviderDialog({ target, kinds, onClose, onSubmit }: { target: Provider
         if (!open && !pending) onClose();
       }}
       size="md"
-      title={current?.provider != null ? t("variables.providers.dialog.editTitle", { name: current.provider.name }) : t("variables.providers.dialog.addTitle")}
+      title={current?.provider != null ? t("common.words.editNamed", { name: current.provider.name }) : t("variables.providers.dialog.addTitle")}
       description={t("variables.providers.dialog.description")}
       footer={
         <>
           <Button disabled={pending} onClick={onClose}>
-            {t("variables.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={pending}>
             {editing ? t("variables.providers.dialog.submitEdit") : t("variables.providers.dialog.submitAdd")}
@@ -261,7 +261,7 @@ export function SecretManagers() {
   const columns: Column<SecretProvider>[] = [
     {
       id: "name",
-      header: t("variables.providers.nameHeader"),
+      header: t("common.words.name"),
       card: "title",
       sortValue: (provider) => provider.name,
       cell: (provider) => <Mono truncate title={provider.name}>{provider.name}</Mono>,
@@ -297,18 +297,18 @@ export function SecretManagers() {
   ];
 
   const rowActions = (provider: SecretProvider) => (
-    <Menu align="end" trigger={<IconButton size="sm" label={t("variables.providers.actions", { name: provider.name })} icon={<ICONS.more />} tooltip={false} />}>
+    <Menu align="end" trigger={<IconButton size="sm" label={t("common.rowActions", { name: provider.name })} icon={<ICONS.more />} tooltip={false} />}>
       <MenuItem icon={<PlugZap />} disabled={test.isPending} onClick={() => test.mutate(provider.name)}>
         {t("variables.providers.test")}
       </MenuItem>
       {canManage ? (
         <>
           <MenuItem icon={<Pencil />} onClick={() => setEditing({ provider })}>
-            {t("variables.providers.edit")}
+            {t("common.words.edit")}
           </MenuItem>
           <MenuSeparator />
           <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(provider.name)}>
-            {t("variables.providers.remove")}
+            {t("common.words.remove")}
           </MenuItem>
         </>
       ) : null}
@@ -347,7 +347,7 @@ export function SecretManagers() {
           {() => <DataTable caption={caption} columns={columns} rows={list} getRowId={(provider) => provider.name} rowActions={rowActions} density="compact" defaultSort={{ column: "name", direction: "ascending" }} />}
         </QueryState>
       </Section>
-      <CommandHint command="noust secrets list" label={t("variables.shared.fromTerminal")} />
+      <CommandHint command="noust secrets list" label={t("common.words.fromTerminal")} />
 
       {kinds.data !== undefined ? <ProviderDialog target={editing} kinds={kinds.data.kinds} onClose={() => setEditing(null)} onSubmit={save} /> : null}
       <ConfirmDialog
@@ -357,7 +357,7 @@ export function SecretManagers() {
         }}
         friction="simple"
         server={node}
-        title={t("variables.providers.removeDialog.title", { name: removing ?? "" })}
+        title={t("common.words.removeNamedQuestion", { name: removing ?? "" })}
         description={t("variables.providers.removeDialog.description")}
         actionLabel={t("variables.providers.removeDialog.action")}
         destructive

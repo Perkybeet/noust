@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
@@ -8,7 +8,6 @@ import { fakeBackend, json, problem } from "../../../test/fakes";
 import type { FakeBackend } from "../../../test/fakes";
 import { DB1, SSH_TIMEOUT, WEB2, centralSession, fleetRoutes } from "../../fleet/testFixtures";
 import { CODE_FIELDS, joinCodeOf } from "./joinCode.test";
-import { screenWidth } from "../../app/testRoutes";
 
 const KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGk3 noust-central@nas";
 const AUTHORIZE = `noust fleet authorize --central-key '${KEY}' --name nas`;
@@ -52,7 +51,7 @@ function serversBackend({ totp = true }: { totp?: boolean } = {}): FakeBackend {
 async function confirmItsYou(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
   const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
   await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-  await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+  await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 }
 
 async function expectToast(text: string): Promise<void> {
@@ -99,35 +98,25 @@ async function enroll(user: ReturnType<typeof renderConsole>["user"], address = 
   await user.click(code);
   await user.paste(JOIN_CODE);
   // What the code says, without its token, before anything is sent.
-  expect(await within(dialog).findByText("Join code read")).toBeInTheDocument();
-  expect(within(dialog).getByText("noust-tunnel")).toBeInTheDocument();
+  expect(await within(dialog).findByText("noust-tunnel")).toBeInTheDocument();
   await user.type(within(dialog).getByLabelText("SSH address"), address);
   await user.click(within(dialog).getByRole("button", { name: "Add server" }));
   return dialog;
 }
 
-describe("Settings > Servers", () => {
-  // These lists are tables from 640px and cards below it: the tests read the table.
-  beforeEach(() => {
-    screenWidth(1440);
-  });
-
-  it("lists the servers with their address and status, and passes axe", { timeout: 20_000 }, async () => {
+describe("Fleet > Servers: adding, testing and removing a server", () => {
+  it("lists the servers with their status and what each lets this central do, and passes axe", { timeout: 20_000 }, async () => {
     serversBackend();
-    const { container } = renderConsole("/settings/servers");
-    await screen.findByText("noust-tunnel@web2.example.com");
-    const table = screen.getByRole("region", { name: "Servers this central manages" });
-    expect(within(table).getByText("noust-tunnel@db1.example.com:2222")).toBeInTheDocument();
-    // What each server lets this central do there, as it published it.
-    expect(await within(table).findByText("Read only")).toBeInTheDocument();
-    expect(within(table).getByText("Unreachable")).toBeInTheDocument();
-    expect(within(table).getByRole("button", { name: "Actions for web-2" })).toBeInTheDocument();
+    const { container } = renderConsole("/fleet/servers");
+    const table = await screen.findByRole("list", { name: "Servers of this fleet" });
+    expect(await within(table).findByRole("button", { name: "Actions for web-2" })).toBeInTheDocument();
+    expect(within(table).getByRole("button", { name: "Actions for db-1" })).toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
   });
 
   it("adds a server in three steps: the command to run on it, the join code, the result", { timeout: 40_000 }, async () => {
     const backend = serversBackend();
-    const { user } = renderConsole("/settings/servers");
+    const { user } = renderConsole("/fleet/servers");
     const dialog = await enroll(user);
     await expectNoAxeViolations(dialog);
     await confirmItsYou(user);
@@ -139,12 +128,12 @@ describe("Settings > Servers", () => {
     expect(backend.callsTo("POST /api/nodes").at(-1)?.body).toEqual({ name: "web-3", ssh_target: "web3.example.com", join_code: JOIN_CODE });
     await expectToast("Added web-3");
     await user.click(within(dialog).getByRole("button", { name: "Done" }));
-    expect(await screen.findByText("web-3")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Add a server" })).not.toBeInTheDocument());
   });
 
   it("appends the access chosen for this central to the command", { timeout: 20_000 }, async () => {
     serversBackend();
-    const { user } = renderConsole("/settings/servers");
+    const { user } = renderConsole("/fleet/servers");
     const dialog = await openManual(user);
     await user.type(within(dialog).getByLabelText(/^Name/), "web-3");
     await user.click(within(dialog).getByRole("button", { name: "Show the command" }));
@@ -156,7 +145,7 @@ describe("Settings > Servers", () => {
 
   it("says what was pasted when it is not a join code, and sends nothing", { timeout: 20_000 }, async () => {
     const backend = serversBackend();
-    const { user } = renderConsole("/settings/servers");
+    const { user } = renderConsole("/fleet/servers");
     const dialog = await openManual(user);
     await user.type(within(dialog).getByLabelText(/^Name/), "web-3");
     await user.click(within(dialog).getByRole("button", { name: "Show the command" }));
@@ -174,7 +163,7 @@ describe("Settings > Servers", () => {
 
   it("checks the name and the SSH address before asking the central", { timeout: 20_000 }, async () => {
     const backend = serversBackend();
-    const { user } = renderConsole("/settings/servers");
+    const { user } = renderConsole("/fleet/servers");
     const dialog = await openManual(user);
     await user.type(within(dialog).getByLabelText(/^Name/), "Web 3");
     await user.click(within(dialog).getByRole("button", { name: "Show the command" }));
@@ -189,7 +178,7 @@ describe("Settings > Servers", () => {
         hint: "Two-factor sign-in is not enabled on this central, and whoever signs in here reaches every node it manages.",
       }),
     );
-    const { user } = renderConsole("/settings/servers");
+    const { user } = renderConsole("/fleet/servers");
     // Said before anything is tried, too.
     expect(await screen.findByText("Turn on two-factor sign-in first")).toBeInTheDocument();
     const dialog = await enroll(user);
@@ -214,7 +203,7 @@ describe("Settings > Servers", () => {
       }),
     );
     backend.on("POST /api/auth/elevate", () => json(200, {}));
-    const { user } = renderConsole("/settings/servers");
+    const { user } = renderConsole("/fleet/servers");
     const dialog = await enroll(user);
     await within(dialog).findByText("Could not add web-3");
     await user.click(within(dialog).getByRole("button", { name: "Back to the join code" }));
@@ -234,23 +223,22 @@ describe("Settings > Servers", () => {
     );
     // Sudo mode is already on for this one.
     backend.on("POST /api/auth/elevate", () => json(200, {}));
-    const { user } = renderConsole("/settings/servers");
+    const { user } = renderConsole("/fleet/servers");
     const dialog = await enroll(user, "web3.example.con");
     await within(dialog).findByText("Could not add web-3");
     expect(within(dialog).getByText("ssh: Could not resolve hostname web3.example.con: Name or service not known")).toBeInTheDocument();
     expect(within(dialog).getByText(/Check that the node is up/)).toBeInTheDocument();
   });
 
-  it("removes a server after its name is typed and sudo mode, saying what to run if it is unreachable", { timeout: 30_000 }, async () => {
+  it("removes a server after one question and sudo mode, saying what to run if it is unreachable", { timeout: 30_000 }, async () => {
     const backend = serversBackend();
-    const { user } = renderConsole("/settings/servers");
+    const { user } = renderConsole("/fleet/servers");
     await user.click(await screen.findByRole("button", { name: "Actions for web-2" }));
     await user.click(await screen.findByRole("menuitem", { name: "Remove from the fleet" }));
     const confirm = await screen.findByRole("alertdialog", { name: "Remove web-2?" });
     expect(confirm).toHaveTextContent(/revokes its token there/);
     expect(await within(confirm).findByText("noust fleet deauthorize --name nas")).toBeInTheDocument();
     await expectNoAxeViolations(confirm);
-    await user.type(within(confirm).getByRole("textbox"), "web-2");
     await user.click(within(confirm).getByRole("button", { name: "Remove server" }));
     await confirmItsYou(user);
 
@@ -258,15 +246,12 @@ describe("Settings > Servers", () => {
     expect(within(result).getByText(/Revoked the fleet token on web-2\./)).toBeInTheDocument();
     expect(backend.callsTo("DELETE /api/nodes/web-2").at(-1)?.search.get("revoke")).toBe("true");
     await user.click(within(result).getByRole("button", { name: "Done" }));
-    const table = screen.getByRole("region", { name: "Servers this central manages" });
-    await waitFor(() => {
-      expect(within(table).queryByText("web-2")).not.toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Removed web-2" })).not.toBeInTheDocument());
   });
 
   it("tests a server and says how it went, in ssh's words when it failed", { timeout: 20_000 }, async () => {
     serversBackend();
-    const { user } = renderConsole("/settings/servers");
+    const { user } = renderConsole("/fleet/servers");
     await user.click(await screen.findByRole("button", { name: "Actions for web-2" }));
     await user.click(await screen.findByRole("menuitem", { name: "Test the connection" }));
     await expectToast("web-2 answered in 42 ms");
@@ -278,13 +263,12 @@ describe("Settings > Servers", () => {
 
   it("speaks Spanish through the whole flow, with no accessibility violations", { timeout: 40_000 }, async () => {
     serversBackend();
-    const { user, container } = renderConsole("/settings/servers");
-    await screen.findByRole("region", { name: "Servers this central manages" });
+    const { user, container } = renderConsole("/fleet/servers");
+    await screen.findByRole("list", { name: "Servers of this fleet" });
     await act(async () => {
       await setLocale("es");
     });
-    const table = await screen.findByRole("region", { name: "Servidores que gestiona esta central" });
-    expect(within(table).getByText("Cuenta y dirección del túnel")).toBeInTheDocument();
+    await screen.findByRole("list", { name: "Servidores de esta flota" });
     await expectNoAxeViolations(container, { page: true });
     await user.click(screen.getByRole("button", { name: "Añadir un servidor" }));
     const guided = await screen.findByRole("dialog", { name: "Añadir un servidor" });

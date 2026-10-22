@@ -2,7 +2,6 @@ import type { containers as en } from "../en/containers";
 import type { Catalog } from "../types";
 
 export const containers: Catalog<typeof en> = {
-  fromTerminal: "Desde una terminal",
   restart: {
     unlessStopped: "Salvo que se detenga",
     always: "Siempre",
@@ -56,10 +55,8 @@ export const containers: Catalog<typeof en> = {
     titleRailpack: "Variables de Railpack",
     description: "Se escriben en el historial de la imagen, así que nunca un secreto: se rechaza un nombre o un valor que lo parezca. Usa un secreto de compilación para esos.",
     descriptionRailpack: "Railpack las lee como sus variables, como RAILPACK_NODE_VERSION. Nunca un secreto: usa un secreto de compilación.",
-    name: "Nombre",
     value: "Valor",
     add: "Añadir argumento",
-    remove: "Quitar {name}",
     removeEmpty: "Quitar argumento",
   },
   secrets: {
@@ -74,7 +71,6 @@ export const containers: Catalog<typeof en> = {
     removeEmpty: "Quitar secreto",
     stored: "Guardado en el servidor",
     willRemove: "Se quita al guardar",
-    removeAction: "Quitar",
     removeStored: "Quitar {id}",
     undo: "Conservar",
     keep: "Conservar {id}",
@@ -104,7 +100,8 @@ export const containers: Catalog<typeof en> = {
     image: "Imagen",
     imageDescription: "nombre[:etiqueta][@sha256:huella], como ghcr.io/owner/app:1.4 o nginx:1.27-alpine. Docker la descarga al desplegar y de nuevo en cada actualización.",
     privateRegistry: "La cuenta de un registro privado se pide en el paso de configuración. No se descarga nada hasta que despliegues.",
-    intro: "Una imagen de un registro se ejecuta como aplicación de contenedor: Noust escribe el fichero Compose, el servicio y el sitio, y guarda cada release como una imagen a la que puede volver al instante.",
+    intro:
+      "Una imagen de un registro se ejecuta como aplicación de contenedor: Noust escribe el archivo Compose, el servicio y el sitio, y guarda cada release como una imagen a la que puede volver al instante.",
     pulledEvery: "Se descarga de nuevo en cada actualización.",
   },
   summary: {
@@ -115,7 +112,7 @@ export const containers: Catalog<typeof en> = {
     portDefault: "{port}, el predeterminado",
     volumes: "Volúmenes",
     noVolumes: "Ninguno",
-    restart: "Reinicio",
+    restart: "Política de reinicio",
     build: "Compilación",
     buildCounts: "{args} argumentos y {secrets} secretos",
     account: "Cuenta del registro",
@@ -123,7 +120,8 @@ export const containers: Catalog<typeof en> = {
   },
   settings: {
     title: "Contenedor",
-    description: "Cómo se hace la imagen y cómo se ejecuta. La compilación y el contenedor son de Docker: Noust escribe el fichero Compose y guarda cada release como una imagen.",
+    description:
+      "Cómo se hace la imagen y cómo se ejecuta. La compilación y el contenedor son de Docker: Noust escribe el archivo Compose y guarda cada release como una imagen.",
     notContainer: "Esta no es una aplicación de contenedor.",
     loading: "Cargando los ajustes del contenedor",
     readFailed: "No se pudieron leer los ajustes del contenedor",
@@ -134,7 +132,7 @@ export const containers: Catalog<typeof en> = {
     release: "Release en servicio",
     digest: "Imagen descargada",
     digestHint: "La huella que resolvió el último despliegue.",
-    takesEffect: "Un cambio se guarda ahora y surte efecto con la próxima actualización, que vuelve a escribir el fichero Compose. Guardar no recrea nada.",
+    takesEffect: "Un cambio se guarda ahora y surte efecto con la próxima actualización, que vuelve a escribir el archivo Compose. Guardar no recrea nada.",
     saveFailed: "No se guardaron los ajustes del contenedor de {domain}",
     notSavedFor: "No se guardaron los ajustes del contenedor de {domain}",
   },

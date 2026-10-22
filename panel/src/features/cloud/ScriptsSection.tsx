@@ -28,7 +28,7 @@ function columnsFor(t: T): readonly Column<CloudScript>[] {
   return [
     {
       id: "name",
-      header: t("cloud.scripts.column.name"),
+      header: t("common.words.name"),
       sortValue: (script) => script.name,
       cell: (script) => (
         <span className="flex min-w-0 items-center gap-2">
@@ -62,7 +62,7 @@ function ScriptActions({ script }: { script: CloudScript }) {
           </MenuItem>
         ) : (
           <MenuItem icon={<Pencil />} onClick={() => setOpened("edit")}>
-            {t("cloud.scripts.edit")}
+            {t("common.words.edit")}
           </MenuItem>
         )}
         <MenuItem icon={<Copy />} onClick={() => setOpened("copy")}>
@@ -72,7 +72,7 @@ function ScriptActions({ script }: { script: CloudScript }) {
           <>
             <MenuSeparator />
             <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(true)}>
-              {t("cloud.scripts.delete")}
+              {t("common.words.delete")}
             </MenuItem>
           </>
         )}
@@ -124,7 +124,7 @@ export function ScriptsSection() {
         <OBJECT_ICONS.script aria-hidden="true" className="mr-1 inline size-icon-sm align-text-bottom" />
         {t("cloud.scripts.note")}
       </p>
-      <CommandHint label={t("cloud.fromTerminal")} command="noust fleet cloud script list" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet cloud script list" />
       {writing ? <ScriptDialog open onOpenChange={setWriting} /> : null}
     </Section>
   );

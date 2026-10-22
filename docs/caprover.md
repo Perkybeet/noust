@@ -70,13 +70,13 @@ Where each page of CapRover's dashboard is in the console.
 
 | CapRover | Noust |
 |---|---|
-| Dashboard (root domain, HTTPS, "Force HTTPS") | **Domains and certificates**, and **Settings > General** |
+| Dashboard (root domain, HTTPS, "Force HTTPS") | **Domains**, and **Settings > General** |
 | Apps (the list; an app's Deployment, HTTP Settings, App Configs, Logs) | **Applications**, and the application's **Deployments**, **Domains**, **Settings**, **Environment** and **Logs** |
-| One-Click Apps/Databases | **Catalog** (the command palette: "From a recipe"), and **Databases** |
-| Monitoring (NetData) | **Overview**, the application's **Metrics**, **Server > System** and **Settings > Alerts** |
-| Cluster | **Fleet** |
+| One-Click Apps/Databases | **Recipes** (under Applications; the new-application wizard offers **From a recipe**), and **Databases** |
+| Monitoring (NetData) | **Overview**, the application's **Metrics**, **Server > System** and **Settings > Alert rules** |
+| Cluster | **All servers** (the fleet) |
 | Settings > Backup & restore | **Backups**, and **Backups > Noust's own state** |
-| Settings > Change password, 2FA | **Settings > Security**, **Settings > Accounts** |
+| Settings > Change password, 2FA | **Account > Sign-in security**, **Settings > Accounts** |
 | Webhooks (an app's Deployment > Method 3) | **Settings > Deploy on push** of the application |
 | Logs (an app's) | The application's **Logs** |
 

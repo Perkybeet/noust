@@ -88,9 +88,9 @@ function Editor({ state, onClose }: { state: AutoUpdate; onClose: () => void }) 
       description={t("autoUpdate.editor.description")}
       footer={
         <>
-          <Button onClick={onClose}>{t("autoUpdate.editor.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
-            {t("autoUpdate.editor.save")}
+            {t("common.words.save")}
           </Button>
         </>
       }
@@ -142,7 +142,7 @@ function Editor({ state, onClose }: { state: AutoUpdate; onClose: () => void }) 
 
 /** What the last run did, as one line: the outcome, and the server's own sentence. */
 function lastRunItem(t: T, last: NonNullable<AutoUpdate["last_run"]>): KeyValueItem {
-  const outcome = last.outcome === "updated" ? t("autoUpdate.outcome.updated") : last.outcome === "failed" ? t("autoUpdate.outcome.failed") : t("autoUpdate.outcome.skipped");
+  const outcome = last.outcome === "updated" ? t("autoUpdate.outcome.updated") : last.outcome === "failed" ? t("common.statusPill.failed") : t("autoUpdate.outcome.skipped");
   return {
     label: t("autoUpdate.facts.lastRun"),
     value: (
@@ -247,7 +247,7 @@ function AutoUpdateCard({ state }: { state: AutoUpdate }) {
         }
         actions={
           <Button icon={<Settings2 aria-hidden="true" />} size="sm" onClick={() => setEditing(true)}>
-            {settings.enabled || state.timer.installed ? t("autoUpdate.edit") : t("autoUpdate.set")}
+            {settings.enabled || state.timer.installed ? t("common.words.edit") : t("autoUpdate.set")}
           </Button>
         }
       >

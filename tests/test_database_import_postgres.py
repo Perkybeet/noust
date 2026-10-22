@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The PostgreSQL loader and an import's "keep owners" option (3.4, checklist H-18).
+The PostgreSQL loader and an import's "keep owners" option (4.0, checklist H-18).
 
 Off, the owners and privileges a dump names (the roles of the server it came
 from) are left out and every object is created as the database's own owner:

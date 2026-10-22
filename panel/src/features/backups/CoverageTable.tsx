@@ -2,12 +2,11 @@ import { CalendarClock, History, Play, RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { RowMenu } from "../../components/page/RowMenu";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
-import { IconButton } from "../../components/ui/IconButton";
-import { ICONS } from "../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { StatusPill } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
@@ -34,13 +33,13 @@ export interface CoverageActions {
   onSchedule: (row: CoverageRow) => void;
 }
 
-function RowActions({ row, actions }: { row: CoverageRow; actions: CoverageActions }) {
+function CoverageMenu({ row, actions }: { row: CoverageRow; actions: CoverageActions }) {
   const t = useT();
   return (
-    <Menu align="end" trigger={<IconButton label={t("backups.coverage.actionsFor", { domain: row.domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+    <RowMenu name={row.domain}>
       {row.deployed ? (
         <MenuItem icon={<Play />} onClick={() => actions.onBackUp(row.domain)}>
-          {t("backups.coverage.actions.backUpNow")}
+          {t("common.words.backUpNow")}
         </MenuItem>
       ) : null}
       <MenuItem icon={<History />} onClick={() => actions.onOpen(row)}>
@@ -59,7 +58,7 @@ function RowActions({ row, actions }: { row: CoverageRow; actions: CoverageActio
           </MenuItem>
         </>
       ) : null}
-    </Menu>
+    </RowMenu>
   );
 }
 
@@ -162,7 +161,7 @@ export function CoverageTable({ rows, caption, loading = false, skeletonRows, em
       {...(skeletonRows !== undefined ? { skeletonRows } : {})}
       {...(empty !== undefined ? { empty } : {})}
       onRowActivate={actions.onOpen}
-      rowActions={(row) => <RowActions row={row} actions={actions} />}
+      rowActions={(row) => <CoverageMenu row={row} actions={actions} />}
       defaultSort={{ column: "domain", direction: "ascending" }}
     />
   );

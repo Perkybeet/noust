@@ -7,7 +7,6 @@ export const registries: Catalog<typeof en> = {
   loading: "Cargando las cuentas de registro",
   caption: "Cuentas de registro",
   add: "Añadir una cuenta",
-  columnName: "Nombre",
   columnRegistry: "Registro",
   columnAccount: "Cuenta",
   columnState: "Última prueba",
@@ -18,7 +17,6 @@ export const registries: Catalog<typeof en> = {
   emptyDescription: "Añade una cuando una imagen o una imagen base sea privada. Las imágenes públicas no necesitan cuenta.",
   state: {
     ok: "Acceso correcto",
-    failed: "Fallido",
     untested: "Sin probar",
   },
   kind: {
@@ -31,19 +29,14 @@ export const registries: Catalog<typeof en> = {
     custom: "Otro registro",
   },
   actions: {
-    more: "Acciones de {name}",
     test: "Probar el acceso",
-    edit: "Editar",
-    remove: "Quitar",
     tested: "{name} accedió a {server}",
     testFailed: "El acceso de {name} falló",
   },
   dialog: {
     addTitle: "Añadir una cuenta de registro",
     addDescription: "Noust accede con ella cuando descarga o construye una imagen de una aplicación a la que se la asocies.",
-    editTitle: "Editar {name}",
     editDescription: "Deja la contraseña vacía para conservar la guardada.",
-    name: "Nombre",
     nameDescription: "Minúsculas, dígitos, puntos, guiones y guiones bajos. Las aplicaciones se refieren a la cuenta por él.",
     kind: "Registro",
     server: "Dirección del registro",
@@ -54,7 +47,6 @@ export const registries: Catalog<typeof en> = {
     password: "Contraseña o token",
     passwordEcr: "Clave de acceso secreta de AWS",
     passwordKeep: "Contraseña o token (vacío la conserva)",
-    cancel: "Cancelar",
     save: "Añadir la cuenta",
     saveEdit: "Guardar los cambios",
     failed: "No se pudo guardar la cuenta",
@@ -76,6 +68,5 @@ export const registries: Catalog<typeof en> = {
     none: "Todavía no hay cuentas de registro.",
     manage: "Gestionar las cuentas",
     saved: "Se guardaron las cuentas de {domain}",
-    fromTerminal: "Lo mismo, desde un terminal",
   },
 };

@@ -35,7 +35,7 @@ export function ServiceRowActions({ service }: { service: ServiceInfo }) {
 
   return (
     <>
-    <Menu align="end" trigger={<IconButton label={t("services.actions.actionsFor", { name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+    <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
       <MenuItem icon={<OBJECT_ICONS.service />} onClick={() => void navigate({ to: "/server/services/$name", params: { name } })}>
         {t("services.actions.open")}
       </MenuItem>
@@ -50,15 +50,15 @@ export function ServiceRowActions({ service }: { service: ServiceInfo }) {
           <MenuSeparator />
           {service.active ? (
             <MenuItem icon={<CirclePause />} disabled={stop.isPending} onClick={() => setConfirmStop(true)}>
-              {t("services.actions.stop")}
+              {t("common.words.stop")}
             </MenuItem>
           ) : (
             <MenuItem icon={<CirclePlay />} disabled={start.isPending} onClick={() => start.mutate()}>
-              {t("services.actions.start")}
+              {t("common.words.start")}
             </MenuItem>
           )}
           <MenuItem icon={<RotateCw />} disabled={restart.isPending} onClick={() => restart.mutate()}>
-            {t("services.actions.restart")}
+            {t("common.words.restart")}
           </MenuItem>
           <MenuSeparator />
           {service.enabled ? (

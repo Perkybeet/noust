@@ -79,7 +79,7 @@ def test_a_fresh_store_has_them(db_path: Path) -> None:
     assert {"cancelled_at", "cancelled_by"} <= columns(db_path, "deployments")
 
 
-def test_a_store_from_before_3_4_gains_them_and_keeps_its_history(db_path: Path) -> None:
+def test_a_store_from_before_4_0_gains_them_and_keeps_its_history(db_path: Path) -> None:
     store = NoustStore(db_path)
     deployment = store.record_deployment_start("shop.example.com", "cli")
     store.finish_deployment(deployment, "success")

@@ -3,8 +3,6 @@ import type { Catalog } from "../types";
 
 export const map: Catalog<typeof en> = {
   title: "Mapa",
-  description: "Cómo encaja este servidor: los nombres que llegan a cada aplicación, y lo que cada aplicación usa, ejecuta y conserva.",
-  newApplication: "Nueva aplicación",
   queryLabel: "el mapa de este servidor",
   label: "Cómo encaja este servidor",
   layers: {
@@ -27,5 +25,4 @@ export const map: Catalog<typeof en> = {
   emptyTitle: "Todavía no hay nada que mapear",
   emptyDescription: "Despliega una aplicación y sus nombres, bases de datos, tareas programadas y datos aparecen aquí, conectados.",
   fromTerminal: "Léelo desde un terminal",
-  overflow: "Mapa de este servidor",
 };

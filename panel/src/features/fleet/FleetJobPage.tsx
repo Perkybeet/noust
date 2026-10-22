@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { RotateCcw } from "lucide-react";
+import { ArrowUpRight, RotateCcw } from "lucide-react";
 import { useState } from "react";
 
 import { ElevationCancelledError } from "../../api/client";
 import { DetailPage } from "../../components/page/DetailPage";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { textLinkClassName } from "../../components/ui/TextLink";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
@@ -38,6 +39,7 @@ import {
 import type { FleetJob, FleetNodeState, NodeJobState } from "./data";
 import { HrefLink } from "./links";
 import { NodeJobDrawer } from "./NodeJobDrawer";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 /** The order a job's counts are said in: what went wrong first. */
 const COUNT_ORDER: readonly NodeJobState[] = ["failed", "unreachable", "refused", "interrupted", "running", "queued", "succeeded", "rolled_back", "skipped", "cancelled"];
@@ -62,7 +64,7 @@ function columns(t: T, canary: unknown, onOpen: (node: FleetNodeState) => void):
       header: t("fleet.column.server"),
       card: "title",
       cell: (node) => (
-        <HrefLink href={node.href} className="rounded-chip font-medium text-fg hover:underline hover:underline-offset-2" aria-label={t("fleet.jobs.nodeActivity", { name: node.node })}>
+        <HrefLink href={node.href} className={textLinkClassName("inline", undefined, "row")} aria-label={t("fleet.jobs.nodeActivity", { name: node.node })}>
           <Mono>{node.node}</Mono>
         </HrefLink>
       ),
@@ -124,7 +126,7 @@ function columns(t: T, canary: unknown, onOpen: (node: FleetNodeState) => void):
       align: "end",
       card: "meta",
       cell: (node) => (
-        <Button
+        <Button icon={<ArrowUpRight aria-hidden="true" />}
           size="sm"
           variant="ghost"
           aria-label={t("fleet.jobs.detailsFor", { name: node.node })}
@@ -188,8 +190,9 @@ function RetryDialog({ t, job, onClose }: { t: T; job: FleetJob; onClose: () => 
       footer={
         <>
           <Button disabled={run.isPending} onClick={onClose}>
-            {t("fleet.labels.cancel")}
+            {t("common.words.cancel")}
           </Button>
+          {/* design-exception: submit-disabled-invalid it waits for the plan it runs, and has nothing to run when every server is left out */}
           <Button
             variant="primary"
             loading={run.isPending}
@@ -204,11 +207,10 @@ function RetryDialog({ t, job, onClose }: { t: T; job: FleetJob; onClose: () => 
       }
     >
       {plan.isPending ? (
-        <div aria-busy="true" className="flex flex-col gap-3">
-          <span className="sr-only">{t("fleet.bulk.plan.loading")}</span>
+        <LoadingRegion label={t("fleet.bulk.plan.loading")} className="flex flex-col gap-3">
           <Skeleton className="h-4 w-80 max-w-full" />
           <Skeleton className="h-24 w-full" />
-        </div>
+        </LoadingRegion>
       ) : plan.isError ? (
         <ErrorBlock live error={plan.error} title={t("fleet.bulk.plan.failed")} onRetry={() => void plan.refetch()} />
       ) : action !== null ? (
@@ -278,6 +280,7 @@ export function FleetJobPage({ id }: { id: string }) {
           : {}),
       }}
     >
+      {/* design-exception: hand-error-ternary the table draws its own skeleton rows; a running job is read again every few seconds */}
       {job.isError && data === undefined ? (
         <ErrorBlock error={job.error} title={t("fleet.jobs.loadFailed")} onRetry={() => void job.refetch()} retrying={job.isRefetching} />
       ) : (

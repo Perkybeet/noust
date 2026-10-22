@@ -45,7 +45,7 @@ describe("a database's backups", () => {
     const dumps = await screen.findByRole("region", { name: "Dumps of example_production" });
     await user.click(within(dumps).getByRole("button", { name: "Actions for postgresql-example_production-20260929_020000.dump" }));
     await user.click(await screen.findByRole("menuitem", { name: "Restore…" }));
-    const dialog = await screen.findByRole("dialog", { name: "Restore a dump" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Restore a dump" });
     await waitFor(() => expect(within(dialog).getByLabelText("New database name")).toHaveValue("example_production_restored"));
     await user.click(within(dialog).getByRole("button", { name: "Restore as new database" }));
     await waitFor(() => expect(backend.callsTo("POST /api/databases/backups/restore")).toHaveLength(1));
@@ -66,7 +66,7 @@ describe("a database's backups", () => {
     const dumps = await screen.findByRole("region", { name: "Dumps of example_production" });
     await user.click(within(dumps).getByRole("button", { name: "Actions for postgresql-example_production-20260929_020000.dump" }));
     await user.click(await screen.findByRole("menuitem", { name: "Restore…" }));
-    const dialog = await screen.findByRole("dialog", { name: "Restore a dump" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Restore a dump" });
     await user.click(within(dialog).getByRole("combobox", { name: "Restore into" }));
     await user.click(await screen.findByRole("option", { name: /example_production, replacing/ }));
     expect(within(dialog).getByText(/A safety copy of example_production is taken first/)).toBeInTheDocument();

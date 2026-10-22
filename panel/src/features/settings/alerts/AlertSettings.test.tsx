@@ -124,7 +124,7 @@ function alertsBackend(rules: ReturnType<typeof rule>[] = [rule("cpu-high"), FIR
 async function confirmItsYou(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
   const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
   await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-  await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+  await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 }
 
 function ruleRow(name: string): HTMLElement {
@@ -145,7 +145,7 @@ describe("Settings > Alerts", () => {
     const calm = ruleRow("cpu-high");
     expect(within(calm).getByText("CPU above 90% for 5m 00s")).toBeInTheDocument();
     expect(within(calm).getByText("On the server.")).toBeInTheDocument();
-    expect(within(calm).getByText("OK")).toHaveAttribute("data-state", "running");
+    expect(within(calm).getByText("Normal")).toHaveAttribute("data-state", "running");
 
     const firing = ruleRow("shop-memory");
     // A limit is read the way the metric is measured, and a failure rule is a failed state.
@@ -156,36 +156,40 @@ describe("Settings > Alerts", () => {
     await expectNoAxeViolations(container);
   });
 
-  it("takes a firing alert, shows who has it and hands it back", { timeout: 30_000 }, async () => {
+  it("acknowledges a firing alert, shows who has it and when, and reopens it", { timeout: 30_000 }, async () => {
     const backend = alertsBackend();
     const { user } = renderConsole("/settings/alerts");
     await screen.findByRole("list", { name: "Alert rules" });
     const firing = ruleRow("shop-memory");
-    // Nothing is taken yet, and a rule that is fine has nothing to take.
-    expect(within(firing).queryByText(/Taken by/)).toBeNull();
-    expect(within(ruleRow("cpu-high")).queryByRole("button", { name: /Take the alert/ })).toBeNull();
+    // Nothing is acknowledged yet, and a rule that is fine has nothing to acknowledge.
+    expect(within(firing).queryByText(/Acknowledged by/)).toBeNull();
+    expect(within(ruleRow("cpu-high")).queryByRole("button", { name: /Acknowledge the alert/ })).toBeNull();
+    // The page says once what acknowledging does and does not do.
+    expect(screen.getByText(/Acknowledging a firing alert stops its reminders; it never resolves it/)).toBeInTheDocument();
 
-    await user.click(within(firing).getByRole("button", { name: "Take the alert for shop.example.com" }));
+    await user.click(within(firing).getByRole("button", { name: "Acknowledge the alert for shop.example.com" }));
 
     await waitFor(() => {
       expect(backend.callsTo("POST /api/alerts/rules/shop-memory/acknowledge")).toHaveLength(1);
     });
     expect(backend.callsTo("POST /api/alerts/rules/shop-memory/acknowledge")[0]?.search.get("subject")).toBe("shop.example.com");
-    // Who has it, with the button turned into the way back.
-    expect(await within(ruleRow("shop-memory")).findByText(/Taken by/)).toHaveTextContent(/Taken by\s+alice/);
-    await user.click(within(ruleRow("shop-memory")).getByRole("button", { name: "Hand the alert for shop.example.com back" }));
+    // Who and when, in a badge, with the button turned into the way back.
+    expect(await within(ruleRow("shop-memory")).findByText(/Acknowledged by/)).toHaveTextContent(/Acknowledged by\s+alice\s+30 seconds ago|Acknowledged by\s+alice/);
+    await user.click(within(ruleRow("shop-memory")).getByRole("button", { name: "Reopen the alert for shop.example.com" }));
     await waitFor(() => {
       expect(backend.callsTo("DELETE /api/alerts/rules/shop-memory/acknowledge")).toHaveLength(1);
     });
-    expect(await within(ruleRow("shop-memory")).findByRole("button", { name: "Take the alert for shop.example.com" })).toBeInTheDocument();
-    expect(within(ruleRow("shop-memory")).queryByText(/Taken by/)).toBeNull();
+    expect(await within(ruleRow("shop-memory")).findByRole("button", { name: "Acknowledge the alert for shop.example.com" })).toBeInTheDocument();
+    expect(within(ruleRow("shop-memory")).queryByText(/Acknowledged by/)).toBeNull();
   });
 
   it("explains what a rule is when there is none", { timeout: 20_000 }, async () => {
     alertsBackend([]);
     renderConsole("/settings/alerts");
     expect(await screen.findByText("No alert rules yet")).toBeInTheDocument();
-    expect(screen.getByText("No alert is firing.")).toBeInTheDocument();
+    // Nothing to say about what is firing while there is nothing to fire, and one button to write the first rule.
+    expect(screen.queryByText("No alert is firing.")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "New rule" })).toHaveLength(1);
   });
 
   it("creates a rule from the drawer, with the limit as typed and the time in minutes", { timeout: 30_000 }, async () => {
@@ -195,11 +199,17 @@ describe("Settings > Alerts", () => {
     await user.click(screen.getByRole("button", { name: "New rule" }));
     const drawer = await screen.findByRole("dialog", { name: "New alert rule" });
     const save = within(drawer).getByRole("button", { name: "Save rule" });
-    // Nothing to send until the rule has a name and a limit.
-    expect(save).toBeDisabled();
-    await user.type(within(drawer).getByLabelText("Name"), "disk-full");
-    await user.type(within(drawer).getByLabelText("Limit"), "85%");
+    // The button is never disabled for what is left out: pressing it says what, and goes there.
     expect(save).toBeEnabled();
+    await user.click(save);
+    expect(await within(drawer).findByText("Give the rule a name.")).toBeInTheDocument();
+    expect(within(drawer).getByLabelText("Name")).toHaveFocus();
+    expect(backend.callsTo("PUT /api/alerts/rules/disk-full")).toHaveLength(0);
+    await user.type(within(drawer).getByLabelText("Name"), "disk-full");
+    await user.click(save);
+    expect(await within(drawer).findByText("Write the limit it fires at.")).toBeInTheDocument();
+    expect(within(drawer).getByLabelText("Limit")).toHaveFocus();
+    await user.type(within(drawer).getByLabelText("Limit"), "85%");
     await user.click(save);
     await waitFor(() => {
       expect(backend.callsTo("PUT /api/alerts/rules/disk-full")).toHaveLength(1);
@@ -245,7 +255,8 @@ describe("Settings > Alerts", () => {
     const backend = alertsBackend();
     const { user } = renderConsole("/settings/alerts");
     await screen.findByRole("list", { name: "Alert rules" });
-    await user.click(within(ruleRow("shop-memory")).getByRole("button", { name: "Edit shop-memory" }));
+    await user.click(within(ruleRow("shop-memory")).getByRole("button", { name: "Actions for shop-memory" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
     const drawer = await screen.findByRole("dialog", { name: "Edit shop-memory" });
     expect(within(drawer).getByLabelText("Name")).toHaveAttribute("readonly");
     // 536870912 bytes is written back as the 512MB it was typed as.
@@ -265,7 +276,8 @@ describe("Settings > Alerts", () => {
     });
     expect(await within(ruleRow("cpu-high")).findByText("Off")).toHaveAttribute("data-state", "stopped");
 
-    await user.click(within(ruleRow("cpu-high")).getByRole("button", { name: "Remove cpu-high" }));
+    await user.click(within(ruleRow("cpu-high")).getByRole("button", { name: "Actions for cpu-high" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Remove" }));
     const question = await screen.findByRole("alertdialog", { name: "Remove cpu-high?" });
     await user.click(within(question).getByRole("button", { name: "Remove" }));
     await waitFor(() => {
@@ -279,12 +291,12 @@ describe("Settings > Alerts", () => {
   it("writes only the built-in checks that changed, and puts a refusal beside its field", { timeout: 30_000 }, async () => {
     const backend = alertsBackend();
     const { user } = renderConsole("/settings/alerts");
-    const disk = await screen.findByLabelText("Disk almost full at (%)");
+    const disk = await screen.findByLabelText("Almost full at (%)");
     // The values arrive with the configuration; until then the fields hold their place, empty.
     await waitFor(() => {
       expect(disk).toHaveValue("90");
     });
-    expect(screen.getByLabelText("Certificates, days before they expire")).toHaveValue("14");
+    expect(screen.getByLabelText("Days before they expire", { selector: "input" })).toHaveValue("14");
     await user.clear(disk);
     await user.type(disk, "95");
     const bar = screen.getByRole("region", { name: "Unsaved changes" });
@@ -296,6 +308,55 @@ describe("Settings > Alerts", () => {
     });
     // Only that one: what was not touched stays as the file says.
     expect(backend.callsTo("PATCH /api/config").filter((call) => (call.body as { path: string }).path !== "monitor.disk_threshold")).toHaveLength(0);
+  });
+
+  it("turns a check off with its own box and not with a zero, and brings back what it held when it is ticked again", { timeout: 30_000 }, async () => {
+    const backend = alertsBackend();
+    const { user } = renderConsole("/settings/alerts");
+    const box = await screen.findByRole("checkbox", { name: /Missing backups/ });
+    await waitFor(() => {
+      expect(screen.getByLabelText("Days without a new one")).toHaveValue("2");
+    });
+    expect(box).toBeChecked();
+    // No sentence tells the operator to type a zero.
+    expect(screen.queryByText(/0 turns it off/)).toBeNull();
+
+    await user.clear(screen.getByLabelText("Days without a new one"));
+    await user.type(screen.getByLabelText("Days without a new one"), "5");
+    await user.click(box);
+    // Off: its numbers are gone, and it is one change, to the number that means off.
+    expect(box).not.toBeChecked();
+    expect(screen.queryByLabelText("Days without a new one")).toBeNull();
+    const bar = screen.getByRole("region", { name: "Unsaved changes" });
+    expect(within(bar).getByText("1 unsaved change")).toBeInTheDocument();
+
+    await user.click(box);
+    // Back on: what it held before it was ticked off (5), not the default (2).
+    expect(await screen.findByLabelText("Days without a new one")).toHaveValue("5");
+
+    await user.click(box);
+    await user.click(within(bar).getByRole("button", { name: "Save" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "monitor.backup_missing_days", value: 0 });
+    });
+  });
+
+  it("shows a check the server has off as unticked, and ticks it on with the server's own default", { timeout: 30_000 }, async () => {
+    const config = configBody();
+    config.config.monitor.token_warning_days = 0;
+    const backend = alertsBackend(undefined, { "GET /api/config": () => json(200, config) });
+    const { user } = renderConsole("/settings/alerts");
+    const box = await screen.findByRole("checkbox", { name: /API tokens/ });
+    await waitFor(() => {
+      expect(box).not.toBeChecked();
+    });
+    expect(screen.queryByLabelText("Days before it expires")).toBeNull();
+    await user.click(box);
+    expect(await screen.findByLabelText("Days before it expires")).toHaveValue("7");
+    // From off to the default is one change, not yet saved.
+    expect(screen.getByRole("region", { name: "Unsaved changes" })).toHaveTextContent("1 unsaved change");
+    expect(backend.callsTo("PATCH /api/config")).toHaveLength(0);
   });
 
   it("reads in Spanish, with no accessibility violations", { timeout: 20_000 }, async () => {

@@ -9,19 +9,21 @@ import { jobKeys } from "../../../api/queries/jobs";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
+import type { Status } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { draftOf, readTuning } from "./tuning";
 import type { TuningDraft, TuningField } from "./tuning";
 import type { TlsJobWords } from "./TlsDialog";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 export interface TuningDialogProps {
   instance: DbInstance;
@@ -30,9 +32,9 @@ export interface TuningDialogProps {
   onQueued: (jobId: string, words: TlsJobWords) => void;
 }
 
-/** What Docker's probe says, as a badge. */
-function healthTone(status: string): "ok" | "warn" | "fail" | "neutral" {
-  return status === "healthy" ? "ok" : status === "starting" ? "warn" : status === "unhealthy" ? "fail" : "neutral";
+/** What Docker's probe says, as a state. */
+function healthState(status: string): Status {
+  return status === "healthy" ? "running" : status === "starting" ? "deploying" : status === "unhealthy" ? "failed" : "unknown";
 }
 
 /** A setting's name in words. */
@@ -72,7 +74,7 @@ function Health({ status }: { status: TuningStatus }) {
         items={[
           {
             label: t("databases.tuning.healthNow"),
-            value: <Badge tone={healthTone(health.status)}>{word}</Badge>,
+            value: <StatusPill size="sm" state={healthState(health.status)} label={word} />,
             copy: false,
             mono: false,
             ...(health.failing_streak > 0 ? { hint: t("databases.tuning.failingStreak", { count: health.failing_streak }) } : {}),
@@ -96,10 +98,9 @@ function Plan({ plan }: { plan: UseQueryResult<TuningPlan> }) {
   const t = useT();
   if (plan.isPending) {
     return (
-      <div aria-busy="true">
-        <span className="sr-only">{t("databases.tuning.planning")}</span>
+      <LoadingRegion label={t("databases.tuning.planning")}>
         <Skeleton className="h-24 w-full rounded-control" />
-      </div>
+      </LoadingRegion>
     );
   }
   if (plan.isError) return <ErrorBlock compact error={plan.error} title={t("databases.tuning.planFailed")} />;
@@ -235,7 +236,7 @@ function Form({ instance, status, onOpenChange, onQueued }: TuningDialogProps & 
           </div>
         ) : null}
         {apply.isError ? <ErrorBlock live compact error={apply.error} title={t("databases.tuning.failed")} /> : null}
-        <CommandHint command={`noust db instance limits ${instance.name}`} label={t("databases.common.fromTerminal")} />
+        <CommandHint command={`noust db instance limits ${instance.name}`} label={t("common.words.fromTerminal")} />
       </div>
     </Dialog>
   );
@@ -264,9 +265,9 @@ export function TuningDialog(props: TuningDialogProps) {
       {status.isError ? (
         <ErrorBlock compact error={status.error} title={t("databases.tuning.readFailed")} onRetry={() => void status.refetch()} />
       ) : (
-        <div aria-busy="true">
+        <LoadingRegion label={t("databases.tuning.loading")}>
           <Skeleton className="h-40 w-full rounded-control" />
-        </div>
+        </LoadingRegion>
       )}
     </Dialog>
   );

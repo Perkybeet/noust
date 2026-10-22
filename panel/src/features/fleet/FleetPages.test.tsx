@@ -38,7 +38,8 @@ describe("the fleet's summary", () => {
     fakeBackend(fleetRoutes());
     const { container } = renderConsole("/fleet");
     expect(await screen.findByRole("heading", { level: 1, name: "Fleet" })).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Fleet views" })).toBeInTheDocument();
+    // The sidebar lists the fleet's views; the page draws no strip of them.
+    expect(screen.queryByRole("navigation", { name: "Fleet views" })).not.toBeInTheDocument();
 
     // Partial, never blank: db-1's last answer is shown, with why it is old.
     expect(await screen.findByText("2 of 4 servers did not answer fully")).toBeInTheDocument();
@@ -298,7 +299,7 @@ describe("a bulk action", () => {
     await expectNoAxeViolations(container, { page: true });
     await user.keyboard("{Escape}");
 
-    await user.click(screen.getByRole("button", { name: "Retry the failed one" }));
+    await user.click(screen.getByRole("button", { name: "Retry failed" }));
     const retry = await screen.findByRole("dialog", { name: "Retry the servers that did not get done" });
     await user.click(await within(retry).findByRole("button", { name: "Run on 1 server" }));
     await waitFor(() => {

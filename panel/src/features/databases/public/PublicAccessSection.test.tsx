@@ -91,7 +91,7 @@ describe("a database's public access", () => {
     const section = await screen.findByRole("region", { name: "Public access" });
     expect(await within(section).findByText("Private")).toBeInTheDocument();
     expect(within(section).getByText(/does not listen beyond this server/)).toBeInTheDocument();
-    expect(within(section).getByRole("button", { name: "Make it public…" })).toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: "Open access…" })).toBeInTheDocument();
     await expectNoAxeViolations(section);
   });
 
@@ -100,8 +100,8 @@ describe("a database's public access", () => {
     const { user, backend } = await connectAt({
       "POST /api/databases/public": () => json(201, opened),
     });
-    await user.click(await screen.findByRole("button", { name: "Make it public…" }));
-    const dialog = await screen.findByRole("dialog", { name: "Make example_production public" });
+    await user.click(await screen.findByRole("button", { name: "Open access…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Open access to example_production" });
     await user.type(within(dialog).getByLabelText(/^Port/), "5433");
     await user.type(within(dialog).getByLabelText(/^Reachable from/), "203.0.113.7");
     await user.click(within(dialog).getByRole("radio", { name: /^Read only/ }));
@@ -125,12 +125,12 @@ describe("a database's public access", () => {
     await expectNoAxeViolations(dialog);
 
     // Nothing is made before the warnings are accepted.
-    await user.click(within(dialog).getByRole("button", { name: "Make it public" }));
+    await user.click(within(dialog).getByRole("button", { name: "Open access" }));
     expect(await within(dialog).findByText("Tick the box to accept what is listed above.")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/databases/public")).toHaveLength(0);
 
     await user.click(within(dialog).getByRole("checkbox", { name: "I understand this and want the database public" }));
-    await user.click(within(dialog).getByRole("button", { name: "Make it public" }));
+    await user.click(within(dialog).getByRole("button", { name: "Open access" }));
     await waitFor(() => expect(backend.callsTo("POST /api/databases/public")).toHaveLength(1));
     expect(backend.callsTo("POST /api/databases/public")[0]?.body).toMatchObject({ confirm: true, port: 5433, profile: "read_only" });
 
@@ -143,8 +143,8 @@ describe("a database's public access", () => {
 
   it("refuses an address that is not one, before asking the server", async () => {
     const { user, backend } = await connectAt();
-    await user.click(await screen.findByRole("button", { name: "Make it public…" }));
-    const dialog = await screen.findByRole("dialog", { name: "Make example_production public" });
+    await user.click(await screen.findByRole("button", { name: "Open access…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Open access to example_production" });
     await user.type(within(dialog).getByLabelText(/^Reachable from/), "anyone-at-all");
     await user.type(within(dialog).getByLabelText(/^Port/), "80");
     await user.click(within(dialog).getByRole("button", { name: "Review" }));
@@ -161,8 +161,8 @@ describe("a database's public access", () => {
           fields: { tls: "PostgreSQL has ssl = off, so no client can use TLS here." },
         }),
     });
-    await user.click(await screen.findByRole("button", { name: "Make it public…" }));
-    const dialog = await screen.findByRole("dialog", { name: "Make example_production public" });
+    await user.click(await screen.findByRole("button", { name: "Open access…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Open access to example_production" });
     await user.click(within(dialog).getByRole("button", { name: "Review" }));
     expect(await within(dialog).findByText("PostgreSQL has ssl = off, so no client can use TLS here.")).toBeInTheDocument();
     // Still on the first step, with the choice to make.
@@ -181,7 +181,7 @@ describe("a database's public access", () => {
       },
     });
     const section = await screen.findByRole("region", { name: "Public access" });
-    expect(await within(section).findByText("Public on port 5433")).toBeInTheDocument();
+    expect(await within(section).findByText("Public")).toBeInTheDocument();
     expect(within(section).getByText("203.0.113.50:5433")).toBeInTheDocument();
     expect(within(section).getByText("Required: a connection without TLS is refused")).toBeInTheDocument();
     expect(within(section).getByText("ufw allows the port from 203.0.113.7/32")).toBeInTheDocument();
@@ -193,10 +193,10 @@ describe("a database's public access", () => {
     expect(within(secret).getByRole("textbox", { name: "Password" })).toHaveValue("again-Pa55");
     await user.click(within(secret).getByRole("button", { name: "Done" }));
 
-    await user.click(within(section).getByRole("button", { name: "Make it private" }));
-    const confirm = await screen.findByRole("alertdialog", { name: "Make example_production private" });
+    await user.click(within(section).getByRole("button", { name: "Close access" }));
+    const confirm = await screen.findByRole("alertdialog", { name: "Close access to example_production" });
     expect(within(confirm).getByText(/The database and its data stay/)).toBeInTheDocument();
-    await user.click(within(confirm).getByRole("button", { name: "Make it private" }));
+    await user.click(within(confirm).getByRole("button", { name: "Close access" }));
     await waitFor(() => expect(backend.callsTo(`DELETE ${PUBLIC}`)).toHaveLength(1));
     expect(await within(section).findByText("Private")).toBeInTheDocument();
   });
@@ -208,13 +208,13 @@ describe("a database's public access", () => {
     const section = await screen.findByRole("region", { name: "Public access" });
     expect(await within(section).findByText("Being made private")).toBeInTheDocument();
     expect(within(section).queryByRole("button", { name: "Show the connection" })).not.toBeInTheDocument();
-    expect(within(section).getByRole("button", { name: "Make it private" })).toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: "Close access" })).toBeInTheDocument();
   });
 
   it("says when the port stopped answering", async () => {
     await connectAt({
       [`GET ${PUBLIC}`]: () => json(200, { public: true, exposure: { ...EXPOSURE, listening: false }, connection: CONNECTION }),
     });
-    expect(await screen.findByText("Public, but the port does not answer")).toBeInTheDocument();
+    expect(await screen.findByText("Not answering")).toBeInTheDocument();
   });
 });

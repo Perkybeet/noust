@@ -50,7 +50,6 @@ export const composeSettings = {
     sharedBadge: "Shared",
     other: "Other stack",
   },
-  fromTerminal: "The same, from a terminal",
   page: {
     title: "Compose",
     description: "What the stack is built and started with, the Docker networks it is on and the registry accounts it pulls with.",

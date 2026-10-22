@@ -220,7 +220,7 @@ function rowOf(cell: HTMLElement): HTMLElement {
 }
 
 async function menuOf(user: ReturnType<typeof renderConsole>["user"], name: string) {
-  await user.click(await screen.findByRole("button", { name: `Actions for the instance ${name}` }));
+  await user.click(await screen.findByRole("button", { name: `Actions for ${name}` }));
 }
 
 describe("the instances Noust runs", { timeout: 60_000 }, () => {
@@ -258,7 +258,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     await user.type(within(dialog).getByLabelText("Name"), "pg18");
     await user.type(within(dialog).getByLabelText(/^Memory limit/), "1024");
     await expectNoAxeViolations(dialog);
-    await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create instance" }));
 
     await waitFor(() => expect(backend.callsTo("POST /api/databases/instances")).toHaveLength(1));
     expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({ name: "pg18", engine: "postgresql", version: "18", memory_mb: 1024, accept_untested: false });
@@ -279,7 +279,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     expect(within(dialog).getByText("Vector similarity search: the vector type and its indexes.")).toBeInTheDocument();
     await user.type(within(dialog).getByLabelText("Name"), "vec");
     await user.type(within(dialog).getByLabelText(/^Memory limit/), "1024");
-    await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create instance" }));
 
     await waitFor(() => expect(backend.callsTo("POST /api/databases/instances")).toHaveLength(1));
     expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({ name: "vec", engine: "postgresql", version: "18", variant: "pgvector", memory_mb: 1024, accept_untested: false });
@@ -297,7 +297,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     await user.type(within(dialog).getByLabelText(/^Initialization script/), "CREATE TABLE t (id int);");
     await user.type(within(dialog).getByLabelText("Name"), "pg18");
     await user.type(within(dialog).getByLabelText(/^Memory limit/), "1024");
-    await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create instance" }));
 
     await waitFor(() => expect(backend.callsTo("POST /api/databases/instances")).toHaveLength(1));
     expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({
@@ -349,7 +349,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     await user.click(await screen.findByRole("option", { name: "PostgreSQL" }));
     await user.type(within(dialog).getByLabelText("Name"), "Bad Name");
     await user.type(within(dialog).getByLabelText(/^Memory limit/), "100");
-    await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create instance" }));
 
     expect(await within(dialog).findByText(/Use lower-case letters, digits and single dashes/)).toBeInTheDocument();
     expect(within(dialog).getByText("This engine needs at least 256 MB.")).toBeInTheDocument();
@@ -368,7 +368,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     await user.click(await screen.findByRole("option", { name: "PostgreSQL" }));
     await user.type(within(dialog).getByLabelText("Name"), "pg18");
     await user.type(within(dialog).getByLabelText(/^Memory limit/), "1024");
-    await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create instance" }));
 
     expect(await within(dialog).findByText("Docker is not installed")).toBeInTheDocument();
     expect(within(dialog).getByText("Install docker.io with its Compose plugin.")).toBeInTheDocument();
@@ -468,7 +468,7 @@ describe("moving an engine to a newer version", { timeout: 60_000 }, () => {
     const moves = await screen.findByRole("group", { name: "Moves to a newer version" });
     expect(within(moves).getByText("postgresql17")).toBeInTheDocument();
     expect(within(moves).getByText("Done")).toBeInTheDocument();
-    await user.click(within(moves).getByRole("button", { name: "Actions for the move 3" }));
+    await user.click(within(moves).getByRole("button", { name: "Actions for #3" }));
     await user.click(await screen.findByRole("menuitem", { name: "Roll back…" }));
     const ask = await screen.findByRole("alertdialog", { name: "Roll back move 3?" });
     expect(within(ask).getByText(/not carried back/)).toBeInTheDocument();
@@ -583,7 +583,7 @@ describe("TLS of an instance", { timeout: 60_000 }, () => {
     await user.click(await screen.findByRole("menuitem", { name: "TLS…" }));
     const dialog = await screen.findByRole("dialog", { name: "TLS of pg16" });
 
-    expect(await within(dialog).findByText("It expires soon. Renew it.")).toBeInTheDocument();
+    expect(await within(dialog).findByText(/12 days left. It expires soon. Renew it./)).toBeInTheDocument();
   });
 });
 

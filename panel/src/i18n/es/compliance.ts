@@ -2,11 +2,6 @@ import type { compliance as en } from "../en/compliance";
 import type { Catalog } from "../types";
 
 export const compliance: Catalog<typeof en> = {
-  nav: {
-    label: "Informe ENS",
-    keywords: "ens esquema nacional seguridad cumplimiento comprobación informe auditoría evidencias",
-    command: "Informe ENS",
-  },
   status: {
     fail: "No se cumple",
     warning: "Requiere atención",
@@ -39,7 +34,6 @@ export const compliance: Catalog<typeof en> = {
     partialTitle: "Algunas comprobaciones no se pudieron hacer",
     partial: "Sus resultados faltan en lo que sigue. Lo que dice el servidor:",
     partialLabel: "Comprobaciones que no se pudieron hacer",
-    fromTerminal: "Desde una terminal",
   },
   verdict: {
     fail: { one: "{count} comprobación no se cumple", other: "{count} comprobaciones no se cumplen" },
@@ -65,6 +59,6 @@ export const compliance: Catalog<typeof en> = {
     by: "Por",
     reason: "Incidente",
     package: "Evidencias",
-    command: "Levántalo desde una terminal en este servidor",
+    command: "Levántalo desde un terminal en este servidor",
   },
 };

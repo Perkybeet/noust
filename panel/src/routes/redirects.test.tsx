@@ -82,6 +82,12 @@ describe("an old address that is live", () => {
 });
 
 describe("an old address that is pending", () => {
+  if (PENDING.length === 0) {
+    it("is none now: every old address redirects", () => {
+      expect(PENDING).toEqual([]);
+    });
+    return;
+  }
   it.each(PENDING.map((row) => [row.from, row] as const))("%s still opens its own page", async (_from, row) => {
     const { location } = open(address(row.from));
     expect(await screen.findByRole("heading", { level: 1 })).toBeInTheDocument();

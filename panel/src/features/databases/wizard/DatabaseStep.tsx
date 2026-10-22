@@ -4,9 +4,10 @@ import { enginesQuery, provisioningPlanQuery } from "../../../api/queries/databa
 import type { Engine } from "../../../api/queries/databases";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
-import { ErrorBlock } from "../../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
+import { Disclosure } from "../../../components/ui/Disclosure";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
@@ -118,20 +119,18 @@ export function DatabaseStep({ domain, value, onChange }: DatabaseStepProps) {
   const chosen = choices.find((engine) => engine.name === value.engine);
   const plan = useQuery({ ...provisioningPlanQuery(domain, chosen?.name ?? ""), enabled: chosen !== undefined && domain.trim() !== "" });
 
-  if (engines.isError && engines.data === undefined) {
-    return <ErrorBlock error={engines.error} title={t("databases.wizard.enginesFailed")} onRetry={() => void engines.refetch()} retrying={engines.isRefetching} />;
-  }
-  if (engines.data === undefined) {
-    return (
-      <div aria-busy="true" className="grid gap-2 sm:grid-cols-2">
-        <span className="sr-only">{t("databases.wizard.loading")}</span>
-        <Skeleton className="h-16 rounded-control" />
-        <Skeleton className="h-16 rounded-control" />
-      </div>
-    );
-  }
-
   return (
+    <QueryState
+      query={engines}
+      label={t("databases.wizard.enginesNoun")}
+      skeleton={
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Skeleton className="h-16 rounded-control" />
+          <Skeleton className="h-16 rounded-control" />
+        </div>
+      }
+    >
+      {() => (
     <div className="flex min-w-0 flex-col gap-6">
       <ChoiceCards
         legend={t("databases.wizard.legend")}
@@ -183,9 +182,13 @@ export function DatabaseStep({ domain, value, onChange }: DatabaseStepProps) {
               description={t("databases.link.extraVarsHelp")}
             />
           ) : null}
-          <Notice title={t("databases.wizard.whenTitle")}>{t("databases.wizard.whenBody")}</Notice>
+          <Disclosure label={t("databases.wizard.whenTitle")}>
+            <p className="text-13 text-pretty text-fg-muted">{t("databases.wizard.whenBody")}</p>
+          </Disclosure>
         </>
       ) : null}
     </div>
+      )}
+    </QueryState>
   );
 }

@@ -90,11 +90,11 @@ The ports are Noust's to pick and keep, so scaling down and up brings the same o
 ## Service security
 
 An application's unit already had `NoNewPrivileges`, `PrivateTmp` and, since 3.2, an account of
-its own. From 3.4 it can also have the rest of what systemd takes away for free:
+its own. From 4.0 it can also have the rest of what systemd takes away for free:
 
 | Profile | What the unit may do |
 |---|---|
-| `off` | What it could before 3.4. For an application that cannot run any other way. |
+| `off` | What it could before 4.0. For an application that cannot run any other way. |
 | `default` | The filesystem is read-only but for the application's own tree and the directories you name, no home directories, no device nodes, no kernel tunables or modules, only the socket families a web application uses, a system-call filter, and no capability. |
 | `strict` | Also bans the privileged and resource system calls and, for a runtime without a JIT, writable executable memory. Opt-in: a runtime that maps its own code (Node's V8, Python with cffi) breaks under it. |
 

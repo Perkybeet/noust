@@ -248,18 +248,18 @@ export function ConnectionsSection() {
   const removeWords = (connection: Connection): { title: string; description: string; action: string } =>
     connection.kind === "oidc"
       ? {
-          title: t("ssoAdmin.providers.removeDialog.title", { name: connection.name }),
+          title: t("common.words.removeNamed", { name: connection.name }),
           description: t("ssoAdmin.providers.removeDialog.description"),
           action: t("ssoAdmin.providers.removeDialog.action"),
         }
       : connection.kind === "saml"
         ? {
-            title: t("samlAdmin.removeDialog.title", { name: connection.name }),
+            title: t("common.words.removeNamedQuestion", { name: connection.name }),
             description: t("samlAdmin.removeDialog.description"),
             action: t("samlAdmin.removeDialog.action"),
           }
         : {
-            title: t("ldapAdmin.removeDialog.title", { name: connection.name }),
+            title: t("common.words.removeNamedQuestion", { name: connection.name }),
             description: t("ldapAdmin.removeDialog.description"),
             action: t("ldapAdmin.removeDialog.action"),
           };
@@ -323,10 +323,10 @@ export function ConnectionsSection() {
                   <MenuItem icon={<Play />} disabled={testing === connection.name} onClick={() => void runTest(connection)}>
                     {t("ssoAdmin.providers.test")}
                   </MenuItem>
-                  <MenuItem icon={<Pencil />} onClick={() => edit(connection)}>{t("ssoAdmin.providers.edit")}</MenuItem>
+                  <MenuItem icon={<Pencil />} onClick={() => edit(connection)}>{t("common.words.edit")}</MenuItem>
                   <MenuSeparator />
                   <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(connection)}>
-                    {t("ssoAdmin.providers.remove")}
+                    {t("common.words.remove")}
                   </MenuItem>
                 </RowMenu>
               )}

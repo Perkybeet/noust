@@ -4,6 +4,7 @@ import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { appStatus } from "../../components/page/status";
+import { textLinkClassName } from "../../components/ui/TextLink";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
@@ -26,7 +27,7 @@ import { PartialNotice, ServerCell, ServerFilter, StateFilter, useFleetView } fr
 const APP_STATES = ["running", "failed", "stopped", "deploying"] as const;
 
 // The same name as the local list: the domain in the interface's type, not a system value.
-const NAME_LINK = "-mx-1 block max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2";
+const NAME_LINK = textLinkClassName("inline", "-mx-1 block max-w-full truncate px-1 py-0.5", "row");
 
 function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, typeName: (type: string | null) => string | null): Column<FleetRow>[] {
   return [
@@ -128,6 +129,7 @@ export function AppsTab({ search, onSearchChange }: AppsTabProps) {
     onSearchChange(patchSearch(search, patch), { replace });
   };
 
+  // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
   if (view.isError && view.data === undefined) {
     return <ErrorBlock error={view.error} title={t("fleet.page.loadFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />;
   }
@@ -200,14 +202,14 @@ export function AppsTab({ search, onSearchChange }: AppsTabProps) {
                     onSearchChange({});
                   }}
                 >
-                  {t("fleet.filters.clear")}
+                  {t("common.words.clearFilters")}
                 </Button>
               }
             />
           )
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet apps" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet apps" />
     </div>
   );
 }

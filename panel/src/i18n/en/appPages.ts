@@ -4,14 +4,8 @@
  * namespaces).
  */
 export const appPages = {
-  area: "Application",
-  /** Leads a CommandHint into the equivalent CLI command. */
-  fromTerminal: "From a terminal",
-
   common: {
-    cancel: "Cancel",
     viewLog: "View log",
-    no: "No",
     notRecorded: "Not recorded",
     cpu: "CPU",
     memory: "Memory",
@@ -20,7 +14,7 @@ export const appPages = {
 
   /** What is being done to an app right now, by job type (the backend's JobType). */
   job: {
-    deploy: { running: "Deploying", title: "Deploying {domain}", failed: "Deploy of {domain} failed" },
+    deploy: { title: "Deploying {domain}", failed: "Deploy of {domain} failed" },
     update: { running: "Updating", title: "Updating {domain}", failed: "Update of {domain} failed" },
     rollback: { running: "Rolling back", title: "Rolling {domain} back", failed: "Rollback of {domain} failed" },
     restore: { running: "Restoring", title: "Restoring {domain}", failed: "Restore of {domain} failed" },
@@ -77,7 +71,7 @@ export const appPages = {
     checking: "Asking Docker Compose what starting the unit would change…",
     previewReady: "Docker Compose answered: what starting the unit would do is below.",
     containers: "Running now",
-    unit: "Unit",
+    unit: "Service",
     unitEnabled: "Already starts at boot",
     unitWillEnable: "Enabled to start at boot",
     project: "Compose project",
@@ -91,7 +85,6 @@ export const appPages = {
     couldNotCheck: "Could not check what starting the unit would change",
     failed: "Could not hand {domain} back to Noust",
     action: "Hand it back",
-    terminal: "From a terminal",
     done: "{domain} runs under its unit again",
   },
 
@@ -195,9 +188,7 @@ export const appPages = {
     uptimeLabel: "Uptime",
     alwaysOn: "Always on",
     notRunning: "Not running",
-    running: "Running",
     certificateLabel: "Certificate",
-    certificateUnknown: "Unknown",
     certificateNone: "None",
     certificateIssued: "Issued",
     certificateExpired: "Expired",
@@ -250,7 +241,6 @@ export const appPages = {
       schemaChangedBadge: "Database changed",
       preDeploy: "Before serving",
       postDeploy: "After serving",
-      succeeded: "Succeeded",
       exited: "Exited with {code}",
       timedOut: "Ran out of time",
       didNotRun: "Did not run",
@@ -283,16 +273,13 @@ export const appPages = {
       fetch: { label: "Fetch", doing: "Fetching the source" },
       install: { label: "Install", doing: "Installing dependencies" },
       build: { label: "Build", doing: "Building" },
-      activate: { label: "Start", doing: "Starting the new version" },
+      activate: { doing: "Starting the new version" },
       health: { label: "Check", doing: "Running the startup check" },
     },
 
     phaseTimeline: {
       ariaLabel: "Deploy phases",
       startedAt: "Started {time}",
-      done: "Done",
-      inProgress: "In progress",
-      failed: "Failed",
       waiting: "Waiting",
       notReached: "Not reached",
       notInLog: "Not in the log",
@@ -311,7 +298,6 @@ export const appPages = {
       rebuildDialogTitle: "Rebuild commit {commit}?",
       rebuild: "Rebuild",
       rebuildNotStarted: "The rebuild did not start",
-      retry: "Retry",
       retryFresh: "Retry without cache",
       retryFailed: "Could not retry the deployment",
       goBackToThis: "Go back to this version",
@@ -343,7 +329,6 @@ export const appPages = {
         },
         default: { title: "The deploy failed", hint: "The log below shows how far it got." },
       },
-      running: "Running",
       runningFor: "Running for {duration}",
       notGitCheckout: "Not a git checkout",
       copyCommit: "Copy commit",
@@ -383,14 +368,13 @@ export const appPages = {
       httpsReady: "HTTPS is ready.",
       httpOnly: "Served over HTTP: no certificate covers this address yet.",
       openDomains: "Open Domains",
-      next: "Next",
       nextDomain: "Add your own domain",
       nextDatabase: "Add a database",
       nextBackup: "Schedule a backup",
     },
 
     tab: {
-      deployColumn: "Deploy",
+      deployColumn: "Deployment",
       statusColumn: "Status",
       commitColumn: "Commit",
       noCommit: "No commit",
@@ -418,7 +402,6 @@ export const appPages = {
       byLabel: "Started by",
       everyone: "Everyone",
       noMatch: "No deployment matches",
-      clearFilters: "Clear filters",
       rollBackToThis: "Roll back to this",
       commitCopied: "Copied {commit}",
       commitNotCopied: "Could not copy the commit",
@@ -457,7 +440,6 @@ export const appPages = {
     whatTheChecksFound: "What the checks found",
     viewLogs: "View logs",
     rollBack: "Roll back…",
-    restart: "Restart",
     checksCount: { one: "{count} check:", other: "{count} checks:" },
     tally: {
       passed: { one: "passed", other: "passed" },
@@ -480,7 +462,7 @@ export const appPages = {
     queryLabel: "the diagnosis of {domain}",
 
     verdict: { healthy: "Healthy", degraded: "Degraded", down: "Down" },
-    status: { ok: "Passed", warn: "Warning", fail: "Failed", skip: "Skipped" },
+    status: { ok: "Passed", skip: "Skipped" },
     check: {
       unit: "Service",
       port: "Listening port",
@@ -517,9 +499,8 @@ export const appPages = {
 
   logs: {
     connecting: "Connecting",
-    live: "Live",
     disconnected: "Disconnected",
-    readingBacklog: "Reading the last {count} lines",
+    readingBacklog: "Loading the last {count} lines",
     lineCount: { one: "{count} line", other: "{count} lines" },
     streamFailed: "The log stream failed",
     streamFailedHint: "The console follows the service with journalctl. Reading it from a terminal shows whether the journal itself answers.",
@@ -531,11 +512,11 @@ export const appPages = {
     loadingJournal: "Loading the logs",
     stackLabel: "Output of",
     sourceAll: "All services",
-    sourceUnit: "Systemd unit",
+    sourceUnit: "Service",
     refresh: "Refresh",
     containersNote: "What the containers printed, read again every 5 seconds.",
     emptyContainers: "The containers have printed nothing yet.",
-    readingContainers: "Reading the containers' output.",
+    readingContainers: "Loading the containers' output.",
     containersFailed: "The containers' output could not be read",
     containersFailedHint: "The console reads them with docker compose logs. Running it in a terminal shows whether Docker answers.",
     staticTitle: "A static site has no process to log",
@@ -548,9 +529,7 @@ export const appPages = {
     accessError: "Server errors",
     accessLabel: "Web server access log of {domain}",
     errorLabel: "Web server error log of {domain}",
-    siteReading: "Reading the log",
     siteEmpty: "The log has no lines yet.",
-    siteFailed: "Could not read the web server's log",
     siteNotWrittenTitle: "The web server has not written this log yet",
     siteNotWritten: "{path} does not exist yet. The web server creates it with the first request or error for this site.",
     siteTruncated: "Showing the newest {shown} lines from the end of the file. Older ones are not read here; {command} narrows them to some text.",

@@ -180,7 +180,7 @@ function MountDialog({
       footer={
         <>
           <Button disabled={save.isPending} onClick={() => close(false)}>
-            {t("appPages.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button
             type="submit"
@@ -189,7 +189,7 @@ function MountDialog({
             loading={save.isPending}
             disabled={!loaded}
           >
-            {t("runtime.mounts.save")}
+            {t("common.words.save")}
           </Button>
         </>
       }
@@ -403,7 +403,7 @@ function MountRow({ domain, mount }: { domain: string; mount: Mount }) {
               setEditing(true);
             }}
           >
-            {t("runtime.mounts.edit")}
+            {t("common.words.edit")}
           </MenuItem>
         ) : null}
         {isFile ? <MenuSeparator /> : null}
@@ -414,7 +414,7 @@ function MountRow({ domain, mount }: { domain: string; mount: Mount }) {
             setRemoving(true);
           }}
         >
-          {t("runtime.mounts.remove")}
+          {t("common.words.remove")}
         </MenuItem>
       </Menu>
       {editing ? (
@@ -436,7 +436,7 @@ function MountRow({ domain, mount }: { domain: string; mount: Mount }) {
             ? t("runtime.mounts.removeFileDescription")
             : t("runtime.mounts.removePathDescription")
         }
-        actionLabel={t("runtime.mounts.remove")}
+        actionLabel={t("common.words.remove")}
         destructive
         onConfirm={async () => {
           await remove.mutateAsync();

@@ -237,7 +237,7 @@ function TurnOnDialog({
       footer={
         <>
           <Button disabled={turnOn.isPending} onClick={() => onOpenChange(false)}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form="zero-downtime-on" variant="primary" loading={turnOn.isPending}>
             {t("appSettings.zeroDowntime.turnOn")}

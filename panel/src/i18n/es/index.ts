@@ -49,6 +49,7 @@ export { inbox } from "./inbox";
 export { internalCa } from "./internalCa";
 export { language } from "./language";
 export { logSearch } from "./logSearch";
+export { logs } from "./logs";
 export { manifestPreview } from "./manifestPreview";
 export { map } from "./map";
 export { mcpSettings } from "./mcpSettings";

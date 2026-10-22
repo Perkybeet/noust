@@ -40,7 +40,7 @@ export const appBuild: Catalog<typeof en> = {
     startDescription: "El comando del servicio. {port} es el puerto al que Noust hace proxy; escribe un $ literal como $$. Se ejecuta directamente, no a través de un shell.",
     shellWarning: "Esto lleva una tubería, &&, una redirección o una sustitución: aquí son argumentos normales, nunca los ejecuta un shell.",
     publish: "Directorio de publicación",
-    publishDescription: "Donde una compilación estática deja los ficheros que sirve el servidor web. No con un comando de inicio.",
+    publishDescription: "Donde una compilación estática deja los archivos que sirve el servidor web. No con un comando de inicio.",
     runtime: "Runtime",
     runtimeDescription: "node@22, python@3.12 o php@8.3: un mayor, un menor, una versión completa, lts o latest. Noust lo instala cuando el servidor no lo tiene.",
     runtimePresets: "Runtimes para empezar",
@@ -59,7 +59,8 @@ export const appBuild: Catalog<typeof en> = {
     runtimeType: "Un runtime {language} no encaja con este tipo de aplicación: se ejecuta sobre {languages}.",
     path: "Una ruta dentro del repositorio: relativa, sin .., ~, espacios ni comillas.",
     timeout: "Un número entero de segundos, de 60 a 86400.",
-    startAndPublish: "No caben a la vez un comando de inicio y un directorio de publicación: una aplicación es un proceso al que Noust hace proxy o ficheros que sirve el servidor web.",
+    startAndPublish:
+      "No caben a la vez un comando de inicio y un directorio de publicación: una aplicación es un proceso al que Noust hace proxy o archivos que sirve el servidor web.",
     nothing: "Indica al menos un comando o ajuste, o quita los ajustes propios de esta aplicación para usar los del repositorio.",
   },
 };

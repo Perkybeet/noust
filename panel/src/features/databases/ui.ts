@@ -1,7 +1,7 @@
-/**
- * The few class strings the databases area repeats: a text link in running text or a table,
- * the same in every page of the area (the kit has no text link of its own yet).
- */
+import { textLinkClassName } from "../../components/ui/TextLink";
 
-/** A link inside a sentence, a table cell or a card: the accent, underlined on hover. */
-export const TEXT_LINK = "rounded-chip font-medium text-accent-fg hover:underline hover:underline-offset-2";
+/**
+ * A link inside a sentence, a table cell or a card: the kit's own text link, for the router's
+ * `Link` that carries extra classes of its own (`truncate`, `w-fit`).
+ */
+export const TEXT_LINK = textLinkClassName("inline");

@@ -38,7 +38,7 @@ SCHEMA_31: dict[str, dict[str, Any]] = {
     "/api/system/update": {"get": {}, "post": {"x-noust-requires-elevation": True}},
     "/api/server/updates/apply": {"post": {"x-noust-requires-elevation": True}},
     "/api/server/updates/refresh": {"post": {"x-noust-requires-elevation": True}},
-    # An application on several servers (3.4): rolled out by commit, put back by release,
+    # An application on several servers (4.0): rolled out by commit, put back by release,
     # and copied from one server to another through its export.
     "/api/apps/{domain}/deploy": {"post": {}},
     "/api/deployments/{deployment_id}": {"get": {}},
@@ -46,7 +46,7 @@ SCHEMA_31: dict[str, dict[str, Any]] = {
     "/api/apps/{domain}/releases/{release_id}/activate": {"post": {}},
     "/api/apps/{domain}/export": {"get": {}},
     "/api/apps/import": {"post": {"x-noust-requires-elevation": True}},
-    # A release built on one server and run on another (3.4): the builder builds, packs and lets
+    # A release built on one server and run on another (4.0): the builder builds, packs and lets
     # go of the bundle; the target takes it in chunks and activates it.
     "/api/apps/{domain}/releases/bundle": {"post": {}},
     "/api/apps/{domain}/releases/bundles/{bundle_id}": {"get": {}, "delete": {}},
@@ -75,7 +75,7 @@ SCHEMA_31: dict[str, dict[str, Any]] = {
     },
 }
 
-#: The paths 3.4 added for an application on several servers.
+#: The paths 4.0 added for an application on several servers.
 PLACEMENT_PATHS = frozenset(
     {
         "/api/apps/{domain}/deploy",

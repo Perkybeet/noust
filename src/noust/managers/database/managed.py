@@ -5,7 +5,7 @@
 Database instances Noust runs itself: another version of an engine, or an engine the host lacks.
 
 The host's PostgreSQL, MySQL, Redis and MongoDB stay the primary engines of the
-server (decision D4 of the 3.4 design, owner item 79). **An instance** is an
+server (decision D4 of the 4.0 design, owner item 79). **An instance** is an
 additional one, run from the engine's official image, pinned by tag and digest
 (:mod:`noust.managers.database.instance_catalog`), as a container Noust owns:
 

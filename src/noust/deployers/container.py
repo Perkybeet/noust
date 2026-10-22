@@ -5,7 +5,7 @@
 Container applications: a Dockerfile, an image from a registry, or Railpack.
 
 Noust deploys what the host can run natively, and everything else as a
-container (decision D1 of the 3.4 design). A container application is one of
+container (decision D1 of the 4.0 design). A container application is one of
 three things, and runs the same way whichever it is:
 
 - a repository with a Dockerfile, built by the Docker daemon;

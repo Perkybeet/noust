@@ -75,7 +75,7 @@ export function SourceSettings() {
             </p>
           </>
         )}
-        <CommandHint command={`noust app source show ${domain}`} label={t("sources.fromTerminal")} />
+        <CommandHint command={`noust app source show ${domain}`} label={t("common.words.sameFromTerminal")} />
       </Section>
       {repository === null ? null : <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />}
     </>

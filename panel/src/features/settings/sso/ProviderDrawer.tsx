@@ -114,12 +114,12 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
         if (!next && !save.isPending) onClose();
       }}
       size="md"
-      title={creating ? t("ssoAdmin.form.createTitle") : t("ssoAdmin.form.editTitle", { name: provider.name })}
+      title={creating ? t("ssoAdmin.form.createTitle") : t("common.words.editNamed", { name: provider.name })}
       description={t("ssoAdmin.form.description")}
       footer={
         <>
           <Button disabled={save.isPending} onClick={onClose}>
-            {t("ssoAdmin.form.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {creating ? t("ssoAdmin.form.create") : t("ssoAdmin.form.save")}
@@ -155,7 +155,7 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
           />
         ) : null}
         {creating ? (
-          <Field label={t("ssoAdmin.form.fields.name")} description={t("ssoAdmin.form.fields.nameHelp")} error={tried && draft.name.trim() === "" ? required : undefined}>
+          <Field label={t("common.words.name")} description={t("ssoAdmin.form.fields.nameHelp")} error={tried && draft.name.trim() === "" ? required : undefined}>
             <Input
               mono
               autoComplete="off"

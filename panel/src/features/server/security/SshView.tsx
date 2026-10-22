@@ -94,7 +94,7 @@ function Settings({ ssh }: { ssh: SshStatus }) {
     { label: t("server.ssh.settings.dropin"), value: ssh.dropin ?? null },
   ];
   return (
-    <Card level={2} title={t("server.ssh.settingsTitle")} description={t("server.ssh.settingsDescription")} padding="sm" footer={<CommandHint command="noust server security ssh status" label={t("server.fromTerminal")} />}>
+    <Card level={2} title={t("server.ssh.settingsTitle")} description={t("server.ssh.settingsDescription")} padding="sm" footer={<CommandHint command="noust server security ssh status" label={t("common.words.fromTerminal")} />}>
       {ssh.error ? (
         <ServerErrorBlock compact error={{ detail: ssh.error, output: ssh.error_output ?? null }} title={t("server.ssh.readFailed")} />
       ) : (

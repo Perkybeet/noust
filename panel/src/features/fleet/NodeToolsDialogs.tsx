@@ -9,6 +9,7 @@ import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { CopyValue } from "../../components/ui/CopyValue";
 import { Dialog } from "../../components/ui/Dialog";
+import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
@@ -33,6 +34,7 @@ import {
 } from "./nodeTools";
 import type { BastionBody, ConnectionBody, ConnectionOptions, InventoryReport } from "./nodeTools";
 import { nodeKeys } from "./nodes";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 // ---------------------------------------------------------------------------------------
 // How the central connects to a server
@@ -109,12 +111,12 @@ function ConnectionForm({ node, options, onClose }: { node: string; options: Con
       footer={
         saved !== undefined ? (
           <Button variant="primary" onClick={onClose}>
-            {t("nodeTools.connection.close")}
+            {t("common.words.close")}
           </Button>
         ) : (
           <>
             <Button disabled={save.isPending} onClick={onClose}>
-              {t("nodeTools.connection.cancel")}
+              {t("common.words.cancel")}
             </Button>
             <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
               {t("nodeTools.connection.save")}
@@ -239,16 +241,15 @@ export function ConnectionDialog({ node, onClose }: { node: string; onClose: () 
       size="lg"
       title={t("nodeTools.connection.title", { name: node })}
       description={t("nodeTools.connection.description", { name: node })}
-      footer={<Button onClick={onClose}>{t("nodeTools.connection.close")}</Button>}
+      footer={<Button onClick={onClose}>{t("common.words.close")}</Button>}
     >
       {query.isError ? (
         <ErrorBlock live error={query.error} title={t("nodeTools.connection.loadFailed", { name: node })} onRetry={() => void query.refetch()} />
       ) : (
-        <div aria-busy="true" className="flex flex-col gap-3">
-          <span className="sr-only">{t("nodeTools.connection.loading", { name: node })}</span>
+        <LoadingRegion label={t("nodeTools.connection.loading", { name: node })} className="flex flex-col gap-3">
           <Skeleton className="h-10 w-64" />
           <Skeleton className="h-10 w-full" />
-        </div>
+        </LoadingRegion>
       )}
     </Dialog>
   );
@@ -263,7 +264,7 @@ const FILE_CLASS =
 function InventoryReportView({ report }: { report: InventoryReport }) {
   const t = useT();
   const label = (part: string): string => (isInventoryPart(part) ? t(`nodeTools.inventory.part.${part}`) : part);
-  if (report.applied.length === 0 && report.skipped.length === 0) return <Notice>{t("nodeTools.inventory.nothing")}</Notice>;
+  if (report.applied.length === 0 && report.skipped.length === 0) return <EmptyState variant="inline" title={t("nodeTools.inventory.nothing")} />;
   return (
     <div className="flex flex-col gap-4">
       {report.applied.length > 0 ? (
@@ -351,12 +352,12 @@ export function InventoryDialog({ node, onClose }: { node: string; onClose: () =
       footer={
         apply.isSuccess ? (
           <Button variant="primary" onClick={onClose}>
-            {t("nodeTools.inventory.close")}
+            {t("common.words.close")}
           </Button>
         ) : (
           <>
             <Button disabled={apply.isPending} onClick={onClose}>
-              {t("nodeTools.inventory.cancel")}
+              {t("common.words.cancel")}
             </Button>
             <Button type="submit" form={formId} variant="primary" loading={apply.isPending}>
               {t("nodeTools.inventory.apply")}
@@ -431,8 +432,9 @@ export function LinkMachineDialog({ node, onClose }: { node: string; onClose: ()
       footer={
         <>
           <Button disabled={link.isPending} onClick={onClose}>
-            {t("nodeTools.link.cancel")}
+            {t("common.words.cancel")}
           </Button>
+          {/* design-exception: submit-disabled-invalid the central holds no provider account to link with, which the dialog says: there is no field to complete */}
           <Button type="submit" form={formId} variant="primary" loading={link.isPending} disabled={names.length === 0}>
             {t("nodeTools.link.link")}
           </Button>

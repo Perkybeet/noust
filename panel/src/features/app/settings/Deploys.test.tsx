@@ -63,7 +63,7 @@ function deploys(app: object = RELEASE_APP, routes: Record<string, RouteHandler>
 async function confirmItsYou(user: Awaited<ReturnType<typeof deploys>>["user"]): Promise<void> {
   const elevate = await screen.findByRole("dialog", { name: "Confirm it's you" });
   await user.type(within(elevate).getByRole("textbox"), "123456");
-  await user.click(within(elevate).getByRole("button", { name: "Confirm" }));
+  await user.click(within(elevate).getByRole("button", { name: "Continue" }));
 }
 
 describe("instant rollback, on", () => {

@@ -46,14 +46,14 @@ export function outcomeView(t: T, result: string): { status: Status; label: stri
   switch (result) {
     case "ok":
     case "success":
-      return { status: "running", label: t("audit.outcome.ok") };
+      return { status: "running", label: t("common.words.done") };
     case "failure":
     case "error":
-      return { status: "failed", label: t("audit.outcome.failure") };
+      return { status: "failed", label: t("common.statusPill.failed") };
     case "denied":
       return { status: "failed", label: t("audit.outcome.denied") };
     case "warning":
-      return { status: "warning", label: t("audit.outcome.warning") };
+      return { status: "warning", label: t("common.statusPill.warning") };
     default:
       return { status: "unknown", label: result };
   }

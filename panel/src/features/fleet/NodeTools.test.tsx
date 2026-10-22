@@ -319,7 +319,7 @@ describe("a new key for a server", () => {
     const dialog = await screen.findByRole("dialog", { name: "Give web-2 a new key" });
     // Nothing is asked of the server until the key is made.
     expect(within(dialog).queryByLabelText(/Join code it printed/)).not.toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Make the new key" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create the new key" }));
 
     expect(await within(dialog).findByText(COMMAND)).toBeInTheDocument();
     expect(backend.callsTo("POST /api/nodes/web-2/rekey")[0]?.body).toEqual({});
@@ -352,7 +352,7 @@ describe("a new key for a server", () => {
 
     await openTool(user, "Rotate its key");
     const dialog = await screen.findByRole("dialog", { name: "Give web-2 a new key" });
-    await user.click(within(dialog).getByRole("button", { name: "Make the new key" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create the new key" }));
     await user.type(await within(dialog).findByLabelText(/Join code it printed/), "noust-join:abc");
     await user.click(within(dialog).getByRole("button", { name: "Switch to the new key" }));
 

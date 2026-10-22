@@ -73,7 +73,7 @@ function ControlDialog({ control, onClose, onWarnings }: ControlDialogProps) {
             {t("settings.shared.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
-            {t("complianceSetup.controls.dialog.save")}
+            {t("common.words.save")}
           </Button>
         </>
       }
@@ -263,7 +263,7 @@ export function ControlsSection({ state, canManage }: { state: ComplianceState; 
           plan={confirming.plan}
           title={t("complianceSetup.controls.dialog.title", { name: confirming.title })}
           lead={t("complianceSetup.dialog.enableLead")}
-          action={t("complianceSetup.controls.dialog.save")}
+          action={t("common.words.save")}
           done={t("complianceSetup.controls.changed", { name: confirming.title })}
           controls={state.controls}
           names={names}

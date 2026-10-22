@@ -102,7 +102,7 @@ export function ComposeVariables({
                             onAdd(variable.name);
                           }}
                         >
-                          {t("environment.compose.add")}
+                          {t("common.words.add")}
                         </Button>
                       )}
                     </>

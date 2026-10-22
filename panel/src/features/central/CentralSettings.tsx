@@ -43,7 +43,7 @@ export function CentralSettings() {
       <Card loading={reading} title={t("servers.central.identity.title")} icon={OBJECT_ICONS.central} description={t("servers.central.identity.description")}>
         <KeyValueList
           items={[
-            { label: t("servers.central.identity.name"), value: <Mono>{name}</Mono>, copy: name === "" ? false : name, mono: true },
+            { label: t("common.words.name"), value: <Mono>{name}</Mono>, copy: name === "" ? false : name, mono: true },
             {
               label: t("servers.central.identity.role"),
               value: central.role === "hub" ? t("servers.central.identity.roleHub") : t("servers.central.identity.roleServer"),

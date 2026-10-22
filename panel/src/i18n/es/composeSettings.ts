@@ -49,7 +49,6 @@ export const composeSettings: Catalog<typeof en> = {
     sharedBadge: "Compartida",
     other: "Otra pila",
   },
-  fromTerminal: "Lo mismo, desde un terminal",
   page: {
     title: "Compose",
     description: "Con qué se construye y arranca la pila, las redes de Docker en las que está y las cuentas de registro con las que descarga.",

@@ -31,17 +31,17 @@ test("volume backups: a policy from what the application declares, run by hand, 
   await expectNoA11yViolations(page, "the volumes tab, no policy yet");
 
   // The policy: the pieces are the ones the application declares, picked, not typed.
-  await page.getByRole("button", { name: "Set a policy" }).click();
-  const drawer = page.getByRole("dialog", { name: "New data policy" });
+  await page.getByRole("button", { name: "Set a schedule" }).click();
+  const drawer = page.getByRole("dialog", { name: "New data schedule" });
   await drawer.getByRole("combobox", { name: "Application" }).click();
   await page.getByRole("option", { name: APP }).click();
   await drawer.getByRole("radio", { name: /^Only the pieces I choose/ }).check();
   await expect(drawer.getByText("Declared by persistent path")).toBeVisible();
-  await drawer.getByRole("button", { name: "Save policy" }).click();
+  await drawer.getByRole("button", { name: "Save schedule" }).click();
   await expect(drawer.getByText("Choose at least one piece, or back up everything it declares.")).toBeVisible();
   await drawer.getByRole("checkbox", { name: /^uploads/ }).check();
   await drawer.getByRole("textbox", { name: /^More folders/ }).fill("../outside");
-  await drawer.getByRole("button", { name: "Save policy" }).click();
+  await drawer.getByRole("button", { name: "Save schedule" }).click();
   await expect(drawer.getByText(/A folder is a relative path inside the application's data, without \.\. or a leading slash: \.\.\/outside\./)).toBeVisible();
   await drawer.getByRole("textbox", { name: /^More folders/ }).fill("media/cache");
   await drawer.getByRole("radio", { name: /^Pause it/ }).check();
@@ -49,7 +49,7 @@ test("volume backups: a policy from what the application declares, run by hand, 
   await drawer.getByRole("checkbox", { name: "offsite-sftp" }).check();
   await settle(page);
   await expectNoA11yViolations(page, "the new data policy");
-  await drawer.getByRole("button", { name: "Save policy" }).click();
+  await drawer.getByRole("button", { name: "Save schedule" }).click();
   await confirmItsYou(page, consoleServer);
   await expect(drawer).toBeHidden();
 
@@ -101,7 +101,7 @@ test("volume backups: a policy from what the application declares, run by hand, 
 
   // Nothing is left scheduled for what runs after this on the same server.
   await detail.getByRole("button", { name: `Actions for ${APP}` }).click();
-  await page.getByRole("menuitem", { name: "Remove the policy" }).click();
-  await page.getByRole("alertdialog", { name: `Remove the data policy of ${APP}` }).getByRole("button", { name: "Remove policy" }).click();
+  await page.getByRole("menuitem", { name: "Remove the schedule" }).click();
+  await page.getByRole("alertdialog", { name: `Remove the data schedule of ${APP}` }).getByRole("button", { name: "Remove schedule" }).click();
   await expect(detail.getByText(/Nothing backs this data up on a schedule/)).toBeVisible();
 });

@@ -6,7 +6,7 @@
  * `routes.ts`; this holds what is said and done on them.
  */
 
-import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test, toasts } from "./fixtures";
+import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
 const APP = "tienda.example.org";
 
@@ -14,7 +14,7 @@ test("log shipping adds a destination whose token is only written, lists it, and
   // Writing a destination and removing it are root-equivalent: each asks for sudo mode first.
   problems.expect(/status of 403 .*\/api\/log-drains\/e2e-grafana$/);
   await signIn(page, consoleServer, "/settings/log-shipping");
-  await expect(page.getByRole("heading", { level: 2, name: "Log shipping" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Logs and metrics export" })).toBeVisible();
   await expect(page.getByText("No destinations")).toBeVisible();
 
   await page.getByRole("button", { name: "Add a destination" }).click();
@@ -36,7 +36,7 @@ test("log shipping adds a destination whose token is only written, lists it, and
   expect(body.has_secret).toBe(true);
   expect(JSON.stringify(body)).not.toContain("glc_e2e_secret_token");
 
-  await expect(toasts(page).getByText("Saved e2e-grafana")).toBeVisible();
+  // No toast: the destination is in the list now.
   const list = page.getByRole("list", { name: "Destinations of logs" });
   await expect(list.getByText("e2e-grafana", { exact: true })).toBeVisible();
   await settle(page);

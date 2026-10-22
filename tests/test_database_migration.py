@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Moving an engine to a newer major version (3.4, C-13).
+Moving an engine to a newer major version (4.0, C-13).
 
 The machine is :class:`~tests.database_instance_support.DockerHost`, so the new
 instance is really made: its Compose file, its unit, its container. The engines

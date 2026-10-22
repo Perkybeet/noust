@@ -86,7 +86,7 @@ function SharedVariableForm({ formId, target, existing, onSubmit, onPending }: F
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
-      <Field label={t("variables.shared.dialog.nameLabel")} error={nameError} {...(editing ? {} : { description: t("variables.shared.dialog.nameDescription") })}>
+      <Field label={t("common.words.name")} error={nameError} {...(editing ? {} : { description: t("variables.shared.dialog.nameDescription") })}>
         <Input mono autoComplete="off" autoCapitalize="off" spellCheck={false} placeholder="STRIPE_PUBLIC_KEY" value={name} disabled={editing} onValueChange={setName} />
       </Field>
       <Field label={t("variables.shared.dialog.valueLabel")} error={valueError} description={t("variables.shared.dialog.valueDescription")}>
@@ -140,12 +140,12 @@ export function SharedVariableDialog({ target, existing, onClose, onSubmit }: Sh
         if (!open && !pending) onClose();
       }}
       size="md"
-      title={current?.mode === "edit" ? t("variables.shared.dialog.editTitle", { name: current.name }) : t("variables.shared.dialog.addTitle")}
+      title={current?.mode === "edit" ? t("common.words.editNamed", { name: current.name }) : t("variables.shared.dialog.addTitle")}
       description={t("variables.shared.dialog.description")}
       footer={
         <>
           <Button disabled={pending} onClick={onClose}>
-            {t("variables.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={pending}>
             {editing ? t("variables.shared.dialog.submitEdit") : t("variables.shared.dialog.submitAdd")}

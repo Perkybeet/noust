@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontal, Plus, Radio, Trash2 } from "lucide-react";
+import { Plus, Radio, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -9,6 +9,7 @@ import type { StreamBody, StreamExposure, StreamPlan } from "../../api/queries/n
 import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { RowMenu } from "../../components/page/RowMenu";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import type { Column } from "../../components/ui/DataTable";
@@ -16,9 +17,8 @@ import { DataTable } from "../../components/ui/DataTable";
 import { Dialog } from "../../components/ui/Dialog";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
-import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
-import { Menu, MenuItem } from "../../components/ui/Menu";
+import { MenuItem } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
@@ -145,7 +145,7 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
     >
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label={t("network.ports.name")} error={fieldError("name", "name")}>
+          <Field label={t("common.words.name")} error={fieldError("name", "name")}>
             <Input mono value={draft.name} onValueChange={(value: string) => edit("name", value)} autoComplete="off" spellCheck={false} maxLength={40} />
           </Field>
           <Field label={t("network.ports.protocol")} nativeLabel={false}>
@@ -228,7 +228,7 @@ export function StreamsPage() {
   const empty = streams.data !== undefined && rows.length === 0;
 
   const columns: Column<StreamExposure>[] = [
-    { id: "name", header: t("network.ports.nameColumn"), cell: (row) => <span translate="no">{row.name}</span>, sortValue: (row) => row.name },
+    { id: "name", header: t("common.words.name"), cell: (row) => <span translate="no">{row.name}</span>, sortValue: (row) => row.name },
     { id: "port", header: t("network.ports.portColumn"), cell: (row) => <Mono>{`${row.protocol.toUpperCase()} ${String(row.listen_port)}`}</Mono>, sortValue: (row) => row.listen_port },
     { id: "target", header: t("network.ports.targetColumn"), hideBelow: "sm", cell: (row) => <Mono>{row.target}</Mono> },
     {
@@ -261,8 +261,9 @@ export function StreamsPage() {
             ),
           }
         : {})}
-      footer={<CommandHint command="noust stream list" label={t("domains.fromTerminal")} />}
+      footer={<CommandHint command="noust stream list" label={t("common.words.fromTerminal")} />}
     >
+      {/* design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed */}
       {streams.isError && streams.data === undefined ? (
         <ErrorBlock error={streams.error} title={t("network.ports.listFailed")} onRetry={() => void streams.refetch()} retrying={streams.isRefetching} />
       ) : empty ? (
@@ -290,11 +291,11 @@ export function StreamsPage() {
           getRowId={(row) => row.name}
           loading={streams.isPending}
           rowActions={(row) => (
-            <Menu align="end" trigger={<IconButton label={t("domains.actionsFor", { name: row.name })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
+            <RowMenu name={row.name}>
               <MenuItem icon={<Trash2 />} destructive onClick={() => setClosing(row)}>
                 {t("network.ports.close")}
               </MenuItem>
-            </Menu>
+            </RowMenu>
           )}
         />
       )}

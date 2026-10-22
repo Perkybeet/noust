@@ -2,14 +2,9 @@ import type { consoleAccess as en } from "../en/consoleAccess";
 import type { Catalog } from "../types";
 
 export const consoleAccess: Catalog<typeof en> = {
-  nav: {
-    label: "Dirección de la consola",
-    keywords: "publicar exponer consola dominio https certificado nombre público nginx túnel lista de permitidos",
-    command: "Ajustes de la dirección de la consola",
-  },
   documentTitle: "Dirección de la consola",
   loadFailed: "No se pudo leer si la consola está publicada",
-  loading: "Leyendo si la consola está publicada",
+  loading: "Cargando si la consola está publicada",
   state: {
     title: "Nombre público",
     on: "Publicada",
@@ -49,7 +44,7 @@ export const consoleAccess: Catalog<typeof en> = {
     twoFactorLacking: { one: "{count} cuenta entra solo con contraseña", other: "{count} cuentas entran solo con contraseña" },
     twoFactorFix: "Cada titular registra un autenticador o una llave de acceso en Seguridad después de entrar, o la cuenta se desactiva.",
     twoFactorUnknown: "Noust lo comprueba de nuevo al previsualizar, y dice qué cuentas no tienen.",
-    accountsLink: "Abrir Cuentas",
+    accountsLink: "Abrir cuentas",
     ens: "El perfil ENS",
     ensOk: "Permite publicar la consola.",
     ensBlocked: "El perfil ENS mantiene la consola en el bucle local. Publicarla necesita el forzado, una lista de permitidos y una confirmación, y queda auditado.",
@@ -60,14 +55,9 @@ export const consoleAccess: Catalog<typeof en> = {
     title: "Publicar la consola",
     description:
       "Un sitio de nginx para un nombre propio, un certificado, la consola avisada de que confíe en nginx y, si quieres, una lista de permitidos. No se cambia nada hasta el último botón.",
-    steps: { name: "Nombre", review: "Revisar", publish: "Publicar" },
-    cancel: "Cancelar",
-    back: "Atrás",
+    steps: { review: "Revisar", publish: "Publicar" },
     preview: "Previsualizar",
     submit: "Publicar la consola",
-    close: "Cerrar",
-    done: "Hecho",
-    domain: "Nombre",
     domainHelp: "Un nombre que ya apunte a este servidor y que ninguna aplicación use, por ejemplo consola.example.com.",
     domainRequired: "Escribe el nombre en el que se publica la consola.",
     allow: "Accesible desde",

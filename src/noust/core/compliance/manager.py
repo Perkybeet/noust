@@ -5,7 +5,7 @@
 Choosing frameworks and controls: what changing them does, and doing it.
 
 ``noust compliance``, ``noust ens``, ``/api/compliance`` and the console's
-Settings > Security > Compliance all call :class:`ComplianceManager`: the one
+Settings > Compliance all call :class:`ComplianceManager`: the one
 implementation of enabling a framework, setting a control, what that would cost the
 people who use the server, and what is recorded (rule 3).
 

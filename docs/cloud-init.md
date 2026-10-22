@@ -52,7 +52,7 @@ runcmd:
 - **`/var/log/noust-install.json`** is one line, for whatever provisioned the server:
 
   ```json
-  {"status":"ok","dry_run":false,"version":"3.4.0","method":"package",
+  {"status":"ok","dry_run":false,"version":"4.0.0","method":"package",
    "platform":{"id":"ubuntu","version_id":"24.04","arch":"amd64","support":"supported"},
    "resources":{"memory_mb":2048,"cpus":2,"disk_free_mb":30000,
     "ports":{"80":{"state":"free","holders":null},"443":{"state":"free","holders":null}},

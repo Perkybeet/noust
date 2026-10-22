@@ -9,6 +9,7 @@
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ScrollText } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -17,7 +18,7 @@ import { activeJobsQuery, isJobFinished, jobLogQuery, useFollowedJob } from "../
 import type { Job } from "../../api/queries/jobs";
 import { JobProgress } from "../../components/page/JobProgress";
 import type { JobState } from "../../components/page/JobProgress";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { QueryState } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
 import { LogViewer } from "../../components/ui/LogViewer";
@@ -269,17 +270,15 @@ export function JobOutputDrawer({ job, open, onOpenChange, title }: { job: Job; 
     const content = log.data?.content ?? "";
     return content === "" ? jobLines(job) : content.split("\n").map((text, id) => ({ id, text }));
   }, [finished, job, log.data]);
+  const viewer = <LogViewer lines={lines} label={t("databases.job.outputLabel", { title })} filename={`${job.id}.log`} height={560} emptyMessage={t("databases.job.outputEmpty")} />;
   return (
     <Drawer open={open} onOpenChange={onOpenChange} size="lg" title={title} description={t("databases.job.outputDescription")}>
-      {finished && log.isError && log.data === undefined ? (
-        <ErrorBlock compact error={log.error} title={t("databases.job.outputFailed")} onRetry={() => void log.refetch()} />
-      ) : finished && log.isPending ? (
-        <div aria-busy="true">
-          <span className="sr-only">{t("databases.job.outputLoading")}</span>
-          <Skeleton className="h-80 w-full rounded-card" />
-        </div>
+      {finished ? (
+        <QueryState query={log} label={t("databases.job.outputNoun")} skeleton={<Skeleton className="h-80 w-full rounded-card" />}>
+          {() => viewer}
+        </QueryState>
       ) : (
-        <LogViewer lines={lines} label={t("databases.job.outputLabel", { title })} filename={`${job.id}.log`} height={560} emptyMessage={t("databases.job.outputEmpty")} />
+        viewer
       )}
     </Drawer>
   );
@@ -295,7 +294,7 @@ export function DatabaseJobProgress({ job, words, onDismiss }: { job: Job; words
   const state = jobState(job.status);
   const title = state === "succeeded" ? words.succeeded : state === "failed" ? words.failed : words.running;
   const viewOutput = (
-    <Button size="sm" variant="ghost" onClick={() => setOutputOpen(true)}>
+    <Button icon={<ScrollText aria-hidden="true" />} size="sm" variant="ghost" onClick={() => setOutputOpen(true)}>
       {t("databases.job.viewOutput")}
     </Button>
   );

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-SQL scripts an instance runs the first time it starts (3.4, C-29, the initialisation half).
+SQL scripts an instance runs the first time it starts (4.0, C-29, the initialisation half).
 
 The official images of PostgreSQL, MySQL and MariaDB run the ``.sql`` files of
 ``/docker-entrypoint-initdb.d`` once, when their data directory is empty. What is defended:

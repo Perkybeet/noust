@@ -8,7 +8,7 @@ import type { Engine } from "../../../api/queries/databases";
 import { jobKeys } from "../../../api/queries/jobs";
 import { provisioningChoicesQuery, provisioningPlanFor } from "../../../api/queries/provisioning";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
-import { ErrorBlock } from "../../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Dialog } from "../../../components/ui/Dialog";
@@ -121,7 +121,7 @@ export function CreateLinkDialog({ domain, open, onOpenChange, onQueued }: Creat
       description={t("databases.appTab.createDescription", { domain })}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={!usable}>
             {t("databases.appTab.createAction")}
           </Button>
@@ -129,14 +129,8 @@ export function CreateLinkDialog({ domain, open, onOpenChange, onQueued }: Creat
       }
     >
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
-        {choices.isError && choices.data === undefined ? (
-          <ErrorBlock compact error={choices.error} title={t("databases.wizard.enginesFailed")} onRetry={() => void choices.refetch()} />
-        ) : choices.data === undefined ? (
-          <div aria-busy="true">
-            <span className="sr-only">{t("databases.wizard.loading")}</span>
-            <Skeleton className="h-control-md w-full rounded-control" />
-          </div>
-        ) : (
+        <QueryState query={choices} label={t("databases.wizard.enginesNoun")} skeleton={<Skeleton className="h-control-md w-full rounded-control" />}>
+          {() => (
           <EngineVersionFields
             choices={list}
             pick={pick}
@@ -147,9 +141,10 @@ export function CreateLinkDialog({ domain, open, onOpenChange, onQueued }: Creat
             }}
             installError={errors.install}
           />
-        )}
+          )}
+        </QueryState>
         <Field
-          label={slot ? t("databases.appTab.slot") : t("databases.fields.name")}
+          label={slot ? t("databases.appTab.slot") : t("common.words.name")}
           optional
           description={plan.data ? t.rich("databases.appTab.nameDefault", { name: <Mono>{plan.data.database}</Mono> }) : undefined}
           error={errors.name}

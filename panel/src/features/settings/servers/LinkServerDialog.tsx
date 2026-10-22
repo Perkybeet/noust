@@ -11,12 +11,13 @@ import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Stepper } from "../../../components/page/Stepper";
 import { WizardActions } from "../../../components/page/Wizard";
 import { Button } from "../../../components/ui/Button";
-import { CopyTextButton } from "../../../components/ui/CopyTextButton";
+import { CopyValue } from "../../../components/ui/CopyValue";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Disclosure } from "../../../components/ui/Disclosure";
 import { Field } from "../../../components/ui/Field";
 import { ICONS } from "../../../components/ui/icons";
 import { Input } from "../../../components/ui/Input";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
@@ -66,18 +67,8 @@ function LinkCommand({ t, name, command }: { t: T; name: string; command: string
       <span id={labelId} className="text-13 font-medium text-fg">
         {t("servers.link.command.label", { name })}
       </span>
-      <code
-        aria-labelledby={labelId}
-        translate="no"
-        data-testid="link-command"
-        className="rounded-control border border-border-strong bg-bg-sunken px-3 py-2 text-12 break-all text-fg select-all"
-      >
-        {command}
-      </code>
-      <div>
-        <CopyTextButton value={command} variant="secondary">
-          {t("servers.link.command.copy")}
-        </CopyTextButton>
+      <div data-testid="link-command">
+        <CopyValue value={command} label={t("servers.link.command.copy")} name={t("servers.link.command.label", { name })} />
       </div>
     </div>
   );
@@ -91,15 +82,15 @@ function CodeSummary({ t, summary, invite }: { t: T; summary: LinkCodeSummary; i
   const otherCentral = summary.central !== wantedCentral;
   return (
     <div className="flex flex-col gap-2">
-      <Notice tone={otherNode || otherCentral ? "warning" : "success"} title={t("servers.link.code.summaryTitle")}>
+      <InlineMessage tone={otherNode || otherCentral ? "warning" : "success"}>
         {t.rich("servers.link.code.summary", {
           node: <Mono key="node">{summary.node}</Mono>,
           console: <Mono key="console">{String(summary.consolePort)}</Mono>,
           version: <Mono key="version">{summary.version}</Mono>,
         })}
-      </Notice>
-      {otherNode ? <Notice tone="warning">{t("servers.link.code.otherNode", { node: summary.node, name: wantedNode })}</Notice> : null}
-      {otherCentral ? <Notice tone="warning">{t("servers.link.code.otherCentral", { central: summary.central, name: wantedCentral })}</Notice> : null}
+      </InlineMessage>
+      {otherNode ? <InlineMessage>{t("servers.link.code.otherNode", { node: summary.node, name: wantedNode })}</InlineMessage> : null}
+      {otherCentral ? <InlineMessage>{t("servers.link.code.otherCentral", { central: summary.central, name: wantedCentral })}</InlineMessage> : null}
     </div>
   );
 }
@@ -298,7 +289,7 @@ export function LinkServerDialog({ open, onClose }: LinkServerDialogProps) {
           </Notice>
         ) : null}
         <form id={formId} noValidate onSubmit={submitInvite} className="flex flex-col gap-4">
-          <Field label={t("servers.add.name.label")} description={t("servers.add.name.description")} error={nameError}>
+          <Field label={t("common.words.name")} description={t("servers.add.name.description")} error={nameError}>
             <Input
               ref={nameRef}
               mono
@@ -320,6 +311,7 @@ export function LinkServerDialog({ open, onClose }: LinkServerDialogProps) {
             description={t("servers.link.host.description")}
             error={hostError}
             action={
+              // design-exception: submit-disabled-invalid the central cannot make an invitation until its own setup is done, which the notice above lists with the command to run
               <Button type="submit" loading={invitation.isPending} disabled={!ready}>
                 {invite === null ? t("servers.link.showCommand") : t("servers.link.again")}
               </Button>
@@ -378,7 +370,7 @@ export function LinkServerDialog({ open, onClose }: LinkServerDialogProps) {
       <Fragment key="invite">
         <WizardActions
           className="w-full"
-          back={{ label: t("servers.add.cancel"), onClick: close }}
+          back={{ label: t("common.words.cancel"), onClick: close }}
           next={{
             label: t("servers.add.next"),
             onClick: () => {
@@ -412,12 +404,12 @@ export function LinkServerDialog({ open, onClose }: LinkServerDialogProps) {
             }}
           />
         </Field>
-        {reading !== null && !reading.ok && reading.problem !== "empty" && codeError === null ? <Notice tone="warning">{t(PROBLEM_WORDS[reading.problem])}</Notice> : null}
+        {reading !== null && !reading.ok && reading.problem !== "empty" && codeError === null ? <InlineMessage>{t(PROBLEM_WORDS[reading.problem])}</InlineMessage> : null}
         {reading?.ok === true ? <CodeSummary t={t} summary={reading.summary} invite={invite} /> : null}
         {accept.isPending ? (
-          <Notice tone="info" live>
+          <InlineMessage tone="info" live>
             {t("servers.link.code.waiting", { name: serverName })}
-          </Notice>
+          </InlineMessage>
         ) : null}
         <p className="text-12 text-fg-muted">{t("servers.link.code.elevationNote")}</p>
       </div>
@@ -427,7 +419,7 @@ export function LinkServerDialog({ open, onClose }: LinkServerDialogProps) {
         <WizardActions
           className="w-full"
           back={{
-            label: t("servers.add.back"),
+            label: t("common.words.back"),
             onClick: () => {
               if (!accept.isPending) setStep("invite");
             },
@@ -443,12 +435,12 @@ export function LinkServerDialog({ open, onClose }: LinkServerDialogProps) {
       added !== null ? (
         <Fragment key="done">
           <Button variant="primary" onClick={close}>
-            {t("servers.add.done")}
+            {t("common.words.done")}
           </Button>
         </Fragment>
       ) : (
         <Fragment key="try-again">
-          <Button onClick={close}>{t("servers.add.cancel")}</Button>
+          <Button onClick={close}>{t("common.words.cancel")}</Button>
           <Button
             type="button"
             variant="primary"

@@ -82,7 +82,7 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
   return (
     <form ref={formRef} id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
       <Field
-        label={t("environment.variableDialog.nameLabel")}
+        label={t("common.words.name")}
         error={nameError}
         {...(editing ? {} : { description: t("environment.variableDialog.nameDescription") })}
       >
@@ -192,11 +192,11 @@ export function VariableDialog({ target, existing, onClose, onSubmit }: Variable
         if (!open) onClose();
       }}
       size="sm"
-      title={current?.mode === "edit" ? t("environment.variableDialog.editTitle", { name: current.name }) : t("environment.variableDialog.addTitle")}
+      title={current?.mode === "edit" ? t("common.words.editNamed", { name: current.name }) : t("environment.variableDialog.addTitle")}
       description={t("environment.variableDialog.description")}
       footer={
         <>
-          <Button onClick={onClose}>{t("environment.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary">
             {editing ? t("environment.variableDialog.updateButton") : t("environment.addVariable")}
           </Button>

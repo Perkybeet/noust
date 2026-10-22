@@ -292,7 +292,7 @@ describe("ConfirmDialog", () => {
       expect(info).toHaveBeenCalledOnce();
       const [title, options] = info.mock.calls[0] ?? [];
       expect(title).toBe("Waiting for approval");
-      expect(options?.action?.label).toBe("Open Approvals");
+      expect(options?.action?.label).toBe("Open approvals");
       expect(error).not.toHaveBeenCalled();
       info.mockRestore();
       error.mockRestore();

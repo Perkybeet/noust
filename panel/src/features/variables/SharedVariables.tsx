@@ -95,7 +95,7 @@ function UsageDialog({ scope, name, onClose }: { scope: VariableScope; name: str
       size="sm"
       title={t("variables.shared.usageDialog.title", { name: name ?? "" })}
       description={t("variables.shared.usageDialog.description")}
-      footer={<Button onClick={onClose}>{t("variables.shared.usageDialog.close")}</Button>}
+      footer={<Button onClick={onClose}>{t("common.words.close")}</Button>}
     >
       <QueryState
         query={usage}
@@ -227,7 +227,7 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
   const columns: Column<SharedVariable>[] = [
     {
       id: "name",
-      header: t("variables.shared.nameHeader"),
+      header: t("common.words.name"),
       width: "w-2/5",
       card: "title",
       sortValue: (variable) => variable.name,
@@ -292,10 +292,10 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
   ];
 
   const rowActions = (variable: SharedVariable) => (
-    <Menu align="end" trigger={<IconButton size="sm" label={t("variables.shared.actions", { name: variable.name })} icon={<ICONS.more />} tooltip={false} />}>
+    <Menu align="end" trigger={<IconButton size="sm" label={t("common.rowActions", { name: variable.name })} icon={<ICONS.more />} tooltip={false} />}>
       {canManage ? (
         <MenuItem icon={<Pencil />} disabled={unmask.isPending} onClick={() => void edit(variable)}>
-          {t("variables.shared.edit")}
+          {t("common.words.edit")}
         </MenuItem>
       ) : null}
       {scope.kind === "preview" ? null : (
@@ -307,7 +307,7 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
         <>
           <MenuSeparator />
           <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(variable.name)}>
-            {t("variables.shared.remove")}
+            {t("common.words.delete")}
           </MenuItem>
         </>
       ) : null}

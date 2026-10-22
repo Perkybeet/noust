@@ -172,7 +172,7 @@ says which of the two is missing and where to get it. Apache's stock builds have
   that is nginx's rule for `add_header`.
 
 API: the `http3` field of the policy, and `GET /api/apps/{domain}/http3` for what the server can do.
-Console: **Application, Settings, Access, HTTP/3**. Event: `sites.http3` (the socket's site written or
+Console: **Application, Settings, Protection, HTTP/3**. Event: `sites.http3` (the socket's site written or
 removed).
 
 ## A web application firewall
@@ -247,8 +247,7 @@ API: `POST /api/server/security/fail2ban/web` (sudo mode). Bans lift like the SS
 
 API: `GET /api/apps/{domain}/waf` (what the server has), `GET /api/apps/{domain}/waf/events` (what the
 rules saw and the rules that matched most), `PUT /api/apps/{domain}/policy` with `waf` and
-`waf_exclusions`, and `POST /api/waf/install` (sudo mode, the server's). Console: **Access, Web
-application firewall**. Event: `sites.waf`.
+`waf_exclusions`, and `POST /api/waf/install` (sudo mode, the server's). Console: **Application, Settings, Protection, Web application firewall**. Event: `sites.waf`.
 
 ## Client certificates
 
@@ -300,7 +299,7 @@ keeps neither the key nor the password: if they are lost, revoke the certificate
 
 API: `GET|POST /api/apps/{domain}/client-certs`, `DELETE /api/apps/{domain}/client-certs/{serial}`
 (`accept_lockout`), `GET /api/apps/{domain}/client-certs/ca`, and `PUT /api/apps/{domain}/policy` with
-`client_certs`. Making and revoking ask for sudo mode. Console: **Access, Client certificates**.
+`client_certs`. Making and revoking ask for sudo mode. Console: **Application, Settings, Protection, Client certificates**.
 Event: `certs.client` (`issue`, `revoke`, `authority`). Deleting the application removes its
 authority and records.
 
@@ -333,8 +332,7 @@ noust site unknown-hosts reset                            # the first site answe
 - The site is tested by the web server before it is reloaded, and everything is put back when it
   refuses. The file (`00-noust-default`, which sorts before the others) records its own settings.
 
-API: `GET|PUT|DELETE /api/unknown-hosts`; changing it needs sudo mode. Console: **Domains and
-certificates, Sites**, above the list. Event: `sites.unknown_hosts`.
+API: `GET|PUT|DELETE /api/unknown-hosts`; changing it needs sudo mode. Console: **Domains, Sites**, above the list. Event: `sites.unknown_hosts`.
 
 ## A private network: Tailscale, WireGuard
 
@@ -392,7 +390,7 @@ server can sign its own certificates: [an authority of your own](certificates.md
 
 API: `GET /api/private-networks`; `GET|PUT|DELETE /api/apps/{domain}/private` (changing it is the
 policy's permission) and `POST /api/apps/{domain}/private/certificate` (sudo mode, server scope:
-the certificate joins the server's own). Console: **Access, Private network**.
+the certificate joins the server's own). Console: **Application, Settings, Access, Private network**.
 
 ## DNS accounts and the records Noust owns
 
@@ -497,7 +495,7 @@ and a lookup that fails keeps nginx from reloading). An exposure interrupted hal
 asking for the same thing again, or by `noust stream repair`.
 
 API: `GET|POST /api/streams`, `POST /api/streams/plan`, `DELETE /api/streams/{name}`. Console:
-**Domains and certificates, Ports**. Publishing and closing need sudo mode.
+**Domains, Ports**. Publishing and closing need sudo mode.
 
 ## Cloudflare Tunnel
 
@@ -536,7 +534,7 @@ noust tunnel list | route remove home shop.example.com | remove home | repair
   records of its routes. An account a tunnel is managed with cannot be removed.
 
 API: `GET|POST /api/tunnels`, `DELETE /api/tunnels/{name}`, `POST /api/tunnels/{name}/routes`,
-`DELETE /api/tunnels/{name}/routes/{hostname}`. Console: **Domains and certificates, Tunnels**.
+`DELETE /api/tunnels/{name}/routes/{hostname}`. Console: **Domains, Tunnels**.
 
 ## When an application is deleted
 

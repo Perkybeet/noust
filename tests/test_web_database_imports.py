@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``/api/databases/imports`` and the all-databases policy over HTTP (3.4, H-02 and H-18).
+``/api/databases/imports`` and the all-databases policy over HTTP (4.0, H-02 and H-18).
 
 What the console builds on:
 

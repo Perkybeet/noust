@@ -69,7 +69,6 @@ describe("the Server area", () => {
       "Security3",
       "Storage",
       "Services",
-      "Logs",
       "System",
     ]);
     // Automatic updates on, at a glance (item 56), and which ones under it.
@@ -560,7 +559,7 @@ describe("fail2ban watching nginx", () => {
 
     expect(await screen.findByText("Off. fail2ban only watches SSH.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Watch nginx" }));
-    const dialog = await screen.findByRole("alertdialog", { name: "Make fail2ban watch nginx" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Start fail2ban watching nginx" });
     expect(within(dialog).getByText(/Cloudflare's ranges and every proxy a site declares/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Watch nginx" }));
 
@@ -599,7 +598,7 @@ describe("fail2ban watching nginx", () => {
   });
 });
 
-describe("the Storage, Logs and System tabs", () => {
+describe("the Storage and System tabs", () => {
   it("show the disks and what takes space, and pass axe", async () => {
     server("/server/storage");
     expect(
@@ -608,39 +607,6 @@ describe("the Storage, Logs and System tabs", () => {
     expect(
       await screen.findByRole("region", { name: "What takes space" }),
     ).toHaveTextContent("System logs");
-    await expectNoAxeViolations(screen.getByRole("main"));
-  });
-
-  it("read the journal of the unit in the address, as a query for the server to judge", async () => {
-    const { backend } = server("/server/logs?unit=nginx.service&priority=err", {
-      "GET /api/server/logs/search": () =>
-        json(200, {
-          entries: [
-            {
-              timestamp: "2026-09-29T10:00:00+0000",
-              priority: 3,
-              unit: "nginx.service",
-              message: "bind() failed",
-              pid: 812,
-              cursor: "c",
-            },
-          ],
-          matched: 1,
-          scanned: 40,
-          truncated: false,
-          scan_limit_reached: false,
-          oldest: "2026-09-29T08:00:00+00:00",
-          normalised: "@unit:nginx.service AND @level:err",
-        }),
-    });
-    await waitFor(() => {
-      expect(backend.callsTo("GET /api/server/logs/search")).toHaveLength(1);
-    });
-    const call = backend.callsTo("GET /api/server/logs/search")[0];
-    expect(call?.search.get("query")).toBe("@unit:nginx.service @level:err");
-    expect(call?.search.get("since")).toBe("-1h");
-    expect(await screen.findByText("1 of 40 entries match", { exact: false })).toBeInTheDocument();
-    expect(screen.getByText("@unit:nginx.service AND @level:err")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 

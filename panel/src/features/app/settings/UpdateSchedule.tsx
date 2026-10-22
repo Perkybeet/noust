@@ -152,7 +152,7 @@ function ScheduleDrawer({ domain, data, open, onOpenChange, onRemove }: DrawerPr
             </Button>
           ) : null}
           <Button disabled={save.isPending} onClick={() => onOpenChange(false)}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={!changed}>
             {t("rollout.schedule.save")}

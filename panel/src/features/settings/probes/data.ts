@@ -6,7 +6,7 @@
  * a number is acceptable - the server's refusal is shown beside the field it names.
  */
 
-import type { Probe, ProbeBody, ProbeStatus } from "../../../api/queries/probes";
+import type { Probe, ProbeBody, ProbeList, ProbeStatus } from "../../../api/queries/probes";
 import type { Locale, T } from "../../../i18n";
 import { formatDuration, formatUptime } from "../../../lib/format";
 
@@ -120,4 +120,37 @@ export function lastAnswer(t: T, status: ProbeStatus): string | null {
 /** How long a stretch lasted ("7m 42s"); one that is still going says so by having no end. */
 export function stretch(started: number, ended: number | null | undefined, now: number, locale: Locale): string {
   return formatDuration(Math.max(0, (ended ?? now) - started), locale);
+}
+
+/** A probe that is not answering: what the inbox and Overview say about it. */
+export interface FailingProbe {
+  name: string;
+  /** The address asked, without credentials. */
+  address: string;
+  /** Since when it has been down, Unix seconds. */
+  since: number;
+  /** What its last answer said, in the probe's own words. */
+  lastError: string | null;
+  /** Bad answers in a row so far. */
+  failures: number;
+}
+
+/**
+ * The probes that are down now, the longest-running first, for every place that says so (the
+ * inbox's "Needs you", Overview's "Needs attention", the sidebar's counter: docs/DESIGN.md,
+ * AL-1). A probe that is switched off is not asked, so it is not down.
+ */
+export function selectFailingProbes(list: ProbeList | undefined): FailingProbe[] {
+  return (list?.items ?? [])
+    .filter((probe) => probe.enabled && probe.status.state === "down")
+    .map(
+      (probe): FailingProbe => ({
+        name: probe.name,
+        address: probe.address,
+        since: probe.status.since,
+        lastError: probe.status.last_error ?? null,
+        failures: probe.status.failures,
+      }),
+    )
+    .sort((a, b) => a.since - b.since);
 }

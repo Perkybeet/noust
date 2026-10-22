@@ -199,7 +199,7 @@ function row(name: string): HTMLElement {
 async function confirmItsYou(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
   const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
   await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-  await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+  await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 }
 
 function saveBar(): HTMLElement {
@@ -212,7 +212,11 @@ describe("Settings > Notifications", () => {
     const { container } = renderConsole("/settings/notifications");
     const master = await screen.findByRole("switch", { name: /Send notifications/ });
     expect(master).not.toBeChecked();
-    expect(screen.getByText(/Off: nothing is sent/)).toBeInTheDocument();
+    // The state is the switch and a small pill in its row; the sentence says what the switch does.
+    const masterRow = master.closest<HTMLElement>('[data-slot="setting"]');
+    if (masterRow === null) throw new Error("the switch has no row");
+    expect(within(masterRow).getByText("Off")).toHaveAttribute("data-state", "stopped");
+    expect(within(masterRow).getByText(/Nothing is sent, but a test still goes out/)).toBeInTheDocument();
     // A channel's on or off is a state at a glance (item 56): the running green with its dot,
     // the stopped grey with its ring, and the word; a label, not a control.
     const slackOn = within(row("Slack")).getByText("On");
@@ -221,7 +225,7 @@ describe("Settings > Notifications", () => {
     expect(slackOn.querySelector("svg")).toHaveAttribute("data-glyph", "dot");
     expect(slackOn.closest("button, [role='switch'], a")).toBeNull();
     expect(within(row("Slack")).getByRole("button", { name: "Edit Slack" })).toBeInTheDocument();
-    expect(within(row("Webhook")).getByText("Deliveries are not signed.")).toBeInTheDocument();
+    expect(within(row("Webhook")).getByText("Messages are not signed.")).toBeInTheDocument();
     expect(within(row("Telegram")).getByText("Bot saved; no chat chosen yet.")).toBeInTheDocument();
     const emailOff = within(row("Email")).getByText("Off");
     expect(emailOff).toHaveAttribute("data-state", "stopped");
@@ -229,7 +233,7 @@ describe("Settings > Notifications", () => {
     expect(emailOff.querySelector("svg")).toHaveAttribute("data-glyph", "ring");
     expect(within(row("Email")).getByRole("button", { name: "Set up Email" })).toBeInTheDocument();
     // Every event, by area, each group saying how many of its events are sent.
-    expect(screen.getByText("Deploys", { selector: "summary *" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Deploys/ })).toBeInTheDocument();
     // Deploys: deploy_hook_failed is missing from the file, so it is sent (on by default). Backups
     // lists the events 3.4 added, which are on by default as well: deploy_started and
     // backup_success ship off, everything else is on.
@@ -240,8 +244,8 @@ describe("Settings > Notifications", () => {
     // This server: a disk cleanup that freed space ships off too; the security release, the
     // container restart loop and the recipe updates ship on.
     expect(screen.getAllByText("13 of 14 sent")).toHaveLength(1);
-    expect(screen.getByText("Alerts and scheduled jobs", { selector: "summary *" })).toBeInTheDocument();
-    expect(screen.getByText("Servers you manage", { selector: "summary *" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Alerts and scheduled jobs/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Servers you manage/ })).toBeInTheDocument();
     // One save bar for the form, and nothing to save yet.
     expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
     await expectNoAxeViolations(container);
@@ -492,7 +496,7 @@ describe("Settings > Notifications", () => {
     });
 
     // A folded group opens on demand; the kinds that ship off say so.
-    await user.click(screen.getByText("Backups and restores", { selector: "summary *" }));
+    await user.click(screen.getByRole("button", { name: /^Backups and restores/ }));
     const heartbeat = screen.getByRole("checkbox", { name: /Backup finished/ });
     expect(heartbeat).not.toBeChecked();
     expect(within(heartbeat.closest("label") ?? document.body).getByText("Off by default")).toBeInTheDocument();
@@ -542,7 +546,7 @@ describe("Settings > Notifications", () => {
     await user.click(within(row("Slack")).getByRole("button", { name: "Routing for Slack" }));
     const drawer = await screen.findByRole("dialog", { name: "Routing for Slack" });
     await user.type(within(drawer).getByRole("textbox", { name: /^Applications/ }), "shop.example.com, *.staging.example.com");
-    await user.click(within(drawer).getByRole("switch", { name: "Hold messages during quiet hours" }));
+    await user.click(within(drawer).getByRole("checkbox", { name: "Hold messages during quiet hours" }));
     await user.click(within(drawer).getByRole("button", { name: "Save" }));
     await confirmItsYou(user);
     await waitFor(() => {
@@ -569,16 +573,20 @@ describe("Settings > Notifications", () => {
     await user.click(within(row("Slack")).getByRole("button", { name: "Routing for Slack" }));
     const drawer = await screen.findByRole("dialog", { name: "Routing for Slack" });
     expect(within(drawer).queryByLabelText("At most this many messages")).toBeNull();
-    await user.click(within(drawer).getByRole("switch", { name: "Limit how much this channel says" }));
+    await user.click(within(drawer).getByRole("checkbox", { name: "Limit how much this channel says" }));
     // A number the server would refuse stops the save, and says why.
     const most = within(drawer).getByLabelText("At most this many messages");
     await user.clear(most);
     await user.type(most, "0");
     expect(within(drawer).getAllByText("Use whole numbers: up to 1000 messages, in up to 1440 minutes.").length).toBeGreaterThan(0);
-    expect(within(drawer).getByRole("button", { name: "Save" })).toBeDisabled();
+    // Save is not disabled for a wrong number: pressing it sends nothing and goes to the box that is wrong.
+    expect(within(drawer).getByRole("button", { name: "Save" })).toBeEnabled();
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    expect(most).toHaveFocus();
+    expect(backend.callsTo("PUT /api/notifications/channels/slack")).toHaveLength(0);
     await user.clear(most);
     await user.type(most, "5");
-    await user.click(within(drawer).getByRole("switch", { name: "Send what is not urgent as a daily summary" }));
+    await user.click(within(drawer).getByRole("checkbox", { name: "Send what is not urgent as a daily summary" }));
     await user.click(within(drawer).getByRole("checkbox", { name: "Fri" }));
     await user.click(within(drawer).getByRole("checkbox", { name: "Mon" }));
     expect(within(drawer).getByText("It goes out only on the days chosen.")).toBeInTheDocument();
@@ -608,10 +616,10 @@ describe("Settings > Notifications", () => {
     await user.click(within(row("PagerDuty")).getByRole("button", { name: "Routing for PagerDuty" }));
     const drawer = await screen.findByRole("dialog", { name: "Routing for PagerDuty" });
     expect(within(drawer).getByText(/A paging channel is neither capped nor summarised/)).toBeInTheDocument();
-    expect(within(drawer).queryByRole("switch", { name: "Limit how much this channel says" })).toBeNull();
-    expect(within(drawer).queryByRole("switch", { name: "Send what is not urgent as a daily summary" })).toBeNull();
+    expect(within(drawer).queryByRole("checkbox", { name: "Limit how much this channel says" })).toBeNull();
+    expect(within(drawer).queryByRole("checkbox", { name: "Send what is not urgent as a daily summary" })).toBeNull();
     // Quiet hours are still the channel's to set.
-    expect(within(drawer).getByRole("switch", { name: "Hold messages during quiet hours" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("checkbox", { name: "Hold messages during quiet hours" })).toBeInTheDocument();
   });
 
   it("sets up Matrix with a homeserver, a room and an access token, and PagerDuty with its key", { timeout: 30_000 }, async () => {
@@ -682,9 +690,13 @@ describe("Settings > Notifications", () => {
     expect(screen.getByText("No more channels. Add one to send some events somewhere else.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add a channel" }));
     const add = await screen.findByRole("dialog", { name: "Add a channel" });
-    // A name the server would refuse is not sent.
+    // A name the server would refuse is not sent: the button says why beside the box, and goes there.
     await user.type(within(add).getByLabelText("Name"), "Bad Name");
-    expect(within(add).getByRole("button", { name: "Add channel" })).toBeDisabled();
+    expect(within(add).getByRole("button", { name: "Add channel" })).toBeEnabled();
+    await user.click(within(add).getByRole("button", { name: "Add channel" }));
+    expect(await within(add).findByText(/A name starts with a lowercase letter/)).toBeInTheDocument();
+    expect(within(add).getByLabelText("Name")).toHaveFocus();
+    expect(backend.callsTo("PUT /api/notifications/channels/bad name")).toHaveLength(0);
     await user.clear(within(add).getByLabelText("Name"));
     await user.type(within(add).getByLabelText("Name"), "slack-staging");
     await user.click(within(add).getByRole("button", { name: "Add channel" }));
@@ -783,7 +795,7 @@ describe("Settings > Notifications", () => {
     const { container } = renderConsole("/settings/notifications");
     expect(await screen.findByRole("switch", { name: /Enviar notificaciones/ })).toBeInTheDocument();
     expect(screen.getByText("Qué se envía")).toBeInTheDocument();
-    expect(screen.getByText("Servidores que gestionas", { selector: "summary *" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Servidores que gestionas/ })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 });

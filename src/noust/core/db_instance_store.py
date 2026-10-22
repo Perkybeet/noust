@@ -7,7 +7,7 @@ Which database instances Noust runs itself, in containers.
 The host's PostgreSQL, MySQL, Redis and MongoDB stay the engines of the server.
 An **instance** is another one beside them: another major version, or an engine
 the host does not provide, run from an official image Noust pinned by digest
-(decision D4 of the 3.4 design). A row of ``db_instances`` (schema v14,
+(decision D4 of the 4.0 design). A row of ``db_instances`` (schema v14,
 :mod:`noust.core.schema_v14`) says which instance Noust made, from which image,
 on which loopback port and with how much memory. It is the authority on what is
 Noust's: a container that merely wears the label is not an instance until a row

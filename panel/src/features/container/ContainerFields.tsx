@@ -51,7 +51,7 @@ function ArgsEditor({ draft, errors, onChange }: Pick<ContainerFieldsProps, "dra
         <ErrorLine message={errors["build_args"]} />
         {draft.buildArgs.map((row) => (
           <div key={row.id} className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start">
-            <Field label={t("containers.args.name")} error={errors[argNameField(row)]} className="sm:w-56 sm:shrink-0">
+            <Field label={t("common.words.name")} error={errors[argNameField(row)]} className="sm:w-56 sm:shrink-0">
               <Input
                 mono
                 value={row.name}
@@ -68,7 +68,7 @@ function ArgsEditor({ draft, errors, onChange }: Pick<ContainerFieldsProps, "dra
               className="min-w-0 flex-1"
               action={
                 <IconButton
-                  label={row.name.trim() === "" ? t("containers.args.removeEmpty") : t("containers.args.remove", { name: row.name.trim() })}
+                  label={row.name.trim() === "" ? t("containers.args.removeEmpty") : t("common.words.removeNamed", { name: row.name.trim() })}
                   icon={<ICONS.delete />}
                   onClick={() => set(draft.buildArgs.filter((other) => other.id !== row.id))}
                 />
@@ -115,7 +115,7 @@ function SecretsEditor({ draft, errors, onChange }: Pick<ContainerFieldsProps, "
                 aria-label={t(row.remove ? "containers.secrets.keep" : "containers.secrets.removeStored", { id: row.secretId })}
                 onClick={() => set(draft.buildSecrets.map((other) => (other.id === row.id ? { ...other, remove: !other.remove } : other)))}
               >
-                {t(row.remove ? "containers.secrets.undo" : "containers.secrets.removeAction")}
+                {t(row.remove ? "containers.secrets.undo" : "common.words.remove")}
               </Button>
             </div>
           ) : (
@@ -294,7 +294,7 @@ export function ContainerFields({ draft, errors, onChange, existing = false, sho
           {draft.method === "railpack" ? (
             <div className="flex flex-col gap-2">
               <Notice title={t("containers.method.railpackNeeds")}>{t("containers.method.railpackNeedsBody")}</Notice>
-              <CommandHint command="noust setup railpack" label={t("containers.fromTerminal")} />
+              <CommandHint command="noust setup railpack" label={t("common.words.fromTerminal")} />
             </div>
           ) : null}
         </div>

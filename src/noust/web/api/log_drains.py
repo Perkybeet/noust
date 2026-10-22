@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Where the logs of applications are shipped to (3.4, checklist B-73).
+Where the logs of applications are shipped to (4.0, checklist B-73).
 
 A client of :mod:`noust.managers.log_drains`, like ``noust logdrain``: ``GET``
 lists the destinations with how the last attempt went, ``PUT`` makes one or changes

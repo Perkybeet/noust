@@ -7,7 +7,7 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { notificationChannelsQuery, saveNotificationChannel } from "../../api/queries/notifications";
@@ -17,6 +17,7 @@ import { Section } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Drawer } from "../../components/ui/Drawer";
+import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
@@ -88,6 +89,9 @@ function AddChannelDrawer({ open, onOpenChange, onAdded }: { open: boolean; onOp
   const formId = useId();
   const [name, setName] = useState("");
   const [type, setType] = useState("slack");
+  // Whether the name was pressed through while it was not one: said beside the box, not by a dead button.
+  const [named, setNamed] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
   const types = channels(t);
   const valid = NAME_SHAPE.test(name.trim());
 
@@ -106,7 +110,13 @@ function AddChannelDrawer({ open, onOpenChange, onAdded }: { open: boolean; onOp
   });
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (valid && !add.isPending) add.mutate();
+    if (add.isPending) return;
+    if (!valid) {
+      setNamed(true);
+      nameRef.current?.focus();
+      return;
+    }
+    add.mutate();
   };
 
   return (
@@ -115,6 +125,7 @@ function AddChannelDrawer({ open, onOpenChange, onAdded }: { open: boolean; onOp
       onOpenChange={(next) => {
         if (!next) {
           setName("");
+          setNamed(false);
           add.reset();
         }
         onOpenChange(next);
@@ -132,7 +143,7 @@ function AddChannelDrawer({ open, onOpenChange, onAdded }: { open: boolean; onOp
           >
             {t("settings.shared.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" disabled={!valid} loading={add.isPending}>
+          <Button type="submit" form={formId} variant="primary" loading={add.isPending}>
             {t("notifyRouting.more.create")}
           </Button>
         </>
@@ -140,8 +151,9 @@ function AddChannelDrawer({ open, onOpenChange, onAdded }: { open: boolean; onOp
     >
       <form id={formId} noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-5">
         <FormFailure error={add.error} title={t("notifyRouting.more.createErrorTitle")} />
-        <Field label={t("notifyRouting.more.nameLabel")} description={t("notifyRouting.more.nameDescription")}>
+        <Field label={t("common.words.name")} description={t("notifyRouting.more.nameDescription")} error={named && !valid ? t("notifyRouting.more.nameBad") : undefined}>
           <Input
+            ref={nameRef}
             mono
             autoComplete="off"
             autoCapitalize="off"
@@ -150,6 +162,7 @@ function AddChannelDrawer({ open, onOpenChange, onAdded }: { open: boolean; onOp
             value={name}
             onValueChange={(next: string) => {
               setName(next);
+              setNamed(false);
             }}
           />
         </Field>
@@ -169,6 +182,7 @@ export function MoreChannels() {
   const [justAdded, setJustAdded] = useState<string | null>(null);
 
   // A server whose Noust predates channels by name has nothing to show here, and says so nowhere else.
+  // design-exception: hand-error-ternary an older server has no such channels: that is not a failure to load
   if (list.isError && list.data === undefined) return null;
   const added = list.data?.items.filter((channel) => !channel.default) ?? [];
 
@@ -177,15 +191,16 @@ export function MoreChannels() {
       title={t("notifyRouting.more.title")}
       description={t("notifyRouting.more.description")}
       actions={
-        <Button
-          icon={<Plus aria-hidden="true" />}
-          disabled={list.data === undefined}
-          onClick={() => {
-            setAdding(true);
-          }}
-        >
-          {t("notifyRouting.more.add")}
-        </Button>
+        list.data === undefined ? undefined : (
+          <Button
+            icon={<Plus aria-hidden="true" />}
+            onClick={() => {
+              setAdding(true);
+            }}
+          >
+            {t("notifyRouting.more.add")}
+          </Button>
+        )
       }
     >
       <Card padding="none">
@@ -197,7 +212,7 @@ export function MoreChannels() {
             </div>
           </LoadingRegion>
         ) : added.length === 0 ? (
-          <p className="px-4 py-3 text-13 text-fg-muted sm:px-5">{t("notifyRouting.more.empty")}</p>
+          <EmptyState variant="inline" title={t("notifyRouting.more.empty")} className="px-4 sm:px-5" />
         ) : (
           <ul aria-label={t("notifyRouting.more.listLabel")} className="flex min-w-0 flex-col divide-y divide-border">
             {added.map((channel) => (

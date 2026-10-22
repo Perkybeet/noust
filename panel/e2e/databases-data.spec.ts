@@ -88,8 +88,8 @@ test("public access: opened from one address with TLS, shown once, and made priv
   await settle(page);
   await expectNoA11yViolations(page, "a database's Connect tab, private");
 
-  await section.getByRole("button", { name: "Make it public…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Make example_staging public" });
+  await section.getByRole("button", { name: "Open access…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Open access to example_staging" });
   // The recommended answers are the ones already chosen.
   await expect(dialog.getByRole("radio", { name: /^Required \(recommended\)/ })).toBeChecked();
   await expect(dialog.getByRole("radio", { name: /^Owner/ })).toBeChecked();
@@ -105,7 +105,7 @@ test("public access: opened from one address with TLS, shown once, and made priv
   await expect(dialog.getByText("What you accept by going ahead")).toBeVisible();
   await expect(dialog.getByText(/becomes reachable on port \d+/)).toBeVisible();
   await expect(dialog.getByText("Required: a connection without TLS is refused")).toBeVisible();
-  const submit = dialog.getByRole("button", { name: "Make it public" });
+  const submit = dialog.getByRole("button", { name: "Open access" });
   await submit.click();
   await expect(dialog.getByText("Tick the box to accept what is listed above.")).toBeVisible();
   await settle(page);
@@ -121,7 +121,8 @@ test("public access: opened from one address with TLS, shown once, and made priv
   await shown.getByRole("button", { name: "Done" }).click();
   await expect(shown).toBeHidden();
 
-  await expect(section.getByText(/^Public on port \d+$/)).toBeVisible();
+  await expect(section.getByText("Public", { exact: true })).toBeVisible();
+  await expect(section.getByText("Address", { exact: true })).toBeVisible();
   await expect(section.getByText("Required: a connection without TLS is refused")).toBeVisible();
   await expect(section.getByText("203.0.113.7/32", { exact: true })).toBeVisible();
   await expect(section.getByText("Read only", { exact: true })).toBeVisible();
@@ -134,17 +135,17 @@ test("public access: opened from one address with TLS, shown once, and made priv
   await expect(again.getByRole("textbox", { name: "Username" })).toHaveValue(/_remote$/);
   await again.getByRole("button", { name: "Done" }).click();
 
-  await section.getByRole("button", { name: "Make it private" }).click();
-  const confirm = page.getByRole("alertdialog", { name: "Make example_staging private" });
-  await confirm.getByRole("button", { name: "Make it private" }).click();
+  await section.getByRole("button", { name: "Close access" }).click();
+  const confirm = page.getByRole("alertdialog", { name: "Close access to example_staging" });
+  await confirm.getByRole("button", { name: "Close access" }).click();
   await expect(section.getByText("Private", { exact: true })).toBeVisible();
 });
 
 test("a database that is not public stays private when the review is cancelled", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `${DATABASE}/connect`);
   const section = page.getByRole("region", { name: "Public access" });
-  await section.getByRole("button", { name: "Make it public…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Make example_production public" });
+  await section.getByRole("button", { name: "Open access…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Open access to example_production" });
   await dialog.getByRole("radio", { name: /^Optional/ }).check();
   await dialog.getByRole("button", { name: "Review" }).click();
   // Nobody was named, so it says anyone, in words, and not the one the server writes for it.
@@ -162,7 +163,7 @@ test("one backup policy for every database of an engine, with what it leaves out
   problems.expect(/status of 403 .*\/api\/databases\/backup-policies\/mysql\/\*$/);
   await signIn(page, consoleServer, "/databases/mysql/example_shop/backups");
   const card = page.locator("section").filter({ has: page.getByRole("heading", { level: 2, name: "Every MySQL/MariaDB database" }) });
-  await expect(card.getByText("No policy covers every MySQL/MariaDB database.")).toBeVisible();
+  await expect(card.getByText("No schedule covers every MySQL/MariaDB database.")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the backups tab, no policy for every database");
 
@@ -198,8 +199,8 @@ test("one backup policy for every database of an engine, with what it leaves out
   await page.goto("/databases/mysql/example_shop/backups");
   await card.getByRole("button", { name: "More schedule actions" }).click();
   await page.getByRole("menuitem", { name: "Remove" }).click();
-  await page.getByRole("alertdialog", { name: "Remove the policy for every MySQL/MariaDB database" }).getByRole("button", { name: "Remove policy" }).click();
-  await expect(card.getByText("No policy covers every MySQL/MariaDB database.")).toBeVisible();
+  await page.getByRole("alertdialog", { name: "Remove the schedule for every MySQL/MariaDB database" }).getByRole("button", { name: "Remove schedule" }).click();
+  await expect(card.getByText("No schedule covers every MySQL/MariaDB database.")).toBeVisible();
 });
 
 /** A plain SQL dump of `bytes` bytes or a little more: the header an engine's own tool writes, then comments. */

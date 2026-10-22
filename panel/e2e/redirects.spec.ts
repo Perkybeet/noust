@@ -14,6 +14,9 @@ import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures
 /** The seeded machine's names for the parameters of a path. */
 const SAMPLE: Readonly<Record<string, string>> = { $domain: "shop.example.net", $name: "shop-example-net" };
 
+// Typed by what a row may be, not by what the table holds today: once every row is live, `pending` has no row to name.
+const ROWS: readonly { readonly from: string; readonly to: string; readonly state: "live" | "pending"; readonly after?: string; readonly plain?: true }[] = REDIRECTS;
+
 const address = (pattern: string): string => pattern.replace(/\$\w+/g, (param) => SAMPLE[param] ?? "sample");
 
 function pathnameOf(page: Page): () => string {
@@ -22,12 +25,12 @@ function pathnameOf(page: Page): () => string {
 
 test("an address that moved opens where it is now, with the filters it carried", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/");
-  for (const row of REDIRECTS.filter((candidate) => candidate.state === "live")) {
+  for (const row of ROWS.filter((candidate) => candidate.state === "live")) {
     // A list keeps its search; the page of one thing (a service) has none.
     const search = row.from.includes("$") ? "" : "?q=zzz";
     await page.goto(`${address(row.from)}${search}`);
     await expect.poll(pathnameOf(page), { message: `${row.from} did not reach ${row.to}` }).toBe(address(row.to));
-    if (search !== "" && !("plain" in row)) expect(new URL(page.url()).searchParams.get("q"), `${row.from} lost its search`).toBe("zzz");
+    if (search !== "" && row.plain !== true) expect(new URL(page.url()).searchParams.get("q"), `${row.from} lost its search`).toBe("zzz");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   }
 });
@@ -43,9 +46,11 @@ test("the page of the Teams tab is the page /teams always was", async ({ page, c
 });
 
 test("an address whose destination does not hold everything yet still opens its own page", async ({ page, consoleServer }) => {
+  const pending = ROWS.filter((candidate) => candidate.state === "pending");
+  test.skip(pending.length === 0, "every old address redirects now");
   await signIn(page, consoleServer, "/");
-  for (const row of REDIRECTS.flatMap((candidate) => (candidate.state === "pending" ? [candidate] : []))) {
-    expect(row.after.trim(), `${row.from} is pending and says nothing it waits for`).not.toBe("");
+  for (const row of pending) {
+    expect((row.after ?? "").trim(), `${row.from} is pending and says nothing it waits for`).not.toBe("");
     await page.goto(address(row.from));
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     expect(new URL(page.url()).pathname, `${row.from} redirects although ${row.to} does not hold it all`).toBe(address(row.from));

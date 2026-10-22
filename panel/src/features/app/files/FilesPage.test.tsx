@@ -136,7 +136,7 @@ describe("the files of an application", () => {
       [`POST /api/apps/${TAB_DOMAIN}/files/directory`]: () => json(201, { domain: TAB_DOMAIN, path: "uploads" }),
     });
     await user.click(screen.getByRole("button", { name: "New folder" }));
-    const dialog = await screen.findByRole("dialog", { name: "Make a folder" });
+    const dialog = await screen.findByRole("dialog", { name: "New folder" });
     await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "uploads");
     await user.click(within(dialog).getByRole("button", { name: "Create" }));
 
@@ -152,7 +152,7 @@ describe("the files of an application", () => {
     );
     await screen.findByText("production.json");
     await user.click(screen.getByRole("button", { name: "New file" }));
-    const dialog = await screen.findByRole("dialog", { name: "Make a file" });
+    const dialog = await screen.findByRole("dialog", { name: "New file" });
     await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "new.json");
     await user.click(within(dialog).getByRole("button", { name: "Create" }));
 
@@ -164,7 +164,7 @@ describe("the files of an application", () => {
   it("refuses a name with a slash before asking anything", async () => {
     const { user, backend } = await files();
     await user.click(screen.getByRole("button", { name: "New folder" }));
-    const dialog = await screen.findByRole("dialog", { name: "Make a folder" });
+    const dialog = await screen.findByRole("dialog", { name: "New folder" });
     await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "a/b");
     await user.click(within(dialog).getByRole("button", { name: "Create" }));
 

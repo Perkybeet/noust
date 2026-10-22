@@ -42,7 +42,7 @@ Copies kept before upgrading:
 | 11 | 3.0.0 | 3.0.0 and later |
 | 12 | 3.1.0 | 3.1.0 and later |
 | 13 | 3.2.0 | 3.2.0 and later (3.3 did not change it) |
-| 14 | 3.4.0 | 3.4.0 and later |
+| 14 | 4.0.0, on the way to 15 | 4.0.0 and later |
 | 15 | 4.0.0 | 4.0.0 and later |
 
 The table is in the code (`noust.core.store_compat.SCHEMA_RELEASES`), and a test fails when the

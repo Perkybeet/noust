@@ -3,17 +3,9 @@ import type { Catalog } from "../types";
 
 export const cron: Catalog<typeof en> = {
 
-  common: {
-    cancel: "Cancelar",
-    edit: "Editar",
-    clearFilters: "Borrar filtros",
-    fromTerminal: "Desde una terminal",
-  },
 
   status: {
     succeeded: "Correcta",
-    failed: "Fallida",
-    unknown: "Desconocido",
     neverRun: "Nunca se ejecutó",
   },
 
@@ -55,7 +47,6 @@ export const cron: Catalog<typeof en> = {
   table: {
     captionAll: "Tareas programadas",
     captionFiltered: "Tareas programadas que coinciden con los filtros",
-    actionsFor: "Acciones de {name}",
     disabled: "Desactivada",
     columns: {
       job: "Tarea",
@@ -74,13 +65,11 @@ export const cron: Catalog<typeof en> = {
   },
 
   deleteDialog: {
-    title: "Eliminar {name}",
     description: "Elimina el temporizador y su servicio. Esto no se puede deshacer.",
   },
 
   dialog: {
     titleNew: "Nueva tarea programada",
-    titleEdit: "Editar {name}",
     description: "Ejecuta un comando en este servidor por sí solo, según un horario.",
     createJob: "Crear tarea",
     saveJob: "Guardar tarea",
@@ -97,7 +86,6 @@ export const cron: Catalog<typeof en> = {
   },
 
   fields: {
-    name: "Nombre",
     nameDescription: "Da nombre a la tarea y a su temporizador, como nightly-report.",
     nameMissing: "Escribe un nombre para la tarea.",
     command: "Comando",

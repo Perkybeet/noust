@@ -102,7 +102,7 @@ function LimitsDrawer({ domain, data, open, onOpenChange }: DrawerProps) {
       footer={
         <>
           <Button disabled={save.isPending} onClick={() => onOpenChange(false)}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={changes === 0}>
             {t("rollout.limits.save")}

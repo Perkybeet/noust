@@ -18,7 +18,7 @@
  * - a fleet with a node that is down and one on an older Noust answers partially, never blank;
  * - a destructive, elevated action made while on the node lands on the node, not the central;
  * - a node that stops answering says so on its own pages and in the Fleet's attention;
- * - Settings > Servers lists the node and opens the add flow's first step;
+ * - Fleet > Servers lists the node and opens the add flow's first step;
  * - a central with sealed secrets shows the lock screen and opens with the right passphrase;
  * - a hub sends its own pages to the Fleet instead.
  */
@@ -134,8 +134,10 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
   await settle(page);
   await expectNoA11yViolations(page, "the Fleet's summary");
 
-  const tabs = page.getByRole("navigation", { name: "Fleet views" });
-  await tabs.getByRole("link", { name: "Applications" }).click();
+  // The sidebar of the fleet is the way between its views; the page draws no strip of them.
+  await expect(page.getByRole("navigation", { name: "Fleet views" })).toHaveCount(0);
+  const views = page.getByRole("navigation", { name: "Main" });
+  await views.getByRole("link", { name: "Applications" }).click();
   const apps = page.getByRole("region", { name: "Applications on every server" });
   await expect(apps.getByRole("link", { name: NODE_APP, exact: true })).toHaveAttribute("href", `/n/${NODE_NAME}/apps/${NODE_APP}`);
   await settle(page);
@@ -145,11 +147,10 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
     ["Servers", "Servers of this fleet"],
     ["Certificates", "Certificates on every server"],
     ["Backups", "Backups of every application"],
-    ["Noust and system updates", "Noust and system updates of every server"],
+    ["Updates", "Noust and system updates of every server"],
     ["Activity", "What happened lately on every server"],
   ] as const) {
-    // Exact: "On several servers" contains the name of "Servers".
-    await tabs.getByRole("link", { name: tab, exact: true }).click();
+    await views.getByRole("link", { name: tab, exact: true }).click();
     await expect(page.getByRole("region", { name: caption })).toBeVisible();
     await settle(page);
     await expectNoA11yViolations(page, `the Fleet's ${tab.toLowerCase()}`);
@@ -231,7 +232,7 @@ withFleet("Add a server: a console token pasted as a join code is caught, and a 
   page.on("request", (request) => {
     if (request.method() === "POST" && new URL(request.url()).pathname === "/api/nodes") posts.push(request.url());
   });
-  await signIn(page, consoleServer, "/settings/servers");
+  await signIn(page, consoleServer, "/fleet/servers");
   await page.getByRole("button", { name: "Add a server" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server" });
   // The guided way opens first; the join code is one link away, for a server that must never be given a credential.
@@ -254,7 +255,7 @@ withFleet("Add a server: a console token pasted as a join code is caught, and a 
 
   // A well-formed code made for another central's key: the central refuses it.
   await dialog.getByLabel("Join code").fill(foreignJoinCode());
-  await expect(dialog.getByText("Join code read")).toBeVisible();
+  await expect(dialog.getByText(/its tunnel account/)).toBeVisible();
   await dialog.getByRole("button", { name: "Add server" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   await confirm.waitFor({ state: "visible", timeout: 5_000 }).catch(() => undefined);
@@ -320,16 +321,30 @@ withFleet(
   },
 );
 
-withFleet("Settings > Servers shows the node and the add flow's first step", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/settings/servers");
-  // Settings shares one heading across every section (SettingsLayout's own PageHeader); the
-  // "Servers" table below is what actually says which tab this is.
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Settings");
+withFleet("the old Settings > Servers address is the fleet's list, and the add flow it asked for opens there and stays there", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/settings/servers?add=true");
+  // One list of servers: the old address goes to it, and the link that asks for the flow is spent in place.
+  await expect(page).toHaveURL(/\/fleet\/servers$/);
+  const dialog = page.getByRole("dialog", { name: "Add a server" });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/fleet\/servers$/);
+  await expect(page.getByRole("region", { name: "Servers of this fleet" })).toBeVisible();
+  // Opening it from the list does not leave the list either.
+  await page.getByRole("button", { name: "Add a server" }).click();
+  await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL(/\/fleet\/servers$/);
+});
 
-  const table = page.getByRole("region", { name: "Servers this central manages" });
+withFleet("Fleet > Servers shows the node and the add flow's first step", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/fleet/servers");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Fleet");
+
+  const table = page.getByRole("region", { name: "Servers of this fleet" });
   const row = table.getByRole("row").filter({ hasText: NODE_NAME });
   await expect(row).toBeVisible();
-  await expect(row.getByText("Reachable")).toBeVisible();
+  await expect(row.getByText("Answered")).toBeVisible();
 
   await page.getByRole("button", { name: "Add a server" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server" });
@@ -353,7 +368,7 @@ const ENROLL_SECRET = "a-good-password-4-the-server";
 withFleet("Add a server, guided: the host key is confirmed first, the credential is used once and kept nowhere, and the job is followed", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/fleet\/enroll$/);
   const name = "enrolled-web";
-  await signIn(page, consoleServer, "/settings/servers");
+  await signIn(page, consoleServer, "/fleet/servers");
   await page.getByRole("button", { name: "Add a server" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server" });
   await expect(dialog.getByText("Used once, kept nowhere")).toBeVisible();
@@ -399,7 +414,7 @@ withFleet("Add a server, guided: the host key is confirmed first, the credential
   expect(kept).not.toContain(ENROLL_SECRET);
   await dialog.getByRole("button", { name: "Done" }).click();
 
-  const table = page.getByRole("region", { name: "Servers this central manages" });
+  const table = page.getByRole("region", { name: "Servers of this fleet" });
   const row = table.getByRole("row").filter({ hasText: name });
   await expect(row).toBeVisible();
 
@@ -407,7 +422,6 @@ withFleet("Add a server, guided: the host key is confirmed first, the credential
   await row.getByRole("button", { name: `Actions for ${name}` }).click();
   await page.getByRole("menuitem", { name: "Remove" }).click();
   const removal = page.getByRole("alertdialog", { name: `Remove ${name}?` });
-  await removal.getByRole("textbox").fill(name);
   await removal.getByRole("button", { name: "Remove server" }).click();
   await expect(row).toHaveCount(0);
 });
@@ -415,7 +429,7 @@ withFleet("Add a server, guided: the host key is confirmed first, the credential
 withFleet("Add a server, guided: a refused credential fails the job in the server's words and leaves nothing behind", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/fleet\/enroll$/);
   const name = "refused-web";
-  await signIn(page, consoleServer, "/settings/servers");
+  await signIn(page, consoleServer, "/fleet/servers");
   await page.getByRole("button", { name: "Add a server" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server" });
   await dialog.getByLabel("Name", { exact: true }).fill(name);
@@ -437,13 +451,13 @@ withFleet("Add a server, guided: a refused credential fails the job in the serve
   await expect(dialog.getByLabel("Password", { exact: true })).toHaveValue("");
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
-  const table = page.getByRole("region", { name: "Servers this central manages" });
+  const table = page.getByRole("region", { name: "Servers of this fleet" });
   await expect(table.getByRole("row").filter({ hasText: name })).toHaveCount(0);
 });
 
 withFleet("Add a server, guided: an address that gives no host key is refused with the server's own words, before anything is sent to it", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 400 .*\/api\/fleet\/enroll\/host-key$/);
-  await signIn(page, consoleServer, "/settings/servers");
+  await signIn(page, consoleServer, "/fleet/servers");
   await page.getByRole("button", { name: "Add a server" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server" });
   await dialog.getByLabel("Name", { exact: true }).fill("silent-web");
@@ -627,13 +641,13 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
   await settle(page);
   await expectNoA11yViolations(page, "a partial fleet's summary");
 
-  await page.getByRole("navigation", { name: "Fleet views" }).getByRole("link", { name: "Applications" }).click();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Applications" }).click();
   // web-2 answered: its application is there, even though db-1 did not. Four servers' worth
   // is more than one page of the list, so it is looked for as an operator would.
   await page.getByRole("searchbox", { name: "Search applications" }).fill(NODE_APP);
   await expect(page.getByRole("region", { name: "Applications on every server" }).getByRole("link", { name: NODE_APP, exact: true })).toBeVisible();
 
-  await page.getByRole("navigation", { name: "Fleet views" }).getByRole("link", { name: "Updates" }).click();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Updates" }).click();
   const updates = page.getByRole("region", { name: "Noust and system updates of every server" });
   await expect(updates.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
   await settle(page);

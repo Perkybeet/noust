@@ -23,7 +23,7 @@ A typo in the profile's name fails strict: anything that is neither empty nor
 ``standard`` is read as ``ens-medium``, so a misspelt profile can never quietly
 switch the profile off.
 
-Since 3.4 this is the *legacy view* of :mod:`noust.core.compliance`, where every
+Since 4.0 this is the *legacy view* of :mod:`noust.core.compliance`, where every
 value of :class:`ProfileDefaults` is a control of its own and ``ens-medium`` is the
 preset called ENS MEDIA (one of several frameworks, which may be on together).
 ``security.profile`` keeps working and means "ENS MEDIA is enabled";

@@ -56,7 +56,7 @@ export function CatalogFrame({ filters, notice, command, children }: CatalogFram
         tabs={<AppsTabs />}
         {...(shownNotice !== undefined ? { notice: shownNotice } : {})}
         {...(filters !== undefined ? { filters } : {})}
-        footer={<CommandHint command={command} label={t("newApp.source.terminal")} />}
+        footer={<CommandHint command={command} label={t("common.words.fromTerminal")} />}
       >
         {children}
       </ListPage>

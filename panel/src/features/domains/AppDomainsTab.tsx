@@ -172,7 +172,7 @@ function DnsDialog({
             {t("domains.checkAgain")}
           </Button>
           <Button variant="primary" onClick={onClose}>
-            {t("domains.appTab.done")}
+            {t("common.words.done")}
           </Button>
         </>
       }
@@ -421,7 +421,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
         entry.created_at ? (
           <RelativeTime value={entry.created_at} className="text-fg-muted" />
         ) : (
-          <span className="text-fg-faint">{t("domains.unknown")}</span>
+          <span className="text-fg-faint">{t("common.statusPill.unknown")}</span>
         ),
     },
   ];
@@ -504,7 +504,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
                 align="end"
                 trigger={
                   <IconButton
-                    label={t("domains.actionsFor", { name: entry.domain })}
+                    label={t("common.rowActions", { name: entry.domain })}
                     icon={<MoreHorizontal />}
                     size="sm"
                     tooltip={false}
@@ -530,7 +530,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
                     disabled={retry.isPending || extending}
                     onClick={() => retry.mutate(entry)}
                   >
-                    {t("domains.appTab.retryCertificate")}
+                    {t("common.words.retry")}
                   </MenuItem>
                 ) : null}
                 {entry.kind !== "primary" && lineage !== undefined ? (
@@ -571,7 +571,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
                       destructive
                       onClick={() => setRemoving(entry)}
                     >
-                      {t("domains.appTab.remove")}
+                      {t("common.words.remove")}
                     </MenuItem>
                   </>
                 ) : null}
@@ -669,7 +669,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
 
       <CommandHint
         command={`noust domain list ${domain}`}
-        label={t("domains.fromTerminal")}
+        label={t("common.words.fromTerminal")}
       />
 
       <AddDomainDialog

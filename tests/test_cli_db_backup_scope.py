@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``noust db backup-schedule set --all`` and the exclusions (3.4, checklist H-02).
+``noust db backup-schedule set --all`` and the exclusions (4.0, checklist H-02).
 
 The command line and the timer's unit: ``--all`` instead of ``*`` (which a
 shell expands), the exclusions printed back, and the unit of the policy that

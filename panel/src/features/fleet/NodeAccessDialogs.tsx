@@ -8,7 +8,6 @@ import { Button } from "../../components/ui/Button";
 import { CopyValue } from "../../components/ui/CopyValue";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
-import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { Textarea } from "../../components/ui/Textarea";
 import { toast } from "../../components/ui/toast";
@@ -75,7 +74,7 @@ export function RekeyDialog({ node, onClose }: { node: string; onClose: () => vo
       footer={
         <>
           <Button disabled={busy} onClick={onClose}>
-            {t("nodeTools.rekey.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={busy}>
             {command === null ? t("nodeTools.rekey.prepare") : t("nodeTools.rekey.switch")}
@@ -85,7 +84,7 @@ export function RekeyDialog({ node, onClose }: { node: string; onClose: () => vo
     >
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
         {command === null ? (
-          <Notice>{t("nodeTools.rekey.explain", { name: node })}</Notice>
+          <p className="text-13 text-pretty text-fg-muted">{t("nodeTools.rekey.explain", { name: node })}</p>
         ) : (
           <>
             <Field label={t("nodeTools.rekey.commandLabel", { name: node })} description={t("nodeTools.rekey.commandHelp")}>
@@ -160,10 +159,10 @@ export function NodeTeamDialog({ node, onClose }: { node: string; onClose: () =>
       footer={
         <>
           <Button disabled={save.isPending} onClick={onClose}>
-            {t("nodeTools.team.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={nodes.isPending || team === current}>
-            {t("nodeTools.team.save")}
+            {t("common.words.save")}
           </Button>
         </>
       }

@@ -54,7 +54,7 @@ export function runStatus(t: T, status: string): { label: string; state: Status 
     case "partial":
       return { label: t("server.storage.history.status.partial"), state: "warning" };
     case "failed":
-      return { label: t("server.storage.history.status.failed"), state: "failed" };
+      return { label: t("common.words.failedFeminine"), state: "failed" };
     case "skipped":
       return { label: t("server.storage.history.status.skipped"), state: "stopped" };
     default:

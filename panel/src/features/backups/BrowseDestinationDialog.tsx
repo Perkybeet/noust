@@ -16,6 +16,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
+import { RowList } from "../../components/ui/RowList";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
@@ -153,19 +154,15 @@ function DestinationBrowseResult({
   return (
     <div className="flex flex-col gap-1.5">
       <p className="text-13 text-fg-muted">{t("backups.browseDialog.appsFoundHint")}</p>
-      <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
+      <RowList aria-label={t("backups.browseDialog.appsFoundLabel")}>
         {apps.map((candidate) => (
-          <li key={candidate}>
-            <button
-              type="button"
-              onClick={() => onSelectApp(candidate)}
-              className="flex w-full cursor-pointer items-center px-3 py-2 text-left text-13 text-fg -outline-offset-2 hover:bg-surface-hover"
-            >
+          <RowList.Item key={candidate}>
+            <button type="button" onClick={() => onSelectApp(candidate)} className="flex w-full cursor-pointer items-center rounded-control text-left text-13 text-fg hover:text-accent-fg">
               <Mono>{candidate}</Mono>
             </button>
-          </li>
+          </RowList.Item>
         ))}
-      </ul>
+      </RowList>
     </div>
   );
 }
@@ -222,7 +219,7 @@ export function BrowseDestinationDialog({ destinations, initialDestination, open
         size="lg"
         title={t("backups.browseDialog.title")}
         description={t("backups.browseDialog.description")}
-        footer={<Button onClick={() => close(false)}>{t("backups.common.close")}</Button>}
+        footer={<Button onClick={() => close(false)}>{t("common.words.close")}</Button>}
       >
         <div className="flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-2">

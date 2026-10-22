@@ -138,7 +138,7 @@ function EditorDialog({
       footer={
         <>
           <Button disabled={save.isPending} onClick={() => close(false)}>
-            {t("appPages.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -148,7 +148,7 @@ function EditorDialog({
               save.mutate();
             }}
           >
-            {t("runtime.files.save")}
+            {t("common.words.save")}
           </Button>
         </>
       }
@@ -272,7 +272,7 @@ function MakeDialog({
       footer={
         <>
           <Button disabled={make.isPending} onClick={() => close(false)}>
-            {t("appPages.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button
             type="submit"
@@ -292,7 +292,7 @@ function MakeDialog({
         className="flex flex-col gap-4"
       >
         <Field
-          label={t("runtime.files.nameLabel")}
+          label={t("common.words.name")}
           error={
             (submitted ? problem : null) ??
             (isApiError(make.error) ? make.error.fields?.["path"] : undefined)
@@ -374,7 +374,7 @@ function MoveDialog({
       footer={
         <>
           <Button disabled={move.isPending} onClick={() => close(false)}>
-            {t("appPages.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button
             type="submit"
@@ -475,7 +475,7 @@ function EntryActions({
       : entry.kind === "link"
         ? t("runtime.files.removeLinkDescription")
         : t("runtime.files.removeFileDescription"),
-    actionLabel: t("runtime.files.remove"),
+    actionLabel: t("common.words.delete"),
     destructive: true,
     onConfirm: async () => {
       await remove.mutateAsync();
@@ -487,7 +487,7 @@ function EntryActions({
         align="end"
         trigger={
           <IconButton
-            label={t("runtime.files.actionsFor", { name: entry.name })}
+            label={t("common.rowActions", { name: entry.name })}
             icon={<ICONS.more />}
             size="sm"
             tooltip={false}
@@ -501,7 +501,7 @@ function EntryActions({
         ) : null}
         {isFile && !entry.sensitive ? (
           <MenuItem icon={<Pencil />} onClick={onEdit}>
-            {t("runtime.files.edit")}
+            {t("common.words.edit")}
           </MenuItem>
         ) : null}
         {isFile && !entry.sensitive ? (
@@ -534,7 +534,7 @@ function EntryActions({
             setRemoving(true);
           }}
         >
-          {t("runtime.files.remove")}
+          {t("common.words.delete")}
         </MenuItem>
       </Menu>
       {moving ? (

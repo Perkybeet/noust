@@ -154,7 +154,7 @@ export function TeamMembers() {
               const self = member.username === me;
               const last = member.role === "owner" && owners <= 1;
               return (
-                <Menu align="end" trigger={<IconButton label={t("teams.members.actionsFor", { name: member.username })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+                <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: member.username })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
                   <MenuItem
                     icon={self ? <LogOut /> : <UserMinus />}
                     destructive

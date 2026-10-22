@@ -300,7 +300,7 @@ function LimitsForm({
       </Card>
       <CommandHint
         command={`noust app limits ${domain} --memory 512M --cpu 50% --tasks 256`}
-        label={t("appSettings.fromTerminal")}
+        label={t("common.words.fromTerminal")}
       />
       <SaveBar
         changes={bar.changes}

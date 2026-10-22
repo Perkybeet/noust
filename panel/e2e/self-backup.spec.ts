@@ -23,7 +23,7 @@ test("Noust's own backup: a bundle by hand, checked, how it is restored, and a s
   // Storing the passphrase for a timer is behind sudo mode: the first answer is the 403 that asks for it.
   problems.expect(/status of 403 .*\/api\/self-backup\/schedule$/);
   await signIn(page, consoleServer, "/backups/noust");
-  await expect(page.getByText("Not backed up on a schedule")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Schedule", level: 2 }).locator("xpath=ancestor::section[1]").getByText("Not scheduled")).toBeVisible();
   await expect(page.getByText("No bundles yet")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "Noust's own backup, nothing yet");
@@ -88,7 +88,7 @@ test("Noust's own backup: a bundle by hand, checked, how it is restored, and a s
   await schedule.getByRole("button", { name: "Save schedule" }).click();
   await confirmItsYou(page, consoleServer);
   await expect(schedule).toBeHidden();
-  await expect(page.getByText("Backed up on a schedule")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Schedule", level: 2 }).locator("xpath=ancestor::section[1]").getByText("On", { exact: true })).toBeVisible();
   await expect(page.getByText("Kept on this server, for the timer")).toBeVisible();
 
   // Running it by hand takes a scheduled bundle, sealed with the kept passphrase.
@@ -98,5 +98,5 @@ test("Noust's own backup: a bundle by hand, checked, how it is restored, and a s
   // Nothing is left scheduled for what runs after this on the same server.
   await page.getByRole("button", { name: "Remove the schedule" }).click();
   await page.getByRole("alertdialog", { name: "Remove the schedule" }).getByRole("button", { name: "Remove schedule" }).click();
-  await expect(page.getByText("Not backed up on a schedule")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Schedule", level: 2 }).locator("xpath=ancestor::section[1]").getByText("Not scheduled")).toBeVisible();
 });

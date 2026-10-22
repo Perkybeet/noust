@@ -130,7 +130,7 @@ function PolicyEditor({ schedule, open, onOpenChange }: EditorProps) {
       description={t("server.storage.schedule.editDescription")}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("server.storage.schedule.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {t("server.storage.schedule.save")}
           </Button>
@@ -262,7 +262,7 @@ function CleanupSchedulePanel({ schedule }: { schedule: CleanupSchedule }) {
             </Button>
           ) : null}
           <Button icon={<Pencil aria-hidden="true" />} size="sm" onClick={() => setEditing(true)}>
-            {policy.enabled ? t("server.storage.schedule.edit") : t("server.storage.schedule.set")}
+            {policy.enabled ? t("common.words.edit") : t("server.storage.schedule.set")}
           </Button>
         </div>
       }

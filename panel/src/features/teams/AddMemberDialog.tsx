@@ -89,7 +89,7 @@ export function AddMemberDialog({ open, onOpenChange, team }: AddMemberDialogPro
       footer={
         <>
           <Button disabled={pending} onClick={() => close(false)}>
-            {t("teams.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={pending}>
             {t("teams.members.addSubmit")}

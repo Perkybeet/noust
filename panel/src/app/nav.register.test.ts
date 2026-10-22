@@ -18,7 +18,7 @@ import {
   APP_TABS,
   DESTS,
   EXCEPTIONS,
-  FLEET_TABS,
+  FLEET_APPS_SCREENS,
   INTERIM,
   PLANNED,
   REDIRECTS,
@@ -495,17 +495,8 @@ describe("what the pages draw from the register", () => {
     ]);
     expect(APP_TABS[0]).toEqual({ label: "nav.appTabs.overview.label", to: "/apps/$domain", exact: true });
     expect(paths(TEAM_TABS)).toEqual(["/teams/$team", "/teams/$team/members", "/teams/$team/variables", "/teams/$team/notifications", "/teams/$team/settings"]);
-    expect(paths(FLEET_TABS)).toEqual([
-      "/fleet",
-      "/fleet/servers",
-      "/fleet/apps",
-      "/fleet/placements",
-      "/fleet/certificates",
-      "/fleet/backups",
-      "/fleet/updates",
-      "/fleet/activity",
-    ]);
-    expect(paths(tabsById("server"))).toEqual(["/server", "/server/updates", "/server/security", "/server/storage", "/server/services", "/server/logs", "/server/system"]);
+    expect(paths(tabsOf(FLEET_APPS_SCREENS))).toEqual(["/fleet/apps", "/fleet/placements"]);
+    expect(paths(tabsById("server"))).toEqual(["/server", "/server/updates", "/server/security", "/server/storage", "/server/services", "/server/system"]);
     expect(paths(tabsById("backups"))).toEqual(["/backups", "/backups/schedules", "/backups/volumes", "/backups/noust", "/backups/destinations"]);
     expect(paths(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/dns", "/domains/tunnels", "/domains/ports"]);
     expect(paths(tabsById("apps"))).toEqual(["/apps", "/catalog", "/catalog/installed"]);
@@ -537,8 +528,8 @@ describe("what the pages draw from the register", () => {
     same(DATABASE_SCREENS, "database");
     expect(APP_TABS).toEqual(tabsById("app"));
     expect(TEAM_TABS).toEqual(tabsById("team"));
-    // The fleet's pages still draw the strip they did, for as long as they do: the bar has the same views.
-    expect(paths(FLEET_TABS)).toEqual(["/fleet", "/fleet/servers", "/fleet/apps", "/fleet/placements", "/fleet/certificates", "/fleet/backups", "/fleet/updates", "/fleet/activity"]);
+    // The fleet's views are the sidebar's; its pages draw only the strip of the applications' two.
+    same(FLEET_APPS_SCREENS, "fleet.apps");
     expect(tabsOf(OVERVIEW_SCREENS).map((tab) => tab.to)).toEqual(["/", "/map"]);
     expect(tabsOf(PROJECTS_SCREENS).map((tab) => tab.to)).toEqual(["/projects", "/projects/teams"]);
   });

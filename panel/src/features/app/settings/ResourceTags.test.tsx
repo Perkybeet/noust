@@ -64,7 +64,7 @@ describe("tags on databases", () => {
     });
     await within(table).findByText("example_production");
     await user.click(screen.getByRole("button", { name: "Actions for example_production" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Edit tags..." }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit tags…" }));
     const dialog = await screen.findByRole("dialog", { name: "Tags of the database example_production" });
     const field = within(dialog).getByLabelText(/Tags/);
     expect(field).toHaveValue("prod, customer-a");
@@ -84,7 +84,7 @@ describe("tags on databases", () => {
     });
     await within(table).findByText("example_production");
     await user.click(screen.getByRole("button", { name: "Actions for example_production" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Edit tags..." }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit tags…" }));
     const dialog = await screen.findByRole("dialog", { name: "Tags of the database example_production" });
     await user.type(within(dialog).getByLabelText(/Tags/), ", Bad Tag");
     await user.click(within(dialog).getByRole("button", { name: "Save tags" }));
@@ -175,7 +175,7 @@ describe("tags on services", () => {
     });
     await within(table).findByText("mailer");
     await user.click(screen.getByRole("button", { name: "Actions for mailer" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Edit tags..." }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit tags…" }));
     const dialog = await screen.findByRole("dialog", { name: "Tags of the service mailer" });
     await user.type(within(dialog).getByLabelText(/Tags/), "nightly");
     await user.click(within(dialog).getByRole("button", { name: "Save tags" }));
@@ -190,7 +190,7 @@ describe("tags on services", () => {
     await within(table).findByText("mailer");
     await act(() => setLocale("es"));
     await user.click(screen.getByRole("button", { name: "Acciones de mailer" }));
-    expect(await screen.findByRole("menuitem", { name: "Editar tags..." })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitem", { name: "Editar etiquetas…" })).toBeInTheDocument();
   });
 });
 

@@ -405,7 +405,7 @@ def _monitor_events(
     ctx: NotificationContext, existing: dict[str, Notification]
 ) -> dict[str, Notification]:
     """
-    The events 3.4 added: alert rules, a missing backup, cron, updates, tokens, the digest.
+    The events 4.0 added: alert rules, a missing backup, cron, updates, tokens, the digest.
 
     Kept after the others so the fixed ids of the earlier events do not move.
 
@@ -493,7 +493,7 @@ def _monitor_events(
 
 def _watch_events(ctx: NotificationContext) -> dict[str, Notification]:
     """
-    The events 3.4 added last: a disk cleanup, a task whose timer stopped, a probe.
+    The events 4.0 added last: a disk cleanup, a task whose timer stopped, a probe.
 
     Kept after the others so the fixed ids of the earlier events do not move.
 

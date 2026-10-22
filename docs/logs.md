@@ -12,14 +12,14 @@ noust log search '(redis OR memcached) timeout' --since 30m --json
 noust fleet logs error --since 1h            # every server of a central at once
 ```
 
-In the console it is **Logs**, in the sidebar: the words, the application, the level and how far back
-are in the address, so a search can be sent to somebody, and on a central **Every server** searches all
-of them. The API is `GET /api/logs/search` and `GET /api/fleet/logs` ([api.md](api.md)).
+In the console it is **Logs**, in the sidebar: the words, where from (the applications or the System),
+the application, the level and how far back are in the address, so a search can be sent to somebody, and
+on a central **Every server** searches all of them. The API is `GET /api/logs/search` and `GET /api/fleet/logs` ([api.md](api.md)).
 
 ## The query
 
-The words are the journal's own: this search and the **Logs** tab of the Server page read one grammar
-([the Server's log query](console.md#server)), so what you learn in one works in the other.
+The words are the journal's own: this search, the **Logs** page's System source and an application's Logs tab read one grammar
+([the Logs page](console.md#logs)), so what you learn in one works in the others.
 
 | You write | It means |
 |---|---|
@@ -51,7 +51,7 @@ way (the last 5 000 lines of each); they have no levels, so a search that names 
   as in every other log Noust shows. The words are looked for in what is shown, so a search cannot be used to find out
   whether a hidden secret appears.
 - **Yours only.** It searches the applications you can see: a member of a team searches that team's applications and
-  never another's. The machine's own units (sshd, nginx) are the Server page's to search, not this one's.
+  never another's. The machine's own units (sshd, nginx) are the **System** source of Logs, which needs `secrets.reveal`, because the journal can hold secrets.
 - **Another application's unit is never shown**, even one whose name starts the same (`shop-example-com-au` is not
   `shop-example-com`).
 

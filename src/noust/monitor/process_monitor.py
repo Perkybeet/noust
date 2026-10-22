@@ -136,7 +136,7 @@ DISK_ALERT_PERCENT = 90.0
 
 #: Hours before a disk that stays over its threshold is announced again, when
 #: ``monitor.disk_renotify_hours`` does not say otherwise (0: never, a message
-#: per crossing, as before 3.4).
+#: per crossing, as before 4.0).
 DISK_RENOTIFY_HOURS = 0.0
 
 #: Lines of a failed unit's journal fetched for its notification; the renderers
@@ -458,7 +458,7 @@ class ProcessMonitor:
             clock: Wall-clock seconds, which survive a restart where a
                 monotonic clock does not. Tests move it.
             watches: The checks that run on a clock of their own (cron jobs,
-                backups that did not run, updates, tokens). The 3.4 set when
+                backups that did not run, updates, tokens). The 4.0 set when
                 None; tests inject their own.
             alert_engine: Judges the user-defined alert rules every scan.
                 Built over the metrics history when None.

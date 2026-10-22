@@ -80,7 +80,7 @@ export function GitHubHost({ status }: { status: GitHubStatus }) {
           {t("githubHost.save")}
         </Button>
       </div>
-      <CommandHint command="noust github host set ghe.example.com" label={t("githubHost.fromTerminal")} />
+      <CommandHint command="noust github host set ghe.example.com" label={t("common.words.sameFromTerminal")} />
       </form>
     </Card>
   );

@@ -112,7 +112,7 @@ test("restoring the latest backup is confirmed by typing the target domain", asy
   const requested = page.waitForRequest(
     (request) => request.url().includes("/api/backups/") && request.url().endsWith("/restore") && request.method() === "POST",
   );
-  await elevate.getByRole("button", { name: "Confirm" }).click();
+  await elevate.getByRole("button", { name: "Continue" }).click();
   const body = (await requested).postDataJSON() as { target_domain: string | null; restore_env: boolean; verify: boolean };
   expect(body).toEqual({ target_domain: null, restore_env: false, verify: true, schema_changed_ok: false });
   await expect(elevate).toBeHidden();
@@ -215,7 +215,7 @@ withMisplacedBackups("backups outside the backup directory are named, with the c
   await expect(notice.getByText(`${String(found.count)} backups in ${found.directory}`)).toBeVisible();
   expect(found.command).toBe(`noust backup import ${found.directory}`);
   await expect(notice.locator("code").filter({ hasText: found.command })).toBeVisible();
-  await expect(notice.getByText(/--dry-run\s*to the command to see what would move first/)).toBeVisible();
+  await expect(notice.getByText(/--dry-run shows what would move/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the misplaced backups notice");
 });

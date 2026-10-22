@@ -108,7 +108,7 @@ export function useEnvironmentActions(
             }}
             friction="simple"
             server={node}
-            title={t("teams.environments.deleteTitle", { name: deleting.name })}
+            title={t("common.words.deleteNamed", { name: deleting.name })}
             description={t("teams.environments.deleteDescription", { name: deleting.name })}
             actionLabel={t("teams.environments.deleteAction")}
             onConfirm={async () => {

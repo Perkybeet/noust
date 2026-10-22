@@ -15,6 +15,7 @@ import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
+import { RowList } from "../../../components/ui/RowList";
 import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
@@ -22,6 +23,7 @@ import type { T } from "../../../i18n";
 import { formatBytes, formatCount, formatDuration } from "../../../lib/format";
 import { Cell } from "../grid/Cell";
 import type { DataSearch, DataSearchPatch } from "./search";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 const TYPES = ["string", "hash", "list", "set", "zset", "stream"] as const;
 const ALL = "all";
@@ -38,30 +40,29 @@ function ValueView({ value, t }: { value: KeyValue; t: T }) {
   if (Array.isArray(data)) {
     const pairs = value.type === "hash" || value.type === "zset";
     return (
-      <ol className="flex flex-col divide-y divide-border rounded-card border border-border">
+      <RowList aria-label={t("databases.keys.elements")}>
         {(data as unknown[]).map((item, index) => {
           const pair = pairs && Array.isArray(item) ? (item as unknown[]) : null;
           return (
-            <li key={index} className="flex min-w-0 items-start gap-3 px-3 py-1.5 text-12">
-              <span className="w-8 shrink-0 text-right text-fg-faint tabular-nums">{formatCount(index + 1, t.locale)}</span>
+            <RowList.Item key={index} leading={<span className="w-8 text-right text-12 text-fg-faint tabular-nums">{formatCount(index + 1, t.locale)}</span>}>
               {pair !== null ? (
-                <>
+                <span className="flex min-w-0 items-start gap-3 text-12">
                   <span className="min-w-0 flex-1">
                     <Cell value={pair[0]} inline={false} />
                   </span>
                   <span className="min-w-0 flex-1">
                     <Cell value={pair[1]} inline={false} />
                   </span>
-                </>
+                </span>
               ) : (
-                <span className="min-w-0 flex-1">
+                <span className="block min-w-0 text-12">
                   <Cell value={item} inline={false} />
                 </span>
               )}
-            </li>
+            </RowList.Item>
           );
         })}
-      </ol>
+      </RowList>
     );
   }
   return (
@@ -79,10 +80,9 @@ function KeyDrawer({ engine, name, redisKey, onClose }: { engine: string; name: 
       {value.isError ? (
         <ErrorBlock compact error={value.error} title={t("databases.keys.previewFailed")} onRetry={() => void value.refetch()} />
       ) : value.data === undefined ? (
-        <div aria-busy="true" className="flex flex-col gap-2">
-          <span className="sr-only">{t("databases.keys.previewLoading")}</span>
+        <LoadingRegion label={t("databases.keys.previewLoading")} className="flex flex-col gap-2">
           <Skeleton className="h-24 w-full" />
-        </div>
+        </LoadingRegion>
       ) : (
         <div className="flex flex-col gap-4">
           <KeyValueList
@@ -186,7 +186,7 @@ export function KeysView({ engine, name, search, onSearchChange }: { engine: str
           </Button>
         </div>
       ) : null}
-      <CommandHint command={`noust db keys ${name}${search.match ? ` --match '${search.match}'` : ""}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db keys ${name}${search.match ? ` --match '${search.match}'` : ""}`} label={t("common.words.fromTerminal")} />
       {open !== null ? <KeyDrawer engine={engine} name={name} redisKey={open} onClose={() => setOpen(null)} /> : null}
     </div>
   );

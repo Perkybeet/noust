@@ -1901,7 +1901,7 @@ def adopt_for_new_app(
     """
     Start a new application in zero-downtime mode, when it can run twice.
 
-    From 3.4 an application created on the releases layout whose type serves
+    From 4.0 an application created on the releases layout whose type serves
     HTTP through a port behind nginx updates without a cut by default
     (``deploy.zero_downtime``): the next release starts beside the one that
     serves on the other colour, answers the health gate there, and only then

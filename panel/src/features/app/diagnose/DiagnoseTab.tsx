@@ -168,7 +168,7 @@ function Remedies({ domain, t }: { domain: string; t: T }) {
           loading={restart.isPending}
           onClick={() => restart.mutate()}
         >
-          {t("appPages.diagnose.restart")}
+          {t("common.words.restart")}
         </Button>
       ) : null}
     </div>
@@ -572,7 +572,7 @@ export function DiagnoseTab({ domain }: { domain: string }) {
       </section>
       <CommandHint
         command={`noust diagnose ${domain}`}
-        label={t("appPages.fromTerminal")}
+        label={t("common.words.fromTerminal")}
       />
     </Sections>
   );

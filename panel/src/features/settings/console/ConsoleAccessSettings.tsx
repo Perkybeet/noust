@@ -191,7 +191,7 @@ export function ConsoleAccessSettings() {
 
           {exposure.exposed || stuck ? null : <Prerequisites exposure={exposure} lacking={lacking} />}
 
-          <CommandHint command="noust console expose --domain console.example.com --allow-ip 203.0.113.0/24" label={t("backups.common.fromTerminal")} />
+          <CommandHint command="noust console expose --domain console.example.com --allow-ip 203.0.113.0/24" label={t("common.words.fromTerminal")} />
         </>
       )}
 

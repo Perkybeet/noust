@@ -126,7 +126,6 @@ test("@screens the fleet's console, every context, view and dialog", async ({ pa
         await visit("/fleet/updates", "08-fleet-updates");
         await visit("/fleet/activity", "09-fleet-activity");
         await visit("/n/web-2/settings", "10-settings-server-web-2");
-        await visit("/settings/servers", "11-settings-central-servers");
         await visit("/settings/tokens", "12-settings-central-tokens");
         await visit("/settings/central", "13-settings-central-seal");
         await visit("/apps/new", "14-new-app-server-step");
@@ -158,7 +157,7 @@ test("@screens the fleet's console, every context, view and dialog", async ({ pa
         await shot("19-bulk-job");
 
         // Adding a server: the command, a token pasted by mistake, the code read, a refusal.
-        await page.goto(`${central.url}/settings/servers`);
+        await page.goto(`${central.url}/fleet/servers`);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 20_000 });
         await page.getByRole("button", { name: /^(Add a server|Añadir un servidor)$/ }).first().click();
         const add = page.getByRole("dialog").first();

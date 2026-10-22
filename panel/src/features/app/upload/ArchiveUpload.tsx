@@ -130,7 +130,7 @@ export function ArchiveUpload({ onUploaded, onCleared, disabled = false }: { onU
         <div className="flex flex-wrap items-center gap-2">
           {upload.phase === "waiting" || upload.phase === "paused" ? (
             <Button size="sm" icon={<RotateCw aria-hidden="true" />} onClick={() => session.uploader.retryNow()}>
-              {t("archiveUpload.retry")}
+              {t("common.words.retry")}
             </Button>
           ) : null}
           <Button size="sm" variant="ghost" onClick={() => void session.uploader.cancel()}>

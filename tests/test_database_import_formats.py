@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Telling what a dump is, and making it loadable (3.4, checklist H-18).
+Telling what a dump is, and making it loadable (4.0, checklist H-18).
 
 A file from another provider arrives with whatever name its owner gave it, in
 whatever compression was to hand. What is pinned here:

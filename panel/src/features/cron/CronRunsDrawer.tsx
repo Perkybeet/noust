@@ -18,8 +18,8 @@ import { Disclosure } from "../../components/ui/Disclosure";
 
 function runView(success: boolean | null, t: T): { state: "running" | "failed" | "unknown"; label: string } {
   if (success === true) return { state: "running", label: t("cron.status.succeeded") };
-  if (success === false) return { state: "failed", label: t("cron.status.failed") };
-  return { state: "unknown", label: t("cron.status.unknown") };
+  if (success === false) return { state: "failed", label: t("common.words.failedFeminine") };
+  return { state: "unknown", label: t("common.statusPill.unknown") };
 }
 
 /** The occurrences that did not run on time, or a word that all did; nothing for a job with nothing due. */

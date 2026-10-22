@@ -12,6 +12,8 @@ import type { LogLine } from "../../../components/ui/LogViewer";
 import { Select } from "../../../components/ui/Select";
 import type { SelectOption } from "../../../components/ui/Select";
 import { useT } from "../../../i18n";
+import { keeps, priorityOfViewerLevel } from "../../logs/query";
+import type { QueryNode } from "../../logs/query";
 import { withLevel } from "./journalLines";
 
 /** Lines read from the containers each time. */
@@ -53,7 +55,7 @@ function linesOf(text: string): LogLine[] {
  * every viewer, so the tab reads the last lines again every few seconds while it is in view, and
  * "Refresh" reads them now.
  */
-export function StackLogs({ domain, unit }: { domain: string; unit: ReactNode }) {
+export function StackLogs({ domain, unit, filter }: { domain: string; unit: ReactNode; filter: QueryNode | null }) {
   const t = useT();
   const [onUnit, setOnUnit] = useState(false);
   const [service, setService] = useState<string | null>(null);
@@ -66,7 +68,12 @@ export function StackLogs({ domain, unit }: { domain: string; unit: ReactNode })
     refetchInterval: onUnit ? false : REFRESH_MS,
     placeholderData: keepPreviousData,
   });
-  const lines = useMemo(() => linesOf(query.data?.logs ?? ""), [query.data?.logs]);
+  const read = useMemo(() => linesOf(query.data?.logs ?? ""), [query.data?.logs]);
+  // The toolbar's query keeps the lines that match it, the way it does for a journal that is followed.
+  const lines = useMemo(
+    () => (filter === null ? read : read.filter((line) => keeps(filter, { message: line.text, priority: priorityOfViewerLevel(line.level), app: domain }))),
+    [read, filter, domain],
+  );
 
   const options: readonly SelectOption[] = [
     { value: ALL, label: t("appPages.logs.sourceAll") },
@@ -118,14 +125,14 @@ export function StackLogs({ domain, unit }: { domain: string; unit: ReactNode })
             <LogViewer
               lines={lines}
               height="fill"
-              pageSearch
+              searchable={false}
               loading={query.isPending}
               label={t("appPages.logs.journalLabel", { domain })}
               filename={`${domain}${service !== null ? `-${service}` : ""}.log`}
               emptyMessage={query.isPending ? t("appPages.logs.readingContainers") : t("appPages.logs.emptyContainers")}
             />
           </div>
-          <CommandHint command={`noust logs ${domain} --follow`} label={t("appPages.fromTerminal")} />
+          <CommandHint command={`noust logs ${domain} --follow`} label={t("common.words.fromTerminal")} />
         </div>
       )}
     </div>

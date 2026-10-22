@@ -87,7 +87,7 @@ function KeepersDialog({ current, turningOff, onClose }: KeepersDialogProps) {
       destructive={turningOff}
       title={turningOff ? t("ssoAdmin.local.dialog.title") : t("ssoAdmin.local.dialog.titleChange")}
       description={turningOff ? t("ssoAdmin.local.dialog.description") : t("ssoAdmin.local.dialog.descriptionChange")}
-      actionLabel={turningOff ? t("ssoAdmin.local.dialog.action") : t("ssoAdmin.local.dialog.save")}
+      actionLabel={turningOff ? t("ssoAdmin.local.dialog.action") : t("common.words.save")}
       onConfirm={async () => {
         await save.mutateAsync();
       }}

@@ -664,7 +664,7 @@ export function NewAppWizard() {
       }
       return {
         next: {
-          label: t("newApp.source.continue"),
+          label: t("common.words.continue"),
           onClick: () => {
             const inspection = composeInspection(found, composeDoc.made);
             inspect.reset();
@@ -686,7 +686,7 @@ export function NewAppWizard() {
       const problem = imageProblem(imageRef);
       return {
         next: {
-          label: t("newApp.source.continue"),
+          label: t("common.words.continue"),
           onClick: () => {
             setImageError(undefined);
             const inspection = imageInspection();
@@ -746,7 +746,7 @@ export function NewAppWizard() {
     const ready = inspected !== null && sameSource(inspected.for, source) && review !== null;
     return {
       next: {
-        label: t("newApp.source.continue"),
+        label: t("common.words.continue"),
         loading: inspect.isPending,
         onClick: () => {
           setSourceErrors({});
@@ -1127,7 +1127,7 @@ export function NewAppWizard() {
           next = { label: t("newApp.deploy.openApp", { domain: normal }), onClick: () => void navigate({ to: "/apps/$domain", params: { domain: normal } }) };
         } else if (failed) {
           next = {
-            label: t("newApp.deploy.again"),
+            label: t("common.words.retry"),
             onClick: () => {
               setTarget(null);
               followedJob.dismiss();
