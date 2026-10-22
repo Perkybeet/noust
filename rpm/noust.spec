@@ -5,7 +5,7 @@
 #
 
 Name:           noust
-Version:        3.3.1
+Version:        4.0.0
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -340,6 +340,10 @@ if [ -f /etc/systemd/system/noust-web.service ]; then
 fi
 
 %changelog
+* Thu Oct 22 2026 Yago López Prado <yago.lopez.adeje@gmail.com> - 4.0.0-1
+- Teams, projects and environments; applications built from a Dockerfile, a registry image or Railpack; a catalogue of 143 recipes; database engines that Noust runs in containers beside the host's; a certificate of its own for any name; single sign-on; servers created at a cloud provider or behind NAT; a one-command installer; and a console rebuilt around one set of rules, in six languages
+- Breaking: a server still on WASM 2.x updates to 3.3.1 first, and the wasm command, its transitional packages and the old names are retired (the few a client or a repository may still send are accepted until 5.0)
+- Every change: https://github.com/Perkybeet/noust/blob/main/docs/CHANGELOG-4.0.md - read https://github.com/Perkybeet/noust/blob/main/docs/UPGRADING-4.0.md before updating
 * Mon Oct 05 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.3.1-1
 - Sudo mode lasts while you work and asks for one factor; pending SSH and firewall changes show their proof; sudoers read as sudo reads it; install hints for this distribution; every fix hint names a real command; loading states on every page
 * Sat Oct 03 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.3.0-1

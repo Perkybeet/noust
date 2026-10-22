@@ -2,28 +2,12 @@
 > registry image or Railpack, a catalogue of 143 recipes, database engines that Noust runs in
 > containers beside the host's, a certificate of its own for any name of an application, single
 > sign-on, servers created at a cloud provider, a one-command installer and a console arranged
-> around what you do. It retires the command, the packages and the names the product had before
+> around what you do, in six languages. It retires the command, the packages and the names the product had before
 > 3.0, and a server still on 2.x goes through 3.3.1 first: read
 > [docs/UPGRADING-4.0.md](docs/UPGRADING-4.0.md) before updating, and see
 > [docs/CHANGELOG-4.0.md](docs/CHANGELOG-4.0.md).
 >
-> **Noust 3.3** shows the databases a server really has: the ones in Docker containers, the
-> applications that already use each one, and why an engine does not let Noust in. Engines can be
-> installed in the version you choose and tuned from the console. See
-> [docs/CHANGELOG-3.3.md](docs/CHANGELOG-3.3.md) and [docs/databases.md](docs/databases.md).
->
-> **Noust 3.2** makes Docker Compose projects first-class: deploy hooks in a `noust.yaml`,
-> updates without a cut, adopting a stack that already runs, and a copy of its database before
-> every update. It shows a site's web server configuration as a structure and a diagram,
-> tells you when an application stops answering, and runs every new application as its own
-> account. See [docs/CHANGELOG-3.2.md](docs/CHANGELOG-3.2.md), and read
-> [docs/UPGRADING-3.2.md](docs/UPGRADING-3.2.md) before upgrading a server that deploys Compose
-> projects, or a fleet.
->
-> **Noust 3.1** added accounts with roles, an audit trail with integrity, management of the
-> server itself (updates, SSH, firewall, disks), fleet-wide views and bulk actions, databases
-> per application, and builds that no longer run as root
-> ([docs/CHANGELOG-3.1.md](docs/CHANGELOG-3.1.md)).
+> Every earlier release has its own changelog in [docs/](docs/) (`CHANGELOG-<version>.md`).
 
 <h1 align="center">
   <picture>

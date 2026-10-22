@@ -12,7 +12,7 @@ from importlib.metadata import version as _installed_version
 #: as an OBS build directory. The single source of truth is the ``version``
 #: field of pyproject.toml; ``scripts/release.py`` keeps this literal and the
 #: distribution packaging files in step with it.
-_FALLBACK_VERSION = "3.3.1"
+_FALLBACK_VERSION = "4.0.0"
 
 
 def _read_version() -> str:
