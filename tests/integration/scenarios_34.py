@@ -176,7 +176,8 @@ def scenario_procfile(sc: Scenario) -> None:
             f"the worker is not the repository's, running once: {started['worker']!r}",
         )
         log = sc.run(
-            f"cat $(ls -1t /root/.local/share/noust/deploy-logs/{PROC_DOMAIN}/*.log | head -1)",
+            f"cat $(ls -1t /var/lib/noust/deploy-logs/{PROC_DOMAIN}/*.log "
+            f"/root/.local/share/noust/deploy-logs/{PROC_DOMAIN}/*.log 2>/dev/null | head -1)",
             timeout=15,
             check=False,
             label="the deployment's log",
@@ -1256,6 +1257,14 @@ def scenario_s3_backups(sc: Scenario) -> None:
     create = f"noust create -d {S3_DOMAIN} -s /root/fixtures/static-site -t static --no-ssl"
     findings: list[str] = []
     try:
+        # A container kept from an earlier run still has the decision this scenario takes below.
+        sc.run(
+            "noust config set security.allow_private_hosts '' --list; "
+            "noust backup destination remove itminio -f; true",
+            timeout=60,
+            check=False,
+            label="(clean start) no allow-list, no destination of an earlier run",
+        )
         sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
         start_minio(
             sc,
@@ -1285,11 +1294,30 @@ def scenario_s3_backups(sc: Scenario) -> None:
             timeout=30,
             label="noust config set security.allow_private_hosts 127.0.0.1 --list",
         )
+        # A bucket that does not exist is an error, not a bucket made on the way: a mistyped name
+        # must not become a new bucket in the operator's account, and nothing of the destination
+        # stays (no row, no secret).
+        missing = sc.run(
+            add, timeout=60, check=False, label=shown + "  (the bucket does not exist)"
+        )
+        sc.check(
+            missing.returncode != 0 and "was not saved" in missing.stdout + missing.stderr,
+            f"a destination whose bucket does not exist was kept: {missing.stdout!r}",
+        )
+        listed = sc.run(
+            "noust backup destination list", timeout=30, label="noust backup destination list"
+        )
+        sc.check("itminio" not in listed.stdout, "a destination that was not saved is listed")
+        sc.run(
+            f"docker exec {S3_NAME} mkdir -p {S3_DATA}/{S3_BUCKET}",
+            timeout=30,
+            label=f"make the bucket {S3_BUCKET} (a directory MinIO lists as one)",
+        )
         sc.run(add, timeout=60, label=shown)
         sc.run(
             "noust backup destination test itminio",
             timeout=120,
-            label="noust backup destination test itminio (the bucket does not exist yet)",
+            label="noust backup destination test itminio (the bucket exists)",
         )
         stored = sc.run(
             f"grep -rl '{secret}' /var/lib/noust /root/.local/share/noust /etc/noust 2>/dev/null; "
@@ -1376,7 +1404,8 @@ def scenario_s3_backups(sc: Scenario) -> None:
         sc.run(
             f"noust backup schedule delete {S3_DOMAIN}; "
             "noust backup destination remove itminio -f; "
-            f"noust delete {S3_DOMAIN} -f; docker rm -f {S3_NAME}",
+            f"noust delete {S3_DOMAIN} -f; docker rm -f {S3_NAME}; "
+            "noust config set security.allow_private_hosts '' --list",
             timeout=180,
             check=False,
             label="cleanup",
