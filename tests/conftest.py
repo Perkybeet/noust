@@ -19,6 +19,7 @@ from __future__ import annotations
 import errno
 import ipaddress
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -379,7 +380,7 @@ def ports(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Po
 @pytest.fixture(autouse=True)
 def isolated_home(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
-) -> Path:
+) -> Iterator[Path]:
     """
     Give every test a home directory of its own, empty and outside ``tmp_path``.
 
@@ -396,7 +397,11 @@ def isolated_home(
         tmp_path_factory: Session temporary directory factory.
         monkeypatch: Patching helper, scoped to the test.
 
-    Returns:
+    It is removed when the test ends, as ``tmp_path`` is when it passes
+    (``tmp_path_retention_policy`` in pyproject.toml): kept, the forty thousand
+    of a run filled the CI runner's disk before the suite was half done.
+
+    Yields:
         The home directory.
     """
     home = tmp_path_factory.mktemp("home")
@@ -410,7 +415,8 @@ def isolated_home(
     monkeypatch.setattr(
         UpdateChecker, "CACHE_FILE", home / ".cache" / "noust" / "version_check.json"
     )
-    return home
+    yield home
+    shutil.rmtree(home, ignore_errors=True)
 
 
 @pytest.fixture(autouse=True)
