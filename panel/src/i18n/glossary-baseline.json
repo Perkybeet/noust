@@ -1,4 +1,16 @@
 {
-  "$comment": "Written by `npm run design:baseline` (i18n/glossary.test.ts); may only go down. rules: the count of each retired value, glossary word translated otherwise, divergent translation and style breach, per catalog namespace (see glossary.table.ts).",
-  "rules": {}
+  "$comment": "Written by `npm run design:baseline` (i18n/glossary.test.ts); may only go down. rules: the count of each retired value, glossary word translated otherwise, divergent translation, shared word written again and style breach, per catalog namespace (see glossary.table.ts).",
+  "rules": {
+    "shared-word": {
+      "alerts": 1,
+      "appPages": 5,
+      "apps": 4,
+      "auth": 10,
+      "databases": 1,
+      "fleet": 5,
+      "inbox": 3,
+      "server": 3,
+      "settings": 14
+    }
+  }
 }

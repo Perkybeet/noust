@@ -83,6 +83,17 @@ is as synchronous for whoever writes a test as it ever was. To test in Spanish:
 just arrived sees, `goCold()` from `test/coldCatalog` leaves English with its chrome alone and records every
 `t()` that finds its namespace missing; `drawnKeys()` finds message keys on screen.
 
+## Shared words
+
+A word the glossary names is one key, read from `common` by every screen (DESIGN 7, TX-4): `common.words.*` holds the
+verbs and the labels that came up in forty places (`name`, `cancel`, `close`, `save`, `edit`, `remove`, `delete`,
+`editNamed`, `removeNamed`, `clearFilters`, `fromTerminal`, `start`, `stop`, `restart`, `update`, `retry`, `yes`, `no`…), and
+the state words are `common.statusPill.*` and `common.deployState.*`. A row menu's label is `common.rowActions`. Write
+a new "Cancel" or "Name" as `t("common.words.cancel")`, and add a word to `common.words` when a third screen needs it.
+A word that is not quite the same (another Spanish gender, another meaning) keeps its own key, and a key a helper builds
+with a prefix (`apps.bulk.verb.${verb}`) keeps its own too. `glossary.test.ts` counts the texts that repeat a shared
+word, per namespace, and the count only goes down.
+
 ## Adding a namespace
 
 1. `en/myarea.ts`:
@@ -311,4 +322,5 @@ label, "propietario" (not "dueño"), "tarea" (not "trabajo") and "registro" (not
 | The canonical verbs and states, in both languages | `i18n/verbs.test.ts`: every row of the tables above, in English and in Spanish |
 | A retired value does not come back | `i18n/glossary.test.ts`: a list of retired values with their documented exceptions (what the system prints, proper names, the palette keywords that keep an old name) over the English and the Spanish catalogs, with a baseline that only goes down (`npm run design:baseline`) |
 | One Spanish translation per English text | the same test, over the English texts of fewer than forty characters that appear four times or more. A gender or a number is not another translation (`agreementStem`: "Fallido", "Fallida" and "Fallidos" are one); the texts Spanish rightly says two ways (a noun and a verb, "Live" as a stream and as the version that serves) are listed with their reason in `glossary.table.ts`, and an entry whose text no longer diverges fails the test |
+| A shared word is read, not written again | the same test: a key outside `common` that says what `common.words.*`, `common.statusPill.*` or `common.deployState.*` already say, counted per namespace ("Shared words", above) |
 | Style | the same test: no title ending in a full stop or written with a capital on every word, no three dots where `…` goes |
