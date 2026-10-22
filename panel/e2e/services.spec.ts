@@ -18,11 +18,12 @@ test("lists a seeded Noust-managed service in the Server area and opens its page
   await settle(page);
   await expectNoA11yViolations(page, "the services tab");
 
-  // The list pages at 20 rows and the seeded machine has 21 Noust units, this one the 20th by
-  // name: any unit another test of the same server created before it would push it onto the
-  // second page. It is found as an operator finds a unit on a long list, by searching.
+  // The list pages at 20 rows and the seeded machine has 21 Noust units, this one among them: any
+  // unit another test of the same server created before it would push it onto the second page. It
+  // is found as an operator finds a unit on a long list, by searching.
   await page.getByRole("searchbox", { name: "Search services" }).fill("shop-example-net");
-  const link = table.getByRole("link", { name: "shop-example-net" });
+  // Exactly: the seeded backup unit of the same application carries the name inside its own.
+  const link = table.getByRole("link", { name: "shop-example-net", exact: true });
   await expect(link).toBeVisible();
   await link.click();
   await expect(page).toHaveURL(/\/server\/services\/shop-example-net$/);

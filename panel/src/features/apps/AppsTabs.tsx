@@ -10,6 +10,9 @@ import type { T } from "../../i18n";
 import { APPS_TABS } from "../nav/appsTabs";
 import { useOwnerScope } from "../teams/ownership";
 
+/** The rows of a list that has not arrived: one array, so what is memoised on it is not redone. */
+const NO_APPS: readonly never[] = [];
+
 /**
  * The three views of Applications as URLs (D-2): the applications, the recipes they can start from
  * and the recipes installed. Each has its count, kept in room while it is read so the strip does not
@@ -22,7 +25,7 @@ export function AppsTabs() {
   const everything = useQuery(recipesQuery());
   const installed = useQuery(installedRecipesQuery());
   // The same count the list says: the applications of the team in view.
-  const owner = useOwnerScope(apps.data?.apps ?? [], {});
+  const owner = useOwnerScope(apps.data?.apps ?? NO_APPS, {});
   const tabs = withCounts(tabsOf(APPS_TABS), {
     "/apps": apps.data === undefined ? null : owner.inTeam.length,
     "/catalog": everything.data?.total ?? null,
