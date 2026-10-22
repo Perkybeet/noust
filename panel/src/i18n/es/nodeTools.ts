@@ -15,7 +15,7 @@ export const nodeTools: Catalog<typeof en> = {
     description: "Esta central hace un par de claves nuevo para {name} y cambia a él solo cuando el servidor responde con él. Hasta entonces aquí no cambia nada.",
     explain:
       "Se hace un par de claves nuevo para {name} y se muestra el comando que lo autoriza. Ejecuta ese comando en {name}, como root: quita allí la clave vieja e imprime un código de unión, que pegas aquí.",
-    prepare: "Hacer la clave nueva",
+    prepare: "Crear la clave nueva",
     prepareFailed: "No se pudo hacer una clave nueva para {name}",
     commandLabel: "Ejecuta esto en {name}, como root",
     commandHelp: "Si lo pides otra vez antes de terminar, es el mismo comando.",
@@ -45,7 +45,7 @@ export const nodeTools: Catalog<typeof en> = {
     title: "Cómo se conecta esta central a {name}",
     description:
       "La espera de la conexión, y un bastión por el que pasar cuando el servidor no tiene una dirección que esta central alcance. El cambio se prueba antes de conservarlo: si {name} no responde, se quedan las opciones de antes.",
-    loading: "Leyendo cómo se conecta esta central a {name}",
+    loading: "Cargando cómo se conecta esta central a {name}",
     loadFailed: "No se pudo leer cómo se conecta a {name}",
     timeoutLabel: "Espera de la conexión",
     timeoutDescription: "Segundos, de 1 a 300. Vacío es el valor por defecto, {seconds} segundos.",
@@ -102,7 +102,7 @@ export const nodeTools: Catalog<typeof en> = {
   link: {
     title: "Vincular {name} a su máquina en un proveedor",
     description:
-      "Se pregunta al proveedor si la máquina existe y está donde está {name}. No se cambia nada en el proveedor. Después esta central muestra si está encendida, puede encenderla y, si lo pides, borrarla.",
+      "Se pregunta al proveedor si la máquina existe y está donde está {name}. No se cambia nada en el proveedor. Después esta central muestra si está encendida, puede encenderla y, si lo pides, eliminarla.",
     accountLabel: "Cuenta en la nube",
     noAccounts: "Aún no hay ninguna cuenta en la nube. Añade una en Ajustes, Nube.",
     machineLabel: "Id de la máquina",

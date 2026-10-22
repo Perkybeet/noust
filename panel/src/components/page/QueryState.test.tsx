@@ -120,7 +120,7 @@ describe("ErrorBlock", () => {
     render(<ErrorBlock error={new ApprovalPendingError("approval_pending", "4")} title="Could not save" />);
     expect(screen.queryByText("Could not save")).not.toBeInTheDocument();
     expect(screen.getByText("Waiting for approval")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open Approvals" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open approvals" })).toBeInTheDocument();
   });
 
   it("offers one follow-up beside Try again, after the system's words", () => {
@@ -192,7 +192,7 @@ describe("ErrorBlock", () => {
       await setLocale("es");
     });
     render(<ErrorBlock error={FAILURE} title="Restart failed" onRetry={() => undefined} />);
-    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Intentar de nuevo" })).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Restart failed: lo que dijo el sistema" })).toBeInTheDocument();
   });
 });

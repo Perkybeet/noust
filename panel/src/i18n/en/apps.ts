@@ -21,7 +21,7 @@ export const apps = {
     countFiltered: "{shown} of {total} applications",
     caption: "Applications",
     captionFiltered: "Applications matching the filters",
-    noMatchTitle: "No application matches these filters.",
+    noMatchTitle: "No application matches these filters",
     fromTerminal: "From a terminal",
   },
   table: {
@@ -77,7 +77,7 @@ export const apps = {
       stop: { one: "Stop {count} application", other: "Stop {count} applications" },
       start: { one: "Start {count} application", other: "Start {count} applications" },
     },
-    retry: "Retry the failed",
+    retry: "Retry failed",
     close: "Close",
   },
   nothingNew: {

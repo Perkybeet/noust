@@ -225,7 +225,7 @@ describe("the history of hooks and schema changes", { timeout: 20_000 }, () => {
   it("says it in Spanish", async () => {
     await act(() => setLocale("es"));
     await open("/deployments/22", {}, {});
-    expect(await screen.findByRole("list", { name: "Ganchos que ejecutó el despliegue 22" })).toBeInTheDocument();
+    expect(await screen.findByRole("list", { name: "Hooks que ejecutó el despliegue 22" })).toBeInTheDocument();
     expect(screen.getAllByText("Desplegado con avisos").length).toBeGreaterThan(0);
   });
 });

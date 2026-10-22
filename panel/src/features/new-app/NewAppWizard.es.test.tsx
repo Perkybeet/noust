@@ -116,7 +116,7 @@ describe("the new-app wizard in Spanish", () => {
     await user.type(screen.getByLabelText(/^DATABASE_URL/), "postgres://db/storefront");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Despliegue" })).toHaveFocus();
+    expect(await screen.findByRole("heading", { level: 2, name: "Desplegar" })).toHaveFocus();
     expect(screen.getByText("Vuelta atrás instantánea, tras una comprobación de arranque")).toBeInTheDocument();
     expect(screen.getByText("1 variable")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Desplegar storefront.example.com" })).toBeInTheDocument();
@@ -154,10 +154,10 @@ describe("the new-app wizard in Spanish", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "Nueva aplicación" });
     await user.click(screen.getByRole("radio", { name: "Importar aplicación" }));
-    await user.upload(screen.getByLabelText("Fichero de exportación"), new File(["{"], "x.json", { type: "application/json" }));
-    expect(await screen.findByText(/^Este fichero no es JSON\./)).toBeInTheDocument();
+    await user.upload(screen.getByLabelText("Archivo de exportación"), new File(["{"], "x.json", { type: "application/json" }));
+    expect(await screen.findByText(/^Este archivo no es JSON\./)).toBeInTheDocument();
 
-    await user.upload(screen.getByLabelText("Fichero de exportación"), new File([JSON.stringify(EXPORT)], "shop.noust-app.json", { type: "application/json" }));
+    await user.upload(screen.getByLabelText("Archivo de exportación"), new File([JSON.stringify(EXPORT)], "shop.noust-app.json", { type: "application/json" }));
     expect(await screen.findByText("Una exportación de shop.example.com, una aplicación Next.js.")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
     await user.click(screen.getByRole("button", { name: "Continuar" }));

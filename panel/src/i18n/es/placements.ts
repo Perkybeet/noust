@@ -8,7 +8,7 @@ export const placements: Catalog<typeof en> = {
   title: "Aplicaciones en varios servidores",
   description:
     "Una aplicación que corre en más de un servidor, detrás de un balanceador de carga tuyo. Esta central compara sus servidores, despliega un mismo commit en todos y la pone en un servidor que no la tiene. Ella no enruta tráfico.",
-  fromTerminal: "Desde una terminal",
+  fromTerminal: "Desde un terminal",
   place: "Colocar una aplicación",
   empty: {
     title: "Ninguna aplicación está colocada en varios servidores todavía",
@@ -26,7 +26,7 @@ export const placements: Catalog<typeof en> = {
     reference: "La mayoría de los servidores corre {commit}",
     label: "También en cada servidor con la etiqueta {label}",
     refresh: "Comparar de nuevo",
-    actionsFor: "Acciones para {domain}",
+    actionsFor: "Acciones de {domain}",
     rollout: "Desplegar",
     copy: "Ponerla en un servidor que no la tiene",
     upstreams: "Servidores para el balanceador",
@@ -84,8 +84,7 @@ export const placements: Catalog<typeof en> = {
     canaryDescription: "Va solo antes que los demás. Vacío es el primero de la lista.",
     noCanary: "El primero",
     rollbackLabel: "Devolver los servidores ya movidos cuando se detiene",
-    rollbackDescription:
-      "Cada uno vuelve a la versión que corría antes, tras su propia comprobación de salud. El que no pueda se avisa, no se oculta.",
+    rollbackDescription: "Cada uno vuelve a la versión que corría antes, tras su propia comprobación de arranque. El que no pueda se avisa, no se oculta.",
     save: "Guardar",
     cancel: "Cancelar",
     failed: "No se pudo anotar dónde corre {domain}",
@@ -110,7 +109,7 @@ export const placements: Catalog<typeof en> = {
     tagInvalid: "Escribe la etiqueta como está en el repositorio, como v2.0.0.",
     imageLabel: "Etiqueta de imagen",
     imageInvalid: "Escribe una etiqueta de registro, como 1.4.2.",
-    force: "Reconstruir un servidor que ya está en ella",
+    force: "Recompilar un servidor que ya está en ella",
     rollback: "Devolver los servidores ya movidos si se detiene",
     howLegend: "Cómo",
     serialLabel: "Servidores a la vez",
@@ -151,7 +150,7 @@ export const placements: Catalog<typeof en> = {
   ship: {
     title: "Compilar {domain} en un servidor y ejecutarla en los demás",
     description:
-      "Un servidor compila la release una sola vez, en su sandbox, sin servirla. Esta central la lleva a cada servidor, que la comprueba, ejecuta los hooks propios de la aplicación y cambia a ella tras su comprobación de salud. En los servidores que la reciben no se compila nada.",
+      "Un servidor compila la release una sola vez, en su sandbox, sin servirla. Esta central la lleva a cada servidor, que la comprueba, ejecuta los hooks propios de la aplicación y cambia a ella tras su comprobación de arranque. En los servidores que la reciben no se compila nada.",
     builderLabel: "Compilarla en",
     builderDescription: "Un servidor que tiene la aplicación en el layout de releases y no es uno de los servidores de abajo.",
     noBuilder: "Elige el servidor que la compila.",

@@ -19,7 +19,7 @@ export const ldapAdmin: Catalog<typeof en> = {
     tlsStarttls: "StartTLS: sube la conexión a TLS (puerto 389)",
     tlsNone: "Ninguno: solo para un directorio en esta máquina",
     caFile: "Autoridad de certificación",
-    caFileHelp: "La ruta de un fichero PEM con la autoridad en la que confiar, si no es una que el sistema conozca.",
+    caFileHelp: "La ruta de un archivo PEM con la autoridad en la que confiar, si no es una que el sistema conozca.",
     enabled: "Ofrecerlo en la página de inicio de sesión",
     mappingsLine: "La línea {line} no es una asignación. Escribe GRUPO=ROL, GRUPO=EQUIPO:ROL o GRUPO=ROL@EQUIPO/PROYECTO.",
     create: "Añadir directorio",

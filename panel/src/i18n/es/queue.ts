@@ -50,7 +50,7 @@ export const queue: Catalog<typeof en> = {
     running: {
       title: "¿Detener la compilación de {domain}?",
       description:
-        "La compilación se detiene y se borra la release que estaba haciendo. Lo que sirve ahora no se toca, y empieza la siguiente petición de la cola. Funciona hasta que su release empieza a activarse; después termina por sí sola.",
+        "La compilación se detiene y se elimina la release que estaba haciendo. Lo que sirve ahora no se toca, y empieza la siguiente petición de la cola. Funciona hasta que su release empieza a activarse; después termina por sí sola.",
       action: "Detener compilación",
     },
     done: {

@@ -243,7 +243,7 @@ export const common = {
     noAnswer: "No answer",
     runningUnmanaged: "Running outside Noust",
     degraded: "Degraded",
-    runningNoHealthcheck: "Running, no health check",
+    runningNoHealthcheck: "Running, no startup check",
     unknown: "Unknown",
   },
   deployState: {
@@ -322,7 +322,7 @@ export const common = {
     showing: "Showing {from} to {to}, {resolution}.",
     showingSince: "Showing {from} to {to}, {resolution}. History since {since}.",
     showingBare: "Showing {from} to {to}.",
-    readingAgain: "Reading this stretch again at a finer step…",
+    readingAgain: "Loading this stretch again at a finer step…",
     readingEvery: { one: "a reading every second", other: "a reading every {count} seconds" },
     averages: {
       seconds: "{count}-second averages",

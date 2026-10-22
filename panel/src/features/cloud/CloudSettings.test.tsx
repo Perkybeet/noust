@@ -136,7 +136,7 @@ describe("Settings > Cloud", () => {
     await waitFor(() => {
       expect(document.querySelector("[aria-busy='true']")).not.toBeNull();
     });
-    expect(screen.getByText("Reading the servers and accounts")).toBeInTheDocument();
+    expect(screen.getByText("Loading the servers and accounts")).toBeInTheDocument();
     expect(screen.queryByText("No server created here yet")).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Servers created here" })).not.toBeInTheDocument();
 

@@ -87,7 +87,7 @@ export const placements = {
     canaryDescription: "It goes alone before the others. Empty is the first one of the list.",
     noCanary: "The first one",
     rollbackLabel: "Put the servers already moved back when it stops",
-    rollbackDescription: "Each goes back to the release it ran before, behind its own health check. One that cannot is said, not hidden.",
+    rollbackDescription: "Each goes back to the release it ran before, behind its own startup check. One that cannot is said, not hidden.",
     save: "Save",
     cancel: "Cancel",
     failed: "Could not record where {domain} runs",
@@ -152,7 +152,7 @@ export const placements = {
   ship: {
     title: "Build {domain} on one server, run it on the others",
     description:
-      "One server builds the release once, in its sandbox, without serving it. This central carries it to each server, which checks it, runs the application's own hooks and switches to it behind its health check. Nothing is built on the servers that receive it.",
+      "One server builds the release once, in its sandbox, without serving it. This central carries it to each server, which checks it, runs the application's own hooks and switches to it behind its startup check. Nothing is built on the servers that receive it.",
     builderLabel: "Build it on",
     builderDescription: "A server that has the application on the release layout, and is not one of the servers below.",
     noBuilder: "Choose the server that builds it.",

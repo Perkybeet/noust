@@ -4,7 +4,7 @@ import type { Catalog } from "../types";
 export const consoleAccess: Catalog<typeof en> = {
   documentTitle: "Dirección de la consola",
   loadFailed: "No se pudo leer si la consola está publicada",
-  loading: "Leyendo si la consola está publicada",
+  loading: "Cargando si la consola está publicada",
   state: {
     title: "Nombre público",
     on: "Publicada",
@@ -44,7 +44,7 @@ export const consoleAccess: Catalog<typeof en> = {
     twoFactorLacking: { one: "{count} cuenta entra solo con contraseña", other: "{count} cuentas entran solo con contraseña" },
     twoFactorFix: "Cada titular registra un autenticador o una llave de acceso en Seguridad después de entrar, o la cuenta se desactiva.",
     twoFactorUnknown: "Noust lo comprueba de nuevo al previsualizar, y dice qué cuentas no tienen.",
-    accountsLink: "Abrir Cuentas",
+    accountsLink: "Abrir cuentas",
     ens: "El perfil ENS",
     ensOk: "Permite publicar la consola.",
     ensBlocked: "El perfil ENS mantiene la consola en el bucle local. Publicarla necesita el forzado, una lista de permitidos y una confirmación, y queda auditado.",

@@ -7,7 +7,7 @@ export const overview: Catalog<typeof en> = {
   version: "Noust {version}",
   newApplication: "Nueva aplicación",
   couldNotLoad: "No se pudo cargar el resumen",
-  command: "Desde una terminal",
+  command: "Desde un terminal",
   range: {
     "1h": "Última hora",
     "24h": "Últimas 24 horas",
@@ -26,7 +26,7 @@ export const overview: Catalog<typeof en> = {
     couldNotRead: "No se pudo leer",
     apps: {
       label: "Aplicaciones",
-      running: "{count} en marcha",
+      running: "{count} en ejecución",
       noneYet: "Ninguna todavía",
       failed: { one: "{count} fallida", other: "{count} fallidas" },
       stopped: { one: "{count} parada", other: "{count} paradas" },
@@ -81,7 +81,7 @@ export const overview: Catalog<typeof en> = {
       label: "Actualizaciones del sistema",
       pending: { one: "{count} pendiente", other: "{count} pendientes" },
       upToDate: "Al día",
-      notChecked: "Sin comprobar",
+      notChecked: "Sin comprobar todavía",
       unsupported: "No disponible",
       unsupportedDetail: "No compatible con este sistema",
       security: { one: "{count} de seguridad", other: "{count} de seguridad" },
@@ -94,7 +94,7 @@ export const overview: Catalog<typeof en> = {
     title: "Requiere atención",
     itemsSr: "Elementos: ",
     checking: "Comprobando el servidor",
-    emptyTitle: "Nada requiere atención.",
+    emptyTitle: "Nada requiere atención",
     emptyDescription:
       "Ningún servicio ni despliegue fallido, ningún certificado que caduque en tres semanas, ningún hallazgo abierto del monitor.",
     announceEmpty: "Nada requiere atención",
@@ -139,7 +139,7 @@ export const overview: Catalog<typeof en> = {
   activity: {
     title: "Actividad reciente",
     all: "Toda la actividad",
-    emptyTitle: "Todavía no ha pasado nada.",
+    emptyTitle: "Todavía no ha pasado nada",
     emptyDescription: "Los despliegues, actualizaciones, copias y restauraciones aparecen aquí según se ejecutan.",
     today: "Hoy",
     yesterday: "Ayer",
@@ -158,7 +158,7 @@ export const overview: Catalog<typeof en> = {
     used: "En uso",
     in: "Entrada",
     out: "Salida",
-    loadingRange: "Leyendo: {range}…",
+    loadingRange: "Cargando: {range}…",
     couldNotLoad: "No se pudo cargar el historial de la máquina",
   },
   history: {

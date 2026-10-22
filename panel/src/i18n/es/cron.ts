@@ -6,8 +6,8 @@ export const cron: Catalog<typeof en> = {
   common: {
     cancel: "Cancelar",
     edit: "Editar",
-    clearFilters: "Borrar filtros",
-    fromTerminal: "Desde una terminal",
+    clearFilters: "Quitar filtros",
+    fromTerminal: "Desde un terminal",
   },
 
   status: {

@@ -4,7 +4,7 @@ export const internalCa = {
   title: "Private certificate authority",
   description:
     "This server signs certificates for names that only resolve inside a private network, such as wiki.home.arpa or grafana.lan, where Let's Encrypt cannot prove them. A device trusts them once it trusts the authority's certificate.",
-  loading: "Reading the authority",
+  loading: "Loading the authority",
   readFailed: "Could not read the private authority",
   noneTitle: "This server has no private authority yet",
   noneNote:
@@ -18,7 +18,7 @@ export const internalCa = {
   nameHelp: "How devices list the authority. Leave it empty for the server's name.",
   trustHereLabel: "Trust it on this server too",
   trustHereHelp: "The programs that run here accept the names it signs.",
-  make: "Make the authority",
+  make: "Create authority",
   madeToast: "The private authority is made",
   makeFailed: "The authority was not made",
   fingerprintLabel: "Fingerprint",

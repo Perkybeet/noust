@@ -51,7 +51,7 @@ async function shipping(drains: object[] = [LOKI], extra: Record<string, RouteHa
     ...extra,
   });
   const harness = renderConsole("/settings/log-shipping");
-  await screen.findByRole("heading", { level: 2, name: "Log shipping" });
+  await screen.findByRole("heading", { level: 2, name: "Logs and metrics export" });
   return { ...harness, backend };
 }
 

@@ -92,7 +92,7 @@ export const overview = {
     title: "Needs attention",
     itemsSr: "Items: ",
     checking: "Checking the server",
-    emptyTitle: "Nothing needs attention.",
+    emptyTitle: "Nothing needs attention",
     emptyDescription: "No failed services or deploys, no certificate expiring within three weeks, no open monitor findings.",
     announceEmpty: "Nothing needs attention",
     announceCount: { one: "{count} item needs attention", other: "{count} items need attention" },
@@ -136,7 +136,7 @@ export const overview = {
   activity: {
     title: "Recent activity",
     all: "All activity",
-    emptyTitle: "Nothing has happened yet.",
+    emptyTitle: "Nothing has happened yet",
     emptyDescription: "Deploys, updates, backups and restores appear here as they run.",
     today: "Today",
     yesterday: "Yesterday",
@@ -155,7 +155,7 @@ export const overview = {
     used: "Used",
     in: "In",
     out: "Out",
-    loadingRange: "Reading the {range}…",
+    loadingRange: "Loading the {range}…",
     couldNotLoad: "Could not load the machine's history",
   },
   history: {

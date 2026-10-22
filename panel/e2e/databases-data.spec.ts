@@ -88,7 +88,7 @@ test("public access: opened from one address with TLS, shown once, and made priv
   await settle(page);
   await expectNoA11yViolations(page, "a database's Connect tab, private");
 
-  await section.getByRole("button", { name: "Make it public…" }).click();
+  await section.getByRole("button", { name: "Open access…" }).click();
   const dialog = page.getByRole("dialog", { name: "Make example_staging public" });
   // The recommended answers are the ones already chosen.
   await expect(dialog.getByRole("radio", { name: /^Required \(recommended\)/ })).toBeChecked();
@@ -105,7 +105,7 @@ test("public access: opened from one address with TLS, shown once, and made priv
   await expect(dialog.getByText("What you accept by going ahead")).toBeVisible();
   await expect(dialog.getByText(/becomes reachable on port \d+/)).toBeVisible();
   await expect(dialog.getByText("Required: a connection without TLS is refused")).toBeVisible();
-  const submit = dialog.getByRole("button", { name: "Make it public" });
+  const submit = dialog.getByRole("button", { name: "Open access" });
   await submit.click();
   await expect(dialog.getByText("Tick the box to accept what is listed above.")).toBeVisible();
   await settle(page);
@@ -134,16 +134,16 @@ test("public access: opened from one address with TLS, shown once, and made priv
   await expect(again.getByRole("textbox", { name: "Username" })).toHaveValue(/_remote$/);
   await again.getByRole("button", { name: "Done" }).click();
 
-  await section.getByRole("button", { name: "Make it private" }).click();
+  await section.getByRole("button", { name: "Close access" }).click();
   const confirm = page.getByRole("alertdialog", { name: "Make example_staging private" });
-  await confirm.getByRole("button", { name: "Make it private" }).click();
+  await confirm.getByRole("button", { name: "Close access" }).click();
   await expect(section.getByText("Private", { exact: true })).toBeVisible();
 });
 
 test("a database that is not public stays private when the review is cancelled", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `${DATABASE}/connect`);
   const section = page.getByRole("region", { name: "Public access" });
-  await section.getByRole("button", { name: "Make it public…" }).click();
+  await section.getByRole("button", { name: "Open access…" }).click();
   const dialog = page.getByRole("dialog", { name: "Make example_production public" });
   await dialog.getByRole("radio", { name: /^Optional/ }).check();
   await dialog.getByRole("button", { name: "Review" }).click();

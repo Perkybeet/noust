@@ -12,7 +12,7 @@ export const ssoAdmin = {
   },
   documentTitle: "Single sign-on",
   loadFailed: "Could not read the sign-in settings",
-  loading: "Reading the sign-in settings",
+  loading: "Loading the sign-in settings",
   loadingLabel: "sign-in settings",
   local: {
     title: "Passwords and passkeys",

@@ -42,7 +42,7 @@ export const approvals: Catalog<typeof en> = {
   held: {
     waitingTitle: "Esperando aprobación",
     waitingDescription: "Se ejecutará cuando otra persona lo apruebe. Puedes seguirlo en Aprobaciones.",
-    openApprovals: "Abrir Aprobaciones",
+    openApprovals: "Abrir aprobaciones",
   },
   state: {
     requested: "Pendiente",
@@ -72,7 +72,7 @@ export const approvals: Catalog<typeof en> = {
     later: "Más tarde",
     runNow: "Ejecutar ahora",
     close: "Cerrar",
-    openInbox: "Abrir Aprobaciones",
+    openInbox: "Abrir aprobaciones",
     loadFailed: "No se pudo comprobar la solicitud",
   },
   fields: {
@@ -109,7 +109,7 @@ export const approvals: Catalog<typeof en> = {
     noneWaiting: "Nada espera aprobación.",
     none: "No hay solicitudes aquí.",
     what: "las solicitudes",
-    fromTerminal: "Desde una terminal",
+    fromTerminal: "Desde un terminal",
   },
   table: {
     request: "Solicitud",

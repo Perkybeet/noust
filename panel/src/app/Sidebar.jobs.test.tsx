@@ -25,7 +25,7 @@ describe("the jobs running now", () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/jobs/active": () => json(200, { jobs: [job("a", "running"), job("b", "pending")], total: 2, active: 2 }) });
     const { nav } = await shellAt("/cron");
 
-    const activity = await within(nav).findByRole("link", { name: "Activity 2 running" });
+    const activity = await within(nav).findByRole("link", { name: "Activity 2 in progress" });
 
     expect(activity).toHaveTextContent("2");
     // Nothing else is marked: the count belongs to the place where the jobs are followed.
@@ -37,7 +37,7 @@ describe("the jobs running now", () => {
     const { nav } = await shellAt("/cron");
 
     expect(await within(nav).findByRole("link", { name: "Activity" })).toBeInTheDocument();
-    expect(within(nav).queryByText(/running/)).not.toBeInTheDocument();
+    expect(within(nav).queryByText(/in progress/)).not.toBeInTheDocument();
   });
 
   it("follow the server's events: a job that starts is counted and a job that ends is not", async () => {
@@ -52,7 +52,7 @@ describe("the jobs running now", () => {
       FakeEventSource.latest().emit("job", { id: "a", type: "deploy", status: "running", metadata: {} });
       await Promise.resolve();
     });
-    expect(await within(nav).findByRole("link", { name: "Activity 1 running" })).toBeInTheDocument();
+    expect(await within(nav).findByRole("link", { name: "Activity 1 in progress" })).toBeInTheDocument();
 
     jobs = [];
     await act(async () => {

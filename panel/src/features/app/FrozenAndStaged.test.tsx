@@ -106,7 +106,7 @@ describe("a release that was built and is waiting", { timeout: 20_000 }, () => {
     expect(within(row).getByText("bbbbbbb")).toBeInTheDocument();
     await user.click(within(row).getByRole("button", { name: "Actions for Built, not serving" }));
     const menu = await screen.findByRole("menu");
-    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Make it serve"]);
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Go live"]);
     await user.keyboard("{Escape}");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
@@ -119,11 +119,11 @@ describe("a release that was built and is waiting", { timeout: 20_000 }, () => {
     });
 
     await user.click(within(await waitingRow()).getByRole("button", { name: "Actions for Built, not serving" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Make it serve" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Go live" }));
     const confirm = await screen.findByRole("alertdialog", { name: `Make release ${WAITING} serve?` });
     expect(within(confirm).getByText(/Commit bbbbbbb was built earlier and is not serving/)).toBeInTheDocument();
     expect(backend.callsTo(`POST /api/apps/${TAB_DOMAIN}/releases/${WAITING}/promote`)).toHaveLength(0);
-    await user.click(within(confirm).getByRole("button", { name: "Make it serve" }));
+    await user.click(within(confirm).getByRole("button", { name: "Go live" }));
 
     await waitFor(() => {
       expect(backend.callsTo(`POST /api/apps/${TAB_DOMAIN}/releases/${WAITING}/promote`)[0]?.body).toEqual({ schema_changed_ok: false, frozen_ok: false });
@@ -139,9 +139,9 @@ describe("a release that was built and is waiting", { timeout: 20_000 }, () => {
     });
 
     await user.click(within(await waitingRow()).getByRole("button", { name: "Actions for Built, not serving" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Make it serve" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Go live" }));
     const confirm = await screen.findByRole("alertdialog", { name: `Make release ${WAITING} serve?` });
-    await user.click(within(confirm).getByRole("button", { name: "Make it serve" }));
+    await user.click(within(confirm).getByRole("button", { name: "Go live" }));
 
     const dialog = await screen.findByRole("dialog", { name: `Deploys of ${TAB_DOMAIN} are frozen` });
     // The freeze's own sentence, verbatim.

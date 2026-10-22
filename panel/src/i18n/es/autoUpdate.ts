@@ -41,7 +41,7 @@ export const autoUpdate: Catalog<typeof en> = {
   },
   outcome: {
     updated: "Actualizado",
-    failed: "Falló",
+    failed: "Fallido",
     skipped: "No se instaló nada",
     updatedTo: "Actualizado de {from} a {to}",
   },

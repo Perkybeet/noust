@@ -72,7 +72,7 @@ export const common: Catalog<typeof en> = {
       location: "Location",
       upstream: "Upstream",
       "upstream-server": "Backend",
-      static: "Ficheros",
+      static: "Archivos",
       redirect: "Redirección",
       other: "Otro",
     },
@@ -148,7 +148,7 @@ export const common: Catalog<typeof en> = {
     success: "Correcto",
     warning: "Aviso",
     error: "Error",
-    dismiss: "Descartar",
+    dismiss: "Cerrar",
   },
   meter: {
     high: "Alto",
@@ -164,7 +164,7 @@ export const common: Catalog<typeof en> = {
   },
   jobProgress: {
     queued: "Esperando para empezar.",
-    dismiss: "Descartar",
+    dismiss: "Cerrar",
     noReason: "La tarea terminó sin decir por qué.",
     cancelled: "La tarea se canceló antes de terminar.",
   },
@@ -240,7 +240,7 @@ export const common: Catalog<typeof en> = {
     noAnswer: "Sin respuesta",
     runningUnmanaged: "En marcha fuera de Noust",
     degraded: "Degradada",
-    runningNoHealthcheck: "En marcha, sin comprobación de salud",
+    runningNoHealthcheck: "En ejecución, sin comprobación de arranque",
     unknown: "Desconocido",
   },
   deployState: {
@@ -254,7 +254,7 @@ export const common: Catalog<typeof en> = {
     unknown: "Desconocido",
   },
   errorBlock: {
-    tryAgain: "Reintentar",
+    tryAgain: "Intentar de nuevo",
     systemSaidLabel: "{title}: lo que dijo el sistema",
     commandOutputLabel: "{title}: la salida propia del comando",
   },
@@ -267,7 +267,7 @@ export const common: Catalog<typeof en> = {
     title: "Zona de peligro",
   },
   keyValueList: {
-    empty: "Sin establecer",
+    empty: "Sin definir",
   },
   resourceMeter: {
     missing: "Sin lectura",
@@ -319,7 +319,7 @@ export const common: Catalog<typeof en> = {
     showing: "Mostrando del {from} al {to}, {resolution}.",
     showingSince: "Mostrando del {from} al {to}, {resolution}. Historial desde {since}.",
     showingBare: "Mostrando del {from} al {to}.",
-    readingAgain: "Leyendo de nuevo este tramo con más detalle…",
+    readingAgain: "Cargando de nuevo este tramo con más detalle…",
     readingEvery: { one: "una lectura por segundo", other: "una lectura cada {count} segundos" },
     averages: {
       seconds: "medias de {count} s",

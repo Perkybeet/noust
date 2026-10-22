@@ -116,7 +116,7 @@ export const containers = {
     portDefault: "{port}, the default",
     volumes: "Volumes",
     noVolumes: "None",
-    restart: "Restart",
+    restart: "Restart policy",
     build: "Build",
     buildCounts: "{args} arguments and {secrets} secrets",
     account: "Registry account",

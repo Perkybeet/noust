@@ -184,7 +184,7 @@ export async function signIn(page: Page, server: ConsoleServer, next?: string): 
   }
   // A page reached some other way opens on an account's sign-in: the token is one link away.
   const token = page.getByLabel("Access token");
-  const emergency = page.getByRole("button", { name: "Emergency access" });
+  const emergency = page.getByRole("button", { name: "Use the access token" });
   await expect(token.or(emergency)).toBeVisible();
   if (!(await token.isVisible())) await emergency.click();
   await token.fill(server.token);
@@ -228,7 +228,7 @@ export async function confirmItsYou(page: Page, server: ConsoleServer): Promise<
   await expect(dialog).toBeVisible();
   if (server.totpSecret !== null) await dialog.getByLabel("Authentication code").fill(server.secondFactor());
   else await dialog.getByLabel("Access token").fill(server.token);
-  await dialog.getByRole("button", { name: "Confirm" }).click();
+  await dialog.getByRole("button", { name: "Continue" }).click();
   await expect(dialog).toBeHidden();
 }
 

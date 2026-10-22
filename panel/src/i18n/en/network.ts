@@ -382,7 +382,7 @@ export const network = {
   addDomain: {
     portLabel: "Port",
     portHelp: "Another port of {app} to send this name to. Leave it empty for its own.",
-    dnsLabel: "Make its DNS record",
+    dnsLabel: "Create its DNS record",
     dnsHelp: "When a DNS account that creates records without asking holds the zone. Otherwise nothing is touched; the DNS section below says what would be done.",
     wildcardTitle: "A wildcard needs the DNS challenge",
     wildcardNote: "A name such as *.example.com serves every name one level under it. Its certificate is proven with a DNS record, so choose that in the certificate's source first, with a DNS account that holds the zone.",
@@ -401,7 +401,7 @@ export const network = {
     exists: "Already there",
     conflict: "Another record holds {current}",
     create: "Will be created in {account}",
-    makeRecord: "Make the record",
+    makeRecord: "Create record",
     replace: "Replace…",
     made: "{type} {name}: {outcome}",
     failed: "Could not make the record of {name}",

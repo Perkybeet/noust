@@ -116,7 +116,7 @@ describe("the applications list", () => {
 
   it("says when nothing matches and clears the filters", async () => {
     const { user, location } = await appsAt("/apps?q=nothing-like-this");
-    expect(await screen.findByText("No application matches these filters.")).toBeInTheDocument();
+    expect(await screen.findByText("No application matches these filters")).toBeInTheDocument();
     const clear = screen.getAllByRole("button", { name: "Clear filters" });
     await user.click(clear[clear.length - 1] ?? clear[0] ?? document.body);
     await waitFor(() => {
@@ -253,7 +253,7 @@ describe("the applications list", () => {
     const shop = await within(table).findByRole("link", { name: "shop.example.com" });
     expect(screen.getByRole("searchbox", { name: "Buscar aplicaciones" })).toBeInTheDocument();
     expect(screen.getByText("2 aplicaciones")).toBeInTheDocument();
-    const menuButton = screen.getByRole("button", { name: "Acciones para shop.example.com" });
+    const menuButton = screen.getByRole("button", { name: "Acciones de shop.example.com" });
     const user = (await import("@testing-library/user-event")).default.setup();
     await user.click(menuButton);
     expect(await screen.findByRole("menuitem", { name: "Abrir" })).toBeInTheDocument();

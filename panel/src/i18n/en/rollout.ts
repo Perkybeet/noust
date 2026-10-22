@@ -181,7 +181,7 @@ export const rollout = {
     removeTitle: "Stop {domain} updating itself?",
     removeDescription:
       "The schedule and its timer are removed. Updates you start yourself are not affected.",
-    removeAction: "Stop",
+    removeAction: "Stop updating",
     removed: "{domain} no longer updates itself",
     removeFailed: "Could not remove the schedule of {domain}",
     help: "Updates itself at a time you choose, backup first.",
@@ -194,12 +194,12 @@ export const rollout = {
   },
   releases: {
     waiting: "Built, not serving",
-    promote: "Make it serve",
+    promote: "Go live",
     promoteTitle: "Make release {id} serve?",
     promoteDescription:
-      "It was built earlier and is not serving. It goes live behind the same health check; its migrations run now and nothing is built again.",
+      "It was built earlier and is not serving. It goes live behind the same startup check; its migrations run now and nothing is built again.",
     promoteDescriptionCommit:
-      "Commit {commit} was built earlier and is not serving. It goes live behind the same health check; its migrations run now and nothing is built again.",
+      "Commit {commit} was built earlier and is not serving. It goes live behind the same startup check; its migrations run now and nothing is built again.",
     promoteQueued: "Making release {id} of {domain} serve",
     promoteFailed: "Could not make release {id} serve",
     buildOnly: "Build without serving",

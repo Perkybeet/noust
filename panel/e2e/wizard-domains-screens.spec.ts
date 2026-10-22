@@ -110,7 +110,7 @@ const SCREENS: readonly Screen[] = [
       const elevate = page.getByRole("dialog", { name: "Confirm it's you" });
       if (await elevate.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await elevate.getByLabel("Authentication code").fill(server.secondFactor());
-        await elevate.getByRole("button", { name: "Confirm" }).click();
+        await elevate.getByRole("button", { name: "Continue" }).click();
       }
       await expect(page.getByText("Nothing was saved: the configuration test failed.")).toBeVisible();
     },

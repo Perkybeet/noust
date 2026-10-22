@@ -3,7 +3,7 @@ export const cloud = {
 
   page: {
     documentTitle: "Cloud settings",
-    loadingLabel: "Reading the servers and accounts",
+    loadingLabel: "Loading the servers and accounts",
   },
 
   common: {
@@ -224,7 +224,7 @@ export const cloud = {
       image: "Choose what it starts from.",
       addresses: "Turn on IPv4 or IPv6: this central reaches the server over SSH.",
     },
-    catalogLoading: "Reading what the provider offers",
+    catalogLoading: "Loading what the provider offers",
     catalogFailed: "Could not read what the provider offers",
     location: "Location",
     locationPlaceholder: "Choose a location",
@@ -280,7 +280,7 @@ export const cloud = {
       failed: "{name} could not be created",
       logLabel: "Creation log of {name}",
       backgrounded: "It keeps going in the background; follow it in Activity.",
-      seeActivity: "Open Activity",
+      seeActivity: "Open activity",
       tryAgain: "Back to the review",
       failedHint: "If the machine was created it is on record under Servers created here, with the reason, and billed until you delete it.",
     },

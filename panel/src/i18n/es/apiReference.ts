@@ -10,7 +10,7 @@ export const apiReference: Catalog<typeof en> = {
   documentTitle: "Referencia de la API",
   loadingLabel: "la referencia de la API",
   intro:
-    "Todas las rutas que responde este servidor, de su propio documento OpenAPI, con el permiso que pide cada una. Una lectura se puede probar aquí con tu sesión. Un cambio se copia como curl y se envía desde una terminal o un script con un token de API.",
+    "Todas las rutas que responde este servidor, de su propio documento OpenAPI, con el permiso que pide cada una. Una lectura se puede probar aquí con tu sesión. Un cambio se copia como curl y se envía desde un terminal o un script con un token de API.",
   version: "Versión de la API {version}",
   filter: {
     label: "Filtrar la API",
@@ -21,7 +21,7 @@ export const apiReference: Catalog<typeof en> = {
     method: "Método",
     allMethods: "Todos los métodos",
     count: "{shown} de {total} rutas",
-    clear: "Quitar los filtros",
+    clear: "Quitar filtros",
     nothing: "Ninguna ruta coincide",
   },
   table: {
@@ -50,7 +50,7 @@ export const apiReference: Catalog<typeof en> = {
     bodyColumn: { field: "Campo", type: "Tipo", required: "Obligatorio", description: "Qué es" },
     responses: "Respuestas",
     responseColumn: { status: "Estado", description: "Significado" },
-    curl: "Desde una terminal",
+    curl: "Desde un terminal",
     curlHelp: "Pon NOUST_TOKEN a un token de API. El token en sí nunca se escribe aquí.",
     copyCurl: "Copiar el curl",
     tryIt: "Probar",

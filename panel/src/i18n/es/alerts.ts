@@ -4,7 +4,7 @@ import type { Catalog } from "../types";
 export const alerts: Catalog<typeof en> = {
   documentTitle: "Ajustes de alertas",
   loadingLabel: "las reglas de alerta",
-  fromTerminal: "Lo mismo, desde una terminal",
+  fromTerminal: "Lo mismo, desde un terminal",
   notSaved: "No se guardaron los ajustes de alertas",
   metrics: {
     cpu: "CPU",
@@ -33,7 +33,7 @@ export const alerts: Catalog<typeof en> = {
     emptyDescription: "Escribe una para lo que te importe: la memoria de una aplicación, el disco del servidor, los errores del servidor por minuto.",
     firingCount: { one: "{count} alerta está activa", other: "{count} alertas están activas" },
     allClear: "Ninguna alerta está activa.",
-    state: { firing: "Activa", ok: "Correcta", off: "Desactivada" },
+    state: { firing: "Activa", ok: "Normal", off: "Desactivada" },
     sentence: {
       gt: "{metric} por encima de {limit} durante {duration}",
       gte: "{metric} en {limit} o más durante {duration}",

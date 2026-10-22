@@ -125,7 +125,7 @@ describe("Settings > API tokens", () => {
 
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     const once = await screen.findByRole("dialog", { name: "Copy your new token" });
     expect(within(once).getByTestId("new-token")).toHaveTextContent("noust_tok_s3cr3t-value");
@@ -159,7 +159,7 @@ describe("Settings > API tokens", () => {
     await user.click(within(dialog).getByRole("button", { name: "Create token" }));
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
     await screen.findByRole("dialog", { name: "Copy your new token" });
     expect(backend.callsTo("POST /api/auth/tokens").at(-1)?.body).toMatchObject({
       name: "ci-lan",
@@ -178,7 +178,7 @@ describe("Settings > API tokens", () => {
     await user.click(within(dialog).getByRole("button", { name: "Create token" }));
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
     const block = await within(dialog).findByRole("alert");
     expect(block).toHaveTextContent("Pick a new name.");
     expect(block).toHaveTextContent("An API token named 'ci-deploy' already exists");
@@ -206,7 +206,7 @@ describe("Settings > API tokens", () => {
 
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     await expectToast("Changed where ci-deploy works from");
     const calls = backend.callsTo("PATCH /api/auth/tokens/1");
@@ -274,7 +274,7 @@ describe("Settings > API tokens in Spanish", () => {
     await user.click(await screen.findByRole("button", { name: "Crear token" }));
     const dialog = await screen.findByRole("dialog", { name: "Crear un token de API" });
     expect(within(dialog).getByRole("radio", { name: /^Lectura/ })).toBeChecked();
-    expect(within(dialog).getByRole("radio", { name: /^Despliegue/ })).toHaveAccessibleDescription(/El de CI/);
+    expect(within(dialog).getByRole("radio", { name: /^Desplegar/ })).toHaveAccessibleDescription(/El de CI/);
     await expectNoAxeViolations(dialog);
   });
 });

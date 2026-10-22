@@ -10,7 +10,7 @@ export const accounts: Catalog<typeof en> = {
   roles: {
     viewer: { label: "Lector", description: "Lo ve todo, con los secretos ocultos, y no cambia nada." },
     operator: { label: "Operador", description: "Además reinicia, despliega, revierte, renueva certificados y hace copias." },
-    admin: { label: "Administrador", description: "Además crea, configura y borra, y lee secretos, y gestiona cuentas, ajustes de seguridad y auditoría salvo que los roles estén separados (el ENS y otros marcos lo piden)." },
+    admin: { label: "Administrador", description: "Además crea, configura y elimina, y lee secretos, y gestiona cuentas, ajustes de seguridad y auditoría salvo que los roles estén separados (el ENS y otros marcos lo piden)." },
     security: { label: "Responsable de seguridad", description: "Gestiona cuentas, roles y la configuración de seguridad, y lee la auditoría. No despliega nada." },
     auditor: { label: "Auditor", description: "Lo lee todo, las cuentas y toda la auditoría. No cambia nada." },
   },
@@ -47,7 +47,7 @@ export const accounts: Catalog<typeof en> = {
     emptyTitle: "Aún no hay cuentas",
     emptyDescription: "Mientras no haya ninguna, el token de acceso abre toda la consola. Crea las primeras cuentas y guarda el token para emergencias.",
     createFirst: "Crear las primeras cuentas",
-    fromTerminal: "Desde una terminal",
+    fromTerminal: "Desde un terminal",
   },
   table: {
     account: "Cuenta",
@@ -71,11 +71,11 @@ export const accounts: Catalog<typeof en> = {
     unlock: "Desbloquear",
     changeRole: "Cambiar rol",
     newInvitation: "Enviar una invitación nueva",
-    mailAddress: "Dirección de correo...",
+    mailAddress: "Dirección de correo…",
     resetFactor: "Restablecer segundo factor",
     disable: "Desactivar",
     enable: "Activar",
-    remove: "Eliminar cuenta",
+    remove: "Quitar cuenta",
     enableFailed: "No se pudo activar {name}",
     unlockFailed: "No se pudo desbloquear {name}",
   },
@@ -152,10 +152,10 @@ export const accounts: Catalog<typeof en> = {
     doneToast: "Se restableció el segundo factor de {name}",
   },
   remove: {
-    title: "¿Eliminar {name}?",
+    title: "¿Quitar {name}?",
     description:
       "La cuenta, sus sesiones y sus tokens desaparecen para siempre. Mejor desactivarla: el nombre de una cuenta eliminada en el registro de auditoría ya no nombra a nadie.",
-    action: "Eliminar cuenta",
+    action: "Quitar cuenta",
   },
   exceptions: {
     title: "Excepciones",
@@ -197,7 +197,7 @@ export const accounts: Catalog<typeof en> = {
     accounts: "Cuentas",
     conflicts: "Conflictos",
     exceptions: "Excepciones",
-    orphanTokens: "Tokens sin dueño",
+    orphanTokens: "Tokens sin propietario",
     digest: "Resumen",
     notes: "Notas",
     notesHint: "Qué comprobaste y qué cambiaste.",
@@ -210,7 +210,7 @@ export const accounts: Catalog<typeof en> = {
     description:
       "Tokens con nombre para CI y scripts. Cada uno pertenece a una persona y nunca hace más que ella; puede limitarse a unas direcciones, y caduca.",
     emptyDescription: "Crea uno para un pipeline de CI o un script. Actúa por ti, como mucho con tu rol, y puedes revocarlo cuando quieras.",
-    columnOwner: "Dueño",
+    columnOwner: "Propietario",
     columnAddresses: "Desde",
     noOwner: "Emitido antes de que existieran las cuentas",
     anyAddress: "Cualquier sitio",
@@ -228,8 +228,8 @@ export const accounts: Catalog<typeof en> = {
     },
     capped: "Limitado a lo que puede hacer {name}",
     cappedMaster: "Lo que podrá hacer el token",
-    dropped: "Se quedan fuera, porque el dueño no puede: {permissions}.",
+    dropped: "Se quedan fuera, porque el propietario no puede: {permissions}.",
     scopeDeploy: "Leer, y además desplegar y revertir aplicaciones. El de CI.",
-    scopeAdmin: "Todo lo que puede un administrador, nunca más que su dueño. Ni cuentas ni configuración de seguridad.",
+    scopeAdmin: "Todo lo que puede un administrador, nunca más que su propietario. Ni cuentas ni configuración de seguridad.",
   },
 };

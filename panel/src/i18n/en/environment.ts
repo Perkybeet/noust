@@ -18,7 +18,7 @@ export const environment = {
   compose: {
     title: "Variables the compose file asks for",
     description: "What docker-compose.yml reads from this .env. A value it requires and does not find stops the next deployment before anything is built.",
-    loading: "Reading the compose file",
+    loading: "Loading the compose file",
     readFailed: "Could not read the compose file",
     none: "{file} asks for no variable.",
     listLabel: "Variables {file} asks for",

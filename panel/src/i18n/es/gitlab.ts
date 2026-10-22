@@ -23,7 +23,7 @@ export const gitlab: Catalog<typeof en> = {
   },
   state: {
     ok: "Funciona",
-    failed: "Falló",
+    failed: "Fallido",
     unchecked: "Sin comprobar",
   },
   actions: {
@@ -90,7 +90,7 @@ export const gitlab: Catalog<typeof en> = {
     waitingTitle: "Aquí no hay nada que terminar",
     waitingDescription: "Esta página es adonde GitLab devuelve el navegador tras aprobar el inicio de sesión. Empieza desde Integraciones.",
     back: "Volver a Integraciones",
-    confirmAndContinue: "Confirmar y continuar",
+    confirmAndContinue: "Continuar con GitLab",
   },
   picker: {
     mode: "Desde GitLab",

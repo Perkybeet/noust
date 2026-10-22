@@ -116,7 +116,7 @@ describe("the environment tab", () => {
     await user.click(screen.getByRole("button", { name: "Reveal the value of SESSION_SECRET" }));
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
     expect(await screen.findByText("s3cr3t-value")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/auth/elevate")).toHaveLength(1);
   });
@@ -190,7 +190,7 @@ describe("the environment tab", () => {
     await rowAction(user, "NODE_ENV", "Yes, always hide it");
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     expect(await screen.findByTitle("Hidden: marked secret by you")).toHaveTextContent("Secret (marked by you)");
   });

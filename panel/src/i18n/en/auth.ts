@@ -57,8 +57,8 @@ export const auth = {
     },
   },
   emergency: {
-    link: "Emergency access",
-    title: "Emergency access",
+    link: "Use the access token",
+    title: "Access token",
     description: "Sign in with this server's access token.",
     warningTitle: "For recovery only",
     warning:
@@ -68,7 +68,6 @@ export const auth = {
     passkeyRequiredTitle: "The access token has a passkey now",
   },
   accessToken: "Access token",
-  accessTokenHint: "Print it on the server with {command}",
   enterToken: "Enter the access token.",
   enterCode: "Enter the code.",
   tokenAccepted: "Access token {status}",
@@ -116,7 +115,7 @@ export const auth = {
     withPasskey: "Confirm with a passkey",
     orBelow: "Or confirm with the form below.",
     cancel: "Cancel",
-    confirm: "Confirm",
+    confirm: "Continue",
     confirmFailed: "The confirmation failed",
     passkeyFailed: "The passkey did not confirm it's you",
   },

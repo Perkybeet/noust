@@ -65,11 +65,12 @@ export const appPages: Catalog<typeof en> = {
   reclaim: {
     open: "Devolverla a Noust",
     title: "Devolver {domain} a Noust",
-    description: "Se habilita su unidad, para que el stack vuelva tras un reinicio del servidor, y se arranca, para que Noust la supervise de nuevo. Los contenedores que ya funcionan como dice el fichero de Compose se quedan como están.",
+    description:
+      "Se habilita su unidad, para que el stack vuelva tras un reinicio del servidor, y se arranca, para que Noust la supervise de nuevo. Los contenedores que ya funcionan como dice el archivo de Compose se quedan como están.",
     checking: "Preguntando a Docker Compose qué cambiaría al arrancar la unidad…",
     previewReady: "Docker Compose ha respondido: debajo está lo que haría al arrancar la unidad.",
     containers: "En marcha ahora",
-    unit: "Unidad",
+    unit: "Servicio",
     unitEnabled: "Ya arranca con el servidor",
     unitWillEnable: "Se habilita para arrancar con el servidor",
     project: "Proyecto de Compose",
@@ -79,7 +80,8 @@ export const appPages: Catalog<typeof en> = {
     dryRunEmpty: "Docker Compose no ha escrito nada.",
     wouldRecreateTitle: "Arrancar la unidad recrearía contenedores",
     acceptRecreate: "Devolverla de todos modos, recreando lo que indica Docker Compose",
-    acceptRecreateDescription: "Los contenedores en marcha no coinciden con el fichero de Compose. Un contenedor recreado pierde lo que guarda fuera de sus volúmenes.",
+    acceptRecreateDescription:
+      "Los contenedores en marcha no coinciden con el archivo de Compose. Un contenedor recreado pierde lo que guarda fuera de sus volúmenes.",
     couldNotCheck: "No se ha podido comprobar qué cambiaría al arrancar la unidad",
     failed: "No se ha podido devolver {domain} a Noust",
     action: "Devolverla",
@@ -164,8 +166,8 @@ export const appPages: Catalog<typeof en> = {
     prismaAutomatic: "Prisma, automáticamente:",
     inService: "en el servicio {service}",
     restoreTitle: "Devolver también la base de datos",
-    restoreKnown: "La copia {id} se hizo antes del primero de ellos. Restáurala desde una terminal:",
-    restoreUnknown: "Restaura la copia hecha antes del primero de ellos, desde una terminal:",
+    restoreKnown: "La copia {id} se hizo antes del primero de ellos. Restáurala desde un terminal:",
+    restoreUnknown: "Restaura la copia hecha antes del primero de ellos, desde un terminal:",
     goBackAnyway: "Volver atrás igualmente",
   },
   sourceLink: {
@@ -186,7 +188,7 @@ export const appPages: Catalog<typeof en> = {
     editLimits: "Editar límites",
     uptimeLabel: "Tiempo en marcha",
     alwaysOn: "Siempre activo",
-    notRunning: "Sin ejecutar",
+    notRunning: "No está en ejecución",
     running: "En ejecución",
     certificateLabel: "Certificado",
     certificateUnknown: "Desconocido",
@@ -199,7 +201,7 @@ export const appPages: Catalog<typeof en> = {
     resourcesTitle: "Recursos",
     openMetrics: "Métricas",
     tasksLimit: "Como máximo {value} procesos e hilos.",
-    resourceMissingNotRunning: "Sin ejecutar",
+    resourceMissingNotRunning: "No está en ejecución",
     resourceMissingWaiting: "Esperando",
     resourceMissingNoReading: "Sin lectura",
     previewsTitle: "Vistas previas",
@@ -235,8 +237,8 @@ export const appPages: Catalog<typeof en> = {
 
   deployments: {
     hooks: {
-      title: "Ganchos del despliegue",
-      listLabel: "Ganchos que ejecutó el despliegue {id}",
+      title: "Hooks de despliegue",
+      listLabel: "Hooks que ejecutó el despliegue {id}",
       schemaChanged: "Este despliegue cambió el esquema de la base de datos: volver atrás más allá de él pregunta antes y lo nombra.",
       schemaUnchanged: "Este despliegue no cambió el esquema de la base de datos.",
       schemaChangedBadge: "Base de datos cambiada",
@@ -248,10 +250,11 @@ export const appPages: Catalog<typeof en> = {
       didNotRun: "No se ejecutó",
       prismaAutomatic: "Las migraciones de Prisma, ejecutadas automáticamente",
       inService: "En el servicio {service}",
-      migrates: "Puede cambiar el esquema de la base de datos (gancho de migraciones)",
+      migrates: "Puede cambiar el esquema de la base de datos (hook de migraciones)",
       outputLabel: "Lo que imprimió {run}",
       warningsTitle: "Desplegado con avisos",
-      warningsBody: "La versión nueva sirve, pero falló un gancho que se ejecuta después de arrancarla. No se deshizo nada: volver atrás después de servir es peor que un aviso.",
+      warningsBody:
+        "La versión nueva sirve, pero falló un hook que se ejecuta después de arrancarla. No se deshizo nada: volver atrás después de servir es peor que un aviso.",
       warningsLabel: "Los avisos, tal como se registraron",
     },
     words: {
@@ -272,11 +275,11 @@ export const appPages: Catalog<typeof en> = {
     },
 
     phases: {
-      fetch: { label: "Obtención", doing: "Obteniendo el origen" },
-      install: { label: "Instalación", doing: "Instalando dependencias" },
-      build: { label: "Compilación", doing: "Compilando" },
-      activate: { label: "Arranque", doing: "Arrancando la versión nueva" },
-      health: { label: "Comprobación", doing: "Haciendo la comprobación de arranque" },
+      fetch: { label: "Obtener", doing: "Obteniendo el origen" },
+      install: { label: "Instalar", doing: "Instalando dependencias" },
+      build: { label: "Compilar", doing: "Compilando" },
+      activate: { label: "Iniciar", doing: "Arrancando la versión nueva" },
+      health: { label: "Comprobar", doing: "Haciendo la comprobación de arranque" },
     },
 
     phaseTimeline: {
@@ -418,7 +421,7 @@ export const appPages: Catalog<typeof en> = {
     },
 
     releases: {
-      goBack: "Volver",
+      goBack: "Volver atrás",
       removedFromDisk: "Eliminada del disco",
       srBackup: ": copia de seguridad {id}",
       rollbackPointsTitle: "Copias a las que puedes volver",
@@ -433,7 +436,7 @@ export const appPages: Catalog<typeof en> = {
   },
 
   diagnose: {
-    followLiveLog: "Seguir el registro en vivo",
+    followLiveLog: "Seguir el registro en directo",
     openDeploySettings: "Abrir los ajustes de despliegue",
     zeroDowntimeTitle: "Esta aplicación podría actualizarse sin cortes",
     zeroDowntimeBody: "Sus actualizaciones la reinician en el sitio, lo que corta las conexiones un momento. Con los despliegues sin cortes la versión nueva arranca junto a la antigua y el tráfico pasa cuando responde.",
@@ -442,7 +445,7 @@ export const appPages: Catalog<typeof en> = {
     openDomains: "Abrir los dominios",
     verdictPrefix: "Veredicto:",
     checkedAt: "Comprobado {time}",
-    runAgain: "Volver a ejecutar",
+    runAgain: "Ejecutar de nuevo",
     running: "Haciendo las comprobaciones",
     mostLikely: "Lo más probable",
     allGood: "Todo bien",
@@ -509,9 +512,9 @@ export const appPages: Catalog<typeof en> = {
 
   logs: {
     connecting: "Conectando",
-    live: "En vivo",
+    live: "En directo",
     disconnected: "Desconectado",
-    readingBacklog: "Leyendo las últimas {count} líneas",
+    readingBacklog: "Cargando las últimas {count} líneas",
     lineCount: { one: "{count} línea", other: "{count} líneas" },
     streamFailed: "El flujo de registros falló",
     streamFailedHint: "La consola sigue el servicio con journalctl. Leerlo desde un terminal muestra si el propio journal responde.",
@@ -523,13 +526,13 @@ export const appPages: Catalog<typeof en> = {
     loadingJournal: "Cargando los registros",
     stackLabel: "Salida de",
     sourceAll: "Todos los servicios",
-    sourceUnit: "Unidad de systemd",
+    sourceUnit: "Servicio",
     refresh: "Recargar",
     containersNote: "Lo que imprimieron los contenedores, leído de nuevo cada 5 segundos.",
     emptyContainers: "Los contenedores todavía no han impreso nada.",
     readingContainers: "Leyendo la salida de los contenedores.",
     containersFailed: "No se pudo leer la salida de los contenedores",
-    containersFailedHint: "La consola los lee con docker compose logs. Ejecutarlo en una terminal muestra si Docker responde.",
+    containersFailedHint: "La consola los lee con docker compose logs. Ejecutarlo en un terminal muestra si Docker responde.",
     sourceLabel: "Qué registro",
     sourceApp: "Aplicación",
     sourceAccess: "Peticiones del servidor web",
@@ -538,7 +541,7 @@ export const appPages: Catalog<typeof en> = {
     accessError: "Errores de servidor",
     accessLabel: "Registro de acceso del servidor web de {domain}",
     errorLabel: "Registro de errores del servidor web de {domain}",
-    siteReading: "Leyendo el registro",
+    siteReading: "Cargando el registro",
     siteEmpty: "El registro todavía no tiene líneas.",
     siteFailed: "No se pudo leer el registro del servidor web",
     siteNotWrittenTitle: "El servidor web aún no ha escrito este registro",
@@ -550,7 +553,7 @@ export const appPages: Catalog<typeof en> = {
 
   metrics: {
     documentTitle: "Métricas - {domain}",
-    timeRangeLabel: "Rango de tiempo",
+    timeRangeLabel: "Intervalo de tiempo",
     mainTitle: "CPU y memoria",
     loading: "Cargando los gráficos",
     cpuNote: "La CPU es un porcentaje de un núcleo: 200 % son dos núcleos ocupados del todo.",

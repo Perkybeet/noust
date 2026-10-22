@@ -92,7 +92,7 @@ export const gitlab = {
     waitingTitle: "Nothing to finish here",
     waitingDescription: "This page is where GitLab sends the browser back after you approve the sign-in. Start from Integrations.",
     back: "Back to Integrations",
-    confirmAndContinue: "Confirm and continue",
+    confirmAndContinue: "Continue with GitLab",
   },
   picker: {
     mode: "From GitLab",

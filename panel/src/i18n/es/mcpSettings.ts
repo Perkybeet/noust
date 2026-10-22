@@ -37,7 +37,7 @@ export const mcpSettings: Catalog<typeof en> = {
       "Las herramientas vienen en tres grupos. Desactiva un grupo y sus herramientas no se listan ni se pueden llamar, tenga lo que tenga el token.",
     toolCount: { one: "{count} herramienta", other: "{count} herramientas" },
     inspect: { name: "Inspeccionar", description: "Solo lectura: aplicaciones, registros, despliegues, salud." },
-    deploy: { name: "Desplegar", description: "Actualizar, volver atrás y copiar una aplicación, y cancelar un trabajo." },
+    deploy: { name: "Desplegar", description: "Actualizar, volver atrás y copiar una aplicación, y cancelar una tarea." },
     control: { name: "Controlar", description: "Reiniciar, arrancar y parar una aplicación, y renovar un certificado." },
     changed: "Se cambiaron los grupos que se ofrecen",
   },

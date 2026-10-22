@@ -8,13 +8,13 @@ export const complianceSetup: Catalog<typeof en> = {
   honest:
     "Un marco activa controles técnicos. No hace que un servidor cumpla: lo organizativo es tuyo, y solo un auditor puede decir el resto.",
   loadFailed: "No se pudo leer la configuración de cumplimiento",
-  loading: "Leyendo la configuración de cumplimiento",
+  loading: "Cargando la configuración de cumplimiento",
   frameworks: {
     title: "Marcos",
     description:
       "Activa uno para encender los controles que nombra. Antes de confirmar ves qué cambia y qué cláusula cumple cada control.",
-    on: "Activo",
-    off: "Inactivo",
+    on: "Activado",
+    off: "Desactivado",
     viaProfile: "Activo por security.profile",
     controlsCount: { one: "{count} control", other: "{count} controles" },
     changesCount: {

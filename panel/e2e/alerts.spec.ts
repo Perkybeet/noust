@@ -67,7 +67,7 @@ test("a rule is two clicks from the list, says what it watches, and goes when it
 
   const created = row(page, "disk-full");
   await expect(created.getByText("CPU above 85% for 5m 00s")).toBeVisible();
-  await expect(created.getByText("OK", { exact: true })).toBeVisible();
+  await expect(created.getByText("Normal", { exact: true })).toBeVisible();
   await expect(created.getByText("On the server.")).toBeVisible();
   await expect(page.getByText("No alert is firing.")).toBeVisible();
 

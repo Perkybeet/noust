@@ -7,7 +7,7 @@
 export const consoleAccess = {
   documentTitle: "Console address",
   loadFailed: "Could not read whether the console is published",
-  loading: "Reading whether the console is published",
+  loading: "Loading whether the console is published",
   state: {
     title: "Public name",
     on: "Published",
@@ -46,7 +46,7 @@ export const consoleAccess = {
     twoFactorLacking: { one: "{count} account signs in with a password alone", other: "{count} accounts sign in with a password alone" },
     twoFactorFix: "Each owner enrols an authenticator or a passkey in Security after signing in, or the account is disabled.",
     twoFactorUnknown: "Noust checks it again when you preview, and says which accounts lack one.",
-    accountsLink: "Open Accounts",
+    accountsLink: "Open accounts",
     ens: "The ENS profile",
     ensOk: "It allows publishing the console.",
     ensBlocked: "The ENS profile keeps the console on loopback. Publishing needs the override, an allow-list and a confirmation, and is audited.",

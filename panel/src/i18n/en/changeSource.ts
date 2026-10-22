@@ -44,7 +44,7 @@ export const changeSource = {
   done: {
     title: "{domain} deploys from the new source",
     body: "What serves now keeps serving. The next update builds the new source.",
-    build: "Update now",
+    build: "Update",
     queued: "Update of {domain} queued",
     queueFailed: "The update of {domain} could not be queued",
   },

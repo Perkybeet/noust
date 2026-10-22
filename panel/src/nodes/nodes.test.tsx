@@ -109,7 +109,7 @@ describe("a page on a node", () => {
     const deletion = api("DELETE", "/api/apps/api.web2.example");
     const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(dialog).getByLabelText("Authentication code"), "123456");
-    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
     await expect(deletion).resolves.toMatchObject({ job_id: "j1" });
     expect(backend.callsTo("POST /api/auth/elevate")).toHaveLength(1);
     expect(backend.calls.some((call) => call.path === "/api/nodes/web-2/api/auth/elevate")).toBe(false);

@@ -99,8 +99,8 @@ async function passwordStep(user: ReturnType<typeof renderConsole>["user"], name
 }
 
 async function useEmergencyAccess(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
-  await user.click(await screen.findByRole("button", { name: "Emergency access" }));
-  await screen.findByRole("heading", { level: 1, name: "Emergency access" });
+  await user.click(await screen.findByRole("button", { name: "Use the access token" }));
+  await screen.findByRole("heading", { level: 1, name: "Access token" });
 }
 
 afterEach(() => {
@@ -298,7 +298,7 @@ describe("sign-in with an account", () => {
     expect(screen.getByLabelText("Código de verificación en dos pasos")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Usar otra cuenta" }));
     expect(await screen.findByLabelText("Usuario o correo")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Acceso de emergencia" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Usar el token de acceso" })).toBeInTheDocument();
     await expectNoAxeViolations(document.body, { page: true });
   });
 });
@@ -433,7 +433,7 @@ describe("emergency access with the access token", () => {
   it("opens on the token from a runbook's link", async () => {
     tokenBackend();
     renderConsole("/login?with=token");
-    expect(await screen.findByRole("heading", { level: 1, name: "Emergency access" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Access token" })).toBeInTheDocument();
     expect(screen.getByLabelText("Access token")).toBeInTheDocument();
   });
 
@@ -506,7 +506,7 @@ describe("emergency access with the access token", () => {
     await act(async () => {
       await setLocale("es");
     });
-    expect(screen.getByRole("heading", { level: 1, name: "Acceso de emergencia" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Token de acceso" })).toBeInTheDocument();
     expect(screen.getByLabelText("Código de verificación en dos pasos")).toBeInTheDocument();
     expect(screen.getByText("aceptado")).toBeInTheDocument();
     await expectNoAxeViolations(document.body, { page: true });

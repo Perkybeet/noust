@@ -17,7 +17,7 @@ export const nodeTools = {
     description: "This central makes a new key pair for {name}, and switches to it only when the server answers with it. Until then nothing changes here.",
     explain:
       "A new key pair is made for {name} and the command that authorizes it is shown. Run that command on {name}, as root: it takes the old key out there and prints a join code, which you paste here.",
-    prepare: "Make the new key",
+    prepare: "Create the new key",
     prepareFailed: "Could not make a new key for {name}",
     commandLabel: "Run this on {name}, as root",
     commandHelp: "Asking again before you finish gives the same command.",
@@ -47,7 +47,7 @@ export const nodeTools = {
     title: "How this central connects to {name}",
     description:
       "The wait for the connection, and a bastion to go through when the server has no address this central can reach. The change is tried before it is kept: when {name} does not answer, the old options stay.",
-    loading: "Reading how this central connects to {name}",
+    loading: "Loading how this central connects to {name}",
     loadFailed: "Could not read how {name} is connected to",
     timeoutLabel: "Wait for the connection",
     timeoutDescription: "Seconds, from 1 to 300. Empty is the default, {seconds} seconds.",

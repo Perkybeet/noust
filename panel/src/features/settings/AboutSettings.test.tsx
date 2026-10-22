@@ -278,7 +278,7 @@ describe("Settings > About", () => {
     // The version is in, the automatic updates are not: a section drawn now would be pushed down
     // by the one above it when that arrives.
     await waitFor(() => expect(backend.callsTo("GET /api/system/version")).toHaveLength(1));
-    expect(screen.getByText("Reading the version and the automatic updates")).toBeInTheDocument();
+    expect(screen.getByText("Loading the version and the automatic updates")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Version" })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "What's new" })).not.toBeInTheDocument();
 
@@ -286,7 +286,7 @@ describe("Settings > About", () => {
     expect(await screen.findByRole("region", { name: "Version" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "Automatic updates" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "What's new" })).toBeInTheDocument();
-    expect(screen.queryByText("Reading the version and the automatic updates")).not.toBeInTheDocument();
+    expect(screen.queryByText("Loading the version and the automatic updates")).not.toBeInTheDocument();
   });
 
   it("draws its sections when the automatic updates are refused, and asks for them once more at most", { timeout: 20_000 }, async () => {

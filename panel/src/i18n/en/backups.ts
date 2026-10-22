@@ -106,7 +106,7 @@ export const backups = {
 
   drills: {
     title: "Restore tests",
-    loading: "Reading the restore tests",
+    loading: "Loading the restore tests",
     readFailed: "Could not read the restore tests",
     descriptionEvery: { one: "A test loads the newest backup into temporary databases and drops them. A scheduled backup runs one every day.", other: "A test loads the newest backup into temporary databases and drops them. A scheduled backup runs one every {count} days." },
     descriptionOff: "A test loads the newest backup into temporary databases and drops them. Scheduled tests are off.",
@@ -442,12 +442,12 @@ export const backups = {
     title: "Browse a destination",
     description: "What a destination holds, and restoring straight from it, without a copy on this server first.",
     applicationDescription: "Leave blank to see every application found there.",
-    noDestinations: { title: "No destinations yet.", description: "Add one first." },
+    noDestinations: { title: "No destinations yet", description: "Add one first." },
     readError: "Could not read that destination",
     resultsCaption: "Backups on {name} for {app}",
     appsFoundHint: "Applications found at this destination. Choose one to see its backups.",
-    noBackupsFound: { title: "No backups found.", description: "Nothing was found at that path." },
-    nothingFound: { title: "Nothing found there.", description: "No application folders were found at this destination's path." },
+    noBackupsFound: { title: "No backups found", description: "Nothing was found at that path." },
+    nothingFound: { title: "Nothing found there", description: "No application folders were found at this destination's path." },
     columns: {
       backup: "Backup",
       modified: "Modified",

@@ -30,7 +30,7 @@ export const nav: Catalog<typeof en> = {
       fleet: "Flota",
     },
   },
-  failed: { one: "{count} con fallo", other: "{count} con fallos" },
+  failed: { one: "{count} fallido", other: "{count} fallidos" },
   /** Tras el nombre de Actividad, para tecnologías de apoyo: "Actividad 2 en curso". */
   running: { one: "{count} en curso", other: "{count} en curso" },
   expiring: { one: "{count} certificado por renovar", other: "{count} certificados por renovar" },
@@ -80,7 +80,7 @@ export const nav: Catalog<typeof en> = {
     overview: { label: "Resumen" },
     members: { label: "Miembros", keywords: "personas roles invitar propietario acceso members people" },
     notifications: { label: "Notificaciones", keywords: "alertas slack ntfy telegram webhook canales avisos notifications" },
-    settings: { label: "Ajustes", keywords: "renombrar borrar nombre rename delete" },
+    settings: { label: "Ajustes", keywords: "renombrar eliminar nombre rename delete" },
   },
   settingsTabs: {
     general: {

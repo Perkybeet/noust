@@ -9,7 +9,7 @@ export const ssoAdmin: Catalog<typeof en> = {
   },
   documentTitle: "Inicio de sesión único",
   loadFailed: "No se pudieron leer los ajustes de inicio de sesión",
-  loading: "Leyendo los ajustes de inicio de sesión",
+  loading: "Cargando los ajustes de inicio de sesión",
   loadingLabel: "ajustes de inicio de sesión",
   local: {
     title: "Contraseñas y llaves de acceso",
@@ -89,7 +89,7 @@ export const ssoAdmin: Catalog<typeof en> = {
       failed: "El proveedor no respondió como se esperaba.",
       notice: "Esto lee el documento de descubrimiento y las claves del proveedor. No inicia sesión a nadie.",
       close: "Cerrar",
-      checkPassed: "Correcta",
+      checkPassed: "Superada",
       checkFailed: "Fallida",
       checkOutput: "Lo que respondió el proveedor a {check}",
     },
@@ -140,7 +140,7 @@ export const ssoAdmin: Catalog<typeof en> = {
       defaultTeamNone: "El equipo por defecto",
       defaultTeamRole: "Rol en ese equipo",
       linkByEmail: "Vincular un primer acceso a la cuenta de su correo verificado",
-      linkByEmailHelp: "Solo para un proveedor que sea la autoridad de vuestras direcciones. La cuenta debe tener ya un segundo factor.",
+      linkByEmailHelp: "Solo para un proveedor que sea la autoridad de tus direcciones. La cuenta debe tener ya un segundo factor.",
       requireEmailVerified: "Exigir que el proveedor diga que el correo está verificado",
       assumeEmailVerified: "Leer una verificación ausente como verificada",
       assumeEmailVerifiedHelp:
@@ -197,6 +197,6 @@ export const ssoAdmin: Catalog<typeof en> = {
   signIn: {
     localLink: "Iniciar sesión con contraseña o llave de acceso",
   },
-  command: "Configurar proveedores desde una terminal",
+  command: "Configurar proveedores desde un terminal",
   commandProviders: "noust auth oidc set corp --issuer https://sso.example.com/realms/acme --client-id noust --prompt-secret",
 };

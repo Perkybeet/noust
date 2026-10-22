@@ -142,7 +142,7 @@ describe("Fleet > On several servers > Build on one server, run on the others", 
       await setLocale("es");
     });
 
-    await user.click(await screen.findByRole("button", { name: `Acciones para ${SHOP}` }));
+    await user.click(await screen.findByRole("button", { name: `Acciones de ${SHOP}` }));
     await user.click(await screen.findByRole("menuitem", { name: "Compilar en un servidor y ejecutar en los demás" }));
 
     expect(await screen.findByRole("dialog", { name: `Compilar ${SHOP} en un servidor y ejecutarla en los demás` })).toBeInTheDocument();

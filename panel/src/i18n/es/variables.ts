@@ -80,7 +80,7 @@ export const variables: Catalog<typeof en> = {
     notePreview: "Una vista previa las recibe al compilarse, sea cual sea lo que copian los ajustes de la aplicación. Un cambio llega a las vistas previas que se compilen desde ahora; las que ya están en marcha conservan lo que tienen hasta que se recompilen.",
     nameHeader: "Nombre",
     valueHeader: "Valor",
-    updatedHeader: "Cambio",
+    updatedHeader: "Cambiado",
     changedBy: "por {actor}",
     hidden: "Oculto",
     secretLabel: "Secreto",

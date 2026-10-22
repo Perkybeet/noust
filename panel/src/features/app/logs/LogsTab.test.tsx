@@ -197,7 +197,7 @@ describe("the logs tab", { timeout: 20_000 }, () => {
     });
     const journal = await screen.findByRole("region", { name: `Registros de ${TAB_DOMAIN}` });
     expect(await within(journal).findByText(/GET \/ 200 in 38ms/)).toBeInTheDocument();
-    expect(screen.getByText("En vivo")).toBeInTheDocument();
+    expect(screen.getByText("En directo")).toBeInTheDocument();
     act(() => {
       ws.drop();
     });

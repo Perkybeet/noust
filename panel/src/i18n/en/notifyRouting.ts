@@ -148,14 +148,14 @@ export const notifyRouting = {
     remove: "Remove channel",
     recipientsLabel: "Recipients",
     recipientsDescription: "Email addresses, separated by commas. They are sent through the SMTP account of the Email channel.",
-    loading: "Reading the channels",
+    loading: "Loading the channels",
   },
   deliveries: {
-    title: "Deliveries",
+    title: "Sent messages",
     description: "Each notification and what became of it. A delivery that fails is tried again, and kept here with what the destination said.",
     listLabel: "Recent deliveries",
     empty: "Nothing has been sent yet.",
-    loading: "Reading the deliveries",
+    loading: "Loading the deliveries",
     state: {
       sent: "Sent",
       retrying: "Trying again",

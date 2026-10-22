@@ -153,7 +153,7 @@ describe("Settings > About > Installation check", () => {
     expect(within(core).getByText("Missing")).toBeInTheDocument();
     expect(within(core).getByText("sudo apt install git")).toBeInTheDocument();
     expect(within(section).getByText("sudo apt install certbot")).toBeInTheDocument();
-    expect(within(section).getAllByText("OK").length).toBeGreaterThan(0);
+    expect(within(section).getAllByText("Passed").length).toBeGreaterThan(0);
     expect(within(section).getByText("Warning")).toBeInTheDocument();
   });
 

@@ -84,7 +84,7 @@ export const volumeBackups = {
     removeAction: "Remove policy",
   },
   consistency: {
-    live: "Live",
+    live: "Keep it running",
     pause: "Pause it",
     stop: "Stop it",
     liveHelp: "Copy while it runs. SQLite files inside are snapshotted whole. The least intrusive, and the least still.",

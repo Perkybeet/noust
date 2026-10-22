@@ -9,7 +9,7 @@ export const sources: Catalog<typeof en> = {
     title: "No se construye desde un repositorio git",
     body: "Una clave de despliegue y una credencial sirven para un repositorio del que se clona una aplicación. Esta se construye de otra cosa, así que no hay nada en lo que iniciar sesión.",
   },
-  fromTerminal: "Lo mismo, desde una terminal",
+  fromTerminal: "Lo mismo, desde un terminal",
   allKeys: "Todas las claves de despliegue de este servidor están en {link}.",
   allKeysLink: "Ajustes, Integraciones",
   webhookNote: "Un push al repositorio puede desplegar esta aplicación: GitHub, GitLab, Gitea y Bitbucket se configuran en {link}.",
@@ -37,7 +37,7 @@ export const sources: Catalog<typeof en> = {
       type: "Tipo",
       origin: "Creada",
       fingerprint: "Huella",
-      created: "Creación",
+      created: "Creada",
       rotated: "Sustitución",
       lastUsed: "Último uso",
       never: "Aún sin usar",
@@ -102,7 +102,8 @@ export const sources: Catalog<typeof en> = {
     },
     removeDialog: {
       title: "¿Quitar la clave de despliegue de {domain}?",
-      description: "El repositorio vuelve a la clave propia de este servidor. La clave se borra cuando ningún otro repositorio la usa. {forge} sigue confiando en la clave pública hasta que la quites allí.",
+      description:
+        "El repositorio vuelve a la clave propia de este servidor. La clave se elimina cuando ningún otro repositorio la usa. {forge} sigue confiando en la clave pública hasta que la quites allí.",
       action: "Quitar clave",
       removed: "Se quitó la clave de despliegue de {domain}",
     },

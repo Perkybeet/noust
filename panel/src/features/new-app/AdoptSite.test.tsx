@@ -167,7 +167,7 @@ describe("adopting a site from New application", { timeout: 20_000 }, () => {
 
     // Another unit is another adoption: the preview that was read does not stand for it.
     await user.click(screen.getByText("More options"));
-    await user.type(screen.getByRole("textbox", { name: /Unit/ }), "other-api");
+    await user.type(screen.getByRole("textbox", { name: /Service/ }), "other-api");
     expect(screen.queryByRole("heading", { name: "What Noust found" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
   });

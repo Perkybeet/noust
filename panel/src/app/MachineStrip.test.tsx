@@ -106,7 +106,7 @@ describe("the live stream's badge", () => {
   it("says it in Spanish too", async () => {
     await act(() => setLocale("es"));
     render(<StreamBadge stream="live" />);
-    expect(screen.getByText("En vivo")).toBeInTheDocument();
+    expect(screen.getByText("En directo")).toBeInTheDocument();
   });
 
   it("has no accessibility violations", async () => {

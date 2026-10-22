@@ -12,14 +12,14 @@ export const scimAdmin: Catalog<typeof en> = {
   endpoint: "Dirección SCIM",
   endpointHelp: "Dale al proveedor esta dirección y el token de la fuente.",
   column: {
-    source: "Fuente",
+    source: "Origen",
     state: "Estado",
     people: "Personas",
     starts: "Cuentas nuevas",
     lastUsed: "Último uso",
   },
   state: {
-    enabled: "Activa",
+    enabled: "Activado",
     disabled: "Desactivada",
   },
   neverUsed: "Nunca",

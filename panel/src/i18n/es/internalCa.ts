@@ -6,7 +6,7 @@ export const internalCa: Catalog<typeof en> = {
   title: "Autoridad de certificación privada",
   description:
     "Este servidor firma certificados para nombres que solo se resuelven dentro de una red privada, como wiki.home.arpa o grafana.lan, donde Let's Encrypt no puede comprobarlos. Un dispositivo se fía de ellos cuando se fía del certificado de la autoridad.",
-  loading: "Leyendo la autoridad",
+  loading: "Cargando la autoridad",
   readFailed: "No se pudo leer la autoridad privada",
   noneTitle: "Este servidor aún no tiene autoridad privada",
   noneNote:
@@ -20,7 +20,7 @@ export const internalCa: Catalog<typeof en> = {
   nameHelp: "Cómo muestran la autoridad los dispositivos. Déjalo vacío para usar el nombre del servidor.",
   trustHereLabel: "Confiar en ella también en este servidor",
   trustHereHelp: "Los programas que corren aquí aceptan los nombres que firma.",
-  make: "Crear la autoridad",
+  make: "Crear autoridad",
   madeToast: "Se creó la autoridad privada",
   makeFailed: "No se creó la autoridad",
   fingerprintLabel: "Huella",
@@ -68,8 +68,7 @@ export const internalCa: Catalog<typeof en> = {
   signFailed: "No se firmó el certificado",
   remove: "Eliminar la autoridad",
   removeTitle: "Eliminar la autoridad privada",
-  removeDescription:
-    "Se borra su clave y lo que firmó ya no se puede renovar. Una autoridad nueva hay que volver a aceptarla en cada dispositivo.",
+  removeDescription: "Se elimina su clave y lo que firmó ya no se puede renovar. Una autoridad nueva hay que volver a aceptarla en cada dispositivo.",
   removeForce: "Eliminarla aunque se conserven certificados que firmó",
   removedToast: "Se eliminó la autoridad privada",
   source: {

@@ -59,7 +59,7 @@ export const servers: Catalog<typeof en> = {
         "Esta central se niega a añadir su primer servidor sin ella: quien inicia sesión aquí llega a todos los servidores que gestiona.",
       link: "Configurar la verificación en dos pasos",
     },
-    fromTerminal: "Desde una terminal",
+    fromTerminal: "Desde un terminal",
     monitoring: {
       paused: "Vigilancia en pausa",
       pausedWhy: "Vigilancia en pausa: {reason}",
@@ -70,7 +70,7 @@ export const servers: Catalog<typeof en> = {
       pauseTitle: "¿Pausar la vigilancia de {name}?",
       pauseDescription: "Mientras esté en pausa, la central no pregunta cómo está {name}, no lo cuenta como caído y nunca lo anuncia, así que un mantenimiento no dispara una alarma. Lo último que respondió sigue en pantalla. Reanúdala cuando termines.",
       pauseAction: "Pausar la vigilancia",
-      reason: "Motivo",
+      reason: "Por qué",
       reasonHelp: "Se muestra junto al servidor, para que quien mire después sepa que fue a propósito.",
       pausedToast: "Vigilancia de {name} en pausa",
       resumedToast: "Vigilancia de {name} reanudada",
@@ -115,13 +115,13 @@ export const servers: Catalog<typeof en> = {
     access: {
       label: "Esta central puede",
       description: "Lo máximo que esta central puede hacer en él. Lo aplica el servidor, pida lo que pida esta central.",
-      adminHint: "Desplegar, configurar y borrar, como en el propio servidor",
+      adminHint: "Desplegar, configurar y eliminar, como en el propio servidor",
       deployHint: "Operar, actualizar y volver atrás sus aplicaciones",
       readHint: "Verlo todo, no cambiar nada",
     },
     authorize: {
       whereTitle: "Ejecútala en el otro servidor: el que estás añadiendo",
-      where: "No aquí en {central}. Abre una terminal en el servidor que añades, como root, y ejecuta allí la orden de abajo.",
+      where: "No aquí en {central}. Abre un terminal en el servidor que añades, como root, y ejecuta allí la orden de abajo.",
       intro: "En {name}, como root, ejecuta esta orden. Imprime un código de unión en una línea: cópialo para el paso siguiente.",
       commandLabel: "Orden para ejecutar en {name}",
       copy: "Copiar la orden",
@@ -193,7 +193,7 @@ export const servers: Catalog<typeof en> = {
     notReady: {
       title: "Esta central no está preparada para servidores que llaman a ella",
       listLabel: "Lo que falta",
-      run: "Prepárala desde una terminal de esta central, como root",
+      run: "Prepárala desde un terminal de esta central, como root",
     },
     host: {
       label: "Dirección a la que llama el servidor",
@@ -213,7 +213,7 @@ export const servers: Catalog<typeof en> = {
     inviteFailed: "No se pudo invitar al servidor",
     command: {
       whereTitle: "Ejecútalo en el otro servidor: el que estás añadiendo",
-      where: "No aquí, en {central}. Abre una terminal en el servidor que añades, como root, y ejecuta allí el comando de abajo.",
+      where: "No aquí, en {central}. Abre un terminal en el servidor que añades, como root, y ejecuta allí el comando de abajo.",
       intro: "En {name}, como root, ejecuta este comando. Mantiene abierta una conexión con esta central e imprime un código de enlace en una línea: cópialo para el paso siguiente.",
       label: "Comando que ejecutar en {name}",
       copy: "Copiar el comando",
@@ -265,7 +265,7 @@ export const servers: Catalog<typeof en> = {
     continueNote: "La consola sigue funcionando en esta máquina; sus servidores quedan fuera de alcance hasta que la desbloquees.",
     lostPassphrase: "Nadie puede recuperar una frase de paso perdida. Sin ella, hay que volver a autorizar todos los servidores.",
     unlockedToast: "Desbloqueada: los servidores vuelven a estar al alcance",
-    fromTerminal: "O desde una terminal en la central",
+    fromTerminal: "O desde un terminal en la central",
     bannerTitle: "Esta central está bloqueada",
     bannerDescription: "Sus servidores están fuera de alcance hasta que desbloquees sus secretos sellados.",
     bannerAction: "Desbloquear",
@@ -274,7 +274,7 @@ export const servers: Catalog<typeof en> = {
 
   central: {
     documentTitle: "Ajustes de la central",
-    fromTerminal: "Desde una terminal en la central",
+    fromTerminal: "Desde un terminal en la central",
     identity: {
       title: "Esta central",
       description: "El Noust que gestiona la flota, y lo que hace por sí mismo.",

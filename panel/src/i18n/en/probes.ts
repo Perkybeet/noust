@@ -44,7 +44,7 @@ export const probes = {
   history: {
     title: "Incidents",
     label: "Incidents of {name}",
-    loading: "Reading the incidents",
+    loading: "Loading the incidents",
     none: "It has never stopped answering.",
     lasted: "It was down for {duration}",
     stillDown: "Down for {duration} and counting",

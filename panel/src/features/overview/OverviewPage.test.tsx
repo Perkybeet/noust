@@ -168,7 +168,7 @@ describe("the overview", () => {
 
   it("says in one line that nothing needs attention on a calm server", async () => {
     await overview(undefined, "/", overviewFixture());
-    expect(await screen.findByText("Nothing needs attention.")).toBeInTheDocument();
+    expect(await screen.findByText("Nothing needs attention")).toBeInTheDocument();
   });
 
   it("shows five items until asked for all", async () => {

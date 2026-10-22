@@ -51,7 +51,7 @@ function callbackBackend(extra: Record<string, RouteHandler> = {}) {
 async function confirmItsMe(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
   const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
   await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-  await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+  await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 }
 
 async function expectToast(text: string): Promise<void> {
@@ -128,7 +128,7 @@ describe("the GitHub callback", () => {
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.click(within(confirm).getByRole("button", { name: "Cancel" }));
     expect(await screen.findByText("Nothing was changed because the confirmation was cancelled.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Confirm and continue" }));
+    await user.click(screen.getByRole("button", { name: "Continue with GitHub" }));
     await confirmItsMe(user);
     await expectToast("Installed the GitHub App on acme");
     expect(backend.callsTo("POST /api/integrations/github/installations").at(-1)?.body).toEqual({ installation_id: 7001 });

@@ -137,7 +137,7 @@ export const fleet = {
     noust: "Noust",
     method: "Updates with",
     osUpdates: "System updates",
-    reboot: "Restart",
+    reboot: "Reboot",
     when: "When",
     action: "Action",
     result: "Result",
@@ -490,7 +490,7 @@ export const fleet = {
     },
     placement_ship: {
       label: "Build on one server, run on others",
-      description: "One server builds the application once; every other server receives that release and switches to it behind its health check.",
+      description: "One server builds the application once; every other server receives that release and switches to it behind its startup check.",
     },
   },
   bulk: {
@@ -643,7 +643,7 @@ export const fleet = {
     items: "Each application",
     state: {
       queued: "Queued",
-      running: "Running",
+      running: "In progress",
       succeeded: "Succeeded",
       failed: "Failed",
       skipped: "Skipped",
@@ -655,7 +655,7 @@ export const fleet = {
     },
     count: {
       queued: { one: "{count} queued", other: "{count} queued" },
-      running: { one: "{count} running", other: "{count} running" },
+      running: { one: "{count} in progress", other: "{count} in progress" },
       succeeded: { one: "{count} succeeded", other: "{count} succeeded" },
       failed: { one: "{count} failed", other: "{count} failed" },
       skipped: { one: "{count} skipped", other: "{count} skipped" },
@@ -667,7 +667,7 @@ export const fleet = {
     },
     status: {
       queued: "Queued",
-      running: "Running",
+      running: "In progress",
       succeeded: "Succeeded",
       failed: "Failed",
       aborted: "Stopped after too many failures",
@@ -685,7 +685,7 @@ export const fleet = {
       error: "It could not be checked",
     },
     retry: {
-      button: { one: "Retry the failed one", other: "Retry the {count} failed" },
+      button: { one: "Retry failed", other: "Retry {count} failed" },
       title: "Retry the servers that did not get done",
       description: "Failed and unreachable servers, and those skipped for a reason that may not hold any more.",
       failed: "Could not start the retry",

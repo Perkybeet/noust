@@ -72,7 +72,7 @@ export const accounts = {
     unlock: "Unlock",
     changeRole: "Change role",
     newInvitation: "Send a new invitation",
-    mailAddress: "Mail address...",
+    mailAddress: "Mail address…",
     resetFactor: "Reset second factor",
     disable: "Disable",
     enable: "Enable",

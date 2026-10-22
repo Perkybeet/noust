@@ -114,7 +114,7 @@ async function confirmAsPerson(page: Page, who: Person): Promise<void> {
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Password")).toHaveCount(0);
   await dialog.getByLabel("Authentication code").fill(spare(who));
-  await dialog.getByRole("button", { name: "Confirm" }).click();
+  await dialog.getByRole("button", { name: "Continue" }).click();
   await expect(dialog).toBeHidden();
 }
 
@@ -139,7 +139,7 @@ serial("the first accounts are made from the console, and the new administrator 
   await page.getByRole("button", { name: "Create administrator" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   await confirm.getByLabel("Authentication code").fill(consoleServer.secondFactor());
-  await confirm.getByRole("button", { name: "Confirm" }).click();
+  await confirm.getByRole("button", { name: "Continue" }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: "Add a security officer" })).toBeVisible();
   await page.getByLabel(/^Username/).fill("sec");

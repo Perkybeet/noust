@@ -124,7 +124,7 @@ function alertsBackend(rules: ReturnType<typeof rule>[] = [rule("cpu-high"), FIR
 async function confirmItsYou(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
   const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
   await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-  await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+  await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 }
 
 function ruleRow(name: string): HTMLElement {
@@ -145,7 +145,7 @@ describe("Settings > Alerts", () => {
     const calm = ruleRow("cpu-high");
     expect(within(calm).getByText("CPU above 90% for 5m 00s")).toBeInTheDocument();
     expect(within(calm).getByText("On the server.")).toBeInTheDocument();
-    expect(within(calm).getByText("OK")).toHaveAttribute("data-state", "running");
+    expect(within(calm).getByText("Normal")).toHaveAttribute("data-state", "running");
 
     const firing = ruleRow("shop-memory");
     // A limit is read the way the metric is measured, and a failure rule is a failed state.

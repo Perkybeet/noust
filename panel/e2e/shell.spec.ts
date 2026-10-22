@@ -67,7 +67,7 @@ test("an anonymous visit lands on sign-in, which asks for the token and then the
   await expectNoA11yViolations(page, "sign in");
 
   // The access token is emergency access since accounts (3.1).
-  await page.getByRole("button", { name: "Emergency access" }).click();
+  await page.getByRole("button", { name: "Use the access token" }).click();
   await page.getByLabel("Access token").fill(consoleServer.token);
   await page.getByRole("button", { name: "Sign in" }).click();
 

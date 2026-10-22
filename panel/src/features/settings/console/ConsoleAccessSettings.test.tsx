@@ -90,7 +90,7 @@ describe("Settings > Console access", () => {
     expect(screen.getByText("1 account signs in with a password alone")).toBeInTheDocument();
     expect(screen.getByText("dani")).toBeInTheDocument();
     expect(screen.queryByText("ana")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Accounts" })).toHaveAttribute("href", "/settings/accounts");
+    expect(screen.getByRole("link", { name: "Open accounts" })).toHaveAttribute("href", "/settings/accounts");
     expect(screen.getByText("It allows publishing the console.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Publish the console…" })).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));

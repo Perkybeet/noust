@@ -43,11 +43,11 @@ export const activity = {
     failed: "Failed",
     cancelled: "Cancelled",
     pending: "Pending",
-    running: "Running",
+    running: "In progress",
   },
   auditResult: {
     success: "Succeeded",
-    ok: "OK",
+    ok: "Succeeded",
     denied: "Denied",
     failure: "Failed",
     locked: "Locked out",

@@ -14,7 +14,7 @@ export const probes: Catalog<typeof en> = {
   emptyTitle: "Aún no hay sondas",
   emptyDescription: "Una sonda consulta una dirección cada minuto y te avisa cuando deja de responder. Las que marques como públicas forman una página de estado.",
   listLabel: "Sondas",
-  state: { up: "Activa", down: "Caída", off: "Apagada", waiting: "En espera" },
+  state: { up: "Activa", down: "Caída", off: "Desactivada", waiting: "Esperando" },
   public: "En la página de estado",
   lastAsked: "Consultada {when}",
   neverAsked: "Aún no consultada",
@@ -43,7 +43,7 @@ export const probes: Catalog<typeof en> = {
   history: {
     title: "Incidentes",
     label: "Incidentes de {name}",
-    loading: "Leyendo los incidentes",
+    loading: "Cargando los incidentes",
     none: "Nunca ha dejado de responder.",
     lasted: "Estuvo caída {duration}",
     stillDown: "Caída desde hace {duration} y contando",
@@ -117,7 +117,7 @@ export const probes: Catalog<typeof en> = {
       published: "{domain} muestra la página de estado",
       unpublished: "{domain} ya no muestra la página de estado",
       failed: "No terminó para {domain}",
-      logLabel: "Salida del trabajo de la página de estado",
+      logLabel: "Salida de la tarea de la página de estado",
     },
   },
 };

@@ -34,7 +34,7 @@ export const compliance: Catalog<typeof en> = {
     partialTitle: "Algunas comprobaciones no se pudieron hacer",
     partial: "Sus resultados faltan en lo que sigue. Lo que dice el servidor:",
     partialLabel: "Comprobaciones que no se pudieron hacer",
-    fromTerminal: "Desde una terminal",
+    fromTerminal: "Desde un terminal",
   },
   verdict: {
     fail: { one: "{count} comprobación no se cumple", other: "{count} comprobaciones no se cumplen" },
@@ -60,6 +60,6 @@ export const compliance: Catalog<typeof en> = {
     by: "Por",
     reason: "Incidente",
     package: "Evidencias",
-    command: "Levántalo desde una terminal en este servidor",
+    command: "Levántalo desde un terminal en este servidor",
   },
 };

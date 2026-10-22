@@ -199,7 +199,7 @@ function row(name: string): HTMLElement {
 async function confirmItsYou(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
   const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
   await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-  await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+  await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 }
 
 function saveBar(): HTMLElement {
@@ -221,7 +221,7 @@ describe("Settings > Notifications", () => {
     expect(slackOn.querySelector("svg")).toHaveAttribute("data-glyph", "dot");
     expect(slackOn.closest("button, [role='switch'], a")).toBeNull();
     expect(within(row("Slack")).getByRole("button", { name: "Edit Slack" })).toBeInTheDocument();
-    expect(within(row("Webhook")).getByText("Deliveries are not signed.")).toBeInTheDocument();
+    expect(within(row("Webhook")).getByText("Messages are not signed.")).toBeInTheDocument();
     expect(within(row("Telegram")).getByText("Bot saved; no chat chosen yet.")).toBeInTheDocument();
     const emailOff = within(row("Email")).getByText("Off");
     expect(emailOff).toHaveAttribute("data-state", "stopped");

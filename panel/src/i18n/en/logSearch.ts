@@ -36,7 +36,7 @@ export const logSearch = {
   retention: {
     title: "Keeping the logs",
     description: "How long the journal keeps what applications and services write, which is also how far back a search can look.",
-    loading: "Reading how long the logs are kept",
+    loading: "Loading how long the logs are kept",
     loadFailed: "Could not read how long the logs are kept",
     defaults: "Nothing is set: journald keeps entries by its own defaults.",
     state: "Entries are kept for {days}, using at most {size}.",

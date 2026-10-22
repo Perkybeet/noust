@@ -173,7 +173,7 @@ export const catalog = {
     noChanges: "The catalog does not say what changed in this version.",
     safeTitle: "It goes back when it does not start",
     safe: "Noust copies the application first (the databases of a Docker stack included), builds the new version and checks that it answers. When it does not, the version that served is put back and the error says why. The variables the application has keep their values.",
-    reading: "Reading what this version asks for",
+    reading: "Loading what this version asks for",
     variables: "This version declares variables the application may not have yet. Give a value only for one it lacks; leave the rest empty.",
     variableHelp: "Only if the application does not have it yet.",
     cancel: "Cancel",

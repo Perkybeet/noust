@@ -2,7 +2,7 @@ import type { services as en } from "../en/services";
 import type { Catalog } from "../types";
 
 export const services: Catalog<typeof en> = {
-  fromTerminal: "Desde una terminal",
+  fromTerminal: "Desde un terminal",
   cancel: "Cancelar",
   breadcrumbServer: "Servidor",
   breadcrumbServices: "Servicios",
@@ -41,7 +41,7 @@ export const services: Catalog<typeof en> = {
     countFiltered: "{shown} de {total} servicios",
     tableCaption: "Servicios",
     tableCaptionFiltered: "Servicios que coinciden con los filtros",
-    noMatchTitle: "Ningún servicio coincide con estos filtros.",
+    noMatchTitle: "Ningún servicio coincide con estos filtros",
   },
   table: {
     state: "Estado",
@@ -67,10 +67,10 @@ export const services: Catalog<typeof en> = {
     start: "Iniciar",
     stop: "Detener",
     restart: "Reiniciar",
-    enableAtBoot: "Arrancar con el sistema",
+    enableAtBoot: "Iniciar con el sistema",
     disableAtBoot: "No arrancar con el sistema",
     actionsFor: "Acciones de {name}",
-    editTags: "Editar tags...",
+    editTags: "Editar etiquetas…",
     noun: "el servicio",
     startedToast: "Se inició {name}",
     stoppedToast: "Se detuvo {name}",

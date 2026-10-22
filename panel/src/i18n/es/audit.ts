@@ -9,7 +9,7 @@ export const audit: Catalog<typeof en> = {
   },
   outcome: {
     ok: "Hecho",
-    failure: "Falló",
+    failure: "Fallido",
     denied: "Rechazado",
     warning: "Aviso",
   },
@@ -51,7 +51,7 @@ export const audit: Catalog<typeof en> = {
     correlationTitle: "Una petición",
     correlation: "Solo los eventos de {id}: lo que hizo una petición, una orden o una tarea.",
     correlationClear: "Mostrar todos",
-    fromTerminal: "Desde una terminal",
+    fromTerminal: "Desde un terminal",
   },
   table: {
     event: "Evento",

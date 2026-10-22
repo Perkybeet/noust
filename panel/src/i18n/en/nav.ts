@@ -33,7 +33,7 @@ export const nav = {
   /** After a destination's name, for assistive technology: "Services 1 failed". */
   failed: { one: "{count} failed", other: "{count} failed" },
   /** After Activity's name, for assistive technology: "Activity 2 running". */
-  running: { one: "{count} running", other: "{count} running" },
+  running: { one: "{count} in progress", other: "{count} in progress" },
   /** After a destination's name: "Domains 2 certificates need renewing". */
   expiring: { one: "{count} certificate needs renewing", other: "{count} certificates need renewing" },
   overview: { label: "Overview", keywords: "home dashboard health", goTo: "Go to overview" },

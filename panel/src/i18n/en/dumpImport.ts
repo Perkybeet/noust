@@ -92,7 +92,7 @@ export const dumpImport = {
     safety: "Take a copy of {name} first",
     safetyHelp: "Kept with its backups, and put back if the load fails.",
     safetyAlways: "A copy of {name} is taken first, because it is dropped.",
-    confirmTitle: "Confirm",
+    confirmTitle: "Confirmation",
     confirmType: "Type {name} to confirm",
     confirmRequired: "Type the database's name to confirm that its data is replaced.",
     loadsOver: "The dump is loaded over what {name} holds: tables of the same name are not emptied first.",

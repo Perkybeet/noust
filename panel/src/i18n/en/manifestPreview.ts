@@ -59,7 +59,7 @@ export const manifestPreview = {
     appMove: "Move application",
     appBranch: "Change branch",
     appLimits: "Change limits",
-    appHealth: "Change health check",
+    appHealth: "Change startup check",
     appDomain: "Add domain",
     appDatabase: "Add database",
     appEnv: "Set variables",

@@ -125,7 +125,7 @@ describe("Account > Sign-in security", () => {
     expect(confirm).toHaveAccessibleDescription(/access token/i);
     expect(screen.queryByRole("dialog", { name: "Set up two-factor authentication" })).not.toBeInTheDocument();
     await user.type(within(confirm).getByLabelText("Access token"), "noust_mastertoken");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     // Only once elevated does the enrolment dialog open, with the secret fetched after the retry.
     const dialog = await screen.findByRole("dialog", { name: "Set up two-factor authentication" });
@@ -158,7 +158,7 @@ describe("Account > Sign-in security", () => {
 
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "654321");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     await expectToast("Turned off two-factor authentication");
     expect(await screen.findByRole("button", { name: "Set up two-factor authentication" })).toBeInTheDocument();
@@ -189,7 +189,7 @@ describe("Account > Sign-in security", () => {
 
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "654321");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     const shown = await screen.findByRole("dialog", { name: "Save your backup codes" });
     const list = within(shown).getByRole("list", { name: "Backup codes" });

@@ -34,7 +34,7 @@ export const alerts = {
     emptyDescription: "Write one for what matters to you: an application's memory, the server's disk, server errors per minute.",
     firingCount: { one: "{count} alert is firing", other: "{count} alerts are firing" },
     allClear: "No alert is firing.",
-    state: { firing: "Firing", ok: "OK", off: "Off" },
+    state: { firing: "Firing", ok: "Normal", off: "Off" },
     sentence: {
       gt: "{metric} above {limit} for {duration}",
       gte: "{metric} at or above {limit} for {duration}",
