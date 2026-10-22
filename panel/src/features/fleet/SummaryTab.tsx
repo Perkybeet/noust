@@ -132,6 +132,7 @@ function AttentionCard({ t, rows, loading }: { t: T; rows: readonly FleetRow[]; 
   }
   return (
     <Card
+      icon={OBJECT_ICONS.alert}
       as="section"
       level={2}
       padding="none"
@@ -225,7 +226,7 @@ function RecentActions({ t }: { t: T }) {
     );
   }
   return (
-    <Card icon={Play} as="section" level={2} padding="none" title={t("fleet.summary.actions.title")} description={t("fleet.summary.actions.description")}>
+    <Card icon={OBJECT_ICONS.activity} as="section" level={2} padding="none" title={t("fleet.summary.actions.title")} description={t("fleet.summary.actions.description")}>
       {body}
     </Card>
   );
