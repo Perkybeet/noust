@@ -55,6 +55,7 @@ READS_THAT_SOUND_LIKE_ACTIONS = {
     "/api/deploy-freezes": "the freezes of deploys, listed; making and lifting one are the POST and DELETE",
     "/api/apps/{domain}/update-schedule": "when the application updates itself and how the last run ended; the PUT writes the timer",
     "/api/deploy-keys/hosts": "the hosts a deploy key is pinned to",
+    "/api/deploy-keys/server": "the public half of the server's own key, to paste at a code host",
     "/api/push": "whether the server takes git pushes and which applications deploy that way",
     "/api/apps/{domain}/push": "how an application's push deployment stands: branch, remote, hook",
     "/api/apps/{domain}/push/keys": "the public halves of the keys that may push",

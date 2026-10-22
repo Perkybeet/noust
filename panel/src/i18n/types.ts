@@ -13,8 +13,6 @@ import type * as english from "./en";
  * The languages the console speaks: English and Spanish, typed catalogs the compiler holds
  * complete, and the languages contributed as data (`communityLocales.ts`).
  */
-// Until a language is contributed the registry is empty and CommunityCode is never; the union is still the right shape.
-// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type Locale = "en" | "es" | CommunityCode;
 
 export const LOCALES: readonly Locale[] = ["en", "es", ...COMMUNITY_LOCALES.map((entry): Locale => entry.code as CommunityCode)];
