@@ -27,6 +27,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/apps/{domain}/deploy-key/test"): Permission.APPS_MANAGE,
     ("GET", "/api/deploy-keys"): Permission.APPS_READ,
     ("GET", "/api/deploy-keys/hosts"): Permission.APPS_READ,
+    ("GET", "/api/deploy-keys/server"): Permission.APPS_READ,
     ("POST", "/api/deploy-keys/hosts"): Permission.SERVER_HOST_ACCESS,
     ("DELETE", "/api/deploy-keys/hosts/{host}"): Permission.SERVER_HOST_ACCESS,
 }

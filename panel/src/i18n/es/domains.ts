@@ -337,6 +337,7 @@ export const domains: Catalog<typeof en> = {
     pointsHere: "{domain} apunta aquí",
     hasNoRecord: "{domain} todavía no tiene registro DNS",
     pointsElsewhere: "{domain} apunta a otro sitio",
+    showRecords: "Mostrar los registros",
     thisServerLabel: "Este servidor",
     noPublicAddress: "No se encontró ninguna dirección pública",
     resolvesToLabel: "{domain} resuelve a",

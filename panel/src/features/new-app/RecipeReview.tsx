@@ -22,6 +22,7 @@ import { RecipeLogo } from "../catalog/RecipeLogo";
 import { RecipeRequirements } from "../catalog/RecipeRequirements";
 import { versionLabel } from "../catalog/model";
 import { addressItem } from "./DeployStep";
+import type { Summary } from "./DeployStep";
 import { editableVariables, generatedVariables, recipeVariableField, requiredVariables, variableNamed } from "./recipe";
 import type { RecipeForm } from "./recipe";
 import { joinList, typeName } from "./wizard";
@@ -101,26 +102,32 @@ function setupItems(t: T, recipe: Recipe): KeyValueItem[] {
   ];
 }
 
-/** What is about to be deployed from a recipe, one fact per row. */
-export function recipeSummary(t: T, recipe: Recipe, form: RecipeForm): KeyValueItem[] {
+/**
+ * What is about to be deployed from a recipe: what it is, where it will answer and which variables
+ * it has, first; what it sets up besides (its database, the folders it keeps) behind "Details".
+ */
+export function recipeSummary(t: T, recipe: Recipe, form: RecipeForm): Summary {
   const set = Object.values(form.env).filter((value) => value.trim() !== "").length;
-  return [
-    { label: t("newApp.recipes.recipe"), value: recipe.title, mono: false, copy: false, hint: recipe.description },
-    addressItem(t, form),
-    ...setupItems(t, recipe).slice(0, 2),
-    {
-      label: t("newApp.deploy.environment"),
-      value: set > 0 ? t("newApp.recipes.summaryVariables", { count: set }) : t("newApp.recipes.summaryGenerated"),
-      mono: false,
-      copy: false,
-    },
-  ];
+  return {
+    items: [
+      { label: t("newApp.recipes.recipe"), value: recipe.title, mono: false, copy: false, hint: recipe.description },
+      addressItem(t, form),
+      {
+        label: t("newApp.deploy.environment"),
+        value: set > 0 ? t("newApp.recipes.summaryVariables", { count: set }) : t("newApp.recipes.summaryGenerated"),
+        mono: false,
+        copy: false,
+      },
+    ],
+    details: setupItems(t, recipe).slice(0, 2),
+  };
 }
 
 /**
  * What the recipe is, above where it answers: its logo, name and slogan, the version it pins,
- * what it runs as (in Docker, or natively), what it needs the server to provide, where its code
- * comes from and its type. Everything a person reads before giving it a domain.
+ * what it runs as (in Docker, or natively) and what it needs the server to provide: everything a
+ * person reads before giving it a domain. Where its code comes from and its type are behind
+ * "Details".
  */
 export function RecipeFacts({ recipe, types }: { recipe: Recipe; types: readonly AppTypeOption[] }) {
   const t = useT();
@@ -133,6 +140,7 @@ export function RecipeFacts({ recipe, types }: { recipe: Recipe; types: readonly
         <div className="flex items-center gap-3 pb-2">
           <RecipeLogo logo={recipe.logo} title={recipe.title} />
           <div className="flex min-w-0 flex-col gap-1">
+            <p className="text-14 font-medium text-fg">{recipe.title}</p>
             <div className="flex flex-wrap items-center gap-1.5">
               {version !== null ? <Badge mono>{version}</Badge> : null}
               <Badge>{categoryWords(t, recipe.category)}</Badge>
@@ -146,14 +154,18 @@ export function RecipeFacts({ recipe, types }: { recipe: Recipe; types: readonly
             <p className="text-13 text-pretty text-fg-muted">{recipe.slogan !== "" ? recipe.slogan : recipe.description}</p>
           </div>
         </div>
-        <KeyValueList
-          items={[
-            { label: t("newApp.recipes.recipe"), value: recipe.title, mono: false, copy: false, hint: recipe.description },
-            ...(needs.length > 0 ? [{ label: t("newApp.recipes.needs"), value: needs.join(", "), mono: false, copy: false as const }] : []),
-            ...(source !== null ? [source] : []),
-            ...(recipe.app_type ? [{ label: t("newApp.recipes.type"), value: typeName(types, recipe.app_type), mono: false, copy: false as const }] : []),
-          ]}
-        />
+        {needs.length > 0 ? <KeyValueList items={[{ label: t("newApp.recipes.needs"), value: needs.join(", "), mono: false, copy: false }]} /> : null}
+        {/* Where the code comes from and which type it runs as are how the recipe does it: found, not in the way. */}
+        {source !== null || recipe.app_type ? (
+          <Disclosure label={t("newApp.deploy.details")}>
+            <KeyValueList
+              items={[
+                ...(source !== null ? [source] : []),
+                ...(recipe.app_type ? [{ label: t("newApp.recipes.type"), value: typeName(types, recipe.app_type), mono: false, copy: false as const }] : []),
+              ]}
+            />
+          </Disclosure>
+        ) : null}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <ExternalLink href={recipe.homepage} inline unlinked="text" className="text-12">
             {recipe.homepage}

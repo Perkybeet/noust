@@ -195,7 +195,7 @@ serial("passwords are turned off for single sign-on, keeping the way back, and o
   await expect(visitor.getByLabel("Username or email")).toBeHidden();
   await visitor.getByRole("button", { name: "Sign in with a password or a passkey" }).click();
   await expect(visitor.getByLabel("Username or email")).toBeVisible();
-  await expect(visitor.getByRole("button", { name: "Emergency access" })).toBeVisible();
+  await expect(visitor.getByRole("button", { name: "Access token" })).toBeVisible();
   await anonymous.close();
 
   await passwords.click();

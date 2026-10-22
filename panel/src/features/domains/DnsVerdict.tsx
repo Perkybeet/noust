@@ -2,6 +2,7 @@ import { Check, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { DnsCheck } from "../../api/queries/domains";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { ICONS } from "../../components/ui/icons";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
@@ -42,8 +43,10 @@ function AddressList({ label, addresses, matches, empty }: { label: string; addr
 }
 
 /**
- * The answer to "does this name point here?": a verdict in words and shape, this server's
- * addresses beside the ones the name resolves to, and the records to create when it does not.
+ * The answer to "does this name point here?": one line, a glyph and the sentence. What lies behind
+ * it (this server's addresses beside the ones the name resolves to, and the records to create) is
+ * one press away and only offered when the name does not point here: a name that does needs none
+ * of it, and a block of two columns to say "yes" was the heaviest thing on the address step.
  */
 export function DnsVerdict({ check, className }: { check: DnsCheck; className?: string }) {
   const t = useT();
@@ -62,6 +65,7 @@ export function DnsVerdict({ check, className }: { check: DnsCheck; className?: 
             ? t("domains.dnsVerdict.hasNoRecord", { domain: check.domain })
             : t("domains.dnsVerdict.pointsElsewhere", { domain: check.domain });
   const reached = reachesServer(verdict);
+  const detail = verdict === "elsewhere" || verdict === "missing" || verdict === "unknown";
 
   const recordList: ReactNode = (
     <>
@@ -82,43 +86,46 @@ export function DnsVerdict({ check, className }: { check: DnsCheck; className?: 
   );
 
   return (
-    <div
-      data-verdict={verdict}
-      className={cx(
-        "flex min-w-0 flex-col gap-3 rounded-card border p-3",
-        reached ? "border-ok-border bg-ok-soft" : verdict === "unknown" ? "border-border bg-surface-raised" : "border-warn-border bg-warn-soft",
-        className,
-      )}
-    >
-      <p className="flex items-center gap-2 text-14 font-medium text-fg">
+    <div data-verdict={verdict} className={cx("flex min-w-0 flex-col gap-2", className)}>
+      <p className="flex items-start gap-2 text-13 font-medium text-fg">
         {reached ? (
-          <StatusGlyph state="running" className="text-ok" />
+          <StatusGlyph state="running" className="mt-0.5 shrink-0 text-ok" />
         ) : (
-          <ICONS.warning aria-hidden="true" className="size-icon-md shrink-0 text-warn" />
+          <ICONS.warning aria-hidden="true" className="mt-0.5 size-icon-md shrink-0 text-warn" />
         )}
         <span className="min-w-0 break-words">{heading}</span>
       </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <AddressList label={t("domains.dnsVerdict.thisServerLabel")} addresses={check.expected_addresses} empty={t("domains.dnsVerdict.noPublicAddress")} />
-        <AddressList
-          label={t("domains.dnsVerdict.resolvesToLabel", { domain: check.domain })}
-          addresses={check.resolved_addresses}
-          matches={expected}
-          empty={t("domains.dnsVerdict.nothingNoRecord")}
-        />
-      </div>
-      {verdict === "cdn" ? <p className="text-13 text-pretty text-fg-muted">{t("network.dnsVerdict.cdnNote")}</p> : null}
+      {verdict === "cdn" ? <p className="pl-6 text-12 text-pretty text-fg-muted">{t("network.dnsVerdict.cdnNote")}</p> : null}
       {verdict === "unknown" ? (
-        <p className="text-13 text-pretty text-fg-muted">{t.rich("network.dnsVerdict.unknownNote", { setting: <code translate="no" className="text-12 text-fg">dns.public_addresses</code> })}</p>
+        <p className="pl-6 text-12 text-pretty text-fg-muted">{t.rich("network.dnsVerdict.unknownNote", { setting: <code translate="no" className="text-12 text-fg">dns.public_addresses</code> })}</p>
       ) : null}
-      {check.resolver ? <p className="text-12 text-fg-faint">{t("network.dnsVerdict.askedOf", { resolver: check.resolver })}</p> : null}
-      {verdict === "elsewhere" || verdict === "missing" ? (
-        <p className="text-13 text-pretty text-fg-muted">
-          {records.length > 0
-            ? t.rich("domains.dnsVerdict.pointHere", { domain: check.domain, records: recordList })
-            : t("domains.dnsVerdict.dnsChangesTakeAWhile")}
-          {onlyPrivate ? ` ${t("domains.dnsVerdict.onlyPrivateNote")}` : null}
-        </p>
+      {/* Who answered is what makes the line trustworthy: said where there is no disclosure to hold it. */}
+      {!detail && check.resolver ? <p className="pl-6 text-12 text-fg-faint">{t("network.dnsVerdict.askedOf", { resolver: check.resolver })}</p> : null}
+      {detail ? (
+        <div className="pl-6">
+          <Disclosure label={t("domains.dnsVerdict.showRecords")}>
+            <div className="flex flex-col gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <AddressList label={t("domains.dnsVerdict.thisServerLabel")} addresses={check.expected_addresses} empty={t("domains.dnsVerdict.noPublicAddress")} />
+                <AddressList
+                  label={t("domains.dnsVerdict.resolvesToLabel", { domain: check.domain })}
+                  addresses={check.resolved_addresses}
+                  matches={expected}
+                  empty={t("domains.dnsVerdict.nothingNoRecord")}
+                />
+              </div>
+              {check.resolver ? <p className="text-12 text-fg-faint">{t("network.dnsVerdict.askedOf", { resolver: check.resolver })}</p> : null}
+              {verdict === "elsewhere" || verdict === "missing" ? (
+                <p className="text-13 text-pretty text-fg-muted">
+                  {records.length > 0
+                    ? t.rich("domains.dnsVerdict.pointHere", { domain: check.domain, records: recordList })
+                    : t("domains.dnsVerdict.dnsChangesTakeAWhile")}
+                  {onlyPrivate ? ` ${t("domains.dnsVerdict.onlyPrivateNote")}` : null}
+                </p>
+              ) : null}
+            </div>
+          </Disclosure>
+        </div>
       ) : null}
     </div>
   );

@@ -285,7 +285,7 @@ describe("in the new application wizard", () => {
     expect(screen.getByLabelText("Repository or directory")).toHaveValue(SOURCE);
     expect(screen.queryByLabelText(/^Branch/)).not.toBeInTheDocument();
     expect(screen.getByText(/Archive uploaded from this browser/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await waitFor(() => expect(backend.callsTo("POST /api/apps/inspect")).toHaveLength(1));
     expect(backend.callsTo("POST /api/apps/inspect")[0]?.body).toMatchObject({ source: SOURCE });
   });

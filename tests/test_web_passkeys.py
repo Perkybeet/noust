@@ -28,6 +28,7 @@ from noust.core.accounts import AccountManager, AuthPolicy, passwords
 from noust.core.store import NoustStore
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_brute_force, get_token_manager
+from tests.mfa_support import require_second_factor
 from tests.webauthn_authenticator import SoftwareAuthenticator
 
 PASSWORD = "correct horse battery staple"
@@ -154,6 +155,7 @@ class TestRegistration:
 
     def test_a_first_second_factor_needs_no_sudo_and_brings_backup_codes(self, app: Any) -> None:
         make_account("juan", "operator", mfa=False)
+        require_second_factor()
         browser = sign_in(app, "juan", None)
         assert browser.client.get("/api/apps").json()["error"] == "mfa_required"
 

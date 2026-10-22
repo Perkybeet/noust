@@ -82,6 +82,19 @@ describe("the GitHub callback", () => {
     expect(await screen.findByRole("heading", { name: "Install it on an account" })).toBeInTheDocument();
   });
 
+  it("goes back to the new-application wizard when that is where connecting began", { timeout: 20_000 }, async () => {
+    window.sessionStorage.setItem("noust.newApp.draft", JSON.stringify({ mode: "github", source: "", branch: "", step: "source" }));
+    callbackBackend();
+    const { user, location } = renderConsole("/integrations/github/callback?installation_id=7001&setup_action=install");
+    await confirmItsMe(user);
+    await waitFor(() => {
+      expect(location().pathname).toBe("/apps/new");
+    });
+    // The wizard spends the draft's mark on its address, and leaves the draft itself for it to read.
+    expect(await screen.findByRole("heading", { level: 1, name: "New application" })).toBeInTheDocument();
+    window.sessionStorage.clear();
+  });
+
   it("records an installation and returns to Integrations", { timeout: 20_000 }, async () => {
     const backend = callbackBackend();
     const { user, location } = renderConsole("/integrations/github/callback?installation_id=7001&setup_action=install");

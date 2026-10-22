@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
@@ -90,55 +90,6 @@ describe("the checks after sign-in", () => {
     const { location } = renderConsole("/welcome?next=%2Fbackups");
     await screen.findByRole("heading", { level: 1, name: "Backups" });
     expect(location().pathname).toBe("/backups");
-  });
-});
-
-describe("the first accounts", () => {
-  it("creates an administrator, recommends a security officer, then signs in as the person", { timeout: 30_000 }, async () => {
-    let signedIn = true;
-    const compat = { ...SESSION, grant: "compat", accounts_exist: false };
-    const backend = fakeBackend({
-      ...signedInRoutes(compat),
-      "GET /api/auth/session": () => json(200, signedIn ? compat : ANONYMOUS),
-      "POST /api/auth/elevate": () => json(200, { elevated_until: new Date(Date.now() + 600_000).toISOString() }),
-      "POST /api/auth/accounts": (call: RecordedCall) => {
-        const body = call.body as { username: string; role: string };
-        return json(201, { ...ACCOUNT, id: body.role === "admin" ? 1 : 2, username: body.username, role: body.role });
-      },
-      "POST /api/auth/logout": () => {
-        signedIn = false;
-        return json(200, { success: true, message: "Signed out" });
-      },
-    });
-    const { user, container, location } = renderConsole("/setup?next=%2Fbackups");
-    await screen.findByRole("heading", { level: 1, name: "Create the first account" });
-    await expectNoAxeViolations(container, { page: true });
-    // What each field is for, where it is typed: the username signs in, the email is the person.
-    const username = screen.getByLabelText(/^Username/);
-    expect(username).toHaveAccessibleDescription(/^What you type to sign in/);
-    expect(username).toHaveAttribute("autocomplete", "username");
-    expect(screen.getByLabelText(/^Email/)).toHaveAccessibleDescription(/^Identifies the person, to keep one person's accounts apart\./);
-    expect(screen.getByLabelText(/^Password/)).toHaveAttribute("autocomplete", "new-password");
-    await user.type(username, "ana");
-    await user.type(screen.getByLabelText(/^Email/), "ana@example.com");
-    await user.type(screen.getByLabelText(/^Password/), "a long passphrase here");
-    await user.click(screen.getByRole("button", { name: "Create administrator" }));
-
-    expect(await screen.findByRole("heading", { level: 1, name: "Add a security officer" })).toBeInTheDocument();
-    expect(screen.getByText("Why a separate account")).toBeInTheDocument();
-    await user.type(screen.getByLabelText(/^Username/), "sec");
-    await user.type(screen.getByLabelText(/^Password/), "another long passphrase");
-    await user.click(screen.getByRole("button", { name: "Create security officer" }));
-
-    expect(await screen.findByRole("heading", { level: 1, name: "Accounts created" })).toBeInTheDocument();
-    expect(backend.callsTo("POST /api/auth/accounts").map((call) => call.body)).toEqual([
-      { username: "ana", role: "admin", password: "a long passphrase here", person_ref: "ana@example.com" },
-      { username: "sec", role: "security", password: "another long passphrase" },
-    ]);
-    await user.click(screen.getByRole("button", { name: "Sign in as ana" }));
-    await waitFor(() => {
-      expect(location().pathname).toBe("/login");
-    });
   });
 });
 

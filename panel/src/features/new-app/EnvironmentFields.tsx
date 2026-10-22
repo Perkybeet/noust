@@ -1,7 +1,8 @@
-import { ChevronDown, Eye, EyeOff, KeyRound } from "lucide-react";
+import { Eye, EyeOff, KeyRound } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "../../components/ui/Button";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
@@ -182,17 +183,19 @@ export function EnvironmentFields({ rows, errors, onChange }: EnvironmentFieldsP
         <DeclaredRow key={row.id} row={row} error={errors[envField(row)]} onChange={(value) => update(row.id, { value })} />
       ))}
       {folded.length > 0 ? (
-        <details open={foldedErrors || first.length === 0} className="group overflow-hidden rounded-card border border-border">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 -outline-offset-2 hover:bg-surface-hover [&::-webkit-details-marker]:hidden">
-            <span className="text-13 font-medium text-fg">{t("newApp.env.withValues", { count: folded.length })}</span>
-            <ChevronDown aria-hidden="true" className="size-icon-sm text-fg-muted transition-transform duration-(--duration-fast) group-open:rotate-180" />
-          </summary>
-          <div className="flex flex-col gap-5 border-t border-border px-4 py-4">
+        // Opens by itself when a variable in it has an error to show; the key makes it open when that happens.
+        <Disclosure
+          key={foldedErrors ? "open" : "closed"}
+          variant="card"
+          defaultOpen={foldedErrors || first.length === 0}
+          label={t("newApp.env.withValues", { count: folded.length })}
+        >
+          <div className="flex flex-col gap-5">
             {folded.map((row) => (
               <DeclaredRow key={row.id} row={row} error={errors[envField(row)]} onChange={(value) => update(row.id, { value })} />
             ))}
           </div>
-        </details>
+        </Disclosure>
       ) : null}
       {extra.length > 0 ? (
         <div className="flex flex-col gap-4 border-t border-border pt-5">

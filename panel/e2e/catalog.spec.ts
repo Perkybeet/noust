@@ -20,7 +20,7 @@ function recipes(page: Page): Locator {
 }
 
 function card(page: Page, title: string): Locator {
-  return recipes(page).getByRole("listitem").filter({ has: page.getByRole("heading", { level: 2, name: title, exact: true }) });
+  return recipes(page).getByRole("listitem").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
 }
 
 /**
@@ -36,34 +36,29 @@ async function find(page: Page, title: string): Promise<Locator> {
 
 /** The names of the recipes on screen, in the order they are drawn. */
 async function titles(page: Page): Promise<string[]> {
-  return recipes(page).getByRole("heading", { level: 2 }).allTextContents();
+  return recipes(page).getByRole("heading").allTextContents();
 }
 
 test("the catalog draws a card for each recipe, its logo loaded under the strict policy", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog");
   await expect(page.getByRole("heading", { level: 1, name: "Catalog" })).toBeVisible();
-  await expect(recipes(page).getByRole("heading", { level: 2 })).toHaveCount(20);
+  await expect(recipes(page).getByRole("heading")).toHaveCount(20);
   await settle(page);
   await expectNoA11yViolations(page, "the catalog");
   const vault = await find(page, "Vaultwarden");
   // The logo is the one the server serves, as an image: the page's policy lets it through (the
   // fixture fails the test on any violation), and it decoded.
   await expect.poll(() => vault.locator("img").evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
-  await expect(vault.getByText("v1.37.4")).toBeVisible();
-  await expect(vault.getByText("Runs in Docker")).toBeVisible();
-  await expect(vault.getByText("Security", { exact: true })).toBeVisible();
-  await expect(vault.getByRole("list", { name: "Tags" })).toContainText("passwords");
-  await expect(vault.getByRole("link", { name: /Documentation of Vaultwarden/ })).toHaveAttribute("href", /^https:\/\//);
+  // A tile is the logo, the name, one line and Use: the rest is on the recipe's page.
+  await expect(vault.getByRole("link", { name: "Vaultwarden" })).toHaveAttribute("href", "/catalog/vaultwarden");
   await expect(vault.getByRole("button", { name: "Use Vaultwarden" })).toBeEnabled();
-  // A native recipe says what it needs, not that it runs in Docker.
-  const wordpress = await find(page, "WordPress");
-  await expect(wordpress.getByText("A MySQL database")).toBeVisible();
-  await expect(wordpress.getByText("Runs in Docker")).toHaveCount(0);
+  await expect(vault.getByText("Runs in Docker")).toHaveCount(0);
+  await expect(vault.getByRole("list", { name: "Tags" })).toHaveCount(0);
 });
 
 test("the catalog is searched and filtered by the server's own search, and says when nothing matches", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog");
-  await expect(recipes(page).getByRole("heading", { level: 2 })).toHaveCount(20);
+  await expect(recipes(page).getByRole("heading")).toHaveCount(20);
 
   await page.getByRole("searchbox", { name: "Search recipes" }).fill("bitwarden");
   await expect(page).toHaveURL(/[?&]q=bitwarden/);
@@ -71,7 +66,7 @@ test("the catalog is searched and filtered by the server's own search, and says 
   await expect(card(page, "WordPress")).toHaveCount(0);
   await expect(page.getByRole("status").filter({ hasText: /^\d+ of \d+ recipes$/ })).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
-  await expect(recipes(page).getByRole("heading", { level: 2 })).toHaveCount(20);
+  await expect(recipes(page).getByRole("heading")).toHaveCount(20);
   await expect(page).not.toHaveURL(/q=/);
 
   // A category of the closed list, with how many recipes it holds.
@@ -107,7 +102,7 @@ test("the catalog is searched and filtered by the server's own search, and says 
 
 test("the catalog pages at the operator's size and remembers it, with the recipes it cannot deploy listed with their reason", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog");
-  await expect(recipes(page).getByRole("heading", { level: 2 })).toHaveCount(20);
+  await expect(recipes(page).getByRole("heading")).toHaveCount(20);
   const paging = page.getByRole("group", { name: "Pagination" });
   const range = await paging.getByText(/^Showing 1–20 of \d+$/).textContent();
   const total = Number(/of (\d+)$/.exec(range ?? "")?.[1]);
@@ -142,7 +137,7 @@ test("the catalog pages at the operator's size and remembers it, with the recipe
 
 test("a recipe's own page says what it runs, needs, asks for and tells, and shows no secret", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog");
-  await (await find(page, "Vaultwarden")).getByRole("link", { name: "Details of Vaultwarden" }).click();
+  await (await find(page, "Vaultwarden")).getByRole("link", { name: "Vaultwarden" }).click();
   await expect(page).toHaveURL(/\/catalog\/vaultwarden$/);
   await expect(page.getByRole("heading", { level: 1, name: "Vaultwarden" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Catalog" })).toBeVisible();

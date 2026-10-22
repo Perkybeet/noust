@@ -1,10 +1,9 @@
-import { ChevronDown } from "lucide-react";
-
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Subsection } from "../../components/page/Subsection";
 import { Card } from "../../components/ui/Card";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
@@ -140,15 +139,15 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
         />
       ) : null}
 
-      <details open={advancedErrors} className="group overflow-hidden rounded-card border border-border">
-        <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 -outline-offset-2 hover:bg-surface-hover [&::-webkit-details-marker]:hidden">
-          <span className="text-13 font-medium text-fg">{t("newApp.review.advanced")}</span>
-          <span className="flex items-center gap-1.5 text-12 text-fg-muted">
-            <span className="group-open:hidden">{advancedSummary(t, form)}</span>
-            <ChevronDown aria-hidden="true" className="size-icon-sm transition-transform duration-(--duration-fast) group-open:rotate-180" />
-          </span>
-        </summary>
-        <div className="flex flex-col gap-6 border-t border-border px-4 py-4">
+      {/* Opens by itself when something in it has an error to show; the key makes it open when that happens. */}
+      <Disclosure
+        key={advancedErrors ? "open" : "closed"}
+        variant="card"
+        defaultOpen={advancedErrors}
+        label={t("newApp.review.advanced")}
+        summary={advancedSummary(t, form)}
+      >
+        <div className="flex flex-col gap-6">
           {container ? null : (
           <ChoiceCards<Layout>
             legend={t("newApp.review.deploys")}
@@ -182,7 +181,7 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
           </div>
           <ResourceLimitsFields draft={form.limits} cores={cores} errors={errors} onChange={(limits) => set({ limits })} />
         </div>
-      </details>
+      </Disclosure>
     </div>
   );
 }

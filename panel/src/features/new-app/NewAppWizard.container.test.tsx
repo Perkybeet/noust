@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
+import { chooseWay } from "../../test/ways";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import type { Inspection } from "./wizard";
@@ -78,7 +79,7 @@ type User = ReturnType<typeof renderConsole>["user"];
 /** The start named by a radio of "Where the code is". */
 async function start(user: User, name: string) {
   await screen.findByRole("heading", { level: 1, name: "New application" });
-  await user.click(await screen.findByRole("radio", { name }));
+  await chooseWay(user, name);
 }
 
 /** An optional field of the container section, by what its label begins with. */
@@ -92,7 +93,7 @@ describe("a container application from a repository with a Dockerfile", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "/var/www/src/shop");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "crate.example.com");
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -161,7 +162,7 @@ describe("a container application from a repository with a Dockerfile", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "/var/www/src/shop");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "crate.example.com");
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -183,7 +184,7 @@ describe("a container application from a repository with a Dockerfile", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "/var/www/src/shop");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "crate.example.com");
     await user.click(screen.getByRole("button", { name: "Continue" }));

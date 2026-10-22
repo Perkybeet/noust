@@ -2608,6 +2608,8 @@ DeploymentOut = TypedDict("DeploymentOut", {
     "cancelled": NotRequired[bool],
     "cancelled_at": NotRequired[Union[str, None]],
     "cancelled_by": NotRequired[Union[str, None]],
+    "certificate_output": NotRequired[Union[str, None]],
+    "certificate_state": NotRequired[Union[str, None]],
     "commit_message": NotRequired[Union[str, None]],
     "domain": Required[str],
     "duration_s": NotRequired[Union[float, None]],
@@ -8050,6 +8052,11 @@ ServerInfo = TypedDict("ServerInfo", {
     "version": NotRequired[str],
 })
 
+ServerKeyResponse = TypedDict("ServerKeyResponse", {
+    "fingerprint": NotRequired[Union[str, None]],
+    "public_key": NotRequired[Union[str, None]],
+})
+
 ServerShellModel = TypedDict("ServerShellModel", {
     "allowed": Required[bool],
     "enabled": Required[bool],
@@ -9208,9 +9215,12 @@ TelegramSettingsResponse = TypedDict("TelegramSettingsResponse", {
 
 TemporaryNameResponse = TypedDict("TemporaryNameResponse", {
     "address": Required[str],
+    "available": NotRequired[Union[bool, None]],
     "declared": NotRequired[bool],
     "domain": Required[str],
-    "service": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "reason": NotRequired[Union[str, None]],
+    "service": NotRequired[str],
 })
 
 TerminalRequest = TypedDict("TerminalRequest", {

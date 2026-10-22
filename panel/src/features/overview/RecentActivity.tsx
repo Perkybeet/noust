@@ -6,6 +6,7 @@ import { deployStatus } from "../../components/page/status";
 import { Card } from "../../components/ui/Card";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
@@ -86,15 +87,14 @@ export function RecentActivity({ entries }: RecentActivityProps) {
       }
     >
       {entries === undefined ? (
-        <div aria-busy="true" className="flex flex-col gap-3 px-4 py-3.5">
-          <span className="sr-only">{t("overview.activity.title")}</span>
+        <LoadingRegion label={t("overview.activity.title")} className="flex flex-col gap-3 px-4 py-3.5">
           {[0, 1, 2].map((row) => (
             <div key={row} aria-hidden="true" className="flex items-center gap-2.5">
               <Skeleton className="size-3 rounded-pill" />
               <Skeleton className="h-3.5 w-56 max-w-full" />
             </div>
           ))}
-        </div>
+        </LoadingRegion>
       ) : days.length === 0 ? (
         <div className="px-4 py-3.5 text-13 text-pretty text-fg-muted">
           <span className="font-medium text-fg">{t("overview.activity.emptyTitle")}</span> {t("overview.activity.emptyDescription")}

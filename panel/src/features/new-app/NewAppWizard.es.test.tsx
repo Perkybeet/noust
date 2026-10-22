@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
+import { chooseWay } from "../../test/ways";
 import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
 import { EXPORT, RECIPES, WORDPRESS } from "./testFixtures";
 import type { Inspection } from "./wizard";
@@ -79,18 +80,18 @@ describe("the new-app wizard in Spanish", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Origen" })).toBeInTheDocument();
     const modes = screen.getByRole("radiogroup", { name: "Dónde está el código" });
     expect(within(modes).getByRole("radio", { name: "URL o ruta" })).toBeChecked();
-    expect(within(modes).getByRole("radio", { name: "Desde una receta" })).toBeInTheDocument();
-    expect(within(modes).getByRole("radio", { name: "Importar aplicación" })).toBeInTheDocument();
+    // The rest of the ways are one button away.
+    expect(screen.getByRole("button", { name: "Más formas" })).toBeInTheDocument();
     const steps = screen.getByRole("list", { name: "Pasos" });
     expect(within(steps).getByText("Configuración: sin empezar")).toBeInTheDocument();
 
     // A client-side validation message, in Spanish, said by Continue and on its field.
-    await user.click(screen.getByRole("button", { name: "Inspeccionar origen" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
     expect(await screen.findAllByText("Escribe una URL de Git o una ruta de este servidor.")).toHaveLength(2);
     await expectNoAxeViolations(screen.getByRole("main"));
 
     await user.type(screen.getByLabelText("Repositorio o directorio"), "/var/www/src/storefront");
-    await user.click(screen.getByRole("button", { name: "Inspeccionar origen" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Dirección" })).toHaveFocus();
     await user.type(screen.getByLabelText("Dominio"), "storefront.example.com");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
@@ -128,12 +129,15 @@ describe("the new-app wizard in Spanish", () => {
     const { harness } = wizard();
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "Nueva aplicación" });
-    await user.click(screen.getByRole("radio", { name: "Desde una receta" }));
+    await chooseWay(user, "Desde una receta");
     expect(await screen.findByRole("button", { name: "Usar WordPress" })).toBeInTheDocument();
-    expect(screen.getByText("Una base de datos MySQL")).toBeInTheDocument();
+    // A tile says what it is; what it needs and its site are under Detalles.
+    const wordpress = screen.getByRole("heading", { level: 3, name: "WordPress" }).closest("li") as HTMLElement;
+    await user.click(within(wordpress).getByRole("button", { name: "Detalles" }));
+    expect(within(wordpress).getByText("Una base de datos MySQL")).toBeInTheDocument();
     expect(screen.getByText("No disponible en esta versión")).toBeInTheDocument();
     expect(screen.getByText(/supports only MySQL 8 in production/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /wordpress\.org/ })).toHaveTextContent("wordpress.org (se abre en una pestaña nueva)");
+    expect(within(wordpress).getByRole("link", { name: /wordpress\.org/ })).toHaveTextContent("wordpress.org (se abre en una pestaña nueva)");
     await expectNoAxeViolations(screen.getByRole("main"));
 
     await user.click(screen.getByRole("button", { name: "Usar WordPress" }));
@@ -153,7 +157,7 @@ describe("the new-app wizard in Spanish", () => {
     const { harness } = wizard();
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "Nueva aplicación" });
-    await user.click(screen.getByRole("radio", { name: "Importar aplicación" }));
+    await chooseWay(user, "Importar aplicación");
     await user.upload(screen.getByLabelText("Fichero de exportación"), new File(["{"], "x.json", { type: "application/json" }));
     expect(await screen.findByText(/^Este fichero no es JSON\./)).toBeInTheDocument();
 
@@ -164,7 +168,8 @@ describe("the new-app wizard in Spanish", () => {
 
     expect(await screen.findByRole("heading", { level: 2, name: "Dirección" })).toHaveFocus();
     await user.click(screen.getByText("Lo que define la exportación"));
-    const summary = screen.getByText("Lo que define la exportación").closest("details") as HTMLElement;
+    const summary = within(document.body).getByRole("button", { name: /Lo que define la exportación/ }).closest<HTMLElement>('[data-slot="disclosure-card"]');
+    if (summary === null) throw new Error("the export's summary is not a disclosure card");
     expect(within(summary).getByText("1 tarea")).toBeInTheDocument();
     expect(within(summary).getByText("2 valores omitidos")).toBeInTheDocument();
     await user.clear(screen.getByLabelText("Dominio"));
