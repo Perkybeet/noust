@@ -12,9 +12,9 @@ describe("locale", () => {
   it("defaults to the first of the browser's languages the console speaks", () => {
     expect(browserLocale(["es-ES", "en"])).toBe("es");
     expect(browserLocale(["es-419"])).toBe("es");
-    expect(browserLocale(["fr-FR", "es", "en"])).toBe("es");
+    expect(browserLocale(["it-IT", "es", "en"])).toBe("es");
     expect(browserLocale(["en-GB", "es"])).toBe("en");
-    expect(browserLocale(["de", "fr"])).toBe("en");
+    expect(browserLocale(["nl", "ja"])).toBe("en");
     vi.stubGlobal("navigator", { languages: ["es-MX", "en-US"], language: "es-MX" });
     expect(readLocale()).toBe("es");
   });
