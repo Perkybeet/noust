@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2026 Yago Lopez Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 import click
 
-from noust import __version__
+from noust import __copyright__, __license__, __source__, __version__
 from noust.core import retired_names
 from noust.core.exceptions import ConfigError, NoustError
 from noust.core.fs import DryRunFileSystem, set_fs
@@ -650,6 +650,19 @@ def _remote_form(name: str) -> click.Command:
     return found
 
 
+#: ``noust --version``. The first line is read by machines (a central's enrollment probe, the
+#: installer) and stays "Noust X.Y.Z"; the rest are the notices the AGPL asks of a program that
+#: interacts with its users.
+VERSION_MESSAGE = (
+    "%(prog)s %(version)s\n"
+    f"{__copyright__}\n"
+    f"Licence {__license__}: https://www.gnu.org/licenses/agpl-3.0.html\n"
+    "This is free software: you are free to change and redistribute it.\n"
+    "There is NO WARRANTY, to the extent permitted by law.\n"
+    f"Source: {__source__}"
+)
+
+
 @click.group(
     cls=LazyGroup,
     lazy={**COMMAND_MODULES, **WEBAPP_COMMANDS},
@@ -661,7 +674,7 @@ def _remote_form(name: str) -> click.Command:
     "-V",
     "--version",
     prog_name="Noust",
-    message="%(prog)s %(version)s",
+    message=VERSION_MESSAGE,
 )
 @click.option("-v", "--verbose", is_flag=True, help="Show the detail of each step.")
 @click.option(
