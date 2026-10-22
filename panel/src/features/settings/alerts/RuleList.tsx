@@ -27,7 +27,7 @@ import type { Status } from "../../../components/ui/StatusPill";
 import { Switch } from "../../../components/ui/Switch";
 import { useT } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
-import { SettingsPrimaryAction } from "../SettingsShell";
+import { SettingsPrimaryAction } from "../SettingsPrimaryAction";
 import { acknowledgement } from "./data";
 import { RuleDrawer } from "./RuleDrawer";
 import { appliesTo, formatReading, ruleSentence } from "./rules";
