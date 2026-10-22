@@ -170,6 +170,8 @@ async function repositoryWalk(page: Page, domain: string, source?: string): Prom
   await page.getByRole("link", { name: "New application", exact: true }).first().click();
   await page.getByLabel("Repository or directory").fill(source ?? (await wizardSource(page, "landing")));
   await readSource(page);
+  // The wizard reads the source and goes on; the step it leaves is the one with the field.
+  await expect(page.getByLabel("Repository or directory")).toBeHidden();
   await expect(stepTitle(page).first()).toBeVisible();
   // A server with no domain of its own passes the address over (the demo's temporary name); one with them asks.
   if ((await stepTitle(page).textContent()) === "Address") await page.getByLabel("Domain", { exact: true }).fill(domain);

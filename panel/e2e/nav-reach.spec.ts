@@ -21,13 +21,18 @@
 
 import type { Page, Response } from "@playwright/test";
 
-import { DESTS, isStaged, paletteEntries } from "../src/app/nav";
+import { DESTS, REDIRECTS, isStaged, paletteEntries } from "../src/app/nav";
 import type { Dest } from "../src/app/nav";
 import type { PlainKey } from "../src/i18n";
 import { english } from "./catalog";
 import { depthOf } from "./clicks";
 import { expect, settle, signIn, startConsoleServer, test } from "./fixtures";
 import type { ConsoleServer, RunningServer } from "./fixtures";
+
+/** Where an address ends up: an old address that redirects is its screen's new place (NV-18), and that is where the palette lands. */
+function placeOf(to: string): string {
+  return REDIRECTS.find((row) => row.from === to && row.state === "live")?.to ?? to;
+}
 
 /** A text of the English catalog by its dotted key. */
 function textOf(key: PlainKey): string {
@@ -199,7 +204,6 @@ function reachedAt(depths: ReadonlyMap<string, number>, entry: Dest): number | u
  * gets shorter, and it is empty when the 4.0 work is whole.
  */
 const NOT_LINKED_YET: Readonly<Record<string, string>> = {
-  "overview.map": "the arrival lane draws the Overview's tabs (Overview | Map)",
   "apps.recipes": "the closing lane draws the Applications tabs (Applications | Recipes | Installed)",
   "apps.installed": "the closing lane draws the Applications tabs (Applications | Recipes | Installed)",
 };
@@ -260,7 +264,7 @@ test.describe("a server on its own", () => {
       await page.keyboard.press("Enter");
       await expect(page.getByRole("dialog", { name: "Search the console" })).toBeHidden();
       const landed = new URL(page.url()).pathname.replace(/\/$/, "") || "/";
-      if (landed !== entry.to) missed.push(`"${entry.text}" went to ${landed}, not ${entry.to} (${entry.id})`);
+      if (landed !== placeOf(entry.to)) missed.push(`"${entry.text}" went to ${landed}, not ${placeOf(entry.to)} (${entry.id})`);
     }
     expect(missed, missed.join("\n")).toEqual([]);
   });
@@ -326,7 +330,7 @@ withFleet.describe("a fleet", () => {
       await page.keyboard.press("Enter");
       await expect(page.getByRole("dialog", { name: "Search the console" })).toBeHidden();
       const landed = new URL(page.url()).pathname.replace(/\/$/, "") || "/";
-      if (landed !== entry.to) missed.push(`"${entry.text}" went to ${landed}, not ${entry.to} (${entry.id})`);
+      if (landed !== placeOf(entry.to)) missed.push(`"${entry.text}" went to ${landed}, not ${placeOf(entry.to)} (${entry.id})`);
     }
     expect(missed, missed.join("\n")).toEqual([]);
   });

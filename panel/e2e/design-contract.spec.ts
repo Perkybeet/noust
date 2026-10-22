@@ -278,7 +278,6 @@ const ONE_EACH_DEBT: Readonly<Record<string, string>> = {
   "backups-noust": "an empty state draws a second primary beside the header's (FM-2)",
   "backups-volumes": "an empty state draws a second primary beside the header's (FM-2)",
   "settings-alerts": "the header and the empty state both draw New rule, and the form's Save is a third",
-  "settings-probes": "the header and the empty state both draw New probe",
 };
 
 // Every route of the console, clean and dirty, on a desk and on a phone, in both themes: a view has one primary
