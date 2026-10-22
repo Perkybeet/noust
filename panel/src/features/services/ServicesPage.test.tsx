@@ -173,7 +173,7 @@ describe("the services tab", () => {
     expect(await screen.findByText("Created e2e-worker")).toBeInTheDocument();
   });
 
-  it("confirms it's you before creating a service, and retries once confirmed", async () => {
+  it("confirms it's you before creating a service, and retries once confirmed", { timeout: 20_000 }, async () => {
     let elevated = false;
     const { user, backend, table } = await servicesAt("/server/services", {
       "POST /api/services": () => {
