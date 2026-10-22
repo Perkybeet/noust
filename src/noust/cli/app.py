@@ -593,8 +593,7 @@ class LazyGroup(click.Group):
             from noust.central import refuse_command_on_hub
 
             refuse_command_on_hub("create", ctx)
-            verbs = importlib.import_module("noust.cli.commands.deploy").cli
-            return "deploy", verbs, args[1:]
+            return "deploy", deploy_verbs(), args[1:]
         _, command, remaining = super().resolve_command(ctx, args)
         if command is not None and command.name:
             # One check for every command a hub central does not have, here
@@ -603,6 +602,50 @@ class LazyGroup(click.Group):
 
             refuse_command_on_hub(command.name, ctx)
         return (command.name if command else None), command, remaining
+
+
+def deploy_verbs() -> click.Group:
+    """
+    Load the group that ``noust deploy VERB`` runs.
+
+    The one place that imports it, so the dispatch in :meth:`LazyGroup.resolve_command` and the
+    reference and manual generators (:func:`documented_commands`) reach the same group: what is
+    documented is what runs.
+
+    Returns:
+        The ``deploy`` group, with every verb of :data:`DEPLOY_VERBS` registered.
+    """
+    module = importlib.import_module("noust.cli.commands.deploy")
+    group: click.Group = module.cli
+    return group
+
+
+def documented_commands(group: click.Group, ctx: click.Context) -> list[tuple[str, click.Command]]:
+    """
+    List the commands under a group the way the reference and the manual document them.
+
+    ``noust deploy`` is ``noust create`` under its old name, so the root lists no ``deploy`` and
+    :meth:`LazyGroup.resolve_command` hands the verbs of :data:`DEPLOY_VERBS` to their own group.
+    A walker that asked only for what the root lists never reached ``noust deploy queue``, and the
+    pages generated from the tree went out without it. The listing itself is untouched:
+    ``--help`` and completion still print what ``list_commands`` returns.
+
+    Args:
+        group: The group to read.
+        ctx: Its context.
+
+    Returns:
+        ``(name, command)`` by name: what the group lists, and ``deploy`` too under the root.
+        Hidden commands are included; the caller decides what to show.
+    """
+    found = {
+        name: command
+        for name in group.list_commands(ctx)
+        if (command := group.get_command(ctx, name)) is not None
+    }
+    if group is cli:
+        found.setdefault("deploy", deploy_verbs())
+    return sorted(found.items(), key=lambda pair: pair[0])
 
 
 def _runs_remotely(ctx: click.Context) -> bool:
