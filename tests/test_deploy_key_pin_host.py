@@ -286,6 +286,7 @@ class TestTheSurfaces:
         self,
         manager: DeployKeyManager,
         keygen: DeployKeyRunner,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         from fastapi import FastAPI, HTTPException
         from fastapi.testclient import TestClient
@@ -307,7 +308,8 @@ class TestTheSurfaces:
             return session
 
         app.dependency_overrides[require_elevated] = elevation
-        api._manager = lambda _session: manager  # type: ignore[assignment]
+        # Through monkeypatch, so the next test's requests build their own manager again.
+        monkeypatch.setattr(api, "_manager", lambda _session: manager)
         client = TestClient(app)
         keyscan(keygen, "github.com", ED25519)
         body = {"host": "github.com", "fingerprint": fingerprint(ED25519)}
