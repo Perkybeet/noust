@@ -5,7 +5,7 @@ import type { Namespace } from "./types";
 
 export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = {
   "/_console": [],
-  "/_console/": ["activity", "appPages", "apps", "auditEvents", "auth", "common", "fleet", "inbox", "map", "overview", "queue", "server", "servers", "settings", "timeline"],
+  "/_console/": ["activity", "appPages", "apps", "auditEvents", "auth", "common", "fleet", "inbox", "map", "nav", "overview", "queue", "server", "servers", "settings", "shell", "timeline"],
   "/_console/account": ["account", "auth", "fleet", "nav", "settings"],
   "/_console/account/": ["account", "accounts", "auth", "settings"],
   "/_console/account/security": ["account", "appPages", "apps", "auth", "queue", "settings"],
@@ -139,7 +139,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/invite": ["accounts", "auth", "settings"],
   "/login": ["auth", "ssoAdmin"],
   "/reset-password": ["accounts", "auth", "settings"],
-  "/setup": ["accounts", "auth"],
+  "/setup": ["auth", "settings"],
   "/welcome": ["auth", "settings"],
   "__root__": [],
 };

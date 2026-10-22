@@ -210,3 +210,93 @@ def test_the_help_lists_the_new_options(machine: dict[str, str]) -> None:
 
     for text in ("--admin-user", "--admin-password-file", "--json", "NOUST_ADMIN_PASSWORD"):
         assert text in done.stdout
+
+
+# ---------------------------------------------------------------------------
+# Where the console is, said as a command that is copied as it is (4.0)
+# ---------------------------------------------------------------------------
+
+
+def fake_ip(directory: Path, output: str, exit_code: int = 0) -> Path:
+    """A directory holding an ``ip`` that answers ``ip route get`` with ``output``."""
+    directory.mkdir(exist_ok=True)
+    script = directory / "ip"
+    script.write_text(f"#!/bin/sh\nprintf '%s\\n' '{output}'\nexit {exit_code}\n")
+    script.chmod(0o755)
+    return directory
+
+
+def stripped(machine: dict[str, str]) -> dict[str, str]:
+    """The machine without the address the tests describe, so the script has to find one."""
+    return {key: value for key, value in machine.items() if key != "NOUST_SERVER_ADDRESS"}
+
+
+def test_the_console_is_reached_with_a_command_that_is_copied_as_it_is(
+    machine: dict[str, str],
+) -> None:
+    done = install(machine)
+
+    assert done.returncode == 0, done.stderr
+    assert (
+        "To open the console from your computer, run this there:\n"
+        "  ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.7\n"
+        "Then browse to:\n"
+        "  http://127.0.0.1:8080/login?with=token\n"
+    ) in done.stdout
+
+
+def test_the_address_is_the_source_of_the_default_route_when_sshd_said_nothing(
+    machine: dict[str, str], tmp_path: Path
+) -> None:
+    bin_dir = fake_ip(tmp_path / "bin", "1.1.1.1 via 203.0.113.1 dev eth0 src 203.0.113.55 uid 0")
+    environment = {**stripped(machine), "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+
+    done = install(environment, "--json")
+
+    assert json.loads(done.stdout)["console"]["tunnel"] == (
+        "ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.55"
+    )
+    assert "private" not in done.stderr
+
+
+def test_the_address_of_a_private_network_is_printed_and_said_to_be_one(
+    machine: dict[str, str], tmp_path: Path
+) -> None:
+    bin_dir = fake_ip(tmp_path / "bin", "1.1.1.1 via 10.0.0.1 dev eth0 src 10.0.0.5 uid 0")
+    environment = {**stripped(machine), "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+
+    done = install(environment)
+
+    assert "root@10.0.0.5" in done.stdout
+    assert "10.0.0.5 is an address of a private network" in done.stdout
+    assert "the address you reach this server at" in done.stdout
+
+
+def test_an_address_the_script_cannot_tell_is_a_sentence_and_not_a_riddle(
+    machine: dict[str, str],
+) -> None:
+    # Described as unknown: set, and empty. Nothing is probed.
+    done = install({**machine, "NOUST_SERVER_ADDRESS": ""}, "--json")
+
+    assert done.returncode == 0, done.stderr
+    tunnel = json.loads(done.stdout)["console"]["tunnel"]
+    assert tunnel == "ssh -N -L 8080:127.0.0.1:8080 root@<your server's public address>"
+    assert "could not tell this server's public address" in done.stderr
+    assert "replace <your server's public address>" in done.stderr
+
+
+def test_the_access_token_is_said_to_be_in_the_box_above_only_when_one_was_made(
+    machine: dict[str, str],
+) -> None:
+    done = install(machine)
+
+    # A dry run makes no token and prints no box.
+    assert "Its access token is in the box" not in done.stdout
+    assert "After a real run" in done.stdout
+
+
+def test_the_old_wording_is_gone(machine: dict[str, str]) -> None:
+    done = install(machine)
+
+    assert "which asks for the access token, and paste it" not in done.stdout
+    assert "<this server's address>" not in done.stdout + done.stderr

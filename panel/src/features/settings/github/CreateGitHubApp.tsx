@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { Link2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -52,8 +53,12 @@ function ManifestForm({ manifest, onBlocked }: { manifest: GitHubManifest; onBlo
  * Creating this server's GitHub App: what it is for, where it is created, and the one button
  * that starts GitHub's manifest flow. GitHub asks the operator to confirm the App's name, then
  * sends the browser back to the console's callback page, which finishes the job.
+ *
+ * @param onStart Called when the operator presses the button, before the browser leaves: the new
+ *   application's wizard keeps its draft there, so the callback can bring the operator back to it.
+ * @param submitLabel The button's words where "Create GitHub App" is not the verb of the page.
  */
-export function CreateGitHubApp() {
+export function CreateGitHubApp({ onStart, submitLabel }: { onStart?: () => void; submitLabel?: string } = {}) {
   const t = useT();
   const [organization, setOrganization] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -96,6 +101,8 @@ export function CreateGitHubApp() {
     setFieldError(problem);
     if (problem !== null) return;
     setBlockedBy(null);
+    // Whoever placed this form keeps where the operator was before the browser leaves for GitHub.
+    onStart?.();
     start.mutate(name);
   };
 
@@ -138,8 +145,8 @@ export function CreateGitHubApp() {
           />
         </Field>
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" variant="primary" loading={start.isPending || redirecting}>
-            {t("settings.integrations.github.create.createApp")}
+          <Button type="submit" variant="primary" icon={<Link2 />} loading={start.isPending || redirecting}>
+            {submitLabel ?? t("settings.integrations.github.create.createApp")}
           </Button>
           <p className="text-12 text-fg-muted">{t("settings.integrations.github.create.createAppHint")}</p>
         </div>

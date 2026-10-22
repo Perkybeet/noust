@@ -18,8 +18,14 @@ function catalogue(extra: Parameters<typeof fakeBackend>[0] = {}) {
   return { backend, harness: renderConsole("/catalog") };
 }
 
+/** The grid of every recipe: the Popular row above it repeats a few of them, which these queries leave out. */
+function grid() {
+  return within(screen.getByRole("list", { name: "Recipes" }));
+}
+
 async function cardOf(title: string): Promise<HTMLElement> {
-  const heading = await screen.findByRole("heading", { level: 2, name: title });
+  const list = await screen.findByRole("list", { name: "Recipes" });
+  const heading = await within(list).findByRole("heading", { name: title });
   return heading.closest("li") as HTMLElement;
 }
 
@@ -29,14 +35,14 @@ describe("the catalog page", () => {
     // until the cards pushed it out of it.
     catalogue({ "GET /api/recipes": () => new Promise<Response>(() => undefined) });
     const busy = await waitFor(() => {
-      const grid = document.querySelector('[aria-busy="true"].grid');
+      const grid = document.querySelector('[aria-busy="true"] .grid');
       if (grid === null) throw new Error("no skeleton yet");
       return grid;
     });
     expect(busy.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(20);
   });
 
-  it("draws a card for each recipe with what the 3.4 schema says about it", { timeout: 20_000 }, async () => {
+  it("draws a compact tile for each recipe: logo, name, one line and Use, the rest on its page", { timeout: 20_000 }, async () => {
     const { harness } = catalogue();
     expect(await screen.findByRole("heading", { level: 1, name: "Applications" })).toBeInTheDocument();
 
@@ -45,31 +51,36 @@ describe("the catalog page", () => {
     const logo = vault.querySelector("img");
     expect(logo).toHaveAttribute("src", "/api/recipes/vaultwarden/logo");
     expect(within(vault).getByText("A lightweight Bitwarden-compatible password manager server.")).toBeInTheDocument();
-    expect(within(vault).getByText("v1.37.4")).toBeInTheDocument();
-    expect(within(vault).getByText("Security")).toBeInTheDocument();
-    expect(within(vault).getByText("Runs in Docker")).toBeInTheDocument();
-    // The first tags, then how many more there are.
-    const tags = within(vault).getByRole("list", { name: "Tags" });
-    expect(within(tags).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["#passwords", "#bitwarden", "#vault", "+1"]);
-    expect(within(vault).getByRole("link", { name: /github\.com/ })).toHaveAttribute("href", "https://github.com/dani-garcia/vaultwarden");
-    expect(within(vault).getByRole("link", { name: /Documentation of Vaultwarden/ })).toHaveAttribute("href", "https://github.com/dani-garcia/vaultwarden/wiki");
-    expect(within(vault).getByText("Updated Oct 6, 2026")).toBeInTheDocument();
     expect(within(vault).getByRole("button", { name: "Use Vaultwarden" })).toBeEnabled();
-
-    // A recipe that runs natively says what it needs instead.
-    const wordpress = await cardOf("WordPress");
-    expect(within(wordpress).queryByText("Runs in Docker")).not.toBeInTheDocument();
-    expect(within(wordpress).getByText("A MySQL database")).toBeInTheDocument();
-    expect(within(wordpress).getByText(/PHP-FPM 7\.4 or newer/)).toBeInTheDocument();
-    // A recipe fixed on its own shows its revision.
-    expect(within(await cardOf("Syncthing")).getByText("v2.1.6-r2")).toBeInTheDocument();
+    // What a person scans a catalogue for is not buried under badges, tags and links.
+    expect(within(vault).queryByText("v1.37.4")).not.toBeInTheDocument();
+    expect(within(vault).queryByText("Runs in Docker")).not.toBeInTheDocument();
+    expect(within(vault).queryByRole("list", { name: "Tags" })).not.toBeInTheDocument();
+    expect(within(vault).queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
     await expectNoAxeViolations(harness.container);
+  });
+
+  it("puts the popular recipes first, in a row of their own, and not when a filter is set", { timeout: 30_000 }, async () => {
+    const { harness } = catalogue();
+    const { user } = harness;
+    const popular = await screen.findByRole("list", { name: "Popular" });
+    // WordPress is popular and deployable; Ghost is popular and not deployable, so it is not offered.
+    expect(within(popular).getByRole("heading", { level: 3, name: "WordPress" })).toBeInTheDocument();
+    expect(within(popular).queryByRole("heading", { name: "Ghost" })).not.toBeInTheDocument();
+    expect(within(popular).getAllByRole("listitem")).toHaveLength(4);
+    expect(screen.getByRole("heading", { level: 2, name: "All recipes" })).toBeInTheDocument();
+
+    await user.type(screen.getByRole("searchbox", { name: "Search recipes" }), "bitwarden");
+    await waitFor(() => expect(screen.queryByRole("list", { name: "Popular" })).not.toBeInTheDocument());
+    expect(screen.queryByRole("heading", { level: 2, name: "All recipes" })).not.toBeInTheDocument();
+    // Without the row the tiles are the page's own sections again.
+    expect(await screen.findByRole("heading", { level: 2, name: "Vaultwarden" })).toBeInTheDocument();
   });
 
   it("lists a recipe this release cannot deploy with the reason, and no way to use it", { timeout: 20_000 }, async () => {
     const { harness } = catalogue();
     const { user } = harness;
-    await screen.findByRole("heading", { level: 2, name: "Vaultwarden" });
+    await cardOf("Vaultwarden");
     // 25 recipes, the deployable ones first: the ones this release cannot run are on the last page.
     await user.click(screen.getByRole("button", { name: "Next page" }));
     const ghost = await cardOf("Ghost");
@@ -82,7 +93,7 @@ describe("the catalog page", () => {
   it("searches with the server's own search, keeps it in the address, and counts what it keeps", { timeout: 20_000 }, async () => {
     const { backend, harness } = catalogue();
     const { user } = harness;
-    await screen.findByRole("heading", { level: 2, name: "Vaultwarden" });
+    await cardOf("Vaultwarden");
     expect(screen.getByText("25 recipes")).toBeInTheDocument();
 
     await user.type(screen.getByRole("searchbox", { name: "Search recipes" }), "bitwarden");
@@ -93,14 +104,14 @@ describe("the catalog page", () => {
     expect(harness.location().search).toEqual({ q: "bitwarden" });
 
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "WordPress" })).toBeInTheDocument();
+    expect(await cardOf("WordPress")).toBeInTheDocument();
     expect(harness.location().search).toEqual({});
   });
 
   it("filters by category, by tag and by what it runs on, and says when nothing matches", { timeout: 30_000 }, async () => {
     const { backend, harness } = catalogue();
     const { user } = harness;
-    await screen.findByRole("heading", { level: 2, name: "Vaultwarden" });
+    await cardOf("Vaultwarden");
 
     await user.click(screen.getByRole("combobox", { name: "Category" }));
     // Every category that holds a recipe, in the closed list's order, with how many.
@@ -127,7 +138,7 @@ describe("the catalog page", () => {
   it("offers every tag, found by typing, most used first", { timeout: 20_000 }, async () => {
     const { backend, harness } = catalogue();
     const { user } = harness;
-    await screen.findByRole("heading", { level: 2, name: "Vaultwarden" });
+    await cardOf("Vaultwarden");
     await user.click(screen.getByRole("combobox", { name: "Tag" }));
     const options = await screen.findAllByRole("option");
     // "tools" is on twenty recipes; the rest on fewer.
@@ -143,16 +154,16 @@ describe("the catalog page", () => {
     const { harness } = catalogue();
     const { user } = harness;
     const list = await screen.findByRole("list", { name: "Recipes" });
-    expect(within(list).getAllByRole("heading", { level: 2 })).toHaveLength(20);
+    expect(within(list).getAllByRole("heading")).toHaveLength(20);
     expect(screen.getByText(/Showing 1–20 of 25/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next page" }));
-    await waitFor(() => expect(within(screen.getByRole("list", { name: "Recipes" })).getAllByRole("heading", { level: 2 })).toHaveLength(5));
+    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(5));
     expect(screen.getByText(/Showing 21–25 of 25/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("combobox", { name: "Rows per page" }));
     await user.click(await screen.findByRole("option", { name: "All" }));
-    await waitFor(() => expect(within(screen.getByRole("list", { name: "Recipes" })).getAllByRole("heading", { level: 2 })).toHaveLength(25));
+    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(25));
     expect(window.localStorage.getItem("noust.pageSize.recipes")).toBe("all");
   });
 
@@ -160,7 +171,7 @@ describe("the catalog page", () => {
     const { harness } = catalogue();
     const { user } = harness;
     const vault = await cardOf("Vaultwarden");
-    await user.click(within(vault).getByRole("link", { name: "Details of Vaultwarden" }));
+    await user.click(within(vault).getByRole("link", { name: "Vaultwarden" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Vaultwarden" })).toBeInTheDocument();
     expect(harness.location().pathname).toBe("/catalog/vaultwarden");
   });
@@ -187,6 +198,6 @@ describe("the catalog page", () => {
     expect(screen.getByText("The recipes could not be read.")).toBeInTheDocument();
     failing = false;
     await harness.user.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Vaultwarden" })).toBeInTheDocument();
+    expect(await cardOf("Vaultwarden")).toBeInTheDocument();
   });
 });

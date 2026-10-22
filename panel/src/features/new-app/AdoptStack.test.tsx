@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
+import { chooseWay } from "../../test/ways";
 import { SESSION, fakeBackend, json, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { translate } from "../../i18n/translate";
@@ -53,7 +54,7 @@ function wizard(extra: Record<string, RouteHandler> = {}) {
 
 async function openAdopt(user: ReturnType<typeof renderConsole>["user"], mode = "Already running") {
   await screen.findByRole("heading", { level: 1, name: /New application|Nueva aplicación/ });
-  await user.click(await screen.findByRole("radio", { name: mode }));
+  await chooseWay(user, mode);
 }
 
 describe("the adoption's form", () => {

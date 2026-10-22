@@ -178,6 +178,13 @@ class DeploymentStatus(str, Enum):
     ROLLED_BACK = "rolled_back"
 
 
+#: How the certificate ordered for a deployment can end. Absent when none was asked for.
+CERTIFICATE_STATES = ("issued", "failed")
+
+#: The most of an authority's refusal that is kept on a deployment.
+MAX_CERTIFICATE_OUTPUT = 4000
+
+
 class DeploymentTrigger(str, Enum):
     """What initiated a deployment."""
 
@@ -648,6 +655,12 @@ class DeploymentRecord:
     #: SQLite cannot alter, so cancelled is a failed row that says so.
     cancelled_at: str | None = None
     cancelled_by: str | None = None
+    #: Schema v14: how the certificate ordered for this deployment ended
+    #: (``issued`` or ``failed``); None when none was asked for, and on a
+    #: deployment from before the column.
+    certificate_state: str | None = None
+    #: Schema v14: what the authority said when it refused, word for word.
+    certificate_output: str | None = None
 
     @property
     def cancelled(self) -> bool:
@@ -4029,6 +4042,41 @@ class NoustStore:
                 "UPDATE deployments SET hooks = ?, schema_changed = ?, warnings = ? WHERE id = ?",
                 (hooks, 1 if schema_changed else 0, warnings, deployment_id),
             )
+
+    def record_deployment_certificate(
+        self, deployment_id: int, state: str, output: str | None = None
+    ) -> bool:
+        """
+        Record how the certificate ordered for a deployment ended.
+
+        A certificate that is refused does not fail the deployment: the application serves
+        over HTTP, and this is how that is said afterwards, with the authority's own words.
+
+        Args:
+            deployment_id: The deployment.
+            state: One of :data:`CERTIFICATE_STATES`.
+            output: What the authority said; kept only for a failure, and cut to
+                :data:`MAX_CERTIFICATE_OUTPUT` characters.
+
+        Returns:
+            True when the row exists and was updated.
+
+        Raises:
+            ValidationError: ``state`` is not one of the two.
+        """
+        if state not in CERTIFICATE_STATES:
+            raise ValidationError(
+                f"Unknown certificate state {state!r}",
+                details="Use one of: " + ", ".join(CERTIFICATE_STATES) + ".",
+                field="certificate_state",
+            )
+        kept = (output or "").strip()[:MAX_CERTIFICATE_OUTPUT] if state == "failed" else ""
+        with self._transaction() as cursor:
+            cursor.execute(
+                "UPDATE deployments SET certificate_state = ?, certificate_output = ? WHERE id = ?",
+                (state, kept or None, deployment_id),
+            )
+            return cursor.rowcount > 0
 
     def mark_deployment_rolled_back(self, deployment_id: int) -> bool:
         """

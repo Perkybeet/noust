@@ -51,7 +51,7 @@ test("a repository and branch chosen from GitHub reach the inspection and the de
   const inspected = page.waitForRequest(
     (request) => request.url().endsWith("/api/apps/inspect") && request.method() === "POST",
   );
-  await page.getByRole("button", { name: "Inspect source" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   expect((await inspected).postDataJSON()).toMatchObject({
     source: "github:acme/landing",
     branch: "develop",

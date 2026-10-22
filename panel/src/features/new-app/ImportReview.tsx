@@ -1,8 +1,7 @@
-import { ChevronDown } from "lucide-react";
-
 import type { AppExportDocument } from "../../api/queries/appImport";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { KeyValueList } from "../../components/page/KeyValueList";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
@@ -140,15 +139,9 @@ export function ImportAddress({ document, types, form, errors, onChange, dns }: 
   const stripped = sourceStripped(document.app.source ?? "");
   return (
     <div className="flex flex-col gap-6">
-      <details className="group overflow-hidden rounded-card border border-border">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 -outline-offset-2 hover:bg-surface-hover [&::-webkit-details-marker]:hidden">
-          <span className="text-13 font-medium text-fg">{t("newApp.importApp.summary")}</span>
-          <ChevronDown aria-hidden="true" className="size-icon-sm text-fg-muted transition-transform duration-(--duration-fast) group-open:rotate-180" />
-        </summary>
-        <div className="border-t border-border px-4 py-1">
-          <KeyValueList items={exportFacts(t, document, types)} />
-        </div>
-      </details>
+      <Disclosure variant="card" label={t("newApp.importApp.summary")}>
+        <KeyValueList items={exportFacts(t, document, types)} />
+      </Disclosure>
       <AddressFields
         value={{ domain: form.domain, includeWww: false, ssl: document.app.ssl }}
         onChange={(patch) => {

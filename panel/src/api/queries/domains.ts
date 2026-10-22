@@ -21,6 +21,37 @@ export const domainKeys = {
   dns: (app: string, name: string) => ["app", app, "domains", "dns", name] as const,
 };
 
+/** A name made of this server's public address, for an application with no domain of its own yet. */
+export type TemporaryName = ResponseOf<"/api/domains/temporary", "get">;
+
+/** What an application's temporary name is made from: any one of them, a prefix before the others. */
+export interface TemporaryNameOf {
+  prefix?: string | undefined;
+  source?: string | undefined;
+  image?: string | undefined;
+}
+
+/**
+ * The temporary address an application would get (`shop.203-0-113-10.sslip.io`): read out of the
+ * repository, the image or the recipe it is deployed from, numbered when another application has
+ * it. A server behind NAT answers `available: false` with how to declare its address (an answer,
+ * not an error: the wizard asks on every new application). Short-lived: another application may take it.
+ */
+export const temporaryNameQuery = (of: TemporaryNameOf) => {
+  const query = {
+    ...(of.prefix !== undefined && of.prefix !== "" ? { prefix: of.prefix } : {}),
+    ...(of.source !== undefined && of.source !== "" ? { source: of.source } : {}),
+    ...(of.image !== undefined && of.image !== "" ? { image: of.image } : {}),
+  };
+  return queryOptions({
+    queryKey: ["domains", "temporary", query] as const,
+    queryFn: ({ signal }) => request("get", "/api/domains/temporary", { query, signal }),
+    staleTime: 10_000,
+    gcTime: 60_000,
+    retry: false,
+  });
+};
+
 export const appDomainsQuery = (app: string) =>
   queryOptions({
     queryKey: domainKeys.list(app),

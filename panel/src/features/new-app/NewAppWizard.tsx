@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useBlocker, useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -7,6 +7,8 @@ import { request } from "../../api/client";
 import { importApp } from "../../api/queries/appImport";
 import type { ImportAppBody } from "../../api/queries/appImport";
 import { appKeys, appsQuery, appTypesQuery } from "../../api/queries/apps";
+import { temporaryNameQuery } from "../../api/queries/domains";
+import type { TemporaryNameOf } from "../../api/queries/domains";
 import { githubStatusQuery } from "../../api/queries/github";
 import { gitlabStatusQuery } from "../../api/queries/gitlab";
 import { webserverQuery } from "../../api/queries/config";
@@ -18,22 +20,25 @@ import { systemInfoQuery } from "../../api/queries/system";
 import { announce } from "../../app/Announcer";
 import { getLocale } from "../../app/locale";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
+import { LeaveGuard } from "../../components/page/LeaveGuard";
 import { Wizard } from "../../components/page/Wizard";
 import type { WizardActionsProps } from "../../components/page/Wizard";
-import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Mono } from "../../components/ui/Mono";
-import { Dialog } from "../../components/ui/Dialog";
 import { textLinkClassName } from "../../components/ui/TextLink";
 import { translate, useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { cx } from "../../lib/cx";
 import { useNode } from "../../nodes/useNode";
 import { normalizeDomain } from "../domains/names";
 import { imageProblem } from "../container/model";
 import { AddressFields } from "./AddressFields";
 import { ConfigureStep } from "./ConfigureStep";
 import { DeployStep, deploySummary } from "./DeployStep";
+import type { OpenSteps } from "./DeployStep";
 import type { DeployKind } from "./DeployStep";
+import { DetectedLine } from "./DetectedLine";
+import { clearDraft, readDraft } from "./draft";
 import { EnvironmentFields } from "./EnvironmentFields";
 import { exportFileProblem, importBody, importProblems, importRefusalOf, initialImportForm, readExport } from "./exportFile";
 import type { ImportForm } from "./exportFile";
@@ -62,7 +67,9 @@ import {
   WIZARD_STEPS,
   composeInspection,
   createAppBody,
+  dnsQuestion,
   errorsOf,
+  hasOwnDomain,
   imageInspection,
   initialReview,
   inspectBody,
@@ -73,6 +80,7 @@ import {
   reviewProblems,
   sameSource,
   shortSource,
+  sourceKind,
   sourceProblems,
   stepAsks,
   stepOfField,
@@ -181,6 +189,12 @@ function missingOf(t: T, errors: [string, string][]): string | undefined {
   return name === null ? t("newApp.page.missingMany", { count }) : t("newApp.page.missingManyNamed", { count, name });
 }
 
+/** What is asked of the inspection: the source, and whether to move on once it is read (Continue) or only to read it (a paste). */
+interface InspectRequest {
+  form: SourceForm;
+  advance: boolean;
+}
+
 /** What a step shows and what its Continue does. */
 interface StepView {
   title: string;
@@ -223,10 +237,13 @@ export function NewAppWizard() {
     },
   });
   const [step, setStep] = useState<Step>(serverStep.startHere ? "server" : "source");
-  const [source, setSource] = useState<SourceForm>({ source: "", branch: "" });
   // The way in the link asked for (`/apps/new?start=recipe`, from the Applications page and the
   // palette): the wizard opens on it instead of on the default.
   const wizardSearch = useSearch({ from: "/_console/apps/new" });
+  // Back from connecting GitHub (`?resume=1`): where the operator was, from the draft this tab kept.
+  // Read, not taken: a render that runs twice must find it twice.
+  const [resumed] = useState(() => (wizardSearch.resume === 1 ? readDraft() : null));
+  const [source, setSource] = useState<SourceForm>(resumed !== null ? { source: resumed.source, branch: resumed.branch } : { source: "", branch: "" });
   const start = wizardStart(wizardSearch.start);
   // The recipe the link already chose (`&recipe=wordpress`, from the catalog): opened for the operator.
   const linkedRecipe = start === "recipe" ? wizardRecipe(wizardSearch.recipe) : undefined;
@@ -239,7 +256,7 @@ export function NewAppWizard() {
   });
   // Null until the operator acts: what the link asked for, GitHub when the App is connected,
   // the typed source otherwise.
-  const [chosenMode, setChosenMode] = useState<SourceMode | null>(start ?? null);
+  const [chosenMode, setChosenMode] = useState<SourceMode | null>(start ?? resumed?.mode ?? null);
   // The same page, asked again from where it already is (the palette, over the wizard): a new
   // start replaces the way in, settled while rendering rather than in an effect.
   const [seenStart, setSeenStart] = useState(start);
@@ -270,7 +287,8 @@ export function NewAppWizard() {
 
   // Set by a move between steps: the first step on arrival keeps focus on the page's title.
   const [moved, setMoved] = useState(false);
-  const leaving = useRef(false);
+  // Set once the wizard hands over to the deployment, so leaving for it asks nothing.
+  const [gone, setGone] = useState(false);
   const abort = useRef<AbortController | null>(null);
 
   const githubStatus = github.data ?? null;
@@ -285,10 +303,13 @@ export function NewAppWizard() {
   const cores = system.data?.cpu.cores ?? null;
   const context = useMemo(() => {
     const list = apps.data?.apps ?? [];
+    const domains = new Set(list.map((app) => app.domain));
     return {
-      domains: new Set(list.map((app) => app.domain)),
+      domains,
       ports: new Map(list.filter((app) => app.port !== null && app.port !== undefined).map((app) => [Number(app.port), app.domain])),
       cores,
+      // A server with a domain of the operator's own in use is asked for one; one without is not.
+      ownDomains: hasOwnDomain(domains),
     };
   }, [apps.data, cores]);
 
@@ -298,9 +319,13 @@ export function NewAppWizard() {
   const allSteps = withDatabaseStep(WIZARD_STEPS[kind], databaseAvailable && kind === "code" && !NO_DATABASE_STEP_TYPES.has(review?.appType ?? ""));
   // The steps Continue and Back walk: the ones with something to ask (`stepAsks`), and the one on
   // screen, which the operator opened and may leave from. The server step is reached on its own.
-  const order = allSteps.filter((id) => id === step || stepAsks(id, kind, { inspection: inspected?.inspection ?? null, review, context }));
+  const askContext = { ...context, temporaryAvailable: (review?.temporaryDomain ?? "") !== "" };
+  const order = allSteps.filter((id) => id === step || stepAsks(id, kind, { inspection: inspected?.inspection ?? null, review, context: askContext }));
   const passedOver = allSteps.filter((id) => !order.includes(id));
-  const steps = withServerStep(allSteps, serverStep.enabled);
+  // The stepper lists the steps that ask, and the one on screen: a source that needed nothing from
+  // the operator is not announced as a process of six steps. What was passed over is in the
+  // summary of the last, with the way to open it.
+  const steps = withServerStep(order, serverStep.enabled);
 
   const go = (next: Step): void => {
     setMoved(true);
@@ -316,31 +341,101 @@ export function NewAppWizard() {
 
   const defaultWebserver: WebServer = webserver.data?.webserver === "apache" ? "apache" : "nginx";
 
+  /** The temporary address this application would get, or empty where the server cannot make one. */
+  const temporaryFor = async (of: TemporaryNameOf): Promise<string> => {
+    try {
+      const found = await queryClient.query(temporaryNameQuery(of));
+      // Behind NAT with no declared address the server says so: no temporary address, and no error to show.
+      return found.available === false ? "" : found.domain;
+    } catch {
+      // Ninety-nine applications of one name, or a server too old to know: the same, nothing to offer.
+      return "";
+    }
+  };
+
+  /** The review a source proposes, with where it answers: the temporary address where there is no domain of the operator's yet. */
+  const reviewFor = (inspection: Inspection, temporary: string, previous: ReviewForm | null, image?: string): ReviewForm =>
+    initialReview(inspection, { webserver: defaultWebserver, taken: context.ports, temporary, ownDomains: context.ownDomains, ...(image !== undefined ? { image } : {}) }, previous);
+
+  /**
+   * The first step after the source that has something to ask, in the order of the start: where it
+   * answers, then what is not as detected, then the deploy. Continue goes straight there, so a
+   * source that needs nothing from the operator is two presses from the build.
+   */
+  const stepAfterSource = (inspection: Inspection, proposed: ReviewForm): Step => {
+    const ask = { inspection, review: proposed, context: { ...context, temporaryAvailable: proposed.temporaryDomain !== "" } };
+    const steps = withDatabaseStep(WIZARD_STEPS.code, databaseAvailable && !NO_DATABASE_STEP_TYPES.has(proposed.appType));
+    return steps.slice(1).find((id) => stepAsks(id, "code", ask)) ?? "deploy";
+  };
+
+  const pressedWhileReading = useRef(false);
   const inspect = useMutation({
-    mutationFn: async (form: SourceForm) => {
+    mutationFn: async ({ form }: InspectRequest) => {
       abort.current?.abort();
       const controller = new AbortController();
       abort.current = controller;
       const inspection = await request("post", "/api/apps/inspect", { body: inspectBody(form), signal: controller.signal });
-      return { inspection, form };
+      const temporary = await temporaryFor({ source: form.source.trim() });
+      return { inspection, form, temporary };
     },
-    onSuccess: ({ inspection, form }) => {
+    onSuccess: ({ inspection, form, temporary }, { advance }) => {
+      const proposed = reviewFor(inspection, temporary, review);
       setInspected({ inspection, for: form });
-      setReview((previous) => initialReview(inspection, { webserver: defaultWebserver, taken: context.ports }, previous));
+      setReview(proposed);
       setReviewErrors({});
-      go("address");
+      // Continue pressed while a paste was still being read goes on as soon as it is read.
+      const pressed = pressedWhileReading.current;
+      pressedWhileReading.current = false;
+      if (advance || pressed) go(stepAfterSource(inspection, proposed));
     },
     onError: (error) => {
+      pressedWhileReading.current = false;
       const refusal = refusalOf(error);
       if (refusal?.step === "source" && Object.keys(refusal.fields).length > 0) setSourceErrors(refusal.fields);
     },
   });
 
+  // A source that is complete is read without being asked: pasted, chosen from a list or left, so
+  // what was found is on screen before Continue is pressed. A directory on this server is read by
+  // Continue alone.
+  const [settleAsk, setSettleAsk] = useState(0);
+  const [settled, setSettled] = useState(0);
+  const settleSource = (): void => {
+    setSettleAsk((count) => count + 1);
+  };
+  useEffect(() => {
+    if (settleAsk === 0) return;
+    // After the event that completed it: a paste is announced before its text is in the field.
+    const timer = window.setTimeout(() => {
+      setSettled((count) => count + 1);
+    }, 80);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [settleAsk]);
+  useEffect(() => {
+    if (settled === 0) return;
+    if (sourceMode !== "manual" && sourceMode !== "github" && sourceMode !== "gitlab") return;
+    const problems = sourceProblems(source);
+    if (problems.source !== undefined || problems.branch !== undefined) return;
+    if (sourceKind(source.source) === "local") return;
+    if (inspect.isPending) return;
+    if (inspected !== null && sameSource(inspected.for, source) && review !== null) return;
+    inspect.mutate({ form: source, advance: false });
+    // Only a source that was settled reads it; every other value is read as it is when that happens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settled]);
+
   const openRecipe = useMutation({
-    mutationFn: (summary: Pick<RecipeSummary, "name" | "title">) => queryClient.query(recipeQuery(summary.name)),
-    onSuccess: (full) => {
+    mutationFn: async (summary: Pick<RecipeSummary, "name" | "title">) => {
+      const full = await queryClient.query(recipeQuery(summary.name));
+      // A recipe is named for itself: uptime-kuma.203-0-113-10.sslip.io.
+      const temporary = await temporaryFor({ prefix: summary.name });
+      return { full, temporary };
+    },
+    onSuccess: ({ full, temporary }) => {
       setRecipe(full);
-      setRecipeForm((previous) => initialRecipeForm(full, previous));
+      setRecipeForm((previous) => initialRecipeForm(full, previous, { temporary, ownDomains: context.ownDomains }));
       setRecipeErrors({});
       go("setup");
     },
@@ -413,21 +508,30 @@ export function NewAppWizard() {
 
   const chosen = kind === "recipe" ? recipe !== null : kind === "import" ? loaded !== null : sourceMode === "image" ? imageRef.trim() !== "" : sourceMode === "compose" ? composeDoc.document.trim() !== "" : source.source.trim() !== "";
   const dirty = chosen && target === null;
-  const blocker = useBlocker({
-    // Signing in again after the session expired is not leaving: nothing typed could be kept.
-    shouldBlockFn: ({ next }) => dirty && !leaving.current && next.pathname !== "/login",
-    enableBeforeUnload: () => dirty && !leaving.current,
-    withResolver: true,
-  });
   const onGone = useCallback(() => {
-    leaving.current = true;
+    setGone(true);
   }, []);
+
+  // The draft is for coming back from GitHub, once: it is spent when the wizard opens on it, and
+  // forgotten when the wizard is left, so it never outlives the visit that wrote it.
+  const resume = wizardSearch.resume;
+  useEffect(() => {
+    if (resume === 1) void navigate({ to: "/apps/new", search: (previous) => ({ ...previous, resume: undefined }), replace: true });
+  }, [resume, navigate]);
+  useEffect(
+    () => () => {
+      clearDraft();
+    },
+    [],
+  );
   const cancelInspection = (): void => {
     abort.current?.abort();
     inspect.reset();
   };
 
-  const addressDomain = kind === "recipe" ? (recipeForm?.domain ?? "") : kind === "import" ? (importForm?.domain ?? "") : (review?.domain ?? "");
+  // A temporary address is no DNS question: the service that answers it is the one that made it.
+  const addressDomain =
+    kind === "recipe" ? (recipeForm === null ? "" : dnsQuestion(recipeForm)) : kind === "import" ? (importForm?.domain ?? "") : review === null ? "" : dnsQuestion(review);
   const dns = useDomainDnsCheck(addressDomain);
 
   // An export, from a file or from another platform's server: checked the same way, then reviewed.
@@ -483,6 +587,21 @@ export function NewAppWizard() {
   const codeErrors = review !== null ? reviewProblems(review, context) : {};
   const requiredRecipeVariables = recipe !== null ? requiredVariables(recipe) : [];
   const recipeFound = recipeForm !== null ? recipeProblems(recipeForm, context.domains, requiredRecipeVariables) : {};
+
+  // "Try a demo" (the Overview of a server with nothing on it) is a recipe deployed on its
+  // temporary address from one press: once the recipe is open and has nothing left to ask, it
+  // deploys. The link is spent either way, so a reload or a Back never deploys a second time; a
+  // recipe with something to ask (a server that cannot make a temporary address) stays on its form.
+  const deployedFromLink = useRef(false);
+  useEffect(() => {
+    if (wizardSearch.deploy !== "now" || deployedFromLink.current) return;
+    if (kind !== "recipe" || recipe === null || recipeForm === null || recipe.name !== linkedRecipe) return;
+    deployedFromLink.current = true;
+    void navigate({ to: "/apps/new", search: (previous) => ({ ...previous, deploy: undefined }), replace: true });
+    if (Object.keys(recipeFound).length > 0) return;
+    go("deploy");
+    deploy();
+  });
   const importFound = importForm !== null ? importProblems(importForm, context.domains) : {};
 
   /** The step's Back, when it has one, going to the step before for this start. */
@@ -550,9 +669,13 @@ export function NewAppWizard() {
             const inspection = composeInspection(found, composeDoc.made);
             inspect.reset();
             setInspected({ inspection, for: { source: "", branch: "" }, document: composeDoc.document });
-            setReview((previous) => initialReview(inspection, { webserver: defaultWebserver, taken: context.ports }, previous));
-            setReviewErrors({});
-            go("address");
+            void (async () => {
+              // A stack is named for nothing in particular: the temporary address is an application's.
+              const proposed = reviewFor(inspection, await temporaryFor({ prefix: "stack" }), review);
+              setReview(proposed);
+              setReviewErrors({});
+              go(stepAfterSource(inspection, proposed));
+            })();
           },
         },
       };
@@ -570,9 +693,12 @@ export function NewAppWizard() {
             const reference = imageRef.trim();
             inspect.reset();
             setInspected({ inspection, for: { source: reference, branch: "" } });
-            setReview((previous) => initialReview(inspection, { webserver: defaultWebserver, taken: context.ports, image: reference }, previous));
-            setReviewErrors({});
-            go("address");
+            void (async () => {
+              const proposed = reviewFor(inspection, await temporaryFor({ image: reference }), review, reference);
+              setReview(proposed);
+              setReviewErrors({});
+              go(stepAfterSource(inspection, proposed));
+            })();
           },
         },
         ...(problem !== null
@@ -609,7 +735,9 @@ export function NewAppWizard() {
       };
     }
     const found: SourceErrors =
-      sourceMode === "github" && githubStatus?.configured === true && source.installationId === undefined
+      sourceMode === "github" && githubStatus !== null && !githubStatus.configured
+        ? { source: t("newApp.github.needsApp") }
+        : sourceMode === "github" && githubStatus?.configured === true && source.installationId === undefined
         ? { source: t("newApp.source.chooseRepository") }
         : sourceMode === "gitlab" && source.source.trim() === ""
           ? { source: t("gitlab.picker.chooseProject") }
@@ -618,12 +746,15 @@ export function NewAppWizard() {
     const ready = inspected !== null && sameSource(inspected.for, source) && review !== null;
     return {
       next: {
-        label: ready ? t("newApp.source.continue") : t("newApp.source.inspect"),
+        label: t("newApp.source.continue"),
         loading: inspect.isPending,
         onClick: () => {
           setSourceErrors({});
-          if (ready) go("address");
-          else inspect.mutate(source);
+          // A source read already (on paste) goes straight on; one being read goes on when it is
+          // read; one that was not is read now, and then goes on.
+          if (ready) go(stepAfterSource(inspected.inspection, review));
+          else if (inspect.isPending) pressedWhileReading.current = true;
+          else inspect.mutate({ form: source, advance: true });
         },
       },
       ...(missing !== undefined
@@ -637,6 +768,17 @@ export function NewAppWizard() {
         : {}),
     };
   };
+
+  // What was found in the source that is on screen, once it is read: the line under its fields.
+  const detectedLine: ReactNode =
+    kind === "code" &&
+    (sourceMode === "manual" || sourceMode === "github" || sourceMode === "gitlab") &&
+    inspected !== null &&
+    inspected.document === undefined &&
+    sameSource(inspected.for, source) &&
+    review !== null ? (
+      <DetectedLine inspection={inspected.inspection} types={typeList} onChange={() => go("configure")} />
+    ) : null;
 
   const stepView = (shown: Step): StepView | null => {
     switch (shown) {
@@ -669,7 +811,11 @@ export function NewAppWizard() {
                 setSource(next);
                 setSourceErrors({});
                 if (inspect.isError) inspect.reset();
+                // A repository chosen from a list is complete the moment it is chosen.
+                if ((sourceMode === "github" || sourceMode === "gitlab") && next.source.trim() !== "" && next.source !== source.source) settleSource();
               }}
+              onSettle={settleSource}
+              detected={detectedLine}
               onSubmit={() => {
                 const actions = sourceActions();
                 if (actions.missing !== undefined) actions.onMissing?.();
@@ -702,13 +848,19 @@ export function NewAppWizard() {
               inspecting={inspect.isPending ? { since: inspect.submittedAt } : null}
               onCancel={cancelInspection}
               failure={inspect.isError && !isAbort(inspect.error) ? inspect.error : null}
+              onRetry={() => {
+                inspect.mutate({ form: source, advance: false });
+              }}
               onManual={() => {
                 const inspection = manualInspection(source);
                 inspect.reset();
                 setInspected({ inspection, for: source });
-                setReview((previous) => initialReview(inspection, { webserver: defaultWebserver, taken: context.ports }, previous));
-                setReviewErrors({});
-                go("address");
+                void (async () => {
+                  const proposed = reviewFor(inspection, await temporaryFor({ source: source.source.trim() }), review);
+                  setReview(proposed);
+                  setReviewErrors({});
+                  go(stepAfterSource(inspection, proposed));
+                })();
               }}
               recipes={
                 <RecipeGallery
@@ -937,15 +1089,25 @@ export function NewAppWizard() {
 
       case "deploy": {
         let summary: readonly KeyValueItem[] | null = null;
+        let details: readonly KeyValueItem[] = [];
         let domain = "";
         if (kind === "code" && inspected !== null && review !== null) {
-          summary = deploySummary(t, inspected.for, inspected.inspection, typeList, review);
+          // A step that had nothing to ask was passed over: the summary says so and offers to open it.
+          const open: OpenSteps = {
+            ...(passedOver.includes("address") ? { address: () => go("address") } : {}),
+            ...(passedOver.includes("configure") ? { configure: () => go("configure") } : {}),
+            ...(passedOver.includes("variables") ? { variables: () => go("variables") } : {}),
+          };
+          const made = deploySummary(t, inspected.for, inspected.inspection, typeList, review, open);
+          summary = made.items;
+          details = made.details;
           if (allSteps.includes("database")) summary = [...summary, databaseSummary(t, database, undefined)];
           if (destination.needed) summary = [...summary, placeSummary(t, destination)];
           domain = review.domain;
         } else if (kind === "recipe" && recipe !== null && recipeForm !== null) {
-          summary = recipeSummary(t, recipe, recipeForm);
-          if (destination.needed) summary = [...summary, placeSummary(t, destination)];
+          const made = recipeSummary(t, recipe, recipeForm);
+          summary = destination.needed ? [...made.items, placeSummary(t, destination)] : made.items;
+          details = made.details;
           domain = recipeForm.domain;
         } else if (kind === "import" && loaded !== null && importForm !== null) {
           summary = importSummary(t, loaded.document, importForm, typeList);
@@ -993,6 +1155,7 @@ export function NewAppWizard() {
               kind={deployKind}
               domain={domain}
               summary={summary}
+              details={details}
               failure={kind === "import" ? importFailure : createFailure}
               target={target}
               followedJob={followedJob}
@@ -1041,29 +1204,13 @@ export function NewAppWizard() {
         {...(locked ? {} : { onSelectStep: (id: string) => go(id as Step) })}
         title={view?.title ?? ""}
         description={view?.description}
-        {...(current !== "server" && current !== "source" && current !== "setup" && current !== "deploy" ? { summary: <SoFar t={t} kind={kind} source={inspected?.for ?? source} review={review} recipe={recipe} recipeForm={recipeForm} loaded={loaded} importForm={importForm} typeName={(type) => typeName(typeList, type)} /> } : {})}
+        {...(current !== "server" && current !== "source" && current !== "setup" && current !== "deploy" ? { summary: <SoFar t={t} kind={kind} source={inspected?.for ?? source} review={review} recipe={recipe} recipeForm={recipeForm} loaded={loaded} importForm={importForm} typeName={(type) => typeName(typeList, type)} onChangeType={kind === "code" && passedOver.includes("configure") ? () => go("configure") : undefined} /> } : {})}
         actions={view?.actions ?? { next: { onClick: () => undefined } }}
       >
         {view?.content}
       </Wizard>
 
-      <Dialog
-        open={blocker.status === "blocked"}
-        onOpenChange={(open) => {
-          if (!open) blocker.reset?.();
-        }}
-        size="sm"
-        title={t("newApp.leave.title")}
-        description={t("newApp.leave.description")}
-        footer={
-          <>
-            <Button onClick={() => blocker.reset?.()}>{t("newApp.leave.stay")}</Button>
-            <Button variant="danger" onClick={() => blocker.proceed?.()}>
-              {t("newApp.leave.leave")}
-            </Button>
-          </>
-        }
-      />
+      <LeaveGuard changes={dirty && !gone ? 1 : 0} description={t("newApp.leave.description")} />
     </>
   );
 }
@@ -1082,6 +1229,7 @@ function SoFar({
   loaded,
   importForm,
   typeName: nameOf,
+  onChangeType,
 }: {
   t: T;
   kind: StartKind;
@@ -1092,6 +1240,8 @@ function SoFar({
   loaded: LoadedExport | null;
   importForm: ImportForm | null;
   typeName: (type: string) => string;
+  /** Opens the Configuration step, which was passed over because nothing in it needed asking. */
+  onChangeType?: (() => void) | undefined;
 }) {
   const items: KeyValueItem[] = [];
   const domain = kind === "recipe" ? recipeForm?.domain : kind === "import" ? importForm?.domain : review?.domain;
@@ -1119,6 +1269,11 @@ function SoFar({
               ) : (
                 <Mono truncate>{item.value}</Mono>
               )}
+              {onChangeType !== undefined && item.label === t("newApp.deploy.type") ? (
+                <button type="button" onClick={onChangeType} className={cx("mt-0.5 block", textLinkClassName("inline", "cursor-pointer text-12"))}>
+                  {t("newApp.deploy.change")} <span className="sr-only">{t("newApp.deploy.type").toLowerCase()}</span>
+                </button>
+              ) : null}
             </dd>
           </div>
         ))}

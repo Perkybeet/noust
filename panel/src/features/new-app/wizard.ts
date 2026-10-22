@@ -128,8 +128,12 @@ const DATABASE_VARIABLES: ReadonlySet<string> = new Set(["DATABASE_URL", "REDIS_
  */
 export function stepAsks(step: Step, kind: StartKind, { inspection, review, context }: AskContext): boolean {
   if (kind !== "code") return true;
-  if (step !== "configure" && step !== "variables" && step !== "database") return true;
   if (inspection === null || review === null) return true;
+  // The address asks, unless there is nothing to ask: no domain of the operator's own is in use
+  // here (so they have not shown they want one), a temporary address is available, and it is the
+  // one chosen. The deploy summary says so and opens the step on "Change".
+  if (step === "address") return !(review.addressMode === "temporary" && context.temporaryAvailable === true && context.ownDomains !== true);
+  if (step !== "configure" && step !== "variables" && step !== "database") return true;
   const errors = reviewProblems(review, context);
   switch (step) {
     case "configure":
@@ -391,13 +395,84 @@ export interface PathRow {
   value: string;
 }
 
-export interface ReviewForm {
-  appType: string;
+/**
+ * Where an application answers: a temporary address made of this server's own (so there is
+ * something to open before any DNS), or a domain of the operator's.
+ */
+export type AddressMode = "temporary" | "own";
+
+/** The address of a form that has one of each, which is what `withAddressMode` switches. */
+export interface AddressChoice {
+  /** The domain it will be created on: the temporary name in temporary mode, the typed one otherwise. */
   domain: string;
+  addressMode: AddressMode;
+  /** The temporary name this application would get; empty where the server cannot make one. */
+  temporaryDomain: string;
+  /** What was typed as a domain of its own, kept while the temporary address is chosen. */
+  ownDomain: string;
   /** Also answer on www.<domain>, as a redirect to it. Only offered where that means anything. */
   includeWww: boolean;
-  webserver: WebServer;
   ssl: boolean;
+}
+
+/**
+ * Switches the address between the temporary name and the operator's own domain, losing neither:
+ * what was typed waits while the other is chosen. The temporary name is never served on www and is
+ * always tried over HTTPS (the certificate may be refused; the deploy does not fail on it).
+ */
+export function withAddressMode<T extends AddressChoice>(form: T, mode: AddressMode): T {
+  if (mode === form.addressMode) return form;
+  if (mode === "temporary") {
+    return { ...form, addressMode: "temporary", ownDomain: form.domain, domain: form.temporaryDomain, includeWww: false, ssl: true };
+  }
+  return { ...form, addressMode: "own", domain: form.ownDomain };
+}
+
+/**
+ * Where an application starts answering. Where there is no domain of the operator's yet, on a
+ * temporary address: there is something to open before any DNS. Where there is, on their own
+ * (empty), because they usually want one. Asked again for another source or recipe, the temporary
+ * name is made anew from it (it is made of what the application is called) and a domain the
+ * operator typed stays.
+ */
+export function initialAddress(
+  defaults: { temporary?: string | null | undefined; ownDomains?: boolean | undefined },
+  previous?: AddressChoice | null,
+): AddressChoice {
+  const temporary = defaults.temporary ?? "";
+  if (previous === null || previous === undefined) {
+    const useTemporary = temporary !== "" && defaults.ownDomains !== true;
+    return { domain: useTemporary ? temporary : "", addressMode: useTemporary ? "temporary" : "own", temporaryDomain: temporary, ownDomain: "", includeWww: false, ssl: true };
+  }
+  if (previous.addressMode === "temporary") {
+    const still = temporary !== "";
+    return { ...previous, addressMode: still ? "temporary" : "own", domain: still ? temporary : previous.ownDomain, temporaryDomain: temporary };
+  }
+  return { ...previous, temporaryDomain: temporary };
+}
+
+/** The service that answers a temporary address, the one `noust` makes names of. */
+const TEMPORARY_SUFFIX = ".sslip.io";
+
+/** Whether a name is a temporary address (`shop.203-0-113-10.sslip.io`) and not a domain of the operator's. */
+export function isTemporaryDomain(domain: string): boolean {
+  return normalizeDomain(domain).endsWith(TEMPORARY_SUFFIX);
+}
+
+/** Whether any of the domains already deployed is the operator's own and not a temporary address. */
+export function hasOwnDomain(domains: ReadonlySet<string>): boolean {
+  for (const domain of domains) if (!isTemporaryDomain(domain)) return true;
+  return false;
+}
+
+/** The domain whose DNS is worth asking about: the one typed, never a temporary name (the service answers it). */
+export function dnsQuestion(form: Pick<AddressChoice, "domain" | "addressMode">): string {
+  return form.addressMode === "temporary" ? "" : normalizeDomain(form.domain);
+}
+
+export interface ReviewForm extends AddressChoice {
+  appType: string;
+  webserver: WebServer;
   port: string;
   layout: Layout;
   /** Releases only: paths kept in shared/ and linked into every release. */
@@ -466,7 +541,15 @@ function containerOf(image: string | undefined, previous: ContainerDraft | undef
  */
 export function initialReview(
   inspection: Inspection,
-  defaults: { webserver: WebServer; taken: ReadonlyMap<number, string>; image?: string },
+  defaults: {
+    webserver: WebServer;
+    taken: ReadonlyMap<number, string>;
+    image?: string;
+    /** The temporary address this application would get; absent where the server cannot make one. */
+    temporary?: string | null | undefined;
+    /** The server already runs an application on a domain of the operator's own. */
+    ownDomains?: boolean;
+  },
   previous?: ReviewForm | null,
 ): ReviewForm {
   const env = envRowsFrom(inspection.env_keys);
@@ -474,10 +557,8 @@ export function initialReview(
   if (!previous) {
     const form: ReviewForm = {
       appType: inspection.app_type,
-      domain: "",
-      includeWww: false,
+      ...initialAddress(defaults),
       webserver: defaults.webserver,
-      ssl: true,
       port: String(proposedPort(inspection.default_port, defaults.taken)),
       layout: "releases",
       persistentPaths: [],
@@ -497,6 +578,7 @@ export function initialReview(
   const proposed = previous.env.filter((row) => row.proposed !== undefined);
   const again: ReviewForm = {
     ...previous,
+    ...initialAddress(defaults, previous),
     appType: inspection.detected_types.includes(previous.appType) ? previous.appType : inspection.app_type,
     env: [...kept, ...proposed, ...extra],
     container,
@@ -600,6 +682,10 @@ export function domainError(value: string, deployed: ReadonlySet<string>): strin
 export interface ReviewContext {
   /** Domains already deployed on this machine. */
   domains: ReadonlySet<string>;
+  /** One of them is a domain of the operator's own (not a temporary address). */
+  ownDomains?: boolean;
+  /** This server can make a temporary address for the application. */
+  temporaryAvailable?: boolean;
   /** Ports already taken by an app, and by which. */
   ports: ReadonlyMap<number, string>;
   /** CPUs of this machine, for the CPU quota's upper bound; null while unknown. */
@@ -776,7 +862,7 @@ export function createAppBody(
     webserver: form.webserver,
     ssl: form.ssl,
     ...(container ? {} : { layout: form.layout }),
-    include_www: form.includeWww && canIncludeWww(form.domain),
+    include_www: form.addressMode === "own" && form.includeWww && canIncludeWww(form.domain),
     ...(paths.length > 0 ? { persistent_paths: paths } : {}),
     ...(container ? { container: containerBody(form.container) } : {}),
     memory_max_mb: limits.memory_max_mb,

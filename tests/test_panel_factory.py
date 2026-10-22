@@ -20,7 +20,12 @@ from pathlib import Path
 import pytest
 
 from noust.core.store import NoustStore
-from tests.panel_factory import DEFAULT_DOMAINS, seed_console_state, seed_panel_state
+from tests.panel_factory import (
+    DEFAULT_DOMAINS,
+    seed_console_state,
+    seed_empty_console_state,
+    seed_panel_state,
+)
 
 
 @pytest.fixture
@@ -192,3 +197,25 @@ def test_the_console_seed_has_databases_and_a_job_history(store: NoustStore) -> 
     jobs = store.list_jobs()
     assert len(jobs) == 4
     assert {job.status for job in jobs} == {"completed", "failed"}
+
+
+def test_an_empty_console_holds_nothing_to_look_at(store: NoustStore) -> None:
+    """A server just installed: the state the first-run walk starts from (``--empty``)."""
+    state = seed_empty_console_state(store)
+
+    assert state.domains == [] and state.app_ids == {}
+    assert store.list_apps() == []
+    assert store.list_services() == []
+    assert store.list_sites() == []
+    assert store.list_databases() == []
+
+
+def test_an_empty_console_still_has_a_place_for_what_the_first_application_will_be(
+    store: NoustStore,
+) -> None:
+    """The default project and environment exist before any application: a new one is put there."""
+    seed_empty_console_state(store)
+
+    assert store.list_apps() == []
+    created = seed_panel_state(store, apps=1, services=0, sites=0, certs=0, backups=0, failed=0)
+    assert [app.domain for app in store.list_apps()] == created.domains

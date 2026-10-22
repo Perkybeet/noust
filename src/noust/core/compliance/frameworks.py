@@ -272,6 +272,11 @@ _ENS_M: dict[str, Requirement] = {
     "separation_of_duties": _r(True, _OP_ACC_3_1, _OP_ACC_3_2),
     "sso_no_admin": _r(True, _OP_ACC_3_2),
     "approvals": _r(True, _OP_ACC_3_2, _OP_EXP_5_4),
+    "second_factor": _r(
+        True,
+        _OP_ACC_6_R8,
+        note="Every account has held one since 3.1 under this category; the control keeps it.",
+    ),
     "sudo_password": _r(
         True,
         _OP_ACC_6_R6,
@@ -345,6 +350,11 @@ _ISO: dict[str, Requirement] = {
     "restricted_tokens": _r(True, _A_5_17, _A_8_2),
     "token_max_days": _r(90, _A_5_17, note=_ISO_NOTE),
     "master_token": _r("recovery", _A_8_2),
+    "second_factor": _r(
+        True,
+        _A_8_5,
+        note="A.8.5 leaves the method to the organisation; a second factor is Noust's reading.",
+    ),
     "sudo_password": _r(True, _A_8_2, _A_8_5),
     "sudo_idle_minutes": _r(10, _A_8_2, note=_ISO_NOTE),
     "sudo_max_minutes": _r(30, _A_8_2, note=_ISO_NOTE),
@@ -417,6 +427,7 @@ _NIS2: dict[str, Requirement] = {
     "stale_account_days": _r(90, _N_I, note=_NIS2_NOTE),
     "token_max_days": _r(90, _N_I, note=_NIS2_NOTE),
     "restricted_tokens": _r(True, _N_I),
+    "second_factor": _r(True, _N_J),
     "sudo_password": _r(True, _N_J),
     "sudo_idle_minutes": _r(10, _N_J, note=_NIS2_NOTE),
     "sudo_max_minutes": _r(30, _N_J, note=_NIS2_NOTE),
@@ -430,6 +441,7 @@ _CIS_4_3 = _c("4.3", "Configure automatic session locking on enterprise assets")
 _CIS_5_1 = _c("5.1", "Establish and maintain an inventory of accounts")
 _CIS_5_3 = _c("5.3", "Disable dormant accounts")
 _CIS_5_4 = _c("5.4", "Restrict administrator privileges to dedicated administrator accounts")
+_CIS_6_5 = _c("6.5", "Require MFA for administrative access")
 _CIS_8_9 = _c("8.9", "Centralize audit logs")
 _CIS_8_10 = _c("8.10", "Retain audit logs")
 _CIS_8_11 = _c("8.11", "Conduct audit log reviews")
@@ -443,6 +455,7 @@ _CIS_IG1: dict[str, Requirement] = {
     ),
     "stale_account_days": _r(45, _CIS_5_3, prescribed=True),
     "single_role_per_account": _r(True, _CIS_5_4),
+    "second_factor": _r(True, _CIS_6_5, prescribed=True),
     "backup_encryption": _r(
         "required",
         _CIS_11_3,
@@ -483,6 +496,11 @@ _SOC2: dict[str, Requirement] = {
     "restricted_tokens": _r(True, _CC6_1, _CC6_3),
     "token_max_days": _r(90, _CC6_1, note=_SOC2_NOTE),
     "master_token": _r("recovery", _CC6_1),
+    "second_factor": _r(
+        True,
+        _CC6_1,
+        note="The criteria name no method; a second factor is Noust's reading.",
+    ),
     "sudo_password": _r(True, _CC6_1),
     "lockout_threshold": _r(5, _CC6_1, note=_SOC2_NOTE),
     "lockout_minutes": _r(15, _CC6_1, note=_SOC2_NOTE),

@@ -135,6 +135,10 @@ export const complianceSetup = {
       title: "Identity providers never grant admin",
       summary: "A person grants admin, never an identity provider.",
     },
+    second_factor: {
+      title: "Second factor required",
+      summary: "Every account enrols an authenticator or a passkey before anything else.",
+    },
     approvals: {
       title: "Approval by a second person",
       summary: "Root-level actions and role changes need a second person.",

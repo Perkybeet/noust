@@ -33,13 +33,16 @@ import { accountTypeWords, hooksState, repositorySelectionWords } from "./github
 
 const EXPOSE_COMMAND = "noust web expose-hooks hooks.example.com";
 
-type SetupStep = "create" | "install" | "events";
+type SetupStep = "create" | "install";
 
-/** Where the setup stands: the first step not done yet, or null when the App works end to end. */
+/**
+ * Where the setup stands: the first step not done yet, or null when the App can clone. An App that
+ * is created and installed already reads every repository it reaches; letting GitHub deliver its
+ * pushes comes after, as a task with a state (`EventsTask`), and blocks nothing.
+ */
 export function setupStep(status: GitHubStatus): SetupStep | null {
   if (!status.configured) return "create";
-  if (status.installations.length === 0) return "install";
-  return hooksState(status) === "active" ? null : "events";
+  return status.installations.length === 0 ? "install" : null;
 }
 
 function installationColumns(t: T): readonly Column<GitHubInstallation>[] {
@@ -102,8 +105,8 @@ function InstallStep({ status }: { status: GitHubStatus }) {
   );
 }
 
-/** Step 3: GitHub cannot deliver the App's pushes yet, and what to do about it. */
-function EventsStep({ status }: { status: GitHubStatus }) {
+/** GitHub cannot deliver the App's pushes yet, and what to do about it. */
+function EventsHelp({ status }: { status: GitHubStatus }) {
   const t = useT();
   const state = hooksState(status);
   if (state === "unexposed") {
@@ -126,15 +129,34 @@ function EventsStep({ status }: { status: GitHubStatus }) {
 }
 
 /**
- * The setup, one step at a time: create the App, install it on an account, let GitHub reach
- * this server. Done steps are ticked in the stepper; only the current one has its content.
+ * The task that comes after the App works: let GitHub reach this server, so a push deploys and a
+ * pull request gets a preview. It says what does not happen until then, and how; the App clones
+ * and lists repositories without it.
+ */
+function EventsTask({ status }: { status: GitHubStatus }) {
+  const t = useT();
+  return (
+    <Card>
+      <Subsection title={t("settings.integrations.github.steps.events")}>
+        <p className="flex items-center gap-2 text-13 font-medium text-fg">
+          <StatusGlyph state="warning" size={10} className="text-warn" />
+          {t("settings.integrations.github.webhook.pushesWaiting")}
+        </p>
+        <EventsHelp status={status} />
+      </Subsection>
+    </Card>
+  );
+}
+
+/**
+ * The setup, one step at a time: create the App, install it on an account. Done steps are
+ * ticked in the stepper; only the current one has its content.
  */
 function Setup({ status, step }: { status: GitHubStatus; step: SetupStep }) {
   const t = useT();
   const steps = [
     { id: "create", label: t("settings.integrations.github.steps.create") },
     { id: "install", label: t("settings.integrations.github.steps.install") },
-    { id: "events", label: t("settings.integrations.github.steps.events") },
   ] as const;
   const current = steps.find((candidate) => candidate.id === step) ?? steps[0];
   return (
@@ -148,7 +170,9 @@ function Setup({ status, step }: { status: GitHubStatus; step: SetupStep }) {
                 <GitHubHost key={statusHost(status)} status={status} />
                 <CreateGitHubApp />
               </>
-            ) : step === "install" ? <InstallStep status={status} /> : <EventsStep status={status} />}
+            ) : (
+              <InstallStep status={status} />
+            )}
           </Subsection>
         </div>
       </div>
@@ -328,6 +352,7 @@ export function GitHubIntegration() {
             return (
               <>
                 {step !== null ? <Setup status={loaded} step={step} /> : null}
+                {step === null && hooksState(loaded) !== "active" ? <EventsTask status={loaded} /> : null}
                 {loaded.configured ? <AppFacts status={loaded} /> : null}
                 {loaded.configured && loaded.installations.length > 0 ? <Installations status={loaded} /> : null}
               </>

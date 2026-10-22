@@ -4,8 +4,6 @@
     "badge-state": {
       "features/backups/noust/MigrationReport.tsx": 1,
       "features/backups/RestoreDrills.tsx": 2,
-      "features/catalog/RecipeDetailPage.tsx": 1,
-      "features/catalog/RecipeRequirements.tsx": 1,
       "features/databases/instances/InstancesSection.tsx": 2,
       "features/databases/instances/TuningDialog.tsx": 1,
       "features/domains/SiteHistoryDialog.tsx": 2,
@@ -44,7 +42,6 @@
       "features/databases/backups/RestoreDialog.tsx": 1,
       "features/domains/InternalAuthorityDialog.tsx": 1,
       "features/domains/SiteConfigPage.tsx": 1,
-      "features/new-app/NewAppWizard.tsx": 1,
       "features/settings/probes/StatusPageSection.tsx": 1,
       "features/settings/TwoFactorSection.tsx": 1
     },
@@ -84,8 +81,6 @@
       "features/databases/public/OpenPublicDialog.tsx": 1,
       "features/fleet/placements/PlacementDialog.tsx": 1,
       "features/fleet/placements/ShipDialog.tsx": 1,
-      "features/new-app/GitHubSource.tsx": 1,
-      "features/new-app/GitLabSource.tsx": 1,
       "features/promotion/CloneDialog.tsx": 1,
       "features/server/storage/CleanupScheduleCard.tsx": 2,
       "features/settings/accounts/InviteDialog.tsx": 3,
@@ -103,10 +98,6 @@
       "features/backups/noust/MigrationDialog.tsx": 1,
       "features/backups/RestoreDrills.tsx": 1,
       "features/backups/volumes/VolumePolicyDrawer.tsx": 1,
-      "features/catalog/RecipeCatalog.tsx": 1,
-      "features/catalog/RecipeDetailPage.tsx": 1,
-      "features/catalog/RecipeRequirements.tsx": 1,
-      "features/catalog/RecipeUpdateDialog.tsx": 1,
       "features/databases/data/KeysView.tsx": 1,
       "features/databases/data/RelationList.tsx": 1,
       "features/databases/data/StructureView.tsx": 1,
@@ -136,10 +127,6 @@
       "features/fleet/placements/UpstreamsDialog.tsx": 1,
       "features/fleet/SummaryTab.tsx": 2,
       "features/logs/LogSearchPage.tsx": 2,
-      "features/new-app/AddressFields.tsx": 1,
-      "features/new-app/GitHubSource.tsx": 1,
-      "features/new-app/GitLabSource.tsx": 1,
-      "features/overview/RecentActivity.tsx": 1,
       "features/settings/EmailChannel.tsx": 1,
       "features/settings/LogRetentionSection.tsx": 1,
       "features/settings/LogShippingSettings.tsx": 1,
@@ -222,9 +209,6 @@
     },
     "native-details": {
       "features/app/diagnose/DiagnoseTab.tsx": 2,
-      "features/new-app/ConfigureStep.tsx": 1,
-      "features/new-app/EnvironmentFields.tsx": 1,
-      "features/new-app/ImportReview.tsx": 1,
       "features/settings/NotificationSettings.tsx": 2
     },
     "notice-info-bare": {
@@ -268,7 +252,6 @@
       "features/databases/public/OpenPublicDialog.tsx": 1,
       "features/domains/SiteConfigPage.tsx": 1,
       "features/fleet/BulkActionDialog.tsx": 1,
-      "features/new-app/ComposeDocument.tsx": 1,
       "features/settings/servers/AddServerDialog.tsx": 1,
       "features/settings/servers/LinkServerDialog.tsx": 1,
       "features/timeline/TimelineDrawer.tsx": 1
@@ -288,8 +271,7 @@
     },
     "own-back-link": {},
     "own-leave-dialog": {
-      "features/domains/SiteConfigPage.tsx": 1,
-      "features/new-app/NewAppWizard.tsx": 1
+      "features/domains/SiteConfigPage.tsx": 1
     },
     "row-actions-local": {
       "features/backups/BackupsTable.tsx": 1,

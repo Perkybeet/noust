@@ -5,6 +5,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { chooseWay } from "../../test/ways";
 import { EXPORT, RECIPES, WORDPRESS } from "./testFixtures";
 import type { Inspection } from "./wizard";
 
@@ -75,7 +76,7 @@ function wizard(domain: string, finished: Record<string, unknown>, extra: Record
 
 async function choose(user: ReturnType<typeof renderConsole>["user"], mode: string) {
   await screen.findByRole("heading", { level: 1, name: "New application" });
-  await user.click(await screen.findByRole("radio", { name: mode }));
+  await chooseWay(user, mode);
 }
 
 describe("starting from a recipe", () => {
@@ -83,7 +84,10 @@ describe("starting from a recipe", () => {
     const { harness } = wizard("blog.example.com", {});
     await choose(harness.user, "From a recipe");
     const wordpress = (await screen.findByRole("heading", { level: 3, name: "WordPress" })).closest("li") as HTMLElement;
-    expect(within(wordpress).getByText("A MySQL database")).toBeInTheDocument();
+    // A tile is a line and Use; what it needs and its site are under Details.
+    expect(within(wordpress).queryByText("A MySQL database")).not.toBeVisible();
+    await harness.user.click(within(wordpress).getByRole("button", { name: "Details" }));
+    expect(within(wordpress).getByText("A MySQL database")).toBeVisible();
     expect(within(wordpress).getByText("PHP-FPM 7.4 or newer")).toBeInTheDocument();
     const site = within(wordpress).getByRole("link", { name: /wordpress\.org/ });
     expect(site).toHaveAttribute("href", "https://wordpress.org");
@@ -93,7 +97,7 @@ describe("starting from a recipe", () => {
     const ghost = screen.getByRole("heading", { level: 3, name: "Ghost" }).closest("li") as HTMLElement;
     expect(within(ghost).getByText("Not available in this release")).toBeInTheDocument();
     expect(within(ghost).getByText(/supports only MySQL 8 in production/)).toBeInTheDocument();
-    expect(within(ghost).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(ghost).queryByRole("button", { name: /^Use/ })).not.toBeInTheDocument();
     await expectNoAxeViolations(harness.container);
   });
 
@@ -113,6 +117,8 @@ describe("starting from a recipe", () => {
     const steps = screen.getByRole("list", { name: "Steps" });
     expect(within(steps).getAllByRole("listitem")).toHaveLength(3);
     expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+    // Where its code comes from and its type are one press away, not in the way of the address.
+    expect(screen.getByRole("button", { name: "Details" })).toHaveAttribute("aria-expanded", "false");
 
     // A domain already deployed here is refused before anything is sent.
     await user.type(screen.getByLabelText("Domain"), "shop.example.com");
@@ -250,7 +256,7 @@ describe("importing an application", () => {
 
     expect(await screen.findByRole("heading", { level: 2, name: "Address" })).toHaveFocus();
     await user.click(screen.getByText("What the export defines"));
-    const summary = screen.getByText("What the export defines").closest("details") as HTMLElement;
+    const summary = screen.getByRole("button", { name: /What the export defines/ }).closest<HTMLElement>('[data-slot="disclosure-card"]') ?? missing("disclosure card");
     expect(within(summary).getByText("1 job")).toBeInTheDocument();
     expect(within(summary).getByText("Schedule daily")).toBeInTheDocument();
     expect(within(summary).getByText("store.example.com")).toBeInTheDocument();
@@ -358,7 +364,7 @@ describe("another platform's configuration", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "/srv/api");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "api.example.com");
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -386,7 +392,7 @@ describe("another platform's configuration", () => {
     // What the platform generates is generated here, with a value already: nothing to ask, so
     // Deploy follows, and the Variables step is one click away on the stepper.
     await screen.findByRole("heading", { level: 2, name: "Deploy" });
-    await user.click(screen.getByRole("button", { name: "Variables: done" }));
+    await user.click(screen.getByRole("button", { name: "Change variables" }));
     await screen.findByRole("heading", { level: 2, name: "Variables" });
     expect(screen.getByLabelText(/^SESSION_SECRET/)).toHaveAttribute("type", "password");
     expect(screen.getByLabelText<HTMLInputElement>(/^SESSION_SECRET/).value).toMatch(/^[A-Za-z0-9_-]{43}$/);
@@ -413,7 +419,7 @@ describe("another platform's configuration", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "/srv/api");
-    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "api.example.com");
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -436,5 +442,47 @@ describe("another platform's configuration", () => {
       expect(backend.callsTo("POST /api/apps")).toHaveLength(2);
     });
     expect(backend.callsTo("POST /api/apps")[1]?.body).not.toHaveProperty("health_path");
+  });
+});
+
+describe("the row a recipe ends on", () => {
+  /** The wizard to the end of a WordPress deploy, with what the deployer recorded for the certificate. */
+  async function deployed(deployment: Record<string, unknown>) {
+    const { harness } = wizard(
+      "blog.example.com",
+      { result: { deployment_id: 12, recipe: "wordpress", notes: [] } },
+      {
+        "GET /api/deployments/12": () => json(200, { id: 12, domain: "blog.example.com", status: "success", triggered_by: "panel", has_log: true, ...deployment }),
+        "GET /api/apps/blog.example.com/domains": () => json(200, { domains: [{ domain: "blog.example.com", kind: "primary" }] }),
+      },
+    );
+    const { user } = harness;
+    await choose(user, "From a recipe");
+    await user.click(await screen.findByRole("button", { name: "Use WordPress" }));
+    await user.type(await screen.findByLabelText("Domain"), "blog.example.com");
+    await user.click(screen.getByRole("button", { name: "Deploy" }));
+    expect(await screen.findByText("blog.example.com is deployed", {}, { timeout: 5_000 })).toBeInTheDocument();
+    return harness;
+  }
+
+  it("says it is live, where, and that HTTPS is ready, with the three things to do next", { timeout: 30_000 }, async () => {
+    await deployed({ certificate_state: "issued", certificate_output: null });
+    expect(await screen.findByText("Live")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /blog\.example\.com, the live site/ })).toHaveAttribute("href", "https://blog.example.com");
+    expect(await screen.findByText("HTTPS is ready.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add your own domain" })).toHaveAttribute("href", "/apps/blog.example.com/domains");
+    expect(screen.getByRole("link", { name: "Add a database" })).toHaveAttribute("href", "/apps/blog.example.com/database");
+    expect(screen.getByRole("link", { name: "Schedule a backup" })).toHaveAttribute("href", "/backups");
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("serves over HTTP when the certificate was refused, and keeps the authority's words one press away", { timeout: 30_000 }, async () => {
+    const said = "An unexpected error occurred:\nToo many certificates (5) already issued for this exact set of domains";
+    const { user } = await deployed({ certificate_state: "failed", certificate_output: said });
+    expect(await screen.findByText(/Served over HTTP: the certificate could not be issued/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /blog\.example\.com, the live site/ })).toHaveAttribute("href", "http://blog.example.com");
+    await user.click(screen.getByRole("button", { name: "What certbot said" }));
+    expect(screen.getByText(/Too many certificates \(5\) already issued/)).toBeVisible();
+    await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

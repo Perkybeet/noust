@@ -5,7 +5,7 @@ import type { Overview } from "../../api/queries/overview";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, onNode, signedInRoutes } from "../../test/fakes";
+import { SESSION, fakeBackend, json, onNode, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { MACHINE_METRICS } from "./MachineCharts";
 import { metricsReadFixture, overviewFixture } from "./testFixtures";
@@ -91,6 +91,24 @@ function routes(extra: Record<string, RouteHandler> = {}, overview = overviewFix
   };
 }
 
+const EMPTY = overviewFixture({
+  apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: null },
+  backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 },
+});
+
+const RECIPES_FOR_PILLS = {
+  items: [
+    ["umami", "Umami", true],
+    ["wordpress", "WordPress", true],
+    ["ghost", "Ghost", false],
+    ["hello", "Hello", true],
+    ["uptime-kuma", "Uptime Kuma", true],
+    ["plausible", "Plausible", true],
+  ].map(([name, title, available]) => ({ name, title, available, description: "", slogan: "", category: "other", tags: [], version: null, logo: null, homepage: "https://example.org" })),
+  total: 6,
+  problems: [],
+};
+
 async function overview(extra?: Record<string, RouteHandler>, path = "/", data?: ReturnType<typeof overviewFixture>) {
   const backend = fakeBackend(routes(extra, data));
   const harness = renderConsole(path);
@@ -123,7 +141,7 @@ describe("the overview", () => {
     // Every sum used to be NaN: an empty node was shown key figures of nothing, never its first steps.
     const apps = { running: 0, failed: 0, stopped: 0, static: 0, error: null } as unknown as Overview["apps"];
     await overview(undefined, "/", overviewFixture({ apps, backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 } }));
-    expect(await screen.findByRole("list", { name: "First steps" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Deploy your first app" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Key figures" })).not.toBeInTheDocument();
   });
 
@@ -300,56 +318,77 @@ describe("the overview", () => {
     expect(screen.getAllByText("noust monitor enable").length).toBeGreaterThan(0);
   });
 
-  it("welcomes an empty server with its first steps instead of empty charts", async () => {
-    await overview(undefined, "/", overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: null }, backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 } }));
-    const steps = await screen.findByRole("list", { name: "First steps" });
-    // Beside the step from a tablet up, under it on a phone: one of the two is shown.
-    expect(within(steps).getAllByRole("link", { name: "New application" })[0]).toHaveAttribute("href", "/apps/new");
+  it("welcomes an empty server with one card of ways to get something live instead of empty charts", async () => {
+    await overview(undefined, "/", EMPTY);
+    expect(await screen.findByRole("heading", { level: 2, name: "Deploy your first app" })).toBeInTheDocument();
+    // Each way has its own button, and the primary stays the header's: a demo is one press, not a second primary.
+    expect(screen.getByRole("link", { name: "Try a demo" })).toHaveAttribute("href", "/apps/new?start=recipe&recipe=hello&deploy=now");
+    expect(screen.getByRole("link", { name: "Use a repository" })).toHaveAttribute("href", "/apps/new");
+    expect(screen.getAllByRole("link", { name: "New application" })).toHaveLength(1);
     expect(screen.queryByRole("region", { name: "Machine" })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Key figures" })).not.toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("asks first for the server to be checked and for a copy off it, and ticks both once they are done", async () => {
-    const empty = overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: null }, backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 } });
+  it("offers the popular recipes the catalogue has, installable now, and the rest of the catalogue", async () => {
     await overview(
       {
-        "GET /api/system/doctor": () => json(200, { ready: true, issues: 0, warnings: 0, sections: [] }),
-        "GET /api/backup-destinations": () => json(200, { destinations: [{ name: "offsite", backend: "sftp", encrypted: false }], total: 1 }),
+        "GET /api/recipes": () => json(200, RECIPES_FOR_PILLS),
       },
       "/",
-      empty,
+      EMPTY,
     );
-    const steps = await screen.findByRole("list", { name: "First steps" });
-
-    const titles = within(steps)
-      .getAllByRole("listitem")
-      .map((item) => item.querySelector("p")?.textContent ?? "");
-    expect(titles.map((title) => title.replace(/^\d+\./, ""))).toEqual([
-      "Check the server",
-      "Deploy your first application",
-      "Schedule backups",
-      "Keep a copy off this server",
-      "Turn on notifications",
-      "Turn on two-step verification",
-    ]);
-    const items = within(steps).getAllByRole("listitem");
-    const check = items[0];
-    const destination = items[3];
-    if (check === undefined || destination === undefined) throw new Error("the steps are missing");
-    await waitFor(() => expect(within(check).getAllByText("Done").length).toBeGreaterThan(0));
-    await waitFor(() => expect(within(destination).getAllByText("Done").length).toBeGreaterThan(0));
+    const pills = await screen.findByRole("list", { name: "Popular recipes" });
+    const names = (await within(pills).findAllByRole("link")).map((link) => link.textContent);
+    // The popular ones in their order, then what else is available; one that cannot be installed here is not offered.
+    expect(names).toEqual(["Uptime Kuma", "WordPress", "Umami", "Plausible"]);
+    expect(within(pills).getByRole("link", { name: "Uptime Kuma" })).toHaveAttribute("href", "/apps/new?start=recipe&recipe=uptime-kuma");
+    expect(screen.getByRole("link", { name: "All recipes" })).toHaveAttribute("href", "/catalog");
   });
 
-  it("leaves the server check to do while it has not run or has found something missing", async () => {
-    const empty = overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: null }, backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 } });
-    await overview({ "GET /api/system/doctor": () => json(200, { ready: false, issues: 1, warnings: 0, sections: [] }) }, "/", empty);
-    const steps = await screen.findByRole("list", { name: "First steps" });
+  it("keeps backups, a copy off the server and notifications folded, and counts what is left", async () => {
+    const { user } = await overview(
+      {
+        "GET /api/backup-destinations": () => json(200, { destinations: [{ name: "offsite", backend: "sftp", encrypted: false }], total: 1 }),
+        // Somebody who chose "Set up later": the account is the last thing left to protect.
+        "GET /api/auth/session": () => json(200, { ...SESSION, totp_enabled: false }),
+      },
+      "/",
+      EMPTY,
+    );
+    const fold =await screen.findByRole("button", { name: /Then make it safe to leave alone/ });
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    // A copy off the server is done; backups, notifications and the account are not.
+    await waitFor(() => expect(fold).toHaveTextContent("3 things left"));
+    await user.click(fold);
+    const list = screen.getByRole("list", { name: "Making it safe" });
+    const titles = within(list)
+      .getAllByRole("listitem")
+      .map((item) => item.querySelector("p")?.textContent ?? "");
+    expect(titles).toEqual(["Schedule backups", "Keep a copy off this server", "Turn on notifications", "Protect your account"]);
+    const destination = within(list).getAllByRole("listitem")[1];
+    if (destination === undefined) throw new Error("the rows are missing");
+    expect(within(destination).getByText("Done")).toBeInTheDocument();
+    expect(within(list).getByRole("link", { name: "Security" })).toHaveAttribute("href", "/account/security");
+  });
 
-    const check = within(steps).getAllByRole("listitem")[0];
-    if (check === undefined) throw new Error("the steps are missing");
+  it("says in one line that the server cannot deploy yet, with the check that fixes it", async () => {
+    await overview({ "GET /api/system/doctor": () => json(200, { ready: false, issues: 1, warnings: 0, sections: [] }) }, "/", EMPTY);
+    const line = await screen.findByText(/This server is missing something a deploy needs/);
+    expect(within(line.closest("div") ?? line).getByRole("link", { name: "Installation check" })).toHaveAttribute("href", "/settings/about");
+  });
 
-    expect(within(check).getAllByRole("link", { name: "Installation check" })[0]).toHaveAttribute("href", "/settings/about");
-    expect(within(check).queryByText("Done")).not.toBeInTheDocument();
+  it("says nothing of the server when it is ready", async () => {
+    await overview({ "GET /api/system/doctor": () => json(200, { ready: true, issues: 0, warnings: 0, sections: [] }) }, "/", EMPTY);
+    await screen.findByRole("heading", { level: 2, name: "Deploy your first app" });
+    expect(screen.queryByText(/This server is missing something a deploy needs/)).not.toBeInTheDocument();
+  });
+
+  it("draws the Overview and its Map as tabs, and the Map is no longer in the header's menu", async () => {
+    await overview();
+    const tabs = screen.getByRole("navigation", { name: "Overview sections" });
+    expect(within(tabs).getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/");
+    expect(within(tabs).getByRole("link", { name: "Map" })).toHaveAttribute("href", "/map");
   });
 
   it("summarises the fleet on a central, each server from its own overview, and says why one is missing", async () => {

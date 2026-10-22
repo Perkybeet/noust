@@ -1984,6 +1984,20 @@ CERTS_COLUMNS: list[tuple[str, str, str]] = [
 ]
 
 
+# Owned by the arrival lane (the first deploy of a person with no domain): how the certificate of
+# a deployment ended. ``certificate_state`` is ``issued`` or ``failed`` (empty when the
+# application asked for none, and on every deployment from before), and ``certificate_output`` is
+# what the authority said when it refused, word for word. A certificate that is refused never
+# fails a deployment: the application serves over HTTP, and these two columns are how the console
+# and ``noust`` say so afterwards. Columns of ``deployments`` and not a table: the answer is about
+# that attempt and goes with its row. Validated by ``NoustStore.record_deployment_certificate``.
+ARRIVAL_SQL = ""
+ARRIVAL_COLUMNS: list[tuple[str, str, str]] = [
+    ("deployments", "certificate_state", "TEXT"),
+    ("deployments", "certificate_output", "TEXT"),
+]
+
+
 def _fragments() -> list[str]:
     return [
         TEAMS_SQL,
@@ -2008,6 +2022,7 @@ def _fragments() -> list[str]:
         SHIPPING_SQL,
         ACCESS6_SQL,
         CERTS_SQL,
+        ARRIVAL_SQL,
     ]
 
 
@@ -2035,6 +2050,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *SHIPPING_COLUMNS,
         *ACCESS6_COLUMNS,
         *CERTS_COLUMNS,
+        *ARRIVAL_COLUMNS,
     ]
 
 

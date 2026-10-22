@@ -67,7 +67,9 @@ describe("the verbs of the console", () => {
 
   it("have no button called Deploy that only opens a form: the entry points say New application", () => {
     expect(en.apps.newApplication).toBe("New application");
-    expect(en.overview.firstSteps.deploy.action).toBe("New application");
+    // The Overview of an empty server names what each button does instead: a demo, a repository.
+    expect(en.overview.firstSteps.demo.action).toBe("Try a demo");
+    expect(en.overview.firstSteps.repository.action).not.toMatch(/deploy/i);
     expect(en.shell.commands.newApplication).toBe("New application");
   });
 });

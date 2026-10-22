@@ -645,6 +645,7 @@ export const settings = {
         },
       },
       webhook: {
+        pushesWaiting: "Pushes will not deploy until this server is reachable.",
         unexposedTitle: "Not reachable from GitHub",
         unexposedDescription: "GitHub delivers pushes and pull requests to /hooks on a public domain, and this server does not expose one yet. Until it does, pushes do not deploy and pull requests get no preview. Point a domain at this server, then run:",
         inactiveTitle: "Not switched on at GitHub",

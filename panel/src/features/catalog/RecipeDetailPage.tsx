@@ -22,6 +22,7 @@ import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatDate } from "../../lib/format";
@@ -100,7 +101,7 @@ function variableColumns(t: T): Column<RecipeVariableInfo>[] {
         return (
           <span className="flex flex-wrap items-center gap-1.5">
             <span>{key === undefined ? row.origin : t(key)}</span>
-            {row.required ? <Badge tone="warn">{t("catalog.detail.variables.required")}</Badge> : null}
+            {row.required ? <Badge>{t("catalog.detail.variables.required")}</Badge> : null}
             {row.secret ? <Badge>{t("catalog.detail.variables.secret")}</Badge> : null}
           </span>
         );
@@ -128,11 +129,10 @@ function variableColumns(t: T): Column<RecipeVariableInfo>[] {
 function DetailSkeleton() {
   const t = useT();
   return (
-    <div aria-busy="true" className="flex flex-col gap-8">
-      <span className="sr-only">{t("catalog.detail.loading")}</span>
+    <LoadingRegion label={t("catalog.detail.loading")} className="flex flex-col gap-8">
       <Skeleton className="h-40 w-full rounded-card" />
       <Skeleton className="h-32 w-full rounded-card" />
-    </div>
+    </LoadingRegion>
   );
 }
 

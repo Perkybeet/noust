@@ -179,12 +179,12 @@ export function totpCode(secret: string, now: number = Date.now()): string {
  */
 export async function signIn(page: Page, server: ConsoleServer, next?: string): Promise<void> {
   if (!page.url().includes("/login")) {
-    // The access token is emergency access since accounts (3.1): `with=token` opens on it.
+    // The access token is the first way in, and the installer prints its link: `with=token` opens on it.
     await page.goto(next === undefined ? "/login?with=token" : `/login?with=token&next=${encodeURIComponent(next)}`);
   }
   // A page reached some other way opens on an account's sign-in: the token is one link away.
   const token = page.getByLabel("Access token");
-  const emergency = page.getByRole("button", { name: "Emergency access" });
+  const emergency = page.getByRole("button", { name: "Access token" });
   await expect(token.or(emergency)).toBeVisible();
   if (!(await token.isVisible())) await emergency.click();
   await token.fill(server.token);

@@ -114,7 +114,7 @@ test("a directory that does not exist is refused on its field, in the server's w
   await signIn(page, consoleServer, "/apps/new");
   await (await typedSource(page)).fill("/var/www/src/does-not-exist");
   const inspected = page.waitForResponse((response) => response.url().endsWith("/api/apps/inspect") && response.status() !== 403);
-  await page.getByRole("button", { name: "Inspect source" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   const refusal = page.getByText("Source path does not exist: /var/www/src/does-not-exist");
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   await expect(confirm.or(refusal)).toBeVisible();
@@ -169,10 +169,10 @@ test("also serving www and resource limits reach the deploy request", async ({ p
   // not also wait on a certificate order that a domain with no DNS record cannot complete.
   await page.getByRole("checkbox", { name: "Serve it over HTTPS" }).uncheck();
   // A static site is detected as one type and declares nothing: Configuration and Variables have
-  // nothing to ask, so the address is followed by the deploy. Configuration is still on the
-  // stepper, done, for whoever wants to change what was detected.
+  // nothing to ask, so the address is followed by the deploy. The summary of the deploy says what
+  // was detected and offers to change it, for whoever wants to.
   await continueTo(page, "Deploy");
-  await page.getByRole("button", { name: "Configuration: done" }).click();
+  await page.getByRole("button", { name: "Change detected" }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Configuration" })).toBeFocused();
   await page.getByText("Advanced", { exact: true }).click();
   const limits = page.getByRole("group", { name: "Resource limits" });
@@ -228,7 +228,7 @@ test("a source Noust cannot deploy as it is gets the inspection's verdict and ho
   // machine has no Railpack.
   const source = await wizardSource(page, "rust-service");
   await (await typedSource(page)).fill(source);
-  await page.getByRole("button", { name: "Inspect source" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   const verdict = page.getByRole("status").filter({ hasText: `Noust cannot deploy ${source} as it is` });
   await expect(confirm.or(verdict)).toBeVisible();
