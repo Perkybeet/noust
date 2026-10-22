@@ -15,7 +15,8 @@ const KB = 1024;
 const made = [];
 
 /**
- * A build whose entry is 10 kB, whose one preloaded chunk is 20 kB, whose lazy chunk is 40 kB, and whose stylesheet is 5 kB.
+ * A build whose entry is 10 kB, whose one preloaded chunk is 20 kB, whose lazy chunk is 40 kB, whose stylesheet is 5 kB,
+ * and whose texts are one English chunk of 6 kB and two Spanish ones of 7 and 8 kB (named as vite.config.ts names them).
  *
  * @param {{ index?: boolean }} [options]
  */
@@ -33,6 +34,11 @@ function build({ index = true } = {}) {
   file("index.js", 10);
   file("shared.js", 20);
   file("page.js", 40);
+  file("i18n-en-nav-AbCd1234.js", 6);
+  file("i18n-es-nav-AbCd1234.js", 7);
+  file("i18n-es-servers-AbCd1234.js", 8);
+  // A feature that is called like a catalog is not one.
+  file("nav-AbCd1234.js", 3);
   file("app.css", 5);
   if (index) {
     writeFileSync(
@@ -60,7 +66,7 @@ function check(dir, budget) {
   return { status: result.status, out: result.stdout, err: result.stderr };
 }
 
-const ROOMY = { initialJs: 40 * KB, initialCss: 8 * KB, chunk: 50 * KB, totalJs: 100 * KB };
+const ROOMY = { initialJs: 40 * KB, initialCss: 8 * KB, chunk: 50 * KB, totalJs: 150 * KB, catalogEn: 10 * KB, catalogEs: 20 * KB };
 
 afterEach(() => {
   for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
@@ -74,7 +80,10 @@ describe("the bundle budget", () => {
     expect(result.out).toContain("within its budget");
     // The entry and its preload are 30 kB, not the 70 kB of every chunk: a lazy chunk is not initial.
     expect(result.out).toMatch(/initialJs\s+30\.\d kB of 40\.0 kB/);
-    expect(result.out).toMatch(/totalJs\s+70\.\d kB of 100\.0 kB/);
+    expect(result.out).toMatch(/totalJs\s+94\.\d kB of 150\.0 kB/);
+    // The texts are weighed by language, and by the name the build gives them.
+    expect(result.out).toMatch(/catalogEn\s+6\.\d kB of 10\.0 kB/);
+    expect(result.out).toMatch(/catalogEs\s+15\.\d kB of 20\.0 kB/);
   });
 
   it("fails a build whose first load is heavier than its budget, naming the number", () => {
@@ -99,7 +108,22 @@ describe("the bundle budget", () => {
 
     expect(result.status).toBe(1);
     expect(result.err).toContain("initialCss is 5.");
-    expect(result.err).toContain("totalJs is 70.");
+    expect(result.err).toContain("totalJs is 94.");
+  });
+
+  it("fails on the texts of one language alone, and not on the other", () => {
+    const spanish = check(build(), { ...ROOMY, catalogEs: 12 * KB });
+
+    expect(spanish.status).toBe(1);
+    expect(spanish.err).toContain("catalogEs is 15.");
+    expect(spanish.err).not.toContain("catalogEn is");
+    expect(spanish.err).not.toContain("totalJs is");
+
+    const english = check(build(), { ...ROOMY, catalogEn: 5 * KB });
+
+    expect(english.status).toBe(1);
+    expect(english.err).toContain("catalogEn is 6.");
+    expect(english.err).not.toContain("catalogEs is");
   });
 
   it("refuses a directory that is not a build", () => {
@@ -116,5 +140,10 @@ describe("the bundle budget", () => {
 
     expect(result.status).toBe(1);
     expect(result.err).toContain('no number for "totalJs"');
+
+    const noTexts = check(build(), { initialJs: ROOMY.initialJs, initialCss: ROOMY.initialCss, chunk: ROOMY.chunk, totalJs: ROOMY.totalJs, catalogEn: ROOMY.catalogEn });
+
+    expect(noTexts.status).toBe(1);
+    expect(noTexts.err).toContain('no number for "catalogEs"');
   });
 });

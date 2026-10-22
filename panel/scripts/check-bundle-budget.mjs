@@ -6,6 +6,13 @@
 //   initialCss  gzip bytes of the stylesheets index.html loads
 //   chunk       gzip bytes of the largest single script, which is the slowest page to open
 //   totalJs     gzip bytes of every script: what a visit to every page would fetch
+//   catalogEn   gzip bytes of the English texts that are loaded by area (the chunks `i18n-en-*`; the
+//               namespaces the first screen draws are bundled with the entry and counted in initialJs)
+//   catalogEs   gzip bytes of the Spanish texts (the chunks `i18n-es-*`: every namespace, the chrome included)
+//
+// The texts weigh as much as the code of a dozen pages and grow with each feature, so they have a number
+// of their own: a regression of the catalogs shows as itself and not as an unexplained totalJs.
+// vite.config.ts gives the catalog chunks those names (a build whose chunks are not named so would measure 0).
 //
 // The budget is panel/bundle-budget.json. A number there only goes down by hand when the build gets
 // lighter; going up is a decision that names the reason in the commit that raises it.
@@ -64,6 +71,8 @@ const measured = {
   initialCss: [...styles].reduce((sum, href) => sum + gzipSize(local(href)), 0),
   chunk: Math.max(...chunks.map((chunk) => chunk.gzip)),
   totalJs: chunks.reduce((sum, chunk) => sum + chunk.gzip, 0),
+  catalogEn: chunks.filter((chunk) => chunk.name.startsWith("i18n-en-")).reduce((sum, chunk) => sum + chunk.gzip, 0),
+  catalogEs: chunks.filter((chunk) => chunk.name.startsWith("i18n-es-")).reduce((sum, chunk) => sum + chunk.gzip, 0),
 };
 const largest = chunks.find((chunk) => chunk.gzip === measured.chunk)?.name ?? "";
 
