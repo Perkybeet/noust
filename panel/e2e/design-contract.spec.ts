@@ -7,7 +7,9 @@
  *   or JetBrains Mono, at 400, 500 or 600;
  * - corners are 0, 4, 6, 10 or a pill; borders are 0, 1 or 2 pixels;
  * - every opaque colour is grey or one of the tokens of tokens.css, in either theme;
- * - a view has at most one primary button outside a dialog.
+ * - a view has at most one primary button outside a dialog, and at most one banner;
+ * - and that last, on every route of e2e/routes.ts, as the page loads and again with unsaved changes
+ *   (the header's primary yields to the save bar's, so there is still one), on a desk and on a phone.
  *
  * The routes are a sample of every template in use; the design gallery (/__design) is audited
  * too when the build under test includes it, which only a development build does:
@@ -22,7 +24,8 @@
 import type { Page } from "@playwright/test";
 
 import type { ConsoleServer } from "./fixtures";
-import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
+import { expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
+import { ROUTES as EVERY_ROUTE, routePath } from "./routes";
 
 const ROUTES = ["/", "/apps", "/apps/shop.example.net", "/apps/shop.example.net/settings", "/apps/shop.example.net/settings/build", "/backups", "/catalog", "/catalog/vaultwarden", "/domains", "/settings"];
 
@@ -185,6 +188,136 @@ async function primaries(page: Page): Promise<string[]> {
       .filter((button) => button.textContent.trim() !== "" || button.closest('[data-slot="split-button"]') === null)
       .map((button) => button.textContent.trim()),
   );
+}
+
+/**
+ * Visible banners outside a dialog, by the title they carry: a page states the condition of the page or the
+ * server once (NT-3), and with several conditions shows the worst or an aggregate.
+ */
+async function banners(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    [...document.querySelectorAll('[data-variant="banner"]')]
+      .filter((banner) => !banner.closest('[role="dialog"], [role="alertdialog"], [data-design-exception]'))
+      .filter((banner) => banner.getClientRects().length > 0 && getComputedStyle(banner).visibility !== "hidden")
+      .map((banner) => banner.textContent.trim().slice(0, 60)),
+  );
+}
+
+/**
+ * Pages whose bar counts something other than a field typed in: a variable staged from its dialog.
+ * The route's name in e2e/routes.ts, and what an operator does to leave a change on the bar.
+ */
+const STAGERS: Readonly<Record<string, (page: Page) => Promise<string>>> = {
+  "app-environment": async (page) => {
+    await page.getByRole("button", { name: "Add variable" }).click();
+    const dialog = page.getByRole("dialog", { name: "Add a variable" });
+    await dialog.getByLabel("Name").fill("BUDGET_PROBE");
+    await dialog.getByLabel("Value").fill("1");
+    await dialog.getByRole("button", { name: /^(Add variable|Add|Update variable)$/ }).click();
+    return "a variable staged";
+  },
+};
+
+/**
+ * Makes the page's save bar hold a change, the way an operator does: by typing in a field of the page, and
+ * failing back to a checkbox (or by what the page stages, `STAGERS`). Returns what it touched, or null when the
+ * page has a bar and nothing in it changes the bar's count (a page that says so in the failure).
+ */
+async function makeDirty(page: Page, route: string): Promise<string | null> {
+  const bar = page.getByRole("region", { name: "Unsaved changes" });
+  const counted = bar.getByText(/^\d+ unsaved changes?$/);
+  const stage = STAGERS[route];
+  if (stage !== undefined) {
+    const touched = await stage(page);
+    return (await counted.waitFor({ timeout: 3_000 }).then(() => true, () => false)) ? touched : null;
+  }
+  const fields = page.locator(
+    'main :is(input:not([type]), input[type="text"], input[type="number"], input[type="email"], input[type="url"], textarea):not([disabled]):not([readonly]):not([aria-hidden="true"]):not([tabindex="-1"])',
+  );
+  const candidates = [
+    ...(await fields.all()),
+    ...(await page.locator('main input[type="checkbox"]:not([disabled]):not([aria-hidden="true"])').all()),
+    // A choice among a few (a segmented control): the one that is not chosen.
+    ...(await page.locator('main [role="radio"][aria-checked="false"]:not([aria-disabled="true"])').all()),
+  ].slice(0, 16);
+  for (const field of candidates) {
+    if (!(await field.isVisible()) || (await field.evaluate((node) => node.closest('[role="region"][aria-label="Unsaved changes"], [role="dialog"], [data-slot="filter-bar"]') !== null))) continue;
+    const kind = (await field.getAttribute("role")) ?? (await field.evaluate((node) => (node instanceof HTMLInputElement ? node.type : node.tagName.toLowerCase())));
+    const pressed = kind === "checkbox" || kind === "radio";
+    if (pressed) await field.click({ timeout: 3_000 });
+    else {
+      await field.click({ timeout: 3_000 });
+      await page.keyboard.press("End");
+      await page.keyboard.type("1");
+    }
+    if (await counted.waitFor({ timeout: 1_000 }).then(() => true, () => false)) return (await field.getAttribute("aria-label")) ?? kind;
+    // Put it back: a field that does not count is not what the page saves.
+    if (pressed) await field.click({ timeout: 3_000 }).catch(() => undefined);
+    else await page.keyboard.press("Backspace");
+  }
+  return null;
+}
+
+/** Counts what a view must hold to one, now: primaries and banners. */
+async function oneEach(page: Page, where: string): Promise<string[]> {
+  const found: string[] = [];
+  const buttons = await primaries(page);
+  if (buttons.length > 1) found.push(`${where}: ${String(buttons.length)} primary buttons (${buttons.join(", ")})`);
+  const notices = await banners(page);
+  if (notices.length > 1) found.push(`${where}: ${String(notices.length)} banners (${notices.join(" | ")})`);
+  return found;
+}
+
+/**
+ * Routes that still break the rule, and why: the debt the closing work pays. A route is on this list only with its
+ * reason, it must still break the rule to stay (a route that is clean leaves the list, so it only gets shorter), and
+ * the list is empty when the 4.0 work is whole.
+ */
+const ONE_EACH_DEBT: Readonly<Record<string, string>> = {
+  "app-settings-mounts": "an empty state draws a second primary beside the header's (FM-2)",
+  "backups-noust": "an empty state draws a second primary beside the header's (FM-2)",
+  "backups-volumes": "an empty state draws a second primary beside the header's (FM-2)",
+  "settings-alerts": "the header and the empty state both draw New rule, and the form's Save is a third",
+  "settings-probes": "the header and the empty state both draw New probe",
+};
+
+// Every route of the console, clean and dirty, on a desk and on a phone, in both themes: a view has one primary
+// action (the save bar's takes it over from the header's while it holds changes, FM-2) and states the condition of
+// the page once. A split button counts as one primary.
+for (const route of EVERY_ROUTE) {
+  test(`${route.name} has one primary and at most one banner, clean and with unsaved changes`, async ({ page, consoleServer }) => {
+    test.setTimeout(120_000);
+    await signIn(page, consoleServer);
+    const target = await routePath(page, route);
+    const problems: string[] = [];
+    for (const viewport of VIEWPORTS) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto(target);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await settle(page);
+      const where = `${target} at ${viewport.name}`;
+      problems.push(...(await oneEach(page, `${where}, as it loads`)));
+
+      // A page with a save bar is asked again while the bar holds a change.
+      const bar = page.getByRole("region", { name: "Unsaved changes" });
+      if ((await bar.count()) === 0 || !(await bar.first().isVisible())) continue;
+      const touched = await makeDirty(page, route.name);
+      if (touched === null) {
+        problems.push(`${where}: the page has a save bar and no field on it changes the bar's count`);
+        continue;
+      }
+      await stillness(page);
+      problems.push(...(await oneEach(page, `${where}, with unsaved changes (${touched})`)));
+      await bar.getByRole("button", { name: "Discard" }).click();
+    }
+    const debt = ONE_EACH_DEBT[route.name];
+    if (debt === undefined) {
+      expect(problems, problems.join("\n")).toEqual([]);
+    } else {
+      // Held to its list: it still breaks the rule, and it is told why; when it stops, it leaves the list.
+      expect(problems.length, `${route.name} is clean now: take it off ONE_EACH_DEBT (${debt})`).toBeGreaterThan(0);
+    }
+  });
 }
 
 for (const viewport of VIEWPORTS) {
