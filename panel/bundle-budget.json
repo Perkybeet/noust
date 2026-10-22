@@ -2,5 +2,7 @@
   "initialJs": 475136,
   "initialCss": 16384,
   "chunk": 96256,
-  "totalJs": 1881088
+  "totalJs": 1934336,
+  "catalogEn": 231424,
+  "catalogEs": 278528
 }

@@ -8,12 +8,19 @@ The catalog has recipes derived in part from Coolify's Compose templates (Apache
 licence asks for its text and the attribution to travel with every copy: the header of each
 recipe names its template, NOTICE lists them, LICENSE-APACHE-2.0 is the licence, and the Debian
 copyright file and the RPM spec carry both. A recipe added or removed without them fails here.
+
+The console is built from npm packages (MIT, ISC), whose licences ask for their copyright line and
+their text to travel with it: the build writes them to ``third-party-licenses.txt`` beside the
+console (``panel/scripts/bundle-licenses.mjs``), NOTICE names that file, and the packages ship it.
 """
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
+
+import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 MARK = "Derived in part from Coolify's template"
@@ -86,3 +93,58 @@ def test_the_fonts_and_the_copied_files_are_declared_too() -> None:
     for name in ("Plausible", "JetBrains Mono", "Mona Sans", "Dokploy"):
         assert name in notice
     assert re.search(r"^%license .*\bLICENSE-OFL-1\.1\b", spec, re.MULTILINE)
+
+
+# The console's npm packages: the build writes their notice, NOTICE points to it, the packages ship it.
+
+STATIC = REPO / "src" / "noust" / "web" / "static"
+LICENSES_MODULE = REPO / "panel" / "scripts" / "bundle-licenses.mjs"
+
+
+def licenses_file_name() -> str:
+    """
+    Returns:
+        The name the build gives the notice of the console's packages, read from the module that
+        writes it, so a rename there fails here instead of leaving NOTICE pointing at nothing.
+    """
+    found = re.search(r'LICENSES_FILE\s*=\s*"([^"]+)"', LICENSES_MODULE.read_text(encoding="utf-8"))
+    assert found is not None, "bundle-licenses.mjs no longer says what file it writes"
+    return found.group(1)
+
+
+def test_notice_points_to_the_licences_of_the_consoles_packages() -> None:
+    notice = (REPO / "NOTICE").read_text(encoding="utf-8")
+    listed = set(re.findall(r"^\s+(src/noust/web/static/[^*\s]+\.txt)$", notice, re.MULTILINE))
+
+    assert listed == {f"src/noust/web/static/{licenses_file_name()}"}
+
+
+def test_the_build_writes_that_notice_and_the_wheel_and_the_sdist_carry_it() -> None:
+    config = (REPO / "panel" / "vite.config.ts").read_text(encoding="utf-8")
+    manifest = (REPO / "MANIFEST.in").read_text(encoding="utf-8")
+    pyproject = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+
+    # The plugin is registered, not only defined: a build without it ships no notice.
+    assert re.search(r"^\s+thirdPartyLicenses\(\),$", config, re.MULTILINE)
+    assert "LICENSES_FILE" in config
+    # Any file of the build travels: neither the include nor the glob is by extension.
+    assert "recursive-include src/noust/web/static *" in manifest
+    assert '"web/static/**/*"' in pyproject
+
+
+def test_the_committed_console_carries_the_licence_of_each_package_it_is_built_from() -> None:
+    notice = STATIC / licenses_file_name()
+    if not notice.exists():
+        pytest.skip(
+            "the committed build is from before the notice; the closing lane's build commit adds it"
+        )
+    text = notice.read_text(encoding="utf-8")
+    dependencies = json.loads((REPO / "panel" / "package.json").read_text(encoding="utf-8"))[
+        "dependencies"
+    ]
+
+    # Every package the console imports at run time is a heading with its licence under it.
+    headings = dict(re.findall(r"^(\S+) \d\S*\nLicense: (\S+)$", text, re.MULTILINE))
+    assert sorted(set(dependencies) - set(headings)) == []
+    assert "unknown" not in headings.values()
+    assert "Copyright (c) 2024-2026 Yago López Prado" in text
