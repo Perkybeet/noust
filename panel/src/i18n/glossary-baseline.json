@@ -35,7 +35,7 @@
       "Directory": 2,
       "Disable": 2,
       "Disabled": 3,
-      "Done": 3,
+      "Done": 2,
       "Email": 2,
       "Enable": 2,
       "Enabled": 2,
@@ -116,9 +116,6 @@
     },
     "en:deploy-again": {
       "newApp": 1
-    },
-    "en:emergency-access": {
-      "auth": 2
     },
     "en:health-check": {
       "common": 1,
@@ -321,7 +318,6 @@
       "Delete|Borrar": 7,
       "Deploy|Despliegue": 5,
       "Dismiss|Descartar": 3,
-      "Done|Listo": 1,
       "Failed|Con fallo": 1,
       "Failed|Falló": 6,
       "Live|En vivo": 3,

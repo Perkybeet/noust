@@ -18,31 +18,54 @@ what they leave out are in `tests/integration/results/first-deploy.json`; the bu
   needs and fixes nothing it is not told to; the console shows the same under **Settings > About >
   Installation check**. Every line should be green, or a warning you understand
   ([platforms.md](PLATFORMS.md) has the install).
-- **A name points at the server.** Create an `A` record (and `AAAA` if the server has IPv6) for
+- **A name for it, if you have one.** Create an `A` record (and `AAAA` if the server has IPv6) for
   the domain you will use, `shop.example.com` below, at your DNS provider. Noust checks it before
   asking for a certificate and tells you if it does not resolve here; the certificate is the step
-  that fails when it does not.
+  that fails when it does not. Without one, the console offers a **temporary address** made of the
+  server's own address (`shop.203-0-113-10.sslip.io`): it resolves at once, so a first deploy needs
+  no DNS, and your own name can be added to the same application later ([domains.md](domains.md)).
 - **A repository to deploy.** Any of [these stacks](frameworks.md). If you only want to try Noust,
   a static page works: a repository with an `index.html` is deployed as a static site, and
   [`examples/`](../examples/README.md) has a minimal application for every type Noust deploys
   (`noust create -d hello.example.com -s examples/nodejs` from a clone of the repository).
-- **Open the console.** It listens on `127.0.0.1:8080` of the server and nowhere else. From your
-  computer: `ssh -N -L 8080:127.0.0.1:8080 root@server.example.com`, then
-  <http://127.0.0.1:8080>, and sign in with the token `noust web enable` printed. A new server's
-  Overview lists the first steps with what is done and what is not.
+- **Open the console.** It listens on `127.0.0.1:8080` of the server and nowhere else. The
+  installer prints the command to run on your computer, with the server's real address in it:
+  `ssh -N -L 8080:127.0.0.1:8080 root@server.example.com`; then browse to the link it prints,
+  <http://127.0.0.1:8080/login?with=token>, which opens on the access token (the one `noust web
+  enable` prints; it is shown once). Paste it, press **Sign in**, and the console asks for the first
+  administrator: a username and a password, nothing else, and you are signed in with it. A second
+  factor is offered next and can wait (**Set up later**); under a compliance framework that demands
+  one it cannot.
+
+## 0. See it run, in one click
+
+A new server's Overview is one card, **Deploy your first app**. **Try a demo** deploys a one-page
+site on a temporary address and ends on a row that says it is live, where, and whether HTTPS covers
+it. Let's Encrypt limits certificates per registered domain, and `sslip.io` belongs to everybody, so
+the certificate may be refused: the page then answers over HTTP, the row says so, and **What certbot
+said** shows the authority's own words. Nothing about the application depends on it. From a terminal
+the same is `noust recipe install hello -d hello.203-0-113-10.sslip.io` (use the address your server
+declared; `noust create --temporary` makes the name for a repository).
 
 ## 1. Deploy the application
 
 In the console: **Applications > New application**. The wizard asks:
 
-1. **Source**: the repository's URL (a private repository needs a deploy key or the GitHub App:
-   `noust setup ssh --generate --show` prints a key to add). Noust reads the repository and shows
-   what it found before anything is created: the type, the install, build and start commands, the
-   port, and the variables in `.env.example` with the secrets flagged.
-2. **Address**: the domain. The wizard checks its DNS.
-3. **Configuration** and **Variables**: what Noust detected, editable. Secrets it can generate are
-   generated.
-4. **Deploy**: the build log streams until the application answers.
+1. **Source**: paste the repository's URL, or choose it from GitHub (**From GitHub** connects an App
+   from the wizard itself and brings you back to the repositories). Noust reads it as soon as it is
+   pasted and says what it found under the field, before anything is created: "Detected: Next.js
+   with npm. Port 3000. 2 variables to fill in." A private repository over SSH that cannot be cloned
+   shows git's own words and, under them, this server's public key to add as a deploy key, the page
+   of the repository where it goes, and **Check again** (`noust setup ssh --generate --show` makes
+   and prints the key).
+2. **Address**: on a server with no domain of its own the wizard passes this step over and uses a
+   temporary address, which the summary says and lets you change. Where applications already have
+   their own domains it asks: a temporary address or your own domain (the wizard checks its DNS).
+3. **Configuration** and **Variables**: only when there is something to ask (several types match, a
+   variable has no value); otherwise the summary of the last step says what was detected and has a
+   **Change** beside it. Secrets Noust can generate are generated.
+4. **Deploy**: the build log streams until the application answers. The port, the web server and
+   how deploys work are under **Details** of the summary.
 
 From the command line, the same:
 

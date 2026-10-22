@@ -104,9 +104,16 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
   });
 
   // A server with no domain yet: the name made of its public address, which sslip.io answers.
+  // A server behind NAT answers that it has no such name, with how to declare its address.
+  const [noAddress, setNoAddress] = useState<{ reason: string; hint: string | null } | null>(null);
   const temporary = useMutation({
     mutationFn: () => request("get", "/api/domains/temporary", {}),
     onSuccess: (found) => {
+      if (found.available === false) {
+        setNoAddress({ reason: found.reason ?? "", hint: found.hint ?? null });
+        return;
+      }
+      setNoAddress(null);
       setName(found.domain);
       setProblem(null);
       setChecked(null);
@@ -136,6 +143,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
       setAsking(false);
       add.reset();
       temporary.reset();
+      setNoAddress(null);
     }
   }
 
@@ -234,7 +242,9 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
               {t("domains.temporary.use")}
             </Button>
           </div>
-          {temporary.isError ? (
+          {noAddress !== null ? (
+            <ErrorBlock compact error={{ detail: noAddress.reason }} title={t("domains.temporary.unavailable")} {...(noAddress.hint !== null ? { hint: noAddress.hint } : {})} />
+          ) : temporary.isError ? (
             <ErrorBlock compact error={temporary.error} title={t("domains.temporary.unavailable")} />
           ) : (
             <p className="text-12 text-pretty text-fg-muted">{t("domains.temporary.help")}</p>

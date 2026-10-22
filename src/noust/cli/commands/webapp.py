@@ -83,6 +83,7 @@ from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.native_adopt import adoption_of
 from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import available_types
+from noust.deployers.temporary_domain import application_name, suggest
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.app_processes import ProcessManager
 from noust.managers.app_replicas import ReplicaManager
@@ -486,6 +487,32 @@ def _create_app(
             )
 
     return 0
+
+
+def _temporary_domain(
+    logger: Logger, *, recipe: str | None, source: str | None, image: str | None
+) -> str:
+    """
+    Make the temporary name an application is deployed on.
+
+    Args:
+        logger: Where to say which name was made.
+        recipe: The recipe being deployed, whose name is the application's.
+        source: The repository, archive or directory being deployed.
+        image: The registry image being deployed, when there is one.
+
+    Returns:
+        ``<name>.<address>.sslip.io``, free among the names of this server.
+
+    Raises:
+        DomainError: This server has no public address.
+    """
+    found = suggest(application_name(prefix=recipe, source=source, image=image) or "app")
+    logger.info(
+        f"Using {found.domain}, made of {found.address} ({found.service}): a name to try "
+        "things out. Add your own later with: noust domain add"
+    )
+    return found.domain
 
 
 def _container_settings(
@@ -2150,7 +2177,14 @@ def cli() -> None:
 
 
 @cli.command()
-@click.option("-d", "--domain", required=True, help="Domain the application is served on.")
+@click.option("-d", "--domain", help="Domain the application is served on.")
+@click.option(
+    "--temporary",
+    is_flag=True,
+    help="Instead of a domain, a temporary address made of this server's address and the "
+    "application's name (shop.203-0-113-10.sslip.io), to try it before a domain points here. "
+    "A certificate is tried for it and the application stays on HTTP if it is refused.",
+)
 @click.option(
     "-s",
     "--source",
@@ -2317,7 +2351,8 @@ def cli() -> None:
 @pass_context
 def create(
     ctx: Context,
-    domain: str,
+    domain: str | None,
+    temporary: bool,
     source: str | None,
     recipe: str | None,
     env_pairs: tuple[str, ...],
@@ -2353,7 +2388,9 @@ def create(
     Fetches the source, builds it, runs it under systemd, publishes it on the
     domain and obtains a certificate for it. With --recipe, the source, the
     type, the database and the settings come from the recipe. With --image, a
-    container from a registry is deployed instead, and needs no source.
+    container from a registry is deployed instead, and needs no source. With
+    --temporary the domain is a name of this server's address, made from what the
+    application is called.
     """
     env_vars = _parse_env_pairs(env_pairs)
     container = changes_from_options(**container_given)
@@ -2369,6 +2406,16 @@ def create(
             if source:
                 raise click.UsageError("--image is the source of a container: leave -s out.")
             source = container["image"]
+    if temporary:
+        if domain:
+            raise click.UsageError("--temporary makes the domain itself: leave -d out.")
+        if www:
+            raise click.UsageError("A temporary name has no www: leave --www out.")
+        domain = _temporary_domain(
+            ctx.logger, recipe=recipe, source=source, image=container.get("image")
+        )
+    elif not domain:
+        raise click.UsageError("Missing option '-d' / '--domain' (or --temporary).")
     database = _parse_database(database_spec) if database_spec is not None else None
     if recipe is not None and database is not None:
         raise click.UsageError("--database cannot be used with --recipe: the recipe has its own.")

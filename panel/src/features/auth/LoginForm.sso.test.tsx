@@ -101,7 +101,7 @@ describe("the sign-in page with an identity provider", () => {
     expect(more).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByLabelText("Username or email")).toBeVisible();
     // The emergency access stays where it was.
-    expect(screen.getByRole("button", { name: "Emergency access" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Access token" })).toBeInTheDocument();
   });
 
   it("does not carry a destination that is the overview", async () => {

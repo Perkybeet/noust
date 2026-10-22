@@ -3,8 +3,6 @@
   "rules": {
     "action-dialog": {},
     "badge-state": {
-      "features/catalog/RecipeDetailPage.tsx": 1,
-      "features/catalog/RecipeRequirements.tsx": 1,
       "features/domains/IssueCertificateDialog.tsx": 1
     },
     "bordered-list": {
@@ -18,7 +16,6 @@
       "features/auth/TotpSetup.tsx": 1
     },
     "danger-button-outside-confirm": {
-      "features/new-app/NewAppWizard.tsx": 1,
       "features/server/ActionDialog.tsx": 1,
       "features/settings/TwoFactorSection.tsx": 1
     },
@@ -43,8 +40,6 @@
     "field-error-by-hand": {
       "features/cloud/CreateServerDialog.tsx": 1,
       "features/cron/CronJobDialog.tsx": 2,
-      "features/new-app/GitHubSource.tsx": 1,
-      "features/new-app/GitLabSource.tsx": 1,
       "features/promotion/CloneDialog.tsx": 1,
       "features/server/storage/CleanupScheduleCard.tsx": 2,
       "features/settings/accounts/InviteDialog.tsx": 3,
@@ -53,14 +48,6 @@
     },
     "hand-aria-busy": {
       "features/activity/JobLogDrawer.tsx": 1,
-      "features/catalog/RecipeCatalog.tsx": 1,
-      "features/catalog/RecipeDetailPage.tsx": 1,
-      "features/catalog/RecipeRequirements.tsx": 1,
-      "features/catalog/RecipeUpdateDialog.tsx": 1,
-      "features/new-app/AddressFields.tsx": 1,
-      "features/new-app/GitHubSource.tsx": 1,
-      "features/new-app/GitLabSource.tsx": 1,
-      "features/overview/RecentActivity.tsx": 1,
       "features/settings/TwoFactorSection.tsx": 1
     },
     "hand-error-ternary": {
@@ -90,10 +77,7 @@
     },
     "live-switch": {},
     "native-details": {
-      "features/app/diagnose/DiagnoseTab.tsx": 2,
-      "features/new-app/ConfigureStep.tsx": 1,
-      "features/new-app/EnvironmentFields.tsx": 1,
-      "features/new-app/ImportReview.tsx": 1
+      "features/app/diagnose/DiagnoseTab.tsx": 2
     },
     "notice-info-bare": {
       "features/activity/ActivityPage.tsx": 1,
@@ -108,8 +92,7 @@
       "features/app/upload/ArchiveUpload.tsx": 1,
       "features/auth/LoginForm.tsx": 1,
       "features/auth/PasskeysSection.tsx": 1,
-      "features/auth/ResetPasswordPage.tsx": 1,
-      "features/new-app/ComposeDocument.tsx": 1
+      "features/auth/ResetPasswordPage.tsx": 1
     },
     "notice-success": {
       "features/app/deployments/DeploymentActions.tsx": 1,
@@ -120,9 +103,7 @@
       "features/settings/accounts/InviteDialog.tsx": 1
     },
     "own-back-link": {},
-    "own-leave-dialog": {
-      "features/new-app/NewAppWizard.tsx": 1
-    },
+    "own-leave-dialog": {},
     "row-actions-local": {},
     "row-link-class": {
       "features/app/SourceLink.tsx": 1,

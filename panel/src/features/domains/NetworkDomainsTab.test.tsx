@@ -518,7 +518,9 @@ describe("where an application's certificate comes from", () => {
 
   it("says why there is no temporary address when the server has no public one", async () => {
     const { user } = tab({
-      "GET /api/domains/temporary": () => problem(400, "domain_error", "This server has no public address to make a name of", { hint: "noust config set dns.public_addresses 203.0.113.10" }),
+      // An answer about the server, not a failed request.
+      "GET /api/domains/temporary": () =>
+        json(200, { address: "", domain: "", available: false, reason: "This server has no public address to make a name of", hint: "noust config set dns.public_addresses 203.0.113.10" }),
     });
 
     await user.click(await screen.findByRole("button", { name: "Add domain" }));

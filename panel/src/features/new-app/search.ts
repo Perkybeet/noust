@@ -23,6 +23,17 @@ export interface NewAppSearch {
    */
   recipe?: string | undefined;
   /**
+   * With a recipe: `now` deploys it as soon as it is open and has nothing left to ask (the
+   * Overview's "Try a demo"). The wizard spends it, replacing the address, so a reload or a Back
+   * never deploys twice.
+   */
+  deploy?: "now" | undefined;
+  /**
+   * `1` comes back from connecting GitHub (`/apps/new?resume=1`): the wizard opens where the
+   * operator left it, from the draft the tab kept. The wizard spends it like `deploy`.
+   */
+  resume?: 1 | undefined;
+  /**
    * Where it goes (a project's page starts it on that project): the team, project and environment
    * by their short names. Only asked about where there is more than one place to choose.
    */
@@ -57,5 +68,8 @@ export function validateNewAppSearch(search: Record<string, unknown>): NewAppSea
     project: slugParam(search["project"]),
     environment: slugParam(search["environment"]),
     ...("recipe" in search ? { recipe: wizardRecipe(search["recipe"]) } : {}),
+    // Like the recipe: named only when the link carries it, so clearing it is an explicit undefined.
+    ...("deploy" in search ? { deploy: search["deploy"] === "now" ? ("now" as const) : undefined } : {}),
+    ...("resume" in search ? { resume: search["resume"] === 1 || search["resume"] === "1" ? (1 as const) : undefined } : {}),
   };
 }

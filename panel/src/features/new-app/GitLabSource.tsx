@@ -6,10 +6,12 @@ import { gitlabBranchesQuery, gitlabGroupsQuery, gitlabProjectsQuery } from "../
 import type { GitLabProject, GitLabStatus } from "../../api/queries/gitlab";
 import { announce } from "../../app/Announcer";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Select } from "../../components/ui/Select";
@@ -17,7 +19,6 @@ import type { SelectOption } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
-import { ICONS } from "../../components/ui/icons";
 import type { SourceErrors, SourceForm } from "./wizard";
 
 /** How long typing pauses before GitLab is asked, so a name is not searched letter by letter. */
@@ -225,10 +226,9 @@ export function GitLabSource({ status, form, errors, onChange, disabled }: GitLa
             </div>
           </Card>
           {errors.source !== undefined ? (
-            <p role="alert" className="flex items-start gap-1.5 text-13 text-fail">
-              <ICONS.error aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />
-              <span>{errors.source}</span>
-            </p>
+            <InlineMessage tone="error" live>
+              {errors.source}
+            </InlineMessage>
           ) : null}
         </div>
         <BranchField connection={connection} project={chosen === null ? null : String(chosen.id)} form={form} error={errors.branch} onChange={onChange} disabled={disabled} />
@@ -274,10 +274,9 @@ export function GitLabSource({ status, form, errors, onChange, disabled }: GitLa
       {projects.isError ? (
         <ErrorBlock error={projects.error} title={t("gitlab.picker.projectsFailed")} onRetry={() => void projects.refetch()} retrying={projects.isFetching} />
       ) : projects.data === undefined ? (
-        <div aria-busy="true" className="flex flex-col gap-2">
-          <span className="sr-only">{t("gitlab.picker.loadingProjects")}</span>
+        <LoadingRegion label={t("gitlab.picker.loadingProjects")}>
           <Skeleton className="h-40" />
-        </div>
+        </LoadingRegion>
       ) : projects.data.items.length === 0 ? (
         <div role="status">
           <EmptyState variant="inline" title={t("gitlab.picker.noProjects")} />

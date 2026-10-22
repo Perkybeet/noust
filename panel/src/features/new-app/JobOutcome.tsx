@@ -16,6 +16,7 @@ import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { JobOutputDrawer } from "../databases/jobs";
 import { NoteText } from "./NoteText";
+import { SuccessRow } from "./SuccessRow";
 import { useDeploymentLanding } from "./useDeploymentLanding";
 import type { LandingTarget } from "./useDeploymentLanding";
 
@@ -185,10 +186,11 @@ export function JobOutcome({ kind, target, followedJob }: JobOutcomeProps) {
   const report = kind === "import" ? importReportOf(job.result) : null;
   return (
     <div className="flex flex-col gap-5">
-      <JobProgress
-        state="succeeded"
+      <SuccessRow
+        domain={target.domain}
+        deploymentId={landing?.kind === "deployment" ? landing.id : (job.deployment_id ?? null)}
         title={t(kind === "import" ? "newApp.deploy.imported" : "newApp.deploy.deployed", { domain: target.domain })}
-        {...(log !== undefined ? { action: log } : {})}
+        {...(log !== undefined ? { actions: log } : {})}
       />
       {notes.length > 0 ? <NextSteps notes={notes} /> : null}
       {report !== null ? <Report report={report} /> : null}

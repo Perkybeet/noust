@@ -630,6 +630,7 @@ export const settings: Catalog<typeof en> = {
         },
       },
       webhook: {
+        pushesWaiting: "Los pushes no desplegarán hasta que este servidor sea accesible.",
         unexposedTitle: "No accesible desde GitHub",
         unexposedDescription: "GitHub envía los push y pull requests a /hooks en un dominio público, y este servidor aún no expone uno. Hasta entonces, un push no despliega y las pull requests no tienen vista previa. Apunta un dominio a este servidor y luego ejecuta:",
         inactiveTitle: "Sin activar en GitHub",

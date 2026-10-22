@@ -293,6 +293,27 @@ _FAILURE_TAIL = (
 )
 
 
+def seed_empty_console_state(store: NoustStore) -> SeededState:
+    """
+    Leave a store as a server just installed leaves it: nothing deployed, nothing scheduled.
+
+    This is what the first-run walk starts from (``scripts/console_server.py --empty``): an
+    Overview with nothing to list, an Applications page with its first-use state, and a wizard
+    whose temporary address is the only address the server has. The store's own migration made
+    the default project and environment a new application is put in, so there is nothing to
+    write; this exists so that "the empty console" is named, tested and found in one place
+    like the populated one.
+
+    Args:
+        store: The store.
+
+    Returns:
+        An empty :class:`SeededState`.
+    """
+    store.list_apps()  # opens the store, so its tables and its default project exist
+    return SeededState()
+
+
 def seed_console_state(store: NoustStore) -> SeededState:
     """
     Populate a store with every state the console has to draw.

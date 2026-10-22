@@ -5,7 +5,7 @@ import type { Namespace } from "./types";
 
 export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = {
   "/_console": [],
-  "/_console/": ["activity", "appPages", "apps", "auditEvents", "auth", "common", "fleet", "inbox", "map", "overview", "probes", "queue", "server", "servers", "settings", "timeline"],
+  "/_console/": ["activity", "appPages", "apps", "auditEvents", "auth", "common", "fleet", "inbox", "map", "nav", "overview", "probes", "queue", "server", "servers", "settings", "shell", "timeline"],
   "/_console/account": ["account", "auth", "fleet", "nav", "settings"],
   "/_console/account/": ["account", "accounts", "auth", "settings"],
   "/_console/account/security": ["account", "appPages", "apps", "auth", "queue", "settings"],
@@ -44,7 +44,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/_console/apps/$domain/settings/security": ["appPages", "appSettings", "apps", "queue", "runtime"],
   "/_console/apps/$domain/settings/source": ["appPages", "appSettings", "apps", "archiveUpload", "changeSource", "queue", "sourceOptions", "sources"],
   "/_console/apps/$domain/terminal": ["appPages", "apps", "common", "queue", "server", "terminal"],
-  "/_console/apps/new": ["appSettings", "apps", "archiveUpload", "catalog", "containers", "databases", "domains", "fleet", "gitlab", "network", "newApp", "pasteDockerfile", "provisioning", "remoteImport", "runtime", "settings", "teams", "workspaces"],
+  "/_console/apps/new": ["appSettings", "apps", "archiveUpload", "catalog", "containers", "databases", "domains", "fleet", "gitlab", "network", "newApp", "pasteDockerfile", "probes", "provisioning", "remoteImport", "runtime", "settings", "teams", "workspaces"],
   "/_console/backups/": ["appPages", "apps", "backups", "common", "cron", "databases", "nav", "queue", "selfBackup", "time", "volumeBackups"],
   "/_console/backups/destinations": ["appPages", "apps", "backups", "common", "nav", "notifyRouting", "queue", "runtime", "selfBackup", "settings", "volumeBackups"],
   "/_console/backups/noust": ["backups", "common", "cron", "databases", "nav", "selfBackup", "volumeBackups"],
@@ -139,7 +139,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/invite": ["accounts", "auth", "settings"],
   "/login": ["auth", "ssoAdmin"],
   "/reset-password": ["accounts", "auth", "settings"],
-  "/setup": ["accounts", "auth"],
+  "/setup": ["auth", "settings"],
   "/welcome": ["auth", "settings"],
   "__root__": [],
 };

@@ -58,7 +58,7 @@ export async function typedSource(page: Page) {
 export async function inspectSource(page: Page, server: ConsoleServer, problems: PageProblems, source: string): Promise<void> {
   problems.expect(INSPECT_NEEDS_SUDO);
   await (await typedSource(page)).fill(source);
-  await page.getByRole("button", { name: "Inspect source" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   const address = page.getByRole("heading", { level: 2, name: "Address" });
   await expect(confirm.or(address)).toBeVisible();
@@ -82,11 +82,12 @@ export async function continueTo(page: Page, step: "Address" | "Configuration" |
 
 /**
  * Opens the Configuration step. A project with one detected type has nothing to ask there, so
- * Continue passes over it (checklist M-12); it stays on the stepper, done, once a later step is
- * on screen, which is where this opens it from.
+ * Continue passes over it (checklist M-12); what was decided so far (beside the step, on the way)
+ * and the summary of the deploy (at the end) say the type and offer to change it, which is where
+ * this opens it from.
  */
 export async function openConfiguration(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Configuration: done" }).click();
+  await page.getByRole("button", { name: /^Change (detected|type)$/ }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Configuration" })).toBeFocused();
 }
 
@@ -96,4 +97,24 @@ export async function fillStorefrontVariables(page: Page): Promise<void> {
   for (const name of ["NEXTAUTH_SECRET", "STRIPE_SECRET_KEY", "SMTP_PASSWORD"]) {
     await page.getByRole("button", { name: `Generate ${name}` }).click();
   }
+}
+
+/** The ways in that are not on the wizard's row: behind its "More ways" button. */
+const BEHIND_MORE_WAYS = new Set(["Compose", "From a recipe", "Import an application", "Already running"]);
+
+/**
+ * Chooses one of the wizard's ways in by its name, the way a person does: a radio of the row, or an
+ * item of the menu "More ways" opens (which then carries the way's name and says it is the one chosen).
+ */
+export async function chooseWay(page: Page, name: string): Promise<void> {
+  if (BEHIND_MORE_WAYS.has(name)) {
+    await page.getByRole("button", { name: "More ways", exact: true }).click();
+    await page.getByRole("menuitem", { name, exact: true }).click();
+    await expect(page.getByRole("button", { name, exact: true })).toHaveAttribute("aria-current", "true");
+    return;
+  }
+  const choice = page.getByRole("radiogroup", { name: "Where the code is" }).getByRole("radio", { name });
+  await expect(choice).toBeVisible();
+  await choice.click();
+  await expect(choice).toHaveAttribute("aria-checked", "true");
 }

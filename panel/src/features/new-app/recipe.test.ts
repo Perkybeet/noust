@@ -11,13 +11,68 @@ describe("a recipe's form", () => {
   it("asks only for the variables the recipe does not generate", () => {
     expect(generatedVariables(WORDPRESS)).toEqual(["WORDPRESS_DB_PASSWORD", "WORDPRESS_AUTH_KEY"]);
     expect(editableVariables(WORDPRESS)).toEqual(["WP_DEBUG"]);
-    expect(initialRecipeForm(WORDPRESS)).toEqual({ domain: "", includeWww: false, ssl: true, env: { WP_DEBUG: "" }, defaultBackups: true, installRequirements: false, database: "" });
+    expect(initialRecipeForm(WORDPRESS)).toEqual({
+      domain: "",
+      addressMode: "own",
+      temporaryDomain: "",
+      ownDomain: "",
+      includeWww: false,
+      ssl: true,
+      env: { WP_DEBUG: "" },
+      defaultBackups: true,
+      installRequirements: false,
+      database: "",
+    });
   });
 
   it("keeps where it answers, and the values both recipes set, when another recipe is chosen", () => {
-    const typed = { domain: "blog.example.com", includeWww: true, ssl: false, env: { WP_DEBUG: "1" }, defaultBackups: false, installRequirements: true, database: "" };
+    const typed = {
+      domain: "blog.example.com",
+      addressMode: "own" as const,
+      temporaryDomain: "",
+      ownDomain: "",
+      includeWww: true,
+      ssl: false,
+      env: { WP_DEBUG: "1" },
+      defaultBackups: false,
+      installRequirements: true,
+      database: "",
+    };
     const other = { variables: [recipeVariable("WP_DEBUG"), recipeVariable("TZ")] };
-    expect(initialRecipeForm(other, typed)).toEqual({ domain: "blog.example.com", includeWww: true, ssl: false, env: { WP_DEBUG: "1", TZ: "" }, defaultBackups: false, installRequirements: false, database: "" });
+    expect(initialRecipeForm(other, typed)).toEqual({
+      domain: "blog.example.com",
+      addressMode: "own",
+      temporaryDomain: "",
+      ownDomain: "",
+      includeWww: true,
+      ssl: false,
+      env: { WP_DEBUG: "1", TZ: "" },
+      defaultBackups: false,
+      installRequirements: false,
+      database: "",
+    });
+  });
+
+  it("starts on a temporary address made of its name where the server has no domain of its own yet", () => {
+    const form = initialRecipeForm(WORDPRESS, null, { temporary: "wordpress.93-184-216-34.sslip.io" });
+    expect(form).toMatchObject({ domain: "wordpress.93-184-216-34.sslip.io", addressMode: "temporary", ssl: true, includeWww: false });
+    // The operator has a domain of their own already: it starts empty, the temporary one a choice away.
+    expect(initialRecipeForm(WORDPRESS, null, { temporary: "wordpress.93-184-216-34.sslip.io", ownDomains: true })).toMatchObject({
+      domain: "",
+      addressMode: "own",
+      temporaryDomain: "wordpress.93-184-216-34.sslip.io",
+    });
+  });
+
+  it("is made again for the next recipe, which has a name of its own", () => {
+    const first = initialRecipeForm(WORDPRESS, null, { temporary: "wordpress.93-184-216-34.sslip.io" });
+    const next = initialRecipeForm({ variables: [] }, first, { temporary: "ghost.93-184-216-34.sslip.io" });
+    expect(next).toMatchObject({ domain: "ghost.93-184-216-34.sslip.io", addressMode: "temporary" });
+  });
+
+  it("is sent over HTTPS and without www", () => {
+    const form = { ...initialRecipeForm(WORDPRESS, null, { temporary: "wordpress.93-184-216-34.sslip.io" }), includeWww: true };
+    expect(recipeBody(WORDPRESS, form)).toMatchObject({ domain: "wordpress.93-184-216-34.sslip.io", ssl: true, include_www: false });
   });
 
   it("refuses a domain already deployed here", () => {
@@ -80,14 +135,14 @@ describe("a recipe's required variables (checklist M-19)", () => {
   });
 
   it("are sent like any other value the operator set", () => {
-    const form = { domain: "blog.example.com", includeWww: false, ssl: true, env: { ADMIN_EMAIL: " ops@example.com ", TZ: "", WP_DEBUG: "1" }, defaultBackups: true, installRequirements: false, database: "" };
+    const form = { ...initialRecipeForm(WORDPRESS), domain: "blog.example.com", env: { ADMIN_EMAIL: " ops@example.com ", TZ: "", WP_DEBUG: "1" } };
     expect(recipeBody({ name: "wordpress" }, form).env_vars).toEqual({ ADMIN_EMAIL: " ops@example.com ", WP_DEBUG: "1" });
   });
 });
 
 describe("a recipe's request", () => {
   it("names the recipe, sends no source, leaves the type on auto, and only the values set", () => {
-    const form = { domain: " Blog.Example.com ", includeWww: false, ssl: true, env: { WP_DEBUG: "" }, defaultBackups: true, installRequirements: false, database: "" };
+    const form = { ...initialRecipeForm(WORDPRESS), domain: " Blog.Example.com " };
     expect(recipeBody(WORDPRESS, form)).toEqual({
       domain: "blog.example.com",
       recipe: "wordpress",
@@ -104,8 +159,9 @@ describe("a recipe's request", () => {
   });
 
   it("sends www only where it means something", () => {
-    expect(recipeBody(WORDPRESS, { domain: "example.com", includeWww: true, ssl: true, env: {}, defaultBackups: true, installRequirements: false, database: "" }).include_www).toBe(true);
-    expect(recipeBody(WORDPRESS, { domain: "blog.example.com", includeWww: true, ssl: true, env: {}, defaultBackups: true, installRequirements: false, database: "" }).include_www).toBe(false);
+    const own = { ...initialRecipeForm(WORDPRESS), includeWww: true, ssl: true, defaultBackups: true };
+    expect(recipeBody(WORDPRESS, { ...own, domain: "example.com" }).include_www).toBe(true);
+    expect(recipeBody(WORDPRESS, { ...own, domain: "blog.example.com" }).include_www).toBe(false);
   });
 });
 

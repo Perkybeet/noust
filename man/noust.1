@@ -5786,6 +5786,9 @@ Deploy a web application and put it online.
 .B \-d, \-\-domain
 Domain the application is served on.
 .TP
+.B \-\-temporary
+Instead of a domain, a temporary address made of this server's address and the application's name (shop.203\-0\-113\-10.sslip.io), to try it before a domain points here. A certificate is tried for it and the application stays on HTTP if it is refused.
+.TP
 .B \-s, \-\-source
 Git URL, archive URL or directory to deploy from. Not with \-\-recipe.
 .TP
@@ -9104,6 +9107,9 @@ Give APP a temporary name made of this server's address, for a server with no do
 .TP
 .B \-\-show
 Only say the name, without adding it to anything.
+.TP
+.B \-\-prefix
+Make the name of one application (shop.203\-0\-113\-10.sslip.io) instead of the server's own, numbered when another application has it.
 .TP
 .B \-\-no\-cert
 Do not extend the certificate now. Run the same command again to extend it.
