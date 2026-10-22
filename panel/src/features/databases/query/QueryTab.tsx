@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Clock, Download, FileJson, FileSpreadsheet, History, ListTree, Play, Save } from "lucide-react";
+import { ChevronDown, Download, FileSpreadsheet, ListTree, Play, Save } from "lucide-react";
 import { useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -33,6 +33,7 @@ import { PlanView } from "./PlanView";
 import { QueryLibrary } from "./QueryLibrary";
 import { SqlEditor } from "./SqlEditor";
 import type { SqlEditorHandle } from "./SqlEditor";
+import { OBJECT_ICONS, VERB_ICONS } from "../../../components/ui/objectIcons";
 
 type Timeout = 5 | 30 | 120;
 const TIMEOUTS: readonly Timeout[] = [5, 30, 120];
@@ -217,13 +218,13 @@ export function QueryTab({ engine, name }: { engine: string; name: string }) {
                 }
               >
                 <MenuItem icon={<ListTree />} onClick={() => plan(false)}>{t("databases.query.explainPlan")}</MenuItem>
-                <MenuItem icon={<Clock />} onClick={() => plan(true)}>{t("databases.query.explainAnalyze")}</MenuItem>
+                <MenuItem icon={<VERB_ICONS.showTimes />} onClick={() => plan(true)}>{t("databases.query.explainAnalyze")}</MenuItem>
               </Menu>
               <Button size="sm" variant="ghost" icon={<Save aria-hidden="true" />} onClick={() => setSaving(statementOf(editor.current, text))} disabled={text.trim() === ""}>
                 {t("common.words.save")}
               </Button>
               {!wide ? (
-                <Button size="sm" variant="ghost" icon={<History aria-hidden="true" />} onClick={() => setLibraryOpen(true)}>
+                <Button size="sm" variant="ghost" icon={<OBJECT_ICONS.activity aria-hidden="true" />} onClick={() => setLibraryOpen(true)}>
                   {t("databases.query.library")}
                 </Button>
               ) : null}
@@ -271,7 +272,7 @@ export function QueryTab({ engine, name }: { engine: string; name: string }) {
                   }
                 >
                   <MenuItem icon={<FileSpreadsheet />} onClick={() => exporting.mutate({ statement: lastStatement, format: "csv" })}>{t("databases.query.exportCsv")}</MenuItem>
-                  <MenuItem icon={<FileJson />} onClick={() => exporting.mutate({ statement: lastStatement, format: "json" })}>{t("databases.query.exportJson")}</MenuItem>
+                  <MenuItem icon={<OBJECT_ICONS.export />} onClick={() => exporting.mutate({ statement: lastStatement, format: "json" })}>{t("databases.query.exportJson")}</MenuItem>
                 </Menu>
               ) : null}
             </div>

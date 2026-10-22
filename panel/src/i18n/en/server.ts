@@ -31,11 +31,6 @@ export const server = {
     hint: "On {node}, run {command} to let this console change how it is reached.",
     onNode: "On {node}",
   },
-  dialog: {
-    onServer: "On {server}.",
-    typeToConfirm: "Type {value} to confirm",
-    failed: "The change was not made",
-  },
   job: {
     viewOutput: "View output",
     outputDescription: "The system's own output, as it was printed.",

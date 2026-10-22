@@ -363,13 +363,6 @@ export const appPages: Catalog<typeof en> = {
       showInLog: "Mostrarlo en el registro",
       openDiagnose: "Abrir Diagnóstico",
       editEnvironment: "Editar el entorno",
-      copyAddress: "Copiar la dirección",
-      httpsReady: "HTTPS está listo.",
-      httpOnly: "Se sirve por HTTP: ningún certificado cubre todavía esta dirección.",
-      openDomains: "Abrir Dominios",
-      nextDomain: "Añadir tu propio dominio",
-      nextDatabase: "Añadir una base de datos",
-      nextBackup: "Programar una copia de seguridad",
     },
 
     tab: {

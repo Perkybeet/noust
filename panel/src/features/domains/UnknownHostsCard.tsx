@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Globe, Pencil, X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -21,6 +21,7 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 type Action = "close" | "refuse" | "redirect";
 
@@ -145,7 +146,7 @@ export function UnknownHostsCard() {
 
   return (
     <Card
-      icon={Globe}
+      icon={OBJECT_ICONS.domain}
       loading={data === undefined}
       level={2}
       title={t("network.unknownHosts.title")}

@@ -4,7 +4,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCheck, Pencil, Undo2 } from "lucide-react";
+import { CheckCheck, Pencil } from "lucide-react";
 import { useState } from "react";
 
 import { acknowledgeAlert, alertKeys, alertRulesQuery, handBackAlert, removeAlertRule, switchAlertRule } from "../../../api/queries/alerts";
@@ -30,6 +30,7 @@ import { reportActionError } from "../../apps/useAppActions";
 import { acknowledgement } from "./data";
 import { RuleDrawer } from "./RuleDrawer";
 import { appliesTo, formatReading, ruleSentence } from "./rules";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 function stateOf(rule: AlertRule): { status: Status; key: "firing" | "ok" | "off" } {
   if (!rule.enabled) return { status: "stopped", key: "off" };
@@ -75,7 +76,7 @@ function FiringLine({ rule, entry, unit }: { rule: AlertRule; entry: NonNullable
       <Button
         size="sm"
         variant={acknowledged !== null ? "ghost" : "secondary"}
-        icon={acknowledged !== null ? <Undo2 aria-hidden="true" /> : <CheckCheck aria-hidden="true" />}
+        icon={acknowledged !== null ? <OBJECT_ICONS.rollback aria-hidden="true" /> : <CheckCheck aria-hidden="true" />}
         loading={change.isPending}
         aria-label={t(acknowledged !== null ? "alerts.rules.ack.reopenLabel" : "alerts.rules.ack.acknowledgeLabel", { subject })}
         onClick={() => {

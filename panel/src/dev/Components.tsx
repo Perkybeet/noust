@@ -638,9 +638,9 @@ function Attributes() {
             </Item>
             <Item label="State">
               <div className="flex gap-1.5">
-                <Badge tone="ok">Valid</Badge>
-                <Badge tone="warn">Expires in 6 d</Badge>
-                <Badge tone="fail">Expired</Badge>
+                <StatusPill state="running" label="Valid" size="sm" />
+                <StatusPill state="warning" label="Expires in 6 d" size="sm" />
+                <StatusPill state="failed" label="Expired" size="sm" />
               </div>
             </Item>
           </Row>

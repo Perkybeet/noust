@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Clock } from "lucide-react";
 import { useMemo } from "react";
 
 import { databaseMetricsQuery, slowQueriesQuery } from "../../../api/queries/databases";
@@ -26,6 +25,7 @@ import { prepareRead, useMetricsRead } from "../../overview/metricsData";
 import { RANGES } from "../../overview/ranges";
 import type { MetricRange } from "../../overview/ranges";
 import { formatHitRatio } from "../format";
+import { VERB_ICONS } from "../../../components/ui/objectIcons";
 
 const CHART_HEIGHT = 160;
 
@@ -264,7 +264,7 @@ export function MetricsTab({ engine, name, range, onRangeChange }: MetricsTabPro
         </Section>
       ) : null}
 
-      <Section icon={Clock} title={t("databases.metrics.slow.title")} description={t("databases.metrics.slow.description")} loading={slow.isPending}>
+      <Section icon={VERB_ICONS.showTimes} title={t("databases.metrics.slow.title")} description={t("databases.metrics.slow.description")} loading={slow.isPending}>
         {slow.isError ? (
           <ErrorBlock compact error={slow.error} title={t("databases.metrics.slow.failed")} onRetry={() => void slow.refetch()} retrying={slow.isRefetching} />
         ) : slow.data === undefined ? (

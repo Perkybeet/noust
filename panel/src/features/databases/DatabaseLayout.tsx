@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, Database as DatabaseIcon, Replace, Trash2, Unlink, UserCog } from "lucide-react";
+import { ArchiveRestore, Replace, Unlink, UserCog } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { isApiError, request } from "../../api/client";
@@ -31,6 +31,8 @@ import { MoveDatabaseDialog } from "./instances/MoveDatabaseDialog";
 import { DatabaseJobProvider, DatabaseJobSlot, useDatabaseJob, useHasDatabaseJob } from "./jobs";
 import { databaseTabs } from "./tabs";
 import { TEXT_LINK } from "./ui";
+import { ICONS } from "../../components/ui/icons";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** The header's facts: the engine and its version, the size, the owner, who uses it. */
 function Facts({ overview, t }: { overview: DatabaseOverview; t: T }) {
@@ -141,7 +143,7 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
       <DetailPage header={header}>
         <EmptyState
           variant="firstUse"
-          icon={<DatabaseIcon />}
+          icon={<OBJECT_ICONS.database />}
           title={t("databases.layout.notFoundTitle")}
           description={t("databases.layout.notFoundDescription", { name, engine: display })}
           action={
@@ -191,7 +193,7 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
                   // design-exception: submit-disabled-invalid a backup is already running, or the database is gone: nothing to back up, not a missing field
                   <Button
                     variant="primary"
-                    icon={<Archive aria-hidden="true" />}
+                    icon={<OBJECT_ICONS.backup aria-hidden="true" />}
                     loading={backup.isPending}
                     disabled={job.busy || database?.missing === true}
                     onClick={() => backup.mutate()}
@@ -220,11 +222,11 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
               ) : null}
               <MenuSeparator />
               {database?.missing ? (
-                <MenuItem icon={<Trash2 />} destructive onClick={() => forget.mutate()}>
+                <MenuItem icon={<ICONS.delete />} destructive onClick={() => forget.mutate()}>
                   {t("databases.layout.forget")}
                 </MenuItem>
               ) : (
-                <MenuItem icon={<Trash2 />} destructive disabled={job.busy || data === undefined} onClick={() => setDropping(true)}>
+                <MenuItem icon={<ICONS.delete />} destructive disabled={job.busy || data === undefined} onClick={() => setDropping(true)}>
                   {t("databases.layout.drop")}
                 </MenuItem>
               )}

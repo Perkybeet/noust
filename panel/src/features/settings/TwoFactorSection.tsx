@@ -465,7 +465,7 @@ export function TwoFactorSection({ session }: { session?: SessionInfo | undefine
     );
   } else {
     // The buttons' room is held while the state is read, so the head does not grow when it arrives.
-    actions = <Skeleton className="h-control-sm w-24" />;
+    actions = <span aria-hidden="true" className="block h-control-sm w-24" />;
     body = (
       <Card padding="sm">
         <StatusSkeleton t={t} />

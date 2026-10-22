@@ -418,21 +418,6 @@ export const newApp = {
     tasks: "Processes",
     tasksDescription: "Processes and threads. At least 16.",
   },
-  // The row a recipe or an import ends on: it is live, where, and whether HTTPS covers it.
-  success: {
-    live: "Live",
-    liveSite: "{domain}, the live site",
-    copy: "Copy the address",
-    httpsReady: "HTTPS is ready.",
-    httpOnly: "Served over HTTP: the certificate could not be issued.",
-    httpOnlyNone: "Served over HTTP: no certificate covers this address yet.",
-    certbotSaid: "What certbot said",
-    certbotOutput: "What certbot said about {domain}",
-    openDomains: "Open Domains",
-    nextDomain: "Add your own domain",
-    nextDatabase: "Add a database",
-    nextBackup: "Schedule a backup",
-  },
   deploy: {
     heading: "Deploy",
     intro: "Nothing on this server has changed yet. Deploying fetches the source again and builds it.",

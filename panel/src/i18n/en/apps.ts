@@ -1,7 +1,6 @@
 /** Strings of the console's applications area: the list, its filters and its row actions. */
 export const apps = {
   newApplication: "New application",
-  fromRecipe: "From a recipe",
   page: {
     title: "Applications",
     description: "Everything this server runs, and the state it is in.",
@@ -89,7 +88,6 @@ export const apps = {
     certbotSaid: "What certbot said",
     certbotOutput: "What certbot said about {domain}",
     openDomains: "Open Domains",
-    next: "Next",
     nextDomain: "Add your own domain",
     nextDatabase: "Add a database",
     nextBackup: "Schedule a backup",

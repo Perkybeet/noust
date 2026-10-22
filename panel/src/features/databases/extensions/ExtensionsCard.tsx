@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PackageCheck, Plus, Trash2 } from "lucide-react";
+import { PackageCheck, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -24,6 +24,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
+import { ICONS } from "../../../components/ui/icons";
 
 /** Loading one: which, and whether to load what it needs too. */
 function AddDialog({ engine, name, offered, loaded, onOpenChange }: { engine: string; name: string; offered: DatabaseExtension[]; loaded: Set<string>; onOpenChange: (open: boolean) => void }) {
@@ -150,7 +151,7 @@ export function ExtensionsCard({ engine, name }: { engine: string; name: string 
                     </span>
                     {item.comment ? <span className="truncate text-12 text-fg-muted">{item.comment}</span> : null}
                   </span>
-                  <IconButton label={t("databases.extensions.removeLabel", { extension: item.name })} icon={<Trash2 aria-hidden="true" />} size="sm" onClick={() => setRemoving(item)} />
+                  <IconButton label={t("databases.extensions.removeLabel", { extension: item.name })} icon={<ICONS.delete aria-hidden="true" />} size="sm" onClick={() => setRemoving(item)} />
                 </li>
               ))}
             </ul>

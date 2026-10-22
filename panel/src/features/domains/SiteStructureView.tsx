@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Copy, CornerDownRight, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, CornerDownRight, MoreHorizontal, Plus } from "lucide-react";
 import { useId, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
@@ -45,6 +45,8 @@ import {
 } from "./siteStructure";
 import type { InlineSetting, LocationTemplate, NewLocation } from "./siteStructure";
 import { NotParsed, OlderNoust, ViewLoading, isMissingRoute } from "./SiteViewStates";
+import { ICONS } from "../../components/ui/icons";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 export interface SiteStructureViewProps {
   site: string;
@@ -117,7 +119,7 @@ export function SiteStructureView({ site, webserver, text, dirty, onEdit, editin
           <ServerCard key={server.id} server={server} ctx={ctx} certificate={certificates.find((entry) => entry.path === server.tls?.certificate) ?? null} />
         ))}
         {structure.upstreams.length > 0 ? (
-          <Section title={t("domains.siteStructure.upstreamsTitle")} description={t("domains.siteStructure.upstreamsDescription")}>
+          <Section title={t("domains.siteStructure.upstreamsTitle")} icon={OBJECT_ICONS.upstream} description={t("domains.siteStructure.upstreamsDescription")}>
             <div className="grid gap-4 lg:grid-cols-2">
               {structure.upstreams.map((upstream) => (
                 <UpstreamCard key={upstream.id} upstream={upstream} ctx={ctx} />
@@ -523,7 +525,7 @@ function LocationRow({ location, depth, server, ctx, notes }: { location: SiteLo
                 </MenuItem>
               ) : null}
               {block || up || down ? <MenuSeparator /> : null}
-              <MenuItem icon={<Trash2 aria-hidden="true" />} destructive onClick={() => ctx.onEdit([removeLocationOp(location)])}>
+              <MenuItem icon={<ICONS.delete aria-hidden="true" />} destructive onClick={() => ctx.onEdit([removeLocationOp(location)])}>
                 {t("common.words.remove")}
               </MenuItem>
             </Menu>
@@ -636,7 +638,7 @@ function RawDirectives({ directives, parent, ctx, readOnly = false }: { directiv
                     label={t("common.words.removeNamed", {
                       name: directive.name,
                     })}
-                    icon={<Trash2 aria-hidden="true" />}
+                    icon={<ICONS.delete aria-hidden="true" />}
                     disabled={ctx.editing}
                     onClick={() => ctx.onEdit([{ op: "remove_directive", target: directive.id }])}
                   />

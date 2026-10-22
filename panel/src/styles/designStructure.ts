@@ -306,13 +306,6 @@ export function settingCopyProblems(file: ts.SourceFile, context: StructureConte
 
 export const STRUCTURE_RULES: readonly StructureRule[] = [
   {
-    id: "feature-state",
-    fix: "A feature's state is a StatusPill in the header of its Card (Card status), or a Setting row; FeatureState is retired.",
-    applies: (path) => path !== "components/ui/FeatureState.tsx" && !path.startsWith("dev/"),
-    hint: /FeatureState/,
-    find: (file) => openings(file).filter((node) => isTag(node, "FeatureState")),
-  },
-  {
     id: "badge-state",
     fix: "A state is a StatusPill (size sm in a card or a row, appearance inline in a table); a Badge is an attribute (neutral) or something staged (accent).",
     applies: outsideKit,
@@ -696,12 +689,12 @@ export function messageLookup(tree: unknown): MessageOf {
 }
 
 /** The components the 4.0 wave moves, and the attribute it counts beside them. */
-export const UX_TAGS = ["Notice", "FeatureState", "Switch", "SaveBar", "LoadingRegion", "QueryState", "ConfirmDialog", "Badge"] as const;
+export const UX_TAGS = ["Notice", "Switch", "SaveBar", "LoadingRegion", "QueryState", "ConfirmDialog", "Badge"] as const;
 export const UX_COLUMNS = [...UX_TAGS, "aria-busy"] as const;
 export type UxColumn = (typeof UX_COLUMNS)[number];
 
 /** The components' own files draw themselves; counting them would count the definition. */
-const UX_OWN = /^components\/ui\/(FeatureState|Notice|Badge|ConfirmDialog)\.tsx$/;
+const UX_OWN = /^components\/ui\/(Notice|Badge|ConfirmDialog)\.tsx$/;
 
 /** The row of the table a file belongs to: its directory, the application's page and its settings apart. */
 export function uxDirectory(path: string): string {

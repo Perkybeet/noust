@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { CalendarClock } from "lucide-react";
 import { useState } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
@@ -25,6 +24,7 @@ import { calendarWords } from "../cron/data";
 import { BackupsListPage } from "./BackupsListPage";
 import { ScheduleDialog } from "./ScheduleDialog";
 import { useBackupActions } from "./useBackupActions";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** How much a schedule keeps, in words: its own limits, or the server's default. */
 function Keeps({ schedule, serverDefault, t }: { schedule: BackupSchedule; serverDefault: number | undefined; t: T }) {
@@ -53,7 +53,7 @@ function ScheduleActions({ schedule, onEdit, onRemove }: { schedule: BackupSched
   const t = useT();
   return (
     <RowMenu name={schedule.domain}>
-      <MenuItem icon={<CalendarClock />} onClick={onEdit}>
+      <MenuItem icon={<OBJECT_ICONS.schedule />} onClick={onEdit}>
         {t("common.words.edit")}
       </MenuItem>
       <MenuSeparator />
@@ -159,7 +159,7 @@ export function SchedulesPage() {
     content = (
       <EmptyState
         variant="firstUse"
-        icon={<CalendarClock />}
+        icon={<OBJECT_ICONS.schedule />}
         title={t("backups.schedules.empty.title")}
         description={hasApps || apps.isPending ? t("backups.schedules.empty.description") : t("backups.schedules.empty.noApps")}
         action={

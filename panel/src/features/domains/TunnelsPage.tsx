@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Cable, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -37,6 +37,8 @@ import { DnsConflictDialog } from "./DnsConflictDialog";
 import { DomainsListPage } from "./DomainsListPage";
 import type { RecordConflict } from "./dnsConflict";
 import { conflictOf } from "./dnsConflict";
+import { ICONS } from "../../components/ui/icons";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 const NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
@@ -320,7 +322,7 @@ function TunnelDrawer({ tunnel, onClose, onAddRoute, onRemoveRoute }: { tunnel: 
               {routes.map((route) => (
                 <RowList.Item
                   key={route.hostname}
-                  actions={<IconButton label={t("network.tunnels.routeRemoveNamed", { name: route.hostname })} icon={<Trash2 />} size="sm" onClick={() => onRemoveRoute(tunnel, route.hostname)} />}
+                  actions={<IconButton label={t("network.tunnels.routeRemoveNamed", { name: route.hostname })} icon={<ICONS.delete />} size="sm" onClick={() => onRemoveRoute(tunnel, route.hostname)} />}
                 >
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <Mono truncate>{route.hostname}</Mono>
@@ -406,7 +408,7 @@ export function TunnelsPage() {
       ) : empty ? (
         <EmptyState
           variant="firstUse"
-          icon={<Cable />}
+          icon={<OBJECT_ICONS.tunnel />}
           title={t("network.tunnels.emptyTitle")}
           description={t("network.tunnels.emptyDescription")}
           {...(support?.available === false
@@ -433,7 +435,7 @@ export function TunnelsPage() {
               <MenuItem icon={<Plus />} disabled={row.state !== "ready"} onClick={() => setRouting(row)}>
                 {t("network.tunnels.routeAdd")}
               </MenuItem>
-              <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleting(row)}>
+              <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(row)}>
                 {t("network.tunnels.delete")}
               </MenuItem>
             </RowMenu>

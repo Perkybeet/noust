@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Eye, KeyRound, Trash2, UserCog, Users } from "lucide-react";
+import { Eye, KeyRound, UserCog } from "lucide-react";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -38,6 +38,7 @@ import { PROFILES, isProfile, profileHelp, profileLabel } from "./profiles";
 import type { Profile } from "./profiles";
 import { SecretShown } from "./SecretShown";
 import type { SecretShownProps } from "./SecretShown";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 const USERNAME = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
 
@@ -220,7 +221,7 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-8">
       <Section
-        icon={Users}
+        icon={OBJECT_ICONS.account}
         title={t("databases.users.title")}
         description={t("databases.users.description")}
         actions={
@@ -303,7 +304,7 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
                     </MenuItem>
                   ) : null}
                   <MenuSeparator />
-                  <MenuItem icon={<Trash2 />} destructive disabled={(entry.apps ?? []).length > 0} onClick={() => setDeleting(entry)}>
+                  <MenuItem icon={<ICONS.delete />} destructive disabled={(entry.apps ?? []).length > 0} onClick={() => setDeleting(entry)}>
                     {(entry.apps ?? []).length > 0 ? t("databases.users.deleteLinked") : t("databases.users.delete")}
                   </MenuItem>
                 </RowMenu>

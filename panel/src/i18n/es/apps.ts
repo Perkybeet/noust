@@ -3,7 +3,6 @@ import type { Catalog } from "../types";
 
 export const apps: Catalog<typeof en> = {
   newApplication: "Nueva aplicación",
-  fromRecipe: "Desde una receta",
   page: {
     title: "Aplicaciones",
     description: "Todo lo que ejecuta este servidor, y en qué estado está.",
@@ -90,7 +89,6 @@ export const apps: Catalog<typeof en> = {
     certbotSaid: "Lo que dijo certbot",
     certbotOutput: "Lo que dijo certbot sobre {domain}",
     openDomains: "Abrir Dominios",
-    next: "Siguiente",
     nextDomain: "Añadir tu propio dominio",
     nextDatabase: "Añadir una base de datos",
     nextBackup: "Programar una copia de seguridad",

@@ -5,15 +5,15 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { Badge } from "./Badge";
 
 describe("Badge", () => {
-  it("is neutral unless it reports a state", () => {
+  it("is neutral, or accent for something selected or staged: never a state", () => {
     render(
       <div>
         <Badge>Next.js</Badge>
-        <Badge tone="fail">Expired</Badge>
+        <Badge tone="accent">Staged</Badge>
       </div>,
     );
     expect(screen.getByText("Next.js")).toHaveClass("text-fg-muted");
-    expect(screen.getByText("Expired")).toHaveClass("text-fail");
+    expect(screen.getByText("Staged")).toHaveClass("text-accent-fg");
   });
 
   it("sets system values in mono", () => {
@@ -26,9 +26,6 @@ describe("Badge", () => {
       <div>
         <Badge>Next.js</Badge>
         <Badge tone="accent">Primary domain</Badge>
-        <Badge tone="ok">Valid</Badge>
-        <Badge tone="warn">Expires in 6 d</Badge>
-        <Badge tone="fail">Expired</Badge>
       </div>,
     );
     await expectNoAxeViolations(container);

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Cloud, FolderOpen, KeyRound, Lock, Pencil, Wifi } from "lucide-react";
+import { Cloud, KeyRound, Lock, Pencil } from "lucide-react";
 import { useState } from "react";
 
 import { isApiError } from "../../api/client";
@@ -28,6 +28,7 @@ import { BrowseDestinationDialog } from "./BrowseDestinationDialog";
 import { DestinationDialog } from "./DestinationDialog";
 import { ShowKeyDialog } from "./ShowKeyDialog";
 import { useDestinationActions } from "./useDestinationActions";
+import { OBJECT_ICONS, VERB_ICONS } from "../../components/ui/objectIcons";
 
 interface TestState {
   checking: boolean;
@@ -116,10 +117,10 @@ function DestinationActions({
   return (
     <>
       <RowMenu name={destination.name}>
-        <MenuItem icon={<Wifi />} disabled={testState?.checking === true} onClick={onTest}>
+        <MenuItem icon={<VERB_ICONS.test />} disabled={testState?.checking === true} onClick={onTest}>
           {t("backups.destinations.test.label")}
         </MenuItem>
-        <MenuItem icon={<FolderOpen />} onClick={onBrowse}>
+        <MenuItem icon={<OBJECT_ICONS.file />} onClick={onBrowse}>
           {t("backups.destinations.browse")}
         </MenuItem>
         <MenuItem icon={<Pencil />} onClick={() => setEditOpen(true)}>
@@ -302,7 +303,7 @@ export function DestinationsPage() {
       {...(list.length > 0
         ? {
             secondaryActions: (
-              <Button icon={<FolderOpen aria-hidden="true" />} onClick={() => setBrowse({ target: undefined })}>
+              <Button icon={<OBJECT_ICONS.file aria-hidden="true" />} onClick={() => setBrowse({ target: undefined })}>
                 {t("backups.destinations.browse")}
               </Button>
             ),

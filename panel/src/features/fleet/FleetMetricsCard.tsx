@@ -24,6 +24,7 @@ import { formatBytesRate, formatPercent } from "../../lib/format";
 import { numberOf, originOf, textOf } from "./data";
 import type { FleetRow, NodeOutcome } from "./data";
 import { ServerCell } from "./parts";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** A reading in the unit the server said it is in. */
 export function readingText(value: number | null, unit: string | null, locale: Parameters<typeof formatPercent>[1]): string | null {
@@ -92,7 +93,7 @@ export function FleetMetricsCard() {
       as="section"
       level={2}
       padding="none"
-      title={t("fleetCompare.metrics.title")}
+      title={t("fleetCompare.metrics.title")} icon={OBJECT_ICONS.node}
       description={t("fleetCompare.metrics.description")}
       actions={
         <div className="flex min-w-0 flex-wrap items-center gap-2">

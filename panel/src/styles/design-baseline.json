@@ -20,7 +20,6 @@
       "components/ui/Button.tsx": 2,
       "components/ui/Checkbox.tsx": 1,
       "components/ui/Dialog.tsx": 3,
-      "components/ui/EmptyState.tsx": 1,
       "components/ui/ExternalLink.tsx": 1,
       "components/ui/Kbd.tsx": 2,
       "components/ui/LogViewer.tsx": 3,

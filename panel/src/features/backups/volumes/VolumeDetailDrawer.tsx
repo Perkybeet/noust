@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ArchiveRestore, CloudUpload, ShieldQuestion, Trash2 } from "lucide-react";
+import { ArchiveRestore, ShieldQuestion } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -32,6 +32,8 @@ import { PushToDestinationDialog } from "../PushToDestinationDialog";
 import { isTrue, textOf } from "../policy/record";
 import { backupKind, checkOf, scheduleWords, totalBytes, viewOf } from "./data";
 import type { VolumeRow } from "./data";
+import { ICONS } from "../../../components/ui/icons";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 export interface VolumeDetailDrawerProps {
   row: VolumeRow;
@@ -62,11 +64,11 @@ function BackupActions({ backup, busy, onRestore, onVerify, onPush, onDelete }: 
       <MenuItem icon={<ShieldQuestion />} disabled={busy} onClick={onVerify}>
         {t("volumeBackups.table.verify")}
       </MenuItem>
-      <MenuItem icon={<CloudUpload />} disabled={busy} onClick={onPush}>
+      <MenuItem icon={<OBJECT_ICONS.destination />} disabled={busy} onClick={onPush}>
         {t("volumeBackups.table.push")}
       </MenuItem>
       <MenuSeparator />
-      <MenuItem icon={<Trash2 />} destructive onClick={onDelete}>
+      <MenuItem icon={<ICONS.delete />} destructive onClick={onDelete}>
         {t("common.words.delete")}
       </MenuItem>
     </RowMenu>
@@ -111,7 +113,7 @@ export function VolumeDetailDrawer({ row, open, onOpenChange, onEdit, onRun, onR
       <div className="flex min-w-0 flex-col gap-8">
         <Section
           level={3}
-          title={t("volumeBackups.detail.policy")}
+          title={t("volumeBackups.detail.policy")} icon={OBJECT_ICONS.schedule}
           actions={
             policy !== null ? (
               <>
@@ -122,7 +124,7 @@ export function VolumeDetailDrawer({ row, open, onOpenChange, onEdit, onRun, onR
                   {t("volumeBackups.actions.edit")}
                 </Button>
                 <RowMenu name={row.domain}>
-                  <MenuItem icon={<Trash2 />} destructive onClick={onRemove}>
+                  <MenuItem icon={<ICONS.delete />} destructive onClick={onRemove}>
                     {t("volumeBackups.actions.remove")}
                   </MenuItem>
                 </RowMenu>
@@ -186,7 +188,7 @@ export function VolumeDetailDrawer({ row, open, onOpenChange, onEdit, onRun, onR
           )}
         </Section>
 
-        <Section level={3} title={t("volumeBackups.detail.backups")}>
+        <Section level={3} title={t("volumeBackups.detail.backups")} icon={OBJECT_ICONS.backup}>
           <DataTable<VolumeBackup>
             caption={t("volumeBackups.table.caption", { domain: row.domain })}
             density="compact"

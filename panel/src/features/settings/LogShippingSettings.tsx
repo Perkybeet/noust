@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Power, Send, Trash2 } from "lucide-react";
+import { Pencil, Plus, Power, Send } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -428,7 +428,7 @@ function DrainActions({ drain, onEdit }: { drain: LogDrain; onEdit: () => void }
         </MenuItem>
         <MenuSeparator />
         <MenuItem
-          icon={<Trash2 />}
+          icon={<ICONS.delete />}
           destructive
           onClick={() => {
             setRemoving(true);

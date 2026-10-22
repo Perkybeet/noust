@@ -55,11 +55,6 @@ export const common: Catalog<typeof en> = {
     empty: "Nada coincide con esta búsqueda.",
     results: { one: "{count} resultado.", other: "{count} resultados." },
   },
-  featureState: {
-    on: "Activado",
-    off: "Desactivado",
-    problem: "Activado, con un problema",
-  },
   flowDiagram: {
     kind: {
       domain: "Nombre",

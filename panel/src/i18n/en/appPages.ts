@@ -364,13 +364,6 @@ export const appPages = {
       showInLog: "Show it in the log",
       openDiagnose: "Open Diagnose",
       editEnvironment: "Edit environment",
-      copyAddress: "Copy the address",
-      httpsReady: "HTTPS is ready.",
-      httpOnly: "Served over HTTP: no certificate covers this address yet.",
-      openDomains: "Open Domains",
-      nextDomain: "Add your own domain",
-      nextDatabase: "Add a database",
-      nextBackup: "Schedule a backup",
     },
 
     tab: {

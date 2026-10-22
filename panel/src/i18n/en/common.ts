@@ -58,11 +58,6 @@ export const common = {
     empty: "Nothing matches this search.",
     results: { one: "{count} result.", other: "{count} results." },
   },
-  featureState: {
-    on: "Enabled",
-    off: "Disabled",
-    problem: "Enabled, with a problem",
-  },
   flowDiagram: {
     kind: {
       domain: "Name",

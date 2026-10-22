@@ -1,7 +1,7 @@
 import { Menu as BaseMenu } from "@base-ui/react/menu";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronsUpDown, Landmark, Network, Plus, Server } from "lucide-react";
+import { Check, ChevronsUpDown, Landmark, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { sessionQuery } from "../api/queries/auth";
@@ -16,6 +16,7 @@ import { cx } from "../lib/cx";
 import { NODE_STATE, nodeStatus, useHasFleet, useServerList } from "./servers";
 import type { NodeRecord } from "./servers";
 import { useConsoleContext, useSwitchNode } from "./useNode";
+import { OBJECT_ICONS } from "../components/ui/objectIcons";
 
 /** Radio values that are not a server; no node name can be one (names are [a-z0-9-]). */
 const ALL_SERVERS = "@all";
@@ -138,7 +139,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   let name: ReactNode;
   let line: ReactNode;
   if (context.kind === "fleet") {
-    icon = <Network aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
+    icon = <OBJECT_ICONS.node aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
     name = <span className="min-w-0 truncate font-medium">{t("fleet.selector.all")}</span>;
     line = (
       <>
@@ -169,7 +170,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
       </Mono>
     );
   } else {
-    icon = <Server aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
+    icon = <OBJECT_ICONS.server aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
     name = (
       <>
         {trouble ? <StatusGlyph state={trouble.state} size={10} className={stateTextClass(trouble.state)} /> : null}
@@ -233,7 +234,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
                   <BaseMenu.GroupLabel className={GROUP_LABEL}>{t("fleet.selector.views")}</BaseMenu.GroupLabel>
                   <BaseMenu.RadioItem value={ALL_SERVERS} closeOnClick className={ITEM}>
                     <ItemCheck />
-                    <Network aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
+                    <OBJECT_ICONS.node aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate font-medium">{t("fleet.selector.all")}</span>{" "}
                       <span className="text-12 text-fg-muted">{t("fleet.selector.allDescription", { count: servers.nodes.length + (role === "hub" ? 0 : 1) })}</span>

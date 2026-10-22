@@ -100,7 +100,7 @@ export function ArrivalRow({ domain, deploymentId = null, title, actions, next =
         ) : null}
         {next ? (
           <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-13 text-fg-muted">
-            <span>{t("apps.arrival.next")}</span>
+            <span>{t("common.words.next")}</span>
             <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
               {t("apps.arrival.nextDomain")}
             </TextLink>

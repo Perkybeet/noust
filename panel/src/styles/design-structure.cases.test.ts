@@ -33,16 +33,10 @@ interface Case {
 }
 
 const CASES: Readonly<Record<string, Case>> = {
-  "feature-state": {
-    path: "features/x/Page.tsx",
-    source: 'export const A = () => <FeatureState state="on" title="x" />;',
-    bad: 1,
-    good: 'export const A = () => <Card status={<StatusPill state="running" label="On" size="sm" />} />;',
-  },
   "badge-state": {
     path: "features/x/Page.tsx",
-    source: 'export const A = () => (<><Badge tone="warn">x</Badge><Badge tone={s.tone}>y</Badge><Badge tone={x ? "fail" : "neutral"}>z</Badge></>);',
-    bad: 3,
+    source: 'export const A = () => (<><Badge tone={s.tone}>y</Badge><Badge tone={x ? "fail" : "neutral"}>z</Badge></>);',
+    bad: 2,
     good: 'export const A = () => (<><Badge>x</Badge><Badge tone="accent">y</Badge><Badge tone={x ? "accent" : "neutral"}>z</Badge></>);',
   },
   "notice-stack": {

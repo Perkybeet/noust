@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRightLeft, Copy, Hammer, Pencil, RefreshCw, Rocket, Server, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Copy, Pencil } from "lucide-react";
 import { useState } from "react";
 
 import { CommandHint } from "../../../components/page/CommandHint";
@@ -22,7 +22,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
-import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+import { OBJECT_ICONS, VERB_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatLabels } from "../data";
@@ -34,6 +34,7 @@ import { PlacementDialog } from "./PlacementDialog";
 import { BuilderDialog, ShipDialog } from "./ShipDialog";
 import { UpstreamsDialog } from "./UpstreamsDialog";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { ICONS } from "../../../components/ui/icons";
 
 const NAME_LINK = textLinkClassName("inline", "-mx-1 block max-w-full truncate px-1 py-0.5", "row");
 
@@ -151,7 +152,7 @@ function PlacementCard({ placement }: { placement: Placement }) {
         <span className="flex items-center gap-1">
           <IconButton
             label={t("placements.card.refresh")}
-            icon={<RefreshCw />}
+            icon={<VERB_ICONS.refresh />}
             size="sm"
             disabled={detail.isFetching}
             onClick={() => {
@@ -160,7 +161,7 @@ function PlacementCard({ placement }: { placement: Placement }) {
           />
           <RowMenu name={placement.domain}>
             <MenuItem
-              icon={<Rocket />}
+              icon={<OBJECT_ICONS.deployment />}
               onClick={() => {
                 setOpen("rollout");
               }}
@@ -168,7 +169,7 @@ function PlacementCard({ placement }: { placement: Placement }) {
               {t("placements.card.rollout")}
             </MenuItem>
             <MenuItem
-              icon={<Hammer />}
+              icon={<OBJECT_ICONS.build />}
               onClick={() => {
                 setOpen("ship");
               }}
@@ -176,7 +177,7 @@ function PlacementCard({ placement }: { placement: Placement }) {
               {t("placements.card.ship")}
             </MenuItem>
             <MenuItem
-              icon={<Server />}
+              icon={<OBJECT_ICONS.server />}
               onClick={() => {
                 setOpen("builder");
               }}
@@ -209,7 +210,7 @@ function PlacementCard({ placement }: { placement: Placement }) {
             </MenuItem>
             <MenuSeparator />
             <MenuItem
-              icon={<Trash2 />}
+              icon={<ICONS.delete />}
               destructive
               onClick={() => {
                 setOpen("remove");
@@ -289,7 +290,7 @@ export function PlacementsTab() {
   const place = (
     <Button
       variant="primary"
-      icon={<Server aria-hidden="true" />}
+      icon={<OBJECT_ICONS.server aria-hidden="true" />}
       onClick={() => {
         setPlacing(true);
       }}

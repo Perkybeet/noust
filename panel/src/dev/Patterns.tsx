@@ -2,7 +2,6 @@ import { Ellipsis, Plus, Power, RotateCw } from "lucide-react";
 
 import { ErrorBlock, SaveBar } from "../components/page";
 import {
-  Badge,
   Button,
   Card,
   DataTable,
@@ -80,7 +79,7 @@ export function Patterns() {
           }
           notThis={
             <div className="flex flex-wrap gap-3">
-              <Badge tone="ok">Running</Badge>
+              <StatusPill state="running" label="Running" size="sm" />
               <span className="text-ok">●</span>
             </div>
           }

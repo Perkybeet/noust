@@ -41,7 +41,7 @@ function Sections() {
           <PageSection
             level={3}
             title="Needs attention"
-            badge={<Badge tone="fail">2</Badge>}
+            badge={<Badge>2</Badge>}
             actions={<Button size="sm">Refresh</Button>}
           >
             <div className="h-16 rounded-card border border-dashed border-border" />
