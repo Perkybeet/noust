@@ -138,7 +138,7 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
   const databaseColumns: Column<(typeof databases)[number]>[] = [
     {
       id: "name",
-      header: t("teams.project.columnName"),
+      header: t("common.words.name"),
       card: "title",
       sortValue: (database) => database.name,
       cell: (database) => (
@@ -160,7 +160,7 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
   const siteColumns: Column<(typeof sites)[number]>[] = [
     {
       id: "name",
-      header: t("teams.project.columnName"),
+      header: t("common.words.name"),
       card: "title",
       sortValue: (site) => site.name,
       cell: (site) => (

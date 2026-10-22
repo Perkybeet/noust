@@ -19,7 +19,6 @@ export const logs = {
   allApps: "Every application",
   windowLabel: "How far back",
   window: { live: "Live", "15m": "15 minutes", "1h": "1 hour", "6h": "6 hours", "24h": "24 hours", "7d": "7 days", boot: "This boot", previous: "Previous boot", deploy: "Since the last deploy" },
-  fromTerminal: "From a terminal",
   noun: "the logs",
   loading: "Loading the logs",
   viewerLabel: "Matching log lines",

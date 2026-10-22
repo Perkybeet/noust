@@ -150,7 +150,7 @@ function Bans({ state }: { state: Fail2ban }) {
           </Button>
         </div>
       ) : null}
-      <CommandHint command={state.web_available ? "noust server security fail2ban web on" : "noust server security fail2ban status"} label={t("server.fromTerminal")} />
+      <CommandHint command={state.web_available ? "noust server security fail2ban web on" : "noust server security fail2ban status"} label={t("common.words.fromTerminal")} />
       {watching ? (
         <ConfirmDialog
           {...confirmation}

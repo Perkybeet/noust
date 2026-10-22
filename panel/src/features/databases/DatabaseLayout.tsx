@@ -196,7 +196,7 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
                     disabled={job.busy || database?.missing === true}
                     onClick={() => backup.mutate()}
                   >
-                    {t("databases.layout.backUpNow")}
+                    {t("common.words.backUpNow")}
                   </Button>
                 ),
               }

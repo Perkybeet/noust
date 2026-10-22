@@ -187,7 +187,7 @@ export function KeysView({ engine, name, search, onSearchChange }: { engine: str
           </Button>
         </div>
       ) : null}
-      <CommandHint command={`noust db keys ${name}${search.match ? ` --match '${search.match}'` : ""}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db keys ${name}${search.match ? ` --match '${search.match}'` : ""}`} label={t("common.words.fromTerminal")} />
       {open !== null ? <KeyDrawer engine={engine} name={name} redisKey={open} onClose={() => setOpen(null)} /> : null}
     </div>
   );

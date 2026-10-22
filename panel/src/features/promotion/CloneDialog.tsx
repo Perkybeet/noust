@@ -142,7 +142,7 @@ export function CloneDialog({ app, open, onOpenChange }: CloneDialogProps) {
       footer={
         <>
           <Button disabled={pending} onClick={() => onOpenChange(false)}>
-            {t("variables.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={pending}>
             {t("promotion.clone.submit")}

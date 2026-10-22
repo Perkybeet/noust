@@ -94,7 +94,7 @@ export function AppJournal({ domain, filter, command }: AppJournalProps) {
           emptyMessage={stream.status === "open" ? t("appPages.logs.emptyOpen") : t("appPages.logs.emptyConnecting")}
         />
       </div>
-      <CommandHint command={command} label={t("appPages.fromTerminal")} />
+      <CommandHint command={command} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

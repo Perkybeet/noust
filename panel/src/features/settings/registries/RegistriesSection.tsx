@@ -34,7 +34,7 @@ const APPS_SHOWN = 2;
 
 function State({ t, login }: { t: T; login: RegistryLogin }) {
   if (login.last_status === "ok") return <StatusPill state="running" label={t("registries.state.ok")} appearance="inline" size="sm" />;
-  if (login.last_status === "failed") return <StatusPill state="failed" label={t("registries.state.failed")} appearance="inline" size="sm" />;
+  if (login.last_status === "failed") return <StatusPill state="failed" label={t("common.statusPill.failed")} appearance="inline" size="sm" />;
   return <StatusPill state="stopped" label={t("registries.state.untested")} appearance="inline" size="sm" />;
 }
 
@@ -42,7 +42,7 @@ function columns(t: T): Column<RegistryLogin>[] {
   return [
     {
       id: "name",
-      header: t("registries.columnName"),
+      header: t("common.words.name"),
       cell: (login) => (
         <span className="flex min-w-0 flex-col">
           <Mono truncate>{login.name}</Mono>
@@ -158,7 +158,7 @@ export function RegistriesSection() {
             density="compact"
             mobile="cards"
             rowActions={(login) => (
-              <Menu align="end" trigger={<IconButton label={t("registries.actions.more", { name: login.name })} icon={<ICONS.more />} tooltip={false} />}>
+              <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: login.name })} icon={<ICONS.more />} tooltip={false} />}>
                 <MenuItem
                   onClick={() => {
                     test.mutate(login.name);
@@ -171,7 +171,7 @@ export function RegistriesSection() {
                     setDialog({ login });
                   }}
                 >
-                  {t("registries.actions.edit")}
+                  {t("common.words.edit")}
                 </MenuItem>
                 <MenuItem
                   destructive
@@ -180,14 +180,14 @@ export function RegistriesSection() {
                     setRemoving(login);
                   }}
                 >
-                  {t("registries.actions.remove")}
+                  {t("common.words.remove")}
                 </MenuItem>
               </Menu>
             )}
           />
         )}
       </QueryState>
-      <CommandHint command="noust registry list" label={t("registries.app.fromTerminal")} />
+      <CommandHint command="noust registry list" label={t("common.words.sameFromTerminal")} />
       {dialog !== null ? (
         <RegistryDialog
           key={dialog.login?.name ?? "new"}

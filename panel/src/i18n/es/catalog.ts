@@ -2,15 +2,12 @@ import type { catalog as en } from "../en/catalog";
 import type { Catalog } from "../types";
 
 export const catalog: Catalog<typeof en> = {
-  area: "Catálogo",
   page: {
     title: "Catálogo",
     description: "Aplicaciones listas para desplegar. Cada una está fijada a una versión, se ejecuta como su proyecto la concibe y trae las variables y los servicios que necesita.",
   },
   tabs: {
     label: "Secciones del catálogo",
-    browse: "Explorar",
-    installed: "Instaladas",
   },
   own: {
     open: "Añadir una receta",
@@ -28,14 +25,16 @@ export const catalog: Catalog<typeof en> = {
     added: "{title} se añadió al catálogo",
     remove: "Quitar de este servidor",
     removeTitle: "¿Quitar {title} de este servidor?",
-    removeDescription: "La receta se borra de las recetas propias de este servidor. Las aplicaciones ya instaladas con ella siguen funcionando; Noust ya no puede actualizarlas desde ella.",
+    removeDescription:
+      "La receta se elimina de las recetas propias de este servidor. Las aplicaciones ya instaladas con ella siguen funcionando; Noust ya no puede actualizarlas desde ella.",
     removeAction: "Quitar la receta",
     removed: "{title} se quitó",
   },
   package: {
     open: "Paquete del catálogo",
     title: "El catálogo entre versiones",
-    description: "Las recetas nuevas llegan en un paquete firmado que descargas a propósito. Debe haberlo firmado una clave en la que este servidor confía, cada fichero se comprueba con la firma y nada de lo que trae se ejecuta.",
+    description:
+      "Las recetas nuevas llegan en un paquete firmado que descargas a propósito. Debe haberlo firmado una clave en la que este servidor confía, cada archivo se comprueba con la firma y nada de lo que trae se ejecuta.",
     serial: "Serie",
     signer: "Firmado por",
     created: "Creado el",
@@ -60,11 +59,11 @@ export const catalog: Catalog<typeof en> = {
     fetched: "Se importó el paquete {serial}",
     removeTitle: "¿Volver a las recetas de la versión?",
     removeDescription: "Se quita el paquete. Las aplicaciones instaladas con sus recetas siguen funcionando.",
-    removeAction: "Volver",
+    removeAction: "Volver atrás",
     removed: "El catálogo vuelve a ser el de la versión",
   },
   problems: {
-    title: { one: "Se dejó fuera {count} fichero de receta", other: "Se dejaron fuera {count} ficheros de receta" },
+    title: { one: "Se dejó fuera {count} archivo de receta", other: "Se dejaron fuera {count} archivos de receta" },
   },
   requirements: {
     title: "Lo que tiene este servidor",
@@ -120,7 +119,6 @@ export const catalog: Catalog<typeof en> = {
     docs: "Documentación",
     docsOf: "Documentación de {title}",
     details: "Detalles",
-    detailsOf: "Detalles de {title}",
     updated: "Actualizada el {date}",
     yours: "Tuya",
     package: "De un paquete",
@@ -142,7 +140,6 @@ export const catalog: Catalog<typeof en> = {
     native: "De forma nativa",
     count: { one: "{count} receta", other: "{count} recetas" },
     countFiltered: "{shown} de {total} recetas",
-    clear: "Quitar filtros",
   },
   empty: {
     noMatch: "Ninguna receta coincide con estos filtros.",
@@ -171,7 +168,6 @@ export const catalog: Catalog<typeof en> = {
     goneReason: "La receta ya no está en el catálogo.",
     noChanges: "El catálogo no dice qué ha cambiado.",
     moreChanges: { one: "y {count} cambio más", other: "y {count} cambios más" },
-    update: "Actualizar",
     updateNamed: "Actualizar {domain}",
   },
   update: {
@@ -181,11 +177,9 @@ export const catalog: Catalog<typeof en> = {
     noChanges: "El catálogo no dice qué ha cambiado en esta versión.",
     safeTitle: "Vuelve atrás si no arranca",
     safe: "Noust copia antes la aplicación (con las bases de datos de una pila Docker), compila la versión nueva y comprueba que responde. Si no responde, vuelve a poner la versión que servía y el error dice por qué. Las variables que la aplicación ya tiene conservan su valor.",
-    reading: "Leyendo lo que pide esta versión",
+    reading: "Cargando lo que pide esta versión",
     variables: "Esta versión declara variables que la aplicación puede no tener aún. Da un valor solo para una que le falte; deja el resto vacío.",
     variableHelp: "Solo si la aplicación todavía no la tiene.",
-    cancel: "Cancelar",
-    action: "Actualizar",
     failed: "{domain} no se actualizó",
     queued: "Actualización de {domain} en cola",
     running: "Actualizando {domain}",
@@ -231,7 +225,7 @@ export const catalog: Catalog<typeof en> = {
       caption: "Variables de la receta",
       name: "Variable",
       origin: "De dónde sale su valor",
-      default: "Valor por defecto",
+      default: "Por defecto",
       purpose: "Para qué sirve",
       required: "Necesita un valor",
       secret: "Secreto",

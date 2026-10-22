@@ -13,10 +13,9 @@ export const changeSource: Catalog<typeof en> = {
   branch: "Rama",
   none: "Nada registrado",
   open: "Cambiar el origen",
-  fromTerminal: "Desde una terminal",
   changed: "{domain} se desplegará desde {source}",
   unsupportedInPlace: "El origen se puede cambiar con el diseño por releases, y esta aplicación compila en el sitio. Pásala antes a releases.",
-  unsupportedType: "Una aplicación {type} se compila con sus propios ficheros o imagen, así que aquí no hay un origen que cambiar.",
+  unsupportedType: "Una aplicación {type} se compila con sus propios archivos o imagen, así que aquí no hay un origen que cambiar.",
   unsupportedPreview: "Una vista previa se compila desde su pull request. Cambia el origen de la aplicación a la que pertenece.",
   unsupportedPush: "Esta aplicación se despliega con git push. Desactívalo antes en Desplegar al hacer push y luego cambia su origen.",
   dialog: {
@@ -33,7 +32,6 @@ export const changeSource: Catalog<typeof en> = {
     uploadDescription: "Para código que no está en un repositorio. El archivo se extrae en este servidor y pasa a ser el origen.",
     check: "Comprobar el nuevo origen",
     apply: "Cambiar el origen",
-    cancel: "Cancelar",
     notChecked: "No se pudo comprobar el nuevo origen",
     notChanged: "No se cambió el origen de {domain}",
   },
@@ -48,7 +46,6 @@ export const changeSource: Catalog<typeof en> = {
   done: {
     title: "{domain} se despliega desde el nuevo origen",
     body: "Lo que sirve ahora sigue sirviendo. La próxima actualización compila el nuevo origen.",
-    build: "Actualizar ahora",
     queued: "Actualización de {domain} en cola",
     queueFailed: "No se pudo poner en cola la actualización de {domain}",
   },

@@ -128,7 +128,7 @@ function RuleRow({ rule, metrics }: { rule: AlertRule; metrics: readonly AlertMe
               setEditing(true);
             }}
           >
-            {t("alerts.rules.edit")}
+            {t("common.words.edit")}
           </MenuItem>
           <MenuSeparator />
           <MenuItem
@@ -138,7 +138,7 @@ function RuleRow({ rule, metrics }: { rule: AlertRule; metrics: readonly AlertMe
               setRemoving(true);
             }}
           >
-            {t("alerts.rules.remove")}
+            {t("common.words.remove")}
           </MenuItem>
         </RowMenu>
       }
@@ -168,9 +168,9 @@ function RuleRow({ rule, metrics }: { rule: AlertRule; metrics: readonly AlertMe
         friction="simple"
         open={removing}
         onOpenChange={setRemoving}
-        title={t("alerts.rules.removeTitle", { name: rule.name })}
+        title={t("common.words.removeNamedQuestion", { name: rule.name })}
         description={t("alerts.rules.removeDescription")}
-        actionLabel={t("alerts.rules.remove")}
+        actionLabel={t("common.words.remove")}
         destructive
         onConfirm={async () => {
           await removeAlertRule(rule.name);

@@ -138,7 +138,7 @@ export function CreateDatabaseDialog({ open, onOpenChange, engine: preset }: Cre
       description={t("databases.create.description")}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" loading={create.isPending} icon={<Add aria-hidden="true" />}>
             {forApp ? t("databases.create.submitLinked") : t("databases.create.submit")}
           </Button>
@@ -167,7 +167,7 @@ export function CreateDatabaseDialog({ open, onOpenChange, engine: preset }: Cre
           />
         </Field>
         <Field
-          label={t("databases.fields.name")}
+          label={t("common.words.name")}
           optional={forApp}
           description={forApp ? t("databases.create.nameForApp") : t("databases.create.nameHelp")}
           error={errors.name}

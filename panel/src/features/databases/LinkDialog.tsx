@@ -127,7 +127,7 @@ export function LinkDialog(props: LinkDialogProps) {
       description={t("databases.link.description")}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" loading={link.isPending}>
             {t("databases.link.submit")}
           </Button>

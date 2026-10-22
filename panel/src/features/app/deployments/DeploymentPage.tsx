@@ -125,7 +125,7 @@ function Elapsed({ deployment, t }: { deployment: Deployment; t: T }) {
     return (
       <>
         {started === null
-          ? t("appPages.deployments.page.running")
+          ? t("common.statusPill.running")
           : t("appPages.deployments.page.runningFor", {
               duration: formatDuration(
                 Math.max(0, (now - started.getTime()) / 1000),
@@ -222,7 +222,7 @@ function hookOutcome(
   if (hook.ok)
     return {
       state: "running",
-      word: t("appPages.deployments.hooks.succeeded"),
+      word: t("common.deployState.succeeded"),
     };
   return {
     state: "failed",
@@ -671,7 +671,7 @@ function ArrivalRow({
         </p>
         {first ? (
           <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-13 text-fg-muted">
-            <span>{t("appPages.deployments.page.next")}</span>
+            <span>{t("common.words.next")}</span>
             <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
               {t("appPages.deployments.page.nextDomain")}
             </TextLink>

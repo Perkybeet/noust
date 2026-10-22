@@ -217,14 +217,14 @@ export function CertificatesTab({ search, onSearchChange }: CertificatesTabProps
                     onSearchChange({});
                   }}
                 >
-                  {t("fleet.filters.clear")}
+                  {t("common.words.clearFilters")}
                 </Button>
               }
             />
           )
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet certs" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet certs" />
     </div>
   );
 }

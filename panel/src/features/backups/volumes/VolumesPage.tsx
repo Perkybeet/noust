@@ -169,7 +169,7 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
         rowActions={(row) => (
           <RowMenu name={row.domain}>
             <MenuItem icon={<Play />} disabled={job.busy || run.isPending} onClick={() => run.mutate(row)}>
-              {t("volumeBackups.actions.runNow")}
+              {t("common.words.backUpNow")}
             </MenuItem>
             <MenuItem icon={row.policy === null ? <CalendarClock /> : <Pencil />} onClick={() => setEditing({ domain: row.domain, policy: row.policy })}>{row.policy === null ? t("volumeBackups.detail.setPolicy") : t("volumeBackups.actions.edit")}</MenuItem>
             <MenuItem icon={<History />} onClick={() => openRow(row)}>{t("volumeBackups.actions.open")}</MenuItem>
@@ -195,7 +195,7 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
         </Button>
       }
       {...(job.notice !== null ? { notice: job.notice } : {})}
-      {...(rows.length > 0 ? { footer: <CommandHint command="noust backup volumes schedule set shop.example.com --schedule daily" label={t("backups.common.fromTerminal")} /> } : {})}
+      {...(rows.length > 0 ? { footer: <CommandHint command="noust backup volumes schedule set shop.example.com --schedule daily" label={t("common.words.fromTerminal")} /> } : {})}
     >
       {content}
 

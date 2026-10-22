@@ -240,7 +240,7 @@ export function SelfBackupPage() {
           {t("selfBackup.backUpNow")}
         </Button>
       }
-      footer={<CommandHint command="noust self-backup schedule set --schedule daily --keep 7" label={t("backups.common.fromTerminal")} />}
+      footer={<CommandHint command="noust self-backup schedule set --schedule daily --keep 7" label={t("common.words.fromTerminal")} />}
     >
       <div className="flex min-w-0 flex-col gap-6">
         {job.notice}
@@ -330,7 +330,7 @@ export function SelfBackupPage() {
                   </MenuItem>
                   <MenuSeparator />
                   <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleting(bundle)}>
-                    {t("selfBackup.table.delete")}
+                    {t("common.words.delete")}
                   </MenuItem>
                 </RowMenu>
               )}
@@ -347,7 +347,7 @@ export function SelfBackupPage() {
           repeat
           title={t("selfBackup.passphrase.createTitle")}
           description={t("selfBackup.passphrase.createDescription")}
-          submit={t("selfBackup.passphrase.create")}
+          submit={t("common.words.backUpNow")}
           onSubmit={(passphrase) => create(passphrase)}
         />
       ) : null}
@@ -391,7 +391,7 @@ export function SelfBackupPage() {
           friction="type"
           open
           onOpenChange={(next) => (next ? undefined : setDeleting(null))}
-          title={t("selfBackup.delete.title", { name: deleting.name })}
+          title={t("common.words.deleteNamed", { name: deleting.name })}
           description={t("selfBackup.delete.description")}
           actionLabel={t("selfBackup.delete.action")}
           confirmText={deleting.name}

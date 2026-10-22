@@ -214,8 +214,8 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
             </>
           ) : null}
           {can.deploy && !awaiting ? (
-            <Button size="sm" variant="ghost" icon={<RotateCw aria-hidden="true" />} loading={redeploy.isPending} disabled={busy} aria-label={`${t("previewHand.list.redeploy")} ${name}`} onClick={() => redeploy.mutate()}>
-              {t("previewHand.list.redeploy")}
+            <Button size="sm" variant="ghost" icon={<RotateCw aria-hidden="true" />} loading={redeploy.isPending} disabled={busy} aria-label={`${t("common.words.update")} ${name}`} onClick={() => redeploy.mutate()}>
+              {t("common.words.update")}
             </Button>
           ) : null}
           {can.operate || can.manage ? (
@@ -223,18 +223,18 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
               {can.operate ? (
                 stopped ? (
                   <MenuItem icon={<Play />} disabled={start.isPending || busy} onClick={() => start.mutate()}>
-                    {t("previewHand.list.start")}
+                    {t("common.words.start")}
                   </MenuItem>
                 ) : (
                   <MenuItem icon={<Square />} disabled={stop.isPending || busy} onClick={() => setStopping(true)}>
-                    {t("previewHand.list.stop")}
+                    {t("common.words.stop")}
                   </MenuItem>
                 )
               ) : null}
               {can.operate && can.manage ? <MenuSeparator /> : null}
               {can.manage ? (
                 <MenuItem icon={<ICONS.delete />} destructive disabled={removingNow} onClick={askToRemove}>
-                  {t("previewHand.list.remove")}
+                  {t("common.words.remove")}
                 </MenuItem>
               ) : null}
             </Menu>

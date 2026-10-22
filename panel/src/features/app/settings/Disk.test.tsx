@@ -231,7 +231,7 @@ describe("the disk of an application", () => {
     });
 
     expect(await screen.findByRole("list", { name: "Lo que ocupa la app, por lugar" })).toBeInTheDocument();
-    expect(screen.getByText("Ficheros compartidos (subidas, .env)")).toBeInTheDocument();
+    expect(screen.getByText("Archivos compartidos (subidas, .env)")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /Límite/ })).toBeInTheDocument();
   });
 });

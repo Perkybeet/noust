@@ -120,7 +120,7 @@ export function DataTab({ engine, name, search, onSearchChange }: DataTabProps) 
           ) : null}
         </div>
       </div>
-      <CommandHint command={`noust db rows ${name} ${selected?.name ?? "<table>"} -e ${engine}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db rows ${name} ${selected?.name ?? "<table>"} -e ${engine}`} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

@@ -39,7 +39,7 @@ function CoverageMenu({ row, actions }: { row: CoverageRow; actions: CoverageAct
     <RowMenu name={row.domain}>
       {row.deployed ? (
         <MenuItem icon={<Play />} onClick={() => actions.onBackUp(row.domain)}>
-          {t("backups.coverage.actions.backUpNow")}
+          {t("common.words.backUpNow")}
         </MenuItem>
       ) : null}
       <MenuItem icon={<History />} onClick={() => actions.onOpen(row)}>

@@ -14,7 +14,7 @@ test("log shipping adds a destination whose token is only written, lists it, and
   // Writing a destination and removing it are root-equivalent: each asks for sudo mode first.
   problems.expect(/status of 403 .*\/api\/log-drains\/e2e-grafana$/);
   await signIn(page, consoleServer, "/settings/log-shipping");
-  await expect(page.getByRole("heading", { level: 2, name: "Log shipping" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Logs and metrics export" })).toBeVisible();
   await expect(page.getByText("No destinations")).toBeVisible();
 
   await page.getByRole("button", { name: "Add a destination" }).click();

@@ -155,7 +155,7 @@ export function FixDialog({ check, onClose }: FixDialogProps) {
       {sshFix !== null ? <SshPlan fix={sshFix} /> : null}
       {fix?.reverts ? <p className="text-13 text-fg-muted">{t("server.fix.reverts")}</p> : null}
       {needsEpel ? <Checkbox label={t("server.fix.epelLabel")} description={t("server.fix.epelDescription")} checked={epel} onCheckedChange={setEpel} /> : null}
-      {fix?.cli ? <CommandHint command={fix.cli} label={t("server.fromTerminal")} /> : null}
+      {fix?.cli ? <CommandHint command={fix.cli} label={t("common.words.fromTerminal")} /> : null}
     </ConfirmDialog>
   );
 }
@@ -185,7 +185,7 @@ export function GuidedDrawer({ check, onClose }: { check: SecurityCheck; onClose
             ))}
           </ol>
         ) : null}
-        {fix?.cli ? <CommandHint command={fix.cli} label={t("server.fromTerminal")} /> : null}
+        {fix?.cli ? <CommandHint command={fix.cli} label={t("common.words.fromTerminal")} /> : null}
       </div>
     </Drawer>
   );
@@ -234,7 +234,7 @@ export function AcceptRiskDialog({ check, onClose }: { check: SecurityCheck; onC
       footer={
         <>
           <Button disabled={accept.isPending} onClick={onClose}>
-            {t("server.risk.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button variant="primary" loading={accept.isPending} onClick={submit}>
             {t("server.risk.accept")}

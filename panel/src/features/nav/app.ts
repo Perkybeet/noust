@@ -53,5 +53,5 @@ export const APP_SETTINGS_SCREENS: Strip = [
   setting("access", "network.access.nav", "access"),
   setting("protection", "network.protection.nav", "access", { keywords: "appSettings.keywords.protection" }),
   setting("export", "appSettings.nav.export", "danger"),
-  setting("delete", "appSettings.nav.delete", "danger"),
+  setting("delete", "common.words.delete", "danger"),
 ];

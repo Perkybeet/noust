@@ -12,7 +12,7 @@ export const ssoAdmin = {
   },
   documentTitle: "Single sign-on",
   loadFailed: "Could not read the sign-in settings",
-  loading: "Reading the sign-in settings",
+  loading: "Loading the sign-in settings",
   loadingLabel: "sign-in settings",
   local: {
     title: "Passwords and passkeys",
@@ -39,7 +39,6 @@ export const ssoAdmin = {
       keepHelp: "Keep at least one administrator's: the provider can be down, or misconfigured, on the day it is needed.",
       noAccounts: "There are no accounts to choose from.",
       action: "Turn off passwords and passkeys",
-      save: "Save",
       failed: "Could not change the sign-in",
     },
   },
@@ -69,8 +68,6 @@ export const ssoAdmin = {
       auto: "Creates an account",
     },
     test: "Test",
-    edit: "Edit",
-    remove: "Remove",
     redirect: {
       title: "Address to register at the provider",
       description: "Every provider is registered with this redirect address, as an OpenID Connect client with the authorization code flow.",
@@ -78,7 +75,6 @@ export const ssoAdmin = {
       name: "Redirect address",
     },
     removeDialog: {
-      title: "Remove {name}",
       description:
         "Its button leaves the sign-in page and the people linked to it can no longer sign in through it. Their accounts stay, with whatever password and second factor they have.",
       action: "Remove provider",
@@ -89,19 +85,15 @@ export const ssoAdmin = {
       passed: "The provider answered as expected.",
       failed: "The provider did not answer as expected.",
       notice: "This reads the provider's discovery document and keys. It signs nobody in.",
-      close: "Close",
       checkPassed: "Passed",
-      checkFailed: "Failed",
       checkOutput: "What the provider answered to {check}",
     },
   },
   form: {
     createTitle: "Add an identity provider",
-    editTitle: "Edit {name}",
     description: "How Noust reaches the provider and who it lets in. The client secret is kept on this server, never in the settings the console shows.",
     save: "Save provider",
     create: "Add provider",
-    cancel: "Cancel",
     errorTitle: "Could not save the provider",
     mappingsLine: "Line {line} is not a mapping. Write GROUP=ROLE, GROUP=TEAM:ROLE or GROUP=ROLE@TEAM/PROJECT.",
     fields: {
@@ -112,7 +104,6 @@ export const ssoAdmin = {
       kindGithubHelp: "An OAuth App at github.com or on a GitHub Enterprise Server. It needs only a client ID and secret.",
       githubHost: "GitHub Enterprise Server",
       githubHostHelp: "Leave it empty for github.com. For an Enterprise Server, its address, over HTTPS. Register the callback address below in the OAuth App.",
-      name: "Name",
       nameHelp: "A short name for the provider, in lower case, such as corp or entra. It cannot change later.",
       label: "Button label",
       labelHelp: "The sign-in page says \"Sign in with\" and this.",

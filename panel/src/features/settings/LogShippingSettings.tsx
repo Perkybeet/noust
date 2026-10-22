@@ -230,12 +230,12 @@ function DrainDialog({ drain, open, onOpenChange }: { drain?: LogDrain; open: bo
       open={open}
       onOpenChange={close}
       size="md"
-      title={editing ? t("runtime.logShipping.dialogEditTitle", { name: drain.name }) : t("runtime.logShipping.dialogAddTitle")}
+      title={editing ? t("common.words.editNamed", { name: drain.name }) : t("runtime.logShipping.dialogAddTitle")}
       description={t("runtime.logShipping.dialogDescription")}
       footer={
         <>
           <Button disabled={save.isPending} onClick={() => close(false)}>
-            {t("appPages.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {t("runtime.logShipping.save")}
@@ -245,7 +245,7 @@ function DrainDialog({ drain, open, onOpenChange }: { drain?: LogDrain; open: bo
     >
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label={t("runtime.logShipping.nameLabel")} description={t("runtime.logShipping.nameDescription")} error={shown("name") ?? serverError("name")}>
+          <Field label={t("common.words.name")} description={t("runtime.logShipping.nameDescription")} error={shown("name") ?? serverError("name")}>
             <Input mono disabled={editing} autoComplete="off" autoCapitalize="off" spellCheck={false} placeholder="grafana" value={draft.name} onValueChange={set("name")} />
           </Field>
           <Field label={t("runtime.logShipping.kindLabel")} nativeLabel={false} error={serverError("kind")}>
@@ -416,12 +416,12 @@ function DrainActions({ drain, onEdit }: { drain: LogDrain; onEdit: () => void }
   });
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={t("runtime.logShipping.actionsFor", { name: drain.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <Menu align="end" trigger={<IconButton label={t("common.rowActions", { name: drain.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
         <MenuItem icon={<Send />} disabled={test.isPending} onClick={() => test.mutate()}>
           {t("runtime.logShipping.test")}
         </MenuItem>
         <MenuItem icon={<Pencil />} onClick={onEdit}>
-          {t("runtime.logShipping.edit")}
+          {t("common.words.edit")}
         </MenuItem>
         <MenuItem icon={<Power />} disabled={toggle.isPending} onClick={() => toggle.mutate()}>
           {drain.enabled ? t("runtime.logShipping.turnOff") : t("runtime.logShipping.turnOn")}
@@ -434,7 +434,7 @@ function DrainActions({ drain, onEdit }: { drain: LogDrain; onEdit: () => void }
             setRemoving(true);
           }}
         >
-          {t("runtime.logShipping.remove")}
+          {t("common.words.remove")}
         </MenuItem>
       </Menu>
       <ConfirmDialog
@@ -443,7 +443,7 @@ function DrainActions({ drain, onEdit }: { drain: LogDrain; onEdit: () => void }
         onOpenChange={setRemoving}
         title={t("runtime.logShipping.removeTitle", { name: drain.name })}
         description={t("runtime.logShipping.removeDescription")}
-        actionLabel={t("runtime.logShipping.remove")}
+        actionLabel={t("common.words.remove")}
         destructive
         onConfirm={async () => {
           await remove.mutateAsync();

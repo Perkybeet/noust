@@ -199,7 +199,7 @@ export function TableView({ engine, name, schema, relation, search, onSearchChan
                     ? {
                         action: (
                           <Button size="sm" variant="ghost" onClick={() => onSearchChange({ filter: undefined })}>
-                            {t("databases.data.clearFilters")}
+                            {t("common.words.clearFilters")}
                           </Button>
                         ),
                       }
@@ -239,7 +239,7 @@ export function TableView({ engine, name, schema, relation, search, onSearchChan
                 {t("databases.data.previous")}
               </Button>
               <Button size="sm" trailingIcon={<ChevronRight aria-hidden="true" />} disabled={!rows.data?.has_more || rows.isFetching} onClick={next}>
-                {t("databases.data.next")}
+                {t("common.words.next")}
               </Button>
             </div>
           </div>

@@ -194,7 +194,7 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
                 title={hasMore ? t("activity.noMatchYet") : t("activity.noMatch")}
                 action={
                   <Button size="sm" variant="ghost" onClick={() => onSearchChange(search.kind !== undefined ? { kind: search.kind } : {})}>
-                    {t("activity.clearFilters")}
+                    {t("common.words.clearFilters")}
                   </Button>
                 }
               />
@@ -257,14 +257,14 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
                   : {
                       actions: (
                         <Button size="sm" variant="ghost" onClick={() => onSearchChange(search.kind !== undefined ? { kind: search.kind } : {})}>
-                          {t("activity.clearFilters")}
+                          {t("common.words.clearFilters")}
                         </Button>
                       ),
                     })}
               />
             ),
           })}
-      {...(nothingYet ? {} : { footer: <CommandHint command="noust audit list" label={t("activity.fromTerminal")} /> })}
+      {...(nothingYet ? {} : { footer: <CommandHint command="noust audit list" label={t("common.words.fromTerminal")} /> })}
     >
       {content}
       <JobLogDrawer job={openJob} onOpenChange={(open) => !open && setOpenJob(null)} />

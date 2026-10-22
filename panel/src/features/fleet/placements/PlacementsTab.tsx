@@ -327,7 +327,7 @@ export function PlacementsTab() {
           ))}
         </div>
       )}
-      <CommandHint label={t("placements.fromTerminal")} command="noust fleet placement status shop.example.com" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet placement status shop.example.com" />
       {placing ? (
         <PlacementDialog
           placement={null}

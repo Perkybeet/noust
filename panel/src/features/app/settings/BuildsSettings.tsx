@@ -86,7 +86,7 @@ function ReasonDialog({
       footer={
         <>
           <Button disabled={run.isPending} onClick={() => onOpenChange(false)}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form="builds-reason" variant="primary" loading={run.isPending}>
             {action}

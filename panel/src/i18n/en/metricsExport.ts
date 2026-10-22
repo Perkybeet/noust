@@ -12,6 +12,6 @@ export const metricsExport = {
   copyConfig: "Copy the Prometheus entry",
   credential: "The scraper needs a token that can only read, in the file named above. Make one in {tokens}; nothing else is needed, and it can change nothing.",
   tokensLink: "API tokens",
-  createToken: "Make the token from a terminal",
+  createToken: "Create the token from a terminal",
   fromTerminal: "The same text, from a terminal",
 } as const;

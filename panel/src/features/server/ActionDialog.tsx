@@ -79,7 +79,7 @@ export function ActionDialog({ title, description, children, actionLabel, destru
       footer={
         <>
           <Button ref={cancelRef} disabled={pending} onClick={onClose}>
-            {t("server.dialog.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant={destructive ? "danger" : "primary"} disabled={!matches || disabled} loading={pending}>
             {actionLabel}

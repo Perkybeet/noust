@@ -52,7 +52,7 @@ describe("Confirm it's you", () => {
       expect(code).toHaveFocus();
     });
     await user.type(code, "123456");
-    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
 
     await expect(deletion).resolves.toMatchObject({ job_id: "j1" });
     await waitFor(() => {
@@ -68,7 +68,7 @@ describe("Confirm it's you", () => {
     const deletion = api("DELETE", "/api/apps/shop.example.com").catch((error: unknown) => error);
     const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(dialog).getByLabelText("Authentication code"), "111111");
-    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
     expect(await within(dialog).findByText("Invalid two-factor code. 4 attempts remaining.")).toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "Confirm it's you" })).toBeInTheDocument();
     expect(backend.callsTo("DELETE /api/apps/shop.example.com")).toHaveLength(1);
@@ -117,7 +117,7 @@ describe("Confirm it's you", () => {
     });
     const dialog = await screen.findByRole("dialog", { name: "Confirma que eres tú" });
     expect(within(dialog).getByLabelText("Código de autenticación")).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Confirmar" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Continuar" })).toBeInTheDocument();
     await expectNoAxeViolations(dialog);
     await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
     await deletion;
@@ -181,14 +181,14 @@ describe("Confirm it's you, for a person", () => {
       expect(code).toHaveFocus();
     });
     await user.type(code, "000000");
-    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
     expect(await within(dialog).findByText("Invalid two-factor code.")).toBeInTheDocument();
     // The code that signed in is refused too: the field says to wait for the next one.
     expect(within(dialog).getByLabelText("Authentication code")).toHaveAccessibleDescription(/wait for the next one/);
     // A wrong code does not lose the dialog.
     await user.clear(within(dialog).getByLabelText("Authentication code"));
     await user.type(within(dialog).getByLabelText("Authentication code"), "123 456");
-    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
     await expect(deletion).resolves.toMatchObject({ job_id: "j1" });
     expect(backend.callsTo("POST /api/auth/elevate").at(-1)?.body).toEqual({ code: "123456" });
   });
@@ -230,12 +230,12 @@ describe("Confirm it's you, for a person", () => {
     await expectNoAxeViolations(dialog);
     await user.type(within(dialog).getByLabelText("Password"), "nope");
     await user.type(within(dialog).getByLabelText("Authentication code"), "123456");
-    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
     expect(await within(dialog).findByText("Invalid credentials.")).toBeInTheDocument();
     // The session is not lost for a wrong password: the dialog stays.
     await user.clear(within(dialog).getByLabelText("Password"));
     await user.type(within(dialog).getByLabelText("Password"), "pw");
-    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
     await expect(deletion).resolves.toMatchObject({ job_id: "j1" });
     expect(backend.callsTo("POST /api/auth/elevate").at(-1)?.body).toEqual({ password: "pw", code: "123456" });
   });
@@ -321,7 +321,7 @@ describe("Confirm it's you, for a person", () => {
     const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
     expect(await within(dialog).findByRole("button", { name: "Confirm with a passkey" })).toBeInTheDocument();
     expect(within(dialog).queryByLabelText("Authentication code")).toBeNull();
-    expect(within(dialog).queryByRole("button", { name: "Confirm" })).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: "Continue" })).toBeNull();
     expect(dialog).toHaveAccessibleDescription("This action needs a recent confirmation. Use your passkey.");
     await expectNoAxeViolations(dialog);
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));

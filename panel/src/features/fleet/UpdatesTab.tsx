@@ -267,13 +267,13 @@ export function UpdatesTab({ search, onSearchChange }: UpdatesTabProps) {
                   onSearchChange({});
                 }}
               >
-                {t("fleet.filters.clear")}
+                {t("common.words.clearFilters")}
               </Button>
             }
           />
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet updates" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet updates" />
     </div>
   );
 }

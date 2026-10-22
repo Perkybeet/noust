@@ -90,10 +90,10 @@ export function RecipeUpdateDialog({ item, onOpenChange, onQueued }: RecipeUpdat
       footer={
         <>
           <Button disabled={update.isPending} onClick={() => onOpenChange(false)}>
-            {t("catalog.update.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form="recipe-update" variant="primary" loading={update.isPending}>
-            {t("catalog.update.action")}
+            {t("common.words.update")}
           </Button>
         </>
       }

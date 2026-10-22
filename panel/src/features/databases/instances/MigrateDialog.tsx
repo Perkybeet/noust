@@ -180,7 +180,7 @@ export function MigrateDialog({ source, onOpenChange, onQueued }: MigrateDialogP
         {plan.isError ? <ErrorBlock compact error={plan.error} title={t("databases.migrate.planFailed")} /> : null}
         {plan.data !== undefined ? <Plan plan={plan.data} /> : null}
         {go.isError ? <ErrorBlock live compact error={go.error} title={t("databases.migrate.failed")} /> : null}
-        <CommandHint command={`noust db instance migrate ${source.name} --to-version ${chosen ?? "N"}`} label={t("databases.common.fromTerminal")} />
+        <CommandHint command={`noust db instance migrate ${source.name} --to-version ${chosen ?? "N"}`} label={t("common.words.fromTerminal")} />
       </div>
     </Dialog>
   );

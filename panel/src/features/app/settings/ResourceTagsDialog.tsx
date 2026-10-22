@@ -81,7 +81,7 @@ export function ResourceTagsDialog({ name, noun, tags, save, onSaved, onClose }:
       footer={
         <>
           <Button disabled={mutation.isPending} onClick={onClose}>
-            {t("variables.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={mutation.isPending}>
             {t("appTags.dialog.submit")}

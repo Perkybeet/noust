@@ -50,7 +50,7 @@ export function AlertSettings() {
     <Sections>
       <RuleList />
       <Checks />
-      <CommandHint command="noust alert list" label={t("alerts.fromTerminal")} />
+      <CommandHint command="noust alert list" label={t("common.words.sameFromTerminal")} />
     </Sections>
   );
 }

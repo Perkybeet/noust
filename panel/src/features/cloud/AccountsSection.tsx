@@ -98,7 +98,7 @@ function AccountActions({ account }: { account: CloudAccount }) {
         </MenuItem>
         <MenuSeparator />
         <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(true)}>
-          {t("cloud.accounts.remove")}
+          {t("common.words.remove")}
         </MenuItem>
       </RowMenu>
       {replacing ? <AccountDialog existing={account} open onOpenChange={setReplacing} /> : null}
@@ -134,7 +134,7 @@ export function AccountsSection({ adding, onAddingChange }: { adding: boolean; o
       >
         {(accounts) => <DataTable caption={t("cloud.accounts.caption")} columns={columns} rows={[...accounts].sort((a, b) => a.name.localeCompare(b.name))} getRowId={(account) => account.name} rowActions={(account) => <AccountActions account={account} />} />}
       </QueryState>
-      <CommandHint label={t("cloud.fromTerminal")} command="noust fleet cloud account list" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet cloud account list" />
       {adding ? <AccountDialog open onOpenChange={onAddingChange} /> : null}
     </Section>
   );

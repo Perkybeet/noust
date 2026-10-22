@@ -7,7 +7,7 @@ export const appTraffic: Catalog<typeof en> = {
     description: "Del registro de accesos del servidor web, por horas. No se guarda ninguna cadena de consulta, y un visitante es su red, no su dirección.",
     windowLabel: "Ventana del tráfico",
     window: { "24h": "24 horas", "7d": "7 días", "30d": "30 días", "90d": "90 días" },
-    loading: "Leyendo el tráfico",
+    loading: "Cargando el tráfico",
     loadFailed: "No se pudo leer el tráfico",
     requests: "Peticiones",
     requestsDetail: "{ok} respondidas bien",

@@ -118,7 +118,7 @@ function AddedRow({
   const t = useT();
   return (
     <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start">
-      <Field label={t("newApp.env.name")} error={nameError} className="sm:w-56 sm:shrink-0">
+      <Field label={t("common.words.name")} error={nameError} className="sm:w-56 sm:shrink-0">
         <Input
           mono
           value={row.name}
@@ -135,7 +135,7 @@ function AddedRow({
         className="min-w-0 flex-1"
         action={
           <IconButton
-            label={row.name.trim() === "" ? t("newApp.env.removeUnnamed") : t("newApp.env.remove", { name: row.name.trim() })}
+            label={row.name.trim() === "" ? t("newApp.env.removeUnnamed") : t("common.words.removeNamed", { name: row.name.trim() })}
             icon={<ICONS.delete />}
             onClick={onRemove}
           />

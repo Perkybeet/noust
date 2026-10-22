@@ -9,7 +9,6 @@ export const sources: Catalog<typeof en> = {
     title: "No se construye desde un repositorio git",
     body: "Una clave de despliegue y una credencial sirven para un repositorio del que se clona una aplicación. Esta se construye de otra cosa, así que no hay nada en lo que iniciar sesión.",
   },
-  fromTerminal: "Lo mismo, desde una terminal",
   allKeys: "Todas las claves de despliegue de este servidor están en {link}.",
   allKeysLink: "Ajustes, Integraciones",
   webhookNote: "Un push al repositorio puede desplegar esta aplicación: GitHub, GitLab, Gitea y Bitbucket se configuran en {link}.",
@@ -33,11 +32,10 @@ export const sources: Catalog<typeof en> = {
     generated: "Se creó una clave de despliegue para {domain}",
     notGenerated: "No se creó la clave de despliegue de {domain}",
     facts: {
-      name: "Nombre",
       type: "Tipo",
       origin: "Creada",
       fingerprint: "Huella",
-      created: "Creación",
+      created: "Creada",
       rotated: "Sustitución",
       lastUsed: "Último uso",
       never: "Aún sin usar",
@@ -56,7 +54,6 @@ export const sources: Catalog<typeof en> = {
     testedTitle: "El repositorio respondió",
     testFailed: "No se pudo leer el repositorio con esta clave",
     rotate: "Sustituir la clave",
-    remove: "Quitar",
     sharedNote: "{apps} se construyen del mismo repositorio, así que también usan esta clave.",
     rotation: {
       title: "Sustituyendo la clave",
@@ -82,7 +79,6 @@ export const sources: Catalog<typeof en> = {
       keyLabel: "Clave privada",
       keyDescription: "El archivo entero, desde la línea BEGIN hasta la línea END.",
       keyRequired: "Pega la clave privada.",
-      nameLabel: "Nombre",
       nameDescription: "Cómo aparece la clave en las listas. Déjalo vacío para usar el nombre de la aplicación.",
       submit: "Importar clave",
       imported: "Se importó la clave de {domain}",
@@ -102,7 +98,8 @@ export const sources: Catalog<typeof en> = {
     },
     removeDialog: {
       title: "¿Quitar la clave de despliegue de {domain}?",
-      description: "El repositorio vuelve a la clave propia de este servidor. La clave se borra cuando ningún otro repositorio la usa. {forge} sigue confiando en la clave pública hasta que la quites allí.",
+      description:
+        "El repositorio vuelve a la clave propia de este servidor. La clave se elimina cuando ningún otro repositorio la usa. {forge} sigue confiando en la clave pública hasta que la quites allí.",
       action: "Quitar clave",
       removed: "Se quitó la clave de despliegue de {domain}",
     },
@@ -122,7 +119,6 @@ export const sources: Catalog<typeof en> = {
     sshHint: "El origen es SSH. Una credencial inicia sesión por https; un origen SSH usa una clave de despliegue.",
     set: "Poner credencial…",
     replace: "Sustituir…",
-    remove: "Quitar",
     dialog: {
       title: "Poner la credencial de {repository}",
       replaceTitle: "Sustituir la credencial de {repository}",

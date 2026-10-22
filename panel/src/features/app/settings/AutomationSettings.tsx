@@ -42,7 +42,7 @@ export function AutomationSettings() {
         {isPreview ? null : <UpdateScheduleSetting domain={domain} />}
         <RolloutLimitsSetting domain={domain} />
       </SettingsGroup>
-      <CommandHint command={`noust deploy schedule show ${domain}`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={`noust deploy schedule show ${domain}`} label={t("common.words.fromTerminal")} />
     </Section>
   );
 }

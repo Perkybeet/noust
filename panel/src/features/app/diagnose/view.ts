@@ -45,9 +45,9 @@ export function checkStatus(status: string, locale: Locale = getLocale()): Statu
     case "ok":
       return { tone: "ok", word: translate(locale, "appPages.diagnose.status.ok") };
     case "warn":
-      return { tone: "warn", word: translate(locale, "appPages.diagnose.status.warn") };
+      return { tone: "warn", word: translate(locale, "common.statusPill.warning") };
     case "fail":
-      return { tone: "fail", word: translate(locale, "appPages.diagnose.status.fail") };
+      return { tone: "fail", word: translate(locale, "common.words.failedFeminine") };
     case "skip":
       return { tone: "idle", word: translate(locale, "appPages.diagnose.status.skip") };
     default:

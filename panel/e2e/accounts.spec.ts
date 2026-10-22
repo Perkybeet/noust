@@ -114,7 +114,7 @@ async function confirmAsPerson(page: Page, who: Person): Promise<void> {
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Password")).toHaveCount(0);
   await dialog.getByLabel("Authentication code").fill(spare(who));
-  await dialog.getByRole("button", { name: "Confirm" }).click();
+  await dialog.getByRole("button", { name: "Continue" }).click();
   await expect(dialog).toBeHidden();
 }
 
@@ -141,7 +141,7 @@ serial("the first administrator is made from the console in one form, signed in,
   // This server's token has a second factor, so the token alone cannot confirm it's the person.
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   await confirm.getByLabel("Authentication code").fill(consoleServer.secondFactor());
-  await confirm.getByRole("button", { name: "Confirm" }).click();
+  await confirm.getByRole("button", { name: "Continue" }).click();
 
   // The standard profile has no security officer to add: the administrator is signed in with what was
   // just typed and offered a second factor, which can wait. The authenticator's code is already there.

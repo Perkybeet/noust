@@ -54,7 +54,7 @@ test("the private certificate authority is one menu away from the certificates, 
   const dialog = page.getByRole("dialog", { name: "Private certificate authority" });
   await expect(dialog.getByText("This server has no private authority yet")).toBeVisible();
   await expect(dialog.getByLabel(/More domains it may sign for/)).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Make the authority" })).toBeEnabled();
+  await expect(dialog.getByRole("button", { name: "Create authority" })).toBeEnabled();
   await settle(page);
   await expectNoA11yViolations(page, "the private authority dialog, before it is made");
 

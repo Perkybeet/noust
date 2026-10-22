@@ -70,7 +70,7 @@ function PinBranchDialog({ app, open, onOpenChange }: { app: App; open: boolean;
       footer={
         <>
           <Button disabled={pin.isPending} onClick={() => onOpenChange(false)}>
-            {t("appSettings.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form="pin-branch" variant="primary" loading={pin.isPending}>
             {t("appSettings.branch.action")}

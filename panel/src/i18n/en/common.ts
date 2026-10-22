@@ -5,7 +5,6 @@
  * defaults are.
  */
 export const common = {
-  area: "Loading",
   copyButton: {
     label: "Copy",
     copyCommand: "Copy command",
@@ -30,7 +29,6 @@ export const common = {
     cancel: "Cancel",
     typeToConfirm: "Type {value} to confirm",
     failed: "The action failed. The system said:",
-    whatSystemSaid: "What the system said",
     couldNot: "Could not complete the action",
     onServer: "On {server}",
   },
@@ -102,7 +100,6 @@ export const common = {
     highlighted: "Highlighted path: {path}.",
     legend: "A moving dash shows the direction of the traffic. Faster dashes: encrypted (TLS). Double line: WebSocket.",
     leadsTo: "Leads to {targets}.",
-    leadsNowhere: "Leads nowhere else.",
     tableToggle: "Show the connections as a table",
     tableCaption: "Connections of {label}",
     from: "From",
@@ -117,7 +114,6 @@ export const common = {
   },
   dataTable: {
     actions: "Actions",
-    cardActions: "Actions for {name}",
   },
   pagination: {
     label: "Pagination",
@@ -160,8 +156,6 @@ export const common = {
   meter: {
     high: "High",
     critical: "Critical",
-    levelHigh: "{value}, high",
-    levelCritical: "{value}, critical",
   },
   emptyCell: {
     none: "None",
@@ -170,10 +164,6 @@ export const common = {
     moreActions: "More actions",
     server: "Server {server}",
     place: "Where this lives",
-  },
-  filterBar: {
-    search: "Search",
-    clearFilters: "Clear filters",
   },
   jobProgress: {
     queued: "Waiting to start.",
@@ -253,7 +243,7 @@ export const common = {
     noAnswer: "No answer",
     runningUnmanaged: "Running outside Noust",
     degraded: "Degraded",
-    runningNoHealthcheck: "Running, no health check",
+    runningNoHealthcheck: "Running, no startup check",
     unknown: "Unknown",
   },
   deployState: {
@@ -332,7 +322,7 @@ export const common = {
     showing: "Showing {from} to {to}, {resolution}.",
     showingSince: "Showing {from} to {to}, {resolution}. History since {since}.",
     showingBare: "Showing {from} to {to}.",
-    readingAgain: "Reading this stretch again at a finer step…",
+    readingAgain: "Loading this stretch again at a finer step…",
     readingEvery: { one: "a reading every second", other: "a reading every {count} seconds" },
     averages: {
       seconds: "{count}-second averages",
@@ -352,5 +342,37 @@ export const common = {
     keyboardHint:
       "Left and right arrow keys step through the readings, Page Up and Page Down ten at a time, Home and End go to the first and last, Enter keeps the reading on screen, Escape clears.",
     keyboardHintZoomable: " Drag across the chart with a pointer to zoom, or use the zoom buttons.",
+  },
+  words: {
+    name: "Name",
+    cancel: "Cancel",
+    fromTerminal: "From a terminal",
+    sameFromTerminal: "The same, from a terminal",
+    remove: "Remove",
+    close: "Close",
+    edit: "Edit",
+    editNamed: "Edit {name}",
+    actionsForDomain: "Actions for {domain}",
+    done: "Done",
+    clearFilters: "Clear filters",
+    save: "Save",
+    delete: "Delete",
+    deleteNamed: "Delete {name}",
+    removeNamed: "Remove {name}",
+    removeNamedQuestion: "Remove {name}?",
+    back: "Back",
+    start: "Start",
+    stop: "Stop",
+    restart: "Restart",
+    update: "Update",
+    retry: "Retry",
+    backUpNow: "Back up now",
+    add: "Add",
+    next: "Next",
+    revoke: "Revoke",
+    yes: "Yes",
+    no: "No",
+    continue: "Continue",
+    failedFeminine: "Failed",
   },
 } as const;

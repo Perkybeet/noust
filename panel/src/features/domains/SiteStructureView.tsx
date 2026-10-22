@@ -505,7 +505,7 @@ function LocationRow({ location, depth, server, ctx, notes }: { location: SiteLo
           <span className="ml-auto">
             <Menu
               align="end"
-              trigger={<IconButton size="sm" label={t("domains.actionsFor", { name: label })} icon={<MoreHorizontal aria-hidden="true" />} disabled={ctx.editing} />}
+              trigger={<IconButton size="sm" label={t("common.rowActions", { name: label })} icon={<MoreHorizontal aria-hidden="true" />} disabled={ctx.editing} />}
             >
               {block ? (
                 <MenuItem icon={<Copy aria-hidden="true" />} onClick={() => setDuplicating(true)}>
@@ -524,7 +524,7 @@ function LocationRow({ location, depth, server, ctx, notes }: { location: SiteLo
               ) : null}
               {block || up || down ? <MenuSeparator /> : null}
               <MenuItem icon={<Trash2 aria-hidden="true" />} destructive onClick={() => ctx.onEdit([removeLocationOp(location)])}>
-                {t("domains.siteStructure.actions.remove")}
+                {t("common.words.remove")}
               </MenuItem>
             </Menu>
           </span>
@@ -633,7 +633,7 @@ function RawDirectives({ directives, parent, ctx, readOnly = false }: { directiv
                   />
                   <IconButton
                     size="sm"
-                    label={t("domains.siteStructure.removeDirective", {
+                    label={t("common.words.removeNamed", {
                       name: directive.name,
                     })}
                     icon={<Trash2 aria-hidden="true" />}
@@ -794,9 +794,9 @@ function AddLocationDialog({ server, ctx, onClose }: { server: SiteServer; ctx: 
       description={t("domains.siteStructure.addDescription")}
       footer={
         <>
-          <Button onClick={onClose}>{t("domains.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           <Button variant="primary" type="submit" form={formId} icon={<Plus aria-hidden="true" />}>
-            {t("domains.siteStructure.add")}
+            {t("common.words.add")}
           </Button>
         </>
       }
@@ -889,7 +889,7 @@ function DuplicateDialog({ location, server, ctx, onClose }: { location: SiteLoc
       description={t("domains.siteStructure.duplicateDescription")}
       footer={
         <>
-          <Button onClick={onClose}>{t("domains.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           <Button variant="primary" type="submit" form={formId} icon={<Copy aria-hidden="true" />}>
             {t("domains.siteStructure.duplicateAction")}
           </Button>

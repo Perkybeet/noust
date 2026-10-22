@@ -148,7 +148,7 @@ describe("the palette's verbs on an application", () => {
 
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
     expect(await screen.findByText("Restarted shop.example.com")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/apps/shop.example.com/restart")).toHaveLength(2);

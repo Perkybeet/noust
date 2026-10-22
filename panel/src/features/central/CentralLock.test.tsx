@@ -33,7 +33,7 @@ function sealedCentral(): FakeBackend {
 async function confirmItsYou(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
   const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
   await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-  await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+  await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 }
 
 afterEach(() => {

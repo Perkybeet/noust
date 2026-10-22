@@ -152,7 +152,7 @@ export function IssueCertificateDialog({ open, onOpenChange, onQueued }: IssueCe
       footer={
         <>
           <Button disabled={issue.isPending} onClick={() => close(false)}>
-            {t("domains.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={issue.isPending}>
             {t("domains.issueCertificate")}

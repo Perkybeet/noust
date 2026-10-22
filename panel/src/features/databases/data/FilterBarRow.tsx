@@ -146,7 +146,7 @@ export function FilterRow({ columns, filters, onChange }: FilterRowProps) {
       </Popover>
       {filters.length > 0 ? (
         <Button size="sm" variant="ghost" onClick={() => onChange([])}>
-          {t("databases.data.clearFilters")}
+          {t("common.words.clearFilters")}
         </Button>
       ) : null}
     </div>

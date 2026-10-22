@@ -57,9 +57,9 @@ export function runStatus(result: string | null | undefined, locale: Locale = ge
   const word = (result ?? "").trim().toLowerCase();
   if (word === "" || word === "never ran") return { state: "unknown", label: translate(locale, "cron.status.neverRun") };
   if (word === "success") return { state: "running", label: translate(locale, "cron.status.succeeded") };
-  if (word === "unknown") return { state: "unknown", label: translate(locale, "cron.status.unknown") };
+  if (word === "unknown") return { state: "unknown", label: translate(locale, "common.statusPill.unknown") };
   // The state word is the state; systemd's reason goes beside it, as the services list does.
-  return { state: "failed", label: translate(locale, "cron.status.failed"), detail: word };
+  return { state: "failed", label: translate(locale, "common.words.failedFeminine"), detail: word };
 }
 
 const SYSTEMD_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;

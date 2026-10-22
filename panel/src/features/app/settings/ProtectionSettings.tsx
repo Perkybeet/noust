@@ -190,7 +190,7 @@ function ProtectionForm({ domain, policy }: { domain: string; policy: AppPolicy 
       {nginx ? <WafCard form={form} domain={domain} /> : null}
       {nginx ? <ClientCertsCard form={form} domain={domain} /> : null}
       {form.failure !== null ? <ErrorBlock live compact error={form.failure} title={t("network.protection.notSaved", { domain })} /> : null}
-      <CommandHint command={`noust app policy show ${domain}`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={`noust app policy show ${domain}`} label={t("common.words.fromTerminal")} />
       <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
       <AccessQuestions form={form} domain={domain} />
     </div>

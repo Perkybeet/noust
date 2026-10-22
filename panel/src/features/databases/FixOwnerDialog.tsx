@@ -50,7 +50,7 @@ export function FixOwnerDialog({ engine, name, owner, onClose }: FixOwnerDialogP
       description={t("databases.fixOwner.description")}
       footer={
         <>
-          <Button onClick={onClose}>{t("databases.common.cancel")}</Button>
+          <Button onClick={onClose}>{t("common.words.cancel")}</Button>
           {/* design-exception: submit-disabled-invalid it waits for the plan it applies, and has nothing to do when the plan changes nothing */}
           <Button variant="primary" loading={apply.isPending} disabled={plan.data === undefined || nothing} onClick={() => apply.mutate()}>
             {t("databases.fixOwner.apply")}

@@ -79,7 +79,7 @@ export function SuccessRow({ domain, deploymentId, title, actions }: SuccessRowP
           </Disclosure>
         ) : null}
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-13 text-fg-muted">
-          <span>{t("newApp.success.next")}</span>
+          <span>{t("common.words.next")}</span>
           <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
             {t("newApp.success.nextDomain")}
           </TextLink>

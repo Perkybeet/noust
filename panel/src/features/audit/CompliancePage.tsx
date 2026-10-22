@@ -318,7 +318,7 @@ export function CompliancePage() {
           </div>
         )}
       </Section>
-      <CommandHint label={t("compliance.page.fromTerminal")} command="noust ens check && noust ens report" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust ens check && noust ens report" />
     </Sections>
   );
 }

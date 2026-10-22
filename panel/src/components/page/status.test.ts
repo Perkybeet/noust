@@ -27,8 +27,8 @@ describe("appStatus", () => {
     // Some of its units serve and some do not; and one that serves with nothing checking it.
     ["degraded", "warning", "Degraded", true],
     ["Degraded", "warning", "Degraded", true],
-    ["running_no_healthcheck", "running", "Running, no health check", false],
-    ["Running without healthcheck", "running", "Running, no health check", false],
+    ["running_no_healthcheck", "running", "Running, no startup check", false],
+    ["Running without healthcheck", "running", "Running, no startup check", false],
   ])("%s is drawn %s, labelled %s, attention %s", (status, state, label, attention) => {
     expect(appStatus(status)).toEqual({ state, label, attention });
   });
@@ -83,7 +83,7 @@ describe("in Spanish", () => {
     expect(appStatus(null, "es").label).toBe("Desconocido");
     expect(appStatus("overheating", "es").label).toBe("Overheating");
     expect(appStatus("degraded", "es").label).toBe("Degradada");
-    expect(appStatus("running_no_healthcheck", "es").label).toBe("En marcha, sin comprobación de salud");
+    expect(appStatus("running_no_healthcheck", "es").label).toBe("En ejecución, sin comprobación de arranque");
     expect(deployStatus("success", "es").label).toBe("Correcto");
     expect(deployStatus("rolled_back", "es").label).toBe("Revertido");
     expect(deployStatus("half_done", "es").label).toBe("Half done");

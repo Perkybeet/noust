@@ -12,7 +12,7 @@ export const complianceSetup = {
   honest:
     "A framework turns on technical controls. It does not make a server compliant: what stays organisational is yours, and only an auditor can say the rest.",
   loadFailed: "Could not read the compliance settings",
-  loading: "Reading the compliance settings",
+  loading: "Loading the compliance settings",
   frameworks: {
     title: "Frameworks",
     description: "Turn one on to switch on the controls it names. You see what changes, and the clause each one serves, before you confirm.",
@@ -91,7 +91,6 @@ export const complianceSetup = {
       value: "Value",
       noLimit: "No limit",
       stricter: "A framework asks for {floor} or stricter.",
-      save: "Save",
       failed: "Could not change the control",
     },
   },

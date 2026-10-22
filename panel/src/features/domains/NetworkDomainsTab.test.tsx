@@ -197,7 +197,7 @@ describe("an application's Domains tab, beyond its names", () => {
     const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
     await user.type(within(dialog).getByLabelText("Domain"), `api.${APP}`);
     await user.type(within(dialog).getByLabelText(/^Port/), "9200");
-    await user.click(within(dialog).getByRole("checkbox", { name: /Make its DNS record/ }));
+    await user.click(within(dialog).getByRole("checkbox", { name: /Create its DNS record/ }));
     expect(await within(dialog).findByText(`api.${APP} points here`)).toBeInTheDocument();
     expect(within(dialog).getByText("Asked of 1.1.1.1, as the certificate authority will.")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
@@ -346,7 +346,7 @@ describe("an application's DNS records", () => {
 
     const list = await screen.findByRole("list", { name: `Records for the names of ${APP}` });
     expect(within(list).getByText(/Will be created in cf/)).toBeInTheDocument();
-    await user.click(within(list).getByRole("button", { name: "Make the record" }));
+    await user.click(within(list).getByRole("button", { name: "Create record" }));
 
     await waitFor(() => {
       expect(backend.callsTo(`POST /api/apps/${APP}/dns`)).toHaveLength(1);

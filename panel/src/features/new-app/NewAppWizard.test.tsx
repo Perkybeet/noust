@@ -361,7 +361,7 @@ describe("the new-app wizard", () => {
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "https://github.com/acme/shop.git");
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    const reading = await screen.findByText("Reading the repository…");
+    const reading = await screen.findByText("Loading the repository…");
     expect(reading.closest("[role=status]")).not.toBeNull();
     expect(screen.getByText(/Cancel stops it on the server too/)).toBeInTheDocument();
     // What the inspection does, said as a list; no part of it claims to be done or in progress.
@@ -375,7 +375,7 @@ describe("the new-app wizard", () => {
     expect(aborted).toBe(true);
     await waitFor(
       () => {
-        expect(screen.queryByText("Reading the repository…")).not.toBeInTheDocument();
+        expect(screen.queryByText("Loading the repository…")).not.toBeInTheDocument();
       },
       { timeout: 4_000 },
     );

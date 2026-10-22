@@ -34,5 +34,4 @@ export const remoteImport = {
   notDeployableBody: "It ran an image, a Dockerfile or a Compose file, which an export does not carry. This command creates the equivalent here.",
   warnings: "What has no equivalent here",
   label: "{platform}: {name}",
-  fromTerminal: "The same, from a terminal",
 } as const;

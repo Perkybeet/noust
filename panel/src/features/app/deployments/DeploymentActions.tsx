@@ -147,7 +147,7 @@ export function RebuildDialog({
       footer={
         <>
           <Button disabled={rebuild.isPending} onClick={() => close(false)}>
-            {t("appPages.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button variant="primary" loading={rebuild.isPending} onClick={() => rebuild.mutate({ id: deployment.id })}>
             {t("appPages.deployments.actions.rebuild")}
@@ -197,7 +197,7 @@ export function useDeploymentActions(domain: string, deployment: Deployment): De
   const buttons = failed ? (
     commit !== null ? (
       <SplitButton
-        name={t("appPages.deployments.actions.retry")}
+        name={t("common.words.retry")}
         icon={<RotateCw aria-hidden="true" />}
         loading={retry.isPending || (action.busy && action.kind === "rebuild")}
         onClick={() => {
@@ -216,7 +216,7 @@ export function useDeploymentActions(domain: string, deployment: Deployment): De
           </MenuItem>
         }
       >
-        {t("appPages.deployments.actions.retry")}
+        {t("common.words.retry")}
       </SplitButton>
     ) : null
   ) : (

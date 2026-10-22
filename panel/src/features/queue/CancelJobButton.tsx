@@ -46,7 +46,7 @@ export function CancelJobButton({ entry, state, onAsk, reasonId, className }: Ca
         if (state.kind === "can") onAsk({ id: entry.id, name, domain: entryDomain(entry), stage: state.stage });
       }}
     >
-      {t("queue.cancel.button")}
+      {t("common.words.cancel")}
     </Button>
   );
 }

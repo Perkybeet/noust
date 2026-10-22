@@ -96,12 +96,12 @@ function ConnectionForm({ node, options, onClose }: { node: string; options: Con
       footer={
         saved !== undefined ? (
           <Button variant="primary" onClick={onClose}>
-            {t("nodeTools.connection.close")}
+            {t("common.words.close")}
           </Button>
         ) : (
           <>
             <Button disabled={save.isPending} onClick={onClose}>
-              {t("nodeTools.connection.cancel")}
+              {t("common.words.cancel")}
             </Button>
             <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
               {t("nodeTools.connection.save")}
@@ -205,7 +205,7 @@ export function ConnectionDialog({ node, onClose }: { node: string; onClose: () 
       size="lg"
       title={t("nodeTools.connection.title", { name: node })}
       description={t("nodeTools.connection.description", { name: node })}
-      footer={<Button onClick={onClose}>{t("nodeTools.connection.close")}</Button>}
+      footer={<Button onClick={onClose}>{t("common.words.close")}</Button>}
     >
       {query.isError ? (
         <ErrorBlock live error={query.error} title={t("nodeTools.connection.loadFailed", { name: node })} onRetry={() => void query.refetch()} />
@@ -316,12 +316,12 @@ export function InventoryDialog({ node, onClose }: { node: string; onClose: () =
       footer={
         apply.isSuccess ? (
           <Button variant="primary" onClick={onClose}>
-            {t("nodeTools.inventory.close")}
+            {t("common.words.close")}
           </Button>
         ) : (
           <>
             <Button disabled={apply.isPending} onClick={onClose}>
-              {t("nodeTools.inventory.cancel")}
+              {t("common.words.cancel")}
             </Button>
             <Button type="submit" form={formId} variant="primary" loading={apply.isPending}>
               {t("nodeTools.inventory.apply")}
@@ -396,7 +396,7 @@ export function LinkMachineDialog({ node, onClose }: { node: string; onClose: ()
       footer={
         <>
           <Button disabled={link.isPending} onClick={onClose}>
-            {t("nodeTools.link.cancel")}
+            {t("common.words.cancel")}
           </Button>
           {/* design-exception: submit-disabled-invalid the central holds no provider account to link with, which the dialog says: there is no field to complete */}
           <Button type="submit" form={formId} variant="primary" loading={link.isPending} disabled={names.length === 0}>

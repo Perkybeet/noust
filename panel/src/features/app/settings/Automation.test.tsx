@@ -491,7 +491,7 @@ describe("scheduled updates", { timeout: 20_000 }, () => {
     await user.click(within(drawer).getByRole("button", { name: "Stop updating by itself" }));
     const confirm = await screen.findByRole("alertdialog", { name: `Stop ${DOMAIN} updating itself?` });
     expect(backend.callsTo(`DELETE ${SCHEDULE}`)).toHaveLength(0);
-    await user.click(within(confirm).getByRole("button", { name: "Stop" }));
+    await user.click(within(confirm).getByRole("button", { name: "Stop updating" }));
 
     await waitFor(() => {
       expect(backend.callsTo(`DELETE ${SCHEDULE}`)).toHaveLength(1);

@@ -31,7 +31,7 @@ function Drill({ drill }: { drill: RestoreDrill }) {
     <RowList.Item className="items-start">
      <div className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <StatusPill size="sm" state={drill.ok ? "running" : "failed"} label={drill.ok ? t("backups.drills.passed") : t("backups.drills.failed")} />
+        <StatusPill size="sm" state={drill.ok ? "running" : "failed"} label={drill.ok ? t("backups.drills.passed") : t("common.words.failedFeminine")} />
         <RelativeTime value={drill.started_at} className="text-12 text-fg-muted" />
         <span className="text-12 text-fg-faint">{drill.trigger === "schedule" ? t("backups.drills.byTimer") : t("backups.drills.byHand")}</span>
         {drill.backup_id ? <Mono truncate title={drill.backup_id}>{drill.backup_id}</Mono> : null}
@@ -48,7 +48,7 @@ function Drill({ drill }: { drill: RestoreDrill }) {
                     <StatusPill
                       size="sm"
                       state={step.skipped ? "stopped" : step.ok ? "running" : "failed"}
-                      label={step.skipped ? t("backups.drills.skipped") : step.ok ? t("backups.drills.stepOk") : t("backups.drills.stepFailed")}
+                      label={step.skipped ? t("backups.drills.skipped") : step.ok ? t("backups.drills.stepOk") : t("common.statusPill.failed")}
                     />
                   </span>
                   <SystemOutput label={t("backups.drills.stepOutput", { name: step.name })} maxHeight="max-h-32">

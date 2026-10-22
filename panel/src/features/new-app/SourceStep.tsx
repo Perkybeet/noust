@@ -77,7 +77,7 @@ function Inspecting({ source, branch, since, onCancel }: { source: string; branc
         description={t("newApp.source.elapsed", { seconds: String(seconds) })}
         action={
           <Button size="sm" variant="ghost" icon={<X aria-hidden="true" />} onClick={onCancel}>
-            {t("newApp.source.cancel")}
+            {t("common.words.cancel")}
           </Button>
         }
       />
@@ -325,7 +325,7 @@ export function SourceStep({
             />
           </Field>
           <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("containers.source.privateRegistry")}</p>
-          <CommandHint command={`noust create --domain example.com --image ${image.value.trim() === "" ? "ghcr.io/owner/app:1.4" : image.value.trim()}`} label={t("newApp.source.terminal")} />
+          <CommandHint command={`noust create --domain example.com --image ${image.value.trim() === "" ? "ghcr.io/owner/app:1.4" : image.value.trim()}`} label={t("common.words.fromTerminal")} />
         </form>
       ) : (
         <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
@@ -423,7 +423,7 @@ export function SourceStep({
             </div>
           ) : null}
 
-          <CommandHint command={`noust create --domain example.com --source ${shown === "" ? "https://github.com/you/app.git" : shown}`} label={t("newApp.source.terminal")} />
+          <CommandHint command={`noust create --domain example.com --source ${shown === "" ? "https://github.com/you/app.git" : shown}`} label={t("common.words.fromTerminal")} />
         </form>
       )}
       {workspaces ? (

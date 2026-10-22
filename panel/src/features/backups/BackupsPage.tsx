@@ -96,7 +96,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
 
   const backUpButton = hasApps ? (
     <Button variant="primary" icon={<Play aria-hidden="true" />} onClick={() => setOpen({ kind: "create" })}>
-      {t("backups.page.backUpNow")}
+      {t("common.words.backUpNow")}
     </Button>
   ) : undefined;
 
@@ -135,7 +135,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
             title={t("backups.coverage.noMatch")}
             action={
               <Button size="sm" variant="ghost" onClick={() => onSearchChange(search.domain !== undefined ? { domain: search.domain } : {})}>
-                {t("backups.common.clearFilters")}
+                {t("common.words.clearFilters")}
               </Button>
             }
           />
@@ -186,7 +186,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
             ),
           })}
       // The first-use state says its own command: one per view.
-      {...(nothing ? {} : { footer: <CommandHint command="noust backup list" label={t("backups.common.fromTerminal")} /> })}
+      {...(nothing ? {} : { footer: <CommandHint command="noust backup list" label={t("common.words.fromTerminal")} /> })}
     >
       {content}
 

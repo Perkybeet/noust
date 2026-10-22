@@ -91,7 +91,7 @@ export function ScheduleDrawer({ schedule, open, onOpenChange }: ScheduleDrawerP
       description={t("selfBackup.schedule.description")}
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t("selfBackup.schedule.cancel")}</Button>
+          <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending}>
             {t("selfBackup.schedule.save")}
           </Button>

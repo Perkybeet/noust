@@ -37,7 +37,7 @@ export function RecipeGallery({ opening, failure, onChoose }: RecipeGalleryProps
         onChoose={onChoose}
         notice={failure !== null ? <ErrorBlock live error={failure.error} title={failure.title} /> : undefined}
       />
-      <CommandHint command="noust recipe list" label={t("newApp.source.terminal")} />
+      <CommandHint command="noust recipe list" label={t("common.words.fromTerminal")} />
     </div>
   );
 }

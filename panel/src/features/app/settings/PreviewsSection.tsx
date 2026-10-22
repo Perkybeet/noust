@@ -568,7 +568,7 @@ export function PreviewsSettings() {
 
   const data = previews.data;
   const settings = data?.settings ?? null;
-  const hint = <CommandHint command={`noust preview enable ${domain} --domain previews.example.com --max 3 --ttl 7d`} label={t("appSettings.fromTerminal")} />;
+  const hint = <CommandHint command={`noust preview enable ${domain} --domain previews.example.com --max 3 --ttl 7d`} label={t("common.words.fromTerminal")} />;
   const onGithub = /github\.com[:/]/i.test(app.source ?? "");
   return (
     <Section

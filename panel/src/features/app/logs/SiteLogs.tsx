@@ -107,7 +107,7 @@ function SiteLines({ domain, kind, log, filter, command }: SiteLogsProps & { log
           emptyMessage={t("appPages.logs.siteEmpty")}
         />
       </div>
-      <CommandHint command={command} label={t("appPages.fromTerminal")} />
+      <CommandHint command={command} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

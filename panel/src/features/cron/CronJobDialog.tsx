@@ -184,12 +184,12 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
       open={open}
       onOpenChange={close}
       size="md"
-      title={editing ? t("cron.dialog.titleEdit", { name: job.name }) : t("cron.dialog.titleNew")}
+      title={editing ? t("common.words.editNamed", { name: job.name }) : t("cron.dialog.titleNew")}
       description={t("cron.dialog.description")}
       footer={
         <>
           <Button disabled={create.isPending} onClick={() => close(false)}>
-            {t("cron.common.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={create.isPending}>
             {editing ? t("cron.dialog.saveJob") : t("cron.dialog.createJob")}
@@ -198,7 +198,7 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
       }
     >
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
-        <Field label={t("cron.fields.name")} name="name" description={t("cron.fields.nameDescription")} error={(submitted ? missing.name : null) ?? serverError("name")}>
+        <Field label={t("common.words.name")} name="name" description={t("cron.fields.nameDescription")} error={(submitted ? missing.name : null) ?? serverError("name")}>
           <Input value={name} onValueChange={setName} mono disabled={editing} placeholder="nightly-report" autoComplete="off" spellCheck={false} />
         </Field>
         <Field label={t("cron.fields.command")} name="command" description={t("cron.fields.commandDescription")} error={(submitted ? missing.command : null) ?? serverError("command")}>

@@ -32,7 +32,6 @@ export const volumeBackups = {
     action: "Set a schedule",
   },
   actions: {
-    runNow: "Back up now",
     edit: "Edit the schedule",
     open: "Open its backups",
     remove: "Remove the schedule",
@@ -58,7 +57,6 @@ export const volumeBackups = {
     },
   },
   detail: {
-    title: "Data of {domain}",
     description: "Its schedule and the backups taken of its data.",
     policy: "Schedule",
     backups: "Backups",
@@ -84,7 +82,7 @@ export const volumeBackups = {
     removeAction: "Remove schedule",
   },
   consistency: {
-    live: "Live",
+    live: "Keep it running",
     pause: "Pause it",
     stop: "Stop it",
     liveHelp: "Copy while it runs. SQLite files inside are snapshotted whole. The least intrusive, and the least still.",
@@ -110,7 +108,6 @@ export const volumeBackups = {
     targetsLoading: "Loading what this application declares",
     noTargets: "This application declares no data of its own yet. Add a folder below.",
     kind: { path: "Folder", docker: "Docker volume" },
-    exists: "Exists",
     missing: "Not there yet",
     declaredBy: "Declared by {source}",
     pickOne: "Choose at least one piece, or back up everything it declares.",
@@ -141,7 +138,6 @@ export const volumeBackups = {
     enabledHelp: "The schedule keeps its settings when it is turned off; nothing runs until it is on again.",
     save: "Save schedule",
     saveFailed: "Could not save the schedule",
-    cancel: "Cancel",
     pathsInvalid: "A folder is a relative path inside the application's data, without .. or a leading slash: {entries}.",
   },
   table: {
@@ -156,11 +152,9 @@ export const volumeBackups = {
     notChecked: "Not checked",
     checkFailed: "Check failed",
     onlyHere: "Only this server",
-    skipped: { one: "{count} thing left out", other: "{count} things left out" },
     restore: "Restore…",
     verify: "Check it",
     push: "Send to…",
-    delete: "Delete",
   },
   restore: {
     title: "Restore the data of {domain}",
@@ -169,7 +163,6 @@ export const volumeBackups = {
     safety: "Take a copy of what is there first",
     safetyHelp: "Kept with its backups, and put back when the restore fails. Without it nothing is left to go back to.",
     action: "Restore data",
-    failed: "Could not start the restore",
   },
   push: {
     title: "Send {id} to a destination",
@@ -186,5 +179,4 @@ export const volumeBackups = {
     action: "Delete backup",
   },
   runFailed: "Could not start the backup",
-  verifyFailed: "Could not start the check",
 } as const;

@@ -423,7 +423,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
           saving: save.isPending,
           busy: edit.isPending,
         }}
-        footer={<CommandHint command={`noust site show ${site}`} label={t("domains.fromTerminal")} />}
+        footer={<CommandHint command={`noust site show ${site}`} label={t("common.words.fromTerminal")} />}
       >
         {/* design-exception: hand-error-ternary the editor keeps the screen's height while it loads, so the bar never jumps */}
         {config.isError && config.data === undefined ? (
@@ -504,7 +504,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
         friction="type"
         open={deleting}
         onOpenChange={setDeleting}
-        title={t("domains.deleteNamedTitle", { name: site })}
+        title={t("common.words.deleteNamed", { name: site })}
         description={t("domains.deleteSiteDescription")}
         confirmText={site}
         actionLabel={t("domains.deleteSite")}

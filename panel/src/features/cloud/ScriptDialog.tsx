@@ -83,7 +83,7 @@ export function ScriptDialog({ name: existingName, copyOf, open, onOpenChange }:
   const title = builtin
     ? t("cloud.scripts.viewTitle", { name: effectiveName })
     : existingName !== undefined
-      ? t("cloud.scripts.editTitle", { name: effectiveName })
+      ? t("common.words.editNamed", { name: effectiveName })
       : t("cloud.scripts.newTitle");
 
   return (
@@ -101,7 +101,7 @@ export function ScriptDialog({ name: existingName, copyOf, open, onOpenChange }:
               close(false);
             }}
           >
-            {t("cloud.common.close")}
+            {t("common.words.close")}
           </Button>
         ) : (
           <>
@@ -110,7 +110,7 @@ export function ScriptDialog({ name: existingName, copyOf, open, onOpenChange }:
                 close(false);
               }}
             >
-              {t("cloud.common.cancel")}
+              {t("common.words.cancel")}
             </Button>
             <Button variant="primary" type="submit" form={formId} loading={saving} disabled={waiting}>
               {t("cloud.scripts.save")}
@@ -126,7 +126,7 @@ export function ScriptDialog({ name: existingName, copyOf, open, onOpenChange }:
       ) : (
         <form id={formId} noValidate className="flex min-w-0 flex-col gap-5" onSubmit={submit}>
           {existingName === undefined ? (
-            <Field label={t("cloud.scripts.name")} description={t("cloud.scripts.nameHelp")} error={tried && !nameOk ? t("cloud.scripts.nameInvalid") : undefined}>
+            <Field label={t("common.words.name")} description={t("cloud.scripts.nameHelp")} error={tried && !nameOk ? t("cloud.scripts.nameInvalid") : undefined}>
               <Input ref={nameRef} mono maxLength={64} value={name} onValueChange={(value: string) => setName(value)} placeholder="swap-4g" autoComplete="off" autoCapitalize="off" spellCheck={false} />
             </Field>
           ) : null}

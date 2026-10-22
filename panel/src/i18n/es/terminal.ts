@@ -29,7 +29,7 @@ export const terminal: Catalog<typeof en> = {
   },
   actions: {
     open: "Abrir terminal",
-    opening: "Abriendo...",
+    opening: "Abriendo…",
     end: "Terminar sesión",
     newSession: "Abrir un terminal nuevo",
     display: "Pantalla",
@@ -121,7 +121,7 @@ export const terminal: Catalog<typeof en> = {
     timeoutLabel: "Límite de tiempo",
     timeoutHelp: "Segundos. Se detiene cuando se acaban.",
     run: "Ejecutar comando",
-    running: "Ejecutando",
+    running: "Ejecutando…",
     again: "Ejecutar otro",
     outputLabel: "Registro del comando en {domain}",
     outputEmpty: "No se registró nada.",

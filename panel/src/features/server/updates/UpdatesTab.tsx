@@ -519,7 +519,7 @@ function UpdatesBody({ data }: { data: Updates }) {
         </div>
       </div>
       <RecentRuns />
-      <CommandHint command="noust server updates apply --security-only" label={t("server.fromTerminal")} />
+      <CommandHint command="noust server updates apply --security-only" label={t("common.words.fromTerminal")} />
       {applying !== null ? <ApplyDialog scope={applying} keptBack={data.kept_back} onClose={() => setApplying(null)} /> : null}
     </div>
   );

@@ -495,13 +495,13 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
                   onSearchChange({});
                 }}
               >
-                {t("fleet.filters.clear")}
+                {t("common.words.clearFilters")}
               </Button>
             }
           />
         }
       />
-      <CommandHint label={t("fleet.page.fromTerminal")} command="noust node list" />
+      <CommandHint label={t("common.words.fromTerminal")} command="noust node list" />
       {labelling !== null ? (
         <LabelsDialog
           node={originOf(labelling).node}

@@ -74,7 +74,7 @@ export function RekeyDialog({ node, onClose }: { node: string; onClose: () => vo
       footer={
         <>
           <Button disabled={busy} onClick={onClose}>
-            {t("nodeTools.rekey.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={busy}>
             {command === null ? t("nodeTools.rekey.prepare") : t("nodeTools.rekey.switch")}
@@ -159,10 +159,10 @@ export function NodeTeamDialog({ node, onClose }: { node: string; onClose: () =>
       footer={
         <>
           <Button disabled={save.isPending} onClick={onClose}>
-            {t("nodeTools.team.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={nodes.isPending || team === current}>
-            {t("nodeTools.team.save")}
+            {t("common.words.save")}
           </Button>
         </>
       }

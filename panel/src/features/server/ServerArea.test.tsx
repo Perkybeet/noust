@@ -559,7 +559,7 @@ describe("fail2ban watching nginx", () => {
 
     expect(await screen.findByText("Off. fail2ban only watches SSH.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Watch nginx" }));
-    const dialog = await screen.findByRole("alertdialog", { name: "Make fail2ban watch nginx" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Start fail2ban watching nginx" });
     expect(within(dialog).getByText(/Cloudflare's ranges and every proxy a site declares/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Watch nginx" }));
 

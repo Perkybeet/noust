@@ -34,7 +34,7 @@ export function NothingNewDialog({ domain, refusal, pending, onRebuild, onClose 
       footer={
         <>
           <Button disabled={pending} onClick={onClose}>
-            {t("apps.nothingNew.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button variant="primary" loading={pending} onClick={onRebuild}>
             {t("apps.nothingNew.rebuildAnyway")}

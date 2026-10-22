@@ -48,7 +48,7 @@ function ServiceFacts({ name, data, record }: { name: string; data: ServiceInfo;
     {
       label: t("services.detail.startsAtBoot"),
       // An on/off, told at a glance (item 56).
-      value: <StatusPill state={data.enabled ? "running" : "stopped"} label={data.enabled ? t("services.detail.yes") : t("services.detail.no")} size="sm" />,
+      value: <StatusPill state={data.enabled ? "running" : "stopped"} label={data.enabled ? t("common.words.yes") : t("common.words.no")} size="sm" />,
       mono: false,
       copy: false,
     },
@@ -64,7 +64,7 @@ function ServiceFacts({ name, data, record }: { name: string; data: ServiceInfo;
       <Card level={2} title={t("services.detail.factsTitle")} padding="sm">
         <KeyValueList items={items} />
       </Card>
-      <CommandHint command={record.foreign ? `systemctl status ${name}` : `noust service status ${name}`} label={t("services.fromTerminal")} />
+      <CommandHint command={record.foreign ? `systemctl status ${name}` : `noust service status ${name}`} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

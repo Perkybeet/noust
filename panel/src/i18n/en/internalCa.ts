@@ -4,7 +4,7 @@ export const internalCa = {
   title: "Private certificate authority",
   description:
     "This server signs certificates for names that only resolve inside a private network, such as wiki.home.arpa or grafana.lan, where Let's Encrypt cannot prove them. A device trusts them once it trusts the authority's certificate.",
-  loading: "Reading the authority",
+  loading: "Loading the authority",
   readFailed: "Could not read the private authority",
   noneTitle: "This server has no private authority yet",
   noneNote: "It signs only what you permit, and devices enforce that limit. It is made once: a new one must be trusted again on every device.",
@@ -17,7 +17,7 @@ export const internalCa = {
   nameHelp: "How devices list the authority. Leave it empty for the server's name.",
   trustHereLabel: "Trust it on this server too",
   trustHereHelp: "The programs that run here accept the names it signs.",
-  make: "Make the authority",
+  make: "Create authority",
   madeToast: "The private authority is made",
   makeFailed: "The authority was not made",
   fingerprintLabel: "Fingerprint",
@@ -27,8 +27,6 @@ export const internalCa = {
   signsRangesLabel: "And for addresses in",
   keptLabel: "Certificates kept",
   trustedHereLabel: "Trusted by this server",
-  yes: "Yes",
-  no: "No",
   downloadPem: "Download the certificate (.crt)",
   downloadDer: "Download for Windows or Android (.cer)",
   trustHere: "Trust it on this server",
@@ -74,6 +72,5 @@ export const internalCa = {
     option: "This server's authority",
     optionHelp: "Signed by the private authority of this server, for a name only your devices resolve. Devices must trust the authority.",
     words: "Signed by this server's private authority ({name})",
-    days: "Days valid",
   },
 } as const;

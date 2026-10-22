@@ -299,7 +299,7 @@ describe("a bulk action", () => {
     await expectNoAxeViolations(container, { page: true });
     await user.keyboard("{Escape}");
 
-    await user.click(screen.getByRole("button", { name: "Retry the failed one" }));
+    await user.click(screen.getByRole("button", { name: "Retry failed" }));
     const retry = await screen.findByRole("dialog", { name: "Retry the servers that did not get done" });
     await user.click(await within(retry).findByRole("button", { name: "Run on 1 server" }));
     await waitFor(() => {

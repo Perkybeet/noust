@@ -30,7 +30,7 @@ export const nav: Catalog<typeof en> = {
       fleet: "Flota",
     },
   },
-  failed: { one: "{count} con fallo", other: "{count} con fallos" },
+  failed: { one: "{count} fallido", other: "{count} fallidos" },
   /** Tras el nombre de Actividad, para tecnologías de apoyo: "Actividad 2 en curso". */
   running: { one: "{count} en curso", other: "{count} en curso" },
   expiring: { one: "{count} certificado por renovar", other: "{count} certificados por renovar" },
@@ -47,7 +47,6 @@ export const nav: Catalog<typeof en> = {
     keywords: "mysql postgres redis mongodb sql databases",
     goTo: "Ir a bases de datos",
   },
-  services: { label: "Servicios", keywords: "systemd unidades demonios services units" },
   cron: { label: "Cron", keywords: "programar temporizadores tareas schedule timers jobs", goTo: "Ir a cron" },
   domains: {
     label: "Dominios",
@@ -81,12 +80,11 @@ export const nav: Catalog<typeof en> = {
     overview: { label: "Resumen" },
     members: { label: "Miembros", keywords: "personas roles invitar propietario acceso members people" },
     notifications: { label: "Notificaciones", keywords: "alertas slack ntfy telegram webhook canales avisos notifications" },
-    settings: { label: "Ajustes", keywords: "renombrar borrar nombre rename delete" },
+    settings: { label: "Ajustes", keywords: "renombrar eliminar nombre rename delete" },
   },
   settingsTabs: {
     general: {
       label: "General",
-      keywords: "directorio de aplicaciones servidor web correo idioma language",
       command: "Ajustes generales",
     },
     notifications: {
@@ -105,12 +103,12 @@ export const nav: Catalog<typeof en> = {
       command: "Ajustes de integraciones",
     },
     probes: {
-      label: "Sondas y página de estado",
+      label: "Sondas y estado",
       keywords: "sondas disponibilidad monitor página de estado comprobación externa dirección http caída ping sitio web probes uptime status page",
       command: "Ajustes de sondas y página de estado",
     },
     logShipping: {
-      label: "Exportación de registros y métricas",
+      label: "Registros y métricas",
       keywords: "envío de logs registros métricas prometheus loki axiom grafana fluent bit syslog opentelemetry otlp destino log shipping metrics export",
       command: "Ajustes de exportación de registros y métricas",
     },

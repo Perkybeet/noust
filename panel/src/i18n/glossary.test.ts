@@ -1,20 +1,22 @@
 /**
  * The glossary of the interface, held in both catalogs (README.md, "The words of the interface").
  *
- * Four things are counted, and each count is held to glossary-baseline.json, which may only go
+ * Five things are counted, and each count is held to glossary-baseline.json, which may only go
  * down, with the same contract as the design ratchet (styles/design-structure.test.ts):
  *
  * - a retired value (README, the "Retired" columns) written in a catalog: the count per namespace;
  * - a glossary word whose Spanish is not the glossary's: "Delete" translated "Borrar";
  * - an English text of fewer than forty characters that appears four times or more and whose Spanish
  *   differs from key to key (the case of R5: "Failed" said five ways);
+ * - a shared word written again: a key outside `common` that says exactly what `common.words.*`,
+ *   `common.statusPill.*` or `common.deployState.*` already say, in both languages;
  * - style: a title that ends in a full stop or is written with a capital on every word, three dots
  *   where the ellipsis goes.
  *
  * A count above its baseline fails (fix the text, or add the key to a documented exception in
  * glossary.table.ts); a count below it fails too, asking for `npm run design:baseline`, so progress is
- * locked in. The baseline is today's: what violates the glossary and belongs to a lane that has not
- * landed yet is counted here, not fixed here, and the final sweep takes it to zero.
+ * locked in. The retired values, the glossary words and the divergent translations are at zero; what a
+ * count holds above zero (the shared words that a helper builds a key for) goes down as they are folded.
  */
 
 import { describe, expect, it } from "vitest";
@@ -22,7 +24,7 @@ import { describe, expect, it } from "vitest";
 import * as en from "./en";
 import * as es from "./es";
 import baseline from "./glossary-baseline.json";
-import { GLOSSARY, OLD_NAMES_KEPT, RETIRED } from "./glossary.table";
+import { DIVERGENCE_EXCEPTIONS, GLOSSARY, OLD_NAMES_KEPT, RETIRED, agreementStem } from "./glossary.table";
 import type { Retired } from "./glossary.table";
 
 type Node = string | { readonly [key: string]: Node };
@@ -103,20 +105,44 @@ function divergentPairs(): Section {
   return section;
 }
 
-/** The English texts of fewer than forty characters, four times or more, that Spanish translates more than one way. */
-function divergentTranslations(): Section {
+/**
+ * The English texts of fewer than forty characters, four times or more, that Spanish translates more than one way.
+ * Two translations that differ only in gender or number are one (`agreementStem`), and a text with a documented
+ * exception (glossary.table.ts) is left out unless `withExceptions` asks for it.
+ */
+function divergentTranslations(withExceptions = false): Section {
   const byText = new Map<string, Set<string>>();
   const copies = new Map<string, number>();
   for (const [key, text] of TEXT.en) {
     if (text.length >= 40) continue;
     copies.set(text, (copies.get(text) ?? 0) + 1);
     const set = byText.get(text) ?? new Set<string>();
-    set.add((TEXT.es.get(key) ?? "").trim());
+    set.add(agreementStem(TEXT.es.get(key) ?? ""));
     byText.set(text, set);
   }
   const section: Section = { divergence: {} };
   for (const [text, spanish] of byText) {
+    if (!withExceptions && text in DIVERGENCE_EXCEPTIONS) continue;
     if ((copies.get(text) ?? 0) >= 4 && spanish.size > 1) (section["divergence"] ??= {})[text] = spanish.size;
+  }
+  return section;
+}
+
+/**
+ * The words the glossary names, written again: a key outside `common` whose English and Spanish are exactly those of
+ * a shared key (`common.words.*`, the state words of `common.statusPill` and `common.deployState`, `common.rowActions`).
+ * A screen that needs "Cancel" or "Name" reads the shared key (README, "Shared words"). What is left today is what a
+ * helper names with a prefix or a test reads as a property of the catalog, counted per namespace.
+ */
+function sharedWords(): Section {
+  const shared = new Set<string>();
+  for (const [key, text] of TEXT.en) {
+    if (/^common\.(?:words|statusPill|deployState|rowActions)(?:\.|$)/.test(key)) shared.add(`${text}\u0000${TEXT.es.get(key) ?? ""}`);
+  }
+  const section: Section = {};
+  for (const [key, text] of TEXT.en) {
+    if (key.startsWith("common.")) continue;
+    if (shared.has(`${text}\u0000${TEXT.es.get(key) ?? ""}`)) bump(section, "shared-word", namespaceOf(key));
   }
   return section;
 }
@@ -141,10 +167,11 @@ function isTitleCase(text: string): boolean {
 function style(): Section {
   const section: Section = {};
   const proper = /^settings\.integrations\.others\.title$/;
+  const tooltip = /^services\.unitFile\.checkedTitle$/; // a title attribute of two sentences, not a title
   const placeholder = /^nodeTools\.connection\.bastionKeyDescription$/;
   for (const language of ["en", "es"] as const) {
     for (const [key, text] of TEXT[language]) {
-      if (isTitleKey(key) && text.endsWith(".") && !text.endsWith("...")) bump(section, `${language}:title-stop`, namespaceOf(key));
+      if (isTitleKey(key) && !tooltip.test(key) && text.endsWith(".") && !text.endsWith("...")) bump(section, `${language}:title-stop`, namespaceOf(key));
       if (text.includes("...") && !placeholder.test(key)) bump(section, `${language}:three-dots`, namespaceOf(key));
       if (language === "en" && isTitleKey(key) && isTitleCase(text) && !proper.test(key)) bump(section, "en:title-case", namespaceOf(key));
     }
@@ -157,6 +184,7 @@ const KNOWN_RULES: ReadonlySet<string> = new Set([
   ...RETIRED.map((rule) => `${rule.language}:${rule.id}`),
   "pairs",
   "divergence",
+  "shared-word",
   "en:title-stop",
   "es:title-stop",
   "en:three-dots",
@@ -164,7 +192,7 @@ const KNOWN_RULES: ReadonlySet<string> = new Set([
   "en:title-case",
 ]);
 
-const CURRENT: Section = { ...retiredValues(), ...divergentPairs(), ...divergentTranslations(), ...style() };
+const CURRENT: Section = { ...retiredValues(), ...divergentPairs(), ...divergentTranslations(), ...sharedWords(), ...style() };
 const BASE = baseline as Baseline;
 const MODE = import.meta.env["UPDATE_DESIGN_BASELINE"] as string | undefined;
 
@@ -195,6 +223,7 @@ function hint(rule: string): string {
   if (retired !== undefined) return `Retired in the glossary: write ${retired.instead}.`;
   if (rule === "pairs") return "A word of the glossary has one translation (README, \"The words of the interface\").";
   if (rule === "divergence") return "One English text, one Spanish translation: unify the keys or make the English differ.";
+  if (rule === "shared-word") return "A word the glossary names is read from common (common.words.*, common.statusPill.*), not written again.";
   return "DESIGN 7: a title has no final full stop and is not written with a capital on every word; an ellipsis is one character.";
 }
 
@@ -208,7 +237,7 @@ if (MODE !== undefined && MODE !== "") {
       if (MODE !== "init") expect(regressions(), "Counts went up: fix them before moving the baseline.").toEqual([]);
       const next: Baseline = {
         $comment:
-          "Written by `npm run design:baseline` (i18n/glossary.test.ts); may only go down. rules: the count of each retired value, glossary word translated otherwise, divergent translation and style breach, per catalog namespace (see glossary.table.ts).",
+          "Written by `npm run design:baseline` (i18n/glossary.test.ts); may only go down. rules: the count of each retired value, glossary word translated otherwise, divergent translation, shared word written again and style breach, per catalog namespace (see glossary.table.ts).",
         rules: sortedObject(
           Object.entries(CURRENT)
             .filter(([, buckets]) => Object.keys(buckets).length > 0)
@@ -234,6 +263,11 @@ if (MODE !== undefined && MODE !== "") {
 
     it("locks in every improvement: run `npm run design:baseline` when a count goes down", () => {
       expect(improvements(), "Counts went down: run `npm run design:baseline` and commit i18n/glossary-baseline.json").toEqual([]);
+    });
+
+    it("keeps a documented exception only for an English text that still diverges", () => {
+      const diverging = new Set(Object.keys(divergentTranslations(true)["divergence"] ?? {}));
+      expect(Object.keys(DIVERGENCE_EXCEPTIONS).filter((text) => !diverging.has(text))).toEqual([]);
     });
 
     it("has a baseline entry for no rule that does not exist", () => {
@@ -297,6 +331,18 @@ describe("what the retired values catch", () => {
     expect(counts(rule, "settings.title", "Log shipping")).toBe(true);
     expect(counts(emergency, "auditEvents.action.auth_break_glass", "Emergency access used")).toBe(false);
     expect(counts(emergency, "auth.emergency.title", "Emergency access")).toBe(true);
+  });
+});
+
+describe("what counts as one translation", () => {
+  it("merges the genders and the numbers of one word, and keeps two words apart", () => {
+    expect(agreementStem("Fallido")).toBe(agreementStem("Fallida"));
+    expect(agreementStem("Fallidos")).toBe(agreementStem("Fallidas"));
+    expect(agreementStem("Pendiente")).toBe(agreementStem("Pendientes"));
+    expect(agreementStem("Con fallos")).toBe(agreementStem("con fallo"));
+    expect(agreementStem("Desactivado")).not.toBe(agreementStem("Apagado"));
+    expect(agreementStem("Quitar filtros")).not.toBe(agreementStem("Borrar filtros"));
+    expect(agreementStem("Se quitó a {name}")).not.toBe(agreementStem("Se quitó {name}"));
   });
 });
 

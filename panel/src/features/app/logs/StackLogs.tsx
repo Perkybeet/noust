@@ -132,7 +132,7 @@ export function StackLogs({ domain, unit, filter }: { domain: string; unit: Reac
               emptyMessage={query.isPending ? t("appPages.logs.readingContainers") : t("appPages.logs.emptyContainers")}
             />
           </div>
-          <CommandHint command={`noust logs ${domain} --follow`} label={t("appPages.fromTerminal")} />
+          <CommandHint command={`noust logs ${domain} --follow`} label={t("common.words.fromTerminal")} />
         </div>
       )}
     </div>

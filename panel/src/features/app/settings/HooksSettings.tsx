@@ -235,7 +235,7 @@ function OperatorHooks({
           ) : null}
           <CommandHint
             command={`noust app hooks set ${domain} --file hooks.yaml`}
-            label={t("appSettings.fromTerminal")}
+            label={t("common.words.fromTerminal")}
           />
         </div>
       </Card>

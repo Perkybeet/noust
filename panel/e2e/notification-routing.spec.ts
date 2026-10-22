@@ -145,7 +145,7 @@ test("the new channel types have a row each, and the record of deliveries says n
   await pushover.getByRole("button", { name: "Done" }).click();
   await expect(row(page, "Pushover").getByText("On", { exact: true })).toBeVisible();
 
-  await expect(page.getByRole("heading", { name: "Deliveries" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent messages" })).toBeVisible();
   await expect(page.getByText("Nothing has been sent yet.")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the notifications page with its routing, more channels and deliveries");

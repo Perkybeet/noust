@@ -50,7 +50,7 @@ export function UpstreamsDialog({ domain, onClose }: UpstreamsDialogProps) {
       size="lg"
       title={t("placements.upstreams.title", { domain })}
       description={t("placements.upstreams.description")}
-      footer={<Button onClick={onClose}>{t("placements.upstreams.close")}</Button>}
+      footer={<Button onClick={onClose}>{t("common.words.close")}</Button>}
     >
       <div className="flex flex-col gap-5">
         <div className="grid gap-5 sm:grid-cols-2">

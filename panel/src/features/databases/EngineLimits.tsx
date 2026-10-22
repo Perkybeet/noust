@@ -207,7 +207,7 @@ function LimitsForm({ engine, display, data }: { engine: string; display: string
           </div>
         </div>
       </Card>
-      <CommandHint command={`noust db limits ${engine}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db limits ${engine}`} label={t("common.words.fromTerminal")} />
       {warnings !== null ? (
         <ConfirmDialog
           open

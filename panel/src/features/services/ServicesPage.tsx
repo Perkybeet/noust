@@ -102,7 +102,7 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
                 options={[
                   { value: ANY, label: t("services.page.stateAny") },
                   { value: "failed", label: t("services.page.stateFailed") },
-                  { value: "running", label: t("services.page.stateRunning") },
+                  { value: "running", label: t("common.statusPill.running") },
                   { value: "stopped", label: t("services.page.stateStopped") },
                 ]}
               />
@@ -158,7 +158,7 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
                 title={t("services.page.noMatchTitle")}
                 action={
                   <Button size="sm" onClick={clearFilters}>
-                    {t("services.page.clearFilters")}
+                    {t("common.words.clearFilters")}
                   </Button>
                 }
               />
@@ -168,7 +168,7 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
       </QueryState>
       {/* Drawn with the rows, not before: under a list of unknown length it would only be
           pushed down the page when they arrive. */}
-      {services.isPending ? null : <CommandHint command="noust service list" label={t("services.fromTerminal")} />}
+      {services.isPending ? null : <CommandHint command="noust service list" label={t("common.words.fromTerminal")} />}
       <CreateServiceDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );

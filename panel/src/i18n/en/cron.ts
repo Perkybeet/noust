@@ -1,17 +1,9 @@
 /** Strings of the console's cron area: the jobs list, its dialog and run history. */
 export const cron = {
 
-  common: {
-    cancel: "Cancel",
-    edit: "Edit",
-    clearFilters: "Clear filters",
-    fromTerminal: "From a terminal",
-  },
 
   status: {
     succeeded: "Succeeded",
-    failed: "Failed",
-    unknown: "Unknown",
     neverRun: "Never run",
   },
 
@@ -56,7 +48,6 @@ export const cron = {
   table: {
     captionAll: "Cron jobs",
     captionFiltered: "Cron jobs matching the filters",
-    actionsFor: "Actions for {name}",
     disabled: "Disabled",
     columns: {
       job: "Job",
@@ -75,13 +66,11 @@ export const cron = {
   },
 
   deleteDialog: {
-    title: "Delete {name}",
     description: "Removes the timer and its service. This cannot be undone.",
   },
 
   dialog: {
     titleNew: "New cron job",
-    titleEdit: "Edit {name}",
     description: "Runs a command on this server by itself, on a schedule.",
     createJob: "Create job",
     saveJob: "Save job",
@@ -98,7 +87,6 @@ export const cron = {
   },
 
   fields: {
-    name: "Name",
     nameDescription: "Names the job and its timer, such as nightly-report.",
     nameMissing: "Enter a name for the job.",
     command: "Command",

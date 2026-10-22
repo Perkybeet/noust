@@ -151,7 +151,7 @@ export function ApiReference({ search, onSearchChange }: ApiReferenceProps) {
                         onSearchChange({});
                       }}
                     >
-                      {t("apiReference.filter.clear")}
+                      {t("common.words.clearFilters")}
                     </Button>
                   ) : undefined
                 }

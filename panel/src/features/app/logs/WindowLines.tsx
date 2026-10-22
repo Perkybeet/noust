@@ -66,7 +66,7 @@ export function WindowLines({ domain, query, deploy, command }: WindowLinesProps
               emptyMessage={t("logs.empty")}
             />
           </div>
-          {command !== undefined ? <CommandHint command={command} label={t("appPages.fromTerminal")} /> : null}
+          {command !== undefined ? <CommandHint command={command} label={t("common.words.fromTerminal")} /> : null}
         </div>
       )}
     </QueryState>

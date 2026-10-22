@@ -33,10 +33,10 @@ const MAX_SHOWN = 20_000;
 
 function parameterColumns(t: T): Column<ApiParameter>[] {
   return [
-    { id: "name", header: t("apiReference.drawer.parameterColumn.name"), card: "title", cell: (parameter) => <Mono tone="default">{parameter.name}</Mono> },
+    { id: "name", header: t("common.words.name"), card: "title", cell: (parameter) => <Mono tone="default">{parameter.name}</Mono> },
     { id: "where", header: t("apiReference.drawer.parameterColumn.where"), cell: (parameter) => (parameter.where === "path" ? t("apiReference.drawer.path") : t("apiReference.drawer.query")) },
     { id: "type", header: t("apiReference.drawer.parameterColumn.type"), cell: (parameter) => <Mono tone="faint">{parameter.type}</Mono> },
-    { id: "required", header: t("apiReference.drawer.parameterColumn.required"), cell: (parameter) => (parameter.required ? t("apiReference.drawer.yes") : t("apiReference.drawer.no")) },
+    { id: "required", header: t("apiReference.drawer.parameterColumn.required"), cell: (parameter) => (parameter.required ? t("common.words.yes") : t("common.words.no")) },
   ];
 }
 
@@ -44,7 +44,7 @@ function fieldColumns(t: T): Column<ApiField>[] {
   return [
     { id: "field", header: t("apiReference.drawer.bodyColumn.field"), card: "title", cell: (field) => <Mono tone="default">{field.name}</Mono> },
     { id: "type", header: t("apiReference.drawer.bodyColumn.type"), cell: (field) => <Mono tone="faint">{field.type}</Mono> },
-    { id: "required", header: t("apiReference.drawer.bodyColumn.required"), cell: (field) => (field.required ? t("apiReference.drawer.yes") : t("apiReference.drawer.no")) },
+    { id: "required", header: t("apiReference.drawer.bodyColumn.required"), cell: (field) => (field.required ? t("common.words.yes") : t("common.words.no")) },
     { id: "description", header: t("apiReference.drawer.bodyColumn.description"), hideBelow: "md", cell: (field) => (
         <span translate="no" className="text-13 text-fg-muted">
           {field.description}
@@ -290,8 +290,8 @@ export function OperationDrawer({ operation, onClose }: OperationDrawerProps) {
         <Subsection title={t("apiReference.drawer.responses")}>
           <DataTable caption={t("apiReference.drawer.responses")} columns={responseColumns(t)} rows={operation.responses} getRowId={(response) => response.status} mobile="scroll" density="compact" />
         </Subsection>
-        <Subsection title={t("apiReference.drawer.curl")} description={t("apiReference.drawer.curlHelp")}>
-          <CopyValue value={curl} label={t("apiReference.drawer.copyCurl")} name={t("apiReference.drawer.curl")} />
+        <Subsection title={t("common.words.fromTerminal")} description={t("apiReference.drawer.curlHelp")}>
+          <CopyValue value={curl} label={t("apiReference.drawer.copyCurl")} name={t("common.words.fromTerminal")} />
         </Subsection>
         <TryIt operation={operation} />
       </div>

@@ -1,7 +1,7 @@
 /** Strings of the fleet: the Fleet page, Settings > Servers, the central's lock and its hub role. */
 export const servers = {
   nav: {
-    fleet: { label: "Fleet", keywords: "servers nodes central vps machines", goTo: "Go to fleet" },
+    fleet: { keywords: "servers nodes central vps machines", },
     settingsTab: {
       label: "Servers",
       keywords: "fleet nodes central ssh tunnel add server join code",
@@ -53,7 +53,6 @@ export const servers = {
       resumeFailedToast: "Monitoring of {name} could not be resumed",
     },
     removeDialog: {
-      title: "Remove {name}?",
       description:
         "The central closes its tunnel to {name} and forgets its key, token and pinned host key. When {name} answers, the central first revokes its token there, so the key it leaves behind opens nothing.",
       unreachable: "If {name} cannot be reached, run this on it, as root, to remove the central's key and revoke its token:",
@@ -76,12 +75,8 @@ export const servers = {
       join: "Join",
       result: "Result",
     },
-    cancel: "Cancel",
-    back: "Back",
     next: "I ran it: continue",
-    done: "Done",
     name: {
-      label: "Name",
       description: "How this console will call the server: 1 to 32 lower-case letters, digits and dashes, such as web-2.",
       invalid: "Use 1 to 32 lower-case letters, digits and dashes, starting and ending with a letter or digit.",
       showCommand: "Show the command",
@@ -225,7 +220,6 @@ export const servers = {
   // The central's sealed secrets
 
   lock: {
-    title: "This central is locked",
     description:
       "Its secrets are sealed at rest: the keys and tokens that reach your servers are encrypted under a passphrase that is written nowhere. Until you unlock them, nothing reaches the servers.",
     passphraseLabel: "Passphrase",
@@ -252,7 +246,6 @@ export const servers = {
     identity: {
       title: "This central",
       description: "The Noust that manages the fleet, and what it does itself.",
-      name: "Name",
       role: "Role",
       roleServer: "Manages servers and deploys applications itself",
       roleHub: "A hub: manages servers, deploys nothing itself",

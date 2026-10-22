@@ -2,11 +2,6 @@ import type { access as en } from "../en/access";
 import type { Catalog } from "../types";
 
 export const access: Catalog<typeof en> = {
-  nav: {
-    label: "Roles",
-    keywords: "roles permisos rol propio conceder vincular equipo proyecto entorno ámbito acceso mínimo privilegio",
-    command: "Ajustes de roles",
-  },
   documentTitle: "Roles",
   loadingLabel: "roles y concesiones",
   scope: {
@@ -31,9 +26,8 @@ export const access: Catalog<typeof en> = {
     emptyDescription:
       "Las cuentas tienen su propio rol en el servidor. Concede un rol en un equipo, un proyecto o un entorno para dar a alguien más o menos que eso, justo donde hace falta.",
     column: { account: "Cuenta", role: "Rol", where: "Dónde", granted: "Concedido" },
-    custom: "Propio",
+    custom: "Personalizado",
     manageInTeam: "Se gestiona en el equipo",
-    revoke: "Revocar",
     revokeLabel: "Revocar {role} a {account}",
     revokeDialog: {
       title: "Revocar {role} a {account}",
@@ -64,20 +58,18 @@ export const access: Catalog<typeof en> = {
     tableCaption: "Definiciones de roles",
     column: { role: "Rol", kind: "Tipo", where: "Se puede tener en", permissions: "Permisos" },
     builtIn: "Incluido",
-    custom: "Propio",
+    custom: "Personalizado",
     permissionCount: { one: "{count} permiso", other: "{count} permisos" },
     view: "Ver",
     viewLabel: "Ver {role}",
-    edit: "Editar",
     editLabel: "Editar {role}",
-    delete: "Borrar",
-    deleteLabel: "Borrar {role}",
+    deleteLabel: "Eliminar {role}",
     deleteDialog: {
-      title: "Borrar {role}",
+      title: "Eliminar {role}",
       description: "Se quita el rol. El servidor lo rechaza mientras una cuenta lo tenga: revócaselo antes.",
-      action: "Borrar rol",
+      action: "Eliminar rol",
     },
-    deletedToast: "Se borró {role}",
+    deletedToast: "Se eliminó {role}",
     savedToast: "Se guardó {role}",
     drawer: {
       createTitle: "Definir un rol",
@@ -86,7 +78,6 @@ export const access: Catalog<typeof en> = {
       description:
         "Un rol es un conjunto de permisos que ya existen. Dónde se puede tener se deduce de ellos: un rol que solo ejecuta aplicaciones se puede tener en un proyecto; uno que gobierna pertenece a un equipo o al servidor.",
       viewDescription: "Un rol incluido no se puede cambiar. Esto es lo que tiene.",
-      name: "Nombre",
       nameHelp: "Un nombre corto en minúsculas, como release-manager. No se puede cambiar después.",
       label: "Etiqueta",
       labelHelp: "Lo que muestra la consola. Por defecto es el nombre.",
@@ -99,14 +90,13 @@ export const access: Catalog<typeof en> = {
       noPermissions: "Elige al menos un permiso.",
       save: "Guardar rol",
       create: "Definir rol",
-      cancel: "Cancelar",
       errorTitle: "No se pudo guardar el rol",
     },
   },
   tokenReach: {
     legend: "Hasta dónde llega",
-    all: "Todo lo que alcanza su dueño",
-    allHelp: "El token ve lo que ve su dueño.",
+    all: "Todo lo que alcanza su propietario",
+    allHelp: "El token ve lo que ve su propietario.",
     team: "Un equipo",
     teamHelp: "Solo las aplicaciones, bases de datos y sitios de ese equipo.",
     project: "Un proyecto",
@@ -119,7 +109,7 @@ export const access: Catalog<typeof en> = {
     pick: "Elige uno",
     none: "No hay nada que elegir",
     column: "Alcance",
-    wholeServer: "Todo lo que alcanza su dueño",
-    boundNotice: "Un token ligado a {where} ve eso y nada más del servidor, sea lo que sea lo que alcance su dueño.",
+    wholeServer: "Todo lo que alcanza su propietario",
+    boundNotice: "Un token ligado a {where} ve eso y nada más del servidor, sea lo que sea lo que alcance su propietario.",
   },
 };

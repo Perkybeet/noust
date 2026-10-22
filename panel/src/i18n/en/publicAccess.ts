@@ -5,7 +5,8 @@
  */
 export const publicAccess = {
   title: "Public access",
-  description: "Open this database to a client on your own computer, on a port you choose. It is private until you do, and you can make it private again at any time.",
+  description:
+    "Open this database to a client on your own computer, on a port you choose. It is private until you do, and you can close access again at any time.",
   loadFailed: "Could not read whether this database is public",
   loading: "Loading whether this database is public",
   state: {
@@ -14,13 +15,13 @@ export const publicAccess = {
     public: "Public",
     publicBody: "A client outside this server can reach the database with the account Noust made for it. Anyone who can reach the port can try its password.",
     notAnswering: "Not answering",
-    notAnsweringBody: "The proxy that forwards the port is not listening. Make the database private and open it again, or start the proxy again.",
+    notAnsweringBody: "The proxy that forwards the port is not listening. Close access and open it again, or start the proxy again.",
     closing: "Being made private",
-    closingBody: "An earlier attempt to make it private did not finish. Make it private again to finish it.",
+    closingBody: "An earlier attempt to close access did not finish. Close access again to finish it.",
   },
   actions: {
-    open: "Make it public…",
-    close: "Make it private",
+    open: "Open access…",
+    close: "Close access",
     reveal: "Show the connection",
   },
   facts: {
@@ -42,7 +43,6 @@ export const publicAccess = {
     allowed: "{backend} allows the port from {sources}",
     allowedAnyone: "{backend} allows the port from anyone",
     none: "Noust changed no firewall: only your network's own firewall limits who reaches the port",
-    unknown: "Not recorded",
   },
   profile: {
     owner: "Owner",
@@ -53,16 +53,14 @@ export const publicAccess = {
     read_onlyHelp: "Reads only. The safest account to give a reporting tool.",
   },
   dialog: {
-    title: "Make {name} public",
+    title: "Open access to {name}",
     description: "Noust opens a port, makes an account for this database alone and tells the firewall. Nothing is changed until you confirm the last step.",
     steps: {
       choose: "Choose",
       review: "Review",
     },
-    cancel: "Cancel",
-    back: "Back",
     review: "Review",
-    submit: "Make it public",
+    submit: "Open access",
     port: "Port",
     portHelp: "From 1024 to 65535. Leave it empty for a free one next to the engine's own.",
     portInvalid: "Use a whole number from 1024 to 65535.",
@@ -96,7 +94,7 @@ export const publicAccess = {
     accept: "I understand this and want the database public",
     acceptRequired: "Tick the box to accept what is listed above.",
     planFailed: "Noust cannot open this database to the network",
-    submitFailed: "Could not make the database public",
+    submitFailed: "Could not open access to the database",
   },
   secret: {
     title: "Connection to {name}",
@@ -109,12 +107,9 @@ export const publicAccess = {
     url: "Connection string",
   },
   close: {
-    title: "Make {name} private",
+    title: "Close access to {name}",
     description: "Noust removes the proxy, the firewall rule it added, the TLS requirement and the account it made for public access. The database and its data stay, and connections that are open end now.",
-    action: "Make it private",
-    failed: "Could not make the database private",
-    done: "{name} is private again",
+    action: "Close access",
   },
   revealFailed: "Could not show the connection",
-  opened: "{name} is public on port {port}",
 } as const;

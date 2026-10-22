@@ -82,7 +82,7 @@ export function MigrationDialog({ open, onOpenChange, onQueued }: MigrationDialo
       footer={
         <>
           <Button disabled={start.isPending} onClick={() => close(false)}>
-            {t("selfBackup.schedule.cancel")}
+            {t("common.words.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={start.isPending} disabled={blockers.length > 0}>
             {t("selfBackup.migrate.start")}
@@ -170,7 +170,7 @@ export function MigrationDialog({ open, onOpenChange, onQueued }: MigrationDialo
           </div>
         ) : null}
         {start.isError ? <ErrorBlock live compact error={start.error} title={t("selfBackup.migrate.failed")} /> : null}
-        <CommandHint command="noust server migrate prepare --to DESTINATION" label={t("backups.common.fromTerminal")} />
+        <CommandHint command="noust server migrate prepare --to DESTINATION" label={t("common.words.fromTerminal")} />
       </form>
     </Dialog>
   );

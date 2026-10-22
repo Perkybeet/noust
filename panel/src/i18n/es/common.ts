@@ -2,7 +2,6 @@ import type { common as en } from "../en/common";
 import type { Catalog } from "../types";
 
 export const common: Catalog<typeof en> = {
-  area: "Cargando",
   copyButton: {
     label: "Copiar",
     copyCommand: "Copiar comando",
@@ -27,7 +26,6 @@ export const common: Catalog<typeof en> = {
     cancel: "Cancelar",
     typeToConfirm: "Escribe {value} para confirmar",
     failed: "La acción falló. El sistema dijo:",
-    whatSystemSaid: "Lo que dijo el sistema",
     couldNot: "No se pudo completar la acción",
     onServer: "En {server}",
   },
@@ -74,7 +72,7 @@ export const common: Catalog<typeof en> = {
       location: "Location",
       upstream: "Upstream",
       "upstream-server": "Backend",
-      static: "Ficheros",
+      static: "Archivos",
       redirect: "Redirección",
       other: "Otro",
     },
@@ -99,7 +97,6 @@ export const common: Catalog<typeof en> = {
     highlighted: "Camino resaltado: {path}.",
     legend: "Un trazo que avanza indica el sentido del tráfico. Trazos más rápidos: cifrado (TLS). Línea doble: WebSocket.",
     leadsTo: "Lleva a {targets}.",
-    leadsNowhere: "No lleva a ningún otro sitio.",
     tableToggle: "Ver las conexiones como tabla",
     tableCaption: "Conexiones de {label}",
     from: "Desde",
@@ -114,7 +111,6 @@ export const common: Catalog<typeof en> = {
   },
   dataTable: {
     actions: "Acciones",
-    cardActions: "Acciones de {name}",
   },
   pagination: {
     label: "Paginación",
@@ -152,13 +148,11 @@ export const common: Catalog<typeof en> = {
     success: "Correcto",
     warning: "Aviso",
     error: "Error",
-    dismiss: "Descartar",
+    dismiss: "Cerrar",
   },
   meter: {
     high: "Alto",
     critical: "Crítico",
-    levelHigh: "{value}, alto",
-    levelCritical: "{value}, crítico",
   },
   emptyCell: {
     none: "Ninguno",
@@ -168,13 +162,9 @@ export const common: Catalog<typeof en> = {
     server: "Servidor {server}",
     place: "Dónde vive",
   },
-  filterBar: {
-    search: "Buscar",
-    clearFilters: "Quitar los filtros",
-  },
   jobProgress: {
     queued: "Esperando para empezar.",
-    dismiss: "Descartar",
+    dismiss: "Cerrar",
     noReason: "La tarea terminó sin decir por qué.",
     cancelled: "La tarea se canceló antes de terminar.",
   },
@@ -250,7 +240,7 @@ export const common: Catalog<typeof en> = {
     noAnswer: "Sin respuesta",
     runningUnmanaged: "En marcha fuera de Noust",
     degraded: "Degradada",
-    runningNoHealthcheck: "En marcha, sin comprobación de salud",
+    runningNoHealthcheck: "En ejecución, sin comprobación de arranque",
     unknown: "Desconocido",
   },
   deployState: {
@@ -264,7 +254,7 @@ export const common: Catalog<typeof en> = {
     unknown: "Desconocido",
   },
   errorBlock: {
-    tryAgain: "Reintentar",
+    tryAgain: "Intentar de nuevo",
     systemSaidLabel: "{title}: lo que dijo el sistema",
     commandOutputLabel: "{title}: la salida propia del comando",
   },
@@ -277,7 +267,7 @@ export const common: Catalog<typeof en> = {
     title: "Zona de peligro",
   },
   keyValueList: {
-    empty: "Sin establecer",
+    empty: "Sin definir",
   },
   resourceMeter: {
     missing: "Sin lectura",
@@ -329,7 +319,7 @@ export const common: Catalog<typeof en> = {
     showing: "Mostrando del {from} al {to}, {resolution}.",
     showingSince: "Mostrando del {from} al {to}, {resolution}. Historial desde {since}.",
     showingBare: "Mostrando del {from} al {to}.",
-    readingAgain: "Leyendo de nuevo este tramo con más detalle…",
+    readingAgain: "Cargando de nuevo este tramo con más detalle…",
     readingEvery: { one: "una lectura por segundo", other: "una lectura cada {count} segundos" },
     averages: {
       seconds: "medias de {count} s",
@@ -349,5 +339,37 @@ export const common: Catalog<typeof en> = {
     keyboardHint:
       "Las flechas izquierda y derecha recorren las lecturas, Re Pág y Av Pág de diez en diez, Inicio y Fin van a la primera y la última, Intro deja la lectura en pantalla, Escape la quita.",
     keyboardHintZoomable: " Arrastra sobre la gráfica con el puntero para acercar, o usa los botones de zoom.",
+  },
+  words: {
+    name: "Nombre",
+    cancel: "Cancelar",
+    fromTerminal: "Desde un terminal",
+    sameFromTerminal: "Lo mismo, desde un terminal",
+    remove: "Quitar",
+    close: "Cerrar",
+    edit: "Editar",
+    editNamed: "Editar {name}",
+    actionsForDomain: "Acciones de {domain}",
+    done: "Hecho",
+    clearFilters: "Quitar filtros",
+    save: "Guardar",
+    delete: "Eliminar",
+    deleteNamed: "Eliminar {name}",
+    removeNamed: "Quitar {name}",
+    removeNamedQuestion: "¿Quitar {name}?",
+    back: "Atrás",
+    start: "Iniciar",
+    stop: "Detener",
+    restart: "Reiniciar",
+    update: "Actualizar",
+    retry: "Reintentar",
+    backUpNow: "Hacer copia ahora",
+    add: "Añadir",
+    next: "Siguiente",
+    revoke: "Revocar",
+    yes: "Sí",
+    no: "No",
+    continue: "Continuar",
+    failedFeminine: "Fallida",
   },
 };

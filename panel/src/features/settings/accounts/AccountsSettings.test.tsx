@@ -84,7 +84,7 @@ async function confirmItsYou(user: ReturnType<typeof renderConsole>["user"]): Pr
   const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
   // A person confirms with a code: they gave the password and a code to sign in.
   await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-  await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+  await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 }
 
 describe("Settings > Accounts", () => {
@@ -219,7 +219,7 @@ describe("Settings > Accounts", () => {
     const { user } = renderConsole("/settings/accounts");
     await screen.findByText("ana");
     await user.click(screen.getByRole("button", { name: "Actions for ana" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Mail address..." }));
+    await user.click(await screen.findByRole("menuitem", { name: "Mail address…" }));
     const dialog = await screen.findByRole("dialog", { name: "Mail address of ana" });
     expect(within(dialog).getByRole("button", { name: "Save the address" })).toBeDisabled();
     await user.type(within(dialog).getByLabelText("Address"), "ana@work.example");
@@ -287,7 +287,7 @@ describe("Settings > Accounts", () => {
 
     const waiting = await screen.findByRole("dialog", { name: "Waiting for approval" });
     expect(within(waiting).getByText("#41")).toBeInTheDocument();
-    expect(within(waiting).getByText("Waiting")).toBeInTheDocument();
+    expect(within(waiting).getByText("Pending")).toBeInTheDocument();
     await expectNoAxeViolations(waiting);
 
     state = "approved";

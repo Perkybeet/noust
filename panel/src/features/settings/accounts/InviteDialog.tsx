@@ -209,7 +209,7 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
                 }}
               />
             </Field>
-            <Field label={t("accounts.fields.displayName")} optional error={errors.fields.display_name}>
+            <Field label={t("common.words.name")} optional error={errors.fields.display_name}>
               <Input
                 autoComplete="off"
                 maxLength={128}

@@ -189,7 +189,7 @@ function PolicyForm({ domain, policy }: { domain: string; policy: AppPolicy }) {
       {nginx && org.can("server.manage") ? <ForwardAuthFold form={form} t={t} /> : null}
       <RoutesCard domain={domain} routes={form.draft.routes} error={form.errorOf("routes")} onChange={(routes) => form.edit("routes", routes)} />
       {form.failure !== null ? <ErrorBlock live compact error={form.failure} title={t("network.access.notSaved", { domain })} /> : null}
-      <CommandHint command={`noust app policy show ${domain}`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={`noust app policy show ${domain}`} label={t("common.words.fromTerminal")} />
       <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
       <AccessQuestions form={form} domain={domain} />
     </div>

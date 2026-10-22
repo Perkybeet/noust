@@ -327,7 +327,7 @@ export function EnginesPage() {
               </MenuItem>
             ) : (
               <MenuItem icon={<Play />} disabled={control.isPending} onClick={() => act(engine, "start")}>
-                {t("databases.engines.start")}
+                {t("common.words.start")}
               </MenuItem>
             )}
             {!container ? (
@@ -356,11 +356,11 @@ export function EnginesPage() {
             </MenuItem>
             <MenuSeparator />
             <MenuItem icon={<RotateCw />} disabled={control.isPending} onClick={() => act(engine, "restart")}>
-              {t("databases.engines.restart")}
+              {t("common.words.restart")}
             </MenuItem>
             {engine.running ? (
               <MenuItem icon={<Square />} disabled={control.isPending} onClick={() => act(engine, "stop")}>
-                {t("databases.engines.stop")}
+                {t("common.words.stop")}
               </MenuItem>
             ) : null}
             {!container ? (
@@ -454,7 +454,7 @@ export function EnginesPage() {
       }}
       tabs={tabs}
       {...(shownNotice !== undefined && shownNotice !== null ? { notice: shownNotice } : {})}
-      {...(engines.isPending ? {} : { footer: <CommandHint command="noust db engines" label={t("databases.common.fromTerminal")} /> })}
+      {...(engines.isPending ? {} : { footer: <CommandHint command="noust db engines" label={t("common.words.fromTerminal")} /> })}
     >
       {/* design-exception: hand-error-ternary each table below draws its own skeleton rows while the engines load */}
       {engines.isError && engines.data === undefined ? (

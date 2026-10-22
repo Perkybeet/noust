@@ -9,7 +9,6 @@ export const registries = {
   loading: "Loading the registry accounts",
   caption: "Registry accounts",
   add: "Add an account",
-  columnName: "Name",
   columnRegistry: "Registry",
   columnAccount: "Account",
   columnState: "Last test",
@@ -20,7 +19,6 @@ export const registries = {
   emptyDescription: "Add one when an image or a base image is private. Public images need no account.",
   state: {
     ok: "Logged in",
-    failed: "Failed",
     untested: "Not tested",
   },
   kind: {
@@ -33,19 +31,14 @@ export const registries = {
     custom: "Another registry",
   },
   actions: {
-    more: "Actions for {name}",
     test: "Test the login",
-    edit: "Edit",
-    remove: "Remove",
     tested: "{name} logged in to {server}",
     testFailed: "The login of {name} failed",
   },
   dialog: {
     addTitle: "Add a registry account",
     addDescription: "Noust logs in with it when it pulls or builds an image for an application you attach it to.",
-    editTitle: "Edit {name}",
     editDescription: "Leave the password empty to keep the one stored.",
-    name: "Name",
     nameDescription: "Lowercase letters, digits, dots, dashes and underscores. Applications refer to the account by it.",
     kind: "Registry",
     server: "Registry address",
@@ -56,7 +49,6 @@ export const registries = {
     password: "Password or token",
     passwordEcr: "AWS secret access key",
     passwordKeep: "Password or token (empty keeps it)",
-    cancel: "Cancel",
     save: "Add the account",
     saveEdit: "Save the changes",
     failed: "The account could not be saved",
@@ -78,6 +70,5 @@ export const registries = {
     none: "There are no registry accounts yet.",
     manage: "Manage the accounts",
     saved: "The accounts of {domain} were saved",
-    fromTerminal: "The same, from a terminal",
   },
 } as const;

@@ -151,7 +151,7 @@ function AddChannelDrawer({ open, onOpenChange, onAdded }: { open: boolean; onOp
     >
       <form id={formId} noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-5">
         <FormFailure error={add.error} title={t("notifyRouting.more.createErrorTitle")} />
-        <Field label={t("notifyRouting.more.nameLabel")} description={t("notifyRouting.more.nameDescription")} error={named && !valid ? t("notifyRouting.more.nameBad") : undefined}>
+        <Field label={t("common.words.name")} description={t("notifyRouting.more.nameDescription")} error={named && !valid ? t("notifyRouting.more.nameBad") : undefined}>
           <Input
             ref={nameRef}
             mono

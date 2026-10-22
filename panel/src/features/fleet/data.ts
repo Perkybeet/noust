@@ -182,7 +182,7 @@ export const OUTCOME_VIEW: Readonly<Record<OutcomeKind, { state: Status; label: 
   // An older Noust is not a fault: grey, and the question mark of what it cannot say.
   unsupported: { state: "unknown", label: "fleet.outcome.unsupported" },
   forbidden: { state: "warning", label: "fleet.outcome.forbidden" },
-  error: { state: "failed", label: "fleet.outcome.error" },
+  error: { state: "failed", label: "common.statusPill.failed" },
 };
 
 /** The servers whose answer is not fresh and complete, in the central's order. */
@@ -358,10 +358,10 @@ export function nodeJobState(state: string): NodeJobState {
 
 /** Each server's state in a job, told with the console's states: colour, shape and word. */
 export const NODE_JOB_VIEW: Readonly<Record<NodeJobState, { state: Status; label: PlainKey }>> = {
-  queued: { state: "queued", label: "fleet.jobs.state.queued" },
-  running: { state: "deploying", label: "fleet.jobs.state.running" },
-  succeeded: { state: "running", label: "fleet.jobs.state.succeeded" },
-  failed: { state: "failed", label: "fleet.jobs.state.failed" },
+  queued: { state: "queued", label: "common.statusPill.queued" },
+  running: { state: "deploying", label: "common.deployState.inProgress" },
+  succeeded: { state: "running", label: "common.deployState.succeeded" },
+  failed: { state: "failed", label: "common.statusPill.failed" },
   skipped: { state: "stopped", label: "fleet.jobs.state.skipped" },
   unreachable: { state: "failed", label: "fleet.jobs.state.unreachable" },
   refused: { state: "failed", label: "fleet.jobs.state.refused" },
@@ -373,16 +373,16 @@ export const NODE_JOB_VIEW: Readonly<Record<NodeJobState, { state: Status; label
 
 /** The whole job's state. */
 export const JOB_STATUS_VIEW: Readonly<Record<string, { state: Status; label: PlainKey }>> = {
-  queued: { state: "queued", label: "fleet.jobs.status.queued" },
-  running: { state: "deploying", label: "fleet.jobs.status.running" },
+  queued: { state: "queued", label: "common.statusPill.queued" },
+  running: { state: "deploying", label: "common.deployState.inProgress" },
   succeeded: { state: "running", label: "fleet.jobs.status.succeeded" },
-  failed: { state: "failed", label: "fleet.jobs.status.failed" },
+  failed: { state: "failed", label: "common.words.failedFeminine" },
   aborted: { state: "failed", label: "fleet.jobs.status.aborted" },
   interrupted: { state: "warning", label: "fleet.jobs.status.interrupted" },
 };
 
 export function jobStatusView(status: string): { state: Status; label: PlainKey } {
-  return JOB_STATUS_VIEW[status] ?? { state: "unknown", label: "fleet.jobs.status.unknown" };
+  return JOB_STATUS_VIEW[status] ?? { state: "unknown", label: "common.statusPill.unknown" };
 }
 
 /** Why a server was skipped, in words; a reason this console does not know yet, verbatim. */

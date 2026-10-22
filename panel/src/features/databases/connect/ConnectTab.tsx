@@ -272,7 +272,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
         </Section>
       </Sections>
 
-      <CommandHint command={`noust db connect-info ${name} -e ${engine}`} label={t("databases.common.fromTerminal")} />
+      <CommandHint command={`noust db connect-info ${name} -e ${engine}`} label={t("common.words.fromTerminal")} />
       <LinkDialog open={linking} onOpenChange={setLinking} engine={engine} database={name} onQueued={(accepted, domain) => job.track(accepted, "link", domain)} />
       <SecretShown secret={secret} onClose={() => setSecret(null)} />
     </div>

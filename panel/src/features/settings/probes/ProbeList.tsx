@@ -144,7 +144,7 @@ function ProbeRow({ probe }: { probe: Probe }) {
               setEditing(true);
             }}
           >
-            {t("probes.edit")}
+            {t("common.words.edit")}
           </MenuItem>
           <MenuSeparator />
           <MenuItem
@@ -154,7 +154,7 @@ function ProbeRow({ probe }: { probe: Probe }) {
               setRemoving(true);
             }}
           >
-            {t("probes.remove")}
+            {t("common.words.remove")}
           </MenuItem>
         </RowMenu>
       }
@@ -226,9 +226,9 @@ function ProbeRow({ probe }: { probe: Probe }) {
         friction="simple"
         open={removing}
         onOpenChange={setRemoving}
-        title={t("probes.removeTitle", { name: probe.name })}
+        title={t("common.words.removeNamedQuestion", { name: probe.name })}
         description={t("probes.removeDescription")}
-        actionLabel={t("probes.remove")}
+        actionLabel={t("common.words.remove")}
         destructive
         onConfirm={async () => {
           await removeProbe(probe.name);

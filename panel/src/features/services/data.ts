@@ -53,13 +53,13 @@ export function serviceState(
   }
   if (activeState === "failed") {
     return detail !== undefined
-      ? { state: "failed", label: "services.state.failed", detail }
-      : { state: "failed", label: "services.state.failed" };
+      ? { state: "failed", label: "common.statusPill.failed", detail }
+      : { state: "failed", label: "common.statusPill.failed" };
   }
   if (service.active) {
-    return { state: "running", label: "services.state.running" };
+    return { state: "running", label: "common.statusPill.running" };
   }
-  return { state: "stopped", label: "services.state.stopped" };
+  return { state: "stopped", label: "common.statusPill.stopped" };
 }
 
 export const SERVICE_STATES = ["failed", "running", "stopped"] as const;
