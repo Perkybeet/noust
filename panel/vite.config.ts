@@ -5,6 +5,7 @@ import { defineConfig, loadEnv } from "vite";
 import type { Plugin, ProxyOptions } from "vite";
 
 import { mockBackend } from "./mock/backend.ts";
+import { LICENSES_FILE, licensesOf } from "./scripts/bundle-licenses.mjs";
 
 // The console talks to the real FastAPI backend in development. Point VITE_BACKEND at any
 // running `wasm web` instance; the default is the panel's own default bind address.
@@ -43,6 +44,47 @@ function preloadFonts(): Plugin {
   };
 }
 
+/**
+ * The file name of a chunk that is one namespace of the catalogs, `assets/i18n-en-<namespace>-<hash>.js`
+ * or `assets/i18n-es-...`, and nothing for any other chunk. The language is in the name so that
+ * scripts/check-bundle-budget.mjs can weigh the English texts and the Spanish ones apart, which no
+ * module id reaches once the build is written (the catalog of a feature and the feature are both
+ * `catalog-<hash>.js` otherwise), and a regression of the texts shows as itself and not as "totalJs".
+ *
+ * @param facade - The module a chunk starts at, when it starts at one.
+ * @returns The pattern for the chunk's name, or undefined for a chunk that is not a catalog.
+ */
+function catalogChunkName(facade: string | null): string | undefined {
+  const language = /[\\/]src[\\/]i18n[\\/](en|es)[\\/][^\\/]+\.ts$/.exec(facade ?? "")?.[1];
+  return language === undefined ? undefined : `assets/i18n-${language}-[name]-[hash].js`;
+}
+
+/**
+ * Writes `third-party-licenses.txt` next to index.html: the copyright and the licence text of every npm
+ * package whose code, stylesheet or font went into this build (React, Base UI, TanStack, lucide and the
+ * rest are MIT or ISC, which ask for both to travel with every copy). The build is committed and shipped
+ * in the wheel and the packages, and NOTICE points to this file. It is read from what the bundler wrote
+ * into each chunk, so a package that was tree-shaken out is not listed and a new one is, with nothing to
+ * remember; scripts/bundle-licenses.mjs has the reading and its tests.
+ */
+function thirdPartyLicenses(): Plugin {
+  return {
+    name: "noust-third-party-licenses",
+    apply: "build",
+    generateBundle(_options, bundle) {
+      this.emitFile({
+        type: "asset",
+        fileName: LICENSES_FILE,
+        source: licensesOf(bundle, {
+          // Tailwind and uPlot are bare imports of the entry stylesheet, compiled into the CSS and so not a module of any chunk.
+          projectDir: import.meta.dirname,
+          stylesheets: ["src/styles/app.css"],
+        }),
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   const backend = env.VITE_BACKEND ?? DEFAULT_BACKEND;
@@ -65,6 +107,7 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       preloadFonts(),
+      thirdPartyLicenses(),
       ...(mock ? [mockBackend()] : []),
     ],
     base: "/",
@@ -91,7 +134,14 @@ export default defineConfig(({ mode }) => {
           // the first page pays for and no icon is worth (about 18 kB gzip of totalJs and 1 kB of the
           // initial script, measured on the navigation lane). One chunk is one name in each list, and
           // one request where there were dozens. An icon only one or two chunks draw stays with them.
+          //
+          // package.json has no "sideEffects" on purpose. Measured on this tree: marking components/page and
+          // components/ui pure changes the build by 15 bytes, importing a name from the components/page index in
+          // the first screen's shell adds 0.5 kB to totalJs and nothing to initialJs (the templates are already
+          // dropped, being only declarations), and "sideEffects": ["**/*.css"] re-partitions the shared chunks
+          // and makes the console 9.6 kB heavier. Measure again before trying it.
           codeSplitting: { groups: [{ name: "lucide", test: /node_modules[\\/]lucide-react/, minShareCount: 3 }] },
+          chunkFileNames: (chunk) => catalogChunkName(chunk.facadeModuleId) ?? "assets/[name]-[hash].js",
         },
       },
     },

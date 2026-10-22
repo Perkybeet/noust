@@ -52,6 +52,16 @@ SIL Open Font License, Version 1.1 (see LICENSE-OFL-1.1):
 
   src/noust/web/static/assets/*.woff2
 
+Libraries of the console
+------------------------
+The console is built from npm packages (React, Base UI, TanStack, lucide, uPlot and others) under the
+MIT and ISC licences, which ask for their copyright line and their licence text to travel with every
+copy. The build writes both, package by package, from the packages that went into it (a package added,
+upgraded or shaken out changes the file with no one remembering to), and the file ships with the
+console in every package:
+
+  src/noust/web/static/third-party-licenses.txt
+
 Dokploy templates
 -----------------
 The tests of the Dokploy template converter quote parts of templates from
