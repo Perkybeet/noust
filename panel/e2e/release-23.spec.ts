@@ -19,7 +19,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { csrf, forgetApp } from "./apps-cleanup";
 import { spanish } from "./catalog";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
-import { continueTo, inspectSource, wizardSource } from "./wizard-sources";
+import { chooseWay, continueTo, inspectSource, wizardSource } from "./wizard-sources";
 
 /** The seeded application with an alias, a cron job, a secret variable and a linked database. */
 const EXPORTED = "lanzamiento.example.org";
@@ -45,10 +45,7 @@ async function downloadedJson(download: Download): Promise<ExportDocument> {
 
 /** Chooses one of the wizard's starts: "From a recipe", "Import an application"... */
 async function chooseStart(page: Page, name: string): Promise<void> {
-  const choice = page.getByRole("radiogroup", { name: "Where the code is" }).getByRole("radio", { name });
-  await expect(choice).toBeVisible();
-  await choice.click();
-  await expect(choice).toHaveAttribute("aria-checked", "true");
+  await chooseWay(page, name);
 }
 
 test("a recipe from the gallery is reviewed, deployed, and says what to do next", async ({ page, consoleServer }) => {
@@ -77,7 +74,8 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   await recipes.getByRole("button", { name: "Use WordPress" }).click();
   // One step for a recipe: where it answers, and its variables, with a Deploy of its own.
   await expect(page.getByRole("heading", { level: 2, name: "Address and variables" })).toBeFocused();
-  // The archive and where its checksum is published, straight from wordpress.yaml.
+  // The archive and where its checksum is published, straight from wordpress.yaml, under Details.
+  await page.getByRole("button", { name: "Details" }).click();
   await expect(page.getByText("https://wordpress.org/latest.tar.gz", { exact: true })).toBeVisible();
   await page.getByLabel("Domain", { exact: true }).fill(domain);
   await expect(page.getByText(`${domain} points here`)).toBeVisible();

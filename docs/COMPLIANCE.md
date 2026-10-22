@@ -41,6 +41,7 @@ The console has the same under Settings > Security > Compliance. Disabling a fra
 | `separation_of_duties` | One person cannot hold the account that runs the server and the one that governs it, and an auditor holds nothing else, unless a documented exception is recorded. | off | `security.separation_of_duties` | on is stricter |
 | `single_role_per_account` | An account has one role: roles on the whole server are not added to it, and a person with two duties holds two accounts. | off | `security.single_role_per_account` | on is stricter |
 | `sso_no_admin` | An identity provider never hands out the admin role, by default or by group: a person grants it. | off | `security.sso_no_admin` | on is stricter |
+| `second_factor` | Every account enrols an authenticator or a passkey before it can do anything else. Where nothing asks for it, an account may set it up later, until the console is published on a public name. | off | `security.second_factor` | on is stricter |
 | `approvals` | Root-equivalent actions, servers and role changes wait for a second person to approve them. | off | `approval.enabled` | on is stricter |
 | `restricted_tokens` | An API token belongs to an account, cannot act in sudo mode and never holds root-equivalent, account or security permissions. | off | `security.restricted_tokens` | on is stricter |
 | `token_max_days` | The longest life of an API token, in days; an expiry becomes mandatory. | no limit | `auth.tokens.max_days` | a smaller number is stricter |
@@ -137,7 +138,7 @@ Spain's National Security Scheme, category MEDIA: what Noust has called the ens-
 
 Reference: Real Decreto 311/2022, Annex II.
 
-Enable it with `noust compliance enable ens-media`. It asks of 38 control(s); 33 of them ask for more than the default.
+Enable it with `noust compliance enable ens-media`. It asks of 39 control(s); 34 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
@@ -145,6 +146,7 @@ Enable it with `noust compliance enable ens-media`. It asks of 38 control(s); 33
 | `separation_of_duties` | on | op.acc.3.1: Development and operation do not fall on the same person<br>op.acc.3.2: Whoever authorises and whoever controls the use are different people |  |
 | `single_role_per_account` | on | op.acc.1.2: A separate identifier for each profile of the same person |  |
 | `sso_no_admin` | on | op.acc.3.2: Whoever authorises and whoever controls the use are different people |  |
+| `second_factor` | on | op.acc.6.r8.1: Two factors from or through uncontrolled zones | Every account has held one since 3.1 under this category; the control keeps it. |
 | `approvals` | on | op.acc.3.2: Whoever authorises and whoever controls the use are different people<br>op.exp.5.4: Relevant changes are approved beforehand |  |
 | `restricted_tokens` | on | op.acc.1.3: A unique identifier for every entity that accesses the system<br>op.acc.4.2: Least privilege |  |
 | `token_max_days` | 90 days | op.acc.6.4: Credentials are changed periodically | The period is the organisation's; 90 days is Noust's. |
@@ -196,7 +198,7 @@ Spain's National Security Scheme, category ALTA: MEDIA plus a backup kept apart.
 
 Reference: Real Decreto 311/2022, Annex II.
 
-Enable it with `noust compliance enable ens-alta`. It asks of 39 control(s); 34 of them ask for more than the default.
+Enable it with `noust compliance enable ens-alta`. It asks of 40 control(s); 35 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
@@ -204,6 +206,7 @@ Enable it with `noust compliance enable ens-alta`. It asks of 39 control(s); 34 
 | `separation_of_duties` | on | op.acc.3.1: Development and operation do not fall on the same person<br>op.acc.3.2: Whoever authorises and whoever controls the use are different people |  |
 | `single_role_per_account` | on | op.acc.1.2: A separate identifier for each profile of the same person |  |
 | `sso_no_admin` | on | op.acc.3.2: Whoever authorises and whoever controls the use are different people |  |
+| `second_factor` | on | op.acc.6.r8.1: Two factors from or through uncontrolled zones | Every account has held one since 3.1 under this category; the control keeps it. |
 | `approvals` | on | op.acc.3.2: Whoever authorises and whoever controls the use are different people<br>op.exp.5.4: Relevant changes are approved beforehand |  |
 | `restricted_tokens` | on | op.acc.1.3: A unique identifier for every entity that accesses the system<br>op.acc.4.2: Least privilege |  |
 | `token_max_days` | 90 days | op.acc.6.4: Credentials are changed periodically | The period is the organisation's; 90 days is Noust's. |
@@ -262,7 +265,7 @@ The international information security management standard: the technical contro
 
 Reference: ISO/IEC 27001:2022, Annex A.
 
-Enable it with `noust compliance enable iso-27001`. It asks of 37 control(s); 32 of them ask for more than the default.
+Enable it with `noust compliance enable iso-27001`. It asks of 38 control(s); 33 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
@@ -270,6 +273,7 @@ Enable it with `noust compliance enable iso-27001`. It asks of 37 control(s); 32
 | `separation_of_duties` | on | A.5.3: Segregation of duties |  |
 | `single_role_per_account` | on | A.8.2: Privileged access rights |  |
 | `sso_no_admin` | on | A.8.2: Privileged access rights |  |
+| `second_factor` | on | A.8.5: Secure authentication | A.8.5 leaves the method to the organisation; a second factor is Noust's reading. |
 | `restricted_tokens` | on | A.5.17: Authentication information<br>A.8.2: Privileged access rights |  |
 | `token_max_days` | 90 days | A.5.17: Authentication information | ISO/IEC 27001 prescribes no number; this one is Noust's reading. |
 | `master_token` | recovery | A.8.2: Privileged access rights |  |
@@ -318,10 +322,11 @@ The EU directive on the security of network and information systems: the risk-ma
 
 Reference: Directive (EU) 2022/2555, article 21.
 
-Enable it with `noust compliance enable nis2`. It asks of 20 control(s); 15 of them ask for more than the default.
+Enable it with `noust compliance enable nis2`. It asks of 21 control(s); 16 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
+| `second_factor` | on | Art. 21(2)(j): The use of multi-factor authentication or continuous authentication solutions |  |
 | `restricted_tokens` | on | Art. 21(2)(i): Human resources security, access control policies and asset management |  |
 | `token_max_days` | 90 days | Art. 21(2)(i): Human resources security, access control policies and asset management | Article 21 names areas, not settings; this number is Noust's reading. |
 | `sudo_password` | on | Art. 21(2)(j): The use of multi-factor authentication or continuous authentication solutions |  |
@@ -356,11 +361,12 @@ The Center for Internet Security's essential cyber hygiene (Implementation Group
 
 Reference: CIS Critical Security Controls v8.
 
-Enable it with `noust compliance enable cis-ig1`. It asks of 6 control(s); 6 of them ask for more than the default.
+Enable it with `noust compliance enable cis-ig1`. It asks of 7 control(s); 7 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
 | `single_role_per_account` | on | 5.4: Restrict administrator privileges to dedicated administrator accounts |  |
+| `second_factor` | on | 6.5: Require MFA for administrative access | the framework fixes this number |
 | `session_idle_minutes` | 15 minutes | 4.3: Configure automatic session locking on enterprise assets | the framework fixes this number |
 | `access_review_days` | 90 days | 5.1: Establish and maintain an inventory of accounts | the framework fixes this number Validate the accounts at least quarterly. |
 | `stale_account_days` | 45 days | 5.3: Disable dormant accounts | the framework fixes this number |
@@ -382,11 +388,12 @@ Reference: CIS Critical Security Controls v8.
 
 It contains everything `cis-ig1` asks.
 
-Enable it with `noust compliance enable cis-ig2`. It asks of 10 control(s); 9 of them ask for more than the default.
+Enable it with `noust compliance enable cis-ig2`. It asks of 11 control(s); 10 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
 | `single_role_per_account` | on | 5.4: Restrict administrator privileges to dedicated administrator accounts |  |
+| `second_factor` | on | 6.5: Require MFA for administrative access | the framework fixes this number |
 | `session_idle_minutes` | 15 minutes | 4.3: Configure automatic session locking on enterprise assets | the framework fixes this number |
 | `access_review_days` | 90 days | 5.1: Establish and maintain an inventory of accounts | the framework fixes this number Validate the accounts at least quarterly. |
 | `stale_account_days` | 45 days | 5.3: Disable dormant accounts | the framework fixes this number |
@@ -409,12 +416,13 @@ The AICPA Trust Services Criteria for Security (the common criteria): the logica
 
 Reference: AICPA Trust Services Criteria (2017, revised points of focus 2022), CC6, CC7, CC8.
 
-Enable it with `noust compliance enable soc2-security`. It asks of 23 control(s); 21 of them ask for more than the default.
+Enable it with `noust compliance enable soc2-security`. It asks of 24 control(s); 22 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
 | `roles_split` | on | CC6.3: Role-based access, least privilege and segregation of duties |  |
 | `separation_of_duties` | on | CC6.3: Role-based access, least privilege and segregation of duties |  |
+| `second_factor` | on | CC6.1: Logical access security software, infrastructure and architectures | The criteria name no method; a second factor is Noust's reading. |
 | `approvals` | on | CC8.1: Change management |  |
 | `restricted_tokens` | on | CC6.1: Logical access security software, infrastructure and architectures<br>CC6.3: Role-based access, least privilege and segregation of duties |  |
 | `token_max_days` | 90 days | CC6.1: Logical access security software, infrastructure and architectures | The criteria name no number; this one is Noust's reading. |
@@ -489,6 +497,7 @@ What each framework asks of each control. A blank cell means it asks nothing.
 | `separation_of_duties` |  | on | on | on |  |  |  | on |  |
 | `single_role_per_account` | on | on | on | on |  | on | on |  |  |
 | `sso_no_admin` |  | on | on | on |  |  |  |  |  |
+| `second_factor` |  | on | on | on | on | on | on | on |  |
 | `approvals` |  | on | on |  |  |  |  | on |  |
 | `restricted_tokens` | on | on | on | on | on |  |  | on | on |
 | `token_max_days` | 90 days | 90 days | 90 days | 90 days | 90 days |  |  | 90 days | 90 days |

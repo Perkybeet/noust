@@ -337,6 +337,7 @@ export const domains = {
     pointsHere: "{domain} points here",
     hasNoRecord: "{domain} has no DNS record yet",
     pointsElsewhere: "{domain} points somewhere else",
+    showRecords: "Show the records",
     thisServerLabel: "This server",
     noPublicAddress: "No public address found",
     resolvesToLabel: "{domain} resolves to",

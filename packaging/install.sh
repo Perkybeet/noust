@@ -51,8 +51,9 @@
 #   --admin-user NAME  create this administrator account once Noust is installed
 #                      (skipped when it exists). The password is never an argument:
 #                      give --admin-password-file FILE (its first line) or the
-#                      NOUST_ADMIN_PASSWORD variable. The account enrols its
-#                      authenticator at its first sign-in.
+#                      NOUST_ADMIN_PASSWORD variable. The console offers the
+#                      account an authenticator at its first sign-in; it is required
+#                      before the console is published on a name.
 #   --admin-password-file FILE   where that password is read from
 #   --admin-email ADDRESS        the address that administrator's invitations and password
 #                      resets are mailed to (set again on every run, so it also fixes an
@@ -80,7 +81,8 @@
 # NOUST_OS_RELEASE and NOUST_ARCH replace /etc/os-release and `uname -m`, which
 # is how the platform table is tested without those machines; NOUST_MEMORY_MB, NOUST_CPUS,
 # NOUST_DISK_FREE_MB and NOUST_PORT_HOLDERS ("80:caddy 443:nginx") do the same for what the
-# machine has, and NOUST_SERVER_ADDRESS names the address the console's link is printed for.
+# machine has, and NOUST_SERVER_ADDRESS names the address the console's link is printed for (set to an
+# empty string it describes a machine whose address is not known, and nothing is probed).
 #
 # Exit status: 0 done, 1 something failed, 2 wrong usage, 3 platform or machine refused.
 
@@ -1309,23 +1311,75 @@ configure_auto_update() {
     AUTO_UPDATE_STATE=enabled
 }
 
-# server_address: the address the operator reached this server at (sshd records it), else the first
-# one the machine reports; nothing when neither is known, and a placeholder is printed instead.
+# server_address: the address the operator reached this server at (sshd records it), else the one
+# the machine sends its traffic out from (the source of the default route), else the first one it
+# reports; nothing when none is known, and a sentence is printed instead of a guess. It sets
+# SERVER_ADDRESS (empty when unknown) and prints nothing, so it is called without a substitution.
+#
+# ADDRESS_FROM says where it came from (declared, ssh, route or host): an address the operator
+# declared or reached the server at is theirs, while the machine's own may be a private one that
+# the operator's computer cannot reach. NOUST_SERVER_ADDRESS set to an empty string describes a
+# machine whose address is unknown, and nothing is probed.
 server_address() {
-    candidate="${NOUST_SERVER_ADDRESS:-}"
-    if [ -z "$candidate" ] && [ -n "${SSH_CONNECTION:-}" ]; then
-        # "client-address client-port server-address server-port"
-        # shellcheck disable=SC2086 # split on the blanks on purpose
-        set -- $SSH_CONNECTION
-        candidate="${3:-}"
-    fi
-    if [ -z "$candidate" ] && have hostname; then
-        candidate=$(hostname -I 2>/dev/null | cut -d' ' -f1) || candidate=""
+    ADDRESS_FROM=""
+    candidate=""
+    if [ "${NOUST_SERVER_ADDRESS+set}" = set ]; then
+        candidate="$NOUST_SERVER_ADDRESS"
+        ADDRESS_FROM=declared
+    else
+        if [ -n "${SSH_CONNECTION:-}" ]; then
+            # "client-address client-port server-address server-port"
+            # shellcheck disable=SC2086 # split on the blanks on purpose
+            set -- $SSH_CONNECTION
+            candidate="${3:-}"
+            ADDRESS_FROM=ssh
+        fi
+        if [ -z "$candidate" ] && have ip; then
+            candidate=$(ip route get 1.1.1.1 2>/dev/null |
+                sed -n 's/.* src \([0-9A-Fa-f.:]*\).*/\1/p' | head -n 1) || candidate=""
+            ADDRESS_FROM=route
+        fi
+        if [ -z "$candidate" ] && have hostname; then
+            candidate=$(hostname -I 2>/dev/null | cut -d' ' -f1) || candidate=""
+            ADDRESS_FROM=host
+        fi
     fi
     case "$candidate" in
         *[!0-9A-Za-z.:-]* | -*) candidate="" ;;
     esac
-    printf '%s' "$candidate"
+    SERVER_ADDRESS="$candidate"
+}
+
+# private_address ADDRESS: succeeds when it belongs to a network the internet does not route
+# (RFC 1918, loopback, link-local, carrier-grade NAT, IPv6 unique-local), where an address the
+# machine reports for itself is no use to a person on another network.
+private_address() {
+    case "$1" in
+        10.* | 127.* | 192.168.* | 169.254.* | 172.1[6-9].* | 172.2[0-9].* | 172.3[01].*) return 0 ;;
+        100.6[4-9].* | 100.[7-9][0-9].* | 100.1[01][0-9].* | 100.12[0-7].*) return 0 ;;
+        ::1 | fe80:* | fc[0-9A-Fa-f][0-9A-Fa-f]:* | fd[0-9A-Fa-f][0-9A-Fa-f]:*) return 0 ;;
+    esac
+    return 1
+}
+
+# say_console_access: how to reach the console from the operator's own computer, as a command that
+# is copied as it is, and what to know about the address in it.
+say_console_access() {
+    say "To open the console from your computer, run this there:"
+    say "  $CONSOLE_TUNNEL"
+    say "Then browse to:"
+    say "  $CONSOLE_URL"
+    if [ "$DRY_RUN" != 1 ] && [ "${CONSOLE_STATE:-skipped}" = new ]; then
+        say "Its access token is in the box above; it is shown only once."
+    fi
+    if [ -z "$SERVER_ADDRESS" ]; then
+        say "The installer could not tell this server's public address: replace $ADDRESS_PLACEHOLDER with"
+        say "the one you SSH to."
+    elif { [ "$ADDRESS_FROM" = route ] || [ "$ADDRESS_FROM" = host ]; } &&
+        private_address "$SERVER_ADDRESS"; then
+        say "$SERVER_ADDRESS is an address of a private network, which your computer may not reach: use"
+        say "the address you reach this server at."
+    fi
 }
 
 # print_json: the one document --json promises, on the standard output kept in descriptor 3.
@@ -1374,9 +1428,9 @@ next_steps() {
     if [ "$DRY_RUN" = 1 ]; then
         say "Dry run: nothing was changed."
         if [ "$NO_CONSOLE" != 1 ]; then
-            say "After a real run the console would be reached with:"
-            say "  $CONSOLE_TUNNEL"
-            say "  then $CONSOLE_URL"
+            say "After a real run, the console would be reached like this."
+            say ""
+            say_console_access
         fi
         return 0
     fi
@@ -1385,14 +1439,8 @@ next_steps() {
         new | existing)
             say ""
             say "The console listens on 127.0.0.1:8080 of this server, and on purpose nowhere else."
-            if [ "${CONSOLE_STATE}" = new ]; then
-                say "Its access token is in the box printed above; it is shown only once."
-            fi
             say ""
-            say "To open it from your own computer, through SSH:"
-            say "  $CONSOLE_TUNNEL"
-            say "then open this link, which asks for the access token, and paste it:"
-            say "  $CONSOLE_URL"
+            say_console_access
             say ""
             say "To publish it on a name of your own, with a certificate (opt-in; it needs two-factor"
             say "sign-in on every account, so create yours first):"
@@ -1404,8 +1452,8 @@ next_steps() {
     esac
     if [ "$ADMIN_STATE" = created ]; then
         say ""
-        say "Sign in as $ADMIN_USER at http://127.0.0.1:8080/login: the console asks it to enrol its"
-        say "authenticator first."
+        say "Sign in as $ADMIN_USER at http://127.0.0.1:8080/login, through the same tunnel. The"
+        say "console offers to protect the account with an authenticator once it is in."
     fi
     if [ "$AUTO_UPDATE_STATE" = enabled ]; then
         say ""
@@ -1433,10 +1481,10 @@ main() {
     decide_method
     require_root
     check_machine
-    address=$(server_address)
+    server_address
     CONSOLE_URL="http://127.0.0.1:8080/login?with=token"
-    placeholder="<this server's address>"
-    CONSOLE_TUNNEL="ssh -N -L 8080:127.0.0.1:8080 root@${address:-$placeholder}"
+    ADDRESS_PLACEHOLDER="<your server's public address>"
+    CONSOLE_TUNNEL="ssh -N -L 8080:127.0.0.1:8080 root@${SERVER_ADDRESS:-$ADDRESS_PLACEHOLDER}"
     if [ "$DRY_RUN" = 1 ]; then
         say "Dry run: no file is written and no command that changes the system is run."
     else

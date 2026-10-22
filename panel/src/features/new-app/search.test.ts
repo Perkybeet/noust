@@ -39,6 +39,24 @@ describe("the wizard's search", () => {
     expect(bad.recipe).toBeUndefined();
   });
 
+  it("deploys at once only when the link says exactly so", () => {
+    expect(validateNewAppSearch({ start: "recipe", recipe: "hello", deploy: "now" })).toEqual({ start: "recipe", recipe: "hello", deploy: "now" });
+    for (const value of ["", "yes", "NOW", "true", 1, true, ["now"]]) {
+      expect(validateNewAppSearch({ start: "recipe", recipe: "hello", deploy: value }).deploy, JSON.stringify(value)).toBeUndefined();
+    }
+    // A link without it names no key, so nothing is added to an address that never had it.
+    expect(Object.keys(validateNewAppSearch({ start: "recipe", recipe: "hello" }))).not.toContain("deploy");
+  });
+
+  it("resumes only for the link GitHub's round trip ends on", () => {
+    expect(validateNewAppSearch({ resume: 1 }).resume).toBe(1);
+    expect(validateNewAppSearch({ resume: "1" }).resume).toBe(1);
+    for (const value of [0, 2, "yes", true, "", null]) {
+      expect(validateNewAppSearch({ resume: value }).resume, JSON.stringify(value)).toBeUndefined();
+    }
+    expect(Object.keys(validateNewAppSearch({}))).not.toContain("resume");
+  });
+
   it("reads where the new application goes, from a project's page, and drops anything that is not a short name", () => {
     expect(validateNewAppSearch({ team: "acme", project: "web", environment: "staging" })).toEqual({ start: undefined, team: "acme", project: "web", environment: "staging" });
     const bad = validateNewAppSearch({ team: "Acme Corp", project: "../web", environment: 3 });

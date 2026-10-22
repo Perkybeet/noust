@@ -78,7 +78,7 @@ const SCREENS: readonly Screen[] = [
     expect: /status of 40[03] .* \/api\/apps\/inspect$/,
     act: async (page, server) => {
       await (await typedSource(page)).fill("/var/www/src/does-not-exist");
-      await page.getByRole("button", { name: "Inspect source" }).click();
+      await page.getByRole("button", { name: "Continue" }).click();
       const refusal = page.getByText("Source path does not exist");
       const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
       await expect(confirm.or(refusal)).toBeVisible();

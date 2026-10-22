@@ -123,6 +123,10 @@ class DeploymentOut(BaseModel):
             before 3.4) but nothing went wrong and nothing that served was touched.
         cancelled_at: When it was cancelled.
         cancelled_by: Who cancelled it.
+        certificate_state: How the certificate ordered for it ended: ``issued`` or ``failed``.
+            None when none was asked for. A certificate that is refused does not fail a
+            deployment: the application serves over HTTP.
+        certificate_output: What the certificate authority said when it refused, word for word.
     """
 
     id: int
@@ -150,6 +154,8 @@ class DeploymentOut(BaseModel):
     cancelled: bool = False
     cancelled_at: str | None = None
     cancelled_by: str | None = None
+    certificate_state: str | None = None
+    certificate_output: str | None = None
 
     _iso_timestamps = iso_offset_validator("started_at", "finished_at", "cancelled_at")
 
@@ -256,6 +262,8 @@ def _to_out(
         cancelled=record.cancelled,
         cancelled_at=record.cancelled_at,
         cancelled_by=record.cancelled_by,
+        certificate_state=record.certificate_state,
+        certificate_output=record.certificate_output,
     )
 
 

@@ -6,6 +6,7 @@ export const overview: Catalog<typeof en> = {
   description: "Cómo está este servidor, qué necesita de ti y qué ha pasado últimamente.",
   version: "Noust {version}",
   newApplication: "Nueva aplicación",
+  tabsLabel: "Secciones del resumen",
   couldNotLoad: "No se pudo cargar el resumen",
   command: "Desde un terminal",
   range: {
@@ -177,19 +178,34 @@ export const overview: Catalog<typeof en> = {
     },
   },
   firstSteps: {
-    title: "Te damos la bienvenida a Noust",
-    description: "Este servidor todavía no ejecuta nada. Estos pasos llevan unos minutos y lo dejan listo para trabajar de verdad.",
-    listLabel: "Primeros pasos",
+    title: "Despliega tu primera aplicación",
+    description: "Este servidor todavía no ejecuta nada. Elige la forma más rápida de ver algo en marcha.",
     done: "Hecho",
-    check: {
-      title: "Comprueba el servidor",
-      description: "Lo que un despliegue necesita (un servidor web, git, Node.js, certbot) y el comando que arregla lo que falta.",
-      action: "Comprobación de la instalación",
+    demo: {
+      title: "Prueba una demostración",
+      description: "Una página diminuta en una dirección temporal. Un clic.",
+      action: "Probar la demostración",
     },
-    deploy: {
-      title: "Despliega tu primera aplicación",
-      description: "Indica a Noust un repositorio Git o un directorio: detecta la tecnología, la compila y la sirve con certificado.",
-      action: "Nueva aplicación",
+    repository: {
+      title: "Desde un repositorio Git",
+      description: "Pega una URL; Noust la lee y propone el resto.",
+      action: "Usar un repositorio",
+    },
+    catalog: {
+      title: "Un servicio del catálogo",
+      description: "Se instala con su base de datos y su certificado.",
+      pills: "Recetas populares",
+      all: "Todas las recetas",
+    },
+    safe: {
+      title: "Después, déjalo a salvo",
+      left: { one: "Queda {count} cosa", other: "Quedan {count} cosas" },
+      allDone: "Todo hecho",
+      list: "Dejarlo a salvo",
+    },
+    check: {
+      message: "A este servidor le falta algo que un despliegue necesita.",
+      action: "Comprobación de la instalación",
     },
     backups: {
       title: "Programa copias de seguridad",
@@ -207,7 +223,7 @@ export const overview: Catalog<typeof en> = {
       action: "Notificaciones",
     },
     twoFactor: {
-      title: "Activa la verificación en dos pasos",
+      title: "Protege tu cuenta",
       description: "Un código de tu móvil además del token de acceso, para que un token filtrado no baste para entrar.",
       action: "Seguridad",
     },

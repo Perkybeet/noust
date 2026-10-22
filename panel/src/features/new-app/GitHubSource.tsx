@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { FolderGit2, GitBranch, Globe, Lock, Search } from "lucide-react";
+import { Download, FolderGit2, GitBranch, Globe, Lock, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
@@ -7,12 +7,12 @@ import { githubBranchesQuery, githubRepositoriesQuery } from "../../api/queries/
 import type { GitHubRepository, GitHubStatus } from "../../api/queries/github";
 import { announce } from "../../app/Announcer";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { Button } from "../../components/ui/Button";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { Button, buttonClassName } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Field } from "../../components/ui/Field";
-import { ICONS } from "../../components/ui/icons";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Select } from "../../components/ui/Select";
@@ -22,6 +22,7 @@ import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { splitFullName } from "../settings/github/github";
+import { saveDraft } from "./draft";
 import type { SourceErrors, SourceForm } from "./wizard";
 
 /** Repositories whose name holds what was typed, those whose name starts with it first. */
@@ -68,6 +69,7 @@ function RepositoryPicker({
   repositories,
   onChoose,
   onCancel,
+  configure,
   error,
   disabled,
 }: {
@@ -75,6 +77,8 @@ function RepositoryPicker({
   onChoose: (repository: GitHubRepository) => void;
   /** Go back to the repository already chosen, when there is one. */
   onCancel: (() => void) | null;
+  /** Where the installation's repositories are changed on GitHub, in this tab, keeping the draft. */
+  configure: { href: string; onLeave: () => void } | null;
   error: string | undefined;
   disabled: boolean;
 }) {
@@ -206,7 +210,25 @@ function RepositoryPicker({
       </Card>
       {matches.length === 0 ? (
         <div role="status">
-          <EmptyState variant="inline" title={query.trim() === "" ? t("newApp.github.noneYet") : t("newApp.github.noMatch", { query: query.trim() })} />
+          {query.trim() === "" ? (
+            <EmptyState
+              variant="inline"
+              title={t("newApp.github.noneYet")}
+              description={t("newApp.github.noneYetHelp")}
+              {...(configure !== null
+                ? {
+                    action: (
+                      <a href={configure.href} onClick={configure.onLeave} className={buttonClassName("secondary", "sm")}>
+                        <SlidersHorizontal aria-hidden="true" />
+                        {t("newApp.github.configure")}
+                      </a>
+                    ),
+                  }
+                : {})}
+            />
+          ) : (
+            <EmptyState variant="inline" title={t("newApp.github.noMatch", { query: query.trim() })} />
+          )}
         </div>
       ) : null}
       {onCancel !== null ? (
@@ -318,6 +340,10 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
   const fullName = form.source.replace(/^github:/, "");
   const listed = repositories.data?.items.find((item) => item.source === form.source && item.installation_id === form.installationId);
   const names = splitFullName(fullName);
+  // Leaving for GitHub keeps where the wizard was, so the round trip ends back in it.
+  const keepDraft = (): void => {
+    saveDraft({ mode: "github", source: form.source, branch: form.branch });
+  };
 
   useEffect(() => {
     // Choosing unmounts the search box; focus lands on what now stands in its place.
@@ -333,9 +359,13 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
         <div className="flex min-w-0 flex-col gap-3">
           <p className="text-13 text-pretty text-fg">{t("newApp.github.notInstalled")}</p>
           <div className="flex flex-wrap items-center gap-3">
-            <ExternalLink href={status.install_url} button="secondary">
-              {t("newApp.github.install")}
-            </ExternalLink>
+            {/* In this tab: the setup page GitHub sends the browser to brings it back to the wizard. */}
+            {status.install_url ? (
+              <a href={status.install_url} onClick={keepDraft} className={buttonClassName("secondary")}>
+                <Download aria-hidden="true" />
+                {t("newApp.github.install")}
+              </a>
+            ) : null}
             <TextLink to="/settings/integrations" size="ui">
               {t("newApp.github.integrations")}
             </TextLink>
@@ -358,12 +388,11 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
       );
     }
     return (
-      <div aria-busy="true" className="flex flex-col gap-2">
-        <span className="sr-only">{t("newApp.github.loadingRepositories")}</span>
+      <LoadingRegion label={t("newApp.github.loadingRepositories")} className="flex flex-col gap-2">
         <Skeleton className="h-3 w-24" />
         <Skeleton className="h-8" />
         <Skeleton className="h-40" />
-      </div>
+      </LoadingRegion>
     );
   }
 
@@ -382,6 +411,7 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
           repositories={repositories.data.items}
           onChoose={choose}
           onCancel={changing && form.installationId !== undefined ? () => setChanging(false) : null}
+          configure={status.install_url ? { href: status.install_url, onLeave: keepDraft } : null}
           error={errors.source}
           disabled={disabled}
         />
@@ -417,10 +447,9 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
           </div>
         </Card>
         {errors.source !== undefined ? (
-          <p role="alert" className="flex items-start gap-1.5 text-13 text-fail">
-            <ICONS.error aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />
-            <span>{errors.source}</span>
-          </p>
+          <InlineMessage tone="error" live>
+            {errors.source}
+          </InlineMessage>
         ) : null}
       </div>
       {names !== null ? (

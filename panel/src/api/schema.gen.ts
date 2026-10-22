@@ -16728,6 +16728,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/deploy-keys/server": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Server Key
+         * @description Show the public half of the server-wide SSH key.
+         *
+         *     A private repository over ssh fails to clone before an application exists, and the
+         *     person starting one needs the key to add at the code host. Only the public line is
+         *     ever returned; there is nothing to create here (that is ``noust setup ssh``, which
+         *     writes into the home of the account Noust runs as).
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The key, or nothing when the server has none.
+         */
+        get: operations["get_server_key_api_deploy_keys_server_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/deployments": {
         parameters: {
             query?: never;
@@ -17035,16 +17066,22 @@ export interface paths {
          *
          *     It is made of the server's public address (``203-0-113-10.sslip.io``), which sslip.io
          *     answers with that address, so the name resolves here and a certificate can be ordered.
-         *     Nothing is added: the caller adds it with ``POST /api/apps/{domain}/domains``.
+         *     With a prefix it is the name of one application (``shop.203-0-113-10.sslip.io``), free
+         *     among the names and the application names of the server. Nothing is added: the caller
+         *     adds it with ``POST /api/apps/{domain}/domains``, or deploys an application under it.
          *
          *     Args:
          *         session: Authenticated session, injected.
+         *         prefix: What the application is called.
+         *         source: What it is deployed from, read for its name when no prefix is given.
+         *         image: The registry image it is deployed from, read the same way.
          *
          *     Returns:
-         *         The name and the address it is made of.
+         *         The name and the address it is made of; for a server with no public address, an answer
+         *         that says ``available: false`` with why and how to declare one (200, not an error).
          *
          *     Raises:
-         *         DomainError: This server has no public address (400, saying how to declare one).
+         *         DomainError: Ninety-nine applications already have the prefix (400).
          */
         get: operations["get_temporary_name_api_domains_temporary_get"];
         put?: never;
@@ -37450,6 +37487,10 @@ export interface components {
          *             before 3.4) but nothing went wrong and nothing that served was touched.
          *         cancelled_at: When it was cancelled.
          *         cancelled_by: Who cancelled it.
+         *         certificate_state: How the certificate ordered for it ended: ``issued`` or ``failed``.
+         *             None when none was asked for. A certificate that is refused does not fail a
+         *             deployment: the application serves over HTTP.
+         *         certificate_output: What the certificate authority said when it refused, word for word.
          */
         DeploymentOut: {
             /**
@@ -37461,6 +37502,10 @@ export interface components {
             cancelled_at?: string | null;
             /** Cancelled By */
             cancelled_by?: string | null;
+            /** Certificate Output */
+            certificate_output?: string | null;
+            /** Certificate State */
+            certificate_state?: string | null;
             /** Commit Message */
             commit_message?: string | null;
             /** Domain */
@@ -54157,6 +54202,21 @@ export interface components {
             version: string;
         };
         /**
+         * ServerKeyResponse
+         * @description The key git signs in with for a repository that has no deploy key of its own.
+         *
+         *     Attributes:
+         *         public_key: The OpenSSH public key line to add at the code host; null when the server
+         *             has no such key (``noust setup ssh --generate`` makes one).
+         *         fingerprint: ``SHA256:...``; null when there is no key.
+         */
+        ServerKeyResponse: {
+            /** Fingerprint */
+            fingerprint?: string | null;
+            /** Public Key */
+            public_key?: string | null;
+        };
+        /**
          * ServerShellModel
          * @description Whether the server's own shell may be opened, and what to do when it may not.
          */
@@ -57745,10 +57805,17 @@ export interface components {
          *         service: The service that answers it.
          *         declared: Whether the address was declared (``dns.public_addresses``) rather than
          *             read from a network interface.
+         *         available: Only present, as false, when this server has no public address to make a name
+         *             of (it is behind NAT and none is declared): the name and the address are then empty.
+         *             An answer, not an error: the console asks on every new application.
+         *         reason: With ``available`` false, why not.
+         *         hint: With ``available`` false, how to declare the address.
          */
         TemporaryNameResponse: {
             /** Address */
             address: string;
+            /** Available */
+            available?: boolean | null;
             /**
              * Declared
              * @default false
@@ -57756,7 +57823,14 @@ export interface components {
             declared: boolean;
             /** Domain */
             domain: string;
-            /** Service */
+            /** Hint */
+            hint?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Service
+             * @default sslip.io
+             */
             service: string;
         };
         /**
@@ -81437,6 +81511,26 @@ export interface operations {
             };
         };
     };
+    get_server_key_api_deploy_keys_server_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerKeyResponse"];
+                };
+            };
+        };
+    };
     list_deployments_api_deployments_get: {
         parameters: {
             query?: {
@@ -81771,7 +81865,14 @@ export interface operations {
     };
     get_temporary_name_api_domains_temporary_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description What the application is called, for a name of its own (shop.203-0-113-10.sslip.io). Numbered when another application has it. */
+                prefix?: string | null;
+                /** @description What it is deployed from, when it has no name yet: the name is read out of the repository, archive or directory. A prefix wins over it. */
+                source?: string | null;
+                /** @description The registry image it is deployed from; read like a source. */
+                image?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -81785,6 +81886,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TemporaryNameResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

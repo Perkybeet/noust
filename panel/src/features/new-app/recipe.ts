@@ -8,8 +8,8 @@ import type { Recipe, RecipeVariableInfo } from "../../api/queries/recipes";
 import { translate } from "../../i18n";
 import { getLocale } from "../../app/locale";
 import { normalizeDomain } from "../domains/names";
-import { canIncludeWww, domainError } from "./wizard";
-import type { CreateAppBody } from "./wizard";
+import { canIncludeWww, domainError, initialAddress } from "./wizard";
+import type { AddressChoice, CreateAppBody } from "./wizard";
 
 /** What the form reads of a recipe: its variables, as `GET /api/recipes/{name}` lists them. */
 export interface WithVariables {
@@ -18,10 +18,7 @@ export interface WithVariables {
   database_choices?: readonly string[] | undefined;
 }
 
-export interface RecipeForm {
-  domain: string;
-  includeWww: boolean;
-  ssl: boolean;
+export interface RecipeForm extends AddressChoice {
   /** Values over the recipe's own, by variable; empty keeps the recipe's. Generated ones are not here. */
   env: Record<string, string>;
   /** Schedule the daily backups a recipe starts with (kept 7 days, 30 days, tested by restoring). */
@@ -61,16 +58,19 @@ export function variableNamed(recipe: WithVariables, name: string): RecipeVariab
 }
 
 /**
- * The form a recipe starts from. Choosing another recipe keeps where it answers (domain, www,
- * HTTPS) and the values of the variables both recipes set.
+ * The form a recipe starts from. Choosing another recipe keeps where it answers (the domain the
+ * operator typed, www, HTTPS) and the values of the variables both recipes set. A temporary address
+ * is made of the recipe's name, so it is made again for the next.
  */
-export function initialRecipeForm(recipe: WithVariables, previous?: RecipeForm | null): RecipeForm {
+export function initialRecipeForm(
+  recipe: WithVariables,
+  previous?: RecipeForm | null,
+  address: { temporary?: string | null | undefined; ownDomains?: boolean | undefined } = {},
+): RecipeForm {
   const env: Record<string, string> = {};
   for (const name of editableVariables(recipe)) env[name] = previous?.env[name] ?? "";
   return {
-    domain: previous?.domain ?? "",
-    includeWww: previous?.includeWww ?? false,
-    ssl: previous?.ssl ?? true,
+    ...initialAddress(address, previous),
     env,
     defaultBackups: previous?.defaultBackups ?? true,
     // What the server lacks is another recipe's business: never carried to the next one.
@@ -115,7 +115,7 @@ export function recipeBody(recipe: Pick<Recipe, "name">, form: RecipeForm): Crea
     app_type: "auto",
     webserver: "nginx",
     ssl: form.ssl,
-    include_www: form.includeWww && canIncludeWww(form.domain),
+    include_www: form.addressMode === "own" && form.includeWww && canIncludeWww(form.domain),
     env_vars: env,
     skip_database: false,
     default_backups: form.defaultBackups,

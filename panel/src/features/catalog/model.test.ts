@@ -15,6 +15,9 @@ import {
   validateCatalogSearch,
   versionLabel,
 } from "./model";
+import type { RecipeSummary } from "../../api/queries/recipes";
+import { popularRecipes } from "./popular";
+import { VAULTWARDEN, WORDPRESS } from "./testFixtures";
 
 describe("the catalogue's filters in the address", () => {
   it("keeps what is well formed and drops the rest instead of failing", () => {
@@ -117,5 +120,24 @@ describe("where an installed recipe stands", () => {
     expect(installedState(gone)).toBe("stuck");
     expect(installedState(listedOnly)).toBe("stuck");
     expect(installedState({ update_available: false, reason: null })).toBe("stuck");
+  });
+});
+
+describe("the popular recipes", () => {
+  const recipe = (name: string, patch: Partial<RecipeSummary> = {}): RecipeSummary => ({ ...VAULTWARDEN, name, title: name, available: true, ...patch });
+
+  it("are the ones most people start with, in their order, then whatever else is available", () => {
+    const items = [recipe("umami"), recipe("n8n"), { ...WORDPRESS, available: true }, recipe("uptime-kuma"), recipe("plausible"), recipe("ghost")];
+    expect(popularRecipes(items).map((item) => item.name)).toEqual(["uptime-kuma", "ghost", "wordpress", "n8n"]);
+  });
+
+  it("leave out what this release cannot deploy and the demo, which is offered on its own", () => {
+    const items = [recipe("hello"), recipe("ghost", { available: false }), recipe("umami"), recipe("plausible")];
+    expect(popularRecipes(items).map((item) => item.name)).toEqual(["umami", "plausible"]);
+  });
+
+  it("are four at most, and none before the catalogue has been read", () => {
+    expect(popularRecipes(Array.from({ length: 12 }, (_, index) => recipe(`app-${String(index)}`)))).toHaveLength(4);
+    expect(popularRecipes(undefined)).toEqual([]);
   });
 });

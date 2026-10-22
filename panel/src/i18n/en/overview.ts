@@ -4,6 +4,7 @@ export const overview = {
   description: "How this server is doing, what needs you and what happened lately.",
   version: "Noust {version}",
   newApplication: "New application",
+  tabsLabel: "Overview sections",
   couldNotLoad: "Could not load the overview",
   command: "From a terminal",
   range: {
@@ -173,19 +174,34 @@ export const overview = {
     },
   },
   firstSteps: {
-    title: "Welcome to Noust",
-    description: "This server runs nothing yet. These steps take a few minutes and leave it ready for real work.",
-    listLabel: "First steps",
+    title: "Deploy your first app",
+    description: "This server runs nothing yet. Pick the quickest way to see something live.",
     done: "Done",
-    check: {
-      title: "Check the server",
-      description: "What a deployment needs (a web server, git, Node.js, certbot) and the command that fixes what is missing.",
-      action: "Installation check",
+    demo: {
+      title: "Try a demo",
+      description: "A tiny page on a temporary address. One click.",
+      action: "Try a demo",
     },
-    deploy: {
-      title: "Deploy your first application",
-      description: "Point Noust at a Git repository or a directory: it detects the stack, builds it and serves it with a certificate.",
-      action: "New application",
+    repository: {
+      title: "From a Git repository",
+      description: "Paste a URL; Noust reads it and proposes the rest.",
+      action: "Use a repository",
+    },
+    catalog: {
+      title: "A service from the catalog",
+      description: "Installed with its database and its certificate.",
+      pills: "Popular recipes",
+      all: "All recipes",
+    },
+    safe: {
+      title: "Then make it safe to leave alone",
+      left: { one: "{count} thing left", other: "{count} things left" },
+      allDone: "All done",
+      list: "Making it safe",
+    },
+    check: {
+      message: "This server is missing something a deploy needs.",
+      action: "Installation check",
     },
     backups: {
       title: "Schedule backups",
@@ -203,7 +219,7 @@ export const overview = {
       action: "Notifications",
     },
     twoFactor: {
-      title: "Turn on two-step verification",
+      title: "Protect your account",
       description: "A code from your phone on top of the access token, so a leaked token alone cannot sign in.",
       action: "Security",
     },

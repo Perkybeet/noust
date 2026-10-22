@@ -9,7 +9,7 @@ import { ssoErrorOf, ssoTicketOf } from "../features/auth/sso";
 export interface LoginSearch {
   next?: string;
   reason?: "expired";
-  /** `token` opens on emergency access. */
+  /** `token` opens on the access token: the link the installer prints. */
   with?: "token";
   /** The ticket an identity provider's answer left: collected once, then taken out of the address. */
   sso?: string;

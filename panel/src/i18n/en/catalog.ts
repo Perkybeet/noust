@@ -104,7 +104,10 @@ export const catalog = {
     mongodb: "A MongoDB database",
     s3: "S3-compatible storage",
   },
+  popular: { title: "Popular" },
+  all: { title: "All recipes" },
   card: {
+    use: "Use",
     docker: "Runs in Docker",
     tags: "Tags",
     moreTags: "+{count}",

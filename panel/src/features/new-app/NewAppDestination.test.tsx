@@ -55,7 +55,7 @@ function wizardAt(path: string, options: OrganisationOptions | null) {
 async function toAddress(user: ReturnType<typeof renderConsole>["user"]) {
   await screen.findByRole("heading", { level: 1, name: "New application" });
   await user.type(screen.getByLabelText("Repository or directory"), "/var/www/src/storefront");
-  await user.click(screen.getByRole("button", { name: "Inspect source" }));
+  await user.click(screen.getByRole("button", { name: "Continue" }));
   await screen.findByRole("heading", { level: 2, name: "Address" });
 }
 
