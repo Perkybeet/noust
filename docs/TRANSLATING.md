@@ -48,8 +48,8 @@ npm run i18n:status -- pt         # how far you are, what is wrong, what comes n
 - **Placeholders** such as `{count}` or `{name}` are filled in by Noust: keep each one exactly, in the
   place your language needs it. A missing or misspelled placeholder is refused.
 - **Plurals** are an object of forms chosen by the number. Write `one` and `other`, and the others
-  your language uses (`many` in Portuguese and French, for example; the checker says which). A form
-  your language never selects is refused.
+  your language uses (`many` in Portuguese and French, for example; the checker says which). Chinese and
+  Japanese say every count with `other` alone. A form your language never selects is refused.
 - **Leave out what you have not translated.** The console shows English for any key your file does
   not have, so a language can grow a page at a time. An empty text is refused for that reason: it would
   show nothing.

@@ -103,7 +103,8 @@ function problemsOfMessage(key: string, value: unknown, english: Message, catego
   }
   if (!isPluralForms(value)) return [{ key, message: 'English has plural forms here ({ "one": "...", "other": "..." }), so this must have them' }];
   const found: Problem[] = [];
-  for (const form of ["one", "other"]) {
+  // "one" is required only of a language that selects it: Chinese and Japanese say every count with "other".
+  for (const form of ["one", "other"].filter((required) => categories.includes(required))) {
     if (typeof value[form] !== "string" || value[form].trim() === "") found.push({ key, message: `Plural form "${form}" is missing or empty` });
   }
   for (const [form, text] of Object.entries(value)) {
