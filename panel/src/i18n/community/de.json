@@ -13633,8 +13633,8 @@
     "other": "{count} gestoppt"
   },
   "shell.machine.cpu": "CPU",
-  "shell.machine.memory": "Arbeitsspeicher",
-  "shell.machine.disk": "Datenträger",
+  "shell.machine.memory": "RAM",
+  "shell.machine.disk": "Disk",
   "shell.machine.upFor": "Laufzeit {duration}",
   "shell.machine.unavailable": "Messwerte der Maschine nicht verfügbar",
   "shell.machine.live": "Live",
