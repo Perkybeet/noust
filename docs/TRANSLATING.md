@@ -1,8 +1,9 @@
 # Translating the console
 
-The console speaks English and Spanish. A third language does not need anyone to write TypeScript: it
-is one JSON file of translations that the console reads when somebody chooses that language. This
-page is the whole guide, from nothing to a pull request.
+The console speaks English and Spanish, and four languages contributed as data: French (`fr`), German
+(`de`), Brazilian Portuguese (`pt-BR`) and Simplified Chinese (`zh-CN`). Another language does not need
+anyone to write TypeScript: it is one JSON file of translations that the console reads when somebody
+chooses that language. This page is the whole guide, from nothing to a pull request.
 
 What is translated is the console: its buttons, messages, headings and help text. Not translated, on
 purpose: what a program printed (nginx's, systemd's, git's own words), commands, paths, unit names and

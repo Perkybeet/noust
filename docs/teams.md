@@ -127,7 +127,7 @@ token list says where each one reaches.
 
 ## In the console
 
-Everything below the API is a page of the console, in English and Spanish, and a viewer never
+Everything below the API is a page of the console, in each of its languages, and a viewer never
 sees a button it would be refused.
 
 - **The team switcher** is at the left of the top bar. It is drawn once there is
