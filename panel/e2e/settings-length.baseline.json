@@ -54,7 +54,7 @@
       "reason": "The frameworks, their controls and the ENS report in one page; the frameworks and the security profile move to Controls and the report stays."
     },
     "settings-servers": { "path": "/settings/servers", "height": 428 },
-    "settings-cloud": { "path": "/settings/cloud", "height": 1167 },
+    "settings-cloud": { "path": "/settings/cloud", "height": 823 },
     "settings-central": { "path": "/settings/central", "height": 468 },
     "settings-controls": {
       "path": "/settings/controls",
