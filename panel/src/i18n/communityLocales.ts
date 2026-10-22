@@ -14,6 +14,7 @@ import type { CommunityLocale } from "./community";
 const REGISTERED = [
   // `npm run i18n:new -- <code> <Name>` adds a line here, and the file it names.
   { code: "fr", autonym: "Français", status: "released" },
+  { code: "pt-BR", autonym: "Português (Brasil)", status: "released" },
   { code: "zh-CN", autonym: "简体中文", status: "released" },
 ] as const satisfies readonly CommunityLocale[];
 
