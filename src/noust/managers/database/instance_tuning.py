@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-What an instance may use, and how it is asked whether it is well (3.4, C-30 and C-31).
+What an instance may use, and how it is asked whether it is well (4.0, C-30 and C-31).
 
 An instance Noust runs is held to a memory limit from the day it is made. This module
 changes that limit, adds the other two a container can be held to (the CPUs it may use

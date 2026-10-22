@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-What an application has been told that it does not run with yet (3.4, checklist B-09).
+What an application has been told that it does not run with yet (4.0, checklist B-09).
 
 A client of :mod:`noust.deployers.pending_changes`, like ``noust app pending``:
 ``GET`` lists every setting that differs from the configuration the application

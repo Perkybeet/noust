@@ -11281,7 +11281,7 @@ Arguments: `domain`
 | `--allow-bots`, `--no-allow-bots` | Build previews of pull requests opened or pushed to by bot accounts (Dependabot, Renovate). [default: no, or the current value] |  |
 | `--exclude-env` | A variable never copied to previews; repeat for more. Replaces the current list; existing previews lose them at their next push. |  |
 | `--no-exclude-env` | Copy every variable again (clear the excluded list). |  |
-| `--env-mode` | Which of the application's variables a preview is given: 'allowlist' (only --allow-env, the default for previews turned on now) or 'all' (every one less --exclude-env, as before 3.4). |  |
+| `--env-mode` | Which of the application's variables a preview is given: 'allowlist' (only --allow-env, the default for previews turned on now) or 'all' (every one less --exclude-env, as before 4.0). |  |
 | `--allow-env` | A variable an 'allowlist' preview copies; repeat for more. Replaces the current list. |  |
 | `--no-allow-env` | Copy no variable of the application's (clear the allowed list). |  |
 | `--data` | 'empty' gives each preview a database of its own, 'clone' a database of its own that starts as a copy of the application's, 'shared' lets it use the application's (a pull request can then write into production's). Default for previews turned on now: empty, when the application has a database. |  |

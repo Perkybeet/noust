@@ -20,7 +20,7 @@ for, its status, when it expires, the comment on the pull request, and the
 hourly timer that sweeps the expired ones.
 
 What a preview is given is the application's settings to decide
-(:mod:`noust.managers.preview_env`). Since 3.4 the default is the safe one: only
+(:mod:`noust.managers.preview_env`). Since 4.0 the default is the safe one: only
 the variables the settings name, then the set defined for previews alone, and an
 empty database of its own (dropped with it) for an application that has one. The
 2.2 way (every variable but the excluded, and the parent's own databases) is a
@@ -533,7 +533,7 @@ def enable_previews(
     so do the variables a preview is given: the ones the settings no longer
     give are taken out of every existing preview when it is next built.
 
-    Previews turned on from 3.4 are given only the variables named in
+    Previews turned on from 4.0 are given only the variables named in
     ``allow_env`` (plus the set defined for previews) and, when the application
     has a database, one of their own. Previews turned on before keep the way
     they were made until one of ``inherit_env`` or ``data_mode`` is given.
@@ -670,7 +670,7 @@ def _options_for(
 
     Returns:
         The options to store; None when nothing changes (previews turned on
-        before 3.4 that no option was given for keep behaving as they did).
+        before 4.0 that no option was given for keep behaving as they did).
 
     Raises:
         ValidationError: A way that does not exist, or a variable name that is not one.
@@ -684,7 +684,7 @@ def _options_for(
     if before_options is not None:
         base = before_options
     elif before is not None:
-        # Turned on before 3.4 and now asked to change: start from what it did.
+        # Turned on before 4.0 and now asked to change: start from what it did.
         base = PreviewOptions(parent.domain)
     else:
         base = PreviewOptions(
@@ -1144,7 +1144,7 @@ def _sync_from_parent(domain: str, parent: App, settings: PreviewSettings) -> No
     kept = set(wanted.values) | set(origin.owned_env)
     revoked = {name for name in origin.given_env if name not in kept}
     if options.inherit_env == INHERIT_ALL:
-        # Before 3.4 a variable excluded since the preview was made was taken out here.
+        # Before 4.0 a variable excluded since the preview was made was taken out here.
         revoked |= {name for name in settings.exclude_env if name not in origin.owned_env}
     explicit = set(preview_env.preview_set(parent))
     values = {name: value for name, value in current.values.items() if name not in revoked}

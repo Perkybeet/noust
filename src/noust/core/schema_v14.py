@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Schema v14 (Noust 3.4): every table and column 3.4 adds to the store.
+Schema v14 (Noust 4.0): every table and column 4.0 adds to the store.
 
 The same rules as :mod:`noust.core.schema_v13`: one fragment per area,
 ``CREATE ... IF NOT EXISTS``, columns added only when missing and never with a
 non-constant default, and no row rewritten here. :func:`apply_v14` is the one
 definition of v14, run by the migration from v13 and by a fresh store alike.
 
-Each area below is owned by one lane of the 3.4 plan and is the only place
+Each area below is owned by one lane of the 4.0 plan and is the only place
 that lane writes schema: lanes fill their own pair (``<AREA>_SQL`` and
 ``<AREA>_COLUMNS``) and never touch another's, so merging them cannot conflict.
 """
@@ -1024,7 +1024,7 @@ CREATE INDEX IF NOT EXISTS idx_probe_incidents_probe ON probe_incidents(probe_id
 """
 # held_for: why a delivery is held (``quiet`` hours, a ``flood`` of messages, the
 #   ``summary`` of the day); NULL for a delivery that is not held, and for one held
-#   by the quiet hours before 3.4.
+#   by the quiet hours before 4.0.
 NOTIFY_COLUMNS: list[tuple[str, str, str]] = [
     ("notification_deliveries", "held_for", "TEXT"),
     ("alert_states", "acknowledged_at", "REAL"),
@@ -1563,10 +1563,10 @@ RBAC_COLUMNS: list[tuple[str, str, str]] = []
 #   provider's token is never a column: it lives in the secret store under
 #   ``secret-providers/<name>``. ``team_id`` restricts who may reference it (NULL
 #   is the whole server).
-# preview_options / preview_origins: what 3.4 adds to previews without touching
+# preview_options / preview_origins: what 4.0 adds to previews without touching
 #   the 2.2 tables. ``inherit_env`` is ``all`` (the 2.2 behaviour, minus
 #   ``exclude_env``) or ``allowlist`` (only ``allow_env``, the default for
-#   previews turned on from 3.4); ``data_mode`` says whether a preview shares its
+#   previews turned on from 4.0); ``data_mode`` says whether a preview shares its
 #   application's databases (``shared``, the 2.2 behaviour) or gets its own.
 #   ``preview_origins`` says what a preview was made from (a pull request, or a
 #   branch or a tag an operator named), which variables the policy gave it and

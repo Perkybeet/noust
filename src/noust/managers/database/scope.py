@@ -4,7 +4,7 @@
 """
 What a database backup policy covers: one database or all of an engine's, and what it leaves out.
 
-Until 3.4 a policy named one database. Two things were missing that every
+Until 4.0 a policy named one database. Two things were missing that every
 other tool offers: a policy that follows an engine's databases as they come
 and go (so a database created next month is protected without anyone
 remembering to schedule it), and a way to leave out what is not worth keeping

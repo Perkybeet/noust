@@ -183,7 +183,7 @@ def invite_command(
         f"{name} is invited to dial {invite.host}:{invite.ssh_port} (until {invite.expires_at})"
     )
     logger.blank()
-    logger.info(f"On {name}, as root, run (Noust 3.4 or later):")
+    logger.info(f"On {name}, as root, run (Noust 4.0 or later):")
     logger.blank()
     click.echo(invite.command)
     logger.blank()

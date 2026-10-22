@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The words of the notifications the 3.4 monitor added.
+The words of the notifications the 4.0 monitor added.
 
 User-defined alert rules, a scheduled backup that did not run, a cron job that
 failed, operating system updates waiting, an API token about to expire, and the

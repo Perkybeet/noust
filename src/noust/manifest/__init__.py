@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-A server written down: plan and apply (J-15 of the 3.4 checklist).
+A server written down: plan and apply (J-15 of the 4.0 checklist).
 
 - :mod:`~noust.manifest.schema`: the closed schema and its parser.
 - :mod:`~noust.manifest.plan`: what applying a manifest would change, read

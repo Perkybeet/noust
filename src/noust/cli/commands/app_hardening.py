@@ -113,7 +113,7 @@ def set_command(
     (and the directories named with --writable), hides the home directories and
     the devices, takes away every capability and filters system calls. strict
     also bans the privileged and resource calls and, for runtimes without a
-    JIT, writable executable memory. off is the unit as it was before 3.4.
+    JIT, writable executable memory. off is the unit as it was before 4.0.
 
     The application is restarted behind its health gate; when it does not
     answer, the previous unit is put back and it is restarted as it was.

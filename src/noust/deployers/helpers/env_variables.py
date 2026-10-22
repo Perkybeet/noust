@@ -424,7 +424,7 @@ def predefined_for(app: App) -> dict[str, str]:
     Returns:
         ``NOUST_*`` to value: what the release that runs holds (the ``.env`` for a stack or a
         container), or, for an application that has not been given a file yet (it was deployed before
-        3.4 and not updated since), what its row says.
+        4.0 and not updated since), what its row says.
     """
     from noust.deployers.helpers.env_manager import EnvManager
     from noust.deployers.helpers.layout import code_path_for, env_file_for

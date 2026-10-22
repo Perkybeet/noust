@@ -701,7 +701,7 @@ class MonorepoDeployer(AppDeployer):
         Name the account this monorepo's units run as, which its files go to.
 
         Returns:
-            Its own account when it has one (a monorepo created from 3.4), the
+            Its own account when it has one (a monorepo created from 4.0), the
             configured service account otherwise: the one answer to "as whom"
             every other application type asks too
             (:func:`noust.managers.app_identity.service_account`).
@@ -762,7 +762,7 @@ class MonorepoDeployer(AppDeployer):
             # Created from 3.1: it builds in the sandbox from its first build.
             # The row goes with the application's if this deployment is undone.
             build_sandbox.adopt_new_app(self.domain, preview=False, store=self.store)
-        # Created from 3.4: it runs as an account of its own, one for all its
+        # Created from 4.0: it runs as an account of its own, one for all its
         # workspaces, made before anything is handed to it. One from before
         # keeps the shared account until `noust app identity migrate`.
         app_identity.adopt_new_app(

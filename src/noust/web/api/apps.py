@@ -156,7 +156,7 @@ class LastDeploymentOut(BaseModel):
             None while it is still running.
         git_commit: Short commit it deployed, when the source is git.
         cancelled: An operator cancelled it while it was being built. Its
-            ``status`` is ``failed`` (a store from before 3.4 cannot say
+            ``status`` is ``failed`` (a store from before 4.0 cannot say
             anything else), but nothing failed and what served before still
             serves: a list that draws the status alone paints it red.
     """
@@ -1091,7 +1091,7 @@ def _database_for_job(body: CreateAppRequest) -> dict[str, Any]:
     Describe the new application's database the way the deploy job takes it.
 
     The version was checked when the request arrived; the job only needs to be
-    told what it did not know before 3.4, so a request that names none is the
+    told what it did not know before 4.0, so a request that names none is the
     job it always was.
 
     Args:

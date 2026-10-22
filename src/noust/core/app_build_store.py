@@ -123,7 +123,7 @@ def get_applied(domain: str, *, store: NoustStore | None = None) -> dict[str, An
 
     Returns:
         The record, or None when the unit was never written from a build
-        block (an application that has none, or from before 3.4).
+        block (an application that has none, or from before 4.0).
     """
     with (store or get_store())._transaction() as cursor:
         cursor.execute(

@@ -5019,7 +5019,7 @@ def seed_deploy_actions(
 
 
 # ---------------------------------------------------------------------------
-# Console: sources and delivery (3.4). The Source subsection of an application's
+# Console: sources and delivery (4.0). The Source subsection of an application's
 # settings needs a repository cloned over SSH, which a code host answers for the
 # key a deploy signs in with; Settings, Integrations lists the host keys Noust
 # pinned; and the deploy queue needs a build that lasts long enough to see it

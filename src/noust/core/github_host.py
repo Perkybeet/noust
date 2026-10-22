@@ -27,7 +27,7 @@ import re
 from noust.core.config import Config
 from noust.core.exceptions import ConfigError
 
-#: The default, and the only host before 3.4.
+#: The default, and the only host before 4.0.
 GITHUB_COM = "github.com"
 
 #: ``Config`` key holding the host; empty means :data:`GITHUB_COM`.

@@ -71,7 +71,7 @@ REPO_CACHE_DIR = "repo"
 COLORS_DIR = "colors"
 
 #: The link the processes of an application beside its web process run their
-#: release from (3.4). It follows ``current`` and is moved with it, except in
+#: release from (4.0). It follows ``current`` and is moved with it, except in
 #: zero-downtime mode, where it moves before the traffic does so the processes
 #: are proven on the release before it serves.
 WORKERS_LINK = "workers"

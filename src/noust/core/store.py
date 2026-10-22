@@ -94,11 +94,11 @@ class AppType(str, Enum):
     MONOREPO = "monorepo"
     DOCKER_COMPOSE = "docker-compose"
     #: An image from a registry, a Dockerfile or Railpack, run as a Compose
-    #: project Noust writes itself (3.4).
+    #: project Noust writes itself (4.0).
     CONTAINER = "container"
     #: A site that was already running when Noust met it - an nginx or Apache site and, when
     #: there is one, a systemd unit the operator wrote. Noust watches and restarts it and
-    #: builds, rewrites and deletes nothing (3.4, checklist B-85).
+    #: builds, rewrites and deletes nothing (4.0, checklist B-85).
     ADOPTED = "adopted"
     UNKNOWN = "unknown"
 
@@ -1966,7 +1966,7 @@ class NoustStore:
                 # The same for the climb to v14, which may alter v13's tables.
                 self._complete_v13()
             if current >= schema_v14.VERSION:
-                # A store a build of 3.4 stamped 14 before every area had its fragment is
+                # A store a build of 4.0 stamped 14 before every area had its fragment is
                 # completed before it climbs on: after the climb it would no longer be "at v14"
                 # for the check below, and would keep its missing tables for good.
                 self._complete_v14()
@@ -2074,7 +2074,7 @@ class NoustStore:
         """
         Add what a v14 store lacks of v14, when it lacks anything.
 
-        The same guard as :meth:`_complete_v13`, for a build of 3.4 that
+        The same guard as :meth:`_complete_v13`, for a build of 4.0 that
         stamped v14 before every area had its fragment.
         """
         cursor = self._get_connection().cursor()
@@ -2370,7 +2370,7 @@ class NoustStore:
 
     def _migrate_v13_to_v14(self, cursor: sqlite3.Cursor) -> None:
         """
-        Add everything Noust 3.4 stores (schema v14).
+        Add everything Noust 4.0 stores (schema v14).
 
         The tables and columns live in :mod:`noust.core.schema_v14`, one
         fragment per area of the release.

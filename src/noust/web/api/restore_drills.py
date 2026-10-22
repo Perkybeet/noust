@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Restore drills of an application (3.4): prove its newest backup restores, without restoring it.
+Restore drills of an application (4.0): prove its newest backup restores, without restoring it.
 
 A client of :class:`~noust.managers.restore_drill.RestoreDrill`, like ``noust
 backup drill``: ``POST`` queues a drill as a job (it verifies in depth, unpacks

@@ -1631,7 +1631,7 @@ def _validate_hardening(value: Any) -> str:
             f"deploy.hardening must be one of {', '.join(HARDENING_PROFILES)}, not {value!r}",
             details=(
                 "'default' takes away what a web application does not need; 'strict' also "
-                "bans privileged system calls; 'off' leaves the unit as it was before 3.4."
+                "bans privileged system calls; 'off' leaves the unit as it was before 4.0."
             ),
         )
     return profile

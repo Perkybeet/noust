@@ -531,7 +531,7 @@ These are the limits, stated before you find them.
   a node's own ceiling, and that code from a *repository* does not run as root, not that the console
   cannot be attacked. Noust never offers a "non-root mode" that only looks like one.
 - **It is not a multi-tenant isolation boundary.** An application created since 3.2 (and a
-  monorepo since 3.4) runs as its own account and cannot read another's files; one from before keeps
+  monorepo since 4.0) runs as its own account and cannot read another's files; one from before keeps
   the shared account until `noust app identity migrate` moves it. Applications still share the
   kernel, the network and the machine, and a team is a boundary of permissions, not of execution. A
   Compose stack is kept to its own files by the compose check, but its processes are the
