@@ -112,6 +112,13 @@ class TestDatabases:
         assert [row["name"] for row in databases] == ["shop"]
         assert databases[0]["tags"] == ["eu", "prod"]
 
+    def test_the_json_listing_names_the_owning_application_as_app_only(self, engine: type) -> None:
+        databases = json.loads(run("--json", "db", "list"))
+
+        assert databases
+        # 2.x called it linked_app; 4.0 breaks with 2.x and the field is app.
+        assert all("app" in row and "linked_app" not in row for row in databases)
+
     def test_the_human_listing_shows_the_tags(self, engine: type) -> None:
         run("db", "tag", "set", "shop", "--engine", "postgresql", "prod")
 
