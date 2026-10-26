@@ -19,7 +19,6 @@ from __future__ import annotations
 import errno
 import ipaddress
 import os
-import shutil
 import stat
 import subprocess
 import sys
@@ -377,15 +376,26 @@ def ports(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Po
     return probe
 
 
-#: The real ``shutil.rmtree``, taken before any test replaces it: a test that patches it to read what
-#: is removed must not be handed its own home at teardown.
-_remove_tree = shutil.rmtree
+@pytest.fixture(autouse=True)
+def outside_systemd(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Run every test as if from a terminal, whatever started the suite.
+
+    A process systemd started carries ``INVOCATION_ID``, and Noust reads it: the monitor runs a web
+    server's configuration test through ``systemd-run``, and the audit names the actor ``systemd``.
+    A CI runner's jobs run under systemd, so with it set the tests saw another program than on a
+    laptop. A test that wants it sets it.
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    monkeypatch.delenv("INVOCATION_ID", raising=False)
 
 
 @pytest.fixture(autouse=True)
 def isolated_home(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[Path]:
+) -> Path:
     """
     Give every test a home directory of its own, empty and outside ``tmp_path``.
 
@@ -402,11 +412,7 @@ def isolated_home(
         tmp_path_factory: Session temporary directory factory.
         monkeypatch: Patching helper, scoped to the test.
 
-    It is removed when the test ends, as ``tmp_path`` is when it passes
-    (``tmp_path_retention_policy`` in pyproject.toml): kept, the forty thousand
-    of a run filled the CI runner's disk before the suite was half done.
-
-    Yields:
+    Returns:
         The home directory.
     """
     home = tmp_path_factory.mktemp("home")
@@ -420,8 +426,7 @@ def isolated_home(
     monkeypatch.setattr(
         UpdateChecker, "CACHE_FILE", home / ".cache" / "noust" / "version_check.json"
     )
-    yield home
-    _remove_tree(home, ignore_errors=True)
+    return home
 
 
 @pytest.fixture(autouse=True)

@@ -47,6 +47,9 @@ def load_generator() -> ModuleType:
 @pytest.fixture(scope="module")
 def sdk() -> Iterator[ModuleType]:
     """The package, imported from where it lives and forgotten afterwards."""
+    if sys.version_info < (3, 11):
+        # The SDK declares Python 3.11 (sdk/python/pyproject.toml): its models use typing.NotRequired.
+        pytest.skip("the SDK needs Python 3.11 or later")
     sys.path.insert(0, str(SDK))
     try:
         import noust_sdk

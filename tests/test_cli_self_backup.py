@@ -26,6 +26,7 @@ from noust.cli import app as cli_app
 from noust.cli.audit_policy import is_read_only
 from noust.cli.commands import restore_server as restore_cli
 from noust.cli.commands import self_backup as self_cli
+from noust.core import paths
 from noust.core.ens import envelope
 from noust.core.logger import Logger
 from noust.core.runner import set_runner
@@ -73,6 +74,9 @@ def point_at(
     monkeypatch.setattr(SelfBackupManager, "directory", property(lambda self: made.bundles))
     monkeypatch.setattr(self_backup, "SYSTEMD_DIR", made.units)
     monkeypatch.setattr("noust.managers.cert_manager.CertManager.LETSENCRYPT_DIR", made.letsencrypt)
+    # Not the machine's /etc/nginx: a CI runner has nginx installed, and its files would be copied
+    # and written back as the test's own. The web servers' directories are the manager's tests'.
+    monkeypatch.setattr(paths, "WEBSERVER_CONFIG_DIRS", {})
     if timers is not None:
         monkeypatch.setattr(SelfBackupManager, "scheduler", property(lambda self: timers))
 

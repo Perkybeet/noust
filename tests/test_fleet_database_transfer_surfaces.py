@@ -138,6 +138,9 @@ class TestTheApi:
         elevate(client, master)
         accepted = client.post("/api/fleet/databases/transfer", json=BODY)
         assert accepted.status_code == 200, accepted.text
+        # The move it queued runs in the console's job thread: left running, it ended in the next
+        # test and put the database on that test's target before its own move began.
+        self.wait(client, accepted.json()["job"]["job_id"])
 
     def test_the_move_runs_as_a_job_and_ends_on_the_target(
         self, client: TestClient, source: Source, target: Target
