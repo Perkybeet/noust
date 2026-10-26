@@ -128,7 +128,7 @@ jobs:
 
       - name: Upload coverage
         if: matrix.python-version == '3.14'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
@@ -455,18 +455,18 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: terraform-provider-noust/go.mod
           cache-dependency-path: terraform-provider-noust/go.sum
 
       # The wrapper would put its own output around every command the tests read.
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "1.16.6"
           terraform_wrapper: false
 
-      - uses: opentofu/setup-opentofu@v1
+      - uses: opentofu/setup-opentofu@v2
         with:
           tofu_version: "1.12.8"
           tofu_wrapper: false
