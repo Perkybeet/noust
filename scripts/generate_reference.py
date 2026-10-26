@@ -133,7 +133,9 @@ def command_section(path: tuple[str, ...], command: click.Command) -> list[str]:
     text = (command.help or command.short_help or "").strip()
     lines = [f"### {' '.join(path)}", ""]
     if text:
-        lines += [text.split("\n\n")[0].replace("\n", " "), ""]
+        # Whitespace collapsed, as cell() does: a docstring keeps its indentation before Python
+        # 3.13 and loses it from 3.13 on, and the page must read the same from either.
+        lines += [" ".join(text.split("\n\n")[0].split()), ""]
     lines += ["```", command.get_usage(context).removeprefix("Usage: "), "```", ""]
     arguments = [p for p in command.params if isinstance(p, click.Argument)]
     options = [p for p in command.params if isinstance(p, click.Option) and p.name != "help"]

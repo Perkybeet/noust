@@ -59,7 +59,7 @@ Arguments: `code`
 
 ### noust 2fa enroll
 
-Begin enrolment: generate a pending secret. Nothing is enforced until     'noust 2fa confirm CODE' verifies it.
+Begin enrolment: generate a pending secret. Nothing is enforced until 'noust 2fa confirm CODE' verifies it.
 
 ```
 noust 2fa enroll [OPTIONS]
@@ -4661,7 +4661,7 @@ noust central run [OPTIONS]
 
 ### noust central seal
 
-Encrypt every secret (node keys and tokens, integration keys) under a     passphrase. After this, the central starts locked until it is given the     passphrase. The passphrase cannot be recovered: keep it somewhere else.
+Encrypt every secret (node keys and tokens, integration keys) under a passphrase. After this, the central starts locked until it is given the passphrase. The passphrase cannot be recovered: keep it somewhere else.
 
 ```
 noust central seal [OPTIONS]
@@ -5026,7 +5026,7 @@ noust cert uploads [OPTIONS]
 
 ### noust cert use
 
-Choose where APP's certificate comes from: ordered (over HTTP, or DNS with --dns), uploaded, or     signed by this server's own authority (--internal).
+Choose where APP's certificate comes from: ordered (over HTTP, or DNS with --dns), uploaded, or signed by this server's own authority (--internal).
 
 ```
 noust cert use [OPTIONS] APP
@@ -5086,7 +5086,7 @@ noust compliance controls [OPTIONS]
 
 ### noust compliance disable
 
-Turn frameworks off. What they forced goes back to the default, or to a stricter     framework or setting that still asks for it.
+Turn frameworks off. What they forced goes back to the default, or to a stricter framework or setting that still asks for it.
 
 ```
 noust compliance disable [OPTIONS] FRAMEWORK...
@@ -10134,7 +10134,7 @@ noust health [OPTIONS]
 
 ### noust import
 
-Read Vercel, Railway, Render or Heroku configuration from a repository, or     a Coolify, Dokploy, CapRover or Dokku application from its server.
+Read Vercel, Railway, Render or Heroku configuration from a repository, or a Coolify, Dokploy, CapRover or Dokku application from its server.
 
 ```
 noust import [OPTIONS] [PATH]
@@ -14355,7 +14355,7 @@ noust sessions list [OPTIONS]
 
 ### noust sessions revoke
 
-Revoke one session, named by a unique PREFIX of its id, as listed by     'noust sessions list'.
+Revoke one session, named by a unique PREFIX of its id, as listed by 'noust sessions list'.
 
 ```
 noust sessions revoke [OPTIONS] PREFIX
@@ -15136,7 +15136,7 @@ Subcommands: [`create`](#noust-token-create), [`list`](#noust-token-list), [`rev
 
 ### noust token create
 
-Issue a named, scoped API token. NAME must be unique across every token     ever issued, live or revoked.
+Issue a named, scoped API token. NAME must be unique across every token ever issued, live or revoked.
 
 ```
 noust token create [OPTIONS] NAME
@@ -15564,7 +15564,7 @@ noust user list [OPTIONS]
 
 ### noust user remove
 
-Remove an account. Prefer 'disable': a removed account's name in the     audit log no longer names a record.
+Remove an account. Prefer 'disable': a removed account's name in the audit log no longer names a record.
 
 ```
 noust user remove [OPTIONS] USERNAME
