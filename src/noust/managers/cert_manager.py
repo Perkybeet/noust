@@ -73,6 +73,7 @@ from noust.core.certificate_store import (
 from noust.core.domain_certificates import OWN, lineage_name, own_names, shared_names
 from noust.core.exceptions import CertificateError, NoustError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem
+from noust.core.openssl_names import OPENSSL_NAME_FORMAT
 from noust.core.pem import pem_block
 from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner
 from noust.core.store import DomainRecord, NoustStore, get_store
@@ -847,7 +848,9 @@ class CertManager(BaseManager):
         """
         if not cert_path:
             return None
-        result = self._exec(["openssl", "x509", "-noout", "-issuer", "-in", cert_path])
+        result = self._exec(
+            ["openssl", "x509", "-noout", "-issuer", "-in", cert_path, *OPENSSL_NAME_FORMAT]
+        )
         if not result.success:
             self.logger.debug(
                 f"Could not read the issuer of {cert_path}: "

@@ -242,6 +242,8 @@ def test_list_certificates_reads_the_issuer_from_the_file(
         "-issuer",
         "-in",
         "/etc/letsencrypt/live/shop.tld/fullchain.pem",
+        "-nameopt",
+        "oneline",
     ) in runner.calls
 
 

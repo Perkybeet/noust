@@ -44,6 +44,7 @@ from typing import Any
 from noust.core import paths
 from noust.core.exceptions import DatabaseEngineError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs, is_rehearsal
+from noust.core.openssl_names import OPENSSL_NAME_FORMAT
 from noust.core.pem import pem_block
 from noust.core.runner import CommandRunner, get_runner
 
@@ -348,6 +349,7 @@ class TlsAuthority:
                 "-serial",
                 "-ext",
                 "subjectAltName",
+                *OPENSSL_NAME_FORMAT,
             ],
             timeout=OPENSSL_TIMEOUT,
         )

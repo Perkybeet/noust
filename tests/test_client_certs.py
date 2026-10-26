@@ -62,7 +62,7 @@ def openssl(*args: str, input_text: str | None = None) -> subprocess.CompletedPr
 
 
 def text_of(path: Path) -> str:
-    return openssl("x509", "-in", str(path), "-noout", "-text").stdout
+    return openssl("x509", "-in", str(path), "-noout", "-text", "-nameopt", "oneline").stdout
 
 
 # -- what a certificate really is -----------------------------------------------------------

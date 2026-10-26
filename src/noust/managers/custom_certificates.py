@@ -38,6 +38,7 @@ from noust.core import audit, paths
 from noust.core.certificate_store import CertificateStore, CustomCertificate
 from noust.core.exceptions import CertificateError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
+from noust.core.openssl_names import OPENSSL_NAME_FORMAT
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.teams.model import ResourceNotFoundError
 from noust.validators.domain import is_valid_domain, is_wildcard, wildcard_covers
@@ -445,7 +446,8 @@ class CustomCertificates:
             CertificateError: openssl could not read it.
         """
         output = self._openssl(
-            ["openssl", "x509", "-noout", "-text", "-fingerprint", "-sha256"], leaf
+            ["openssl", "x509", "-noout", "-text", "-fingerprint", "-sha256", *OPENSSL_NAME_FORMAT],
+            leaf,
         )
         return parse_inspection(output)
 
