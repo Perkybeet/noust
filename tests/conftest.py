@@ -453,6 +453,12 @@ def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Ite
     # The class itself: a test may replace the name with a fake for its own
     # duration, and that fake is still in place when this teardown runs.
     store_class = store_module.NoustStore
+    stale = store_class._instance
+    if stale is not None and not stale.db_path.parent.exists():
+        # A job an earlier test queued and did not wait for opened the store after that test's
+        # teardown, in its directory, which tmp_path's retention has removed since: inherited, it
+        # fails this test with "Cannot open the Noust database" at a path that is not its own.
+        store_class.reset_instance()
     before = store_class._instance
     yield
     # A store that something opened during this test (the delivery ledger of a

@@ -821,12 +821,12 @@ class TestOneOffCommands:
             ).status_code
             == 404
         )
-        assert (
-            world.client.post(
-                f"/api/apps/{ACME}/exec", json=body, headers=world.as_("alice")
-            ).status_code
-            == 202
+        accepted = world.client.post(
+            f"/api/apps/{ACME}/exec", json=body, headers=world.as_("alice")
         )
+        assert accepted.status_code == 202
+        # The command runs in the job thread: left running, it opened the store after this test.
+        self.wait_for_job(world, accepted.json()["job_id"], who="alice")
 
     @pytest.mark.parametrize(
         "body",
