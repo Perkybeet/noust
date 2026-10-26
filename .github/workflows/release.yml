@@ -969,6 +969,9 @@ jobs:
           format: cyclonedx-json
           output-file: noust-image.cdx.json
           upload-artifact-retention: 90
+          # The action attaches the SBOM to the release by default, which needs contents: write;
+          # this job holds contents: read, and the SBOM is attested beside the image instead.
+          upload-release-assets: false
 
       - name: Attest the SBOM of the image
         uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
