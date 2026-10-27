@@ -61,7 +61,7 @@ export const appPages = {
     deployFailedTitle: "The last deploy failed {time}",
     deployFailedBody: "The version that was live before is still serving.",
     unmanagedTitle: "It runs outside Noust",
-    unmanagedBody: "Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back. Someone probably started it with docker compose by hand.",
+    unmanagedBody: "Its containers run, but its unit is stopped: Noust is not supervising it. Someone probably started it with docker compose by hand.",
   },
 
   reclaim: {

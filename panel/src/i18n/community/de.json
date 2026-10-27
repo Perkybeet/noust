@@ -710,7 +710,7 @@
   "appPages.banner.deployFailedTitle": "Die letzte Bereitstellung ist {time} fehlgeschlagen",
   "appPages.banner.deployFailedBody": "Die zuvor live geschaltete Version liefert weiter aus.",
   "appPages.banner.unmanagedTitle": "Läuft außerhalb von Noust",
-  "appPages.banner.unmanagedBody": "Seine Container laufen, aber sein Dienst ist gestoppt: Noust überwacht ihn nicht, und ein Neustart des Servers würde ihn nicht zurückbringen. Wahrscheinlich hat ihn jemand von Hand mit docker compose gestartet.",
+  "appPages.banner.unmanagedBody": "Seine Container laufen, aber sein Dienst ist gestoppt: Noust überwacht ihn nicht. Wahrscheinlich hat ihn jemand von Hand mit docker compose gestartet.",
   "appPages.reclaim.open": "An Noust zurückgeben",
   "appPages.reclaim.title": "{domain} an Noust zurückgeben",
   "appPages.reclaim.description": "Sein Dienst wird aktiviert, damit der Stack nach einem Neustart des Servers zurückkehrt, und gestartet, damit Noust ihn wieder überwacht. Container, die bereits so laufen, wie die Compose-Datei es sagt, bleiben, wie sie sind.",

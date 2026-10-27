@@ -710,7 +710,7 @@
   "appPages.banner.deployFailedTitle": "Le dernier déploiement a échoué {time}",
   "appPages.banner.deployFailedBody": "La release qui était en production avant continue de servir.",
   "appPages.banner.unmanagedTitle": "Elle s'exécute en dehors de Noust",
-  "appPages.banner.unmanagedBody": "Ses conteneurs tournent, mais son service est arrêté : Noust ne la supervise pas, et un redémarrage du serveur ne la relancerait pas. Quelqu'un l'a probablement démarrée à la main avec docker compose.",
+  "appPages.banner.unmanagedBody": "Ses conteneurs tournent, mais son service est arrêté : Noust ne la supervise pas. Quelqu'un l'a probablement démarrée à la main avec docker compose.",
   "appPages.reclaim.open": "La rendre à Noust",
   "appPages.reclaim.title": "Rendre {domain} à Noust",
   "appPages.reclaim.description": "Son service est activé, donc la stack revient après un redémarrage du serveur, et démarré, donc Noust la supervise de nouveau. Les conteneurs qui tournent déjà comme le dit le fichier compose sont laissés tels quels.",

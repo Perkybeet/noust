@@ -680,6 +680,19 @@ describe("a Compose stack running outside its unit", { timeout: 20_000 }, () => 
     expect(await screen.findByText(`${DOMAIN} runs under its unit again`)).toBeInTheDocument();
   });
 
+  it("does not say what a restart of the server would do, because the status does not tell", async () => {
+    // The server's notices separate three cases (the containers return, stay down, or it could not
+    // ask Docker) from their restart policies; the app's status carries none of that, so the banner
+    // says only what it knows, in both languages, instead of "a restart would not bring it back".
+    await appAt(stackRoutes(() => json(200, FOUND)));
+    expect(await screen.findByText(/Noust is not supervising it\. Someone probably started it with docker compose by hand\./)).toBeInTheDocument();
+    expect(screen.queryByText(/restart of the server/)).not.toBeInTheDocument();
+
+    await act(() => setLocale("es"));
+    expect(await screen.findByText(/Noust no la supervisa\. Seguramente alguien la arrancó a mano con docker compose\./)).toBeInTheDocument();
+    expect(screen.queryByText(/reinicio del servidor/)).not.toBeInTheDocument();
+  });
+
   it("shows Compose's output when the start would recreate, and goes on only once that is accepted", async () => {
     const output = " Container shop-web-1  Recreate\n Container shop-web-1  Recreated";
     const { backend, user } = await appAt(

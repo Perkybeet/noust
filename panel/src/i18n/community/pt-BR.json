@@ -710,7 +710,7 @@
   "appPages.banner.deployFailedTitle": "A última implantação falhou {time}",
   "appPages.banner.deployFailedBody": "A release que estava em produção antes continua atendendo.",
   "appPages.banner.unmanagedTitle": "Roda fora do Noust",
-  "appPages.banner.unmanagedBody": "Os contêineres dele rodam, mas o serviço está parado: o Noust não o supervisiona, e uma reinicialização do servidor não o traria de volta. Provavelmente alguém o iniciou com docker compose à mão.",
+  "appPages.banner.unmanagedBody": "Os contêineres dele rodam, mas o serviço está parado: o Noust não o supervisiona. Provavelmente alguém o iniciou com docker compose à mão.",
   "appPages.reclaim.open": "Devolver ao Noust",
   "appPages.reclaim.title": "Devolver {domain} ao Noust",
   "appPages.reclaim.description": "O serviço dele é habilitado, então a stack volta depois de uma reinicialização do servidor, e iniciado, então o Noust volta a supervisioná-lo. Os contêineres que já rodam como o arquivo compose diz são deixados como estão.",

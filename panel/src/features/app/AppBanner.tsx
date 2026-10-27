@@ -31,7 +31,8 @@ export type AppCondition =
 /**
  * Whether the app is broken, and how. Its service first (failed, not answering, or restarting
  * over and over), then a Compose stack running outside its unit (it serves, but Noust does not
- * supervise it and a reboot would not bring it back), then a failed last deploy while an older
+ * supervise it; whether a reboot brings it back depends on its containers' restart policies,
+ * which the app's status does not carry, so the banner does not say), then a failed last deploy while an older
  * version still serves. A stopped app is not broken: operators stop apps on purpose. A job running on the app is its own news, said
  * by its progress, so the caller asks only when none is.
  */
