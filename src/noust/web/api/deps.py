@@ -83,6 +83,7 @@ from noust.core.exceptions import (
     SecurityError,
     SourceError,
     ValidationError,
+    WebserverInUseError,
 )
 from noust.core.exceptions import (
     PermissionError as NoustPermissionError,
@@ -171,6 +172,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (CertificateConflictError, 409),
     # The machine lacks a module or a package the request needs; the error says which.
     (PrerequisiteError, 409),
+    # The web server of new applications, while the other one still serves sites.
+    (WebserverInUseError, 409),
     (AppBusyError, 409),
     # Nothing to cancel, or too late to: a state of the deployment, not a fault.
     (CancelRefused, 409),
@@ -243,6 +246,7 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     # The console offers to deploy anyway, or to resume, instead of showing an error.
     (DeploysFrozenError, "deploys_frozen"),
     (DeploysPausedError, "deploys_paused"),
+    (WebserverInUseError, "webserver_in_use"),
     # The console branches on these: a button that finds nothing to cancel, a
     # request that waits for the queue to shrink.
     (CancelRefused, "cancel_refused"),

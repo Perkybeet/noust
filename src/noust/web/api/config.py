@@ -25,10 +25,12 @@ that I/O would run on the event loop and stall every other request.
 
 from __future__ import annotations
 
+import logging
 import os
+import sqlite3
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -43,8 +45,11 @@ from noust.core.config import (
     coerce_config_value,
     redact_secrets,
 )
+from noust.core.exceptions import NoustError
 from noust.core.notifications.team_channels import may_use, visible_to
 from noust.core.teams import current_scope
+from noust.core.webserver_switch import WebserverUsage
+from noust.core.webserver_switch import usage as webserver_usage
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated
 from noust.web.auth import actor_label, get_audit_logger, get_client_ip
@@ -58,6 +63,8 @@ if TYPE_CHECKING:
 # had no way to catch it - NoustErrorRoute is the one place that translation
 # is stated.
 router = APIRouter(route_class=NoustErrorRoute)
+
+logger = logging.getLogger(__name__)
 
 #: Web servers Noust can actually configure.
 SUPPORTED_WEBSERVERS = frozenset({"nginx", "apache"})
@@ -373,9 +380,21 @@ class AppsDirectoryUpdateResponse(BaseModel):
 
 
 class WebserverResponse(BaseModel):
-    """The configured web server."""
+    """
+    The web server new applications are put behind, and what is behind each today.
+
+    Attributes:
+        webserver: The setting.
+        applies_to: Always ``new_applications``: every application keeps the web server it was
+            deployed behind, and changing the setting moves none of them.
+        applications: How many applications are behind each web server.
+        sites: How many sites that belong to no application are behind each.
+    """
 
     webserver: str
+    applies_to: Literal["new_applications"] = "new_applications"
+    applications: dict[str, int] = Field(default_factory=dict)
+    sites: dict[str, int] = Field(default_factory=dict)
 
 
 class WebserverUpdateResponse(BaseModel):
@@ -613,16 +632,25 @@ def update_apps_directory(
 @router.get("/webserver", response_model=WebserverResponse)
 def get_webserver(session: dict = Depends(get_current_session)) -> WebserverResponse:
     """
-    Get the web server configuration.
+    Get the web server new applications are put behind, and what is behind each now.
 
     Args:
         session: Authenticated session, injected by the dependency.
 
     Returns:
-        The configured web server.
+        The setting and the counts of applications and sites behind each web server.
     """
     config = load_config()
-    return WebserverResponse(webserver=config.get("webserver", DEFAULT_CONFIG["webserver"]))
+    try:
+        use = webserver_usage()
+    except (sqlite3.Error, OSError, NoustError) as exc:
+        logger.debug("What sits behind each web server was not counted: %s", exc)
+        use = WebserverUsage({}, {})
+    return WebserverResponse(
+        webserver=config.get("webserver", DEFAULT_CONFIG["webserver"]),
+        applications=use.applications,
+        sites=use.sites,
+    )
 
 
 @router.put("/webserver", response_model=WebserverUpdateResponse)
@@ -632,7 +660,11 @@ def update_webserver(
     session: dict = Depends(require_elevated),
 ) -> WebserverUpdateResponse:
     """
-    Update the web server setting.
+    Update the web server new applications are put behind.
+
+    The setting never moves an application: each keeps the web server it was deployed behind.
+    It is refused (409, ``webserver_in_use``) while applications or sites are still behind the
+    other server, with how many are where.
 
     Args:
         body: Body carrying the web server name.
@@ -644,6 +676,7 @@ def update_webserver(
 
     Raises:
         HTTPException: 400 for an unsupported web server, or a write failure.
+        WebserverInUseError: Applications or sites are behind the other server (409).
     """
     if body.webserver not in SUPPORTED_WEBSERVERS:
         raise HTTPException(status_code=400, detail="Webserver must be 'nginx' or 'apache'")
@@ -652,7 +685,13 @@ def update_webserver(
     config.set("webserver", body.webserver)
     persist(config)
     _audit_write(request, session, changed=["webserver"])
-    return WebserverUpdateResponse(message="Web server updated", webserver=body.webserver)
+    return WebserverUpdateResponse(
+        message=(
+            f"New applications will be put behind {body.webserver}; "
+            "applications already deployed keep theirs"
+        ),
+        webserver=body.webserver,
+    )
 
 
 @router.get("/backup", response_model=BackupSettingsResponse)

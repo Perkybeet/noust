@@ -492,6 +492,11 @@ def _run_set(key: str, raw_value: str, logger: Logger, *, as_list: bool = False)
 
     logger.success(f"Set {key} = {_redacted(key, config.get(key))}")
     logger.key_value("Config file", str(path))
+    if key == "webserver":
+        logger.info(
+            "New applications are put behind it; applications already deployed keep the web "
+            "server they have."
+        )
     return 0
 
 

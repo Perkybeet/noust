@@ -91,6 +91,15 @@ class ConfigError(NoustError):
     pass
 
 
+class WebserverInUseError(ConfigError):
+    """
+    The web server of new applications cannot change while the other one still serves sites.
+
+    A conflict with the state of the server, not a bad value: the same request is fine once
+    what is behind the other server has moved.
+    """
+
+
 class ValidationError(NoustError):
     """Raised when input validation fails."""
 

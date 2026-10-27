@@ -3197,6 +3197,12 @@ class Config:
             )
 
         value = _validate_known_value(key, value)
+        if key == "webserver":
+            # The one place every way of changing it passes: the command line, the typed endpoint
+            # and the generic PATCH. Local import: the store reads this module's configuration.
+            from noust.core.webserver_switch import refuse_switch
+
+            refuse_switch(str(self.get("webserver", DEFAULT_CONFIG["webserver"])), str(value))
         if isinstance(value, dict):
             # A whole section written at once ("backup" with a dict) must meet
             # the same per-key rules as writing its keys one by one, and any
