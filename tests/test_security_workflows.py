@@ -167,6 +167,18 @@ class TestTheSecurityWorkflow:
         assert scan["with"]["skip-dirs"] == "tests/integration"
         assert (ROOT / "tests" / "integration").is_dir()
 
+    def test_an_alert_of_high_severity_nobody_decided_fails_the_run(
+        self, security: dict[str, Any]
+    ) -> None:
+        job = security["jobs"]["alerts-decided"]
+
+        assert set(job["needs"]) == {"codeql", "trivy-repository", "trivy-image"}
+        assert job["permissions"]["security-events"] == "read"
+        assert "pull_request" in job["if"]
+        assert "scripts/code_scanning_gate.py" in run_text(job)
+        assert "state=open" in run_text(job)
+        assert (ROOT / "scripts" / "code_scanning_gate.py").is_file()
+
     def test_the_configuration_files_it_names_exist(self) -> None:
         assert (ROOT / ".github" / "codeql" / "codeql-config.yml").is_file()
         assert (ROOT / ".trivyignore").is_file()

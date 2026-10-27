@@ -4,6 +4,9 @@
 # console's committed build (generated from panel/, read there), and the tests
 # and fixtures, which hold made-up credentials and deliberately hostile input
 # so the code that rejects it can be checked.
+#
+# Each entry below says why it is here. A path is never added to quieten a
+# finding in code that ships: that is decided alert by alert (docs/code-scanning.md).
 name: Noust CodeQL
 
 paths-ignore:
@@ -11,3 +14,29 @@ paths-ignore:
   - tests
   - panel/e2e
   - panel/node_modules
+  # The console's own tests and their helpers: the same made-up hosts, secrets
+  # and hostile text as tests/, written in TypeScript beside the page they test.
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - panel/src/test
+  - panel/src/features/app/settings/testKit.ts
+  # The server the console's tests and the E2E suite talk to: the real API over a
+  # seeded store in a temporary directory with a fake runner, started on a
+  # developer's machine or a CI runner and never installed.
+  - scripts/console_server.py
+  # Catalogue entries, not code. A recipe says `password: ""` for a value Noust
+  # generates when the stack is installed (or leaves unset), which the rule for an
+  # empty password in a configuration file reads as a credential left blank; so
+  # does the SMTP password of the packaged default configuration.
+  - src/noust/recipes/*.yaml
+  - obs/noust.default.yaml
+
+query-filters:
+  # The record every logger of the process writes is made safe in one place
+  # (noust/core/logsafe.py: a line break or control character in a message is written
+  # out), so a value that came from a request cannot start another line or forge a field,
+  # whichever of the sixty call sites logs it. The query follows the value to the call and
+  # cannot see the record, so it would report every future log line that names a domain.
+  # tests/test_log_neutral.py holds the guarantee; this exclusion is only valid while it does.
+  - exclude:
+      id: py/log-injection
