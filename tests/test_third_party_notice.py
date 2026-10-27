@@ -87,8 +87,9 @@ def test_the_fonts_and_the_copied_files_are_declared_too() -> None:
     for license_name in ("Expat", "OFL-1.1", "Apache-2.0"):
         # Each short name a Files paragraph uses has its own License paragraph with the text.
         assert re.search(rf"^License: {re.escape(license_name)}\n ", copyright_text, re.MULTILINE)
-    assert "JetBrains Mono" in ofl and "Mona Sans" in ofl and "SIL OPEN FONT LICENSE" in ofl
-    for name in ("Plausible", "JetBrains Mono", "Mona Sans", "Dokploy"):
+    fonts = ("JetBrains Mono", "Atkinson Hyperlegible Next", "Bricolage Grotesque")
+    assert all(font in ofl for font in fonts) and "SIL OPEN FONT LICENSE" in ofl
+    for name in ("Plausible", *fonts, "Dokploy"):
         assert name in notice
     assert re.search(r"^%license .*\bLICENSE-OFL-1\.1\b", spec, re.MULTILINE)
 

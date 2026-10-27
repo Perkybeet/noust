@@ -44,7 +44,10 @@ describe("PageHeader", () => {
       />,
     );
     const heading = screen.getByRole("heading", { level: 1, name: "shop.example.com" });
-    expect(heading).toHaveClass("mono");
+    // An identifier is not translated, and is a title like any other: the display voice, not mono.
+    expect(heading).toHaveAttribute("translate", "no");
+    expect(heading).toHaveClass("display");
+    expect(heading).not.toHaveClass("mono");
     expect(heading.parentElement).toHaveTextContent("Running");
     expect(screen.getByText("Next.js · :3001")).toBeInTheDocument();
   });

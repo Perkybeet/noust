@@ -67,7 +67,7 @@ const GROUP_HEIGHT = 28;
 
 const OPTION =
   "flex cursor-pointer items-center gap-3 rounded-control py-1.5 pr-2 pl-2.5 text-13 outline-none select-none " +
-  "data-disabled:cursor-not-allowed data-disabled:opacity-50 data-highlighted:bg-surface-hover";
+  "data-disabled:cursor-not-allowed data-disabled:opacity-50 data-highlighted:bg-bg-sunken";
 
 const GROUP_LABEL = "px-2.5 pt-2 pb-1 text-12 font-medium text-fg-faint";
 
@@ -316,7 +316,7 @@ export function Combobox<T extends ComboboxItem>({
         <BaseCombobox.Positioner sideOffset={4} className="z-overlay outline-none">
           <BaseCombobox.Popup
             className={cx(
-              "flex max-h-(--available-height) min-w-(--anchor-width) flex-col rounded-card border border-border bg-surface-raised text-fg shadow-overlay outline-none",
+              "elev-seated flex max-h-(--available-height) min-w-(--anchor-width) flex-col rounded-card border border-border-strong bg-surface-raised text-fg outline-none",
               POPUP_MOTION,
             )}
           >

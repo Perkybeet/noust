@@ -48,10 +48,11 @@ export function Checkbox({
       indeterminate={indeterminate}
       disabled={disabled}
       className={cx(
-        "mt-0.5 flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border border-border-strong bg-surface text-on-accent",
-        "transition-[background-color,border-color] duration-(--duration-fast) ease-out",
+        // A box to tick is carved like a field; ticked, it fills with the accent.
+        "elev-carved mt-0.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-chip bg-bg-sunken text-on-accent",
+        "transition-colors duration-(--duration-press) ease-out",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
-        "data-checked:border-accent data-checked:bg-accent data-indeterminate:border-accent data-indeterminate:bg-accent",
+        "data-checked:bg-accent data-indeterminate:bg-accent",
         "data-disabled:cursor-not-allowed data-disabled:opacity-50",
       )}
     >

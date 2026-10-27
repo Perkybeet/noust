@@ -4,6 +4,7 @@ import type { ReactElement, ReactNode } from "react";
 
 import { cx } from "../../lib/cx";
 import { Kbd } from "./Kbd";
+import { SlidingIndicator } from "./SlidingIndicator";
 import { POPUP_MOTION } from "./Tooltip";
 
 export interface MenuProps {
@@ -28,10 +29,12 @@ export function Menu({ trigger, children, side = "bottom", align = "start", open
         <BaseMenu.Positioner side={side} align={align} sideOffset={4} className="z-overlay outline-none">
           <BaseMenu.Popup
             className={cx(
-              "min-w-48 rounded-card border border-border bg-surface-raised p-1 text-fg shadow-overlay outline-none",
+              "elev-seated relative isolate min-w-48 rounded-card border border-border-strong bg-surface-raised p-1 text-fg outline-none",
               POPUP_MOTION,
             )}
           >
+            {/* The highlight glides from the item the keys or the pointer left to the one they reached. */}
+            <SlidingIndicator variant="flat" activeSelector="[data-highlighted]" className="rounded-control bg-bg-sunken" />
             {children}
           </BaseMenu.Popup>
         </BaseMenu.Positioner>
@@ -68,12 +71,12 @@ export function MenuItem({ children, onClick, icon, shortcut, destructive = fals
       {...(described ? { "aria-labelledby": labelId, "aria-describedby": descriptionId } : {})}
       disabled={disabled}
       className={cx(
-        "flex cursor-pointer gap-2.5 rounded-control px-2 text-13 outline-none select-none",
+        "relative flex cursor-pointer gap-2.5 rounded-control px-2 text-13 outline-none select-none",
         described ? "max-w-80 items-start py-1.5" : "h-8 items-center",
         "data-disabled:cursor-not-allowed data-disabled:opacity-50",
         destructive
           ? "text-fail data-highlighted:bg-fail-soft"
-          : "text-fg data-highlighted:bg-surface-hover",
+          : "text-fg",
         "[&_svg]:size-4 [&_svg]:shrink-0",
       )}
     >

@@ -76,21 +76,23 @@ describe("SplitButton", () => {
     expect(arrow).toHaveClass(height, width);
   });
 
-  it("is a primary of both parts, with a seam in the darker violet", () => {
+  it("is a primary of both parts, two raised pieces of the accent a hair apart", () => {
     update({ variant: "primary" });
     const [main, arrow] = screen.getAllByRole("button");
     expect(main).toHaveAttribute("data-variant", "primary");
     expect(arrow).toHaveAttribute("data-variant", "primary");
-    expect(arrow).toHaveClass("border-l-accent-hover");
+    expect(main).toHaveClass("elev-raised-accent");
+    expect(arrow).toHaveClass("elev-raised-accent", "rounded-l-none");
+    expect(screen.getByRole("group", { name: "Update" })).toHaveClass("gap-px");
   });
 
-  it("is a secondary of both parts, the borders meeting in one line", () => {
+  it("is a secondary of both parts, two raised pieces a hair apart, with no stripe of colour between them", () => {
     update({ variant: "secondary" });
     const [main, arrow] = screen.getAllByRole("button");
     expect(main).toHaveAttribute("data-variant", "secondary");
     expect(arrow).toHaveAttribute("data-variant", "secondary");
-    expect(arrow).toHaveClass("-ml-px");
-    expect(arrow).not.toHaveClass("border-l-accent-hover");
+    expect(main).toHaveClass("elev-raised");
+    expect(arrow?.className).not.toMatch(/border-l-/);
   });
 
   it("steps aside as one while the save bar holds changes", () => {

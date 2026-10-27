@@ -197,6 +197,7 @@ const DEC_SPECIAL: Readonly<Record<string, string>> = {
   "{": "π",
   "|": "≠",
   "}": "£",
+  // design-exception: middle-dot the glyph the DEC special graphics set draws for a terminal program, not a separator of ours
   "~": "·",
 };
 

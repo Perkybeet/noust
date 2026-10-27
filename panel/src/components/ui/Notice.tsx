@@ -37,7 +37,7 @@ export interface NoticeProps {
 }
 
 const FRAME: Record<NoticeTone, string> = {
-  info: "border-border bg-surface-raised",
+  info: "border-border bg-surface",
   success: "border-ok-border bg-ok-soft",
   warning: "border-warn-border bg-warn-soft",
   error: "border-fail-border bg-fail-soft",

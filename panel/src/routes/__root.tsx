@@ -29,7 +29,7 @@ function NotFound() {
   useDocumentTitle(t("shell.notFound.title"));
   return (
     <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-2 px-6">
-      <h1 className="title text-24">{t("shell.notFound.title")}</h1>
+      <h1 className="display text-32">{t("shell.notFound.title")}</h1>
       <p className="text-14 text-fg-muted">
         {t.rich("shell.notFound.body", {
           overview: (

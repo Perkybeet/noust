@@ -221,7 +221,9 @@ describe("Settings > Notifications", () => {
     // the stopped grey with its ring, and the word; a label, not a control.
     const slackOn = within(row("Slack")).getByText("On");
     expect(slackOn).toHaveAttribute("data-state", "running");
-    expect(slackOn).toHaveClass("text-ok", "bg-ok-soft");
+    // On is running: the green word and its glyph, with no ground of its own (only what is not well tints its surface).
+    expect(slackOn).toHaveClass("text-ok");
+    expect(slackOn).not.toHaveClass("bg-ok-soft");
     expect(slackOn.querySelector("svg")).toHaveAttribute("data-glyph", "dot");
     expect(slackOn.closest("button, [role='switch'], a")).toBeNull();
     expect(within(row("Slack")).getByRole("button", { name: "Edit Slack" })).toBeInTheDocument();

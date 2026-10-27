@@ -14,9 +14,14 @@ export interface TooltipProps {
   disabled?: boolean;
 }
 
+/**
+ * How a small popup (a tooltip, a menu, a popover, the list of a select) comes and goes: it enters
+ * decelerating, from a little smaller, and leaves accelerating in less time.
+ */
 export const POPUP_MOTION =
-  "origin-(--transform-origin) transition-[opacity,scale] duration-(--duration-fast) ease-out " +
-  "data-starting-style:scale-[0.97] data-starting-style:opacity-0 data-ending-style:opacity-0";
+  "origin-(--transform-origin) transition-[opacity,scale] duration-(--duration-move) ease-(--ease-enter) " +
+  "data-starting-style:scale-[0.97] data-starting-style:opacity-0 " +
+  "data-ending-style:opacity-0 data-ending-style:duration-(--duration-fast) data-ending-style:ease-(--ease-exit)";
 
 /** Groups tooltips so moving between triggers opens the next one without a delay. */
 export function TooltipProvider({ children }: { children: ReactNode }) {
@@ -35,7 +40,7 @@ export function Tooltip({ content, shortcut, side = "top", children, disabled = 
       <BaseTooltip.Portal>
         <BaseTooltip.Positioner side={side} sideOffset={6} className="z-overlay">
           <BaseTooltip.Popup
-            className={`flex max-w-72 items-center gap-2 rounded-control bg-fg px-2 py-1 text-12 font-medium text-bg shadow-overlay ${POPUP_MOTION}`}
+            className={`flex max-w-72 items-center gap-2 rounded-control bg-fg px-2 py-1 text-12 font-medium text-bg ${POPUP_MOTION}`}
           >
             {content}
             {shortcut && shortcut.length > 0 ? (

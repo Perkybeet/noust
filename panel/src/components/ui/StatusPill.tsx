@@ -42,8 +42,13 @@ export const TONE_TEXT: Record<Tone, string> = {
   idle: "text-idle",
 };
 
+/**
+ * Only what is not well tints its surface (docs/DESIGN.md 2.1): in progress, a warning, a failure
+ * and a stopped thing do; running and static do not, so a screen of healthy things stays calm and
+ * the one that fails is the only one with colour behind it.
+ */
 const TONE_SOFT: Record<Tone, string> = {
-  ok: "bg-ok-soft",
+  ok: "",
   warn: "bg-warn-soft",
   fail: "bg-fail-soft",
   idle: "bg-idle-soft",
@@ -130,10 +135,12 @@ export function StatusPill({ state, label, appearance = "pill", size = "md", cla
       key={changes}
       data-state={state}
       className={cx(
-        "inline-flex shrink-0 items-center font-medium whitespace-nowrap",
+        "inline-flex shrink-0 items-center font-semibold whitespace-nowrap",
         TONE_TEXT[spec.tone],
-        appearance === "pill" && ["rounded-pill", TONE_SOFT[spec.tone]].join(" "),
-        appearance === "pill" && (size === "sm" ? "h-5 gap-1 pr-2 pl-1.5 text-12" : "h-6 gap-1.5 pr-2.5 pl-2 text-12"),
+        appearance === "pill" && ["rounded-chip", TONE_SOFT[spec.tone]].join(" "),
+        appearance === "pill" && (size === "sm" ? "h-5 gap-1 text-12" : "h-6 gap-1.5 text-12"),
+        // The tinted ones have room around the word; the untinted one is glyph and word and nothing else.
+        appearance === "pill" && (TONE_SOFT[spec.tone] === "" ? (size === "md" ? "elev-seated bg-surface pr-2.5 pl-2" : "") : size === "sm" ? "pr-2 pl-1.5" : "pr-2.5 pl-2"),
         appearance === "inline" && (size === "sm" ? "gap-1 text-12" : "gap-1.5 text-13"),
         changes > 0 && "animate-pulse-once",
         className,

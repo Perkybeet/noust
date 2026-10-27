@@ -1,6 +1,7 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { SlidingIndicator } from "../components/ui/SlidingIndicator";
 import { useT } from "../i18n";
 import { cx } from "../lib/cx";
 import { THEME_CHOICES } from "./theme";
@@ -23,8 +24,9 @@ export function ThemeSwitch({ value, onChange, compact = false, className }: The
     <div
       role="group"
       aria-label={t("shell.session.theme")}
-      className={cx("flex rounded-control border border-border bg-bg-sunken p-0.5", className)}
+      className={cx("elev-carved relative isolate flex rounded-card bg-bg-sunken p-0.5", className)}
     >
+      <SlidingIndicator className="rounded-control bg-surface" />
       {THEME_CHOICES.map(({ value: choice, label }) => {
         const Icon = ICONS[choice];
         return (
@@ -36,9 +38,9 @@ export function ThemeSwitch({ value, onChange, compact = false, className }: The
               onChange(choice);
             }}
             className={cx(
-              "flex h-7 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[4px] px-2.5 text-12 font-medium text-fg-muted",
+              "relative flex h-7 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-control px-2.5 text-12 font-medium text-fg-muted",
               "hover:text-fg focus-visible:outline-2 focus-visible:outline-focus",
-              "aria-pressed:bg-surface aria-pressed:text-fg aria-pressed:shadow-raised",
+              "aria-pressed:text-fg",
             )}
           >
             <Icon aria-hidden="true" className="size-3.5" />

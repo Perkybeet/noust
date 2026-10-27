@@ -313,7 +313,7 @@ export function renderLicenses(packages) {
     "General Public License, version 3 or later (LICENSE). It is built from the packages below. Each is",
     "the work of its authors and is used under the licence it declares, whose text follows its name.",
     "This file is written by the build (panel/vite.config.ts) from the packages that went into it. The",
-    "fonts are under the SIL Open Font License, version 1.1 (LICENSE-OFL-1.1).",
+    "fonts are under the SIL Open Font License, version 1.1 (LICENSE-OFL-1.1); the marks of the logos come from Simple Icons (CC0 1.0), and the brands they show are their owners'.",
     "",
     `${String(sorted.length)} packages`,
     "",
@@ -344,11 +344,12 @@ export function renderLicenses(packages) {
  * The notice of a build.
  *
  * @param {Record<string, unknown>} bundle The `bundle` of the `generateBundle` hook.
- * @param {{ projectDir: string, stylesheets?: readonly string[] }} options The project (its node_modules is where bare imports resolve) and its entry stylesheets, whose bare imports are packages too.
+ * @param {{ projectDir: string, stylesheets?: readonly string[], vendored?: readonly string[] }} options The project (its node_modules is where bare imports resolve), its entry stylesheets (whose bare imports are packages too) and the directories of files copied into the source tree with a package.json and a licence of their own (the console's typefaces), which are in every build.
  * @returns {string}
  */
 export function licensesOf(bundle, options) {
   const roots = packageRootsOf(bundle, options.projectDir);
+  for (const vendored of options.vendored ?? []) roots.add(path.resolve(options.projectDir, vendored));
   for (const sheet of options.stylesheets ?? []) {
     for (const root of stylesheetPackageRoots(path.resolve(options.projectDir, sheet), path.join(options.projectDir, "node_modules"))) roots.add(root);
   }

@@ -39,7 +39,7 @@ function ToastList({ urgent }: { urgent: boolean }) {
         <Toast.Root key={item.id} toast={item} aria-hidden={undefined} className="toast" swipeDirection={["right", "down"]}>
           <Toast.Content
             className={cx(
-              "toast-content flex items-start gap-3 overflow-hidden rounded-card border border-border bg-surface-raised p-3 pr-2 text-fg shadow-overlay",
+              "toast-content elev-seated flex items-start gap-3 overflow-hidden rounded-card border border-border-strong bg-surface-raised p-3 pr-2 text-fg",
             )}
           >
             <span aria-hidden="true" className="mt-0.5 flex [&_svg]:size-4">
@@ -72,7 +72,7 @@ function ToastList({ urgent }: { urgent: boolean }) {
             <Toast.Close
               aria-label={t("common.toast.dismiss")}
               aria-hidden={undefined}
-              className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control text-fg-faint hover:bg-surface-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-focus"
+              className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control text-fg-faint hover:bg-bg-sunken hover:text-fg focus-visible:outline-2 focus-visible:outline-focus"
             >
               <X aria-hidden="true" className="size-3.5" />
             </Toast.Close>

@@ -36,7 +36,7 @@ export function StatTile({ label, value, detail, detailLines = 1, mono = false, 
   return (
     <div
       {...(loading ? { "aria-busy": true } : {})}
-      className={cx("flex min-w-0 flex-col gap-1.5 rounded-card border border-border bg-surface px-4 py-3.5 shadow-raised", className)}
+      className={cx("flex min-w-0 flex-col gap-1.5 rounded-card border border-border bg-surface px-4 py-3.5 elev-seated", className)}
     >
       <span className="break-words text-12 text-fg-muted sm:truncate">{label}</span>
       <div className="flex min-h-7 min-w-0 items-center">

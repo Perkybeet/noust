@@ -4,7 +4,6 @@ import type { MouseEvent, ReactNode } from "react";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { Button } from "./Button";
-import { useDemoted } from "./demotePrimary";
 import { Menu } from "./Menu";
 import type { ButtonSize } from "./Button";
 
@@ -45,16 +44,14 @@ const MENU_WIDTH: Record<ButtonSize, string> = {
  */
 export function SplitButton({ children, name, onClick, menu, variant = "secondary", size = "md", icon, loading = false, disabled = false, align = "end", className }: SplitButtonProps) {
   const t = useT();
-  // While the save bar holds changes a primary is drawn as a secondary: the seam follows the colour.
-  const effective = useDemoted() && variant === "primary" ? "secondary" : variant;
-  const primary = effective === "primary";
   return (
     <div
       role="group"
       aria-label={name}
       data-slot="split-button"
       className={cx(
-        "inline-flex shrink-0 rounded-control",
+        // Two raised pieces side by side, a hair apart, like two keys of one row.
+        "inline-flex shrink-0 gap-px rounded-control",
         // One ring for the pair: the parts draw none of their own (the selector outweighs theirs).
         "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus [&_button:focus-visible]:outline-none",
         className,
@@ -80,9 +77,7 @@ export function SplitButton({ children, name, onClick, menu, variant = "secondar
             disabled={disabled || loading}
             aria-label={t("common.splitButton.more", { name })}
             icon={<ChevronDown aria-hidden="true" />}
-            // The two borders meet in one line in a secondary; in a primary they are the same
-            // violet, so the seam is the darker one.
-            className={cx("rounded-l-none px-0", MENU_WIDTH[size], primary ? "border-l-accent-hover" : "-ml-px")}
+            className={cx("rounded-l-none px-0", MENU_WIDTH[size])}
           />
         }
       >

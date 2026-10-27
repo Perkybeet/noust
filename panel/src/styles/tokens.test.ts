@@ -19,7 +19,20 @@ const TEXT_PAIRS: [string, string][] = [
   ...["bg", "bg-sunken", "surface", "surface-raised", "accent-soft"].map((bg): [string, string] => ["accent-text", bg]),
   ["on-accent", "accent"],
   ["on-accent", "accent-hover"],
-  ["on-accent", "fail-strong"],
+  ["on-fail", "fail-strong"],
+  // The ground of the frame: the rail and the second column are stone of their own, and what is written on them
+  // is text, muted text, the accent of the current item and, over a hovered item, the same.
+  ...["bg-rail", "bg-column", "rail-hover"].flatMap((bg): [string, string][] => [
+    ["text", bg],
+    ["text-muted", bg],
+  ]),
+  ["accent-text", "bg-rail"],
+  ["accent-text", "bg-column"],
+  ["text-faint", "bg-column"],
+  // A field's ground deepens under the pointer, and text is typed on it.
+  ["text", "bg-sunken-deep"],
+  ["text-muted", "bg-sunken-deep"],
+  ["text-faint", "bg-sunken-deep"],
   ...STATES.flatMap((state) =>
     ["bg", "bg-sunken", "surface", "surface-raised", `${state}-soft`].map((bg): [string, string] => [state, bg]),
   ),
@@ -45,6 +58,46 @@ const UI_PAIRS: [string, string][] = [
   ["warn", "warn-soft"],
   ["fail", "fail-soft"],
   ["text-muted", "surface-active"],
+  // The fill of a meter that is not a problem, on its carved track, and the strokes of an illustration.
+  ["il-stroke", "bg-sunken"],
+  ["il-stroke", "surface"],
+];
+
+/**
+ * The edges that give a height (docs/DESIGN.md 2.6): the joint under a raised piece, a seated panel and
+ * a carved field has to be seen against the stone it sits on, and the light edge above it only has to
+ * exist. The two edges of the accent and of the failure are the same, against their own fill.
+ */
+const JOINT_PAIRS: [string, string][] = ["bg", "surface", "surface-raised", "bg-sunken"].map((bg): [string, string] => ["joint", bg]);
+const JOINT_MIN = 1.15;
+const EDGE_PAIRS: [string, string][] = [
+  ["accent-joint", "accent"],
+  ["accent-edge", "accent"],
+  ["fail-joint", "fail-strong"],
+  ["fail-edge", "fail-strong"],
+];
+const EDGE_MIN = 1.3;
+/**
+ * What a field is found by (WCAG 1.4.11, docs/DESIGN.md A-10): a field has no line of its own, so the edge of its
+ * hollow has 3:1 against what is around it. A hollow has two edges, the shadow along the top inside and the lit lip
+ * below, and a theme can make only one of them strong: in light the shadow, in dark the lip, since nothing is darker
+ * than the dark page by 3:1 (black on it is 1.3, on a raised surface 1.8). What surrounds a field is the page, a panel
+ * (a card, a dialog) and a raised surface (a menu, a popover).
+ */
+const CARVED_SURROUNDINGS = ["bg", "surface", "surface-raised"];
+const CARVED_PAIRS: [string, string][] = ["carved-shade", "carved-lip"].flatMap((edge) => CARVED_SURROUNDINGS.map((ground): [string, string] => [edge, ground]));
+const CARVED_MIN = 3;
+/** The edge each theme makes strong. */
+const STRONG_EDGE = { light: "carved-shade", dark: "carved-lip" } as const;
+
+const LIGHT_EDGE_PAIRS: [string, string][] = ["bg", "surface"].map((bg): [string, string] => ["edge", bg]);
+const LIGHT_EDGE_MIN = 1.05;
+/** The strokes of an illustration read against the page and against a panel; the second is the lighter one, for what is behind. */
+const ILLUSTRATION_PAIRS: [string, string, number][] = [
+  ["il-stroke", "bg", 3],
+  ["il-stroke", "surface", 3],
+  ["il-stroke-2", "bg", 1.5],
+  ["il-stroke-2", "surface", 1.5],
 ];
 
 /**
@@ -108,6 +161,11 @@ describe("design tokens", () => {
       "accent-hover",
       "accent-soft",
       "accent-text",
+      "bg-rail",
+      "bg-column",
+      "bg-sunken-deep",
+      "edge",
+      "joint",
       "ok",
       "ok-soft",
       "warn",
@@ -121,13 +179,25 @@ describe("design tokens", () => {
     for (const theme of THEMES) {
       for (const token of required) expect(TOKENS[theme], `--${token} (${theme})`).toHaveProperty(token);
     }
-    for (const token of ["font-sans", "font-mono", "radius-control", "radius-card", "shadow-overlay", "duration-fast", "duration-base", "ease-out"]) {
+    for (const token of [
+      "font-sans",
+      "font-display",
+      "font-mono",
+      "radius-control",
+      "radius-card",
+      "elev-carved",
+      "elev-seated",
+      "elev-raised",
+      "duration-press",
+      "duration-move",
+      "duration-enter",
+      "ease-standard",
+    ]) {
       expect(tokensCss).toMatch(new RegExp(`--${token}:`));
     }
-    expect(tokensCss).toMatch(/--radius-control: 6px;/);
-    expect(tokensCss).toMatch(/--radius-card: 10px;/);
-    expect(tokensCss).toMatch(/--duration-fast: 120ms;/);
-    expect(tokensCss).toMatch(/--duration-base: 180ms;/);
+    expect(tokensCss).toMatch(/--radius-control: 9px;/);
+    expect(tokensCss).toMatch(/--radius-card: 14px;/);
+    expect(tokensCss).toMatch(/--duration-move: 200ms;/);
   });
 
   it.each(THEMES.flatMap((theme) => TEXT_PAIRS.map(([fg, bg]) => [fg, bg, theme] as const)))(
@@ -156,14 +226,23 @@ describe("design tokens", () => {
     expect(contrastRatio(colour(theme, "surface-active"), colour(theme, "bg"))).toBeLessThan(3);
   });
 
-  it.each(THEMES)("keeps every surface and text colour achromatic in %s", (theme) => {
-    const achromatic = [
+  it.each(THEMES)("keeps every surface, edge and text colour a stone in %s: grey with a trace of green, never a hue", (theme) => {
+    // The page is not pure grey and not coloured: its chroma stays under 0.02 (OKLCH) and, where there is any, its
+    // hue is the one of the stone (yellow-green to blue-green). Anything above that is a colour, and a colour on a
+    // surface is a state, an action or a series, not a tone.
+    const stones = [
+      "bg-rail",
+      "bg-column",
       "bg",
       "bg-sunken",
+      "bg-sunken-deep",
       "surface",
       "surface-raised",
       "surface-hover",
       "surface-active",
+      "rail-hover",
+      "edge",
+      "joint",
       "border",
       "border-strong",
       "text",
@@ -172,21 +251,125 @@ describe("design tokens", () => {
       "idle",
       "idle-soft",
       "idle-border",
+      "il-stroke",
+      "il-stroke-2",
     ];
-    for (const token of achromatic) {
-      const [r, g, b] = parseHex(colour(theme, token));
-      expect([g, b], `--${token} must be grey`).toEqual([r, r]);
+    for (const token of stones) {
+      const [, chroma, hue] = oklch(colour(theme, token));
+      expect(chroma, `--${token} is too coloured to be a stone`).toBeLessThan(0.02);
+      if (chroma > 0.004) {
+        expect(hue, `--${token} is not the stone's hue`).toBeGreaterThanOrEqual(100);
+        expect(hue, `--${token} is not the stone's hue`).toBeLessThanOrEqual(200);
+      }
     }
   });
 
-  it("gives the dark theme luminance elevation: each surface step is lighter", () => {
-    const steps = ["bg-sunken", "bg", "surface", "surface-raised"].map((t) => parseHex(colour("dark", t))[0]);
+  it("gives the dark theme height by luminance: the rail is the darkest stone and each step up is lighter", () => {
+    const steps = ["bg-rail", "bg-column", "bg", "bg-sunken", "surface", "surface-raised"].map((t) => parseHex(colour("dark", t))[0]);
     expect([...steps].sort((a, b) => a - b)).toEqual(steps);
     expect(new Set(steps).size).toBe(steps.length);
   });
 
+  it("gives the light theme the same order the other way: the rail is the darkest stone and the raised piece the lightest", () => {
+    const steps = ["bg-rail", "bg-sunken-deep", "bg-column", "bg-sunken", "bg", "surface", "surface-raised"].map((t) => parseHex(colour("light", t))[0]);
+    expect([...steps].sort((a, b) => a - b)).toEqual(steps);
+    expect(new Set(steps).size).toBe(steps.length);
+  });
+
+  it.each(THEMES.flatMap((theme) => JOINT_PAIRS.map(([fg, bg]) => [fg, bg, theme] as const)))(
+    "the joint under a height (%s) is seen against %s in %s",
+    (fg, bg, theme) => {
+      expect(contrastRatio(colour(theme, fg), colour(theme, bg))).toBeGreaterThanOrEqual(JOINT_MIN);
+    },
+  );
+
+  it.each(THEMES.flatMap((theme) => EDGE_PAIRS.map(([fg, bg]) => [fg, bg, theme] as const)))(
+    "the edge of the accent and of the failure (%s) is seen against %s in %s",
+    (fg, bg, theme) => {
+      expect(contrastRatio(colour(theme, fg), colour(theme, bg))).toBeGreaterThanOrEqual(EDGE_MIN);
+    },
+  );
+
+  it.each(THEMES.flatMap((theme) => CARVED_SURROUNDINGS.map((ground) => [theme, ground] as const)))(
+    "a field is found by the strong edge of its hollow: 3:1 against %s's %s (A-10)",
+    (theme, ground) => {
+      const edge = STRONG_EDGE[theme];
+      expect(contrastRatio(colour(theme, edge), colour(theme, ground)), `--${edge} on --${ground}`).toBeGreaterThanOrEqual(CARVED_MIN);
+    },
+  );
+
+  it("builds the carved height from both edges: the shadow along the top inside and the lit lip below", () => {
+    const carved = /--elev-carved:\s*([^;]+);/.exec(tokensCss)?.[1] ?? "";
+    // The hollow has its shadow above, because the light comes from above: an inset layer pushed down from the top.
+    expect(carved).toMatch(/inset 0 [1-9]\d*px \d+px var\(--carved-shade\)/);
+    // And its lit lip below, outside the field.
+    expect(carved).toMatch(/(?<!inset )0 [1-9]\d*px 0 var\(--carved-lip\)/);
+    // The fine one, for what nobody presses (a track, a meter), keeps the soft joint: only a field needs the strong edge.
+    expect(/--elev-carved-fine:\s*([^;]+);/.exec(tokensCss)?.[1]).toContain("var(--joint)");
+  });
+
+  it("explains why dark makes the lip strong and not the shadow: not even black is 3:1 below the dark page's tones", () => {
+    for (const ground of CARVED_SURROUNDINGS) {
+      expect(contrastRatio("#000000", colour("dark", ground)), `black on --${ground}`).toBeLessThan(CARVED_MIN);
+    }
+    // In light the lip is white, which cannot be 3:1 on the light page either: each theme has exactly one edge that can.
+    for (const ground of CARVED_SURROUNDINGS) {
+      expect(contrastRatio("#ffffff", colour("light", ground)), `white on --${ground}`).toBeLessThan(CARVED_MIN);
+    }
+    expect(contrastRatio(colour("dark", "carved-shade"), colour("dark", "surface-raised"))).toBeLessThan(CARVED_MIN);
+    expect(contrastRatio(colour("light", "carved-lip"), colour("light", "bg"))).toBeLessThan(CARVED_MIN);
+  });
+
+  it.each(THEMES.flatMap((theme) => LIGHT_EDGE_PAIRS.map(([fg, bg]) => [fg, bg, theme] as const)))(
+    "the light edge above a height (%s) exists against %s in %s",
+    (fg, bg, theme) => {
+      expect(contrastRatio(colour(theme, fg), colour(theme, bg))).toBeGreaterThanOrEqual(LIGHT_EDGE_MIN);
+    },
+  );
+
+  it.each(THEMES.flatMap((theme) => ILLUSTRATION_PAIRS.map(([fg, bg, min]) => [fg, bg, min, theme] as const)))(
+    "the stroke of an illustration (%s) reads against %s at %s:1 in %s",
+    (fg, bg, min, theme) => {
+      expect(contrastRatio(colour(theme, fg), colour(theme, bg))).toBeGreaterThanOrEqual(min);
+    },
+  );
+
+  it("takes the white of a danger button's text from its own token, which holds on the failure fill in both themes", () => {
+    for (const theme of THEMES) expect(contrastRatio(colour(theme, "on-fail"), colour(theme, "fail-strong"))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("makes the height out of hard edges: no blurred shadow, nothing blurrier than 2px", () => {
+    const heights = [...tokensCss.matchAll(/^\s*--elev-[a-z-]+:\s*([^;]+);/gm)].map((match) => match[1] ?? "");
+    expect(heights.length).toBeGreaterThanOrEqual(10);
+    for (const value of heights) {
+      for (const layer of value.split(/,(?![^(]*\))/)) {
+        const numbers = [...layer.replace(/var\([^)]*\)/g, "").matchAll(/(?<![\w.-])(-?\d+(?:\.\d+)?)(?:px)?(?![\w.%-])/g)].map((m) => Number(m[1]));
+        const [, , blur] = numbers;
+        expect(blur ?? 0, `a blurred layer in ${value}`).toBeLessThanOrEqual(2);
+        expect(layer, `a translucent black in ${value}`).not.toMatch(/rgba?\(\s*0[ ,]+0[ ,]+0/);
+      }
+    }
+  });
+
   it("drops motion to zero for people who ask for reduced motion", () => {
-    expect(tokensCss).toMatch(/prefers-reduced-motion: reduce[\s\S]*--duration-fast: 0ms;[\s\S]*--duration-base: 0ms;/);
+    for (const token of ["press", "fast", "move", "enter", "large"]) {
+      expect(tokensCss, `--duration-${token}`).toMatch(new RegExp(`prefers-reduced-motion: reduce[\\s\\S]*--duration-${token}: 0ms;`));
+    }
+  });
+
+  it("gives each curve its job: what enters decelerates, what leaves accelerates in less time, what moves goes by the standard curve", () => {
+    expect(tokensCss).toMatch(/--ease-enter: cubic-bezier\(0, 0, 0\.2, 1\);/);
+    expect(tokensCss).toMatch(/--ease-exit: cubic-bezier\(0\.4, 0, 1, 1\);/);
+    expect(tokensCss).toMatch(/--ease-standard: cubic-bezier\(0\.4, 0, 0\.2, 1\);/);
+    const ms = (token: string): number => Number(new RegExp(`--duration-${token}: (\\d+)ms;`).exec(tokensCss)?.[1]);
+    // Frequent answers take about 100ms, what appears 200 to 300, the big ones up to 400; a way out is shorter than the way in.
+    expect(ms("press")).toBe(100);
+    expect(ms("fast")).toBeLessThan(ms("enter"));
+    expect(ms("move")).toBeGreaterThanOrEqual(180);
+    expect(ms("move")).toBeLessThanOrEqual(220);
+    expect(ms("enter")).toBeGreaterThanOrEqual(200);
+    expect(ms("enter")).toBeLessThanOrEqual(300);
+    expect(ms("large")).toBeLessThanOrEqual(400);
   });
 
   it("gives the mono stack an emoji-capable fallback, so a build log's own glyphs render", () => {
@@ -205,8 +388,10 @@ describe("design tokens", () => {
     const stack = (token: string): string[] =>
       (new RegExp(`--${token}:\\s*([^;]+);`).exec(tokensCss)?.[1] ?? "").split(",").map((family) => family.trim().replace(/"/g, ""));
     const sans = stack("font-sans");
+    const display = stack("font-display");
     const mono = stack("font-mono");
-    expect(sans.slice(0, 3)).toEqual(["Mona Sans Variable", "Mona Sans Fallback", "Mona Sans Fallback DejaVu"]);
+    expect(sans.slice(0, 3)).toEqual(["Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next Fallback", "Atkinson Hyperlegible Next Fallback DejaVu"]);
+    expect(display.slice(0, 3)).toEqual(["Bricolage Grotesque Variable", "Bricolage Grotesque Fallback", "Bricolage Grotesque Fallback DejaVu"]);
     expect(mono.slice(0, 4)).toEqual([
       "JetBrains Mono Variable",
       "JetBrains Mono Fallback",
@@ -214,14 +399,29 @@ describe("design tokens", () => {
       "JetBrains Mono Fallback Liberation",
     ]);
     const faces = [...fontsCss.matchAll(/@font-face\s*{([^}]*)}/g)].map((match) => match[1] ?? "");
-    for (const family of [...sans.slice(1, 3), ...mono.slice(1, 4)]) {
-      const face = faces.find((body) => body.includes(`font-family: "${family}";`));
-      expect(face, family).toBeDefined();
-      expect(face).toMatch(/src: local\(/);
-      expect(face).toMatch(/size-adjust: \d+(\.\d+)?%;/);
-      expect(face).toMatch(/ascent-override: \d+(\.\d+)?%;/);
-      expect(face).toMatch(/descent-override: \d+(\.\d+)?%;/);
+    for (const family of [...sans.slice(1, 3), ...display.slice(1, 3), ...mono.slice(1, 4)]) {
+      const own = faces.filter((body) => body.includes(`font-family: "${family}";`));
+      expect(own.length, family).toBeGreaterThan(0);
+      for (const face of own) {
+        expect(face).toMatch(/src: local\(/);
+        expect(face).toMatch(/size-adjust: \d+(\.\d+)?%;/);
+        expect(face).toMatch(/ascent-override: \d+(\.\d+)?%;/);
+        expect(face).toMatch(/descent-override: \d+(\.\d+)?%;/);
+      }
     }
+    // The titles' fallback is told twice, for the narrow widths of a page title and for the rest.
+    const bricolage = faces.filter((body) => body.includes('font-family: "Bricolage Grotesque Fallback";'));
+    expect(bricolage.map((face) => /font-stretch: ([\d% ]+);/.exec(face)?.[1]).sort()).toEqual(["75% 84%", "85% 100%"]);
+  });
+
+  it("packages the two typefaces of the interface with their licences and never asks a CDN for them", () => {
+    for (const family of ["Atkinson Hyperlegible Next Variable", "Bricolage Grotesque Variable"]) {
+      const sources = [...fontsCss.matchAll(new RegExp(`font-family: "${family}";[^}]*?src: url\\("([^"]+)"\\) format\\("woff2-variations"\\)`, "g"))].map((m) => m[1] ?? "");
+      expect(sources.length, family).toBeGreaterThan(0);
+      for (const source of sources) expect(source).toMatch(/^\.\.\/assets\/fonts\/[a-z-]+\/[a-z-]+\.woff2$/);
+    }
+    expect(fontsCss).not.toMatch(/https?:\/\//);
+    expect(fontsCss).not.toMatch(/url\(["']?data:/);
   });
 
   it.each(THEMES.flatMap((theme) => TINT_BORDER_PAIRS.map(([fg, bg]) => [fg, bg, theme] as const)))(
@@ -298,7 +498,18 @@ describe("token parity", () => {
   });
 
   it("verifies every colour token in at least one pair: a colour is born with its contrast checked", () => {
-    const pairs = [...TEXT_PAIRS, ...UI_PAIRS, ...TINT_BORDER_PAIRS, ...HAIRLINE_PAIRS, ...VIZ.map((v): [string, string] => [v, "surface"])];
+    const pairs = [
+      ...TEXT_PAIRS,
+      ...UI_PAIRS,
+      ...TINT_BORDER_PAIRS,
+      ...HAIRLINE_PAIRS,
+      ...JOINT_PAIRS,
+      ...EDGE_PAIRS,
+      ...LIGHT_EDGE_PAIRS,
+      ...CARVED_PAIRS,
+      ...ILLUSTRATION_PAIRS.map(([fg, bg]): [string, string] => [fg, bg]),
+      ...VIZ.map((v): [string, string] => [v, "surface"]),
+    ];
     const paired = new Set(pairs.flat());
     for (const token of colours) {
       if (UNPAIRED.includes(token)) continue;
@@ -318,19 +529,20 @@ describe("token values the system is built on", () => {
     expect(sizes).toEqual([12, 13, 14, 16, 18, 24, 32]);
   });
 
-  it("has four radii: chip, control, card and pill", () => {
-    expect(declared("radius-chip")).toBe("4px");
-    expect(declared("radius-control")).toBe("6px");
-    expect(declared("radius-card")).toBe("10px");
+  it("has five radii by hierarchy: pebble, piece, slab, wall and pill", () => {
+    expect(declared("radius-chip")).toBe("6px");
+    expect(declared("radius-control")).toBe("9px");
+    expect(declared("radius-card")).toBe("14px");
+    expect(declared("radius-wall")).toBe("22px");
     expect(declared("radius-pill")).toBe("999px");
   });
 
   it("sizes controls from three heights that grow for a coarse pointer", () => {
-    expect(declared("control-sm")).toBe("1.75rem");
-    expect(declared("control-md")).toBe("2rem");
-    expect(declared("control-lg")).toBe("2.5rem");
+    expect(declared("control-sm")).toBe("2rem");
+    expect(declared("control-md")).toBe("2.25rem");
+    expect(declared("control-lg")).toBe("2.75rem");
     expect(tokensCss).toMatch(
-      /@media \(pointer: coarse\)\s*{\s*:root\s*{\s*--control-sm: 2.25rem;\s*--control-md: 2.5rem;\s*--control-lg: 2.75rem;/,
+      /@media \(pointer: coarse\)\s*{\s*:root\s*{\s*--control-sm: 2.5rem;\s*--control-md: 2.75rem;\s*--control-lg: 3rem;/,
     );
   });
 

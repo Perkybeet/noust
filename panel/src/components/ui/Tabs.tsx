@@ -3,6 +3,7 @@ import { useRef } from "react";
 import type { ReactNode } from "react";
 
 import { cx } from "../../lib/cx";
+import { SlidingIndicator } from "./SlidingIndicator";
 import { useTabStrip } from "./tabStrip";
 
 export interface TabsProps<V extends string = string> {
@@ -35,8 +36,8 @@ export interface TabListProps {
 }
 
 /**
- * The row of tabs, with the selection marked by an accent rule under the active tab. Wider than
- * a phone, it scrolls sideways and keeps the active tab in view.
+ * The row of tabs: a carved rail, with the active tab as a raised piece that slides to the one
+ * chosen (SlidingIndicator). Wider than a phone, it scrolls sideways and keeps the active tab in view.
  */
 export function TabList({ "aria-label": ariaLabel, children, className }: TabListProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -46,17 +47,12 @@ export function TabList({ "aria-label": ariaLabel, children, className }: TabLis
       ref={ref}
       aria-label={ariaLabel}
       className={cx(
-        "tab-strip relative z-0 flex items-stretch gap-1 overflow-x-auto border-b border-border scroll-thin [scrollbar-width:none]",
+        "tab-strip elev-carved relative isolate flex w-fit max-w-full items-stretch gap-0.5 overflow-x-auto rounded-card bg-bg-sunken p-0.5 scroll-thin [scrollbar-width:none]",
         className,
       )}
     >
+      <SlidingIndicator className="rounded-control bg-surface" />
       {children}
-      <BaseTabs.Indicator
-        className={cx(
-          "absolute bottom-0 left-0 z-10 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) rounded-pill bg-accent-fg",
-          "transition-[translate,width] duration-(--duration-base) ease-out",
-        )}
-      />
     </BaseTabs.List>
   );
 }
@@ -78,9 +74,10 @@ export function Tab({ value, children, count, disabled = false }: TabProps) {
       value={value}
       disabled={disabled}
       className={cx(
-        "group relative flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-control px-2.5 text-13 font-medium whitespace-nowrap text-fg-muted outline-none select-none",
-        "hover:not-data-disabled:text-fg data-active:text-fg",
-        "focus-visible:after:absolute focus-visible:after:inset-x-0 focus-visible:after:inset-y-1.5 focus-visible:after:rounded-control focus-visible:after:outline-2 focus-visible:after:outline-focus",
+        "group relative flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-control px-3 text-13 font-medium whitespace-nowrap text-fg-muted outline-none select-none",
+        // The active tab is the indicator under it; the others rise when the pointer is over them.
+        "elev-lift hover:not-data-disabled:bg-surface-raised hover:not-data-disabled:text-fg data-active:bg-transparent data-active:text-fg data-active:hover:transform-none data-active:hover:shadow-none",
+        "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus",
         "data-disabled:cursor-not-allowed data-disabled:opacity-50",
       )}
     >
@@ -90,7 +87,7 @@ export function Tab({ value, children, count, disabled = false }: TabProps) {
       {count !== undefined ? (
         <span
           className={cx(
-            "mono min-w-5 rounded-chip bg-bg-sunken px-1 text-center text-12 text-fg-muted group-data-active:text-fg",
+            "mono min-w-5 rounded-chip bg-bg-sunken px-1 text-center text-12 text-fg-muted group-data-active:bg-bg group-data-active:text-fg",
             count === null && "invisible",
           )}
         >

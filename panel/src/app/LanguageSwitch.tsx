@@ -1,3 +1,4 @@
+import { SlidingIndicator } from "../components/ui/SlidingIndicator";
 import { toast } from "../components/ui/toast";
 import { useT } from "../i18n";
 import { cx } from "../lib/cx";
@@ -24,10 +25,11 @@ export function LanguageSwitch({ className }: LanguageSwitchProps) {
       aria-label={t("language.label")}
       className={cx(
         LOCALE_CHOICES.length > 3 ? "grid grid-cols-2 gap-0.5" : "flex",
-        "rounded-control border border-border bg-bg-sunken p-0.5",
+        "elev-carved relative isolate rounded-card bg-bg-sunken p-0.5",
         className,
       )}
     >
+      <SlidingIndicator className="rounded-control bg-surface" />
       {LOCALE_CHOICES.map(({ value, label }) => (
         <button
           key={value}
@@ -41,9 +43,9 @@ export function LanguageSwitch({ className }: LanguageSwitchProps) {
             });
           }}
           className={cx(
-            "flex h-7 flex-1 cursor-pointer items-center justify-center rounded-[4px] px-2.5 text-12 font-medium text-fg-muted",
+            "relative flex h-7 flex-1 cursor-pointer items-center justify-center rounded-control px-2.5 text-12 font-medium text-fg-muted",
             "hover:text-fg focus-visible:outline-2 focus-visible:outline-focus",
-            "aria-pressed:bg-surface aria-pressed:text-fg aria-pressed:shadow-raised",
+            "aria-pressed:text-fg",
           )}
         >
           {label}

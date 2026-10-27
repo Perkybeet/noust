@@ -24,8 +24,8 @@ const WIDTHS: Record<DialogSize, string> = {
 };
 
 export const BACKDROP =
-  "fixed inset-0 z-backdrop bg-backdrop transition-opacity duration-(--duration-base) ease-out " +
-  "data-starting-style:opacity-0 data-ending-style:opacity-0";
+  "fixed inset-0 z-backdrop bg-backdrop transition-opacity duration-(--duration-enter) ease-(--ease-enter) " +
+  "data-starting-style:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-(--duration-fast) data-ending-style:ease-(--ease-exit)";
 
 /**
  * Where a modal sits: centred on a phone, a little below the top on anything wider, so it reads
@@ -36,9 +36,10 @@ export const MODAL_VIEWPORT = "fixed inset-0 z-overlay flex items-center justify
 // The cap is the viewport less the offset above the popup and the 16px margin below it, so the
 // footer (the dialog's actions) is always on screen and the body scrolls instead.
 export const MODAL_POPUP =
-  "relative flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-card border border-border bg-surface-raised text-fg shadow-overlay outline-none sm:max-h-[calc(88dvh-1rem)] " +
-  "transition-[opacity,scale] duration-(--duration-base) ease-out " +
-  "data-starting-style:scale-[0.98] data-starting-style:opacity-0 data-ending-style:scale-[0.98] data-ending-style:opacity-0";
+  "elev-seated relative flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-wall border border-border-strong bg-surface text-fg outline-none sm:max-h-[calc(88dvh-1rem)] " +
+  "transition-[opacity,scale] duration-(--duration-enter) ease-(--ease-enter) " +
+  "data-starting-style:scale-[0.98] data-starting-style:opacity-0 data-ending-style:scale-[0.98] data-ending-style:opacity-0 " +
+  "data-ending-style:duration-(--duration-fast) data-ending-style:ease-(--ease-exit)";
 
 export interface DialogProps {
   title: ReactNode;
@@ -98,7 +99,7 @@ export function DialogFrame({
     <ResetPrimary>
       <header className="flex shrink-0 items-start gap-4 px-5 pt-5 pb-1">
         <div className="min-w-0 flex-1">
-          <Title id={titleId} className="title text-16 text-fg">
+          <Title id={titleId} className="display text-24 text-fg">
             {title}
           </Title>
           {description !== undefined ? (

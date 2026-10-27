@@ -1,0 +1,11 @@
+{
+  "name": "@fontsource-variable/bricolage-grotesque",
+  "version": "5.3.0",
+  "description": "Bricolage Grotesque, the variable woff2 files of this package (latin, latin-ext, vietnamese; weight, width and optical size), copied here so the console serves them itself.",
+  "private": true,
+  "license": "OFL-1.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ateliertriay/bricolage.git"
+  }
+}

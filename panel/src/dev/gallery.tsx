@@ -36,11 +36,11 @@ export function Section({
 export function Stage({
   children,
   className,
-  plain = false,
   flush = false,
 }: {
   children: ReactNode;
   className?: string;
+  /** The measuring grid of before is gone (a gradient is never drawn, docs/DESIGN.md 2.12): every stage is the plain ground. Kept so the specimens that ask for it still compile. */
   plain?: boolean;
   /** No inner padding, for content that draws its own rows. */
   flush?: boolean;
@@ -50,9 +50,7 @@ export function Stage({
       className={cx(
         "min-w-0 rounded-card border border-border",
         flush ? "overflow-hidden" : "p-6 max-sm:p-4",
-        plain
-          ? "bg-bg"
-          : "bg-bg bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-size-[16px_16px] bg-position-[-8px_-8px]",
+        "bg-bg",
         className,
       )}
     >
@@ -76,9 +74,9 @@ export function Row({ children, className }: { children: ReactNode; className?: 
 }
 
 /** The same specimen in the light and the dark theme, side by side. */
-export function BothThemes({ children, className }: { children: ReactNode; className?: string }) {
+export function BothThemes({ children, className, stacked = false }: { children: ReactNode; className?: string; stacked?: boolean }) {
   return (
-    <div className={cx("grid gap-4 lg:grid-cols-2", className)}>
+    <div className={cx("grid gap-4", !stacked && "lg:grid-cols-2", className)}>
       {(["light", "dark"] as const).map((theme) => (
         <div key={theme} data-theme={theme} className="min-w-0 rounded-card border border-border bg-bg p-5 text-fg max-sm:p-4">
           <p className="mb-4 text-12 text-fg-faint">{theme === "light" ? "Light" : "Dark"}</p>

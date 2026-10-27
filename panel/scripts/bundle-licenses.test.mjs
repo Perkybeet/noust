@@ -298,6 +298,21 @@ describe("the notice of a build", () => {
     expect(text.match(/^react 1\.0\.0$/gm)).toHaveLength(1);
   });
 
+  it("lists what is copied into the source tree with its own package.json and licence, with no node_modules involved", () => {
+    const dir = project();
+    const folder = path.join(dir, "src", "assets", "fonts", "bricolage");
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(path.join(folder, "package.json"), JSON.stringify({ name: "@fontsource-variable/bricolage-grotesque", version: "5.3.0", license: "OFL-1.1" }));
+    writeFileSync(path.join(folder, "LICENSE"), "Typeface licence text");
+
+    const text = licensesOf({}, { projectDir: dir, vendored: ["src/assets/fonts/bricolage"] });
+
+    expect(text).toContain("1 packages");
+    expect(text).toContain("@fontsource-variable/bricolage-grotesque 5.3.0");
+    expect(text).toContain("License: OFL-1.1");
+    expect(text).toContain("Typeface licence text");
+  });
+
   it("is written to a file at the root of the build under the name NOTICE gives", () => {
     expect(LICENSES_FILE).toBe("third-party-licenses.txt");
   });

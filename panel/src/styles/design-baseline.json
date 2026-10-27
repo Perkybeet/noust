@@ -2,30 +2,19 @@
   "$comment": "Written by `npm run design:baseline` (styles/design-rules.test.ts); may only go down. rules: count per rule and file. lintLegacy: files ESLint's design rules skip until migrated. pendingAdoption: system components no feature uses yet.",
   "rules": {
     "alpha-on-token": {
-      "app/Topbar.tsx": 1,
       "components/page/DangerZone.tsx": 2,
-      "components/ui/Button.tsx": 1,
-      "components/ui/DataTable.tsx": 1,
       "components/ui/Kbd.tsx": 1
     },
     "arbitrary-dimension": {
       "app/CommandPalette.tsx": 4,
       "app/ErrorBoundary.tsx": 1,
-      "app/LanguageSwitch.tsx": 1,
-      "app/ThemeSwitch.tsx": 1,
       "components/page/DangerZone.tsx": 1,
       "components/page/RelativeTime.tsx": 1,
       "components/page/Section.tsx": 1,
-      "components/page/SegmentedControl.tsx": 1,
-      "components/ui/Button.tsx": 2,
-      "components/ui/Checkbox.tsx": 1,
       "components/ui/Dialog.tsx": 3,
-      "components/ui/ExternalLink.tsx": 1,
-      "components/ui/Kbd.tsx": 2,
-      "components/ui/LogViewer.tsx": 3,
+      "components/ui/LogViewer.tsx": 1,
       "components/ui/Mono.tsx": 1,
       "components/ui/Popover.tsx": 1,
-      "components/ui/Skeleton.tsx": 1,
       "components/ui/Toast.tsx": 1,
       "lib/clipboard.ts": 1
     },
@@ -35,25 +24,46 @@
       "components/page/Wizard.tsx": 2,
       "components/ui/Select.tsx": 1
     },
+    "arrow-button": {
+      "features/databases/data/TableView.tsx": 1
+    },
+    "arrow-glyph": {
+      "components/ui/FlowDiagram.tsx": 1,
+      "features/app/deployments/phases.ts": 3,
+      "features/app/environment/EnvironmentTab.tsx": 1,
+      "features/app/environment/ReviewDialog.tsx": 2,
+      "features/databases/instances/InstancesSection.tsx": 1,
+      "features/databases/instances/TuningDialog.tsx": 1,
+      "features/server/security/FixDialogs.tsx": 1,
+      "features/settings/compliance/FrameworksSection.tsx": 1,
+      "i18n/en/fleet.ts": 1,
+      "i18n/es/fleet.ts": 1
+    },
+    "blur": {},
     "boolean-select": {},
-    "chip-radius": {
-      "app/LanguageSwitch.tsx": 1,
-      "app/ThemeSwitch.tsx": 1,
-      "components/page/SegmentedControl.tsx": 1,
-      "components/ui/Checkbox.tsx": 1,
-      "components/ui/ExternalLink.tsx": 1,
-      "components/ui/Kbd.tsx": 1,
-      "components/ui/Skeleton.tsx": 1
+    "caps-label": {
+      "features/app/environment/EnvironmentTab.tsx": 1,
+      "features/app/environment/ReviewDialog.tsx": 1,
+      "features/auth/BackupCodes.tsx": 1,
+      "features/auth/TotpSetup.tsx": 1,
+      "features/variables/SharedVariables.tsx": 1
     },
-    "colour-function": {
-      "components/ui/Button.tsx": 3
-    },
+    "chip-radius": {},
+    "colour-function": {},
     "confirm-hand-rolled": {},
     "dashed-empty": {},
+    "diffuse-shadow": {},
+    "elev-outside-kit": {
+      "features/settings/github/CreateGitHubApp.tsx": 1,
+      "features/settings/github/GitHubCallback.tsx": 1,
+      "features/teams/TeamSwitcher.tsx": 2,
+      "nodes/ScopeSelector.tsx": 2
+    },
     "empty-cell": {},
     "feature-state-notice": {},
     "focus-ring-repeat": {
       "app/LanguageSwitch.tsx": 1,
+      "app/LinkTabs.tsx": 1,
       "app/PageHeader.tsx": 2,
       "app/ThemeSwitch.tsx": 1,
       "components/page/SegmentedControl.tsx": 1,
@@ -61,22 +71,88 @@
       "components/page/Stepper.tsx": 1,
       "components/ui/Button.tsx": 1,
       "components/ui/Checkbox.tsx": 1,
+      "components/ui/ChoiceCards.tsx": 2,
       "components/ui/DataTable.tsx": 4,
       "components/ui/Dialog.tsx": 1,
       "components/ui/ExternalLink.tsx": 1,
+      "components/ui/FleetCourses.tsx": 1,
       "components/ui/IconButton.tsx": 1,
       "components/ui/LogViewer.tsx": 2,
       "components/ui/Select.tsx": 1,
       "components/ui/Switch.tsx": 1,
       "components/ui/SystemOutput.tsx": 1,
-      "components/ui/Tabs.tsx": 1,
+      "components/ui/Tabs.tsx": 2,
       "components/ui/Toast.tsx": 1
     },
+    "gradient": {},
     "hand-surface": {
       "features/settings/github/CreateGitHubApp.tsx": 1,
       "features/settings/github/GitHubCallback.tsx": 1
     },
+    "icon-tile": {
+      "features/overview/FirstSteps.tsx": 2
+    },
     "inline-style": {},
+    "middle-dot": {
+      "app/PageHeader.tsx": 3,
+      "components/page/SettingsLayout.tsx": 2,
+      "components/ui/Chart.tsx": 1,
+      "components/ui/DataTable.tsx": 1,
+      "components/ui/FlowDiagram.tsx": 1,
+      "components/ui/flowDiagram.types.ts": 2,
+      "features/app/database/AppDatabaseTab.tsx": 1,
+      "features/app/RollbackDialog.tsx": 1,
+      "features/app/settings/ClientCertsCard.tsx": 1,
+      "features/app/settings/CreatePreviewDialog.tsx": 1,
+      "features/app/settings/RoutesCard.tsx": 1,
+      "features/audit/CompliancePage.tsx": 1,
+      "features/backups/BackupsTable.tsx": 1,
+      "features/cloud/CreateServerDialog.tsx": 3,
+      "features/cloud/MachinesSection.tsx": 1,
+      "features/databases/connect/ConnectTab.tsx": 1,
+      "features/databases/data/RowDrawer.tsx": 1,
+      "features/databases/data/TableView.tsx": 1,
+      "features/databases/DatabasesTable.tsx": 2,
+      "features/databases/extensions/ExtensionsCard.tsx": 1,
+      "features/databases/public/OpenPublicDialog.tsx": 1,
+      "features/databases/query/PlanView.tsx": 2,
+      "features/domains/AppDnsSection.tsx": 1,
+      "features/domains/InternalAuthorityPanels.tsx": 1,
+      "features/domains/siteDiagram.ts": 1,
+      "features/domains/siteStructure.ts": 3,
+      "features/domains/SiteStructureView.tsx": 1,
+      "features/fleet/BackupsTab.tsx": 1,
+      "features/fleet/FleetJobPage.tsx": 2,
+      "features/fleet/SummaryTab.tsx": 1,
+      "features/freeze/FreezeCard.tsx": 2,
+      "features/overview/attention.ts": 1,
+      "features/overview/FleetSummary.tsx": 1,
+      "features/overview/KeyFigures.tsx": 1,
+      "features/server/security/FirewallView.tsx": 1,
+      "features/server/security/SecurityTab.tsx": 1,
+      "features/server/security/SshView.tsx": 1,
+      "features/server/TabToolbar.tsx": 1,
+      "features/server/TimeZoneField.tsx": 2,
+      "features/server/updates/UpdatesTab.tsx": 1,
+      "features/settings/servers/AddServerDialog.tsx": 1,
+      "features/settings/SettingsShell.tsx": 1,
+      "features/settings/TelegramChannel.tsx": 1,
+      "features/teams/TeamSwitcher.tsx": 1,
+      "features/timeline/TimelineDrawer.tsx": 1,
+      "i18n/en/common.ts": 2,
+      "i18n/en/network.ts": 4,
+      "i18n/en/previewHand.ts": 1,
+      "i18n/en/selfBackup.ts": 1,
+      "i18n/en/server.ts": 6,
+      "i18n/en/teams.ts": 3,
+      "i18n/es/common.ts": 2,
+      "i18n/es/network.ts": 4,
+      "i18n/es/previewHand.ts": 1,
+      "i18n/es/selfBackup.ts": 1,
+      "i18n/es/server.ts": 6,
+      "i18n/es/teams.ts": 3,
+      "nodes/ScopeSelector.tsx": 3
+    },
     "mono-utility": {
       "main.tsx": 1
     },
@@ -93,10 +169,9 @@
     "raw-label": {},
     "semantic-icon-import": {},
     "semibold": {
-      "components/ui/Popover.tsx": 1,
-      "components/ui/Toast.tsx": 1,
       "lib/ansi.ts": 1
     },
+    "side-stripe": {},
     "spinner-outside-kit": {
       "features/settings/github/CreateGitHubApp.tsx": 1,
       "features/settings/github/GitHubCallback.tsx": 1
@@ -106,6 +181,7 @@
       "components/page/DangerZone.tsx": 1
     },
     "tone-map": {},
+    "tooltip-by-hand": {},
     "z-arbitrary": {}
   },
   "lintLegacy": [

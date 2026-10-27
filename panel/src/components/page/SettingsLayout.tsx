@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
+import { SlidingIndicator } from "../ui/SlidingIndicator";
 import { ICONS } from "../ui/icons";
 import { Input } from "../ui/Input";
 import { Kbd } from "../ui/Kbd";
@@ -71,14 +72,18 @@ export interface SettingsLayoutProps {
   className?: string;
 }
 
+// The current section is the raised piece under it (SlidingIndicator), which slides to the one chosen;
+// the others rise when the pointer is over them.
 const LINK =
-  "group flex items-center rounded-control px-2.5 text-13 text-fg-muted outline-none " +
-  "hover:bg-surface-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-focus " +
-  "data-[status=active]:bg-surface-active data-[status=active]:font-medium data-[status=active]:text-fg";
+  "group elev-lift relative flex items-center rounded-control px-2.5 text-13 text-fg-muted outline-none " +
+  "hover:bg-surface-raised hover:text-fg focus-visible:outline-2 focus-visible:outline-focus " +
+  "data-[status=active]:bg-transparent data-[status=active]:font-medium data-[status=active]:text-fg data-[status=active]:hover:transform-none data-[status=active]:hover:shadow-none";
 
 function NavList({ items, phone, labelledBy }: { items: readonly SettingsNavItem[]; phone: boolean; labelledBy?: string }) {
   return (
-    <ul className="flex flex-col gap-0.5" {...(labelledBy !== undefined ? { "aria-labelledby": labelledBy } : {})}>
+    <div className="relative isolate">
+      <SlidingIndicator className="rounded-control bg-surface" />
+      <ul className="flex flex-col gap-0.5" {...(labelledBy !== undefined ? { "aria-labelledby": labelledBy } : {})}>
       {items.map((item) => (
         <li key={item.to}>
           <Link
@@ -101,7 +106,8 @@ function NavList({ items, phone, labelledBy }: { items: readonly SettingsNavItem
           </Link>
         </li>
       ))}
-    </ul>
+      </ul>
+    </div>
   );
 }
 

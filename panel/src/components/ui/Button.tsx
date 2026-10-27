@@ -8,31 +8,27 @@ import { Spinner } from "./Spinner";
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md" | "lg";
 
+// What is pressed is raised (docs/DESIGN.md 2.6): it rises 1px under the pointer and sinks 1px
+// when pressed, and the primary and the danger buttons carry their own edge. A ghost button is
+// text on the page and stays flat.
 const BASE =
-  "relative inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-control border font-medium select-none " +
-  "transition-[background-color,border-color,color,box-shadow] duration-(--duration-fast) ease-out " +
+  "relative inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-control font-semibold select-none " +
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus " +
   "data-disabled:cursor-not-allowed data-disabled:not-aria-busy:opacity-50 aria-busy:cursor-progress";
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary:
-    "border-accent bg-accent text-on-accent shadow-[inset_0_1px_0_rgb(255_255_255/0.16)] " +
-    "hover:not-data-disabled:border-accent-hover hover:not-data-disabled:bg-accent-hover",
-  secondary:
-    "border-border bg-surface text-fg shadow-raised " +
-    "hover:not-data-disabled:border-border-strong/60 hover:not-data-disabled:bg-surface-hover active:not-data-disabled:bg-surface-active",
+  primary: "elev-raised-accent bg-accent text-on-accent hover:not-data-disabled:bg-accent-hover",
+  secondary: "elev-raised bg-surface-raised text-fg",
   ghost:
-    "border-transparent bg-transparent text-fg-muted " +
-    "hover:not-data-disabled:bg-surface-hover hover:not-data-disabled:text-fg active:not-data-disabled:bg-surface-active",
-  danger:
-    "border-fail-strong bg-fail-strong text-on-accent shadow-[inset_0_1px_0_rgb(255_255_255/0.14)] " +
-    "hover:not-data-disabled:bg-[color-mix(in_oklab,var(--fail-strong)_86%,black)]",
+    "bg-transparent font-medium text-fg-muted transition-colors duration-(--duration-press) ease-out " +
+    "hover:not-data-disabled:bg-bg-sunken hover:not-data-disabled:text-fg active:not-data-disabled:bg-bg-sunken-deep",
+  danger: "elev-raised-fail bg-fail-strong text-on-fail",
 };
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-control-sm gap-1.5 px-2.5 text-13 [&_svg]:size-icon-sm",
-  md: "h-control-md gap-2 px-3 text-13 [&_svg]:size-icon-md",
-  lg: "h-control-lg gap-2 px-4 text-14 [&_svg]:size-icon-md",
+  sm: "h-control-sm gap-1.5 px-3 text-13 [&_svg]:size-icon-sm",
+  md: "h-control-md gap-2 px-3.5 text-13 [&_svg]:size-icon-md",
+  lg: "h-control-lg gap-2 px-5 text-14 [&_svg]:size-icon-md",
 };
 
 /** The class string of a button, for elements that must look like one (links, triggers). */

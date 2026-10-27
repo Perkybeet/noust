@@ -40,13 +40,15 @@ export function IconButton({
       aria-pressed={pressed}
       data-pressed={pressed ? "" : undefined}
       className={cx(
-        "inline-flex shrink-0 cursor-pointer items-center justify-center rounded-control border text-fg-muted",
-        "transition-[background-color,border-color,color] duration-(--duration-fast) ease-out",
+        "inline-flex shrink-0 cursor-pointer items-center justify-center rounded-control text-fg-muted",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
-        "hover:not-data-disabled:bg-surface-hover hover:not-data-disabled:text-fg",
         "data-disabled:cursor-not-allowed data-disabled:opacity-50",
-        "data-pressed:bg-surface-active data-pressed:text-fg",
-        variant === "ghost" ? "border-transparent" : "border-border bg-surface shadow-raised",
+        // A held-down toggle (wrap lines, follow output) is sunk into its place.
+        "data-pressed:bg-bg-sunken data-pressed:text-fg",
+        // On the page's own header an icon button is raised, in a row of a table it is flat.
+        variant === "ghost"
+          ? "bg-transparent transition-colors duration-(--duration-press) ease-out hover:not-data-disabled:bg-bg-sunken hover:not-data-disabled:text-fg"
+          : "elev-raised bg-surface-raised hover:not-data-disabled:text-fg",
         size === "sm" ? "size-control-sm [&_svg]:size-icon-sm" : "size-control-md [&_svg]:size-icon-md",
         className,
       )}

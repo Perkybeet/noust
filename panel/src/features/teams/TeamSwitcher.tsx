@@ -17,7 +17,7 @@ const EVERY_TEAM = "@all";
 
 const ITEM = cx(
   "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-control px-2 py-1.5 text-13 outline-none select-none",
-  "text-fg data-highlighted:bg-surface-hover",
+  "text-fg data-highlighted:bg-bg-sunken",
 );
 
 const GROUP_LABEL = "px-2 pt-1.5 pb-1 text-12 font-medium text-fg-muted select-none";
@@ -75,7 +75,7 @@ export function TeamSwitcher({ className }: { className?: string }) {
         aria-label={label}
         data-testid="team-switcher"
         className={cx(
-          "flex h-control-md max-w-60 min-w-0 shrink cursor-pointer items-center gap-1.5 rounded-control border border-border-strong bg-surface pr-1.5 pl-2.5 text-13 text-fg shadow-raised",
+          "flex h-control-md max-w-60 min-w-0 shrink cursor-pointer items-center gap-1.5 rounded-control bg-bg-sunken pr-1.5 pl-2.5 text-13 text-fg elev-carved",
           "transition-colors duration-(--duration-fast) ease-out hover:bg-surface-hover",
           className,
         )}
@@ -89,7 +89,7 @@ export function TeamSwitcher({ className }: { className?: string }) {
           <BaseMenu.Popup
             className={cx(
               // design-exception: hand-surface a radio menu has no kit component; this is Menu's own popup surface
-              "max-h-96 w-72 overflow-y-auto rounded-card border border-border bg-surface-raised p-1 text-fg shadow-overlay outline-none scroll-thin",
+              "max-h-96 w-72 overflow-y-auto rounded-card border border-border bg-surface-raised p-1 text-fg elev-seated outline-none scroll-thin",
               POPUP_MOTION,
             )}
           >

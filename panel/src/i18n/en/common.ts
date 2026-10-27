@@ -19,6 +19,15 @@ export const common = {
   dialog: {
     close: "Close",
   },
+  choiceCards: {
+    details: "Details",
+    hideDetails: "Hide details",
+  },
+  fleetCourses: {
+    running: "+{count} running",
+    noApplications: "No applications",
+    disk: "Disk {percent} %",
+  },
   externalLink: {
     opensInNewTab: "(opens in a new tab)",
   },

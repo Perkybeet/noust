@@ -15,7 +15,10 @@ import { describe, expect, it } from "vitest";
 
 import eslintConfig from "../../eslint.config.js?raw";
 import baseline from "./design-baseline.json";
-import { ARBITRARY_DIMENSION, COLOUR_FUNCTION, DESIGN_RULES, EXCEPTION, countRules, lintViolations } from "./designRules";
+import appCss from "./app.css?raw";
+import { ARBITRARY_DIMENSION, COLOUR_FUNCTION, DESIGN_RULES, EXCEPTION, KIT_HEIGHTS, countRules, heightViolations, heightsUsed, lintViolations } from "./designRules";
+import fontsCss from "./fonts.css?raw";
+import tokensCss from "./tokens.css?raw";
 import { STRUCTURE_RULES } from "./designStructure";
 
 type Counts = Record<string, Record<string, number>>;
@@ -220,5 +223,199 @@ describe("feature-state-notice (owner item 56)", () => {
     expect(countRules("features/x/Page.tsx", before)["feature-state-notice"]).toBe(2);
     const after = '<Card title={t("approvals.page.title")} status={<StatusPill state="stopped" label={t("approvals.page.offTitle")} size="sm" />} />';
     expect(countRules("features/x/Page.tsx", after)["feature-state-notice"] ?? 0).toBe(0);
+  });
+});
+
+/**
+ * The tics of a templated interface, and the heights by role (docs/DESIGN.md 2.6 and 2.12).
+ * The owner named the stripe of colour on the edge of a card himself; the rest are the marks that
+ * give a templated interface away. Each detector has samples that must be caught and samples that
+ * must not, so a pattern that stopped matching cannot pass for a console without tics.
+ */
+describe("the tics that are never written", () => {
+  const FEATURE = "features/x/Page.tsx";
+  const count = (rule: string, source: string, path = FEATURE): number => countRules(path, source)[rule] ?? 0;
+
+  const BAD: Record<string, string[]> = {
+    "side-stripe": [
+      '<li className="border-l-2 border-fail pl-3">',
+      '<li className="border-accent border-l-4">',
+      '<div className="rounded-card border-t-2 border-warn-border">',
+      '<div className="border-r-ok">',
+      '<div className="shadow-[inset_2px_0_0_var(--warn)]">',
+      '<div className="shadow-[inset_0_3px_0_var(--accent)]">',
+      '<div className="state-rail-fail">',
+    ],
+    gradient: [
+      '<div className="bg-linear-to-r from-accent to-bg">',
+      '<div className="bg-gradient-to-b">',
+      '<div className="bg-radial from-surface">',
+      "const fill = ctx.createLinearGradient(0, 0, 0, 10);",
+      '<div className="tab-strip mask-linear-to-r">',
+      '<div className="bg-[radial-gradient(var(--border)_1px,transparent_1px)]">',
+    ],
+    blur: ['<header className="bg-bg/85 backdrop-blur-md">', '<div className="blur-sm">', '<div className="backdrop-filter">', '<div className="blur-[2px]">'],
+    "diffuse-shadow": ['<div className="shadow-md">', '<div className="shadow-xl">', '<div className="drop-shadow-lg">', '<div className="shadow-sm">'],
+    "caps-label": ['<span className="text-12 uppercase tracking-wider">', '<span className="tracking-widest">', '<span className="small-caps">', '<span className="capitalize">'],
+    "middle-dot": ['<span>{a} · {b}</span>', 'const text = "Next.js · :3001";', "<span>a &middot; b</span>"],
+    "arrow-glyph": ['<Button>Continue →</Button>', 'const label = "Back →";', "<span>a &rarr; b</span>"],
+    "arrow-button": ["<Button trailingIcon={<ArrowRight />}>Next</Button>", "<Button trailingIcon={<ChevronRight className=\"x\" />}>Next</Button>"],
+    "icon-tile": [
+      '<span className="flex size-10 items-center justify-center rounded-control border border-border bg-surface">',
+      '<div className="size-8 rounded-card bg-accent-soft flex items-center justify-center">',
+      '<div className="inline-flex size-9 items-center justify-center rounded-chip bg-bg-sunken text-fg-muted">',
+    ],
+    "tooltip-by-hand": ["<Tooltip content={t('x')}><span>?</span></Tooltip>"],
+    "elev-outside-kit": ['<div className="elev-seated rounded-card">', '<button className="elev-raised">', '<div className="elev-lift">'],
+  };
+
+  const GOOD: Record<string, string[]> = {
+    "side-stripe": [
+      '<li className="border-b border-border">',
+      '<div className="border border-fail-border bg-fail-soft">',
+      '<div className="border-t border-border">',
+      '<div className="border-l border-border-strong">',
+      '<div className="divide-y divide-border">',
+      '<div className="shadow-[inset_0_0_0_2px_var(--accent)]">',
+    ],
+    gradient: ['<div className="bg-surface">', "const gradientBackoff = 3;"],
+    blur: ['<header className="bg-bg">', '<div className="blurb">'],
+    "diffuse-shadow": ['<div className="elev-seated">', '<div className="shadow-none">'],
+    "caps-label": ['<span className="title text-12">', "const uppercased = 1;"],
+    "middle-dot": ['<span>{a}, {b}</span>', "const dot = 'a.b';"],
+    "arrow-glyph": ["<Button>Continue</Button>", "const t = 'a -> b';"],
+    "arrow-button": ["<Button icon={<ArrowRight />}>Next</Button>", "<TextLink>Back</TextLink>"],
+    "icon-tile": [
+      '<span className="flex size-10 items-center justify-center rounded-pill bg-accent text-on-accent">',
+      '<span className="flex size-6 items-center justify-center rounded-control bg-surface">',
+      '<svg className="size-10 text-fg-muted">',
+    ],
+    "tooltip-by-hand": ["<IconButton label={t('x')} icon={<X />} />", "const tooltipText = 1;"],
+    "elev-outside-kit": ['<div className="rounded-card">', "const elevation = 1;"],
+  };
+
+  it.each(Object.entries(BAD).flatMap(([rule, samples]) => samples.map((sample) => [rule, sample] as const)))("%s catches %s", (rule, sample) => {
+    expect(count(rule, sample), sample).toBeGreaterThan(0);
+  });
+
+  it.each(Object.entries(GOOD).flatMap(([rule, samples]) => samples.map((sample) => [rule, sample] as const)))("%s lets %s through", (rule, sample) => {
+    expect(count(rule, sample), sample).toBe(0);
+  });
+
+  it("holds the kit to the rules that apply everywhere, a stripe on a card included", () => {
+    expect(count("side-stripe", '<div className="border-l-2 border-fail">', "components/ui/Card.tsx")).toBe(1);
+    expect(count("blur", '<div className="backdrop-blur-md">', "app/Topbar.tsx")).toBe(1);
+  });
+
+  it("lets only LogoTile draw a tile, and the kit alone draw a height", () => {
+    const tile = '<span className="flex size-10 items-center justify-center rounded-control bg-bg-sunken">';
+    expect(count("icon-tile", tile, "components/ui/LogoTile.tsx")).toBe(0);
+    expect(count("icon-tile", tile, "components/ui/EmptyState.tsx")).toBe(1);
+    expect(count("elev-outside-kit", '<div className="elev-seated">', "components/ui/Card.tsx")).toBe(0);
+  });
+
+  it("is excused by a design-exception with its reason, like every rule", () => {
+    const source = '// design-exception: middle-dot the glyph of a terminal charset\nconst dot = "·";';
+    expect(count("middle-dot", source)).toBe(0);
+  });
+
+  describe("in the stylesheets", () => {
+    const SHEETS = { "app.css": appCss, "tokens.css": tokensCss, "fonts.css": fontsCss };
+    // The rules of the tokens and of app.css are plain CSS: what the text rules above find in a class, these find in a rule.
+    const NO = {
+      "a gradient": /(?:linear|radial|conic|repeating-linear|repeating-radial)-gradient\(/,
+      "a blur": /backdrop-filter|filter:\s*blur|blur\(/,
+      "capitals": /text-transform:\s*uppercase|font-variant(?:-caps)?:\s*small-caps/,
+      "a wide tracking": /letter-spacing:\s*(?:0?\.\d+|[1-9]\d*(?:\.\d+)?)(?:px|em|rem)/,
+      "a coloured side": /border-(?:left|right|top|bottom)(?:-color)?:[^;]*var\(--(?:ok|warn|fail|idle|accent)(?![\w-])/,
+      "a coloured one-sided shadow": /(?:box-shadow|--elev-[a-z-]+):\s*(?:inset\s+)?(?:-?\d+px\s+0\s+0|0\s+-?\d+px\s+0)\s+var\(--(?:ok|warn|fail|idle|accent)(?![\w-])/,
+    } as const;
+
+    it.each(Object.entries(SHEETS).flatMap(([name, css]) => Object.entries(NO).map(([tic, pattern]) => [name, tic, css, pattern] as const)))(
+      "%s has no %s",
+      (_name, _tic, css, pattern) => {
+        expect(css.replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(pattern);
+      },
+    );
+
+    it("catches each of them when one is written (the detectors are not dead)", () => {
+      const bad: [keyof typeof NO, string][] = [
+        ["a gradient", ".x { background: linear-gradient(red, blue); }"],
+        ["a gradient", ".x { mask-image: linear-gradient(to right, #000, transparent); }"],
+        ["a blur", ".x { backdrop-filter: blur(4px); }"],
+        ["a blur", ".x { filter: blur(2px); }"],
+        ["capitals", ".x { text-transform: uppercase; }"],
+        ["a wide tracking", ".x { letter-spacing: 0.08em; }"],
+        ["a coloured side", ".x { border-left: 3px solid var(--fail); }"],
+        ["a coloured side", ".x { border-bottom-color: var(--accent); }"],
+        ["a coloured one-sided shadow", ".x { box-shadow: inset 3px 0 0 var(--ok); }"],
+        ["a coloured one-sided shadow", ":root { --elev-x: 0 -2px 0 var(--warn); }"],
+      ];
+      for (const [tic, css] of bad) expect(css, tic).toMatch(NO[tic]);
+      expect(".x { letter-spacing: -0.01em; }").not.toMatch(NO["a wide tracking"]);
+      expect(".x { border-bottom: 1px solid var(--border); }").not.toMatch(NO["a coloured side"]);
+    });
+  });
+});
+
+describe("the three heights, by role", () => {
+  const KIT_FILES = [...SOURCES].filter(([path]) => /^(?:components|app)\//.test(path));
+
+  it("gives every piece of the kit that draws a height the height of its role, and no other", () => {
+    const wrong = KIT_FILES.flatMap(([path, source]) => heightViolations(path, source));
+    expect(wrong, "A piece takes the height of its role (styles/designRules.ts, KIT_HEIGHTS)").toEqual([]);
+  });
+
+  it("has every role in the table drawn by the file it names", () => {
+    const missing = Object.entries(KIT_HEIGHTS)
+      .filter(([path, heights]) => {
+        const source = SOURCES.get(path);
+        if (source === undefined) return true;
+        const used = heightsUsed(source);
+        return heights.some((height) => !used.has(height));
+      })
+      .map(([path]) => path);
+    expect(missing, "KIT_HEIGHTS names a role the file does not draw (or a file that does not exist)").toEqual([]);
+  });
+
+  it("makes what is typed or chosen inside carved, through one frame the fields share", () => {
+    for (const file of ["components/ui/Select.tsx", "components/ui/Combobox.tsx", "components/ui/Textarea.tsx"]) {
+      expect(SOURCES.get(file), file).toMatch(/\bCONTROL_FRAME\b/);
+    }
+    expect(SOURCES.get("components/ui/Input.tsx")).toMatch(/CONTROL_FRAME =[^;]*elev-carved/);
+  });
+
+  it("makes every button raised and every panel seated", () => {
+    expect([...heightsUsed(SOURCES.get("components/ui/Button.tsx") ?? "")]).toEqual(["raised"]);
+    expect([...heightsUsed(SOURCES.get("components/ui/Card.tsx") ?? "")]).toEqual(["seated"]);
+    expect([...heightsUsed(SOURCES.get("components/ui/DataTable.tsx") ?? "")]).toEqual(["seated"]);
+  });
+
+  describe("the checker is not dead", () => {
+    it("fails a panel that is raised and a button that is carved", () => {
+      expect(heightViolations("components/ui/Card.tsx", '<div className="elev-raised">')).toHaveLength(1);
+      expect(heightViolations("components/ui/Button.tsx", '<button className="elev-carved">')).toHaveLength(1);
+      expect(heightViolations("components/ui/Dialog.tsx", '<div className="elev-lift">')).toHaveLength(1);
+    });
+
+    it("fails a piece that has no role and draws a height", () => {
+      expect(heightViolations("components/ui/NewThing.tsx", '<div className="elev-seated">')).toEqual([expect.stringContaining("no role")]);
+    });
+
+    it("lets a piece draw what its role says, and a piece with no height draw nothing", () => {
+      expect(heightViolations("components/ui/Card.tsx", '<div className="elev-seated">')).toEqual([]);
+      expect(heightViolations("components/ui/Switch.tsx", '<span className="elev-carved-fine"><i className="elev-rest" /></span>')).toEqual([]);
+      expect(heightViolations("components/ui/Badge.tsx", '<span className="bg-bg-sunken">')).toEqual([]);
+    });
+
+    it("reads every utility of each height", () => {
+      expect([...heightsUsed('"elev-carved-fine"')]).toEqual(["carved"]);
+      expect([...heightsUsed('"elev-raised-accent"')]).toEqual(["raised"]);
+      expect([...heightsUsed('"elev-raised-chosen"')]).toEqual(["raised"]);
+      expect([...heightsUsed('"elev-lift"')]).toEqual(["raised"]);
+      expect([...heightsUsed('"elev-rest"')]).toEqual(["raised"]);
+      expect([...heightsUsed('"elev-seated"')]).toEqual(["seated"]);
+      expect(heightsUsed('"elevation"').size).toBe(0);
+    });
   });
 });

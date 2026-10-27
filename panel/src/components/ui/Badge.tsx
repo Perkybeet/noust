@@ -14,8 +14,8 @@ export interface BadgeProps {
 }
 
 const TONES: Record<BadgeTone, string> = {
-  neutral: "border-border bg-bg-sunken text-fg-muted",
-  accent: "border-transparent bg-accent-soft text-accent-fg",
+  neutral: "bg-bg-sunken text-fg-muted",
+  accent: "bg-accent-soft text-accent-fg",
 };
 
 /** A short attribute: a type, a count, a version. A state is a StatusPill, never a Badge. */
@@ -23,7 +23,7 @@ export function Badge({ children, tone = "neutral", mono = false, className }: B
   return (
     <span
       className={cx(
-        "inline-flex h-5 shrink-0 items-center gap-1 rounded-chip border px-1.5 text-12 leading-none font-medium whitespace-nowrap",
+        "inline-flex h-5 shrink-0 items-center gap-1 rounded-chip px-2 text-12 leading-none font-semibold whitespace-nowrap",
         mono && "mono font-normal",
         TONES[tone],
         className,

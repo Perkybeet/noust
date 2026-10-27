@@ -2,6 +2,7 @@ import { Radio } from "@base-ui/react/radio";
 import { RadioGroup } from "@base-ui/react/radio-group";
 
 import { cx } from "../../lib/cx";
+import { SlidingIndicator } from "../ui/SlidingIndicator";
 
 export interface SegmentedOption<V extends string> {
   value: V;
@@ -31,16 +32,20 @@ export function SegmentedControl<V extends string>({ label, options, value, onVa
       onValueChange={(next: V) => {
         onValueChange(next);
       }}
-      className={cx("inline-flex max-w-full shrink-0 flex-wrap items-center gap-0.5 rounded-control border border-border bg-bg-sunken p-0.5", className)}
+      className={cx(
+        "elev-carved relative isolate inline-flex max-w-full shrink-0 flex-wrap items-center gap-0.5 rounded-card bg-bg-sunken p-0.5",
+        className,
+      )}
     >
+      <SlidingIndicator className="rounded-control bg-surface" />
       {options.map((option) => (
         <Radio.Root
           key={option.value}
           value={option.value}
           className={cx(
-            "inline-flex h-6 min-w-9 cursor-pointer items-center justify-center rounded-[4px] px-2 text-12 font-medium text-fg-muted select-none",
-            "transition-[background-color,color] duration-(--duration-fast) ease-out hover:text-fg",
-            "data-checked:bg-surface data-checked:text-fg data-checked:shadow-raised",
+            "relative inline-flex h-7 min-w-9 cursor-pointer items-center justify-center rounded-control px-2.5 text-12 font-medium text-fg-muted select-none",
+            // The chosen one is the indicator under it; the others rise when the pointer is over them.
+            option.value === value ? "text-fg" : "elev-lift hover:text-fg hover:bg-surface-raised",
             "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus",
           )}
         >

@@ -1,0 +1,11 @@
+{
+  "name": "simple-icons",
+  "version": "snapshot-2026-10-27",
+  "description": "The marks of 29 applications and engines, copied from Simple Icons as paths (logoData.ts), so the console draws real logos without fetching any.",
+  "private": true,
+  "license": "CC0-1.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simple-icons/simple-icons.git"
+  }
+}

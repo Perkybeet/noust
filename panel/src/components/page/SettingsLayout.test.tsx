@@ -184,7 +184,8 @@ describe("SettingsLayout, a long list", () => {
           <p>x</p>
         </SettingsLayout>,
       );
-      const [monitoring, developers, people] = ["web-2 Monitoring", "web-2 Developers", "Central People"].map((name) => within(nav()).getByRole("list", { name }).parentElement);
+      const [monitoring, developers, people] = ["web-2 Monitoring", "web-2 Developers", "Central People"].map((name) => within(nav()).getByRole("list", { name }).parentElement?.parentElement);
+      // (the list sits in the box its sliding indicator is drawn in, and that box in the group)
       expect(monitoring).not.toHaveClass("border-t");
       expect(developers).toHaveClass("mt-3");
       expect(developers).not.toHaveClass("border-t");

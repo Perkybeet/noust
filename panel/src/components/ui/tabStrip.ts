@@ -1,7 +1,7 @@
 import { useLayoutEffect } from "react";
 import type { RefObject } from "react";
 
-/** Which ends of a horizontal strip hide content: what the edge fade shows. */
+/** Which ends of a horizontal strip hide content (`data-overflow`: a tab cut at the edge says the row goes on; the edge is not faded, since a gradient is never drawn). */
 export type StripOverflow = "none" | "start" | "end" | "both";
 
 /** Pixels of slack before an end counts as hiding something: sub-pixel widths round. */
@@ -25,7 +25,7 @@ export function scrollToCentre(strip: DOMRect, tab: DOMRect, scrollLeft: number)
 /**
  * A row of tabs wider than the screen, on a phone: the active tab is brought into view (on
  * load, deep-linked to the seventh tab, it would otherwise be off to the right) and each end
- * that hides tabs says so with a fade (`data-overflow`, styled by `.tab-strip`).
+ * that hides tabs says so (`data-overflow`).
  *
  * @param ref The scrolling strip.
  * @param active Selector of the active tab inside it, e.g. `[data-active]`.

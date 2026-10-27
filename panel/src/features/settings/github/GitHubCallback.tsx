@@ -40,7 +40,7 @@ function BackLink({ primary = false }: { primary?: boolean }) {
 }
 
 function Panel({ children }: { children: ReactNode }) {
-  return <div className="flex max-w-2xl min-w-0 flex-col gap-4 rounded-card border border-border bg-surface p-5 shadow-raised">{children}</div>;
+  return <div className="flex max-w-2xl min-w-0 flex-col gap-4 rounded-card border border-border bg-surface p-5 elev-seated">{children}</div>;
 }
 
 /**
