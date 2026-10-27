@@ -54,6 +54,7 @@ from noust.core.accounts.approvals import (
     rule_for,
     snapshot,
 )
+from noust.core.compliance import explain
 from noust.web.api.deps import NoustErrorRoute, ensure_elevated, require_elevated
 from noust.web.api.openapi import api_routes, route_requires_elevation
 from noust.web.auth import FLEET_ACTOR_PATTERN, get_client_ip, is_fleet, require_auth
@@ -438,11 +439,27 @@ def _vouched_by_central(request: Request, session: dict[str, Any], action: str) 
         status_code=403,
         detail={
             "error": "approval_required",
-            "detail": "This needs a second person's approval on the central",
+            "detail": _said(
+                "This needs a second person's approval on the central.", explain.why_on("approvals")
+            ),
             "hint": "Ask for it on the central and retry through it once it is approved.",
-            "fields": None,
+            "fields": explain.why_on("approvals").to_fields(),
         },
     )
+
+
+def _said(text: str, asks: explain.WhyOn) -> str:
+    """
+    Add to what a refusal says which control asks and how to stop it.
+
+    Args:
+        text: What the answer says.
+        asks: Why the control is on, from :func:`~noust.core.compliance.explain.why_on`.
+
+    Returns:
+        The text, followed by the explanation when the control is on.
+    """
+    return f"{text} {asks.sentence()}".strip()
 
 
 async def require_approval(
@@ -530,13 +547,16 @@ async def require_approval(
         ensure_elevated(request, session)
     reason = _reason(request)
     if policy.reason_required and not reason:
+        asks = explain.why_on("change_reasons")
         raise HTTPException(
             status_code=400,
             detail={
                 "error": "approval_reason_required",
-                "detail": "Say why: this call needs a second person's approval, and a reason",
+                "detail": _said(
+                    "Say why: this call needs a second person's approval, and a reason.", asks
+                ),
                 "hint": f"Send the reason in the {REASON_HEADER} header (percent-encoded).",
-                "fields": None,
+                "fields": asks.to_fields(),
             },
         )
     try:
@@ -551,23 +571,29 @@ async def require_approval(
         )
     except ApprovalError as exc:
         raise _http(exc) from exc
+    asks = explain.why_on("approvals")
     raise HTTPException(
         status_code=202,
         detail={
             "error": "approval_required",
-            "detail": (
-                f"This needs a second person's approval. Request {approval.id} is "
+            "detail": _said(
+                f"This needs a second person's approval, whoever you are. Request {approval.id} is "
                 + (
                     "approved: send the call again with it now."
                     if approval.state == "approved"
                     else f"waiting for a {' or '.join(policy.approvers)} account to decide it."
-                )
+                ),
+                asks,
             ),
             "hint": (
                 f"Once approved, send exactly the same call again with the header "
                 f"{APPROVAL_HEADER}: {approval.id}, within {int(policy.execute_minutes)} minutes."
             ),
-            "fields": {"approval": str(approval.id), "state": approval.state},
+            "fields": {
+                "approval": str(approval.id),
+                "state": approval.state,
+                **asks.to_fields(),
+            },
         },
         headers={
             "Location": f"/api/approvals/{approval.id}",

@@ -357,6 +357,62 @@ class TestRoleChanges:
         assert response.status_code == 200, response.text
 
 
+class TestTheAnswerSaysWhichControlAsks:
+    """
+    The owner, holding every permission, was asked for an approval and for a reason and read it as a
+    problem with their permissions. Both come from controls that apply to everybody, and the answer
+    says which control, who turned it on, and the command that turns it off.
+    """
+
+    def test_an_approval_names_the_control_the_operator_switched_on(
+        self, app: Any, policy: dict[str, Any], real_config: Any
+    ) -> None:
+        real_config.set("approval.enabled", True)
+        alice = Person(app, "alice", "admin")
+        alice.elevate()
+
+        asked = alice.post("/api/cron", JOB, **{"X-Noust-Reason": "ticket 42"})
+
+        assert asked.status_code == 202, asked.text
+        body = asked.json()
+        assert "whoever you are" in body["detail"]
+        assert "noust compliance set approvals off" in body["detail"]
+        assert "Settings > Controls" in body["detail"]
+        assert body["fields"]["control"] == "approvals"
+        assert body["fields"]["forced_by"] == []
+        assert body["fields"]["turn_off"] == "noust compliance set approvals off"
+
+    def test_an_approval_a_framework_asks_for_names_the_framework(
+        self, app: Any, policy: dict[str, Any], real_config: Any
+    ) -> None:
+        real_config.set("security.frameworks", ["ens-media"])
+        alice = Person(app, "alice", "admin")
+        alice.elevate()
+
+        asked = alice.post("/api/cron", JOB, **{"X-Noust-Reason": "ticket 42"})
+
+        body = asked.json()
+        assert body["fields"]["forced_by"] == ["ens-media"]
+        assert body["fields"]["turn_off"].startswith("noust compliance disable ens-media")
+        assert "ens-media" in body["detail"]
+
+    def test_the_reason_names_its_own_control(
+        self, app: Any, policy: dict[str, Any], real_config: Any
+    ) -> None:
+        real_config.set("security.change_reasons", True)
+        policy["reason_required"] = True
+        alice = Person(app, "alice", "admin")
+        alice.elevate()
+
+        refused = alice.post("/api/cron", JOB)
+
+        assert refused.status_code == 400
+        body = refused.json()
+        assert body["error"] == "approval_reason_required"
+        assert body["fields"]["control"] == "change_reasons"
+        assert "noust compliance set change_reasons off" in body["detail"]
+
+
 class TestFleet:
     def test_a_central_s_call_needs_the_central_s_word(
         self, app: Any, cron: Any, policy: dict[str, Any]
