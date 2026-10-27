@@ -110,7 +110,7 @@ export function CreateGitHubApp({ onStart, submitLabel }: { onStart?: () => void
   const failure = start.isError && !(start.error instanceof ElevationCancelledError) && fieldError === null ? start.error : null;
 
   return (
-    <div className="flex min-w-0 flex-col gap-5 rounded-card border border-border bg-surface p-5 shadow-raised">
+    <div className="flex min-w-0 flex-col gap-5 rounded-card border border-border bg-surface p-5 elev-seated">
       <div className="flex flex-col gap-2">
         <p className="text-14 font-medium text-fg">{t("settings.integrations.github.create.intro")}</p>
         <ul className="flex list-disc flex-col gap-1 pl-5 text-13 text-pretty text-fg-muted marker:text-fg-faint">

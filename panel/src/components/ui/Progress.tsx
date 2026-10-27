@@ -25,10 +25,10 @@ export function Progress({ value, label, showValue = true, className }: Progress
           <BaseProgress.Value className="mono text-12 text-fg-muted" />
         ) : null}
       </div>
-      <BaseProgress.Track className="relative h-1.5 overflow-hidden rounded-pill bg-surface-active">
+      <BaseProgress.Track className="elev-carved-fine relative h-2 overflow-hidden rounded-pill bg-bg-sunken">
         <BaseProgress.Indicator
           className={cx(
-            "block h-full rounded-pill bg-warn transition-[width] duration-(--duration-base) ease-out",
+            "block h-full rounded-pill bg-warn transition-[width] duration-(--duration-move) ease-(--ease-standard)",
             "data-indeterminate:w-2/5 data-indeterminate:animate-indeterminate",
             "motion-reduce:data-indeterminate:w-full motion-reduce:data-indeterminate:opacity-40",
           )}
@@ -68,8 +68,8 @@ export function Meter({
 }: MeterProps) {
   const ratio = max > 0 ? value / max : 0;
   const level = ratio >= thresholds.fail ? "fail" : ratio >= thresholds.warn ? "warn" : "normal";
-  const fill = { normal: "bg-fg-muted", warn: "bg-warn", fail: "bg-fail" }[level];
-  const track = { normal: "bg-surface-active", warn: "bg-warn-soft", fail: "bg-fail-soft" }[level];
+  const fill = { normal: "bg-il-stroke", warn: "bg-warn", fail: "bg-fail" }[level];
+  const track = { normal: "bg-bg-sunken", warn: "bg-warn-soft", fail: "bg-fail-soft" }[level];
   const t = useT();
   const text = valueText ?? `${String(Math.round(ratio * 100))}%`;
   const levelWord = level === "fail" ? t("common.meter.critical") : level === "warn" ? t("common.meter.high") : null;
@@ -98,9 +98,9 @@ export function Meter({
       </div>
       <BaseMeter.Track
         data-level={level}
-        className={cx("relative overflow-hidden rounded-pill", track, size === "sm" ? "h-1" : "h-1.5")}
+        className={cx("elev-carved-fine relative overflow-hidden rounded-pill", track, size === "sm" ? "h-1.5" : "h-2")}
       >
-        <BaseMeter.Indicator className={cx("block h-full rounded-pill transition-[width] duration-(--duration-base) ease-out", fill)} />
+        <BaseMeter.Indicator className={cx("block h-full rounded-pill transition-[width] duration-(--duration-move) ease-(--ease-standard)", fill)} />
       </BaseMeter.Track>
     </BaseMeter.Root>
   );

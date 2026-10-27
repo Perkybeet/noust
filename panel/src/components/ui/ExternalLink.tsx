@@ -33,7 +33,7 @@ export interface ExternalLinkProps {
 }
 
 const LINK =
-  "inline-flex max-w-full items-center gap-1 rounded-[4px] font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus";
+  "inline-flex max-w-full items-center gap-1 rounded-chip font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus";
 
 /**
  * A page outside the console (GitHub, a project's website, an address a recipe's note names),

@@ -4,6 +4,7 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { CONTROL_FRAME } from "./Input";
+import { SlidingIndicator } from "./SlidingIndicator";
 import { POPUP_MOTION } from "./Tooltip";
 
 export interface SelectOption<V extends string = string> {
@@ -75,9 +76,9 @@ export function Select<V extends string = string>({
           "flex cursor-pointer items-center justify-between gap-2 pr-2 pl-2.5 text-left text-13 select-none",
           compact ? "min-w-16" : "min-w-40",
           CONTROL_FRAME,
-          "focus-visible:border-focus focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-focus",
-          "data-disabled:cursor-not-allowed data-disabled:bg-bg-sunken data-disabled:opacity-60",
-          "data-popup-open:border-fg-faint",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+          "data-disabled:cursor-not-allowed data-disabled:opacity-60",
+          "data-popup-open:bg-bg-sunken-deep",
           size === "sm" ? "h-control-sm" : "h-control-md",
           className,
         )}
@@ -94,17 +95,18 @@ export function Select<V extends string = string>({
         <BaseSelect.Positioner sideOffset={4} alignItemWithTrigger={false} className="z-overlay outline-none">
           <BaseSelect.Popup
             className={cx(
-              "max-h-(--available-height) min-w-(--anchor-width) overflow-y-auto rounded-card border border-border bg-surface-raised p-1 text-fg shadow-overlay outline-none scroll-thin",
+              "max-h-(--available-height) min-w-(--anchor-width) overflow-y-auto elev-seated rounded-card border border-border-strong bg-surface-raised p-1 text-fg outline-none scroll-thin",
               POPUP_MOTION,
             )}
           >
-            <BaseSelect.List>
+            <BaseSelect.List className="relative isolate">
+              <SlidingIndicator variant="flat" activeSelector="[data-highlighted]" className="rounded-control bg-bg-sunken" />
               {options.map((option) => (
                 <BaseSelect.Item
                   key={option.value}
                   value={option.value}
                   {...(option.disabled ? { disabled: true } : {})}
-                  className="grid cursor-pointer grid-cols-[1fr_1rem] items-center gap-3 rounded-control py-1.5 pr-2 pl-2.5 text-13 outline-none select-none data-disabled:cursor-not-allowed data-disabled:opacity-50 data-highlighted:bg-surface-hover"
+                  className="relative grid cursor-pointer grid-cols-[1fr_1rem] items-center gap-3 rounded-control py-1.5 pr-2 pl-2.5 text-13 outline-none select-none data-disabled:cursor-not-allowed data-disabled:opacity-50"
                 >
                   <span className="min-w-0">
                     <BaseSelect.ItemText className={cx("block truncate", mono && "mono")}>{option.label}</BaseSelect.ItemText>

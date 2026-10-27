@@ -56,7 +56,7 @@ export interface PageHeaderProps {
    * there is nothing to tell apart: a server nobody organised draws no such line.
    */
   place?: readonly PlaceStep[];
-  /** Sets the title in mono, for a system identifier: a domain, a unit, a database, a site. */
+  /** The title is a system identifier (a domain, a unit, a database, a site): it is not translated. It is set like any title, in the display voice, and no longer in mono. */
   mono?: boolean;
   /** Facts about the resource on one line under the title: "Next.js · :3001 · shop.example.com". */
   meta?: ReactNode;
@@ -148,8 +148,10 @@ export function PageHeader({
             data-page-title=""
             {...(mono ? { translate: "no" as const } : {})}
             className={cx(
-              "min-w-0 text-24 break-words text-fg outline-none focus-visible:rounded-chip focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus",
-              mono ? "mono font-medium" : "title",
+              "min-w-0 break-words text-fg outline-none focus-visible:rounded-chip focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus",
+              // A resource's own name (a domain, a server) is not translated and is set like every other title: in
+              // the display voice. Mono is for logs, commands and code (docs/DESIGN.md Y-4).
+              "display text-32",
             )}
           >
             {title}

@@ -20,7 +20,7 @@ export interface CopyValueProps {
 export function CopyValue({ value, label, name, className }: CopyValueProps) {
   return (
     <div
-      className={cx("flex max-w-full min-w-0 items-center gap-1 rounded-control border border-border bg-bg-sunken py-0.5 pr-0.5 pl-2.5", className)}
+      className={cx("elev-carved-fine flex max-w-full min-w-0 items-center gap-1 rounded-control bg-bg-sunken py-0.5 pr-0.5 pl-2.5", className)}
       {...(name !== undefined ? { role: "group", "aria-label": name } : {})}
     >
       <code translate="no" className="min-w-0 flex-1 text-12 break-all text-fg">

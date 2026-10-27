@@ -71,16 +71,17 @@ export function Switch({
       {...(name !== undefined ? { name } : {})}
       disabled={disabled}
       className={cx(
-        "relative inline-flex h-5 w-8 shrink-0 cursor-pointer items-center rounded-pill border border-transparent bg-border-strong p-0.5",
-        "transition-colors duration-(--duration-base) ease-out",
+        // The track is carved, the thumb is a raised piece that slides across it.
+        "elev-carved-fine relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-pill bg-bg-sunken-deep p-0.5",
+        "transition-colors duration-(--duration-move) ease-(--ease-standard)",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
         "data-checked:bg-accent data-disabled:cursor-not-allowed data-disabled:opacity-50 aria-busy:cursor-progress",
       )}
     >
       <BaseSwitch.Thumb
         className={cx(
-          "flex size-3.5 items-center justify-center rounded-pill bg-on-accent shadow-raised",
-          "transition-transform duration-(--duration-base) ease-out data-checked:translate-x-3",
+          "elev-rest flex size-4 items-center justify-center rounded-pill bg-surface-raised",
+          "transition-transform duration-(--duration-move) ease-(--ease-standard) data-checked:translate-x-4",
         )}
       >
         {/* The arc is drawn on the thumb, so the switch does not change size or position while it

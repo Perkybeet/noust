@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useRef } from "react";
 
+import { SlidingIndicator } from "../components/ui/SlidingIndicator";
 import { useTabStrip } from "../components/ui/tabStrip";
 import { useT } from "../i18n";
 import { cx } from "../lib/cx";
@@ -24,18 +25,28 @@ export interface LinkTabsProps {
 
 /**
  * Tabs whose state is the URL: each is a link, so a section can be bookmarked, shared and
- * opened in a new tab. Styled like the Tabs primitive; focus stays on the tab after a switch
+ * opened in a new tab. Styled like the Tabs primitive (a carved rail and a raised piece that
+ * slides to the current section, also when the way there was the browser's back button); focus stays on the tab after a switch
  * (`data-keep-focus`) instead of jumping to the page heading, and the page does not scroll to
  * the top: the header and the strip are the same page, only the section under them changes.
  */
 export function LinkTabs({ label, tabs, className }: LinkTabsProps) {
   const t = useT();
-  const ref = useRef<HTMLUListElement>(null);
+  const ref = useRef<HTMLElement>(null);
   // On a phone the row is wider than the screen: the current section stays in view.
   useTabStrip(ref, '[data-status="active"]', "data-status");
   return (
-    <nav aria-label={label} data-keep-focus="" className={cx("border-b border-border", className)}>
-      <ul ref={ref} className="tab-strip -mb-px flex gap-1 overflow-x-auto [scrollbar-width:none]">
+    <nav
+      ref={ref}
+      aria-label={label}
+      data-keep-focus=""
+      className={cx(
+        "tab-strip elev-carved relative isolate w-fit max-w-full overflow-x-auto rounded-card bg-bg-sunken p-0.5 [scrollbar-width:none]",
+        className,
+      )}
+    >
+      <SlidingIndicator className="rounded-control bg-surface" />
+      <ul className="flex gap-0.5">
         {tabs.map((tab) => (
           <li key={tab.to} className="shrink-0">
             <Link
@@ -46,9 +57,10 @@ export function LinkTabs({ label, tabs, className }: LinkTabsProps) {
               // A section of the page it is on: the strip stays under the pointer (searchNavigation.ts).
               resetScroll={false}
               className={cx(
-                "group relative flex h-10 items-center px-2.5 text-13 font-medium whitespace-nowrap text-fg-muted outline-none",
-                "hover:text-fg data-[status=active]:text-fg",
-                "focus-visible:after:absolute focus-visible:after:inset-x-0 focus-visible:after:inset-y-1.5 focus-visible:after:rounded-control focus-visible:after:outline-2 focus-visible:after:outline-focus",
+                "group relative flex h-8 items-center rounded-control px-3 text-13 font-medium whitespace-nowrap text-fg-muted outline-none",
+                // The current section is the indicator under it; the others rise when the pointer is over them.
+                "elev-lift hover:bg-surface-raised hover:text-fg data-[status=active]:bg-transparent data-[status=active]:text-fg data-[status=active]:hover:transform-none data-[status=active]:hover:shadow-none",
+                "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus",
               )}
             >
               {t(tab.label)}
@@ -56,17 +68,13 @@ export function LinkTabs({ label, tabs, className }: LinkTabsProps) {
                 // The same count as the Tabs primitive's, so both kinds of tab strip read alike.
                 <span
                   className={cx(
-                    "mono ml-1.5 min-w-5 rounded-chip bg-bg-sunken px-1 text-center text-12 text-fg-muted group-data-[status=active]:text-fg",
+                    "mono ml-1.5 min-w-5 rounded-chip bg-bg-sunken px-1 text-center text-12 text-fg-muted group-data-[status=active]:bg-bg group-data-[status=active]:text-fg",
                     tab.count === null && "invisible",
                   )}
                 >
                   {tab.count ?? 0}
                 </span>
               ) : null}
-              <span
-                aria-hidden="true"
-                className="absolute inset-x-2.5 bottom-0 h-0.5 rounded-pill bg-transparent group-data-[status=active]:bg-accent-fg"
-              />
             </Link>
           </li>
         ))}

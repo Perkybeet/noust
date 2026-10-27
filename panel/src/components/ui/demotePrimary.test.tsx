@@ -16,7 +16,7 @@ describe("DemotePrimary", () => {
     );
     const button = screen.getByRole("button", { name: "Update" });
     expect(button).toHaveAttribute("data-variant", "secondary");
-    expect(button).toHaveClass("bg-surface", "border-border");
+    expect(button).toHaveClass("bg-surface-raised", "elev-raised");
     expect(button).not.toHaveClass("bg-accent");
   });
 

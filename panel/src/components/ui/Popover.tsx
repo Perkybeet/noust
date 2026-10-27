@@ -41,12 +41,12 @@ export function Popover({
         <BasePopover.Positioner side={side} align={align} sideOffset={6} className="z-overlay">
           <BasePopover.Popup
             className={cx(
-              "w-80 max-w-[calc(100vw-2rem)] rounded-card border border-border bg-surface-raised p-4 text-fg shadow-overlay outline-none",
+              "elev-seated w-80 max-w-[calc(100vw-2rem)] rounded-card border border-border-strong bg-surface-raised p-4 text-fg outline-none",
               POPUP_MOTION,
               className,
             )}
           >
-            {title !== undefined ? <BasePopover.Title className="text-14 font-semibold">{title}</BasePopover.Title> : null}
+            {title !== undefined ? <BasePopover.Title className="title text-16">{title}</BasePopover.Title> : null}
             {description !== undefined ? (
               <BasePopover.Description className={cx("text-13 text-fg-muted", title !== undefined && "mt-1")}>
                 {description}

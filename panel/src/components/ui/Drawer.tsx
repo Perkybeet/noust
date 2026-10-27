@@ -56,16 +56,17 @@ export function Drawer({
           <BaseDrawer.Popup
             {...(finalFocus !== undefined ? { finalFocus } : {})}
             className={cx(
-              "flex h-dvh w-full flex-col border-l border-border bg-surface-raised text-fg shadow-overlay outline-none",
-              "[transform:translateX(var(--drawer-swipe-movement-x))] transition-transform duration-(--duration-base) ease-out",
+              "elev-seated flex h-dvh w-full flex-col border-l border-border-strong bg-surface text-fg outline-none",
+              "[transform:translateX(var(--drawer-swipe-movement-x))] transition-transform duration-(--duration-enter) ease-(--ease-enter)",
               "data-starting-style:[transform:translateX(100%)] data-ending-style:[transform:translateX(100%)] data-swiping:duration-0",
+              "data-ending-style:duration-(--duration-fast) data-ending-style:ease-(--ease-exit)",
               size === "md" ? "sm:max-w-drawer-md" : "sm:max-w-drawer-lg",
             )}
           >
             <ResetPrimary>
               <header className="flex items-start gap-4 border-b border-border px-5 py-4">
                 <div className="min-w-0 flex-1">
-                  <BaseDrawer.Title className="title text-16 text-fg">{title}</BaseDrawer.Title>
+                  <BaseDrawer.Title className="display text-24 text-fg">{title}</BaseDrawer.Title>
                   {description !== undefined ? (
                     <BaseDrawer.Description className="mt-1 text-13 text-fg-muted">{description}</BaseDrawer.Description>
                   ) : null}

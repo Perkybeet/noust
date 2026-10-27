@@ -73,10 +73,12 @@ describe("Switch", () => {
   it("is sized from the scale and the shadow token, with nothing arbitrary", () => {
     render(<Switch aria-label="Maintenance page" />);
     const control = screen.getByRole("switch");
-    expect(control).toHaveClass("h-5", "w-8", "p-0.5");
+    expect(control).toHaveClass("h-5", "w-9", "p-0.5");
     expect(control.className).not.toMatch(/\[|rgb\(/);
     expect(control.firstElementChild?.className).not.toMatch(/\[|rgb\(/);
-    expect(control.firstElementChild).toHaveClass("size-3.5", "shadow-raised");
+    // The track is carved and the thumb is a raised piece, at rest: it does not rise under the pointer, the track does not move.
+    expect(control).toHaveClass("elev-carved-fine");
+    expect(control.firstElementChild).toHaveClass("size-4", "elev-rest");
   });
 
   it("has no accessibility violations", async () => {

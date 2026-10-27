@@ -45,7 +45,7 @@ function SkipLink() {
     <a
       href="#main"
       onClick={skip}
-      className="fixed top-2 left-2 z-skip -translate-y-[200%] rounded-control bg-surface-raised px-3 py-2 text-13 font-medium text-fg opacity-0 shadow-overlay focus:translate-y-0 focus:opacity-100"
+      className="fixed top-2 left-2 z-skip -translate-y-[200%] rounded-control bg-surface-raised px-3 py-2 text-13 font-medium text-fg opacity-0 elev-seated focus:translate-y-0 focus:opacity-100"
     >
       {t("shell.skipToContent")}
     </a>

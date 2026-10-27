@@ -3,14 +3,18 @@ import type { ReactNode } from "react";
 
 import { cx } from "../../lib/cx";
 
-/** The frame shared by every text control: border, focus ring, invalid and disabled states. */
+/**
+ * The frame shared by every text control. A field is carved into the page (docs/DESIGN.md 2.6): a
+ * darker stone with the shadow on top and the light below, deeper under the pointer, and a focus
+ * ring around it; an invalid one keeps a ring of the failure colour, which the field's error
+ * message under it explains.
+ */
 export const CONTROL_FRAME =
-  "rounded-control border border-border-strong bg-surface text-fg shadow-raised " +
-  "transition-[border-color,box-shadow] duration-(--duration-fast) ease-out " +
-  "hover:border-fg-faint " +
-  "has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-1 has-[:focus-visible]:outline-focus has-[:focus-visible]:border-focus " +
-  "has-[[aria-invalid=true]]:border-fail has-[[data-invalid]]:border-fail " +
-  "has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-bg-sunken has-[:disabled]:opacity-60 has-[:disabled]:hover:border-border-strong";
+  "elev-carved rounded-control bg-bg-sunken text-fg " +
+  "transition-colors duration-(--duration-press) ease-out hover:bg-bg-sunken-deep " +
+  "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus " +
+  "has-[[aria-invalid=true]]:outline-2 has-[[aria-invalid=true]]:outline-fail has-[[data-invalid]]:outline-2 has-[[data-invalid]]:outline-fail " +
+  "has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60 has-[:disabled]:hover:bg-bg-sunken";
 
 export interface InputProps extends Omit<BaseInput.Props, "className" | "size" | "prefix"> {
   size?: "sm" | "md";

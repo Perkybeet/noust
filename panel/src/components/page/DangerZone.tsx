@@ -31,7 +31,7 @@ export function DangerZone({ children, title, description, level = 2, className 
         </Heading>
         {description !== undefined ? <p className="mt-0.5 text-13 text-fg-muted">{description}</p> : null}
       </header>
-      <div className="flex flex-col divide-y divide-fail/20 rounded-card border border-fail/40 bg-surface shadow-raised">
+      <div className="flex flex-col divide-y divide-fail/20 rounded-card border border-fail/40 bg-surface elev-seated">
         {children}
       </div>
     </section>

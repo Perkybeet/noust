@@ -42,7 +42,7 @@ function RowListItem({ leading, actions, children, className }: RowListItemProps
  */
 export function RowList({ "aria-label": label, children, className }: RowListProps) {
   return (
-    <ul aria-label={label} className={cx("m-0 list-none rounded-card border border-border divide-y divide-border bg-surface p-0", className)}>
+    <ul aria-label={label} className={cx("elev-seated m-0 list-none rounded-card border border-border divide-y divide-border bg-surface p-0", className)}>
       {children}
     </ul>
   );

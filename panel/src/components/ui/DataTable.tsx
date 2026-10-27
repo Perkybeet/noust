@@ -261,7 +261,7 @@ export function DataTable<T>({
       // `relative`: the containing block of the visually hidden labels in cells. Without it they
       // are positioned against the page, escape this scroll box and widen the page on a phone.
       className={cx(
-        "relative min-w-0 overflow-x-auto rounded-card border border-border bg-surface shadow-raised scroll-thin",
+        "elev-seated relative min-w-0 overflow-x-auto rounded-card border border-border bg-surface scroll-thin",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
         className,
       )}
@@ -271,7 +271,7 @@ export function DataTable<T>({
           {caption}
         </caption>
         <thead>
-          <tr className="border-b border-border bg-bg-sunken/70">
+          <tr className="border-b border-border bg-surface">
             {columns.map((column) => {
               const sortedHere = activeSort?.column === column.id ? activeSort.direction : undefined;
               return (
@@ -280,7 +280,7 @@ export function DataTable<T>({
                   scope="col"
                   {...(sortedHere ? { "aria-sort": sortedHere } : {})}
                   className={cx(
-                    "h-9 px-3 text-12 font-medium whitespace-nowrap text-fg-muted first:pl-4",
+                    "h-10 px-3 text-12 font-semibold whitespace-nowrap text-fg-faint first:pl-4",
                     column.align === "end" && "text-right",
                     column.width,
                     column.hideBelow && HIDE[column.hideBelow],
@@ -291,7 +291,7 @@ export function DataTable<T>({
                       type="button"
                       onClick={() => toggleSort(column)}
                       className={cx(
-                        "-mx-1.5 inline-flex h-7 cursor-pointer items-center gap-1 rounded-control px-1.5 hover:bg-surface-hover hover:text-fg",
+                        "-mx-1.5 inline-flex h-7 cursor-pointer items-center gap-1 rounded-control px-1.5 hover:bg-bg-sunken hover:text-fg",
                         "focus-visible:outline-2 focus-visible:outline-focus",
                         sortedHere && "text-fg",
                         column.align === "end" && "flex-row-reverse",
@@ -461,7 +461,7 @@ function CardRows<T>({
     <ul aria-label={caption} aria-busy={loading || undefined} className={cx("flex min-w-0 flex-col gap-2", className)}>
       {loading
         ? Array.from({ length: Math.max(1, Math.round(skeletonRows)) }, (_, i) => (
-            <li key={`skeleton-${String(i)}`} aria-hidden="true" className="flex flex-col gap-2 rounded-card border border-border bg-surface px-4 py-3 shadow-raised">
+            <li key={`skeleton-${String(i)}`} aria-hidden="true" className="elev-seated flex flex-col gap-2 rounded-card border border-border bg-surface px-4 py-3">
               <Skeleton className="h-3 w-20" />
               <Skeleton className="h-4 w-3/5" />
               <Skeleton className="h-3 w-2/5" />
@@ -473,7 +473,7 @@ function CardRows<T>({
             const control = controls.map((column) => ({ column, content: column.cell(row) })).filter((entry) => !isEmptyValue(entry.content));
             const values = meta.map((column) => ({ column, content: column.cell(row) })).filter((entry) => !isEmptyValue(entry.content));
             return (
-              <li key={id} className="flex min-w-0 items-start gap-3 rounded-card border border-border bg-surface py-3 pr-2 pl-4 shadow-raised">
+              <li key={id} className="elev-seated flex min-w-0 items-start gap-3 rounded-card border border-border bg-surface py-3 pr-2 pl-4">
                 {control.length > 0 ? (
                   <div className="flex shrink-0 items-center gap-2 pt-0.5">
                     {control.map(({ column, content }) => (

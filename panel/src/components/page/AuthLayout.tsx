@@ -53,7 +53,7 @@ export function AuthLayout({ title, description, host, subtitle, children, foote
             </>
           ) : null}
         </div>
-        <h1 tabIndex={-1} data-page-title="" className="title text-24 text-fg outline-none">
+        <h1 tabIndex={-1} data-page-title="" className="display text-32 text-fg outline-none">
           {title}
         </h1>
         {description !== undefined ? <p className="mt-1.5 text-14 text-pretty text-fg-muted">{description}</p> : null}

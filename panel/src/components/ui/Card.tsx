@@ -72,8 +72,9 @@ export function Card({
     <Element
       {...(loading ? { "aria-busy": true } : {})}
       className={cx(
-        "flex min-w-0 flex-col rounded-card border border-border bg-surface shadow-raised",
-        interactive && "transition-colors duration-(--duration-fast) ease-out hover:border-border-strong",
+        "elev-seated flex min-w-0 flex-col rounded-card border border-border bg-surface",
+        // A panel that is read does not move. One that opens something changes its tone, flat.
+        interactive && "transition-colors duration-(--duration-press) ease-out hover:bg-surface-hover",
         className,
       )}
     >

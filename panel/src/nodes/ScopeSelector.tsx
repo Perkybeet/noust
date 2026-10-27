@@ -25,7 +25,7 @@ const THIS_SERVER = "@this";
 
 const ITEM = cx(
   "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-control px-2 py-1.5 text-13 outline-none select-none",
-  "text-fg data-highlighted:bg-surface-hover",
+  "text-fg data-highlighted:bg-bg-sunken",
 );
 
 const GROUP_LABEL = "px-2 pt-1.5 pb-1 text-12 font-medium text-fg-muted select-none";
@@ -198,7 +198,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
         data-context={context.kind}
         data-placement={placement}
         className={cx(
-          "flex min-w-0 cursor-pointer items-center gap-2 rounded-control border border-border-strong bg-surface text-13 text-fg shadow-raised",
+          "flex min-w-0 cursor-pointer items-center gap-2 rounded-control bg-bg-sunken text-13 text-fg elev-carved",
           "transition-colors duration-(--duration-fast) ease-out hover:bg-surface-hover",
           side ? "min-h-control-lg w-full py-1 pr-2 pl-2.5" : "h-control-md max-w-60 shrink gap-1.5 pr-1.5 pl-2.5",
           className,
@@ -224,7 +224,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
           <BaseMenu.Popup
             className={cx(
               // design-exception: hand-surface a radio menu has no kit component; this is Menu's own popup surface
-              "max-h-96 w-72 overflow-y-auto rounded-card border border-border bg-surface-raised p-1 text-fg shadow-overlay outline-none scroll-thin",
+              "max-h-96 w-72 overflow-y-auto rounded-card border border-border bg-surface-raised p-1 text-fg elev-seated outline-none scroll-thin",
               POPUP_MOTION,
             )}
           >

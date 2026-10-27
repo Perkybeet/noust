@@ -16,6 +16,15 @@ export const common: Catalog<typeof en> = {
   dialog: {
     close: "Cerrar",
   },
+  choiceCards: {
+    details: "Detalles",
+    hideDetails: "Ocultar detalles",
+  },
+  fleetCourses: {
+    running: "+{count} en ejecución",
+    noApplications: "Sin aplicaciones",
+    disk: "Disco {percent} %",
+  },
   externalLink: {
     opensInNewTab: "(se abre en una pestaña nueva)",
   },

@@ -127,7 +127,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTrigge
   // Left padding of 26px on wide screens: with the hostname link's own 6px, the hostname
   // starts on the same edge as the page title below it.
   return (
-    <header className="sticky top-0 z-sticky flex h-14 shrink-0 items-center gap-3 border-b border-border bg-bg/85 px-4 backdrop-blur-md sm:px-6 lg:pr-6 lg:pl-6.5">
+    <header className="sticky top-0 z-sticky flex h-14 shrink-0 items-center gap-3 border-b border-border bg-bg px-4 sm:px-6 lg:pr-6 lg:pl-6.5">
       <Link
         to="/"
         aria-label={t("nav.overview.label")}
@@ -148,7 +148,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTrigge
           onClick={onOpenPalette}
           aria-haspopup="dialog"
           aria-keyshortcuts="Control+K Meta+K"
-          className="flex h-control-md w-52 cursor-pointer items-center gap-2 rounded-control border border-border-strong bg-surface pr-1.5 pl-2.5 text-13 text-fg-muted shadow-raised transition-colors duration-(--duration-fast) ease-out hover:bg-surface-hover hover:text-fg max-md:hidden lg:w-44 xl:w-60"
+          className="flex h-control-md w-52 cursor-pointer items-center gap-2 rounded-control bg-bg-sunken pr-1.5 pl-2.5 text-13 text-fg-muted elev-carved transition-colors duration-(--duration-fast) ease-out hover:bg-bg-sunken-deep hover:text-fg max-md:hidden lg:w-44 xl:w-60"
         >
           <Search aria-hidden="true" className="size-4 shrink-0" />
           <span className="flex-1 text-left">{t("shell.search.label")}</span>

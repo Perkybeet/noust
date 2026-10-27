@@ -1176,7 +1176,7 @@ function ChartPlot({
           aria-hidden="true"
           data-chart-card={cardVisible ? "floating" : "hidden"}
           className={cx(
-            "absolute top-0 left-0 flex min-w-40 flex-col gap-1.5 rounded-control border border-border bg-surface-raised px-3 py-2 text-12 shadow-overlay",
+            "absolute top-0 left-0 flex min-w-40 flex-col gap-1.5 rounded-control border border-border bg-surface-raised px-3 py-2 text-12 elev-seated",
             "pointer-events-none",
             !cardVisible && "invisible",
           )}

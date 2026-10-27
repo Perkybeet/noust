@@ -72,7 +72,9 @@ describe("Card", () => {
 
   it("marks a card that is itself a link or button target on hover", () => {
     const { container } = render(<Card interactive>x</Card>);
-    expect(container.firstElementChild).toHaveClass("hover:border-border-strong");
+    // A panel that opens something changes its tone, flat: it does not rise, because only what is pressed is raised.
+    expect(container.firstElementChild).toHaveClass("hover:bg-surface-hover");
+    expect(container.firstElementChild).not.toHaveClass("elev-lift");
   });
 
   it("uses no alpha on a token for its footer", () => {

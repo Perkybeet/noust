@@ -103,7 +103,7 @@ export function JobProgress({
     <div
       {...(announce ? { role: "status" } : {})}
       className={cx(
-        "flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 rounded-control border border-border bg-surface px-3 py-2 text-13 shadow-raised",
+        "flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 rounded-control border border-border bg-surface px-3 py-2 text-13 elev-seated",
         className,
       )}
     >

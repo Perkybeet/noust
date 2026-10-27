@@ -198,19 +198,13 @@ function renderSegments(segments: readonly AnsiSegment[], ranges: readonly Range
 type Level = NonNullable<LogLine["level"]>;
 
 // Rows carry an opaque ground so the sticky line-number gutter can inherit it when the
-// reader scrolls sideways; the state rail sits on the gutter, which is always in view.
+// reader scrolls sideways. A warning or an error is told by its tinted ground and, in the gutter,
+// which is always in view, by its glyph: never by a stripe down one side of the row.
 const LEVEL_ROW: Record<Level, string> = {
   info: "bg-bg-sunken",
   debug: "bg-bg-sunken text-fg-muted",
   warn: "bg-warn-soft",
   error: "bg-fail-soft",
-};
-
-const LEVEL_RAIL: Record<Level, string> = {
-  info: "",
-  debug: "",
-  warn: "shadow-[inset_2px_0_0_var(--warn)]",
-  error: "shadow-[inset_2px_0_0_var(--fail)]",
 };
 
 /** The order the chips are offered in: what needs a look first. */
@@ -727,11 +721,15 @@ export function LogViewer({
                   >
                     <span
                       aria-hidden="true"
-                      className={cx(
-                        "sticky left-0 w-12 shrink-0 bg-inherit pr-3 text-right text-fg-faint select-none",
-                        LEVEL_RAIL[line.level ?? "info"],
-                      )}
+                      className="sticky left-0 flex w-16 shrink-0 items-center justify-end gap-1 bg-inherit pr-3 text-fg-faint select-none"
                     >
+                      {line.level === "warn" || line.level === "error" ? (
+                        <StatusGlyph
+                          state={line.level === "error" ? "failed" : "warning"}
+                          size={10}
+                          className={line.level === "error" ? "text-fail" : "text-warn"}
+                        />
+                      ) : null}
                       {numbers?.get(line) ?? item.index + 1}
                     </span>
                     {showTimes && line.ts !== undefined ? (
@@ -753,7 +751,7 @@ export function LogViewer({
             type="button"
             onClick={jumpToLatest}
             className={cx(
-              "absolute bottom-3 left-1/2 flex h-8 -translate-x-1/2 cursor-pointer items-center gap-1.5 rounded-pill border border-border bg-surface-raised pr-3.5 pl-3 text-13 font-medium text-fg shadow-overlay",
+              "absolute bottom-3 left-1/2 flex h-8 -translate-x-1/2 cursor-pointer items-center gap-1.5 rounded-pill border border-border bg-surface-raised pr-3.5 pl-3 text-13 font-medium text-fg elev-seated",
               "hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
             )}
           >

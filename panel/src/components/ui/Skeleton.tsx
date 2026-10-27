@@ -16,7 +16,7 @@ export function Skeleton({ className }: SkeletonProps) {
     <span
       aria-hidden="true"
       data-slot="skeleton"
-      className={cx("block animate-breathe rounded-[4px] bg-surface-active", sizeDefaults(className), className)}
+      className={cx("block animate-breathe rounded-chip bg-bg-sunken-deep", sizeDefaults(className), className)}
     />
   );
 }

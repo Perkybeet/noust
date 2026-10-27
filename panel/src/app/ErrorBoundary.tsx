@@ -24,7 +24,7 @@ export function PageError({ error, onRetry }: { error: unknown; onRetry?: () => 
   const nodeWords = nodeErrorWords(t, error, node);
   return (
     <section aria-labelledby="page-error-title" className="flex max-w-[72ch] flex-col gap-3 py-8">
-      <h1 id="page-error-title" tabIndex={-1} data-page-title="" className="title text-24 text-fg outline-none">
+      <h1 id="page-error-title" tabIndex={-1} data-page-title="" className="display text-32 text-fg outline-none">
         {nodeWords?.title ?? t("shell.pageError.title")}
       </h1>
       <p className="text-14 text-fg-muted">{nodeWords?.hint ?? hint ?? t("shell.pageError.defaultHint")}</p>

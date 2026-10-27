@@ -28,7 +28,7 @@ describe("Notice", () => {
 
   it("keeps information achromatic: info is not a state", () => {
     const { container } = render(<Notice title="The update restarts the console" />);
-    expect(container.firstElementChild).toHaveClass("bg-surface-raised");
+    expect(container.firstElementChild).toHaveClass("bg-surface", "border-border");
     expect(container.querySelector("svg")).toHaveClass("text-fg-muted");
   });
 

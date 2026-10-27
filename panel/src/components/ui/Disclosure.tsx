@@ -36,7 +36,7 @@ export function Disclosure({ label, defaultOpen = false, variant = "plain", summ
 
   if (variant === "card") {
     return (
-      <div data-slot="disclosure-card" className="min-w-0 rounded-card border border-border bg-surface">
+      <div data-slot="disclosure-card" className="elev-seated min-w-0 rounded-card border border-border bg-surface">
         <div className="p-1">
           <Button
             variant="ghost"
