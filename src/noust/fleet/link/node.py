@@ -42,13 +42,12 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from jinja2 import Environment, PackageLoader
-
 from noust import __version__
 from noust.core import paths
 from noust.core.exceptions import NodeError, SecurityError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.runner import CommandError, CommandRunner, get_runner
+from noust.core.templates import text_environment
 from noust.fleet.authorize import (
     Progress,
     ceiling_in_force,
@@ -185,13 +184,8 @@ def render_unit(central: str, argv: builtins.list[str]) -> str:
     """
     from noust.managers.cron_manager import CronManager
 
-    environment = Environment(
-        loader=PackageLoader("noust", "templates/systemd"),
-        trim_blocks=True,
-        lstrip_blocks=True,
-        # A systemd unit, not markup: the templates escape through _escape.j2.
-        autoescape=False,  # noqa: S701
-    )
+    # A systemd unit, not markup: the templates escape through _escape.j2.
+    environment = text_environment("templates/systemd")
     return environment.get_template("link.service.j2").render(
         central=validate_central_name(central), exec_start=CronManager.build_exec_start(argv)
     )

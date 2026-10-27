@@ -46,7 +46,7 @@ from pathlib import Path, PurePosixPath
 from string import Template
 from typing import Any
 
-from jinja2 import Environment, PackageLoader, TemplateNotFound
+from jinja2 import Environment, TemplateNotFound
 from jinja2 import TemplateError as JinjaTemplateError
 
 from noust.central import require_server_role
@@ -73,6 +73,7 @@ from noust.core.fs import DryRunFileSystem, FileSystem, get_fs, is_rehearsal
 from noust.core.preview_store import PreviewStore
 from noust.core.runner import CommandRunner
 from noust.core.store import DomainKind, NoustStore, Site, WebServer, get_store, runs_as_instances
+from noust.core.templates import text_environment
 from noust.core.utils import domain_to_app_name
 from noust.managers.base_manager import BaseManager, MappingRecord
 from noust.managers.cert_manager import CertManager
@@ -572,12 +573,8 @@ class WebServerManager(BaseManager):
                 package was installed without its data files.
         """
         try:
-            return Environment(
-                loader=PackageLoader("noust", self.backend.template_package),
-                trim_blocks=True,
-                lstrip_blocks=True,
-                autoescape=False,  # noqa: S701 - web server config, not markup
-            )
+            # Web server configuration, not markup.
+            return text_environment(self.backend.template_package)
         except (ValueError, ImportError) as exc:
             raise TemplateError(
                 f"Could not load {self.backend.name} templates",
