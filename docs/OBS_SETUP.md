@@ -259,7 +259,6 @@ noust/
 │   ├── debian.postrm           # Post-remove script
 │   ├── debian.copyright        # License info
 │   ├── noust.dsc               # Debian source control
-│   ├── noust.1                 # Man page
 │   ├── noust.default.yaml      # Default config
 │   ├── noust.dirs              # Directories to create
 │   ├── noust.manpages          # Man pages list

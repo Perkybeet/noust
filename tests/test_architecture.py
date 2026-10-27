@@ -897,7 +897,7 @@ class TestPackaging:
         # roff escapes every hyphen; the licence expression is compared as written.
         return "\n".join(lines[start:end]).replace("\\-", "-")
 
-    @pytest.mark.parametrize("page", ["man/noust.1", "obs/noust.1"])
+    @pytest.mark.parametrize("page", ["man/noust.1"])
     def test_the_man_page_declares_the_licence_pyproject_declares(self, page: str):
         """
         The man page shipped "WASM-NCSAL 1.0. Source-available, non-commercial
@@ -911,7 +911,7 @@ class TestPackaging:
             f"{page} declares {first_line!r}; run scripts/generate_man.py"
         )
 
-    @pytest.mark.parametrize("page", ["man/noust.1", "obs/noust.1"])
+    @pytest.mark.parametrize("page", ["man/noust.1"])
     def test_the_man_page_names_the_version_pyproject_declares(self, page: str):
         """
         The version came from the installed distribution's metadata, so a
