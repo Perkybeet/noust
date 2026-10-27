@@ -1,0 +1,24 @@
+# The functions of Noust that return a name or a path only when it is acceptable (and raise
+# otherwise), and the alert each one answers. CodeQL stops following a value at a call to one of them.
+#
+# Every row earned its place: on a database of the tree built without this pack, the analysis with
+# only these nine rows reports the same 66 path injections as with the nineteen candidates, and 130
+# without any (docs/code-scanning.md says how to measure it again). The other candidates
+# (validate_app_name, validate_filename, validate_server_name, ...) removed nothing more.
+# tests/test_codeql_models.py holds each row to the code.
+extensions:
+  - addsTo:
+      pack: codeql/python-all
+      extensible: barrierModel
+    data:
+      # A name that becomes a directory or a file.
+      - ["noust", "Member[validators].Member[domain].Member[validate_domain].ReturnValue", "path-injection"]
+      - ["noust", "Member[validators].Member[source].Member[check_upload_id].ReturnValue", "path-injection"]
+      - ["noust", "Member[validators].Member[source].Member[upload_tree].ReturnValue", "path-injection"]
+      - ["noust", "Member[validators].Member[replica].Member[check_replica_name].ReturnValue", "path-injection"]
+      - ["noust", "Member[validators].Member[db_instance].Member[check_instance_name].ReturnValue", "path-injection"]
+      - ["noust", "Member[fleet].Member[models].Member[validate_node_name].ReturnValue", "path-injection"]
+      - ["noust", "Member[managers].Member[database].Member[instance_layout].Member[directory].ReturnValue", "path-injection"]
+      # A path that is only returned once it is known to be inside what it may reach.
+      - ["noust", "Member[validators].Member[names].Member[resolve_within].ReturnValue", "path-injection"]
+      - ["noust", "Member[managers].Member[database].Member[imports].Member[resolve_server_path].ReturnValue", "path-injection"]

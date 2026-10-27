@@ -29,6 +29,8 @@ from urllib.parse import urlencode
 from noust import __version__
 from noust.core.exceptions import IntegrationError
 from noust.core.github_host import api_url, configured_host, require_reachable
+from noust.core.outbound import UnsafePath, api_path, path_segment
+from noust.validators.source import github_repository_parts
 
 #: GitHub's REST API.
 API_URL = "https://api.github.com"
@@ -122,6 +124,23 @@ def _hint(status: int) -> str:
     return "Retry in a moment; if it persists, check https://www.githubstatus.com."
 
 
+def repo_path(repository: str) -> str:
+    """
+    Spell the API path of a repository: the one place that does.
+
+    Args:
+        repository: ``owner/repo``.
+
+    Returns:
+        ``/repos/<owner>/<repo>``, each name one path segment.
+
+    Raises:
+        ValidationError: It is not a GitHub repository.
+    """
+    owner, name = github_repository_parts(repository)
+    return f"/repos/{path_segment(owner)}/{path_segment(name)}"
+
+
 class GitHubClient:
     """
     JSON over HTTPS to one GitHub API host.
@@ -173,11 +192,13 @@ class GitHubClient:
                 reached, or answered something that is not JSON.
             GitHubAPIError: GitHub answered an error status.
         """
-        if not path.startswith("/") or path.startswith("//"):
+        try:
+            path = api_path(path)
+        except UnsafePath:
             raise IntegrationError(
                 f"Refusing to request {path!r} from GitHub",
                 details="Only paths on the GitHub API host are requested.",
-            )
+            ) from None
         url = f"{self.base_url}{path}"
         if query:
             url = f"{url}?{urlencode(query)}"

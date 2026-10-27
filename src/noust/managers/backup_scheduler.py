@@ -32,7 +32,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Environment, PackageLoader, TemplateError
+from jinja2 import TemplateError
 
 from noust.central import require_server_role
 from noust.core import paths
@@ -56,6 +56,7 @@ from noust.core.notifications.model import Notification
 from noust.core.notifier import Notifier
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import BackupScheduleRecord, get_store
+from noust.core.templates import text_environment
 from noust.core.utils import domain_to_app_name, find_noust_executable
 from noust.managers.backup_destinations import BackupDestinationManager
 from noust.managers.backup_failures import record_failure
@@ -281,14 +282,8 @@ class BackupScheduler:
         self.logger = Logger(verbose=verbose)
         self._runner = runner
         self._fs = fs
-        self.jinja_env = Environment(
-            loader=PackageLoader("noust", "templates/systemd"),
-            trim_blocks=True,
-            lstrip_blocks=True,
-            # Systemd units are not markup: HTML escaping would corrupt them.
-            # The templates escape what matters through the _escape.j2 macros.
-            autoescape=False,  # noqa: S701 - systemd unit files, not markup
-        )
+        # Systemd units are not markup; the templates escape what matters through _escape.j2.
+        self.jinja_env = text_environment("templates/systemd")
 
     @property
     def runner(self) -> CommandRunner:

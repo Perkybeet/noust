@@ -39,8 +39,10 @@ MAX_DEPTH = 4
 #: Characters of a statement kept in its digest.
 STATEMENT_HEAD = 200
 
+# The blanks before and after the "=" are written so that no run of blanks can be split two ways:
+# ``\s*=?\s*`` was quadratic on a statement made of a keyword and tens of thousands of tabs.
 _QUOTED_SECRET = re.compile(
-    r"(?i)((?:password|passwd|secret|token|identified\s+by)\s*=?\s*)'[^']*'"
+    r"(?i)((?:password|passwd|secret|token|identified\s+by)\s*(?:=\s*)?)'[^']*'"
 )
 
 #: Detail names that the general rules would flag but that, in an audit

@@ -13,6 +13,8 @@ name: Security
 #   dependency  a pull request that adds a dependency with a known high or
 #   review      critical advisory (only what the change adds, never the
 #               advisories of overnight)
+#   alerts      the branch has no open alert of high or critical severity that
+#   decided     nobody has fixed or dismissed with a reason
 #
 # What blocks and what reports follows what a maintainer can act on. A leaked
 # secret blocks always: it is never noise. A new vulnerable dependency blocks a
@@ -102,11 +104,17 @@ jobs:
       # Reports, never blocks: the findings of the lock files change with the
       # advisory database, not with the commit. Fixable ones only, so what
       # shows up is what an upgrade resolves.
+      #
+      # tests/integration is not scanned: its Dockerfiles are the harness's own
+      # throwaway containers (systemd as PID 1, which needs root, and fixtures
+      # that only have to start), and an exception per file in .trivyignore would
+      # hide the same rule from a Dockerfile that ships.
       - name: Scan the repository
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
+          skip-dirs: tests/integration
           scanners: vuln,misconfig
           severity: CRITICAL,HIGH
           ignore-unfixed: true
@@ -161,6 +169,31 @@ jobs:
         with:
           sarif_file: trivy-image.sarif
           category: trivy-image
+
+  alerts-decided:
+    name: Every alert of high or critical severity is decided
+    # After the analyses of this run have been uploaded: what they found is what is
+    # read. A pull request is judged by its own check (the "Code scanning results"
+    # rule of the branch ruleset), not by the alerts of the branch it will join.
+    if: github.event_name != 'pull_request'
+    needs: [codeql, trivy-repository, trivy-image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: read
+    steps:
+      - uses: actions/checkout@v7
+
+      # An alert is fixed, or dismissed in GitHub with the reason written down;
+      # what fails here is one nobody has looked at (docs/code-scanning.md).
+      - name: Read the open alerts of this branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          REF: ${{ github.ref }}
+        run: |
+          gh api --paginate "repos/${REPOSITORY}/code-scanning/alerts?state=open&ref=${REF}&per_page=100" > alerts.json
+          python3 scripts/code_scanning_gate.py alerts.json
 
   dependency-review:
     name: Dependency review

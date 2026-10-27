@@ -69,7 +69,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
-from jinja2 import Environment, PackageLoader, TemplateError
+from jinja2 import Environment, TemplateError
 
 from noust.central import require_server_role
 from noust.core import paths, webhook_deliveries
@@ -120,6 +120,7 @@ from noust.core.store import (
     PreviewSettings,
     get_store,
 )
+from noust.core.templates import text_environment
 from noust.core.terminal_context import TerminalContext
 from noust.core.utils import domain_to_app_name, find_noust_executable
 from noust.deployers.helpers.hooks import Hook, HookPhase
@@ -3106,14 +3107,7 @@ def _templates() -> Environment:
     Returns:
         A Jinja environment over ``templates/systemd``.
     """
-    return Environment(
-        loader=PackageLoader("noust", "templates/systemd"),
-        trim_blocks=True,
-        lstrip_blocks=True,
-        # Systemd units are not markup: HTML escaping would corrupt them.
-        # What they interpolate goes through _escape.j2.
-        autoescape=False,  # noqa: S701 - systemd unit files, not markup
-    )
+    return text_environment("templates/systemd")
 
 
 def _render(name: str) -> str:

@@ -171,3 +171,75 @@ class TestTrustedHosts:
         config.set("security.allow_private_hosts", "nas.lan, 10.0.0.5")
 
         assert config.get("security.allow_private_hosts") == ["nas.lan", "10.0.0.5"]
+
+
+class TestAPathOnAnApiHost:
+    """What a request's path may be once part of it came from a person (CodeQL py/partial-ssrf)."""
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/repos/octo/hello/branches",
+            "/repos/octo/hello/pulls?state=open&sort=created",
+            "/projects/42/repository/branches",
+            "/groups/team%2Fsub/projects",
+            "/repos/octo/.github/pulls",
+            "/repos/octo/a..b/pulls",
+        ],
+    )
+    def test_a_plain_path_is_returned_as_it_is(self, path: str) -> None:
+        assert outbound.api_path(path) == path
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "",
+            "repos/octo/hello",
+            "//evil.example.com/x",
+            "/repos/octo/../../user",
+            "/repos/octo/./hello",
+            "/repos/octo/%2e%2e/user",
+            "/repos/octo/%2E%2e/user",
+            "/repos/octo/.%2E/user",
+            "/repos/octo/..",
+            "/repos/octo/hello\n/branches",
+            "/repos/octo/hello\x00",
+            "/repos/octo\\..\\user",
+            "/repos/octo/hello branches",
+            "/repos/octo/hello#fragment",
+            "/repos/octo/hello?x=../../user\r\nHost: evil",
+        ],
+    )
+    def test_a_path_that_leaves_where_it_was_meant_to_go_is_refused(self, path: str) -> None:
+        with pytest.raises(outbound.UnsafePath):
+            outbound.api_path(path)
+
+    def test_an_unsafe_path_is_a_value_error_like_the_other_refusals(self) -> None:
+        assert issubclass(outbound.UnsafePath, ValueError)
+
+    @pytest.mark.parametrize(
+        ("value", "encoded"),
+        [
+            ("octo-org", "octo-org"),
+            ("hello.world_2", "hello.world_2"),
+            ("team/sub", "team%2Fsub"),
+            ("a b", "a%20b"),
+            ("100%", "100%25"),
+            ("x?y#z", "x%3Fy%23z"),
+        ],
+    )
+    def test_a_segment_is_encoded_so_that_it_stays_one_segment(
+        self, value: str, encoded: str
+    ) -> None:
+        assert outbound.path_segment(value) == encoded
+
+    @pytest.mark.parametrize("value", ["", ".", "..", "\n", "a\nb"])
+    def test_a_segment_that_names_no_resource_or_moves_the_path_is_refused(
+        self, value: str
+    ) -> None:
+        with pytest.raises(outbound.UnsafePath):
+            outbound.path_segment(value)
+
+    @pytest.mark.parametrize("value", [5, 42, "42"])
+    def test_a_numeric_id_is_a_segment_too(self, value: object) -> None:
+        assert outbound.path_segment(value) == str(value)

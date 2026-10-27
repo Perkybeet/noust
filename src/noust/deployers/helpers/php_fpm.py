@@ -42,7 +42,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from jinja2 import Environment, PackageLoader, StrictUndefined
+from jinja2 import StrictUndefined
 from jinja2 import TemplateError as JinjaTemplateError
 
 from noust.core import paths
@@ -51,6 +51,7 @@ from noust.core.exceptions import DeploymentError, TemplateError, ValidationErro
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
 from noust.core.runner import CommandResult, CommandRunner
+from noust.core.templates import text_environment
 from noust.deployers.helpers import tree_names
 
 _logger = logging.getLogger(__name__)
@@ -730,14 +731,8 @@ def render_pool(spec: PoolSpec) -> str:
             "'.', '_', '-' and '/'. Change apps_directory in the Noust configuration.",
         )
     try:
-        environment = Environment(
-            loader=PackageLoader("noust", "templates/php"),
-            trim_blocks=True,
-            lstrip_blocks=True,
-            undefined=StrictUndefined,
-            # An INI file, not markup; every value is validated above instead.
-            autoescape=False,  # noqa: S701
-        )
+        # An INI file, not markup; every value is validated above instead.
+        environment = text_environment("templates/php", undefined=StrictUndefined)
         return environment.get_template("pool.conf.j2").render(
             # The pool is named like its socket, whichever prefix that
             # carries: FpmInstallation.prefix decided it for both.

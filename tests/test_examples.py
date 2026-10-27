@@ -181,3 +181,15 @@ def test_the_guides_point_at_the_examples() -> None:
 
 def test_the_examples_are_a_page_of_the_documentation_site() -> None:
     assert "source: examples/README.md" in (ROOT / "docs" / "site.yaml").read_text(encoding="utf-8")
+
+
+def test_the_container_example_does_not_run_as_root_and_says_whether_it_is_well() -> None:
+    """An example is what people copy: the scan of the repository found neither (DS-0002, DS-0026)."""
+    lines = [
+        line.strip()
+        for line in (EXAMPLES / "container" / "Dockerfile").read_text(encoding="utf-8").splitlines()
+    ]
+
+    users = [line for line in lines if line.startswith("USER ")]
+    assert users and users[-1] not in {"USER root", "USER 0"}
+    assert any(line.startswith("HEALTHCHECK ") for line in lines)

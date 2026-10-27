@@ -83,6 +83,60 @@ def test_what_cannot_be_read_is_still_a_yaml_error() -> None:
         load_compose("services: [unclosed\n")
 
 
+# -- a document is data, never code ---------------------------------------------------------------
+#
+# CodeQL (py/unsafe-deserialization) cannot tell that the loader below is a SafeLoader: it only
+# knows ``yaml.SafeLoader`` itself. These are what the alert is about, so the reason it is not one
+# is checked, not remembered.
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "x: !!python/object/apply:os.system ['true']\n",
+        "x: !!python/object/new:subprocess.Popen [['true']]\n",
+        "x: !!python/name:os.system\n",
+        "x: !!python/module:os\n",
+        "x: !!python/tuple [1, 2]\n",
+    ],
+)
+def test_a_document_cannot_build_objects(text: str) -> None:
+    with pytest.raises(yaml.constructor.ConstructorError):
+        load_compose(text)
+
+
+def test_the_loader_is_a_safe_loader_and_adds_no_constructor_of_its_own() -> None:
+    from noust.core.compose_yaml import ComposeLoader
+
+    assert issubclass(ComposeLoader, yaml.SafeLoader)
+    assert ComposeLoader.yaml_constructors == yaml.SafeLoader.yaml_constructors
+    assert ComposeLoader.yaml_multi_constructors == yaml.SafeLoader.yaml_multi_constructors
+
+
+def test_the_loader_is_released_when_the_document_is_bad(monkeypatch: pytest.MonkeyPatch) -> None:
+    from noust.core.compose_yaml import ComposeLoader
+
+    disposed: list[bool] = []
+    original = ComposeLoader.dispose
+
+    def dispose(self: Any) -> None:
+        disposed.append(True)
+        original(self)
+
+    monkeypatch.setattr(ComposeLoader, "dispose", dispose)
+
+    with pytest.raises(yaml.YAMLError):
+        load_compose("services: [unclosed\n")
+    load_compose("a: 1\n")
+
+    assert disposed == [True, True]
+
+
+def test_a_document_of_several_parts_is_refused_as_yaml_loads_refuses_it() -> None:
+    with pytest.raises(yaml.YAMLError):
+        load_compose("a: 1\n---\nb: 2\n")
+
+
 # -- what is decided from what is read -------------------------------------------------------------
 
 

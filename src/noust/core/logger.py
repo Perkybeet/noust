@@ -32,6 +32,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
+from noust.core import logsafe
+
 if TYPE_CHECKING:  # pragma: no cover - imported for types only
     from rich.console import JustifyMethod
 
@@ -77,6 +79,10 @@ STATE_STYLES: dict[str, str] = {
     "disabled": "dim",
     "n/a": "dim",
 }
+
+# Every Noust process imports this module, which makes it the place where the records of the
+# whole process become safe to write as single lines.
+logsafe.install()
 
 
 def state(value: Any) -> Text:

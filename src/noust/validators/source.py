@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from noust.core import paths
-from noust.core.exceptions import DomainError, SourceError
+from noust.core.exceptions import DomainError, SourceError, ValidationError
 from noust.validators.domain import validate_domain
 
 #: A user name in an ssh remote. It starts with a letter, a digit or ``_``, never
@@ -140,6 +140,34 @@ def expand_github_shorthand(source: str) -> str:
         return stripped
     repo = match.group("repo").removesuffix(".git")
     return f"https://{GITHUB_HOST}/{match.group('owner')}/{repo}.git"
+
+
+def github_repository_parts(full_name: str) -> tuple[str, str]:
+    """
+    Split ``owner/repo`` into the two names GitHub's API takes as path segments.
+
+    The one place a repository named by a person is judged before it becomes part
+    of a request to GitHub: the whole text must be a repository (a trailing newline
+    is not one) and neither name may be ``.`` or ``..``, which would move the
+    request to another endpoint of the same host.
+
+    Args:
+        full_name: ``owner/repo``.
+
+    Returns:
+        The owner and the repository.
+
+    Raises:
+        ValidationError: It is not a GitHub repository.
+    """
+    match = GITHUB_SHORTHAND_PATTERN.fullmatch(f"github:{full_name}")
+    if match is None or not match.group("repo").strip("."):
+        raise ValidationError(
+            f"Not a GitHub repository: {full_name!r}",
+            field="repository",
+            details="Name it owner/repo, as GitHub does.",
+        )
+    return match.group("owner"), match.group("repo")
 
 
 def github_repository(source: str | None, hosts: Sequence[str] | None = None) -> str | None:
@@ -319,8 +347,12 @@ def upload_tree(upload_id: str) -> Path:
 
     Returns:
         The directory, which may not exist.
+
+    Raises:
+        SourceError: It is not an identifier Noust issues; the path is built from it, so it is
+            judged here and not only by the callers that remember to.
     """
-    return paths.uploads_dir() / upload_id
+    return paths.uploads_dir() / check_upload_id(upload_id)
 
 
 def is_upload_tree(path: str | os.PathLike[str]) -> bool:

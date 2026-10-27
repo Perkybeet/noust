@@ -1,0 +1,18 @@
+# What Noust itself does about the inputs CodeQL follows, taught to CodeQL as sanitizers.
+#
+# CodeQL follows a value from a request to a file, a log line or a URL, and knows only the
+# standard library's and the frameworks' ways of making it safe. Noust judges what a person or a
+# repository supplies in one place (validators/, core/outbound.py, core/fs.py), by an allowlist
+# that returns the value only when it is acceptable, so a call to one of those functions is where
+# CodeQL should stop following the value. Each row names a function, the kind of alert it
+# answers, and is held to the code by tests/test_codeql_models.py: a function that is renamed or
+# stops raising on bad input fails a test instead of silently becoming an unchecked "sanitizer".
+#
+# Loaded by .github/workflows/security.yml (CODEQL_ACTION_EXTRA_OPTIONS on the analysis step).
+name: noust/python-models
+version: 0.0.1
+library: true
+extensionTargets:
+  codeql/python-all: "*"
+dataExtensions:
+  - models/**/*.yml

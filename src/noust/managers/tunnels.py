@@ -51,7 +51,7 @@ from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import urlsplit
 
-from jinja2 import Environment, PackageLoader, TemplateError
+from jinja2 import TemplateError
 
 from noust.central import require_server_role
 from noust.core import audit, paths, sealing
@@ -69,6 +69,7 @@ from noust.core.secrets import SecretStore
 from noust.core.server_text import ServerText, say
 from noust.core.store import App, NoustStore, get_store
 from noust.core.teams.model import ResourceNotFoundError
+from noust.core.templates import text_environment
 from noust.core.tunnel_store import (
     CREATING,
     READY,
@@ -668,12 +669,7 @@ class TunnelManager:
         """
         try:
             text = (
-                Environment(
-                    loader=PackageLoader("noust", "templates/systemd"),
-                    trim_blocks=True,
-                    lstrip_blocks=True,
-                    autoescape=False,  # noqa: S701 - a systemd unit, not markup
-                )
+                text_environment("templates/systemd")
                 .get_template("tunnel.service.j2")
                 .render(
                     name=tunnel.name,
