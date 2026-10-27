@@ -1,1 +1,0 @@
-import{c as e}from"./Notice-CiY_-d9X.js";import{ot as t}from"./useNode-CN-dF-Z7.js";function n(n,r){let i=e(n);return t(()=>(r(i),()=>{r(e=>e===i?void 0:e)}),[i,r]),i}export{n as t};
