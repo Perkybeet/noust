@@ -18,10 +18,12 @@ import {
   MenuItem,
   MenuSeparator,
   Meter,
+  Notice,
   Popover,
   Progress,
   SectionSwitch,
   Select,
+  ServerText,
   SlidingIndicator,
   Skeleton,
   StatusPill,
@@ -338,6 +340,23 @@ function Surfaces() {
               </div>
             </Card>
           </div>
+          <Item label="a sentence of the server in the console's language (ServerText), with its fix, in a notice">
+            <Notice
+              tone="warning"
+              title={
+                <ServerText
+                  coded={{ code: "terminal.server_off", params: { command: "noust config set terminal.server.enabled true" } }}
+                  text="The terminal on the server itself is off (terminal.server.enabled)"
+                />
+              }
+            >
+              <ServerText
+                coded={{ code: "terminal.server_off", params: { command: "noust config set terminal.server.enabled true" } }}
+                text="It is a root shell, so it stays off until an administrator turns it on: noust config set terminal.server.enabled true"
+                part="hint"
+              />
+            </Notice>
+          </Item>
           <Row>
             <Menu trigger={<Button variant="secondary">Open a menu</Button>} open={open} onOpenChange={setOn}>
               <MenuItem icon={<OBJECT_ICONS.deployment />}>Deploy again</MenuItem>
