@@ -21,7 +21,7 @@ from tests.tree_support import tree_files
 REPO = Path(__file__).resolve().parent.parent
 
 #: What `packaging/obs/stage.sh` leaves out of the tarball, besides the `debian/` it makes itself.
-STAGE_EXCLUDES = ("panel", "sdk", "scripts")
+STAGE_EXCLUDES = ("sdk", "scripts")
 
 #: What builds the packages from the tarball: the recipes and the files setuptools reads.
 RECIPES = (
@@ -189,3 +189,8 @@ class TestTheMakefile:
         # the development extras, so `make format` was a missing command.
         assert not re.search(r"\b(black|isort)\b", commands)
         assert "-n auto" not in commands, "with psutil `auto` counts physical cores: use logical"
+
+
+def test_the_consoles_source_goes_with_its_build() -> None:
+    """The packages ship the console's compiled build, so the source package carries panel/."""
+    assert "':!panel'" not in read("packaging/obs/stage.sh")

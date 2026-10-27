@@ -61,14 +61,15 @@ fi
 
 case "$package" in
     noust)
-        # Left out: what neither the spec nor debian.rules nor setup.py reads, which is a third of
-        # the download of every build: the console's source (its build is committed in
-        # src/noust/web/static and Node never runs here), the generators and the SDK. They stay
-        # in the repository and in `git archive`, so the wheel, the sdist and GitHub's source
-        # archive of a tag are the same as ever; only what OBS is given is smaller.
+        # Left out: what neither the spec nor debian.rules nor setup.py reads: the generators and
+        # the SDK. They stay in the repository and in `git archive`, so the wheel, the sdist and
+        # GitHub's source archive of a tag are the same as ever; only what OBS is given is
+        # smaller. The console's source stays in, although Node never runs here: the packages
+        # carry its compiled build (src/noust/web/static), and a source package that ships object
+        # code carries the source it was compiled from (AGPL-3.0, section 6).
         # tests/test_obs_tarball.py holds this list to what the recipes read.
         git -C "$root" archive --format=tar.gz --prefix="noust-${version}/" HEAD \
-            ':!debian' ':!panel' ':!sdk' ':!scripts' \
+            ':!debian' ':!sdk' ':!scripts' \
             > "$out/noust-${version}.tar.gz"
         cp "$root/rpm/noust.spec" "$root/obs/noust.dsc" "$out/"
         cp "$root"/obs/debian.* "$out/"
