@@ -1042,26 +1042,39 @@ def compose_app_recovered(
     )
 
 
+#: The sentence for each thing a reboot can do to a stack that runs outside its unit.
+_OUTSIDE_UNIT_SUMMARY = {
+    "returns": "summary.app.outside_unit_returns",
+    "stays_down": "summary.app.outside_unit",
+    "unknown": "summary.app.outside_unit_unknown",
+}
+
+
 def compose_app_outside_unit(
     domain: str,
     ctx: NotificationContext,
     *,
     unit: str,
     containers: Sequence[str] = (),
+    reboot: str = "unknown",
 ) -> Notification:
     """
     Compose the notification for a Compose stack that runs outside its unit (item 73).
 
     Someone brought its containers up by hand while its unit is stopped: it
-    serves, but Noust does not supervise it and a reboot would not bring it
-    back. Sent once per episode under the ``unit_failed`` switch, whose unit
-    is down; it is a warning, not a failure, because the site still serves.
+    serves, but Noust does not supervise it. Whether a reboot would bring it
+    back is the containers' restart policy's to say, and the sentence says
+    only what was read. Sent once per episode under the ``unit_failed``
+    switch, whose unit is down; it is a warning, not a failure, because the
+    site still serves.
 
     Args:
         domain: The application (the subject).
         ctx: The context.
         unit: Its unit, which is stopped.
         containers: The names of its containers that run.
+        reboot: What a reboot does to them (``OutsideStack.reboot``): ``returns``,
+            ``stays_down`` or ``unknown``.
 
     Returns:
         The notification, under the ``unit_failed`` switch.
@@ -1076,7 +1089,9 @@ def compose_app_outside_unit(
         code=code,
         state=State.WARNING,
         subject=domain,
-        summary=message(f"summary.{code}", ctx.locale),
+        summary=message(
+            _OUTSIDE_UNIT_SUMMARY.get(reboot, "summary.app.outside_unit_unknown"), ctx.locale
+        ),
         facts=facts,
         command=_fact("reclaim", f"noust app reclaim {domain}", ctx, mono=True),
         path=f"/apps/{domain}",

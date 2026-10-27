@@ -171,7 +171,6 @@ def test_a_stopped_unit_with_its_containers_up_is_running_outside_noust(
     assert state.label == RUNNING_UNMANAGED
     assert not state.healthy
     assert "converter-example-org-db-1" in state.detail
-    assert "reboot" in state.detail
     assert f"noust app reclaim {CONVERTER}" in state.detail
 
 
@@ -228,7 +227,134 @@ def test_a_list_asks_docker_once_for_every_stack_whose_unit_is_down(runner: Fake
     assert states[CONVERTER].label == RUNNING_UNMANAGED
     assert states["other.example.com"].label == STOPPED
     assert states["node.example.com"].label == STOPPED
+    # One listing for every stack, and one inspection of the containers that run: never one per app.
+    assert [call[1] for call in docker_calls(runner)] == ["ps", "inspect"]
+
+
+# -- Whether a reboot would bring it back ---------------------------------------------
+
+
+def policies(runner: FakeRunner, **by_container: str) -> None:
+    """Script ``docker inspect`` as Docker answers it: ``/name policy`` per line."""
+    runner.script(
+        ["docker", "inspect"],
+        stdout="".join(f"/{name} {policy}\n" for name, policy in by_container.items()),
+    )
+
+
+def converter_policies(runner: FakeRunner, policy: str, **overrides: str) -> None:
+    policies(
+        runner,
+        **{name: overrides.get(name, policy) for name in CONVERTER_CONTAINERS},
+    )
+
+
+def test_the_restart_policy_of_each_container_is_read_with_one_inspect(runner: FakeRunner) -> None:
+    from noust.deployers.compose_reclaim import restart_policies
+
+    policies(runner, **{"a-1": "unless-stopped", "b-1": "no", "c-1": "on-failure"})
+
+    found = restart_policies(["a-1", "b-1", "c-1"], runner=runner)
+
+    assert found == {"a-1": "unless-stopped", "b-1": "no", "c-1": "on-failure"}
+    (call,) = docker_calls(runner)
+    assert call[:2] == ("docker", "inspect") and call[-3:] == ("a-1", "b-1", "c-1")
+
+
+def test_a_container_without_a_policy_is_read_as_no_policy(runner: FakeRunner) -> None:
+    from noust.deployers.compose_reclaim import restart_policies
+
+    runner.script(["docker", "inspect"], stdout="/a-1 \n/b-1\n")
+
+    assert restart_policies(["a-1", "b-1"], runner=runner) == {"a-1": "no", "b-1": "no"}
+
+
+def test_a_docker_that_cannot_be_asked_for_policies_knows_none(runner: FakeRunner) -> None:
+    from noust.deployers.compose_reclaim import restart_policies
+
+    runner.script(["docker", "inspect"], stderr="Cannot connect", exit_code=1)
+
+    assert restart_policies(["a-1"], runner=runner) == {}
+    assert restart_policies([], runner=runner) == {}
     assert len(docker_calls(runner)) == 1
+
+
+def test_containers_that_docker_starts_again_are_a_stack_a_reboot_brings_back(
+    runner: FakeRunner,
+) -> None:
+    # a customer's stack: the unit was stopped, the containers carry restart: unless-stopped, and they were
+    # up again after the server restarted. Noust had said a restart would not bring it back.
+    runner.script(["docker", "ps"], stdout=converter_ps())
+    converter_policies(runner, "unless-stopped")
+
+    state = resolve_state(stack(), Units({"converter-example-org": INACTIVE}), probe=False)  # type: ignore[arg-type]
+
+    assert state.label == RUNNING_UNMANAGED
+    assert "would not bring" not in state.detail
+    assert "unless-stopped" in state.detail
+    assert "starts them again" in state.detail
+    assert f"noust app reclaim {CONVERTER}" in state.detail
+
+
+def test_containers_with_no_policy_are_named_as_the_ones_a_reboot_would_not_bring_back(
+    runner: FakeRunner,
+) -> None:
+    runner.script(["docker", "ps"], stdout=converter_ps())
+    converter_policies(
+        runner,
+        "always",
+        **{"converter-example-org-db-1": "no", "converter-example-org-backend-1": "on-failure"},
+    )
+
+    state = resolve_state(stack(), Units({"converter-example-org": INACTIVE}), probe=False)  # type: ignore[arg-type]
+
+    assert "a reboot would not bring back" in state.detail
+    assert "converter-example-org-db-1 (restart: no)" in state.detail
+    assert "converter-example-org-backend-1 (restart: on-failure)" in state.detail
+    # What would come back is not accused.
+    assert "converter-example-org-frontend-1 (" not in state.detail
+
+
+def test_policies_that_could_not_be_read_claim_nothing_about_a_reboot(runner: FakeRunner) -> None:
+    runner.script(["docker", "ps"], stdout=converter_ps())
+    runner.script(["docker", "inspect"], stderr="Cannot connect", exit_code=1)
+
+    state = resolve_state(stack(), Units({"converter-example-org": INACTIVE}), probe=False)  # type: ignore[arg-type]
+
+    assert state.label == RUNNING_UNMANAGED
+    assert "reboot" not in state.detail
+    assert "Noust is not supervising it" in state.detail
+
+
+def test_the_verdict_on_a_reboot_is_one_for_the_whole_stack() -> None:
+    from noust.deployers.compose_reclaim import OutsideStack
+
+    names = ("a-1", "b-1")
+
+    def verdict(**by_name: str) -> str:
+        return OutsideStack(
+            names, by_name and {k.replace("_", "-"): v for k, v in by_name.items()}
+        ).reboot
+
+    assert verdict(a_1="always", b_1="unless-stopped") == "returns"
+    assert verdict(a_1="always", b_1="no") == "stays_down"
+    assert verdict(a_1="always") == "unknown"
+    assert verdict() == "unknown"
+    # One that stays down decides it, whatever is not known about the rest.
+    assert verdict(a_1="no") == "stays_down"
+
+
+def test_the_monitor_tells_a_stack_a_reboot_brings_back_from_one_it_does_not(
+    stack_scans: Scans,
+) -> None:
+    stack_scans.runner.script(["docker", "ps"], stdout=shop_ps())
+    policies(stack_scans.runner, **{"shop-example-com-web-1": "unless-stopped"})
+
+    stack_scans.scan(STOPPED_BY_COMMAND)
+
+    (event,) = stack_scans.notifier.events
+    assert "starts them again" in event.summary
+    assert "would not bring" not in event.summary
 
 
 def test_the_api_names_the_state_running_unmanaged() -> None:

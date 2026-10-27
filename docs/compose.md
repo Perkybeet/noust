@@ -639,14 +639,18 @@ kept for going back and the records, and leaves what Noust did not create:
 ## A stack running outside its unit
 
 When someone runs `docker compose up -d` by hand while the stack's unit is stopped, the site
-serves but Noust does not supervise it, and a reboot would not bring it back: the unit is what
-starts it at boot. Noust shows that as its own state, **Running outside Noust**
+serves but Noust does not supervise it, and nothing done to the unit reaches it. Whether a reboot
+brings it back is the containers' own `restart` policy: Docker starts `always` and
+`unless-stopped` containers again when it starts, and not those with `no` or `on-failure`, so
+Noust reads the policy (one `docker inspect`) and names the containers a reboot would not bring
+back, or says that Docker restarts them, instead of assuming. Noust shows that as its own state,
+**Running outside Noust**
 (`running_unmanaged` in the API), never as stopped: `noust list`, `noust health`, the console,
 the overview and the fleet summary all say it, and the monitor announces it once (a warning
 under the "Service down, and back" switch), not again until it has stopped running outside.
 
-Only stacks whose unit exists and is stopped are looked at, all of them with one `docker ps`; a
-unit that failed stays failed.
+Only stacks whose unit exists and is stopped are looked at, all of them with one `docker ps` (and
+one `docker inspect` of what runs); a unit that failed stays failed.
 
 Hand it back to its unit:
 

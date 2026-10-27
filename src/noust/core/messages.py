@@ -371,12 +371,26 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "summary.app.outside_unit": {
         "en": (
             "Its containers run, but its unit is stopped: Noust is not supervising it, and a "
-            "restart of the server would not bring it back."
+            "restart of the server would not bring back every container."
         ),
         "es": (
             "Sus contenedores están en marcha, pero su unidad está parada: Noust no la "
-            "supervisa y un reinicio del servidor no la volvería a levantar."
+            "supervisa y un reinicio del servidor no volvería a levantar todos los contenedores."
         ),
+    },
+    "summary.app.outside_unit_returns": {
+        "en": (
+            "Its containers run, but its unit is stopped: Noust is not supervising it. Docker "
+            "starts them again after a restart of the server."
+        ),
+        "es": (
+            "Sus contenedores están en marcha, pero su unidad está parada: Noust no la "
+            "supervisa. Docker los vuelve a arrancar tras un reinicio del servidor."
+        ),
+    },
+    "summary.app.outside_unit_unknown": {
+        "en": "Its containers run, but its unit is stopped: Noust is not supervising it.",
+        "es": "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa.",
     },
     "summary.disk.threshold": {
         "en": (

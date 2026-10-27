@@ -121,11 +121,14 @@ class TestCatalogShape:
         assert titles <= summaries
         # The summaries that are a variant of another's title: an expiry that is
         # today, and an application judged by its containers (no web) rather than
-        # by an HTTP probe, which keeps the code a consumer of the webhook reads.
+        # by an HTTP probe, which keeps the code a consumer of the webhook reads; and a stack that
+        # runs outside its unit, worded by what a reboot does to its containers.
         assert summaries - titles == {
             "cert.expiring_today",
             "app.unreachable_containers",
             "app.recovered_containers",
+            "app.outside_unit_returns",
+            "app.outside_unit_unknown",
         }
 
     def test_a_title_never_carries_a_placeholder(self) -> None:

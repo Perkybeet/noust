@@ -1261,8 +1261,9 @@ class ProcessMonitor:
 
         Someone ran ``docker compose up -d`` by hand (item 73): the site
         serves, so it is no outage, but Noust is not supervising it and a
-        reboot would not bring it back. One ``docker ps`` covers every stack
-        whose unit is stopped, and none is run when there is no such stack.
+        reboot may not bring it back. One ``docker ps`` covers every stack
+        whose unit is stopped (and one ``docker inspect`` the restart policy of what runs, which
+        decides what a reboot does); none is run when there is no such stack.
         Announced once per episode: a stack is announced again only after it
         stopped running outside its unit.
 
@@ -1271,28 +1272,34 @@ class ProcessMonitor:
             serving: The units that serve each application.
             known: Every application's domain, to forget the deleted ones.
         """
-        from noust.deployers.compose_reclaim import running_outside_units
+        from noust.deployers.compose_reclaim import OutsideStack, outside_stacks
 
         before = self._announced_outside()
-        outside: dict[str, tuple[str, ...]] = {}
+        outside: dict[str, OutsideStack] = {}
         if stopped_stacks:
             try:
-                outside = running_outside_units(stopped_stacks, runner=self.runner)
+                outside = outside_stacks(stopped_stacks, runner=self.runner)
             except NoustError as exc:
                 # Not knowing is not a change: what was announced stays so.
                 self.logger.warning(f"Could not ask Docker which stacks run: {exc}")
                 return
         announced = {domain for domain in before if domain in outside and domain in known}
-        for domain, containers in sorted(outside.items()):
+        for domain, stack in sorted(outside.items()):
             if domain in announced:
                 continue
             unit = (serving.get(domain) or [domain])[0]
             self.logger.warning(
-                f"{domain} runs outside its unit {unit}: {', '.join(containers)} run while "
+                f"{domain} runs outside its unit {unit}: {', '.join(stack.containers)} run while "
                 f"the unit is stopped; hand it back with: noust app reclaim {domain}"
             )
             self._publish(
-                partial(compose_app_outside_unit, domain, unit=unit, containers=containers)
+                partial(
+                    compose_app_outside_unit,
+                    domain,
+                    unit=unit,
+                    containers=stack.containers,
+                    reboot=stack.reboot,
+                )
             )
             announced.add(domain)
         if announced != before:
