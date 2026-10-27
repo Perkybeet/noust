@@ -244,6 +244,66 @@ class TestNoustAuditLogger:
         assert newest()["action"] == "cron.delete"
 
 
+class TestAValueInAnAuditLineIsOnlyAValue:
+    """CodeQL py/log-injection: a name with a space and ``session=`` in it forged the actor."""
+
+    def test_a_value_cannot_name_the_actor_before_the_real_one(self) -> None:
+        logging.getLogger("noust.audit").info(
+            "delete_cron_job name=%s session=%s", "x session=master", "token:ci"
+        )
+        entry = newest()
+        assert entry["actor"] == "token:ci"
+        assert entry["resource"] == "x session=master"
+
+    def test_a_value_cannot_name_the_actor_after_the_real_one(self) -> None:
+        logging.getLogger("noust.audit").info(
+            "delete_cron_job session=%s name=%s", "token:ci", "x session=master"
+        )
+        entry = newest()
+        assert entry["actor"] == "token:ci"
+        assert entry["resource"] == "x session=master"
+
+    def test_a_value_cannot_add_a_detail(self) -> None:
+        logging.getLogger("noust.audit").info(
+            "drop_database engine=%s database=%s session=%s",
+            "postgresql",
+            "shop mode=read",
+            "master",
+        )
+        entry = newest()
+        assert entry["resource"] == "shop mode=read"
+        assert entry["details"] == {"engine": "postgresql", "database": "shop mode=read"}
+
+    def test_a_line_break_in_a_value_stays_inside_one_event(self) -> None:
+        logging.getLogger("noust.audit").info(
+            "delete_cron_job name=%s session=%s", "a\nb", "master"
+        )
+        entry = newest()
+        assert entry["action"] == "cron.delete"
+        assert entry["resource"] == "a\nb"
+        assert entry["actor"] == "master"
+
+    def test_a_plain_value_is_written_as_it_always_was(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.INFO, logger="noust.audit"):
+            logging.getLogger("noust.audit").info(
+                "delete_cron_job name=%s session=%s", "nightly", "m"
+            )
+        assert "delete_cron_job name=nightly session=m" in caplog.text
+
+    def test_a_repr_placeholder_still_gives_the_repr(self) -> None:
+        logging.getLogger("noust.audit").info(
+            "query engine=%s database=%s mode=%s session=%s statement=%r",
+            "postgresql",
+            "shop",
+            "write",
+            "master",
+            "SELECT 'a b'",
+        )
+        assert newest()["details"]["statement"]["length"] == 12
+
+
 class TestSettings:
     def test_defaults(self) -> None:
         settings = load_settings(FakeConfig({}))
