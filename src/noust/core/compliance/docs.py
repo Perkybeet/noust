@@ -63,6 +63,11 @@ def _controls_table() -> list[str]:
             setting = f"`{control.key}`" if control.key else "set by a framework only"
             if control.check_only:
                 setting += " (judged by `noust compliance check`, nothing refuses)"
+            if control.own_switch:
+                setting += (
+                    f" (its default is not a choice: `noust compliance set {control.id}` records "
+                    f"one in `{control.own_switch}`, and it then limits without a framework)"
+                )
             lines.append(
                 f"| `{control.id}` | {_cell(controls.describe(control.id))} | "
                 f"{show(control, control.standard)} | {setting} | {KIND_WORDS[control.kind]} |"

@@ -340,8 +340,13 @@ class ComplianceManager:
                     details="Disable the framework first, or pick a value at least that strict.",
                     field=f"controls.{control_id}",
                 )
-            own = before_resolutions[control_id].operator
-            if control.stored(wanted) != control.stored(own):
+            before = before_resolutions[control_id]
+            own = before.operator
+            # A number the file holds by default is not a choice: asking for it records one.
+            makes_a_choice = bool(control.own_switch) and (wanted != control.standard) != (
+                before.chosen
+            )
+            if control.stored(wanted) != control.stored(own) or makes_a_choice:
                 moves[control_id] = control.stored(wanted)
                 loosens = loosens or control.rank(wanted) < control.rank(own)
 
@@ -373,7 +378,12 @@ class ComplianceManager:
         for control in controls.CONTROLS:
             old = before[control.id]
             own = control.coerce(moves[control.id]) if control.id in moves else old.operator
-            new = resolve.resolve_for(control.id, after_ids, own, has_operator=True)
+            chosen = (
+                bool(control.own_switch) and own != control.standard
+                if control.id in moves
+                else old.chosen
+            )
+            new = resolve.resolve_for(control.id, after_ids, own, has_operator=True, chosen=chosen)
             if new.value == old.value:
                 # Who forces a control is shown with the control; only a change of value is an effect.
                 continue
@@ -496,7 +506,11 @@ class ComplianceManager:
             else profile.PROFILE_STANDARD,
         )
         for control_id, value in change.settings.items():
-            config.set(controls.get(control_id).key, value)
+            control = controls.get(control_id)
+            config.set(control.key, value)
+            if control.own_switch:
+                # The number alone cannot say it was chosen: its key holds a default in every file.
+                config.set(control.own_switch, control.coerce(value) != control.standard)
         try:
             config.write()
         except (OSError, ValueError) as exc:

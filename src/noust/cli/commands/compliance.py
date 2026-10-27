@@ -95,7 +95,15 @@ def _effect_lines(ctx: Context, plan: Plan) -> None:
         plan: The plan.
     """
     if not plan.effects:
-        ctx.logger.info("No control changes value.")
+        if plan.settings:
+            # A choice recorded while something else already asks as much or more: it limits
+            # nothing yet, and it is the reason the limit stays when that goes.
+            ctx.logger.info(
+                "No control changes value now. Recorded as your own, and in force when no "
+                f"framework asks as much: {', '.join(plan.settings)}."
+            )
+        else:
+            ctx.logger.info("No control changes value.")
         return
     rows = []
     for effect in plan.effects:

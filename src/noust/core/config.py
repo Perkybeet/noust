@@ -523,8 +523,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "max_minutes": STANDARD_PROFILE.sudo_max_minutes,
             "require_password": STANDARD_PROFILE.sudo_require_password,
         },
-        # Longest life of an API token under the ENS profile, and its default.
-        "tokens": {"max_days": 90},
+        # Longest life of an API token under a framework that asks for one (ENS), and its
+        # default. The number is in every file, so it is not a choice: enforce_max_days says the
+        # operator made it one (noust compliance set token_max_days), and it then counts without
+        # a framework too.
+        "tokens": {"max_days": 90, "enforce_max_days": False},
         # Once single sign-on is in, a password or a passkey need not sign anybody in
         # (noust.core.accounts.local_login). Off, the accounts in "exempt" - the
         # break-glass administrators - keep them; the identity provider, the master
@@ -2198,6 +2201,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "security.allowed_sources": _validate_allowed_sources,
     "security.frameworks": _validate_frameworks,
     "approval.enabled": _validate_flag("approval.enabled"),
+    "auth.tokens.enforce_max_days": _validate_flag("auth.tokens.enforce_max_days"),
     **{
         control.key: _validate_control(control)
         for control in _compliance_controls.CONTROLS

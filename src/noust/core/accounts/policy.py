@@ -272,6 +272,11 @@ def build_policy(settings: dict[str, Any]) -> AuthPolicy:
         sudo_idle = resolve.apply_floor("sudo_idle_minutes", enabled, sudo_idle)
         sudo_max = resolve.apply_floor("sudo_max_minutes", enabled, sudo_max)
         sudo_password = sudo_password or bool(resolve.floor_for("sudo_password", enabled))
+    if token_days is None and _flag(settings.get("token_max_days_enforced"), False):
+        # A limit the operator chose counts on its own: the number alone does not say it was
+        # chosen (90 is in every file by default), so the choice is recorded beside it.
+        chosen_days = _positive_int(settings.get("token_max_days"), 0)
+        token_days = chosen_days or None
     return AuthPolicy(
         profile=profile,
         idle_minutes=idle,
@@ -310,6 +315,7 @@ def load_policy() -> AuthPolicy:
             "lockout_minutes": config.get("auth.lockout.minutes"),
             "password_min_length": config.get("auth.password.min_length"),
             "token_max_days": config.get("auth.tokens.max_days"),
+            "token_max_days_enforced": config.get("auth.tokens.enforce_max_days"),
             "notice_text": config.get("auth.notice.text"),
             "login_label": config.get("auth.login_label"),
             "sudo_idle_minutes": config.get("auth.sudo.idle_minutes"),
