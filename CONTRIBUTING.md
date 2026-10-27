@@ -180,7 +180,10 @@ terraform-provider-noust/   the Terraform and OpenTofu provider (Go, Plugin Fram
 scripts/reproducible_build.py   the wheel and the sdist of a commit, byte for byte
                             (docs/reproducible-builds.md); CI and the release workflow build with it
 tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest. The 4.0
-                            features' scenarios are in scenarios_34.py (loaded by run.py), and
+                            features' scenarios (how an application arrives: Procfile, scheduled updates,
+                            push, uploads, previews; and what protects its data: S3 backups, database
+                            instances, restoring a server) are in scenarios_delivery_and_data.py (loaded
+                            by run.py), and
                             `--upgrade-from-3.3` (scenarios_upgrade.py) upgrades a 3.3.1 server that
                             carries every legacy name; `--downgrade-to-3.3` goes back over a store the
                             new version migrated. scenarios_real.py holds the ones that run the real

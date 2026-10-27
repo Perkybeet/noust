@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Real-machine scenarios for what Noust 4.0 added, which nothing had deployed for real.
+Real-machine scenarios for what Noust 4.0 added, which nothing had deployed for real: how an
+application arrives and changes (Procfile, scheduled updates, git push, uploaded source, a pasted
+Dockerfile, previews, the relay, a build's time limit, Deno) and what protects its data (S3
+backups, database instances, restoring a server), plus the teams that own both.
 
 They are scenarios of :mod:`run` (same container, same helpers, same report): ``run.py`` imports this
 module before it picks what to run, so ``--scenario procfile`` selects one here like any other.

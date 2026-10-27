@@ -44,7 +44,7 @@ from pathlib import Path
 from typing import Any
 
 import run
-import scenarios_34
+import scenarios_delivery_and_data
 from run import (
     DEPLOY_TIMEOUT,
     REPO_ROOT,
@@ -427,7 +427,7 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
     """
     old = "[noust 3.3.1]"
     run.require_docker(sc)
-    run.pull_images(sc, run.COMPOSE_BASE_IMAGE, scenarios_34.S3_IMAGE)
+    run.pull_images(sc, run.COMPOSE_BASE_IMAGE, scenarios_delivery_and_data.S3_IMAGE)
 
     # -- An in-place application whose unit has the prefix of before 0.14.1 -------------------
     node_repo = "/root/fixtures/node-app"
@@ -572,7 +572,7 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
         timeout=120,
         label=f"{old} noust db create {LEGACY_DB} --engine mysql",
     )
-    scenarios_34.db_query(
+    scenarios_delivery_and_data.db_query(
         sc,
         LEGACY_DB,
         "CREATE TABLE seed (id int PRIMARY KEY, note varchar(40))",
@@ -580,7 +580,7 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
         write=True,
         label=f"{old} CREATE TABLE seed",
     )
-    scenarios_34.db_query(
+    scenarios_delivery_and_data.db_query(
         sc,
         LEGACY_DB,
         "INSERT INTO seed VALUES (1, 'written under 3.3.1')",
@@ -588,7 +588,7 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
         write=True,
         label=f"{old} INSERT a row",
     )
-    read = scenarios_34.db_query(
+    read = scenarios_delivery_and_data.db_query(
         sc,
         LEGACY_DB,
         "SELECT note FROM seed",
@@ -607,7 +607,7 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
 
     # -- A backup in the wasm-backups folder of an S3 bucket ------------------------------------
     secret = secrets.token_urlsafe(18)
-    scenarios_34.start_minio(
+    scenarios_delivery_and_data.start_minio(
         sc,
         S3_NAME,
         S3_PORT,
@@ -653,7 +653,7 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
     ids = run.remote_ids(listing)
     sc.check(len(ids) == 1, f"the bucket should hold the one backup: {ids!r}")
     folders = sc.run(
-        f"docker exec {S3_NAME} sh -c 'ls {scenarios_34.S3_DATA}'",
+        f"docker exec {S3_NAME} sh -c 'ls {scenarios_delivery_and_data.S3_DATA}'",
         timeout=30,
         label=f"{old} the buckets MinIO holds",
     ).stdout.split()
@@ -822,7 +822,7 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
     )
 
     # -- The old read-only role still reads -----------------------------------------------------------
-    read = scenarios_34.db_query(
+    read = scenarios_delivery_and_data.db_query(
         sc,
         LEGACY_DB,
         "SELECT note FROM seed",
@@ -1029,7 +1029,7 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
     )
     ids_after = run.remote_ids(listing_after)
     buckets = sc.run(
-        f"docker exec {S3_NAME} sh -c 'ls {scenarios_34.S3_DATA}'",
+        f"docker exec {S3_NAME} sh -c 'ls {scenarios_delivery_and_data.S3_DATA}'",
         timeout=30,
         label=f"{new} the buckets MinIO holds now",
     ).stdout.split()

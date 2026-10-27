@@ -9027,7 +9027,7 @@ def load_extension_scenarios() -> None:
 
 
 #: Modules beside this one whose scenarios join the suite (see :func:`load_extension_scenarios`).
-EXTENSION_MODULES = ("scenarios_34", "scenarios_w6a", "scenarios_real")
+EXTENSION_MODULES = ("scenarios_delivery_and_data", "scenarios_w6a", "scenarios_real")
 
 load_extension_scenarios()
 
