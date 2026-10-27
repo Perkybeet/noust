@@ -33,6 +33,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `auth.sudo.idle_minutes` | `15` |
 | `auth.sudo.max_minutes` | `120` |
 | `auth.sudo.require_password` | `false` |
+| `auth.tokens.enforce_max_days` | `false` |
 | `auth.tokens.max_days` | `90` |
 | `central.role` | `"server"` |
 | `databases.credentials.mongodb.password` | `""` |

@@ -5309,7 +5309,7 @@ Arguments: `key`, `value`
 
 | Option | What it does | Default |
 |---|---|---|
-| `--list` | Treat VALUE as a comma-separated list, for a key such as notifications.allow_private_hosts. |  |
+| `--list` | Treat VALUE as a list, a, b, c or [a, b, c], for a key such as notifications.allow_private_hosts. |  |
 | `--stdin` | Read VALUE from standard input instead of the command line, so a secret never lands in shell history or in 'ps'. |  |
 | `--prompt` | Prompt for VALUE without echoing it back, twice, like a password prompt. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |

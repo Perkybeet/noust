@@ -133,7 +133,8 @@ administradora o `root`), y el segundo factor que cada cuenta registra.
 Ajustes de seguridad relacionados que no dependen del perfil:
 
 - `security.allowed_sources`: orígenes de código permitidos (hosts, organizaciones o repositorios,
-  y `local` para directorios del servidor). Vacío permite todo. Se comprueba donde se clasifica
+  y `local`, `push`, `upload` y `recipes` para directorios del servidor, `git push`, archivos
+  subidos y recetas del catálogo). Vacío permite todo. Se comprueba donde se clasifica
   cualquier fuente antes de descargarla, así que afecta a despliegues, actualizaciones, previews y
   webhooks; un rechazo queda como `apps.source.denied`. Lo cambia el rol `security`.
 - `auth.notice.text`: aviso de derechos y obligaciones que cada persona acepta tras entrar

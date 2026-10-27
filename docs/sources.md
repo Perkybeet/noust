@@ -287,6 +287,37 @@ the previous image to go back to), and a different Dockerfile is another applica
 source of a container application is not changed in place (`noust app source change` refuses it and
 says so).
 
+## The allowed origins
+
+`security.allowed_sources` names the places code may be deployed from (ENS, and anyone who wants it).
+Empty allows everything, as every earlier version did; once it has an entry, a source outside the list
+is refused before anything is fetched, whether it comes from a deploy, an update, a preview or a webhook.
+
+An entry is one of:
+
+| Entry | Allows |
+|---|---|
+| `git.example.com`, `*.example.com` | Any repository on that host, or on any subdomain of the domain |
+| `github.com/acme` | Every repository of that organisation (not `acme-evil`) |
+| `github.com/acme/shop` | That repository |
+| `local` | Directories on this server |
+| `push` | Code that arrives with `git push` to this server (`noust push enable`) |
+| `upload` | An archive somebody uploaded |
+| `recipes` | The code Noust prepares from a recipe of the catalogue |
+
+`local` also covers the recipes, as it did before `recipes` existed. Each entry is checked when it is
+saved: a user or a token in it, a port, the `user@host:path` form, a path on disk or a bracket kept from
+a list is refused with the shapes that work, because an entry that cannot match looks like protection
+that is not there. A list is written `a, b` or `[a, b]`:
+
+```
+noust config set security.allowed_sources 'github.com/acme, recipes'
+```
+
+The list is written whole each time. A refusal says which entry would allow the source and prints the
+command that adds it to the list the server has, and `GET /api/recipes` says (`recipes_allowed`)
+whether the catalogue may be deployed here.
+
 ## Changing where the code comes from
 
 A repository moves to another organisation, a team leaves one code host for another, an application

@@ -44,7 +44,7 @@ The console has the same under Settings > Compliance. Disabling a framework, or 
 | `second_factor` | Every account enrols an authenticator or a passkey before it can do anything else. Where nothing asks for it, an account may set it up later, until the console is published on a public name. | off | `security.second_factor` | on is stricter |
 | `approvals` | Root-equivalent actions, servers and role changes wait for a second person to approve them. | off | `approval.enabled` | on is stricter |
 | `restricted_tokens` | An API token belongs to an account, cannot act in sudo mode and never holds root-equivalent, account or security permissions. | off | `security.restricted_tokens` | on is stricter |
-| `token_max_days` | The longest life of an API token, in days; an expiry becomes mandatory. | no limit | `auth.tokens.max_days` | a smaller number is stricter |
+| `token_max_days` | The longest life of an API token, in days; an expiry becomes mandatory. | no limit | `auth.tokens.max_days` (its default is not a choice: `noust compliance set token_max_days` records one in `auth.tokens.enforce_max_days`, and it then limits without a framework) | a smaller number is stricter |
 | `master_token` | What the master token may do once accounts exist: the console as break-glass, or only get a person back in. | break_glass | `security.master_token` | last choice is stricter |
 | `sudo_password` | Confirming sudo mode asks for the account's password as well as a second factor. | off | `auth.sudo.require_password` | on is stricter |
 | `sudo_idle_minutes` | How long sudo mode stays open without an elevated action in it. | 15 minutes | `auth.sudo.idle_minutes` | a smaller number is stricter |
