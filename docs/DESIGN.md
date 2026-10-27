@@ -9,31 +9,46 @@ Where the system lives:
 
 | What | Where |
 |---|---|
-| Tokens: every colour, size, radius, layer, width | `panel/src/styles/tokens.css` (the only place a value is written) |
-| Tailwind utilities for the tokens | `panel/src/styles/app.css` (`@theme inline`, `@utility`) |
+| Tokens: every colour, size, radius, height, layer, width, duration | `panel/src/styles/tokens.css` (the only place a value is written) |
+| Tailwind utilities for the tokens, the three heights and the sliding indicator | `panel/src/styles/app.css` (`@theme inline`, `@utility`) |
+| Typefaces (packaged, never fetched) | `panel/src/styles/fonts.css`; the files and their licences in `panel/src/assets/fonts/` |
+| Logos of real applications (packaged, with their licence and notice) | `panel/src/components/ui/logos/` |
 | Primitives: buttons, fields, notices, tables... | `panel/src/components/ui/` |
 | Page kit and the seven templates | `panel/src/components/page/` |
 | Page header and URL tabs | `panel/src/app/PageHeader.tsx`, `panel/src/app/LinkTabs.tsx` |
 | The executable specification | the gallery, `/__design` (development builds only; `panel/src/dev/`) |
-| Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts` |
+| Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/indicator.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts` |
 
 The brand (the mark, its violet, its construction) is `docs/brand/BRAND.md`. Copy rules and the
 English/Spanish glossary are `panel/src/i18n/README.md`. This document says how the console
 looks and behaves; the gallery shows it in both themes; the tests hold it.
 
+**The identity is dry stone.** A *noust* is the hollow dug in the shore, often lined with dry
+stone, where boats are hauled out and kept safe, and that is what Noust does with a fleet of
+servers: it keeps what runs, sheltered. The console is built the way a dry-stone wall is: surfaces
+are courses of stone of three heights under one light from above, each piece has the corner it
+earns by its place in the hierarchy, and nothing is held together by decoration. Everything below
+(the tones, the typefaces, the heights, the motion, the list of what is never drawn) follows from
+that, and each rule says which test holds it.
+
 ---
 
 ## 1. Principles
 
-1. **A precision instrument, calm.** Dense where the operator works (tables, logs, key-value
-   lists), generous where they decide (headers, states, confirmations). Nothing is decorative:
-   a border or a surface change is enough structure, and nothing on screen competes for
-   attention it has not earned.
-2. **Colour means something or it is not there.** Surfaces, text and navigation are achromatic.
-   Hue is spent on exactly three things: the **state** of something (green running or
-   succeeded, amber in progress or warning, red failed, grey stopped), what the operator **can
-   act on** (violet), and the **identity of a series inside a chart** (the `viz` family). Every
-   state is also told by a shape (a glyph) and a word. Whether something is on, shown as a
+1. **A precision instrument, calm, made of stone.** Dense where the operator works (tables,
+   logs, key-value lists), generous where they decide (headers, states, confirmations). The only
+   decoration is depth, and depth is information: a thing is carved in, seated or raised
+   because of what it does (2.6). More to see and less to read: a picture, a shape or a number before a
+   paragraph, and nothing on screen competes for attention it has not earned.
+2. **Colour means something or it is not there.** Surfaces, text and navigation are stone: grey
+   with a trace of green. Hue is spent on exactly three things: the **state** of something (green
+   running or succeeded, amber in progress or warning, red failed, grey stopped), what the operator
+   **can act on** (the hull's violet), and the **identity of a series inside a chart** (the `viz`
+   family). The colour of a real logo, and of the hull in an illustration, is the brand's own. Every
+   state is also told by a shape (a glyph) and a word. **Only what is not well tints its surface:**
+   a healthy thing stays stone, so a screen of twenty applications that run is calm and the one that
+   fails is the only thing with colour behind it. A state is never a stripe down the side of a card
+   (2.12). Whether something is on, shown as a
    label (in a card, a row, a list, a fact), is a state too, and is a state badge: the running
    green for on, the stopped grey for off, never bare text (owner item 56, 3.2.1). A control
    that changes it (a `Switch`, a `Checkbox`) stays a control. The state of a feature is
@@ -77,79 +92,103 @@ switched off in `app.css`, so `bg-red-500` or `text-sm` do not compile: only tok
 exist. The utility name is the token's with `color-` dropped (`--text-muted` is `text-fg-muted`,
 `--accent-text` is `text-accent-fg`).
 
-**Neutrals** (achromatic: R = G = B, tested):
+**Stone** (surfaces, edges and text: chroma under 0.02 in OKLCH, hue between yellow-green and
+blue-green, tested). From the darkest stone to the lightest in light, and the other way up in dark,
+where height is luminance:
 
 | Token | Light / dark | Role |
 |---|---|---|
-| `--bg` | `#f7f7f7` / `#111111` | The page |
-| `--bg-sunken` | `#f0f0f0` / `#0b0b0b` | Logs, code, dialog and card footers |
-| `--surface` | `#ffffff` / `#171717` | Cards, tables |
-| `--surface-raised` | `#ffffff` / `#1f1f1f` | Everything that floats: menus, popovers, dialogs, drawers, toasts; info notices |
-| `--surface-hover` | `#f2f2f2` / `#222222` | Hover on a row or a control |
-| `--surface-active` | `#ebebeb` / `#2a2a2a` | Pressed; the current navigation item's fill (with its bar, below) |
-| `--border` | `#e3e3e3` / `#2a2a2a` | Hairlines that separate content |
-| `--border-strong` | `#898989` / `#6e6e6e` | The boundary of a control (3:1) |
-| `--text` | `#161616` / `#ededed` | Content |
-| `--text-muted` | `#555555` / `#a3a3a3` | Secondary text |
-| `--text-faint` | `#6b6b6b` / `#8c8c8c` | Meta: timestamps, help, placeholders. Still 4.5:1 on every surface; never decorative |
+| `--bg-rail` | `#c9cec6` / `#121615` | The main navigation bar |
+| `--bg-column` | `#d6dad3` / `#181c1a` | The second column of the navigation |
+| `--bg` | `#e5e8e3` / `#1d2220` | The page |
+| `--bg-sunken` | `#d9ddd5` / `#232927` | Carved: fields, tracks, meters, code, the footer of a dialog or a card |
+| `--bg-sunken-deep` | `#d0d4cc` / `#1b201e` | A carved field under the pointer |
+| `--surface` | `#f4f6f2` / `#2a302d` | Seated: cards, tables, dialogs |
+| `--surface-raised` | `#fbfcfa` / `#323a36` | Raised: buttons, option cards; also menus, popovers and toasts |
+| `--surface-hover` | `#fbfcfa` / `#323a36` | A row that opens something, under the pointer |
+| `--surface-active` | `#d9ddd5` / `#232927` | Pressed; a skeleton's ground |
+| `--rail-hover` | `#d5d9d1` / `#1e2421` | An item of the navigation bar under the pointer |
+| `--edge`, `--joint` | `#ffffff`, `#b0b7ad` / `#444c47`, `#0e1110` | The light edge on top of a height and the dark joint under it (2.6) |
+| `--border` | `#c8cdc5` / `#3a423d` | Hairlines that separate content |
+| `--border-strong` | `#767f77` / `#7e8880` | The boundary of a dialog, a menu or a drawer; the line of a control that has one (3:1) |
+| `--text` | `#2e3530` / `#e8ece7` | Content |
+| `--text-muted` | `#434c45` / `#bec6bf` | Secondary text |
+| `--text-faint` | `#515b55` / `#9ea79f` | Meta: timestamps, help, placeholders. Still 4.5:1 on every surface, the carved ones included; never decorative |
 
-**Interactive** (violet, only for what can be acted on or is selected):
+**Interactive** (the hull's violet, only for what can be acted on or is selected):
 
 | Token | Light / dark | Role |
 |---|---|---|
-| `--accent` | `#6a45d5` / `#7152de` | Primary button fill, a switch that is on |
-| `--accent-hover` | `#5b37c2` / `#7a5be5` | Its hover |
-| `--accent-soft` | `#f0ebfd` / `#1f1937` | A selected ground |
-| `--accent-text` | `#5a36c6` / `#ae9aff` | Links, the active tab's rule |
-| `--on-accent` | `#ffffff` | Text on the accent and on `--fail-strong` |
-| `--focus` | `#6a45d5` / `#a08bff` | The focus ring |
+| `--accent` | `#6a4df5` / `#9b86ff` | Primary button fill, a switch that is on, a chosen option |
+| `--accent-hover` | `#5a3df0` / `#a898ff` | Its hover |
+| `--accent-soft` | `#e3defb` / `#38305f` | A selected ground |
+| `--accent-text` | `#5236d6` / `#b4a5ff` | Links, the icon of the current item |
+| `--accent-edge`, `--accent-joint` | `#8f7bff`, `#3f2aa6` / `#c0b3ff`, `#5a47b8` | The light edge and the joint of the primary button |
+| `--on-accent` | `#ffffff` / `#15102f` | Text on the accent |
+| `--focus` | `#5236d6` / `#b4a5ff` | The focus ring |
 | `--selection`, `--match` | | Selected text; a search match in a log |
 
-**State** (each with a soft ground and a border for tinted blocks):
+**State** (each with a soft ground and a border for tinted blocks; only what is not well uses its
+ground):
 
 | Token | Light / dark | Role |
 |---|---|---|
-| `--ok`, `--ok-soft`, `--ok-border` | `#16784a` / `#4dc47e` | Running, serving, succeeded |
-| `--warn`, `--warn-soft`, `--warn-border` | `#8c5800` / `#e3a73c` | In progress, queued, warning, expiring |
-| `--fail`, `--fail-soft`, `--fail-border` | `#c12c24` / `#ff736a` | Failed, down, invalid |
-| `--fail-strong` | `#c12c24` / `#cf3a30` | The danger button's fill |
-| `--idle`, `--idle-soft`, `--idle-border` | `#636363` / `#9e9e9e` | Stopped on purpose, unknown, cancelled (achromatic) |
+| `--ok`, `--ok-soft`, `--ok-border` | `#176a40` / `#5ad48e` | Running, serving, succeeded (its ground only in a message that stays open) |
+| `--warn`, `--warn-soft`, `--warn-border` | `#7f5000` / `#ecb24c` | In progress, queued, warning, expiring |
+| `--fail`, `--fail-soft`, `--fail-border` | `#b3261e` / `#ff8179` | Failed, down, invalid |
+| `--fail-strong`, `--on-fail`, `--fail-edge`, `--fail-joint` | `#b3261e` / `#cf3a30`, white | The danger button's fill, its text and its two edges |
+| `--idle`, `--idle-soft`, `--idle-border` | `#525c54` / `#a4ada5` | Stopped on purpose, unknown, cancelled (stone) |
 
-**Chart series** (`--viz-1` `#0274c7`/`#3496ef` blue, `--viz-2` `#9b2673`/`#ca549d` magenta):
+**Chart series** (`--viz-1` `#006fb8`/`#3496ef` blue, `--viz-2` `#9b2673`/`#d462a8` magenta):
 inside a plot and nowhere else. **ANSI** (`--ansi-blue`, `--ansi-magenta`, `--ansi-cyan`): a
-program's own colours reproduced in `LogViewer`, nothing else. **Veil** (`--backdrop`): behind a
-modal.
+program's own colours reproduced in `LogViewer`, nothing else. **Illustration** (`--il-stroke`,
+`--il-stroke-2`): the grey stroke of a drawing and the fill of a meter that is not a problem.
+**Veil** (`--backdrop`): behind a modal.
 
 Rules:
 
 - **C-1** Nothing but these tokens carries a colour. A component MUST NOT write a hex, `rgb()`,
-  `hsl()`, `oklch()` or `color-mix()`; those belong in `tokens.css`.
+  `hsl()`, `oklch()` or `color-mix()`; those belong in `tokens.css`. The one other colour on screen
+  is a real logo's, the brand's own, set by `LogoTile` from its packaged data.
 - **C-2** A tinted block (a notice, a failed job, an error) uses `--x-soft` for its ground,
   `--x-border` for its border and `--x` for its glyph and state word. It MUST NOT use an alpha on
   a colour token (`border-warn/40`, `bg-fail-soft/50`): a token's contrast is tested, a colour
-  mixed with whatever is underneath is not. The two approved alphas are the veil and the
-  blurred top bar (`bg-bg/85`).
-- **C-3** Information is not a state and has no colour: an info notice is `--surface-raised`,
+  mixed with whatever is underneath is not. The one approved alpha is the veil, and it is a token
+  of its own.
+- **C-3** Information is not a state and has no colour: an info notice is `--surface`,
   `--border` and an `Info` icon in `--text-muted`.
 - **C-4** Violet is for what can be acted on or is selected: the primary button, a link, the
-  active tab, a switch that is on, the current step of a stepper, focus and selection. It MUST
-  NOT decorate, and it MUST NOT colour data (a series, a count).
+  chosen option and the chosen tab, a switch that is on, the current step of a stepper, focus and
+  selection. It MUST NOT decorate, MUST NOT colour data (a series, a count) and MUST NOT mark
+  something that is not pressed: a badge that says "Default" is stone (2.12). The hull in an
+  illustration is the one drawn violet that is not interactive, because it is the brand's.
 - **C-5** Text has three grades, each 4.5:1 or more on every surface: `text` for content,
-  `text-muted` for secondary text, `text-faint` for meta. Opacity MUST NOT be used to fade text.
-- **C-6** Four surface levels: `bg-sunken` < `bg` < `surface` < `surface-raised`, plus the
-  interaction steps `surface-hover` and `surface-active`.
-- **C-7** `border` separates content; `border-strong` bounds a control. Never the other way.
+  `text-muted` for secondary text, `text-faint` for meta. Opacity MUST NOT be used to fade text;
+  the one thing that fades is a section that is switched off (`SwitchedRegion`), because an inactive
+  thing is the case WCAG exempts.
+- **C-6** Surfaces go from `bg-rail` (the darkest stone) to `surface-raised` (the lightest) in
+  light, and the other way in dark: `bg-rail` < `bg-column` < `bg` < `bg-sunken` < `surface` <
+  `surface-raised`, plus `bg-sunken-deep` and the interaction steps `surface-hover` and
+  `surface-active`. A tone is the height of what is drawn on it (2.6).
+- **C-7** `border` separates content; `border-strong` bounds a dialog, a menu or a drawer, and a
+  control that has a line. Never the other way.
 - **C-8** On a tinted block, the content is in `text` (and `text-muted`); only the glyph and the
   state word take the state colour.
 - **C-9** Work in progress is amber: the spinner, the deploying and queued glyphs, a progress bar.
-- **C-10** The hull violet of the logo (`#7b61ff`) is the brand, not a UI colour.
+- **C-10** The hull violet of the logo is the brand. In an illustration and in the logo itself it is
+  drawn with `--accent`, which is why the two never go beside a violet that means "press".
 - **C-11** The current navigation item is told by more than its fill. `--surface-active` is
   1.1 to 1.3:1 against the ground, which is not a way to tell where you are (WCAG 1.4.11), so
   the item also has a 2px bar at
   its start drawn in `--text`: achromatic, 3:1 or more against the ground, a hovered item and the
   active fill in both themes (`tokens.test.ts`), and a shape as well as a colour. The bar is in
   the DOM only on the current item (`data-nav-indicator`), so a test and a screen reader's
-  `aria-current` agree on it.
+  `aria-current` agree on it. The frame (the navigation bars) moves to the sliding indicator of 2.7
+  and the raised piece it draws, and then this rule is rewritten against that.
+- **C-12** A field has no line round it: it is carved (2.6), a darker tone with its shadow on top, and
+  is found by that, by its label and by the focus ring, which is 3:1. This is a known gap against
+  WCAG 1.4.11 for the field's boundary on its own, which `--border-strong` would close and the
+  identity does not draw; it is tracked in A-10.
 
 ### 2.2 Data and charts
 
@@ -179,36 +218,54 @@ Rules:
 
 ### 2.3 Typography
 
-Mona Sans for the interface, JetBrains Mono for every value that comes from the system. Name
-text by **role**, not by size:
+Three typefaces, each with one job, packaged with the console and licensed under the SIL Open
+Font License (`panel/src/assets/fonts/`, listed in `third-party-licenses.txt`; nothing is fetched).
+**Atkinson Hyperlegible Next** carries the interface: it was drawn so that characters cannot be
+mistaken for one another, and the console is read on dense screens by people who are tired.
+**Bricolage Grotesque** carries titles, in its narrow widths: the more a title is a title, the
+narrower it is (a section 90%, a page 78%). **JetBrains Mono** carries every value that comes from
+the system that is code: logs, commands, code and a value a person types or pastes. Never a
+label, never a heading, never a metadata line, and never a name. Name text by **role**, not by size:
 
 | Role | Where | Size / line | Utility |
 |---|---|---|---|
-| Page title | The `h1` of `PageHeader` and `AuthLayout` | 24/32 | `title text-24` (`mono text-24 font-medium` for a system identifier) |
-| Section title | Every `h2`: `Section`, a wizard step, a dialog, a drawer | 16/24 | `title text-16` |
+| Page title | The `h1` of `PageHeader` and `AuthLayout` | 32/40 | `display text-32` (a system identifier is the same, with `translate="no"`) |
+| Dialog and drawer title | The `h2` of a `Dialog`, a `ConfirmDialog` and a `Drawer` | 24/32 | `display text-24` |
+| Section title | Every `h2`: `Section`, a wizard step | 16/24 | `title text-16` |
 | Subsection title | Every `h3`: `Subsection`, `Card`, a `DangerAction` | 14/20 | `title text-14` |
-| Reading | A `StatTile`'s value, a diagnosis headline | 18/24 | `title text-18` |
+| Reading | A `StatTile`'s value, a diagnosis headline, an empty state's title | 18/24 | `title text-18` |
 | Body | Prose: a page's or dialog's description, an empty state | 14/20 | `text-14` |
 | Dense UI (the working size) | Buttons, tables, fields, lists, key-value rows, tooltips | 13/20 | `text-13` |
 | Label | A field's label; emphasis in dense UI | 13/20 | `text-13 font-medium` |
 | Help and meta | Field help, timestamps, table headers, badges, keys, a tile's context | 12/16 | `text-12` |
 | System value | Paths, ports, commits, IDs, unit names, commands | 0.92em of its line | `<Mono>` |
 | System output | `SystemOutput`, `LogViewer` | 12/16 mono | verbatim |
-| Display | The gallery only | 32/40 | `display text-32` |
 
 - **Y-1** Only the seven sizes exist: 12, 13, 14, 16, 18, 24, 32 (and a system value's 0.92em
   of one of them). No `text-[...]`.
-- **Y-2** Weights are 400 and 500. 600 comes only from the `title` and `display` utilities;
-  `font-semibold` and `font-bold` MUST NOT be used.
+- **Y-2** Weights are 400 for running text and 500 for labels and emphasis. 600 is for what is
+  pressed or names a column: the kit writes it in buttons, pills, badges, table headers and a field's
+  label (`font-semibold`), and a feature MUST NOT write it. 650 and 700 come only from the `title`
+  and `display` utilities, which set the display face; `font-bold` MUST NOT be used anywhere. A chosen
+  tab or item does not get heavier: its width would change under the indicator that is sliding to it.
 - **Y-3** Every figure that changes or is compared is in mono or `tabular-nums`; numeric columns
   are right-aligned.
-- **Y-4** Every system value is set with `<Mono>` (mono, no ligatures, `translate="no"`).
-- **Y-5** Sentence case everywhere. No all caps, no italics, no bold inside a sentence
-  (emphasis is 500).
+- **Y-4** Mono is for logs, commands and code, and for a value that is typed or pasted somewhere else
+  (a path, a port, a commit, an ID, a unit name): `<Mono>` (mono, no ligatures, `translate="no"`). A
+  **name** (an application, a server, a domain, a database) is not code: it is set in the interface
+  typeface, and as a title in the display face, with `translate="no"` so that it is never translated.
+- **Y-5** Sentence case everywhere. No all caps, no wide tracking, no italics, no bold inside a
+  sentence (emphasis is 500). A small label in capitals above a title is the commonest tic of a
+  templated interface and is never drawn (2.12).
 - **Y-6** Prose is capped at `--measure` (68ch, `max-w-measure`); help under a field at
   `--measure-help` (52ch). Tables have no measure.
-- **Y-7** A system identifier used as a page title (a domain, a unit, a database, a site) is
-  set in mono (`PageHeader mono`).
+- **Y-7** A system identifier used as a page title (a domain, a unit, a database, a site) is a title
+  like any other, in the display face, and is not translated (`PageHeader mono` says so; the prop
+  keeps its name for the pages that pass it).
+- **Y-8** The text drawn before a font arrives takes the room it will keep: each font is followed by
+  fallback faces scaled to its measured metrics (`fonts.css`, measured with fontTools over the
+  console's own English copy), so the swap changes the glyphs and moves nothing. *Enforced by:*
+  `styles/tokens.test.ts` (every fallback declared and scaled; the stacks in order; no CDN, no `data:`).
 
 ### 2.4 Spacing
 
@@ -232,22 +289,45 @@ then **20, 24, 32, 40, 48, 64** for layout.
 
 ### 2.5 Shape
 
-- **F-1** Four radii: `rounded-chip` 4px (keys, badges, inline code, focus of a text link),
-  `rounded-control` 6px (buttons, fields, menu rows, inline notices), `rounded-card` 10px
-  (cards, tables, dialogs, drawers, popovers, banners), `rounded-pill` (status pills, meters,
-  the tab rule, counts). Nothing else.
+- **F-1** Five radii, by hierarchy: the bigger the container, the rounder. `rounded-chip` 6px
+  (a pebble: badges, pills' squares, keys, a fleet slab, the highlight of a menu row),
+  `rounded-control` 9px (a piece: buttons, fields, menu rows, the raised piece of a tab,
+  inline notices), `rounded-card` 14px (a slab: cards, tables, popovers, banners, the tracks that
+  tabs and segments sit in), `rounded-wall` 22px (a wall: dialogs, the first-use panel) and
+  `rounded-pill` (switches, meters, counts). A piece sits inside a slab with the slab's padding, so
+  the corners stay concentric. Nothing else.
 - **F-2** Borders are 1px. The focus ring is 2px `--focus`, offset 2, defined once in `app.css`
   (`:focus-visible`); a component adds only `-outline-offset-2` on a scroll box whose overflow
   would clip it.
-- **F-3** A state rail (the 2px left edge that marks a row or a log line with a state) is the
-  `state-rail-{ok,warn,fail,idle}` utility.
+- **F-3** There is no stripe of colour down one side of anything: no left border on a row, no inset
+  shadow on a log line, no rail. The state is a glyph, a word and, when it is a problem, a tinted
+  surface (2.12). *Enforced by:* the ratchet rule `side-stripe` and the sheet scan of
+  `styles/design-rules.test.ts`.
 
-### 2.6 Elevation and layers
+### 2.6 Elevation
 
-- **E-1** Four layers: `bg-sunken` < `bg` < `surface` (`shadow-raised`, a whisper, in light only)
-  < `surface-raised` with `shadow-overlay` (everything that floats). In dark, height is
-  luminance: each layer is a step lighter. No other shadow.
-- **E-2** Stacking is named, and nothing else sets a `z-index`:
+Height is made of **three kinds of edge and one light that falls from above**: a tone, a light
+edge on the top of a piece and a darker joint beneath it. Never a blurred grey shadow repeated
+under everything, which is what a stock interface does and what the identity is not. A
+`box-shadow` here has at most 2px of blur and is never translucent black (`tokens.test.ts` reads
+every `--elev-*` and fails on one).
+
+| Height | Is | Made of | Who |
+|---|---|---|---|
+| **Carved** (`elev-carved`, `elev-carved-fine`) | Sunk in: where something is typed or chosen inside | `--bg-sunken`, shadow on top, light below; deeper (`--bg-sunken-deep`) under the pointer | `Input`, `Textarea`, `Select`'s trigger, `Combobox`, `Checkbox`, a `Switch`'s track, `Progress` and `Meter`, the tracks of `SegmentedControl`, `Tabs` and `LinkTabs`, the search box, `LogoTile`, a command in an empty state |
+| **Seated** (`elev-seated`) | A low slab: what is read | `--surface`, a light edge on top and a joint of 1px beneath. It does not react to the pointer; a row of a table is flat | `Card`, `DataTable`, `Dialog`, `Drawer`, `Menu`, `Popover`, the lists of `Select` and `Combobox`, `Toast`, `Disclosure`, `StatTile`, `JobProgress`, `FleetCourses`, a `Kbd`, a state pill at `md` |
+| **Raised** (`elev-raised`, `-accent`, `-fail`, `-chosen`, `elev-lift`, `elev-rest`) | What is pressed | `--surface-raised` and a joint of 2px. It rises 1px under the pointer (joint 3px) and sinks 1px when pressed (joint 1px) | `Button` (the primary with the accent's own edge, the danger button with the failure's), `IconButton`, the options of `ChoiceCards` (the chosen one with the accent as a ring), the thumb of a `Switch`, the chosen item of a row of tabs or segments (the sliding indicator), a fleet slab that opens a page |
+
+- **E-1** A component takes the height of its role and no other. *Enforced by:*
+  `styles/design-rules.test.ts` reads `KIT_HEIGHTS` (`styles/designRules.ts`), the role of every kit
+  file that draws a height, fails on a piece that draws another or that draws one and has no role, and
+  has cases that must be caught (a raised panel, a carved button).
+- **E-2** A feature does not draw heights: a panel is a `Card`, a pressed piece a `Button`, a field a
+  `Field`. *Enforced by:* the ratchet rule `elev-outside-kit`.
+- **E-3** Only what is pressed moves under the pointer. An item that is flat until the pointer is on
+  it (`elev-lift`) rises the same 1px; what is read does not react, so that a panel never suggests
+  it can be pressed. A row that opens something changes its tone, flat.
+- **E-4** Stacking is named, and nothing else sets a `z-index`:
 
 | Utility | Value | What |
 |---|---|---|
@@ -259,23 +339,46 @@ then **20, 24, 32, 40, 48, 64** for layout.
 
 ### 2.7 Motion
 
-| What | Duration and curve |
-|---|---|
-| Hover, press, colour of focus | `--duration-fast` 120ms, `--ease-out`; colour and shadow only |
-| Tooltip, menu, popover | 120ms, opacity and scale 0.97 to 1 |
-| Dialog, drawer, toast, tab indicator | `--duration-base` 180ms; the drawer comes in from the right |
-| A state change of a pill | one opacity pulse (0.9s), never movement |
-| Skeleton | `breathe` 1.6s |
-| Spinner, indeterminate bar | 0.8s linear, 1.4s |
-| Traffic along a `FlowDiagram` connection | `flow`: dashes advance 1.2s linear (`animate-flow`), 0.6s over TLS (`animate-flow-fast`) |
+Motion answers an action and shows what changed. It is never decoration, and nothing enters in a
+staggered cascade. **Each curve has a job**, and no curve is the default of everything:
 
-- **M-1** With `prefers-reduced-motion`, every duration is 0 and every animation stops, except
-  the spinner (`animate-spin`), which keeps turning slower: frozen, it would say nothing is
-  happening. What is in progress also stays readable by its shape and word.
+| Job | Duration and curve | Where |
+|---|---|---|
+| What **enters** decelerates | `--duration-enter` 240ms, `--ease-enter` `cubic-bezier(0, 0, 0.2, 1)` | A dialog, a drawer, a toast, the veil; a small popup (menu, popover, tooltip, select list) 200ms, from 0.97 in scale |
+| What **leaves** accelerates and takes less | `--duration-fast` 140ms, `--ease-exit` `cubic-bezier(0.4, 0, 1, 1)` | Every one of those on its way out; a removed slab lifts and fades |
+| What **moves from one place to another** | `--duration-move` 200ms, `--ease-standard` `cubic-bezier(0.4, 0, 0.2, 1)` | The sliding indicator of tabs, segments and navigation lists, the highlight of a menu, the thumb of a switch, the fill of a meter |
+| **Over and pressed** | `--duration-press` 100ms, `--ease-standard` | The rise and sink of a raised piece, the tone of a hovered row, a ghost button |
+| Big and rare | `--duration-large` 360ms (400 at most) | A first-use illustration; nothing else |
+| A state change of a pill | one opacity pulse (0.9s), never movement | `StatusPill` |
+| Skeleton | `breathe` 1.6s (a loop) | `Skeleton` |
+| Spinner, indeterminate bar | 0.8s linear, 1.4s | `Spinner`, `Progress` |
+| Traffic along a `FlowDiagram` connection | `flow`: dashes advance 1.2s linear (`animate-flow`), 0.6s over TLS (`animate-flow-fast`) | `FlowDiagram` |
+
+- **M-1** With `prefers-reduced-motion`, every duration token is 0, every animation stops and every
+  transition is instant, except the spinner (`animate-spin`), which keeps turning slower: frozen, it
+  would say nothing is happening. What is in progress also stays readable by its shape and word.
 - **M-2** Nothing animates layout; lists do not reorder with animation; a state never slides.
 - **M-3** An animation is a CSS animation declared in `app.css`, never SMIL (`<animate>` in an
   SVG): the reduced-motion rule stops CSS animations and does not reach SMIL. A component that
   marks something as moving also reads `REDUCED_MOTION` and leaves the class off.
+- **M-4** Only `opacity` and `transform` (and `translate`, `scale`) change, with two stated
+  exceptions, each for a reason. **The sliding indicator** moves by `translate` and changes size by
+  `width` and `height`, because scaling a piece stretches its rounded corners, which would draw the
+  raised piece as an ellipse mid-slide; the element is absolute and has no children, so no layout
+  depends on it. **The fill of a meter or a progress bar** changes its `width` because it is the
+  quantity itself, measured. Everything else that moves is one of the two properties.
+- **M-5** The **sliding indicator** (`SlidingIndicator`) is the raised piece of the chosen item of a
+  row of tabs, a group of segments, a navigation list (horizontal or vertical, folded to icons or
+  not) and, flat, the highlight of the option being passed over in a menu or a select. It slides to
+  the item the person picks in `--duration-move`, whatever way the choice was made, the browser's
+  back and forward included. It does **not** slide on the first frame, when the item changes size by
+  itself (a font arrives, the bar folds, the window resizes), when there was no chosen item (it is
+  hidden, and appears in place), or with reduced motion. It queues nothing: holding an arrow key
+  restarts a transition that goes from where the piece is to the item of the moment. It is
+  `aria-hidden`; the items carry the state. *Enforced by:* `components/ui/SlidingIndicator.test.tsx`
+  (the piece goes where the chosen item is, slides only between two items, never on the first frame,
+  on a resize, with reduced motion or from nothing, and does not queue) and `e2e/indicator.spec.ts`
+  (the real transition: its duration, its end at the target's box, none with reduced motion).
 
 ### 2.8 Icons
 
@@ -319,9 +422,9 @@ then **20, 24, 32, 40, 48, 64** for layout.
 
 ### 2.9 Density and control sizes
 
-- **D-1** Every control reads its height from a token: `--control-sm` 28px, `--control-md` 32px
-  (the default), `--control-lg` 40px (sign in, unlock, the wizard's Deploy). With a coarse
-  pointer they grow to 36, 40 and 44px in one place (`tokens.css`). Utilities: `h-control-*`,
+- **D-1** Every control reads its height from a token: `--control-sm` 32px, `--control-md` 36px
+  (the default), `--control-lg` 44px (sign in, unlock, the wizard's Deploy). With a coarse
+  pointer they grow to 40, 44 and 48px in one place (`tokens.css`). Utilities: `h-control-*`,
   `size-control-*`.
 - **D-2** Table rows are compact (36px) for histories that are scanned (deployments, sessions,
   deliveries) and comfortable (44px) for inventories that are opened (applications, services,
@@ -375,6 +478,44 @@ to say it.
   are visible states, not magic values. *Enforced by:*
   ratchet `empty-means-off` (the catalog strings "Empty keeps...", "0 turns it off", "Blank means
   no limit").
+
+### 2.11 Illustration, logos and help
+
+- **IL-1** An illustration is drawn only the first time of a main function (the first application, the
+  first server, the first backup): `EmptyState variant="firstUse"` with `illustration`. An empty
+  list, a filter that matched nothing and an error never get one. There are two drawings
+  (`Illustration`): the noust with a hull in it, for the first thing a person does, and an empty slab,
+  for a list with nothing yet. Both are one grey stroke (`--il-stroke`) and the hull in violet, follow the
+  theme through tokens, carry no gradient and are decoration unless given a `label`.
+- **IL-2** A tile is only for a real logo. `LogoTile` is a carved square with the logo of an
+  application or an engine in its brand's colour; its marks are packaged (29 today, from Simple
+  Icons, CC0, with the brands' notice in `components/ui/logos/`), so no request leaves the console to
+  draw one and `img-src` stays `'self'`. An icon of the console's own stands bare: a tile behind
+  it says nothing and is a tic (2.12). *Enforced by:* the ratchet rule `icon-tile`.
+- **IL-3** An explanation is a `HelpPopover`: an "i" button that opens a popover. A `Tooltip` only
+  names an icon (an `IconButton` does it for its label), because a touch screen has no hover and
+  what is said in a tooltip is lost to anyone who cannot rest a pointer on it. *Enforced by:* the
+  ratchet rule `tooltip-by-hand`.
+
+### 2.12 What is never drawn
+
+The marks of a templated interface, which the owner asked never to see again, and why.
+Each is a rule of `styles/design-rules.test.ts`, counted in every file (the kit included) and held to
+a baseline that only goes down, with samples that must be caught and samples that must not; the
+stylesheets are scanned for the same.
+
+| Never | Why | Rule |
+|---|---|---|
+| A stripe of colour down one side of a container (a card, a row, an alert, a log line) | It is the commonest mark of a templated interface, and it says the state by colour alone. The state is a glyph, a word and a tinted surface | `side-stripe` |
+| A gradient, outside an illustration (and an illustration has none) | A surface is a tone of stone and an edge is a hard line | `gradient` |
+| A blur: a frosted bar, a soft halo | The same, and it costs paint. A bar over the content is solid | `blur` |
+| The same diffuse shadow under everything | The height is the identity; a blur is what every other interface has | `diffuse-shadow` and the `--elev-*` test |
+| Capitals with a wide tracking above a label or a title | Sentence case is how the console speaks | `caps-label` |
+| A middle dot between facts ("Next.js · :3001 · shop.example.com") | Each fact has its own place: a column, a line, a chip | `middle-dot` |
+| An arrow in a label or at the end of a button | A button says its verb; a way from here to there is the breadcrumbs | `arrow-glyph`, `arrow-button` |
+| A tile behind an icon of the console's own | A tile is for a real logo | `icon-tile` |
+| Violet on something that is not pressed (a "Default" badge) | Colour means something | review (G-7) and C-4 |
+| The same card, with the same shadow, ten times | A list of like things is a table, a list of courses or a `RowList` | review (G-2) |
 
 ---
 
@@ -745,14 +886,17 @@ Import primitives from `components/ui` and the page kit and templates from `comp
 (both have an `index.ts`). Each entry: use it for, do not use it for, and its rules.
 
 **`Button`** (`variant` `primary | secondary | ghost | danger`, `size` `sm | md | lg`, `loading`,
-`icon`, `trailingIcon`). For an action with a verb. Not for navigation (a link styled with
+`icon`, `trailingIcon`). For an action with a verb. It is raised: it rises 1px under the pointer and
+sinks 1px when pressed; the primary has the accent's own edge, the danger button the failure's, and
+the ghost is text on the page and flat. It never ends in an arrow (2.12). Not for navigation (a link styled with
 `buttonClassName`). One `primary` per view; `sm` inside cards, rows and toolbars; `lg` only for
 sign in, unlock and the wizard's Deploy; `danger` only for the last step of a destructive flow;
 `ghost` for toolbars and Discard. Labels are verbs: "Deploy", "Delete application", never
 "Confirm" or "OK". Every button renders `data-variant`, which the design contract reads.
 
 **`IconButton`** (`label` required). A known, repeated action (more, close, copy, refresh). The
-`label` is its accessible name and tooltip. Not for the page's main action.
+`label` is its accessible name and the tooltip that names the icon. Raised in a header (`secondary`),
+flat in a row (`ghost`). Not for the page's main action.
 
 **`Field`** with `Input`, `Select`, `Textarea`, `Checkbox`. Every form control is in a `Field`:
 label, help and error wired together. A `<label>` by hand MUST NOT be written. Labels have three
@@ -777,7 +921,14 @@ deploy key's public half, a webhook address, a command): in a sunken box, in ful
 at any character, never cut, with its `CopyButton`. Not for a fact among facts (a
 `KeyValueList` row copies its own) and not for output the system printed (`SystemOutput`).
 
-**`Switch`** applies at once. **`Checkbox`** is a choice inside a form saved with a button, or a
+**`SectionSwitch`** and **`SwitchedRegion`** (owner item 106). The master switch of a whole section
+("Alerts", "Backups"): one `Switch` with its name beside it in the header of the page, next to the
+page's action, and the list it governs wrapped in a `SwitchedRegion`, which is dimmed when the section
+is off so that a page of rules that do nothing does not look as if it did. The name never changes with
+the state (SW-3); a switch that cannot be moved says why beside it (`disabled` requires `reason`).
+
+**`Switch`** applies at once. Its track is carved and its thumb is a raised piece that slides across it
+in `--duration-move`. **`Checkbox`** is a choice inside a form saved with a button, or a
 selection. They never share a form (SW-1). A switch is drawn by a `Setting` row, which owns its
 label, help, risk and `confirmOff`; on its own it is a bare control with an `aria-label` (its own
 `label` and `description` props are retired and go from the type when the last page has moved). While
@@ -790,11 +941,13 @@ database row editor, whose options are a column's own two values and say so in a
 are still a `Select` in a form: a form-height `SegmentedControl` is not in the kit yet, and where it
 goes with the rest of the form density is decided with the final UX pass, not here.
 
-**`ChoiceCards`** (`legend`, `options` with `label`, `description`, `badge`, `untranslated`,
-`error`). One of two to four exclusive choices that each need a sentence to be understood (how
-deploys work, a domain's role, a site's template): a radio group of cards, two to a row from 640px,
-each named by its label and described by its sentence. A choice that needs no sentence is a
-`SegmentedControl` or a `Select`.
+**`ChoiceCards`** (`legend`, `options` with `label`, `description`, `detail`, `icon`, `badge`,
+`untranslated`, `columns`, `error`). One of two to six exclusive choices that each need a sentence to be
+understood (how deploys work, a domain's role, a role of a person, a site's template): a radio group of
+raised cards, a title and **one line** each, two to a row from 640px or one (`columns={1}`). The chosen
+one takes the accent as a ring and a check. What does not fit in a line is the option's `detail`,
+folded under the card behind a "Details" button that is beside the radio and not part of the choice, and
+not read as its description. A choice that needs no sentence is a `SegmentedControl` or a `Select`.
 
 **`FieldGroup`** (`legend`, `description`, `error`, `optional`). Related controls under one name and
 one message: a set of checkboxes, a port and its protocol. A `fieldset` with a `legend` whose error
@@ -810,7 +963,9 @@ one-line `summary` of what is inside; a native `<details>` is never written (rat
 `native-details`). Not for a section most operators need, and never for help, which stays visible.
 
 **`Dialog`** (`size` `sm | md | lg | xl`). A short task that needs focus. Not for long reading
-or long forms (a drawer). Footer buttons at the right, the primary last.
+or long forms (a drawer). A wall: 22px corners, seated, its title in the display face (24px) and its
+footer a carved band; it opens decelerating and leaves accelerating (2.7). Footer buttons at the right,
+the primary last.
 
 **`ConfirmDialog`** (`friction` `"none" | "simple" | "type"`, `server`, `children`, `ready`, `size`
 `sm | md | lg`, `explainError`, `failureAction`). Anything that destroys
@@ -836,7 +991,10 @@ for approval" toast that leads to Approvals.
 certificate, a channel's form.
 
 **`Menu`**, **`MenuItem`** (`description`), **`MenuSeparator`**. A row's actions and a header's
-"More actions": seven items at most, the destructive ones last after a separator. An item's
+"More actions": seven items at most, the destructive ones last after a separator. The highlight of the
+item the keys or the pointer are on is a flat sliding indicator that glides from item to item (M-5);
+`Select` does the same in its list, and `Combobox` does not, because its list is filtered and
+virtualised. An item's
 `description` is one sentence under its label, wired as its accessible description, for what
 the operator would otherwise stop to ask ("Nothing in the application changes"); most items have
 none.
@@ -852,12 +1010,25 @@ action done another way ("Update" and, in the menu, "Update without cache"). One
 height with one focus ring, two buttons with their own names. A menu of different subjects is a
 `Menu` on its own button, not this.
 
-**`Tooltip`**. A complement to an icon; never the only place something is said, never on a
-button that already has text. **`Popover`**: help and small panels (the session menu), never a
-confirmation.
+**`Tooltip`**. Names an icon, and nothing else (IL-3); never the only place something is said, never
+on a button that already has text. **`Popover`**: small panels (the session menu), never a
+confirmation. **`HelpPopover`** (`label`, `title`, `children`): the "i" beside a name that needs
+explaining, a button that opens a popover, which a touch screen can use.
 
-**`LinkTabs`** (`count` per tab) and **`Tabs`**. Sibling views of one subject. `LinkTabs` (the
-state is the URL) by default; `Tabs` only where a URL makes no sense. Eight tabs at most.
+**`SlidingIndicator`** (`variant` `raised | flat`, `activeSelector`, `className`). The piece of 2.7 (M-5), drawn
+first inside the positioned container that holds the items, which are `relative` so they paint above it.
+It finds the chosen item by any of `data-active`, `aria-current`, `aria-pressed`, `aria-checked`,
+`aria-selected`, `data-checked` and `data-status="active"`, measures it, and writes where it is as
+`--indicator-x/-y/-width/-height` through the CSSOM (never a `style` attribute: the policy forbids it).
+One piece serves a horizontal row and a vertical list; to mount it on a navigation list: give the list
+`relative isolate`, put `<SlidingIndicator className="rounded-control bg-surface" />` first in it, make
+each item `relative` with no ground of its own on the current one, and mark the current item with
+`aria-current="page"`. Two lists on one page (the main bar and the second column) each have their own.
+It is hidden when the current route has no entry in the list.
+
+**`LinkTabs`** (`count` per tab) and **`Tabs`**. Sibling views of one subject: a carved rail with the
+current one as the raised piece that slides (M-5). `LinkTabs` (the state is the URL) by default; `Tabs`
+only where a URL makes no sense. Eight tabs at most. A row wider than its screen scrolls inside the rail.
 
 **`DataTable`** (`mobile` `"cards" | "scroll"`, column `card` `"title" | "status" | "meta" |
 "control" | "hidden"`, `density`, `layout` `"auto" | "fixed"`, `rowActions`, `onRowActivate`,
@@ -888,7 +1059,9 @@ databases are chosen apart and every table of one list agrees. Not for a list th
 for screen readers. Never a bare "-".
 
 **`StatusPill`**, **`StatusGlyph`**, `stateTextClass`, `STATUS`. The state of an entity, in
-eight states with eight shapes: running (dot), deploying (spinning arc), queued (still dashed
+eight states with eight shapes (a pebble, never a tinted pill for what is well: running and static are
+glyph and word on the page, and only in progress, a warning, a failure and a stopped thing take their
+ground, 2.1): running (dot), deploying (spinning arc), queued (still dashed
 ring), warning (triangle), failed (cross), stopped (ring), static (square), unknown (question
 mark). `AppStatePill` and `DeployStatePill` translate the backend's words. Never a `Badge` or a
 coloured dot for a state. It is also the badge of an on/off: `running` with the feature's word
@@ -926,8 +1099,9 @@ an option, the status of a field or a row, a one-off result, in 14 words or fewe
 glyph in the state colour and the text in `--text`. A `Setting`'s `risk` is one. A field's own
 validation stays the `Field` error; a framed condition with a fix is a `Notice` (NT-9).
 
-**`Badge`**. A short attribute: a type, a version, a branch, a count; or something staged
-(`tone="accent"`). Never a state: a state, including "this feature is on", is a `StatusPill`.
+**`Badge`**. A short attribute: a type, a version, a branch, a count, a "Default": a stone pebble that is
+not pressed, so it is neutral. `tone="accent"` is only for something that is selected (it is violet, and
+violet means pressed). Never a state: a state, including "this feature is on", is a `StatusPill`.
 
 - **BD-1** A `Badge` is an attribute (a type, a version, a branch, a count) or something selected
   or staged (`accent`). It is never a state: a state, including "this feature is on", is a
@@ -939,7 +1113,9 @@ validation stays the `Field` error; a framed condition with a fix is a `Notice` 
   `text-danger`, fails: Tailwind drops it silently and the text is painted without its colour).
 
 **`Card`** (`padding` `md | sm | none`, `as`, `interactive`, `loading`, `title`, `icon`,
-`description`, `status`, `actions`, `footer`, `level`). Every panel of the console. A feature MUST
+`description`, `status`, `actions`, `footer`, `level`). Every panel of the console: a seated slab (14px
+corners, a light edge on top and a joint beneath), which does not react to the pointer unless it opens
+something, and then only changes its tone. A feature MUST
 NOT write `rounded-card border bg-surface` by hand. `icon` is the object the card is about, a
 component of `OBJECT_ICONS` (I-7). `status` is the `StatusPill size="sm"` of a feature with a
 state, right after the title (not in `actions`).
@@ -991,8 +1167,24 @@ they started it. Its history is Activity's.
 **`FilterBar`** (`label`, `search`, `filters`, `count`, `actions`). Search and filters above a
 list: a 288px box that `/` focuses, the filters, the count at the right. Filters live in the URL.
 
-**`EmptyState`** (`variant` `firstUse | inline`, required). See the shared patterns above. The
-3.0 framed block without a variant is gone. A bare muted paragraph is not an empty state (ST-2).
+**`EmptyState`** (`variant` `firstUse | inline`, required; `illustration`, `illustrationLabel`). See the
+shared patterns above. The 3.0 framed block without a variant is gone. A bare muted paragraph is not an
+empty state (ST-2). The first time of a main function gets an `Illustration` (IL-1); anything else gets
+at most a bare icon, with no tile.
+
+**`LogoTile`** (`logo`, `size` `sm | md | lg`, `label`). The logo of a real application or engine in a carved
+tile, in its brand's colour, from packaged marks (IL-2). Used by the catalog, the recipes and the database
+engines, and by nothing that is not a logo.
+
+**`FleetCourses`** (`label`, `courses`, `columns`, `linkFor`; `planCourse`, `isWell`). The fleet as courses of
+stone: one course (a row) per server, with its name, its place and its disk on the left and its
+applications as slabs of one size in a regular grid (two across on a phone, `columns` from 640px). The
+ones with a problem come first, tinted with their state, its glyph and its word; the well ones are neutral
+stone and, when a server has more than two rows of them, are said as one slab ("+9 running"), because a
+problem is never hidden and twenty that are well say less than the one that is not. A server with nothing
+on it shows an empty slot. A slab that opens a page is raised (it takes `linkFor`, since the kit does not
+know the routes); without it the slabs are seated. A server is named as the operator named it (`web-01`),
+never with a name that has to be decoded.
 
 **`Section`** (`loading`, `icon`), **`Sections`**, **`Subsection`**. A page's subjects (`h2`, 32px
 apart) and their parts (`h3`, or `h4` inside a card). Headings are never written by hand in a
@@ -1020,7 +1212,8 @@ reading is on its way the tile keeps its label, shows skeletons for the value an
 and is `aria-busy`.
 
 **`Meter`**, **`ResourceMeter`**, **`Progress`**. A level in a range (with a glyph and a word
-when it is a problem); use against a limit; progress of a task with a known end (amber).
+when it is a problem); use against a limit; progress of a task with a known end (amber). The track is
+carved and the fill is stone until the level is a problem.
 
 **`toast`**. The outcome of an action whose effect is not visible on screen, or a job queued
 with a link. Never a success that is visible anyway, never an error that has to be read and
@@ -1536,6 +1729,15 @@ WCAG 2.2 AA, verified rather than declared:
   never the only channel.
 - **A-8** Reduced motion drops every animation (2.7); `lang` follows the language; system values
   carry `translate="no"`; the console reflows at 320px and 200% zoom without sideways scrolling.
+- **A-10** A field is carved and has no line of 3:1 round it (C-12): it is identified by its tone, its
+  label and its focus ring, which is 3:1. WCAG 1.4.11 asks for the boundary of a text field to be
+  visible at 3:1 unless it is identified another way, and the identity does not draw one. This is
+  recorded as a known gap, and `--border-strong` (3:1 on every ground) is the token that would close it
+  if the owner decides it must be closed. Every other control meets 1.4.11: the raised ones by their
+  joint and their label, the focus ring everywhere.
+- **A-11** The sliding indicator and the illustrations are `aria-hidden`; the items carry the state and
+  the drawing is decoration unless it is given a label. A touch screen has no tooltip, so what needs
+  saying is a `HelpPopover`.
 - **A-9** Under the strict Content Security Policy (`style-src 'self'`, Trusted Types), no
   library that injects `<style>` or writes HTML strings is used; the E2E suite fails on any
   violation.
@@ -1550,9 +1752,11 @@ lint`, the E2E suite).
 | Layer | Where | What it holds |
 |---|---|---|
 | Construction | `app.css` | Tailwind's palette, type scale, shadows and radii do not exist; only token utilities compile |
-| Tokens | `styles/tokens.test.ts` (`lib/contrast.ts` does the maths) | Every text pair 4.5:1, every control boundary 3:1, tinted borders 1.4:1, hairlines visible; surfaces, text and idle achromatic; dark elevation by luminance; the `viz` pair's contrast, colour-vision distance, hue distance, lightness and chroma; every colour token has a utility and at least one verified pair; the values of radii, control heights, layers, widths, measures, icon sizes and the seven type sizes; `scrollbar-gutter: stable` |
+| Tokens | `styles/tokens.test.ts` (`lib/contrast.ts` does the maths) | Every text pair 4.5:1, every control boundary 3:1, tinted borders 1.4:1, hairlines visible; surfaces, edges and text are stone (chroma under 0.02, the stone's hue); height by luminance in both themes; the joint and the edges of every height seen against the stone they sit on; every `--elev-*` made of hard edges (nothing blurrier than 2px, no translucent black); the `viz` pair's contrast, colour-vision distance, hue distance, lightness and chroma; every colour token has a utility and at least one verified pair; each curve and duration of the motion and its zero with reduced motion; the fonts' stacks, their metric-matched fallbacks (declared and scaled, the title's twice) and that nothing is fetched or inlined; the values of radii, control heights, layers, widths, measures, icon sizes and the seven type sizes; `scrollbar-gutter: stable` |
 | Lint | `eslint.config.js`, `no-restricted-syntax` and `no-restricted-imports` | Outside the kit (`components/`, `app/`, `dev/`) and the legacy list: raw hex, arbitrary dimensions (`max-w-[...]`, `h-[...]`, `rounded-[...]`, `z-[...]`), colour functions, hand-written `h1`-`h4`, `<label>`, `style=`, severity icons imported from lucide instead of `icons.ts`, and the icon of an object imported from lucide instead of `objectIcons.ts` (everywhere, the kit included) |
 | Ratchet | `styles/design-rules.test.ts`, rules in `styles/designRules.ts`, counts in `styles/design-baseline.json` | Per rule and per file, counts that may only go down (the rule ids below); ESLint's legacy list only shrinks; the `viz` colours stay inside `Chart`; no component of the system is left unused except those still waiting for their pages |
+| The tics and the heights | `styles/design-rules.test.ts` (`KIT_HEIGHTS` in `styles/designRules.ts`) | The list of 2.12, with samples that must be caught and samples that must not, in the sources and in the three stylesheets (a gradient, a blur, capitals, a wide tracking, a coloured side, a coloured one-sided shadow); each kit piece has the height of its role and no other, and a piece with no role that draws a height fails (a raised panel and a carved button are cases that must be caught) |
+| Motion | `components/ui/SlidingIndicator.test.tsx`, `e2e/indicator.spec.ts` | The indicator goes where the chosen item is, slides only between two items, never on the first frame, on a resize, with reduced motion or from nothing, queues nothing; in the browser, its transition lasts the token's duration, ends at the target's box, and does not exist with reduced motion |
 | Structure | `styles/design-structure.test.ts`, rules in `styles/designStructure.ts`, counts in `styles/design-structure-baseline.json` | The same contract for what a regular expression per line cannot see, found in the syntax tree: a component used where a kit piece exists, a file with three notices, a notice read in English words (the structural rule ids below). `npm run ux:counts` prints how much of the console is built from each piece, from the same code. Examples of what each rule counts and what it does not are `styles/design-structure.cases.test.ts` |
 | Copy | `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts` (baselines `i18n/glossary-baseline.json`, `styles/concept-doors.json`) | The words of a setting row (SW-3, SW-4); the concepts with more than one editable home (NV-8), a list that only gets shorter; a colour class that names no colour of the system; the glossary's verbs and states in both languages; a retired value that comes back, a glossary word translated otherwise, one English text translated several ways |
 | Browser | `e2e/design-contract.spec.ts` | On a sample of every template, at 1440 and 390, both themes, and the gallery: font sizes, families and weights, radii, border widths, every opaque colour grey or a token, one primary button per view (clean and with unsaved changes), at most one banner per route, the height of a setting row |
@@ -1578,7 +1782,14 @@ The ratchet's rules (`designRules.ts`):
 | `semantic-icon-import` (lint) | `CircleCheck`, `TriangleAlert`, `Info`... from lucide in a feature | `ICONS` |
 | `colour-function` (lint) | `rgb(...)`, `color-mix(...)` in a class | a token |
 | `tailwind-palette`, `off-role-text` | `bg-red-500`, `text-sm` (they do not compile) | tokens, type roles |
-| `semibold` | `font-semibold`, `font-bold` | `title`, `font-medium` |
+| `semibold` | `font-semibold`, `font-bold` in a feature (the kit may write 600, 2.3) | `title`, `font-medium` |
+| `side-stripe` | a one-sided border or inset shadow in a state or accent colour, `state-rail-*` | a glyph, a word and a tinted surface (2.12) |
+| `gradient`, `blur`, `diffuse-shadow` | `bg-linear-*`, `mask-*`, `backdrop-blur`, `shadow-md`... | a tone of stone, a hard edge (2.12, 2.6) |
+| `caps-label` | `uppercase`, `tracking-wide`... | sentence case |
+| `middle-dot`, `arrow-glyph`, `arrow-button` | a middle dot, an arrow in a text, a trailing arrow icon on a button | a column, a chip, a verb |
+| `icon-tile` | a sized, rounded, grounded box that centres an icon (outside `LogoTile`) | a bare icon; `LogoTile` for a real logo |
+| `tooltip-by-hand` | `<Tooltip` outside the kit | `IconButton`, `HelpPopover` |
+| `elev-outside-kit` | `elev-*` outside the kit | `Card`, `Button`, `Field` |
 | `z-arbitrary` | `z-[...]` | `z-sticky`, `z-overlay`... |
 | `dashed-empty` | `border-dashed` outside `EmptyState` | `EmptyState` |
 | `spinner-outside-kit` | `<Spinner>` in a feature | `JobProgress`, `Button loading` |
@@ -1663,7 +1874,9 @@ NOUST_E2E_STATIC=/tmp/noust-dev-build npx playwright test design-contract tab-sw
   the state read in greyscale? Is anything coloured that is neither a state, an action nor a
   series? Does anything move as it loads? Is the server named where something is destroyed?
   Does the empty state say what to do? **Is any notice or state block taller than the control it
-  explains?**
+  explains?** Is any mark of 2.12 drawn (a stripe, a gradient, a blur, a tile behind an icon, a middle
+  dot)? Does each piece have the height of its role, and does the indicator slide to where the person
+  pointed and not before?
 - **G-8 A new destination** enters with its register entry (`app/nav.ts`), its answers to the
   four tests of NV-4 (a noun the operator says every day or every week; it lists what exists or
   shows what happened; most installations use it; it is not set-up, a catalogue, another
@@ -1678,20 +1891,22 @@ NOUST_E2E_STATIC=/tmp/noust-dev-build npx playwright test design-contract tab-sw
 
 | Family | Tokens |
 |---|---|
-| Surface | `--bg`, `--bg-sunken`, `--surface`, `--surface-raised`, `--surface-hover`, `--surface-active` |
-| Border | `--border`, `--border-strong` |
+| Surface | `--bg-rail`, `--bg-column`, `--bg`, `--bg-sunken`, `--bg-sunken-deep`, `--surface`, `--surface-raised`, `--surface-hover`, `--surface-active`, `--rail-hover` |
+| Edge | `--edge`, `--joint`, `--border`, `--border-strong` |
 | Text | `--text`, `--text-muted`, `--text-faint` |
-| Interactive | `--accent`, `--accent-hover`, `--accent-soft`, `--accent-text`, `--on-accent`, `--focus`, `--selection`, `--match` |
-| State | `--ok`, `--ok-soft`, `--ok-border`, `--warn`, `--warn-soft`, `--warn-border`, `--fail`, `--fail-soft`, `--fail-border`, `--fail-strong`, `--idle`, `--idle-soft`, `--idle-border` |
+| Interactive | `--accent`, `--accent-hover`, `--accent-soft`, `--accent-text`, `--accent-edge`, `--accent-joint`, `--on-accent`, `--focus`, `--selection`, `--match` |
+| State | `--ok`, `--ok-soft`, `--ok-border`, `--warn`, `--warn-soft`, `--warn-border`, `--fail`, `--fail-soft`, `--fail-border`, `--fail-strong`, `--on-fail`, `--fail-edge`, `--fail-joint`, `--idle`, `--idle-soft`, `--idle-border` |
 | Chart series | `--viz-1`, `--viz-2` |
 | Program colours | `--ansi-blue`, `--ansi-magenta`, `--ansi-cyan` |
-| Veil and shadow | `--backdrop`, `--shadow-color`, `--shadow-raised`, `--shadow-overlay` |
-| Type | `--font-sans`, `--font-mono`, `--fs-12` ... `--fs-32`, `--lh-12` ... `--lh-32`, `--stretch-title`, `--tracking-title`, `--tracking-display` |
+| Illustration | `--il-stroke`, `--il-stroke-2` |
+| Height | `--elev-carved`, `--elev-carved-fine`, `--elev-seated`, `--elev-raised`, `-high`, `-pressed`, and the same for `-accent`, `-fail` and `-chosen` |
+| Veil | `--backdrop` |
+| Type | `--font-sans`, `--font-display`, `--font-mono`, `--fs-12` ... `--fs-32`, `--lh-12` ... `--lh-32`, `--stretch-title` 90%, `--stretch-display` 78%, `--tracking-title`, `--tracking-display` |
 | Measure | `--measure` 68ch, `--measure-help` 52ch |
 | Space | `--space` 0.25rem |
-| Radius | `--radius-chip` 4px, `--radius-control` 6px, `--radius-card` 10px, `--radius-pill` 999px |
-| Controls | `--control-sm` 1.75rem, `--control-md` 2rem, `--control-lg` 2.5rem (2.25 / 2.5 / 2.75rem with a coarse pointer) |
+| Radius | `--radius-chip` 6px, `--radius-control` 9px, `--radius-card` 14px, `--radius-wall` 22px, `--radius-pill` 999px |
+| Controls | `--control-sm` 2rem, `--control-md` 2.25rem, `--control-lg` 2.75rem (2.5 / 2.75 / 3rem with a coarse pointer) |
 | Icons | `--icon-xs` 0.75rem, `--icon-sm` 0.875rem, `--icon-md` 1rem, `--icon-lg` 1.25rem, `--icon-xl` 1.5rem |
 | Layers | `--z-sticky` 30, `--z-backdrop` 40, `--z-overlay` 50, `--z-toast` 60, `--z-skip` 70 |
 | Widths | `--width-page`, `--width-wizard`, `--width-settings-nav`, `--width-settings`, `--width-auth`, `--width-dialog-sm/md/lg/xl`, `--width-drawer-md/lg`, `--width-search`, `--height-editor` |
-| Motion | `--duration-fast` 120ms, `--duration-base` 180ms, `--ease-out` |
+| Motion | `--duration-press` 100ms, `--duration-fast` 140ms, `--duration-move` 200ms, `--duration-enter` 240ms, `--duration-large` 360ms; `--ease-enter`, `--ease-exit`, `--ease-standard` (and `--ease-out` for the loops) |
