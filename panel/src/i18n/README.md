@@ -83,6 +83,25 @@ is as synchronous for whoever writes a test as it ever was. To test in Spanish:
 just arrived sees, `goCold()` from `test/coldCatalog` leaves English with its chrome alone and records every
 `t()` that finds its namespace missing; `drawnKeys()` finds message keys on screen.
 
+## The server's own sentences
+
+A sentence the server says for a person to read (a refusal, what a tunnel lacks, a line of the installation
+check, why the terminal on the server is off) arrives with a **code** and the **values** to put in it
+(`coded` in the API, [docs/api.md](../../../docs/api.md#sentences-with-a-code)), beside its English text. The
+console says it in its own language with `ServerText` (`components/ui/ServerText.tsx`): it looks up
+`serverText.<code>.text` (and `.hint`, the fix, when the sentence has one), puts the values in, and sets a
+**command** (a value named `command` or ending in `_command`) as it is, in mono. A code this console has no
+entry for, or one whose values did not all arrive, shows the English the server sent, so a server newer than the
+console still says something true. Never paraphrase a sentence with a key of your own: the words live once, in
+`src/noust/core/server_text.py`, and the console's `serverText` namespace is its translation.
+
+Adding a sentence is done on the server: add it to `CATALOG`, run `python scripts/generate_server_text.py`
+(it writes `src/api/serverTextCodes.gen.ts`, the codes and the values each takes), and then add it to `en/serverText.ts`
+and `es/serverText.ts` with the same placeholders. `serverText.test.ts` fails until both languages have it, and for a
+text that puts in other values than the server sends. The sentence is `code` split on the dots, as a tree
+(`tunnels.store_sealed` is `serverText.tunnels.store_sealed.text`), because a nested catalog cannot hold a text and a
+branch under one key.
+
 ## Shared words
 
 A word the glossary names is one key, read from `common` by every screen (DESIGN 7, TX-4): `common.words.*` holds the

@@ -121,6 +121,14 @@ def test_a_code_is_dotted_lowercase_words_because_it_is_a_catalog_key_in_the_con
         ), code
 
 
+def test_a_code_fits_a_tree_because_the_consoles_catalog_is_one() -> None:
+    sentences = [code for code in CATALOG if not code.endswith(HINT_SUFFIX)]
+    # A sentence is `<code>.text` and `<code>.hint` there: a part of that name would hide one, and
+    # a code that is the beginning of another would be a text and a branch under one key.
+    assert [c for c in sentences if {"text", "hint"} & set(c.split("."))] == []
+    assert [c for c in sentences if any(o.startswith(c + ".") for o in sentences)] == []
+
+
 def test_no_sentence_is_empty_and_none_has_a_stray_brace() -> None:
     for code, template in CATALOG.items():
         assert template.strip(), code

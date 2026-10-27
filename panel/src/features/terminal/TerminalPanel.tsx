@@ -17,6 +17,7 @@ import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Popover } from "../../components/ui/Popover";
 import { Select } from "../../components/ui/Select";
+import { ServerText } from "../../components/ui/ServerText";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
@@ -33,9 +34,8 @@ import { clock, endedSentence, secondsUntil } from "./words";
 import type { ReactNode } from "react";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
-/** The commands the server's own refusal names, for a server old enough not to send its own. */
-export const SERVER_ENABLE_COMMAND = "noust config set terminal.server.enabled true";
-export const TERMINALS_ENABLE_COMMAND = "noust config set terminal.enabled true";
+/** The command that turns terminals on, which the status has no sentence for (it only says they are off). */
+const TERMINALS_ENABLE_COMMAND = "noust config set terminal.enabled true";
 
 const PHASE_STATUS: Record<Phase, Status> = {
   idle: "unknown",
@@ -114,21 +114,19 @@ function Notices({ state, t }: { state: SessionState; t: T }) {
 /** Why there is no terminal here, when the server has them off. */
 function Off({ target, status, t }: { target: TerminalTarget; status: TerminalStatus; t: T }) {
   if (target.kind === "server") {
-    const { code, command, forced_by: frameworks = [] } = status.server;
-    // What blocks it is the server's to say, with the command verbatim: the console only translates the sentence.
-    const sentence =
-      code === "server_shell_control"
-        ? `${t("terminal.off.control")} ${t("terminal.off.allow")}`
-        : code === "server_shell_framework"
-          ? `${t("terminal.off.framework", { frameworks: frameworks.join(", ") })} ${t("terminal.off.force")}`
-          : `${t("terminal.off.description")} ${t("terminal.off.enable")}`;
+    const { coded, reason, how } = status.server;
+    // What blocks it, and the command that changes it, are the server's to say: the console only
+    // puts the sentence in its language (a server that sent no code is shown as it spoke).
     return (
       <EmptyState
         variant="firstUse"
         icon={<OBJECT_ICONS.terminal />}
         title={t("terminal.off.title")}
-        description={sentence}
-        command={command ?? SERVER_ENABLE_COMMAND}
+        description={
+          <>
+            <ServerText coded={coded} text={reason} /> <ServerText coded={coded} text={how} part="hint" />
+          </>
+        }
       />
     );
   }

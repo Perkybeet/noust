@@ -109,6 +109,22 @@ describe("the namespaces of a route", () => {
     expect(found["/other"]).toEqual(["beta", "delta", "epsilon"]);
   });
 
+  it("count the sentences of the server for a page that reaches the piece that says them", () => {
+    const root = tree({
+      "routes/page.tsx": route("/page", 'import { Off } from "../features/Off";'),
+      "routes/plain.tsx": route("/plain", 'import { Plain } from "../features/Plain";'),
+      "features/Off.tsx": 'import { ServerText } from "../components/ui/ServerText";\nexport const Off = () => ServerText;\n',
+      "features/Plain.tsx": 'import { Mono } from "../components/ui/Mono";\nexport const Plain = () => Mono;\n',
+      // Its key is built from the code the server sends, so no literal names the namespace.
+      "components/ui/ServerText.tsx": "export const ServerText = (code: string) => `serverText.${code}.text`;\n",
+      "components/ui/Mono.tsx": 'export const Mono = () => "alpha.never";\n',
+      "i18n/en/serverText.ts": "export const serverText = {} as const;\n",
+    });
+    const found = routeNamespaces(root);
+    expect(found["/page"]).toEqual(["serverText"]);
+    expect(found["/plain"]).toEqual([]);
+  });
+
   it("ignore a word that only looks like a key, and a namespace that does not exist", () => {
     const root = tree({
       "routes/page.tsx": route("/page", 'import { Page } from "../features/Page";'),
