@@ -385,8 +385,10 @@ class NoustCommand(click.Command):
     turned a framework off with its input closed. So a command that changes something and has a
     flag that spares its question (:func:`consent_options`) is refused under ``--json`` without
     that flag, before its body runs (:meth:`consent_missing`); ``--dry-run`` is the way to look. A
-    command that holds the gate itself, by printing its plan and changing nothing without the flag,
-    declares ``gates_json=True``, and ``tests/test_cli_json_consent.py`` proves each one.
+    command that holds the gate itself declares ``gates_json=True``: it prints its plan and changes
+    nothing without the flag (``compliance``, ``app migrate``), or it asks whatever is to be asked
+    whether or not ``--json`` was given and declines when nobody answers (``fleet authorize``, which
+    the guided enrollment runs with ``--json``). ``tests/test_cli_json_consent.py`` proves each one.
     """
 
     #: Whether ``--dry-run`` leaves what this command changes untouched. It does for everything
