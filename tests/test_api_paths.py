@@ -157,3 +157,30 @@ class TestAnUploadIsNamedByItsIdentifierOnly:
 
         with pytest.raises(SourceError):
             SourceUploads._sidecar(object(), "../x")  # type: ignore[arg-type]
+
+
+class TestAnInstanceIsNamedByItsNameOnly:
+    """Every path of a database instance is built from its name in ``instance_layout.directory``."""
+
+    @pytest.mark.parametrize("name", ["..", "../x", "a/b", "A", "x\n", "", "-x", "x" * 80])
+    def test_the_directory_of_something_that_is_not_an_instance_is_not_named(
+        self, name: str
+    ) -> None:
+        from noust.managers.database import instance_layout
+
+        for builder in (
+            instance_layout.directory,
+            instance_layout.compose_path,
+            instance_layout.env_path,
+            instance_layout.config_path,
+            instance_layout.tls_directory,
+            instance_layout.init_directory,
+        ):
+            with pytest.raises(ValidationError):
+                builder(name)
+
+    def test_the_directory_of_an_instance_is_under_the_instances(self) -> None:
+        from noust.managers.database import instance_layout
+
+        assert instance_layout.directory("pg16") == instance_layout.instances_dir() / "pg16"
+        assert instance_layout.compose_path("pg16").parent == instance_layout.directory("pg16")
