@@ -698,6 +698,30 @@ class TestTheNamesOfObjects:
 
 
 # ---------------------------------------------------------------------------
+# The group an operator names for an application's new account
+# ---------------------------------------------------------------------------
+
+
+class TestTheGroupOfANewAccount:
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_group_name_reaches_usermod_as_one_inert_argument(self, value: str) -> None:
+        accepted, result = verdict(names.validate_group_name, value)
+
+        if accepted:
+            assert result == value and 1 <= len(result) <= 32
+            assert re.fullmatch(r"[a-z_][a-z0-9_-]*", result), repr(result)
+            assert not result.startswith("-") and not CONTROL.search(result)
+
+    @pytest.mark.parametrize("payload", PAYLOADS)
+    def test_every_payload_that_beat_a_validator_elsewhere_is_refused(self, payload: str) -> None:
+        if payload and re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", payload):
+            return
+        accepted, _ = verdict(names.validate_group_name, payload)
+        assert not accepted, repr(payload)
+
+
+# ---------------------------------------------------------------------------
 # Replicas: the name, the host and the join code a person pastes
 # ---------------------------------------------------------------------------
 

@@ -51,6 +51,19 @@ class IdentityResponse(BaseModel):
     )
 
 
+class IdentityMigrateRequest(BaseModel):
+    """
+    How to move an application to its own account, when the defaults do not fit.
+
+    Attributes:
+        shared_group: A group the new account joins, so it can write the folders outside the
+            application's own that the group can write (an upload directory the web server
+            serves). Left out, an application that writes there is refused.
+    """
+
+    shared_group: str | None = Field(default=None, max_length=32)
+
+
 def _known(domain: str) -> str:
     """
     Validate a domain and refuse one nothing is deployed at.
@@ -91,7 +104,10 @@ def get_identity(
 
 
 def identity_migrate_job(
-    domain: str, actor: str, job_context: JobContext | None = None
+    domain: str,
+    actor: str,
+    job_context: JobContext | None = None,
+    shared_group: str | None = None,
 ) -> dict[str, Any]:
     """
     Move an application to its own account, as a background job.
@@ -100,6 +116,7 @@ def identity_migrate_job(
         domain: Domain of the application.
         actor: Who asked, for the audit trail.
         job_context: Injected by the job manager.
+        shared_group: A group the new account joins.
 
     Returns:
         The account, the one it ran as, and the units or pool rewritten.
@@ -115,7 +132,7 @@ def identity_migrate_job(
         job_context.set_metadata("domain", domain)
         job_context.update("Moving the application to its own account", 10)
         logger.attach_sink(job_context.log)
-    done = app_identity.migrate(domain, actor=actor, logger=logger)
+    done = app_identity.migrate(domain, actor=actor, logger=logger, shared_group=shared_group)
     if job_context is not None:
         job_context.update("Done", 100)
     return done.to_dict()
@@ -123,17 +140,24 @@ def identity_migrate_job(
 
 @router.post("/{domain}/identity/migrate", response_model=JobAcceptedResponse, status_code=202)
 def post_identity_migrate(
-    domain: str, session: Annotated[dict, Depends(require_elevated)]
+    domain: str,
+    session: Annotated[dict, Depends(require_elevated)],
+    body: IdentityMigrateRequest | None = None,
 ) -> JobAcceptedResponse:
     """
     Queue the move of an application to its own system account.
 
     It is restarted behind its health gate; when it does not answer, the
     files' owners, its unit or pool and the records are put back exactly.
+    Before anything is queued, the paths its ``.env`` and its unit name are
+    read: one that writes outside its own folder, where only the shared
+    account can, is refused (400) naming the folders, unless ``shared_group``
+    names a group that can write them.
 
     Args:
         domain: Domain of the application.
         session: The authenticated, elevated session.
+        body: Optionally the group the new account joins.
 
     Returns:
         The queued job.
@@ -145,15 +169,16 @@ def post_identity_migrate(
     """
     validated = _known(domain)
     app = scoped_store().get_app(validated)
+    shared_group = body.shared_group if body is not None else None
     if app is not None:
-        app_identity.refuse_migration(app)
+        app_identity.refuse_migration(app, shared_group=shared_group)
     actor = actor_label(session)
     job = get_job_manager().create_job(
         job_type=JobType.IDENTITY_MIGRATE,
         name=f"Own account for {validated}",
         description=f"Moving {validated} to its own system account",
         func=identity_migrate_job,
-        kwargs={"domain": validated, "actor": actor},
+        kwargs={"domain": validated, "actor": actor, "shared_group": shared_group},
         metadata={"domain": validated},
         actor=actor,
     )

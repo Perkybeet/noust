@@ -60,6 +60,10 @@ DATABASE_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 FILENAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
+#: A Unix group as ``groupadd`` accepts it on every distribution Noust installs on: it reaches
+#: ``usermod -aG`` and a unit's ``Group=``, so nothing else gets through.
+GROUP_NAME_PATTERN = re.compile(r"[a-z_][a-z0-9_-]{0,31}")
+
 #: Names that are not files even when they look like one. ``.`` and ``..`` are
 #: the traversal primitives; the rest are DOS device names that some tooling and
 #: some filesystems still treat specially.
@@ -268,6 +272,34 @@ def validate_filename(name: str) -> str:
         )
 
     return validated
+
+
+def validate_group_name(name: str) -> str:
+    """
+    Validate the name of a Unix group an operator names.
+
+    It becomes an argument of ``usermod -aG``, so it cannot start with a dash, carry a
+    separator or a control character, or be longer than the 32 characters a group name has.
+
+    Args:
+        name: Candidate group name.
+
+    Returns:
+        The validated name.
+
+    Raises:
+        ValidationError: When the name is not a safe group name.
+    """
+    if not isinstance(name, str) or GROUP_NAME_PATTERN.fullmatch(name) is None:
+        raise ValidationError(
+            f"Invalid group name: {name!r}",
+            details=(
+                "A group is named with lower-case letters, digits, '-' and '_', starting with a "
+                "letter or '_', at most 32 characters: uploads, www-data."
+            ),
+            field="shared_group",
+        )
+    return name
 
 
 def resolve_within(base: Path, candidate: str) -> Path:
