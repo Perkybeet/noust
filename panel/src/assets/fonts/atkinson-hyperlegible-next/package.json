@@ -1,0 +1,11 @@
+{
+  "name": "@fontsource-variable/atkinson-hyperlegible-next",
+  "version": "5.3.0",
+  "description": "Atkinson Hyperlegible Next, the variable woff2 files of this package (latin, latin-ext; weight), copied here so the console serves them itself.",
+  "private": true,
+  "license": "OFL-1.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/googlefonts/atkinson-hyperlegible-next.git"
+  }
+}

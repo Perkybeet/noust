@@ -44,7 +44,8 @@ License: Expat
 
 Files: src/noust/web/static/assets/*.woff2
 Copyright: 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
-           2022 The Mona Sans Project Authors (https://github.com/github/mona-sans), with Reserved Font Name "Mona"
+           2020-2024 The Atkinson Hyperlegible Next Project Authors (https://github.com/googlefonts/atkinson-hyperlegible-next)
+           2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)
 License: OFL-1.1
 
 License: Expat

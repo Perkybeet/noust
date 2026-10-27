@@ -12,11 +12,16 @@ import { LICENSES_FILE, licensesOf } from "./scripts/bundle-licenses.mjs";
 const DEFAULT_BACKEND = "http://127.0.0.1:8080";
 
 /**
- * The font files every page draws with before anything else: the Latin subsets of Mona Sans
- * (the interface) and JetBrains Mono (system values, the hostname in the top bar). Only the
- * Latin ones: the other subsets load when a glyph of theirs is on screen, which is rare.
+ * The font files every page draws with before anything else: the Latin subsets of Atkinson
+ * Hyperlegible Next (the interface), Bricolage Grotesque (the titles) and JetBrains Mono (system
+ * values, the hostname in the top bar). Only the Latin ones: the other subsets load when a glyph
+ * of theirs is on screen, which is rare.
  */
-const CRITICAL_FONTS = [/\/mona-sans-latin-wdth-normal-[\w-]+\.woff2$/, /\/jetbrains-mono-latin-wght-normal-[\w-]+\.woff2$/];
+const CRITICAL_FONTS = [
+  /\/atkinson-hyperlegible-next-latin-wght-normal-[\w-]+\.woff2$/,
+  /\/bricolage-grotesque-latin-standard-normal-[\w-]+\.woff2$/,
+  /\/jetbrains-mono-latin-wght-normal-[\w-]+\.woff2$/,
+];
 
 /**
  * Preloads the critical fonts from index.html. Without it the browser discovers them only once
@@ -82,6 +87,8 @@ function thirdPartyLicenses(): Plugin {
           // Tailwind and uPlot are bare imports of the entry stylesheet, compiled into the CSS and so not a module of any chunk.
           projectDir: import.meta.dirname,
           stylesheets: ["src/styles/app.css"],
+          // The two typefaces of the interface and the marks of the logos are copied into the tree, each folder with its own package.json and licence.
+          vendored: ["src/assets/fonts/atkinson-hyperlegible-next", "src/assets/fonts/bricolage-grotesque", "src/components/ui/logos"],
         }),
       });
     },

@@ -1,43 +1,160 @@
 /*
- * Fallback faces tuned to the real fonts' metrics, so the text drawn before Mona Sans and
- * JetBrains Mono arrive (font-display: swap) takes the same room they will: the swap changes
- * the glyphs, not the lines, and nothing below them moves.
+ * The console's two own typefaces, and the fallback faces that keep the page still while they
+ * arrive.
  *
- * Each face points at locally installed fonts with the same metrics (Arial, Liberation Sans and
- * Arimo are metric-compatible; so are DejaVu Sans Mono and Menlo), and scales them:
+ * Atkinson Hyperlegible Next (the interface) and Bricolage Grotesque (the titles) are the
+ * variable woff2 files of @fontsource-variable 5.3.0, copied into src/assets/fonts with their SIL
+ * Open Font Licence texts (the build also lists them in third-party-licenses.txt). They are
+ * packaged, never fetched from a CDN, and never inlined (assetsInlineLimit is 0: `font-src
+ * 'self'` blocks a data: font). Each is split by script, and only the subset a glyph on screen
+ * needs is downloaded. JetBrains Mono, for system values, still comes from its npm package
+ * (main.tsx).
  *
- *   size-adjust     = average advance of the real font / the fallback's, over a sample of the
- *                     console's own English copy and digits
+ * Fallback faces: text drawn before the fonts arrive (font-display: swap) takes the same room
+ * they will, so the swap changes the glyphs, not the lines, and nothing below them moves. Each
+ * face points at locally installed fonts and scales them:
+ *
+ *   size-adjust     = average advance of the real font / the fallback's, over the console's own
+ *                     English copy (every string of src/i18n/en, 444,851 characters) and digits
  *   ascent-override = the real font's ascender / its units per em / size-adjust (descent alike)
- *   line-gap        = 0, as in both real fonts
+ *   line-gap        = 0, as in every font here
  *
- * Numbers measured with fontTools from the woff2 files @fontsource-variable ships (Mona Sans at
- * wght 400, wdth 100: advance 0.4553 em, ascender 1090 and descender 320 of 1000, USE_TYPO_METRICS
- * set with typo = hhea; JetBrains Mono: advance 0.6 em, 1020 and 300 of 1000) and from Arial
- * (0.4390 em), DejaVu Sans (0.5008 em), Consolas (0.5498 em), DejaVu Sans Mono (0.6021 em) and
- * Courier New / Liberation Mono (0.6001 em). Re-measure when a font package is updated.
+ * Measured with fontTools 4.67 on the woff2 files above (Atkinson at wght 400: advance 0.4378 em,
+ * ascender 984 and descender 316 of 1000, USE_TYPO_METRICS set with typo = hhea; Bricolage
+ * Grotesque at wght 650, wdth 90, opsz 20 for a title and at wght 700, wdth 78, opsz 32 for a
+ * page title: advance 0.4312 em and 0.3733 em, 930 and 270 of 1000) and on Arial (0.4412 em, and
+ * 0.4748 em bold), DejaVu Sans (0.5024 em, bold 0.5674 em), Consolas, DejaVu Sans Mono and
+ * Courier New / Liberation Mono (JetBrains Mono's faces below are measured as before: 0.6 em, 1020
+ * and 300 of 1000). The titles' fallbacks are the bold cut, and come twice, one for the narrow
+ * widths (the page title, 75% to 84%) and one for the rest, because the real face is that much
+ * narrower than a regular face at its narrowest. Re-measure when a font file is replaced.
  */
 
+/* Atkinson Hyperlegible Next */
 @font-face {
-  font-family: "Mona Sans Fallback";
+  font-family: "Atkinson Hyperlegible Next Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("../assets/fonts/atkinson-hyperlegible-next/atkinson-hyperlegible-next-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Next Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("../assets/fonts/atkinson-hyperlegible-next/atkinson-hyperlegible-next-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+/* Bricolage Grotesque: weight, width and optical size */
+@font-face {
+  font-family: "Bricolage Grotesque Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  font-stretch: 75% 100%;
+  src: url("../assets/fonts/bricolage-grotesque/bricolage-grotesque-vietnamese-standard-normal.woff2") format("woff2-variations");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  font-stretch: 75% 100%;
+  src: url("../assets/fonts/bricolage-grotesque/bricolage-grotesque-latin-ext-standard-normal.woff2") format("woff2-variations");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  font-stretch: 75% 100%;
+  src: url("../assets/fonts/bricolage-grotesque/bricolage-grotesque-latin-standard-normal.woff2") format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+/* Fallbacks of Atkinson Hyperlegible Next */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next Fallback";
   src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("Arimo");
   font-weight: 100 900;
-  size-adjust: 103.71%;
-  ascent-override: 105.1%;
-  descent-override: 30.85%;
+  size-adjust: 99.22%;
+  ascent-override: 99.17%;
+  descent-override: 31.85%;
   line-gap-override: 0%;
 }
 
 @font-face {
-  font-family: "Mona Sans Fallback DejaVu";
+  font-family: "Atkinson Hyperlegible Next Fallback DejaVu";
   src: local("DejaVu Sans"), local("DejaVuSans");
   font-weight: 100 900;
-  size-adjust: 90.93%;
-  ascent-override: 119.87%;
-  descent-override: 35.19%;
+  size-adjust: 87.13%;
+  ascent-override: 112.94%;
+  descent-override: 36.27%;
   line-gap-override: 0%;
 }
 
+/* Fallbacks of Bricolage Grotesque: the bold cut, narrow widths first (the page title) */
+@font-face {
+  font-family: "Bricolage Grotesque Fallback";
+  src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"), local("Liberation Sans"), local("Arimo Bold");
+  font-weight: 100 900;
+  font-stretch: 75% 84%;
+  size-adjust: 78.62%;
+  ascent-override: 118.28%;
+  descent-override: 34.34%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque Fallback";
+  src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"), local("Liberation Sans"), local("Arimo Bold");
+  font-weight: 100 900;
+  font-stretch: 85% 100%;
+  size-adjust: 90.82%;
+  ascent-override: 102.4%;
+  descent-override: 29.73%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque Fallback DejaVu";
+  src: local("DejaVu Sans Bold"), local("DejaVuSans-Bold"), local("DejaVu Sans");
+  font-weight: 100 900;
+  font-stretch: 75% 84%;
+  size-adjust: 65.79%;
+  ascent-override: 141.37%;
+  descent-override: 41.04%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque Fallback DejaVu";
+  src: local("DejaVu Sans Bold"), local("DejaVuSans-Bold"), local("DejaVu Sans");
+  font-weight: 100 900;
+  font-stretch: 85% 100%;
+  size-adjust: 75.99%;
+  ascent-override: 122.38%;
+  descent-override: 35.53%;
+  line-gap-override: 0%;
+}
+
+/* Fallbacks of JetBrains Mono (advance 0.6 em; DejaVu Sans Mono 0.6021, Consolas 0.5498, Courier New 0.6001) */
 @font-face {
   font-family: "JetBrains Mono Fallback";
   src: local("DejaVu Sans Mono"), local("DejaVuSansMono"), local("Menlo"), local("Menlo-Regular");

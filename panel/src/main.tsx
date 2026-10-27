@@ -1,4 +1,3 @@
-import "@fontsource-variable/mona-sans/wdth.css";
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import "./styles/app.css";
 
