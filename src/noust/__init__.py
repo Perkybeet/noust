@@ -7,6 +7,14 @@ Noust - deploy and manage web applications on Linux servers.
 
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _installed_version
+from typing import TYPE_CHECKING
+
+from noust.core.lazy_exports import lazy_exports
+
+if TYPE_CHECKING:
+    from noust.core.config import Config
+    from noust.core.exceptions import NoustError
+    from noust.core.logger import Logger
 
 #: Fallback used when running from a source tree that was never installed, such
 #: as an OBS build directory. The single source of truth is the ``version``
@@ -37,9 +45,17 @@ __copyright__ = "Copyright (c) 2024-2026 Yago López Prado"
 #: Where the source of this program is, as the AGPL asks a program that interacts with users to say.
 __source__ = "https://github.com/Perkybeet/noust"
 
-from noust.core.config import Config
-from noust.core.exceptions import NoustError
-from noust.core.logger import Logger
+# What a script has always imported from here keeps working. It is loaded on the first read and
+# not at ``import noust``, which every command line runs: the configuration drags the store, the
+# notifier and the rest of ``noust.core`` behind it (ninety modules) into ``noust --version``.
+__getattr__, __dir__ = lazy_exports(
+    globals(),
+    {
+        "Config": "noust.core.config",
+        "Logger": "noust.core.logger",
+        "NoustError": "noust.core.exceptions",
+    },
+)
 
 __all__ = [
     "Config",

@@ -43,6 +43,7 @@ import click
 
 from noust import __copyright__, __license__, __source__, __version__
 from noust.cli import secret_prompt
+from noust.cli.command_summaries import SUMMARIES
 from noust.core import retired_names
 from noust.core.exceptions import ConfigError, NoustError
 from noust.core.fs import DryRunFileSystem, set_fs
@@ -50,6 +51,8 @@ from noust.core.logger import Colors, Logger, set_colors_disabled
 from noust.core.runner import DryRunRunner, SubprocessRunner, set_runner
 
 if TYPE_CHECKING:
+    from click.shell_completion import CompletionItem
+
     from noust.cli.audit_policy import ReadOnlyWhen
     from noust.client import RemoteSettings
 
@@ -666,6 +669,13 @@ def global_flags(command: _F) -> _F:
     return command
 
 
+#: Set on the context of a group while it lists its commands, see :meth:`LazyGroup._listing`.
+_LISTING = "noust.cli.listing_commands"
+
+#: What a command's line of help is drawn from: ``(hidden, deprecated, short_help, help)``.
+CommandSummary = tuple[bool, bool | str, str, str]
+
+
 class LazyGroup(click.Group):
     """
     A group whose subcommands are imported on use.
@@ -675,18 +685,95 @@ class LazyGroup(click.Group):
     for the entire CLI, including ``noust --version``.
     """
 
-    def __init__(self, *args: Any, lazy: dict[str, str] | None = None, **kwargs: Any):
+    def __init__(
+        self,
+        *args: Any,
+        lazy: dict[str, str] | None = None,
+        summaries: dict[str, CommandSummary] | None = None,
+        **kwargs: Any,
+    ):
         """
         Args:
             *args: Passed to click.Group.
             lazy: Command name to the module that defines it.
+            summaries: Command name to what its line of help is drawn from
+                (:mod:`noust.cli.command_summaries`), so listing the commands does not import them.
             **kwargs: Passed to click.Group.
         """
         super().__init__(*args, **kwargs)
         self._lazy = lazy or {}
+        self._summaries = summaries or {}
 
     def list_commands(self, ctx: click.Context) -> list[str]:
         return sorted({*super().list_commands(ctx), *self._lazy})
+
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        """
+        Draw the list of commands without importing the ones nobody asked for.
+
+        Click's own layout, over the commands the table stands in for.
+
+        Args:
+            ctx: The group's context.
+            formatter: Where the page is written.
+        """
+        with self._listing(ctx):
+            super().format_commands(ctx, formatter)
+
+    def shell_complete(self, ctx: click.Context, incomplete: str) -> list[CompletionItem]:
+        """
+        Offer the commands that start with a word, with their help, without importing them.
+
+        Args:
+            ctx: The group's context.
+            incomplete: What has been typed of the command's name.
+
+        Returns:
+            The completions Click builds for a group.
+        """
+        with self._listing(ctx):
+            return super().shell_complete(ctx, incomplete)
+
+    @contextlib.contextmanager
+    def _listing(self, ctx: click.Context) -> Iterator[None]:
+        """
+        Mark the context as listing commands, which is all that needs their line of help.
+
+        Args:
+            ctx: The group's context.
+
+        Yields:
+            Nothing; :meth:`get_command` answers from the table while the block runs.
+        """
+        ctx.meta[_LISTING] = True
+        try:
+            yield
+        finally:
+            ctx.meta.pop(_LISTING, None)
+
+    def _summary_of(self, name: str) -> click.Command | None:
+        """
+        Build what stands in for a command whose module has not been imported.
+
+        It carries what Click draws a line from and nothing that could run.
+
+        Args:
+            name: The command's name.
+
+        Returns:
+            The stand-in, or None for a name the table does not know (the command is imported).
+        """
+        entry = self._summaries.get(name)
+        if entry is None:
+            return None
+        hidden, deprecated, short_help, help_text = entry
+        options: dict[str, Any] = {
+            "help": help_text or None,
+            "short_help": short_help or None,
+            "hidden": hidden,
+            "deprecated": deprecated,
+        }
+        return click.Command(name, **options)
 
     def get_command(self, ctx: click.Context, name: str) -> click.Command | None:
         resolved = ALIASES.get(name, name)
@@ -701,6 +788,11 @@ class LazyGroup(click.Group):
         module_path = self._lazy.get(resolved)
         if module_path is None:
             return None
+
+        # Listing the commands (the root's page, the completion) wants a line of help for each,
+        # and importing all of them to read it took a second and a half.
+        if ctx.meta.get(_LISTING) and (stand_in := self._summary_of(resolved)) is not None:
+            return stand_in
 
         module = importlib.import_module(module_path)
         command: click.Command | None = getattr(module, "cli", None)
@@ -853,6 +945,7 @@ VERSION_MESSAGE = (
 @click.group(
     cls=LazyGroup,
     lazy={**COMMAND_MODULES, **WEBAPP_COMMANDS},
+    summaries=SUMMARIES,
     context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 100},
     invoke_without_command=True,
 )
@@ -1060,8 +1153,6 @@ def main(argv: list[str] | None = None) -> int:
 
 def entrypoint() -> None:
     """Console script entry point."""
-    from noust.managers.name_migration import run_automatically as run_names_automatically
-
     args = sys.argv[1:]
     # The first line of the files Noust wrote before 3.0, once (name_migration). Only on a
     # server whose data has been moved: where it has not, the command that follows refuses to
@@ -1073,6 +1164,11 @@ def entrypoint() -> None:
         except ConfigError:
             pass
         else:
+            # Imported here and not at the top of the function: it reaches every manager (about
+            # two hundred modules), and a command line that only asks for the version or the
+            # help, or runs on a server whose data is not moved, never gets this far.
+            from noust.managers.name_migration import run_automatically as run_names_automatically
+
             run_names_automatically(args, _announce_names)
 
     checker = None
