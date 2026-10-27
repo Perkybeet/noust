@@ -694,3 +694,12 @@ browser"). Nothing but `catalogs.ts` imports a catalog; a test fails on the next
 
 A system error is never paraphrased. Show nginx's or systemd's own output verbatim in mono,
 with the suggested fix above it.
+
+A console test waits for what it asserts, never for a time. CI failed by turns on tests that
+passed on a fast machine: a read a field's blur had scheduled 80ms ahead started again after a
+Cancel, and two announcements fifty milliseconds apart in one live region left only the second
+drawn. A longer `timeout` on a `findBy` or a `waitFor` hides that race on the next machine, it does
+not remove it. Take the thing the test waits for out of the clock (the announcement is recorded
+with `vi.mock`, a request is counted), prove an absence by counting after the window in which it
+would have happened, and run the test under a loaded CPU before trusting it
+(`taskset -c 0-3` with a few busy loops on the same cores, and `repeats: 40` on the test).
