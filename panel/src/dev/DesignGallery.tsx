@@ -9,6 +9,7 @@ import { Kit } from "./Kit";
 import { Kit32 } from "./Kit32";
 import { Kit40 } from "./Kit40";
 import { PageKit } from "./PageKit";
+import { Stone } from "./Stone";
 import { Patterns } from "./Patterns";
 import { Templates } from "./Templates";
 
@@ -26,6 +27,18 @@ const NAV: { title: string; links: [string, string][] }[] = [
       ["widths", "Widths"],
       ["icons", "Icons"],
       ["elevation", "Elevation and motion"],
+    ],
+  },
+  {
+    title: "Dry stone (4.1)",
+    links: [
+      ["stone-heights", "Three heights"],
+      ["stone-type", "Typefaces"],
+      ["stone-controls", "Controls"],
+      ["stone-surfaces", "Surfaces and data"],
+      ["stone-motion", "The piece that moves"],
+      ["stone-fleet", "The fleet in courses"],
+      ["stone-logos", "Logos and the first time"],
     ],
   },
   {
@@ -149,7 +162,7 @@ export function DesignGallery() {
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
-      <header className="sticky top-0 z-sticky border-b border-border bg-bg/85 backdrop-blur-md">
+      <header className="sticky top-0 z-sticky border-b border-border bg-bg">
         <div className="mx-auto flex h-14 max-w-[1320px] items-center justify-between gap-4 px-6 max-sm:px-4">
           <div className="flex items-center gap-3">
             <Logo variant="wordmark" height={16} />
@@ -185,11 +198,12 @@ export function DesignGallery() {
           <div className="max-w-[62ch] pb-12">
             <h1 className="display text-32 text-fg">A precision instrument for one machine</h1>
             <p className="mt-3 text-16 text-pretty text-fg-muted">
-              The console is dense where the operator works and generous where they decide. Surfaces are achromatic;
-              colour is spent only on state, on what can be acted on, and on a chart&apos;s series. This page is the
-              executable form of docs/DESIGN.md: change the system here first.
+              The console is dense where the operator works and generous where they decide. Surfaces are stone, with
+              three heights under one light from above; colour is spent only on state, on what can be acted on, and on a
+              chart&apos;s series. This page is the executable form of docs/DESIGN.md: change the system here first.
             </p>
           </div>
+          <Stone />
           <Foundations />
           <Templates />
           <Kit />
