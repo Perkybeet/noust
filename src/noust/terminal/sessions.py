@@ -565,9 +565,9 @@ class SessionRegistry:
         """
         settings = self._settings()
         if kind == KIND_SERVER:
-            refusal = settings.server_refusal()
-            if refusal is not None:
-                raise TerminalDisabledError(refusal[0], details=refusal[1])
+            block = settings.server_block()
+            if block is not None:
+                raise TerminalDisabledError(block.what, details=block.how)
         elif not settings.enabled:
             raise TerminalDisabledError(
                 "Terminals are turned off on this server",

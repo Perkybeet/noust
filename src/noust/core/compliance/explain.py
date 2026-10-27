@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from noust.core.compliance import resolve
+from noust.core.compliance import controls, resolve
 
 #: Where the console shows the controls.
 CONSOLE_PLACE = "Settings > Controls"
@@ -82,6 +82,39 @@ class WhyOn:
         }
 
 
+def reason_suffix(config: Any | None = None) -> str:
+    """
+    Say what a command that changes something must end with on this server.
+
+    A server that asks for a reason for every change (``change_reasons``, which ENS and the other
+    frameworks turn on) refuses a command without one, so a command printed for a person to run has
+    to carry the placeholder or it fails as printed.
+
+    Args:
+        config: The configuration; the process-wide one by default.
+
+    Returns:
+        `` --reason "<why>"``, or nothing when this server does not ask.
+    """
+    return ' --reason "<why>"' if resolve.is_on("change_reasons", config) else ""
+
+
+def _loosest(control: controls.Control) -> str:
+    """
+    Args:
+        control: A control.
+
+    Returns:
+        The word that sets it to what asks for nothing: ``off`` for a flag, its first choice
+        (``allowed``) for a choice, ``none`` for a limit.
+    """
+    if control.kind == controls.KIND_FLAG:
+        return "off"
+    if control.kind == controls.KIND_CHOICE:
+        return control.choices[0]
+    return "none"
+
+
 def why_on(control_id: str, config: Any | None = None) -> WhyOn:
     """
     Explain a control that is on.
@@ -99,7 +132,6 @@ def why_on(control_id: str, config: Any | None = None) -> WhyOn:
     if forced:
         command = f"noust compliance disable {' '.join(forced)}"
     else:
-        command = f"noust compliance set {control_id} off"
-    if resolve.is_on("change_reasons", config):
-        command += ' --reason "<why>"'
+        command = f"noust compliance set {control_id} {_loosest(found.control)}"
+    command += reason_suffix(config)
     return WhyOn(control_id, found.on, forced, command, key=found.control.key)

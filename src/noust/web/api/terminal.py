@@ -158,6 +158,17 @@ class ServerShellModel(BaseModel):
     enabled: bool = Field(description="terminal.server.enabled")
     reason: str | None = Field(default=None, description="Why it may not be opened")
     how: str | None = Field(default=None, description="What to change, verbatim")
+    code: str | None = Field(
+        default=None,
+        description="What blocks it, for the console to translate: server_shell_off (the switch), "
+        "server_shell_control (the control server_terminal set to refused by the operator) or "
+        "server_shell_framework (a framework holds that control)",
+    )
+    command: str | None = Field(default=None, description="The command that changes it, verbatim")
+    control: str | None = Field(default=None, description="The compliance control that blocks it")
+    forced_by: list[str] = Field(
+        default_factory=list, description="The frameworks that hold that control"
+    )
 
 
 class TerminalStatusResponse(BaseModel):
@@ -583,14 +594,18 @@ def terminal_status(
         The switches and the limits.
     """
     settings = load_settings()
-    refusal = settings.server_refusal()
+    block = settings.server_block()
     return TerminalStatusResponse(
         enabled=settings.enabled,
         server=ServerShellModel(
-            allowed=refusal is None,
+            allowed=block is None,
             enabled=settings.server_enabled,
-            reason=refusal[0] if refusal else None,
-            how=refusal[1] if refusal else None,
+            reason=block.what if block else None,
+            how=block.how if block else None,
+            code=block.code if block else None,
+            command=block.command if block else None,
+            control=block.control if block else None,
+            forced_by=list(block.forced_by) if block else [],
         ),
         idle_seconds=settings.idle_seconds,
         max_seconds=settings.max_seconds,

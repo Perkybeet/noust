@@ -304,7 +304,7 @@ class TestTheServersShell:
         knobs.set(server_enabled=True, ens=True)
         refused = world.client.post("/api/server/terminal", json={}, headers=world.as_("admin"))
         assert refused.status_code == 403
-        assert "compliance controls" in refused.json()["detail"]
+        assert "server_terminal" in refused.json()["detail"]
 
         knobs.set(server_forced=True)
         allowed = world.client.post("/api/server/terminal", json={}, headers=world.as_("admin"))
