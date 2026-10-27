@@ -33,7 +33,7 @@ import click
 import pytest
 
 import noust
-from noust.cli.app import cli
+from noust.cli.app import DEPLOY_VERBS, cli, deploy_verbs, documented_commands
 from noust.core.accounts import AuthPolicy
 from noust.web.api.openapi import api_routes
 from noust.web.auth import SecurityConfig
@@ -149,7 +149,16 @@ def resolve_command(text: str) -> str | None:
     context = click.Context(cli)
     accepted = long_options(cli)
     path = ["noust"]
-    for raw in words[1:]:
+    reading = words[1:]
+    if reading[:1] == ["deploy"] and reading[1:2] and reading[1].strip(PUNCTUATION) in DEPLOY_VERBS:
+        # Where the root itself hands a verb to its group (LazyGroup.resolve_command); without
+        # this `deploy` is `create` and the verb is read as one of its arguments.
+        current = deploy_verbs()
+        context = click.Context(current, parent=context)
+        accepted |= long_options(current)
+        path.append("deploy")
+        reading = reading[1:]
+    for raw in reading:
         if raw.startswith("(") or raw in ("-", "--"):
             return None  # the sentence moved on: a parenthesis, a bullet
         word = raw.strip(PUNCTUATION)
@@ -184,7 +193,9 @@ def commands_in(texts: Iterable[tuple[str, int, str]]) -> Iterator[tuple[str, in
     Yields:
         Where it is and the command, up to the next one in the same text.
     """
-    commands = set(cli.list_commands(click.Context(cli)))
+    # documented_commands, not list_commands: the root lists no `deploy`, and a sentence that
+    # tells the reader to run `noust deploy cancel` is one this has to read.
+    commands = {name for name, _command in documented_commands(cli, click.Context(cli))}
     for name, line, text in texts:
         starts = [match.start() for match in COMMAND_START.finditer(text)]
         for index, start in enumerate(starts):
@@ -222,6 +233,41 @@ def test_every_command_a_message_names_exists() -> None:
         "These messages tell the reader to run a command that does not exist. Point them at "
         "the real one (or add the command), because nothing else would notice:\n" + "\n".join(dead)
     )
+
+
+class TestTheVerbsOfDeploy:
+    """
+    ``noust deploy VERB`` is read through the group that runs it.
+
+    The root lists no ``deploy`` and hands the verbs to their own group by itself, so a walk with
+    ``get_command`` saw ``deploy`` as ``create``, read ``queue`` as one of its arguments and held
+    the rest of the sentence to nothing: a hint to ``noust deploy queue --bogus`` passed.
+    """
+
+    def test_a_verb_is_read_as_a_command_of_its_group(self) -> None:
+        assert resolve_command("noust deploy queue shop.example.com") is None
+        assert resolve_command("noust deploy schedule set shop.example.com --at hourly") is None
+
+    def test_an_option_the_verb_does_not_have_is_dead(self) -> None:
+        problem = resolve_command("noust deploy queue --bogus")
+        assert problem is not None
+        assert "'noust deploy queue' has no option --bogus" == problem
+
+    def test_a_verb_under_a_group_of_verbs_is_held_too(self) -> None:
+        problem = resolve_command("noust deploy schedule nonsense")
+        assert problem is not None
+        assert "has no command nonsense" in problem
+
+    def test_deploy_as_create_is_still_create(self) -> None:
+        """``noust deploy -d shop.example.com`` is the old spelling of ``noust create``."""
+        assert resolve_command("noust deploy -d shop.example.com --type node") is None
+        problem = resolve_command("noust deploy --bogus")
+        assert problem is not None
+        assert "has no option --bogus" in problem
+
+    def test_a_sentence_that_starts_with_deploy_is_read(self) -> None:
+        found = [hint for _n, _l, hint in commands_in([("x", 1, "Follow it: noust deploy queue")])]
+        assert found == ["noust deploy queue"]
 
 
 def catalog_lines() -> Iterator[tuple[str, int, str]]:
