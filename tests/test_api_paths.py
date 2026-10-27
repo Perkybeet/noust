@@ -129,3 +129,31 @@ class TestTheRemoteClient:
             client.get("/api/v1/applications")
 
         assert opener.urls == ["https://coolify.example.com/api/v1/applications"]
+
+
+class TestAnUploadIsNamedByItsIdentifierOnly:
+    """The directory and the sidecar of an upload are built from the id, so the id is what is judged."""
+
+    @pytest.mark.parametrize(
+        "upload_id",
+        ["..", "../etc", "a" * 31, "a" * 33, "A" * 32, ("a" * 32) + "\n", "x/" + "a" * 30, ""],
+    )
+    def test_the_tree_of_something_that_is_not_an_upload_is_not_named(self, upload_id: str) -> None:
+        from noust.core.exceptions import SourceError
+        from noust.validators.source import upload_tree
+
+        with pytest.raises(SourceError):
+            upload_tree(upload_id)
+
+    def test_the_tree_of_an_upload_is_under_the_uploads_directory(self) -> None:
+        from noust.core import paths
+        from noust.validators.source import upload_tree
+
+        assert upload_tree("0123456789abcdef" * 2) == paths.uploads_dir() / ("0123456789abcdef" * 2)
+
+    def test_the_sidecar_of_something_that_is_not_an_upload_is_not_named(self) -> None:
+        from noust.core.exceptions import SourceError
+        from noust.managers.source_uploads import SourceUploads
+
+        with pytest.raises(SourceError):
+            SourceUploads._sidecar(object(), "../x")  # type: ignore[arg-type]

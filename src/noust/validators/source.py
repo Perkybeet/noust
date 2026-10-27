@@ -347,8 +347,12 @@ def upload_tree(upload_id: str) -> Path:
 
     Returns:
         The directory, which may not exist.
+
+    Raises:
+        SourceError: It is not an identifier Noust issues; the path is built from it, so it is
+            judged here and not only by the callers that remember to.
     """
-    return paths.uploads_dir() / upload_id
+    return paths.uploads_dir() / check_upload_id(upload_id)
 
 
 def is_upload_tree(path: str | os.PathLike[str]) -> bool:

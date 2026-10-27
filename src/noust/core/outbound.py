@@ -98,11 +98,15 @@ NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
 ALLOW_SETTING = "security.allow_private_hosts"
 
 
-#: What a path sent to a platform's API is made of: printable ASCII, nothing that is whitespace
-#: or a control character (a header or a second request line in the making), no backslash (some
-#: servers read it as a slash) and no ``#``. A name that is not ASCII reaches the path already
-#: percent-encoded, by :func:`path_segment`.
-_NOT_IN_A_PATH = re.compile(r"[^\x21-\x7e]|[\\#]")
+#: What a path sent to a platform's API is made of: printable ASCII after the first ``/``,
+#: nothing that is whitespace or a control character (a header or a second request line in the
+#: making), no backslash (some servers read it as a slash) and no ``#``. A name that is not ASCII
+#: reaches the path already percent-encoded, by :func:`path_segment`. Written as what is allowed,
+#: and applied with ``fullmatch``, so that what a scanner reads is a restriction of the value.
+_PLAIN_PATH = re.compile(r"/[\x21-\x22\x24-\x5b\x5d-\x7e]*")
+
+#: What :func:`urllib.parse.quote` leaves in a segment it was given with ``safe=""``.
+_ENCODED_SEGMENT = re.compile(r"[A-Za-z0-9_.~%-]+")
 
 #: What no single name holds, whatever is done with it afterwards.
 _CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
@@ -322,14 +326,12 @@ def api_path(path: str) -> str:
     Raises:
         UnsafePath: It does not start with a single ``/`` (a second one makes
             the rest a host), holds whitespace, a control character, a
-            backslash or ``#`` (or is not printable ASCII), or has a segment that is ``.`` or ``..``
-            (written out or percent-encoded), which would reach another
-            endpoint of the same host.
+            backslash or ``#`` (or is not printable ASCII), or has a segment
+            that is ``.`` or ``..`` (written out or percent-encoded), which
+            would reach another endpoint of the same host.
     """
-    if not path.startswith("/") or path.startswith("//"):
-        raise UnsafePath(f"Not a path on the platform's own host: {path!r}")
-    if _NOT_IN_A_PATH.search(path):
-        raise UnsafePath(f"A path holds a character no path may hold: {path!r}")
+    if not _PLAIN_PATH.fullmatch(path) or path.startswith("//"):
+        raise UnsafePath(f"Not a plain path on the platform's own host: {path!r}")
     for segment in path.split("?", 1)[0].split("/"):
         if unquote(segment) in (".", ".."):
             raise UnsafePath(f"A path may not move up or stay in place: {path!r}")
@@ -351,6 +353,9 @@ def path_segment(value: str | int) -> str:
         UnsafePath: It is empty, ``.``, ``..`` or holds a control character.
     """
     text = str(value)
-    if text in ("", ".", "..") or _CONTROL.search(text):
+    if _CONTROL.search(text):
         raise UnsafePath(f"Not a name that can be one part of a path: {text!r}")
-    return quote(text, safe="")
+    segment = quote(text, safe="")
+    if not _ENCODED_SEGMENT.fullmatch(segment) or segment in (".", ".."):
+        raise UnsafePath(f"Not a name that can be one part of a path: {text!r}")
+    return segment
