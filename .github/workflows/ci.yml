@@ -92,11 +92,11 @@ jobs:
     env:
       # The suite is forty-two thousand tests. One job ran them all in half an hour on a good run and
       # over an hour on a bad one, and the runner that carried Python 3.14 with coverage was lost
-      # before it finished, again and again, with no test failing. Measured on a sixth of the suite
-      # with three workers: 3.8 GiB on Python 3.14 and 7.2 GiB with coverage, growing with every test
-      # a worker has run, so the whole suite on four workers would ask for several times the 16 GiB of
-      # a runner. The suite is cut into six slices by whole test files (tests/sharding.py), one
-      # machine each; tests/test_ci_shards.py holds the 6 here to the matrix below.
+      # before it finished, again and again, with no test failing: memory. A sixth of the suite on
+      # three workers holds 3.8 to 5.2 GiB on Python 3.14 and up to 12.2 GiB with coverage's default
+      # core (see the step below), and the whole suite would ask for several times the 16 GiB of a
+      # runner. So it is cut into six slices by whole test files (tests/sharding.py), one machine
+      # each; tests/test_ci_shards.py holds the 6 here to the matrix below.
       NOUST_TEST_SHARD: ${{ matrix.shard }}/6
     strategy:
       fail-fast: false
@@ -132,8 +132,14 @@ jobs:
         if: matrix.python-version != '3.14'
         run: pytest -n logical
 
+      # On Python 3.14 coverage measures through sys.monitoring by default, and on the slice of the
+      # suite with the most console tests (6,969 tests, three workers) that held 12.2 GiB, where the
+      # C tracer held 7.5 GiB and the same slice with no coverage holds 5.2 GiB. A runner has 16 GiB
+      # and four workers.
       - name: Run tests with coverage
         if: matrix.python-version == '3.14'
+        env:
+          COVERAGE_CORE: ctrace
         run: pytest -n logical --cov=noust --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage
