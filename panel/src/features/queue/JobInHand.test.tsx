@@ -1,12 +1,22 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { announce } from "../../app/Announcer";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { FakeEventSource, fakeBackend, json, problem } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { TAB_DOMAIN, appRoutes, screenWidth } from "../app/testRoutes";
+
+// The announcements are recorded as they are made. Read from the live region they are a race: the
+// page announces its own state ("Updating") some fifty milliseconds after the notice, each is set
+// a hundred after it was asked for, and a loaded machine runs both timers in one turn, so only the
+// second is ever drawn.
+vi.mock("../../app/Announcer", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../app/Announcer")>();
+  return { ...original, announce: vi.fn(original.announce) };
+});
 
 function job(extra: Record<string, unknown> = {}) {
   return {
@@ -164,14 +174,11 @@ describe("a request for an update that is already waiting", () => {
     await waitFor(() => {
       expect(backend.callsTo("POST /api/jobs/update")).toHaveLength(1);
     });
-    // The notice follows the request's answer and the queue's refetch: a slow runner takes more than findBy's one second.
-    expect(
-      await screen.findByText(
+    await waitFor(() => {
+      expect(announce).toHaveBeenCalledWith(
         `${TAB_DOMAIN} was already waiting for an update. This request joined it: one update builds the branch as it is when its turn comes, so nothing is lost and nothing builds twice.`,
-        {},
-        { timeout: 5_000 },
-      ),
-    ).toBeInTheDocument();
+      );
+    });
   });
 });
 

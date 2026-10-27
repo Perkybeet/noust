@@ -345,10 +345,12 @@ describe("the new-app wizard", () => {
   it("says honestly what it is doing while it inspects, and Cancel stops the request", async () => {
     const { harness } = wizard();
     let aborted = false;
+    let reads = 0;
     const inner = globalThis.fetch;
     vi.stubGlobal("fetch", (input: RequestInfo | URL, init: RequestInit = {}) => {
       const href = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       if (!href.endsWith("/api/apps/inspect")) return inner(input, init);
+      reads += 1;
       // Answers nothing until the console gives up on it, as a slow clone would.
       return new Promise<Response>((_, reject) => {
         init.signal?.addEventListener("abort", () => {
@@ -373,12 +375,17 @@ describe("the new-app wizard", () => {
     expect(screen.getByRole("button", { name: "Continue" })).toHaveAttribute("aria-busy", "true");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(aborted).toBe(true);
-    await waitFor(
-      () => {
-        expect(screen.queryByText("Loading the repository…")).not.toBeInTheDocument();
-      },
-      { timeout: 4_000 },
-    );
+    await waitFor(() => {
+      expect(screen.queryByText("Loading the repository…")).not.toBeInTheDocument();
+    });
+    // Pressing Continue blurred the field, which schedules a read 80ms ahead; the press and the
+    // Cancel both took that read back. Left to fire, it began a second one after the Cancel, and
+    // whether it did depended on how fast the test got from the press to the Cancel (a flake in one
+    // run of fifty). Said by waiting past those 80ms and counting what went out: nothing can be
+    // observed to not happen sooner.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(reads).toBe(1);
+    expect(screen.queryByText("Loading the repository…")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
     // Cancelling is not a failure.
     expect(screen.queryByText(/Could not inspect/)).not.toBeInTheDocument();
