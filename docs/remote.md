@@ -149,7 +149,12 @@ Pipelines depend on these:
 | 130 | Interrupted |
 
 `--json` prints the job or the answer as one JSON document for a program, and nothing else on standard
-output.
+output. It is not an answer to a question: a command that asks before it changes something (it has a
+`--yes`) is refused under `--json` without `--yes`, so a script says it in so many words. On this
+machine `--dry-run --json` shows what it would do without changing anything; `noust manifest plan`
+is the way to look at what `manifest apply` would do on a server. A few commands print their plan
+under `--json` and change nothing until `--yes` (`noust compliance enable|disable|set`, `noust app
+migrate`).
 
 ## Safe by default
 
