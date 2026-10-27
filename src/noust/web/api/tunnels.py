@@ -30,7 +30,7 @@ from noust.managers.tunnels import (
     TunnelSupport,
 )
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.api.deps import CodedText, NoustErrorRoute, require_elevated
 from noust.web.auth import actor_label
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -47,6 +47,7 @@ class TunnelSupportModel(BaseModel):
         accounts: The Cloudflare accounts that can manage a tunnel.
         problem: What is missing, when something is.
         hint: How to fix it.
+        coded: The same problem and fix as a code and its values, for the console to translate.
     """
 
     available: bool
@@ -55,6 +56,7 @@ class TunnelSupportModel(BaseModel):
     accounts: list[str] = Field(default_factory=list)
     problem: str | None = None
     hint: str | None = None
+    coded: CodedText | None = None
 
 
 class TunnelRouteModel(BaseModel):

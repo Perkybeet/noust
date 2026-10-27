@@ -32,6 +32,7 @@ from noust.core.exceptions import (
 from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.runner import FakeRunner
 from noust.core.secrets import SecretStore
+from noust.core.server_text import say
 from noust.core.store import App, NoustStore
 from noust.core.teams.model import ResourceNotFoundError
 from noust.core.tunnel_store import READY, REMOVING, Tunnel, TunnelStore
@@ -161,6 +162,45 @@ def test_without_a_cloudflare_account_it_says_how_to_add_one(
 
     assert support.available is False
     assert support.hint is not None and "noust dns provider add" in support.hint
+
+
+def test_what_is_missing_is_said_as_a_sentence_with_a_code_for_the_console_to_translate(
+    tunnels: TunnelManager, secrets: SecretStore, store: NoustStore
+) -> None:
+    ready = tunnels.support()
+    assert ready.coded is None and ready.to_dict()["coded"] is None
+
+    tunnels._which = lambda program: None
+    missing = tunnels.support()
+    assert missing.coded == say("tunnels.cloudflared_missing", url="https://pkg.cloudflare.com/")
+    # One source of words: the sentence the console translates is the one the CLI prints.
+    assert (missing.problem, missing.hint) == (missing.coded.text, missing.coded.hint)
+    assert missing.to_dict()["coded"] == {
+        "code": "tunnels.cloudflared_missing",
+        "params": {"url": "https://pkg.cloudflare.com/"},
+    }
+    assert "noust tunnel install-cloudflared" in (missing.hint or "")
+
+    tunnels._which = lambda program: CLOUDFLARED
+    sealing.header_path(secrets.root).parent.mkdir(parents=True, exist_ok=True)
+    sealing.header_path(secrets.root).write_text("sealed")
+    sealed = tunnels.support()
+    assert sealed.coded == say("tunnels.store_sealed")
+
+    sealing.header_path(secrets.root).unlink()
+    DnsStore(store).delete_account("cf")
+    assert tunnels.support().coded == say("tunnels.no_account")
+
+
+def test_the_refusal_to_create_carries_the_same_sentence(tunnels: TunnelManager) -> None:
+    tunnels._which = lambda program: None
+
+    with pytest.raises(PrerequisiteError) as refused:
+        make(tunnels)
+
+    assert refused.value.coded == say(
+        "tunnels.cloudflared_missing", url="https://pkg.cloudflare.com/"
+    )
 
 
 # -- creating ---------------------------------------------------------------------

@@ -59,12 +59,15 @@ def sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             apps_dir=apps,
             log_dir=logs,
             config_path=config,
-            # The size of the machine and its web ports are described, not read: these tests are
-            # about what the doctor says, and must not depend on the laptop they run on.
-            resources=lambda: Resources(4096, 0, 2, (DiskFree(str(apps), 51200, 102400),)),
-            listeners=lambda: [(80, ("nginx",)), (443, ("nginx",))],
-            # Which kinds of application the store holds is described too, for the same reason.
-            **{"app_types": lambda: {"nodejs"}, **extra},
+            **{
+                # The size of the machine and its web ports are described, not read: these tests
+                # are about what the doctor says, and must not depend on the laptop they run on.
+                "resources": lambda: Resources(4096, 0, 2, (DiskFree(str(apps), 51200, 102400),)),
+                "listeners": lambda: [(80, ("nginx",)), (443, ("nginx",))],
+                # Which kinds of application the store holds is described too, for the same reason.
+                "app_types": lambda: {"nodejs"},
+                **extra,
+            },
         ),
     }
 
@@ -376,7 +379,91 @@ def test_the_json_form_names_status_fix_and_the_counts(
         "text": "git: not installed",
         "fix": "sudo apt-get install -y git",
         "notes": [],
+        "coded": {"code": "doctor.program.missing", "params": {"command": "git"}},
+        "notes_coded": [],
     }
+    assert (core["key"], core["explain_coded"]) == ("core", None)
+
+
+def test_every_heading_has_a_key_the_console_translates_it_by(
+    sandbox: dict[str, Any], runner: FakeRunner
+) -> None:
+    prepare(sandbox)
+
+    report = setup_doctor.collect(sandbox["env"]())
+
+    assert {s.title: s.key for s in report.sections} == {
+        "Platform": "platform",
+        "Resources": "resources",
+        "Core Dependencies": "core",
+        "Web Server": "web_server",
+        "Node.js Environment": "node",
+        "Python Environment": "python",
+        "SSL/TLS (Certbot)": "tls",
+        "Noust Configuration": "config",
+        "SSH Configuration": "ssh",
+    }
+
+
+def test_what_the_doctor_says_of_the_machine_is_all_said_with_a_code(
+    sandbox: dict[str, Any], runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Everything wrong at once: each sentence the console would show must be one it can translate.
+    # A line is uncoded only when it is another module's words (why a platform is best effort).
+    sandbox["config"].parent.mkdir(parents=True)
+    monkeypatch.setattr(ssh_module, "ssh_key_exists", lambda: (False, ""))
+    sandbox["installed"].add("apache2")
+    env = sandbox["env"](
+        resources=lambda: Resources(256, 512, 1, (DiskFree("/var/www/apps", 1024, 20480),)),
+        listeners=lambda: [(80, ("caddy",)), (443, ())],
+    )
+
+    report = setup_doctor.collect(env)
+
+    uncoded = [(s.title, i.text) for s in report.sections for i in s.items if i.coded is None]
+    assert [row for row in uncoded if row[0] != "Platform"] == []
+    for section in report.sections:
+        for found in section.items:
+            if found.coded is not None:
+                # One source of words: the line the CLI prints is the sentence the console gets.
+                assert found.text == found.coded.text
+                assert found.notes == tuple(note.text for note in found.notes_coded)
+
+
+def test_a_sentence_with_values_carries_them_apart_from_the_words(
+    sandbox: dict[str, Any], runner: FakeRunner
+) -> None:
+    prepare(sandbox)
+    env = sandbox["env"](
+        resources=lambda: Resources(1024, 2048, 4, (DiskFree("/var/www/apps", 30720, 40960),))
+    )
+
+    resources = items(setup_doctor.collect(env), "Resources")
+
+    assert resources[0].coded is not None
+    assert resources[0].coded.to_dict() == {
+        "code": "doctor.memory.ok_swap",
+        "params": {"amount": "1 GB", "swap": "2 GB", "minimum": "1 GB"},
+    }
+    assert resources[1].coded is not None
+    assert resources[1].coded.params == {"amount": 4, "minimum": 1}
+    assert resources[2].coded is not None
+    assert resources[2].coded.params == {
+        "free": "30 GB",
+        "total": "40 GB",
+        "path": "/var/www/apps",
+        "minimum": "10 GB",
+    }
+
+
+def test_a_note_under_a_line_is_a_sentence_too(sandbox: dict[str, Any], runner: FakeRunner) -> None:
+    prepare(sandbox)
+    env = sandbox["env"](resources=lambda: Resources(768, 0, 2, (DiskFree("/x", 30000, 40000),)))
+
+    memory = items(setup_doctor.collect(env), "Resources")[0]
+
+    assert [note.code for note in memory.notes_coded] == ["doctor.memory.note"]
+    assert memory.notes[0].startswith("Builds are what need memory")
 
 
 def test_the_default_environment_asks_the_machine_for_its_package_manager(
@@ -426,3 +513,27 @@ def test_the_route_answers_the_report_without_trying_github(
     assert (body["ready"], body["issues"], body["warnings"]) == (False, 1, 0)
     assert body["sections"][0]["items"][0]["fix"] == "sudo apt install git"
     assert seen[0].include_ssh is False
+    # A line nobody coded (another module's words) is still a line, with no code.
+    assert body["sections"][0]["items"][0]["coded"] is None
+
+
+def test_the_route_sends_the_codes_the_report_carries(
+    sandbox: dict[str, Any], runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prepare(sandbox)
+    sandbox["installed"].discard("git")
+    report = setup_doctor.collect(sandbox["env"]())
+    monkeypatch.setattr(setup_doctor, "collect", lambda env=None: report)
+    app = FastAPI()
+    app.include_router(system_api.router, prefix="/api/system")
+    app.dependency_overrides[get_current_session] = lambda: {"session_id": "t", "scope": "read"}
+
+    body = TestClient(app).get("/api/system/doctor").json()
+
+    core = next(section for section in body["sections"] if section["key"] == "core")
+    assert core["items"][0]["coded"] == {
+        "code": "doctor.program.missing",
+        "params": {"command": "git"},
+    }
+    platform_section = next(s for s in body["sections"] if s["key"] == "platform")
+    assert "explain_coded" in platform_section

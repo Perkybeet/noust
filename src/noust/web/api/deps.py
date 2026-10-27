@@ -48,7 +48,7 @@ from fastapi.exception_handlers import (
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from noust.central import RoleError
@@ -277,6 +277,28 @@ _OUTPUT_CONTRACT_BY_ERROR: tuple[tuple[type[NoustError], str, str], ...] = (
 )
 
 
+class CodedText(BaseModel):
+    """
+    A sentence the server says, as a code and the values to put in it.
+
+    Sent beside the English text it stands for (``detail`` and ``hint`` of an error, ``problem``
+    and ``hint`` of a report) so that the console can say it in its own language. A code the
+    console has no entry for is shown as the English text, which is always sent.
+
+    Attributes:
+        code: The key of the sentence in :mod:`noust.core.server_text`, such as
+            ``tunnels.store_sealed``. Its fix, when it has one, is that key plus ``.hint``.
+        params: The values for the sentence's placeholders: text, numbers and flags only. A
+            path, a name somebody typed or another program's own output is a value here and is
+            shown as it is.
+    """
+
+    code: str
+    params: dict[str, StrictBool | StrictInt | StrictFloat | StrictStr] = Field(
+        default_factory=dict
+    )
+
+
 class ErrorResponse(BaseModel):
     """
     Body of any failed API call.
@@ -295,6 +317,9 @@ class ErrorResponse(BaseModel):
         output: The failing tool's own output, verbatim, when the error
             carries one - a rejected web server configuration, for example.
             ``None`` for every error that has no external tool output to show.
+        coded: ``detail`` and ``hint`` as a code and its values, when the error is one of the
+            sentences the console translates; ``None`` for an error whose words are only its
+            message.
     """
 
     detail: str
@@ -302,6 +327,7 @@ class ErrorResponse(BaseModel):
     error: str
     fields: dict[str, str] | None = None
     output: str | None = None
+    coded: CodedText | None = None
 
 
 class JobAcceptedResponse(BaseModel):
@@ -391,6 +417,9 @@ def error_response(exc: NoustError) -> JSONResponse:
             error=error,
             output=output,
             fields=_fields_of(exc),
+            coded=CodedText(code=exc.coded.code, params=dict(exc.coded.params))
+            if exc.coded
+            else None,
         )
     )
     if isinstance(exc, SchemaChangedError):

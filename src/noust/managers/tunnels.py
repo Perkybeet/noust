@@ -66,6 +66,7 @@ from noust.core.exceptions import (
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.secrets import SecretStore
+from noust.core.server_text import ServerText, say
 from noust.core.store import App, NoustStore, get_store
 from noust.core.teams.model import ResourceNotFoundError
 from noust.core.tunnel_store import (
@@ -138,6 +139,7 @@ class TunnelSupport:
         accounts: The DNS accounts that can manage a tunnel (Cloudflare ones).
         problem: What is missing, when something is.
         hint: How to fix it.
+        coded: The same problem and fix as a sentence with a code, for the console to translate.
     """
 
     available: bool
@@ -146,6 +148,7 @@ class TunnelSupport:
     accounts: tuple[str, ...] = ()
     problem: str | None = None
     hint: str | None = None
+    coded: ServerText | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -159,6 +162,7 @@ class TunnelSupport:
             "accounts": list(self.accounts),
             "problem": self.problem,
             "hint": self.hint,
+            "coded": self.coded.to_dict() if self.coded else None,
         }
 
 
@@ -476,27 +480,16 @@ class TunnelManager:
             for account in self.accounts.accounts()
             if (spec := kind_of(account.kind)) is not None and spec.tunnels
         )
-        problem: str | None = None
-        hint: str | None = None
+        coded: ServerText | None = None
         if found is None:
-            problem = "cloudflared is not installed"
-            hint = (
-                "Install it from Cloudflare's own package repository, "
-                f"{PACKAGE_REPOSITORY}, then run the command again."
-            )
+            coded = say("tunnels.cloudflared_missing", url=PACKAGE_REPOSITORY)
         elif sealed:
-            problem = "The secret store is sealed"
-            hint = (
-                "A tunnel's connector reads its token at boot, with nobody to type a passphrase. "
-                "Run tunnels on a server, not on a sealed central."
-            )
+            coded = say("tunnels.store_sealed")
         elif not names:
-            problem = "There is no Cloudflare account to manage a tunnel with"
-            hint = (
-                "Add one with Account > Cloudflare Tunnel:Edit: "
-                "noust dns provider add NAME --kind cloudflare --token-stdin"
-            )
-        return TunnelSupport(problem is None, found, sealed, names, problem, hint)
+            coded = say("tunnels.no_account")
+        problem = coded.text if coded else None
+        hint = coded.hint if coded else None
+        return TunnelSupport(coded is None, found, sealed, names, problem, hint, coded)
 
     # ------------------------------------------------------------------ creating
 
@@ -542,9 +535,9 @@ class TunnelManager:
             )
         support = self.support()
         if support.cloudflared is None or support.sealed:
-            raise PrerequisiteError(
-                support.problem or "A tunnel cannot run here", details=support.hint or ""
-            )
+            if support.coded is not None:
+                raise PrerequisiteError.from_text(support.coded)
+            raise PrerequisiteError("A tunnel cannot run here")
         chosen = self._choose_account(account, support.accounts)
         provider = self._provider(chosen)
         cloudflare_id = self._cloudflare_account(chosen, provider, cloudflare_account)

@@ -211,6 +211,15 @@ def test_a_server_without_the_connector_is_a_409_with_where_to_get_it(
     assert response.status_code == 409
     assert response.json()["detail"] == "cloudflared is not installed"
     assert "https://pkg.cloudflare.com/" in response.json()["hint"]
+    # The sentence travels with its code and values, so the console can say it in its language.
+    assert response.json()["coded"] == {
+        "code": "tunnels.cloudflared_missing",
+        "params": {"url": "https://pkg.cloudflare.com/"},
+    }
+
+
+def test_what_this_server_offers_has_no_sentence_when_all_is_there(client: TestClient) -> None:
+    assert client.get("/api/tunnels").json()["support"]["coded"] is None
 
 
 def test_an_unknown_tunnel_and_an_unknown_application_are_404s(client: TestClient) -> None:

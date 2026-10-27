@@ -35,7 +35,7 @@ from noust.managers.health import collect_health_report
 from noust.managers.server.host import read_os_release
 from noust.managers.support_report import SupportReporter
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
+from noust.web.api.deps import CodedText, JobAcceptedResponse, NoustErrorRoute, require_elevated
 from noust.web.auth import sees_command_lines
 from noust.web.machine import read_machine
 from noust.web.permissions import Permission
@@ -793,13 +793,21 @@ class DoctorItemOut(BaseModel):
     #: The command that fixes it, when there is one.
     fix: str | None = None
     notes: list[str] = Field(default_factory=list)
+    #: ``text`` as a code and its values, for the console to say in its own language. Null for
+    #: a line that is another program's or module's words, which is shown as written.
+    coded: CodedText | None = None
+    #: The same for each of ``notes``, in order; empty when none of them is coded.
+    notes_coded: list[CodedText] = Field(default_factory=list)
 
 
 class DoctorSectionOut(BaseModel):
     """A group of checks under one heading."""
 
     title: str
+    #: What the heading is called in the console's catalog (``web_server``); ``title`` is English.
+    key: str = ""
     explain: str | None = None
+    explain_coded: CodedText | None = None
     items: list[DoctorItemOut]
 
 

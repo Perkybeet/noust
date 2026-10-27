@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 import platform
 import sqlite3
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -32,6 +32,7 @@ from noust.core.dependencies import NODE_RUNTIME_TYPES
 from noust.core.exceptions import NoustError
 from noust.core.package_family import INSTALL_COMMANDS, detect_family
 from noust.core.runner import get_runner
+from noust.core.server_text import Param, ServerText, say
 from noust.core.utils import command_exists, run_command
 from noust.managers.server import platforms, requirements
 
@@ -53,6 +54,10 @@ class DoctorItem:
         notes: More lines to read under it (a URL, a reason).
         counted: Whether a ``warn`` adds to the summary's count. The GitHub SSH line never
             did and still does not: it says something about a place Noust does not need.
+        coded: ``text`` as a sentence with a code, for the console to translate; None for a
+            line that is another module's words (why a platform is best effort, what still
+            carries an old name), which the console shows as written.
+        notes_coded: The same for each of ``notes``, in order; empty when none is coded.
     """
 
     status: ItemStatus
@@ -60,6 +65,70 @@ class DoctorItem:
     fix: str | None = None
     notes: tuple[str, ...] = ()
     counted: bool = True
+    coded: ServerText | None = None
+    notes_coded: tuple[ServerText, ...] = ()
+
+
+def item_of(
+    status: ItemStatus,
+    code: str,
+    params: Mapping[str, Param],
+    *,
+    fix: str | None = None,
+    notes: tuple[ServerText, ...] = (),
+    counted: bool = True,
+) -> DoctorItem:
+    """
+    Make an item out of a sentence of the catalog, so that its words exist once.
+
+    Args:
+        status: The outcome.
+        code: The sentence's code in :mod:`noust.core.server_text`.
+        params: The values the sentence is said with.
+        fix: The command that fixes it, when there is one.
+        notes: Sentences to read under it.
+        counted: Whether a ``warn`` adds to the summary's count.
+
+    Returns:
+        The item, whose ``text`` is the sentence in English and whose ``coded`` is its code.
+    """
+    sentence = ServerText(code, dict(params))
+    return DoctorItem(
+        status,
+        sentence.text,
+        fix,
+        tuple(note.text for note in notes),
+        counted,
+        sentence,
+        notes,
+    )
+
+
+def item(
+    status: ItemStatus,
+    code: str,
+    *,
+    fix: str | None = None,
+    notes: tuple[ServerText, ...] = (),
+    counted: bool = True,
+    **params: Param,
+) -> DoctorItem:
+    """
+    :func:`item_of` with the values as keyword arguments, for a sentence whose values are written
+    out at the call.
+
+    Args:
+        status: The outcome.
+        code: The sentence's code in :mod:`noust.core.server_text`.
+        fix: The command that fixes it, when there is one.
+        notes: Sentences to read under it.
+        counted: Whether a ``warn`` adds to the summary's count.
+        **params: The values the sentence is said with.
+
+    Returns:
+        The item.
+    """
+    return item_of(status, code, params, fix=fix, notes=notes, counted=counted)
 
 
 @dataclass(frozen=True)
@@ -72,11 +141,16 @@ class DoctorSection:
         items: What was looked at.
         explain: Whether the CLI should print a final explanation line for this section
             when it has warnings (the platform section points at ``docs/PLATFORMS.md``).
+        key: What the heading is called in the console's catalog (``web_server``): the title is
+            English, and a console in another language says it by this.
+        explain_coded: ``explain`` as a sentence with a code.
     """
 
     title: str
     items: tuple[DoctorItem, ...]
     explain: str | None = None
+    key: str = ""
+    explain_coded: ServerText | None = None
 
 
 @dataclass(frozen=True)
@@ -110,8 +184,9 @@ class DoctorReport:
         Describe the report as JSON-ready data.
 
         Returns:
-            ``ready``, ``issues``, ``warnings`` and ``sections`` (title, explain, items with
-            status, text, fix, notes).
+            ``ready``, ``issues``, ``warnings`` and ``sections`` (title, key, explain, items with
+            status, text, fix, notes), each sentence beside its code and values (``coded``,
+            ``notes_coded``, ``explain_coded``) for the console to translate.
         """
         return {
             "ready": self.ready,
@@ -120,13 +195,17 @@ class DoctorReport:
             "sections": [
                 {
                     "title": s.title,
+                    "key": s.key,
                     "explain": s.explain,
+                    "explain_coded": s.explain_coded.to_dict() if s.explain_coded else None,
                     "items": [
                         {
                             "status": i.status,
                             "text": i.text,
                             "fix": i.fix,
                             "notes": list(i.notes),
+                            "coded": i.coded.to_dict() if i.coded else None,
+                            "notes_coded": [note.to_dict() for note in i.notes_coded],
                         }
                         for i in s.items
                     ],
@@ -206,19 +285,23 @@ def platform_section() -> DoctorSection:
     label = f"{verdict.pretty_name}, {verdict.arch}"
     items: list[DoctorItem] = []
     if verdict.status == platforms.SUPPORTED:
-        items.append(DoctorItem("ok", f"{label}: supported"))
+        items.append(item("ok", "doctor.platform.supported", label=label))
     elif verdict.status == platforms.PIP_ONLY:
-        items.append(DoctorItem("info", f"{label}: installed with pip, there is no package for it"))
+        items.append(item("info", "doctor.platform.pip_only", label=label))
     elif verdict.status == platforms.BEST_EFFORT:
-        items.append(DoctorItem("warn", f"{label}: best effort, not a tested platform"))
+        items.append(item("warn", "doctor.platform.best_effort", label=label))
     else:
-        items.append(DoctorItem("warn", f"{label}: not a platform Noust declares support for"))
+        items.append(item("warn", "doctor.platform.unsupported", label=label))
+    # Why, in the words of the table of platforms: another module's sentences, shown as written.
     items += [DoctorItem("info", f"  {reason}") for reason in verdict.reasons]
     eol = verdict.eol
     if eol is not None and eol.status == "warn":
         items.append(
-            DoctorItem(
-                "warn", f"{verdict.pretty_name} stops receiving security updates on {eol.end_date}"
+            item(
+                "warn",
+                "doctor.platform.eol",
+                release=verdict.pretty_name,
+                date=str(eol.end_date),
             )
         )
     warned = any(i.status == "warn" for i in items)
@@ -228,6 +311,8 @@ def platform_section() -> DoctorSection:
         explain="The platforms Noust installs on are listed in docs/PLATFORMS.md"
         if warned
         else None,
+        key="platform",
+        explain_coded=say("doctor.platform.explain") if warned else None,
     )
 
 
@@ -242,14 +327,65 @@ def _human(megabytes: int) -> str:
     return requirements.human_mb(megabytes)
 
 
+@dataclass(frozen=True)
+class _SizedCodes:
+    """
+    The sentences one measured resource can be judged with.
+
+    Attributes:
+        unreadable: It could not be measured.
+        below_floor: Under what Noust needs to run.
+        below_minimum: Under what a server is sized for.
+        ok: Enough.
+        note: One line on why it matters, read under a warning or a failure.
+    """
+
+    unreadable: str
+    below_floor: str
+    below_minimum: str
+    ok: str
+    note: str
+
+
+_MEMORY = _SizedCodes(
+    "doctor.memory.unreadable",
+    "doctor.memory.below_floor",
+    "doctor.memory.below_minimum",
+    "doctor.memory.ok",
+    "doctor.memory.note",
+)
+#: Memory when the machine has swap: swap is said in the same sentence, not in a second one,
+#: because where it goes in the sentence is the language's to decide.
+_MEMORY_WITH_SWAP = _SizedCodes(
+    "doctor.memory.unreadable",
+    "doctor.memory.below_floor_swap",
+    "doctor.memory.below_minimum_swap",
+    "doctor.memory.ok_swap",
+    "doctor.memory.note",
+)
+_CPU = _SizedCodes(
+    "doctor.cpu.unreadable",
+    "doctor.cpu.below_floor",
+    "doctor.cpu.below_minimum",
+    "doctor.cpu.ok",
+    "doctor.cpu.note",
+)
+_DISK = _SizedCodes(
+    "doctor.disk.unreadable",
+    "doctor.disk.below_floor",
+    "doctor.disk.below_minimum",
+    "doctor.disk.ok",
+    "doctor.disk.note",
+)
+
+
 def _sized_item(
     requirement: requirements.Requirement,
     amount: int | None,
-    shown: str,
+    codes: _SizedCodes,
+    values: dict[str, Param],
     *,
-    unknown: str,
     low_fix: str | None,
-    low_note: str,
 ) -> DoctorItem:
     """
     Judge one measured value against its requirement.
@@ -257,38 +393,40 @@ def _sized_item(
     Args:
         requirement: The resource.
         amount: What the machine has, or None when it could not be read.
-        shown: How to write what it has (``2 GB``).
-        unknown: What to say when it could not be read.
+        codes: The sentences to judge it with.
+        values: What the sentences say about the machine (how much it has).
         low_fix: The command that helps below the minimum, when there is one.
-        low_note: One line on why it matters, shown under a warning or a failure.
 
     Returns:
         ``ok``, ``warn`` (under the minimum) or ``fail`` (under the floor).
     """
-    sizes = requirements.size_text
     if amount is None:
-        return DoctorItem("info", unknown)
+        return item("info", codes.unreadable)
     state = requirements.verdict(requirement, amount)
+    # The bounds are numbers for a count of processors and sizes (``512 MB``) for the rest, as
+    # the table of requirements writes them.
+    bound = (
+        (lambda size: size)
+        if requirement.key == "cpu"
+        else (lambda size: requirements.size_text(requirement, size))
+    )
     if state == "below-floor":
-        return DoctorItem(
+        return item_of(
             "fail",
-            f"{requirement.label}: {shown}, under the {sizes(requirement, requirement.floor)} "
-            "Noust needs to run",
+            codes.below_floor,
+            {**values, "floor": bound(requirement.floor)},
             fix=low_fix,
-            notes=(low_note,),
+            notes=(say(codes.note),),
         )
     if state == "below-minimum":
-        return DoctorItem(
+        return item_of(
             "warn",
-            f"{requirement.label}: {shown}, under the {sizes(requirement, requirement.minimum)} "
-            "a server is sized for",
+            codes.below_minimum,
+            {**values, "minimum": bound(requirement.minimum)},
             fix=low_fix,
-            notes=(low_note,),
+            notes=(say(codes.note),),
         )
-    return DoctorItem(
-        "ok",
-        f"{requirement.label}: {shown} (minimum {sizes(requirement, requirement.minimum)})",
-    )
+    return item_of("ok", codes.ok, {**values, "minimum": bound(requirement.minimum)})
 
 
 def _port_item(holder: requirements.PortHolder) -> DoctorItem:
@@ -302,31 +440,28 @@ def _port_item(holder: requirements.PortHolder) -> DoctorItem:
         ``ok`` for the web server, ``info`` for nothing, ``warn`` for anything else, with the
         command that finds or frees it.
     """
-    label = f"Port {holder.port}"
     names = ", ".join(holder.processes)
     if holder.kind == "free":
-        return DoctorItem("info", f"{label}: free (the web server is not listening on it yet)")
+        return item("info", "doctor.port.free", port=holder.port)
     if holder.kind == "web-server":
-        return DoctorItem("ok", f"{label}: {names}")
+        return item("ok", "doctor.port.web_server", port=holder.port, holders=names)
     if holder.kind == "container":
-        return DoctorItem(
+        return item(
             "warn",
-            f"{label}: published by a container ({names})",
+            "doctor.port.container",
             fix=f"docker ps --filter publish={holder.port}",
-            notes=(
-                "Another platform's proxy or a Compose stack holds it, so nginx cannot listen "
-                "on it until that stops.",
-            ),
+            notes=(say("doctor.port.container_note"),),
+            port=holder.port,
+            holders=names,
         )
     program = holder.processes[0] if holder.processes else "the process holding it"
-    return DoctorItem(
+    return item(
         "warn",
-        f"{label}: held by {names or program}, not by the web server",
+        "doctor.port.held",
         fix=f"sudo systemctl disable --now {program}" if holder.processes else None,
-        notes=(
-            "A certificate is asked for on port 80 and sites are served on 443: the web server "
-            "cannot start while another program holds them.",
-        ),
+        notes=(say("doctor.port.held_note"),),
+        port=holder.port,
+        holders=names or program,
     )
 
 
@@ -350,45 +485,49 @@ def resources_section(env: DoctorEnvironment) -> DoctorSection:
     )
     items: list[DoctorItem] = []
     memory = machine.memory_mb
-    swap = f", swap {_human(machine.swap_mb)}" if machine.swap_mb else ""
+    memory_values: dict[str, Param] = {}
+    if memory is not None:
+        memory_values["amount"] = _human(memory)
+        if machine.swap_mb:
+            memory_values["swap"] = _human(machine.swap_mb)
     items.append(
         _sized_item(
             requirements.MEMORY,
             memory,
-            f"{_human(memory)}{swap}" if memory is not None else "",
-            unknown="Memory: could not be read",
+            _MEMORY_WITH_SWAP if machine.swap_mb else _MEMORY,
+            memory_values,
             low_fix="sudo noust server swap create",
-            low_note="Builds are what need memory; a swap file lets one that needs more than "
-            "the server has finish slowly instead of being killed.",
         )
     )
     items.append(
         _sized_item(
             requirements.CPU,
             machine.cpus,
-            str(machine.cpus),
-            unknown="Processors: could not be read",
+            _CPU,
+            {"amount": machine.cpus} if machine.cpus is not None else {},
             low_fix=None,
-            low_note="Noust and a build need at least one.",
         )
     )
     if not machine.disks:
-        items.append(DoctorItem("info", "Free disk: could not be read"))
+        items.append(item("info", _DISK.unreadable))
     for disk in machine.disks:
-        item = _sized_item(
-            requirements.DISK,
-            disk.free_mb,
-            f"{_human(disk.free_mb)} free of {_human(disk.total_mb)} at {disk.path}",
-            unknown="Free disk: could not be read",
-            low_fix="noust server storage",
-            low_note="'noust server cleanup' removes what Noust can prove is unused; every "
-            "release on disk keeps its code and dependencies.",
+        items.append(
+            _sized_item(
+                requirements.DISK,
+                disk.free_mb,
+                _DISK,
+                {
+                    "free": _human(disk.free_mb),
+                    "total": _human(disk.total_mb),
+                    "path": str(disk.path),
+                },
+                low_fix="noust server storage",
+            )
         )
-        items.append(item)
 
     listening = env.listeners() if env.listeners is not None else _listening_programs()
     items += [_port_item(holder) for holder in requirements.classify_port_holders(listening)]
-    return DoctorSection("Resources", tuple(items))
+    return DoctorSection("Resources", tuple(items), key="resources")
 
 
 def _listening_programs() -> list[tuple[int, tuple[str, ...]]]:
@@ -454,8 +593,8 @@ def _unit_item(env: DoctorEnvironment, unit: str) -> DoctorItem:
     """
     result = env.run(["systemctl", "is-active", unit])
     if result.stdout.strip() == "active":
-        return DoctorItem("ok", f"  {unit} service: running")
-    return DoctorItem("warn", f"  {unit} service: not running", fix=f"sudo systemctl start {unit}")
+        return item("ok", "doctor.web.running", unit=unit)
+    return item("warn", "doctor.web.stopped", fix=f"sudo systemctl start {unit}", unit=unit)
 
 
 def _version(command: str, flag: str = "--version") -> str:
@@ -488,86 +627,118 @@ def collect(env: DoctorEnvironment | None = None) -> DoctorReport:
     exists = env.command_exists
     sections = [platform_section(), resources_section(env)]
 
+    def present(command: str, flag: str = "--version") -> DoctorItem:
+        # The version is what the program printed: shown as it is, never translated.
+        return item(
+            "ok", "doctor.program.version", command=command, version=_version(command, flag)
+        )
+
     core: list[DoctorItem] = []
     for command in ("git", "curl"):
         if exists(command):
-            core.append(DoctorItem("ok", f"{command}: {_version(command)}"))
+            core.append(present(command))
         else:
             core.append(
-                DoctorItem("fail", f"{command}: not installed", fix=f"sudo {hint} {command}")
+                item(
+                    "fail",
+                    "doctor.program.missing",
+                    fix=f"sudo {hint} {command}",
+                    command=command,
+                )
             )
-    sections.append(DoctorSection("Core Dependencies", tuple(core)))
+    sections.append(DoctorSection("Core Dependencies", tuple(core), key="core"))
 
     web: list[DoctorItem] = []
     if exists("nginx"):
-        web.append(DoctorItem("ok", f"nginx: {_version('nginx', '-v')}"))
+        web.append(present("nginx", "-v"))
         web.append(_unit_item(env, "nginx"))
     elif exists("apache2") or exists("httpd"):
         unit = "apache2" if exists("apache2") else "httpd"
-        web.append(DoctorItem("ok", f"{unit}: installed"))
+        web.append(item("ok", "doctor.program.installed", command=unit))
         web.append(_unit_item(env, unit))
     else:
-        web.append(DoctorItem("fail", "Web server: not installed", fix=f"sudo {hint} nginx"))
-    sections.append(DoctorSection("Web Server", tuple(web)))
+        web.append(item("fail", "doctor.web.none", fix=f"sudo {hint} nginx"))
+    sections.append(DoctorSection("Web Server", tuple(web), key="web_server"))
 
     node: list[DoctorItem] = []
     if exists("node"):
-        node.append(DoctorItem("ok", f"node: {_version('node')}"))
+        node.append(present("node"))
         if exists("npm"):
-            node.append(DoctorItem("ok", f"npm: {_version('npm')}"))
+            node.append(present("npm"))
         else:
-            node.append(DoctorItem("fail", "npm: not installed, although it ships with Node.js"))
+            node.append(item("fail", "doctor.node.npm_missing"))
         for manager in ("pnpm", "yarn", "bun"):
             if exists(manager):
-                node.append(DoctorItem("ok", f"{manager}: {_version(manager)}"))
+                node.append(present(manager))
             else:
-                node.append(DoctorItem("info", f"{manager}: not installed (optional)"))
+                node.append(item("info", "doctor.program.optional_missing", command=manager))
     elif _node_is_needed(env):
-        node.append(DoctorItem("fail", "node: not installed", fix="sudo noust setup init"))
-    else:
         node.append(
-            DoctorItem(
-                "info",
-                "node: not installed (only Node.js applications need it)",
-                fix="sudo noust setup init",
-            )
+            item("fail", "doctor.program.missing", fix="sudo noust setup init", command="node")
         )
-    sections.append(DoctorSection("Node.js Environment", tuple(node)))
+    else:
+        node.append(item("info", "doctor.node.not_needed", fix="sudo noust setup init"))
+    sections.append(DoctorSection("Node.js Environment", tuple(node), key="node"))
 
     py: list[DoctorItem] = []
     if exists("python3"):
-        py.append(DoctorItem("ok", f"python3: {_version('python3')}"))
+        py.append(present("python3"))
         if exists("pip3"):
-            py.append(DoctorItem("ok", f"pip3: {_version('pip3')}"))
+            py.append(present("pip3"))
         else:
-            py.append(DoctorItem("warn", "pip3: not installed", fix=f"sudo {hint} python3-pip"))
+            py.append(
+                item(
+                    "warn",
+                    "doctor.program.missing",
+                    fix=f"sudo {hint} python3-pip",
+                    command="pip3",
+                )
+            )
     else:
-        py.append(DoctorItem("warn", "python3: not installed, needed for Python apps"))
-    sections.append(DoctorSection("Python Environment", tuple(py)))
+        py.append(item("warn", "doctor.python.missing"))
+    sections.append(DoctorSection("Python Environment", tuple(py), key="python"))
 
     if exists("certbot"):
-        tls = DoctorItem("ok", f"certbot: {_version('certbot')}")
+        tls = present("certbot")
     else:
-        tls = DoctorItem("warn", "certbot: not installed", fix=f"sudo {hint} certbot")
-    sections.append(DoctorSection("SSL/TLS (Certbot)", (tls,)))
+        tls = item("warn", "doctor.program.missing", fix=f"sudo {hint} certbot", command="certbot")
+    sections.append(DoctorSection("SSL/TLS (Certbot)", (tls,), key="tls"))
 
     config: list[DoctorItem] = []
-    for label, path in (("Apps directory", env.apps_dir), ("Log directory", env.log_dir)):
-        if path.exists():
-            config.append(DoctorItem("ok", f"{label}: {path}"))
-        else:
-            config.append(
-                DoctorItem("fail", f"{label}: {path} not found", fix="sudo noust setup init")
-            )
-    if env.config_path.exists():
-        config.append(DoctorItem("ok", f"Config file: {env.config_path}"))
+    if env.apps_dir.exists():
+        config.append(item("ok", "doctor.config.apps_dir_ok", path=str(env.apps_dir)))
     else:
         config.append(
-            DoctorItem(
-                "warn", f"Config file: {env.config_path} not found", fix="sudo noust setup init"
+            item(
+                "fail",
+                "doctor.config.apps_dir_missing",
+                fix="sudo noust setup init",
+                path=str(env.apps_dir),
             )
         )
-    sections.append(DoctorSection("Noust Configuration", tuple(config)))
+    if env.log_dir.exists():
+        config.append(item("ok", "doctor.config.log_dir_ok", path=str(env.log_dir)))
+    else:
+        config.append(
+            item(
+                "fail",
+                "doctor.config.log_dir_missing",
+                fix="sudo noust setup init",
+                path=str(env.log_dir),
+            )
+        )
+    if env.config_path.exists():
+        config.append(item("ok", "doctor.config.file_ok", path=str(env.config_path)))
+    else:
+        config.append(
+            item(
+                "warn",
+                "doctor.config.file_missing",
+                fix="sudo noust setup init",
+                path=str(env.config_path),
+            )
+        )
+    sections.append(DoctorSection("Noust Configuration", tuple(config), key="config"))
 
     sections.append(_ssh_section(env))
 
@@ -596,29 +767,28 @@ def _ssh_section(env: DoctorEnvironment) -> DoctorSection:
     if not key_exists:
         return DoctorSection(
             "SSH Configuration",
-            (DoctorItem("warn", "SSH key: not found", fix="noust setup ssh --generate"),),
+            (item("warn", "doctor.ssh.no_key", fix="noust setup ssh --generate"),),
+            key="ssh",
         )
-    items = [DoctorItem("ok", f"SSH key: {key_path}")]
+    items = [item("ok", "doctor.ssh.key_ok", path=str(key_path))]
     if env.include_ssh:
         success, _ = test_ssh_connection("github.com")
         if success:
-            items.append(DoctorItem("ok", "GitHub SSH: connected"))
+            items.append(item("ok", "doctor.ssh.github_connected"))
         else:
             items.append(
-                DoctorItem(
+                item(
                     "warn",
-                    "GitHub SSH: not configured",
-                    notes=("Add your key to GitHub: https://github.com/settings/keys",),
+                    "doctor.ssh.github_refused",
+                    notes=(say("doctor.ssh.github_note"),),
                     counted=False,
                 )
             )
     else:
         items.append(
-            DoctorItem(
-                "info", "GitHub SSH: not tested here", fix="noust setup ssh --test github.com"
-            )
+            item("info", "doctor.ssh.github_untested", fix="noust setup ssh --test github.com")
         )
-    return DoctorSection("SSH Configuration", tuple(items))
+    return DoctorSection("SSH Configuration", tuple(items), key="ssh")
 
 
 def _names_section() -> DoctorSection | None:
@@ -638,6 +808,7 @@ def _names_section() -> DoctorSection | None:
         return None
     if not found:
         return None
+    explained = say("doctor.names.explain")
     return DoctorSection(
         "Names from before 4.0",
         tuple(
@@ -649,8 +820,9 @@ def _names_section() -> DoctorSection | None:
             )
             for finding in found
         ),
-        explain="Nothing here stops working: Noust accepts the old names while they are met. "
-        "'noust setup rename' finishes what can be finished without restarting anything.",
+        explain=explained.text,
+        key="names",
+        explain_coded=explained,
     )
 
 
@@ -668,10 +840,18 @@ def _relays_section() -> DoctorSection | None:
     try:
         found = compose_relay.leftover_relays()
     except (NoustError, OSError, sqlite3.Error) as exc:
-        return DoctorSection("Docker Compose relays", (DoctorItem("info", f"Not checked: {exc}"),))
+        return DoctorSection(
+            "Docker Compose relays",
+            (item("info", "doctor.relays.unread", reason=str(exc)),),
+            key="relays",
+        )
     if not found:
         return None
     return DoctorSection(
         "Docker Compose relays",
-        tuple(DoctorItem("warn", f"{left.domain}: {left.what}", fix=left.fix) for left in found),
+        tuple(
+            item("warn", "doctor.relays.left", fix=left.fix, domain=left.domain, what=left.what)
+            for left in found
+        ),
+        key="relays",
     )
