@@ -38,12 +38,13 @@ from noust.core.compose_yaml import load_compose
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
+from noust.core.recipe_sources import recipe_source_dir
 from noust.core.store import App, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.compose_paste import PastedCompose, analyze_document
 from noust.deployers.helpers import compose_variables
 from noust.deployers.helpers.app_env import read_app_env
-from noust.recipes.deploy import COMPOSE_FILE, recipe_source_dir
+from noust.recipes.deploy import COMPOSE_FILE
 from noust.recipes.installed import get_installed
 from noust.validators.domain import validate_domain
 

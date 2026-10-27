@@ -40,10 +40,11 @@ import yaml
 from noust.core.compose_yaml import load_compose
 from noust.core.exceptions import ValidationError
 from noust.core.fs import get_fs
+from noust.core.recipe_sources import recipe_source_dir
 from noust.core.store import NoustStore
 from noust.deployers.helpers.compose_guard import inspect_compose
 from noust.deployers.helpers.compose_ports import parse_ports
-from noust.recipes.deploy import COMPOSE_FILE, recipe_source_dir
+from noust.recipes.deploy import COMPOSE_FILE
 from noust.recipes.model import FLOATING_TAGS
 
 #: The largest document accepted: a stack is a few KiB; this is generous.

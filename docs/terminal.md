@@ -193,14 +193,21 @@ switch, off until you turn it on, and why the console says so on the page before
 noust config set terminal.server.enabled true
 ```
 
-Under the [ENS profile](#the-ens-profile) it stays off even then, unless you also force it, which
-is put on record:
+The compliance control `server_terminal` can keep it off even then. A server where nobody chose a
+framework can have it `refused` on its own (`noust compliance set server_terminal refused`), and
+`noust compliance set server_terminal allowed` undoes that. A framework that holds the control
+(ENS, [ISO 27001](COMPLIANCE.md)) keeps it off unless you also force it, which is put on record, or
+turn the framework off:
 
 ```bash
 noust config set terminal.server.force_ens true
 ```
 
-When it is off the page says so, and with the command that changes it. Everything else in
+When it is off the page says exactly what keeps it off (the switch, the control, or the framework
+by name) and prints the command that changes it, and `GET /api/terminal/status` carries the same as
+`server.code` (`server_shell_off`, `server_shell_control` or `server_shell_framework`),
+`server.command`, `server.control` and `server.forced_by`. On a server that asks for a reason with
+every change the command carries `--reason "<why>"`. Everything else in
 [The security model](#the-security-model) applies, with the four-eyes approval on top.
 
 ## When the connection drops

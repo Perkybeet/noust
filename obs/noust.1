@@ -24,7 +24,7 @@ Show the detail of each step.
 Rehearse without changing anything. Read\-only checks still run.
 .TP
 .B \-\-json
-Emit JSON where supported.
+Emit JSON where supported. It answers no question: a command that asks before it changes something needs \-\-yes with it.
 .TP
 .B \-\-no\-color
 Never emit colour.
@@ -5600,7 +5600,7 @@ Set one configuration value, addressed by its dotted key, and save it.
 \fIvalue\fR
 .TP
 .B \-\-list
-Treat VALUE as a comma\-separated list, for a key such as notifications.allow_private_hosts.
+Treat VALUE as a list, a, b, c or [a, b, c], for a key such as notifications.allow_private_hosts.
 .TP
 .B \-\-stdin
 Read VALUE from standard input instead of the command line, so a secret never lands in shell history or in 'ps'.
@@ -14198,6 +14198,9 @@ Keep a pending change, once a new SSH login since it was applied is on record.
 .B Arguments
 .br
 \fIchange_id\fR
+.TP
+.B \-\-yes, \-y
+Accepted like the other commands of the group take it; keeping a change asks nothing.
 .TP
 .B \-\-json
 Print the change as JSON.

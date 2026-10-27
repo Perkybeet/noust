@@ -62,6 +62,8 @@ from noust.core.ens.profile import SUDO_IDLE_RANGE, SUDO_MAX_RANGE
 from noust.core.exceptions import ConfigError, SecurityError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from noust.validators.domain import is_valid_domain
+from noust.validators.origins import SHAPES as ALLOWED_SOURCE_SHAPES
+from noust.validators.origins import check_allowed_source
 
 logger = logging.getLogger(__name__)
 
@@ -521,8 +523,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "max_minutes": STANDARD_PROFILE.sudo_max_minutes,
             "require_password": STANDARD_PROFILE.sudo_require_password,
         },
-        # Longest life of an API token under the ENS profile, and its default.
-        "tokens": {"max_days": 90},
+        # Longest life of an API token under a framework that asks for one (ENS), and its
+        # default. The number is in every file, so it is not a choice: enforce_max_days says the
+        # operator made it one (noust compliance set token_max_days), and it then counts without
+        # a framework too.
+        "tokens": {"max_days": 90, "enforce_max_days": False},
         # Once single sign-on is in, a password or a passkey need not sign anybody in
         # (noust.core.accounts.local_login). Off, the accounts in "exempt" - the
         # break-glass administrators - keep them; the identity provider, the master
@@ -1544,6 +1549,46 @@ def _validate_private_hosts(value: Any) -> list[str]:
     return _host_list("security.allow_private_hosts", value, wildcards=False)
 
 
+def _validate_allowed_sources(value: Any) -> list[str]:
+    """
+    Accept the places code may be deployed from (``security.allowed_sources``).
+
+    Each entry is judged by :func:`noust.validators.origins.check_allowed_source`, the one rule for
+    what an entry may be, so a list that could never match what it seems to (a bracket kept from a
+    mistyped list, a path, a user) is refused here instead of refusing every deployment later.
+
+    Args:
+        value: The candidate list, from either front end; a string is read as a list too
+            (``a, b`` or ``[a, b]``).
+
+    Returns:
+        The entries in their stored form, repeats dropped.
+
+    Raises:
+        ConfigError: The value is not a list, or an entry is not a place code may come from.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        items: list[Any] = list(parse_list_text(value))
+    elif isinstance(value, (list, tuple)):
+        items = list(value)
+    else:
+        raise ConfigError(
+            "security.allowed_sources must be a list",
+            details=f"Got {value!r}. {ALLOWED_SOURCE_SHAPES}",
+        )
+    entries: list[str] = []
+    for item in items:
+        try:
+            entry = check_allowed_source(item)
+        except ValidationError as exc:
+            raise ConfigError(exc.message, details=exc.details) from exc
+        if entry not in entries:
+            entries.append(entry)
+    return entries
+
+
 def _host_list(key: str, value: Any, *, wildcards: bool) -> list[str]:
     """
     Normalise a list of host names, as two settings hold them.
@@ -2153,8 +2198,10 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.hooks_url": _validate_hooks_url,
     "web.allowed_hosts": _validate_allowed_hosts,
     "security.allow_private_hosts": _validate_private_hosts,
+    "security.allowed_sources": _validate_allowed_sources,
     "security.frameworks": _validate_frameworks,
     "approval.enabled": _validate_flag("approval.enabled"),
+    "auth.tokens.enforce_max_days": _validate_flag("auth.tokens.enforce_max_days"),
     **{
         control.key: _validate_control(control)
         for control in _compliance_controls.CONTROLS
@@ -2421,6 +2468,47 @@ TRUE_WORDS = frozenset({"1", "true", "yes", "on"})
 FALSE_WORDS = frozenset({"0", "false", "no", "off"})
 
 
+def parse_list_text(raw: str) -> list[str]:
+    """
+    Read a list typed as text: ``a, b, c`` or ``[a, b, c]``.
+
+    The one place a list typed on a command line, in a form field or over the API becomes items,
+    so ``noust config set``, ``--list`` and ``PATCH /api/config`` read it the same way. Quotes
+    around an item are dropped, and so are empty items. A bracket is part of the
+    list's own shape or an error: ``'[github.com/acme, local]'`` once stored the two entries
+    ``[github.com/acme`` and ``local]``, and no repository of the organisation matched after that.
+
+    Args:
+        raw: The text exactly as typed.
+
+    Returns:
+        The items, whitespace trimmed, in the order given.
+
+    Raises:
+        ConfigError: The text has a bracket that does not open and close the whole list, or has
+            another list inside it.
+    """
+    text = raw.strip()
+    wrapped = text.startswith("[") and text.endswith("]") and len(text) >= 2
+    if wrapped:
+        text = text[1:-1]
+    items: list[str] = []
+    for part in text.split(","):
+        item = part.strip()
+        if len(item) >= 2 and item[0] == item[-1] and item[0] in "\"'":
+            item = item[1:-1].strip()
+        if "[" in item or "]" in item:
+            shown = raw.strip()
+            raise ConfigError(
+                f"A list cannot be read from {shown[:80]!r}: it has a bracket in the wrong place",
+                details="Write the items separated by commas (a, b, c), or the same between "
+                "one pair of brackets ([a, b, c]). Quote the whole value in the shell.",
+            )
+        if item:
+            items.append(item)
+    return items
+
+
 def coerce_config_value(existing: Any, raw: str) -> Any:
     """
     Parse a string value the way ``noust config set`` and ``PATCH /api/config``
@@ -2473,7 +2561,7 @@ def coerce_config_value(existing: Any, raw: str) -> Any:
         # of the literal string - argv has no native list type, and a value
         # already shaped like one is the whole reason this key has a default
         # to coerce against in the first place.
-        return [item.strip() for item in raw.split(",") if item.strip()]
+        return parse_list_text(raw)
 
     if isinstance(existing, bool):
         lowered = raw.strip().lower()
@@ -2502,6 +2590,11 @@ def coerce_config_value(existing: Any, raw: str) -> Any:
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError:
+            stripped = raw.strip()
+            # A list in brackets that is not JSON ('[github.com/acme, local]') is still a list,
+            # and kept as text it would be stored with its brackets.
+            if stripped.startswith("[") and stripped.endswith("]"):
+                return parse_list_text(stripped)
             return raw
         if parsed is None or isinstance(parsed, (bool, int, float, list)):
             return parsed

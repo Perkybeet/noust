@@ -2452,7 +2452,7 @@ def forget(ctx: Context, name: str, engine: str) -> None:
     _exit(_forget(name, engine=engine, logger=ctx.logger))
 
 
-@cli.command("fix-owner")
+@cli.command("fix-owner", read_only=lambda params: not params["apply_changes"])
 @click.argument("name")
 @click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database is on.")
 @click.option("--owner", help="Role that must own it. Defaults to the one Noust provisioned.")

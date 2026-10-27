@@ -212,6 +212,26 @@ def floor(control_id: str, config: Any | None = None) -> Any:
     return floor_for(control_id, enabled_ids(config))
 
 
+def is_chosen(control: controls.Control, config: Any | None = None) -> bool:
+    """
+    Whether the operator chose the number a ``when_forced`` control holds.
+
+    The number alone cannot say: ``auth.tokens.max_days`` is 90 in every file. The choice is
+    recorded in the control's switch, which ``noust compliance set`` and the console write beside it.
+
+    Args:
+        control: The control.
+        config: The configuration; the process-wide one by default.
+
+    Returns:
+        True when the control has a switch and it is on.
+    """
+    if not control.own_switch:
+        return False
+    raw = profile.read_config(config, control.own_switch, False)
+    return raw is True or str(raw).strip().lower() in ("true", "yes", "on", "1")
+
+
 def operator_value(control: controls.Control, config: Any | None, *, forced: bool) -> Any:
     """
     The operator's own setting for a control.
@@ -220,16 +240,20 @@ def operator_value(control: controls.Control, config: Any | None, *, forced: boo
         control: The control.
         config: The configuration; the process-wide one by default.
         forced: Whether a framework asks something stricter than the default of
-            it, which a ``when_forced`` setting needs to count at all.
+            it, which a ``when_forced`` setting needs to count unless the operator chose it.
 
     Returns:
         The value the setting holds; the default when it holds nothing, nothing
         that can be read, or (for a ``when_forced`` setting) no framework is
-        asking.
+        asking and the operator did not choose the number.
     """
     if not control.key:
         return control.standard
-    if control.setting == controls.SETTING_WHEN_FORCED and not forced:
+    if (
+        control.setting == controls.SETTING_WHEN_FORCED
+        and not forced
+        and not is_chosen(control, config)
+    ):
         return control.standard
     raw = profile.read_config(config, control.key, None)
     if raw is None:
@@ -252,6 +276,8 @@ class Resolution:
         floor: What the enabled frameworks leave of it.
         forced_by: The enabled frameworks that ask anything of it, the one that
             sets the floor first.
+        chosen: Whether the operator chose the number of a ``when_forced`` control, so it counts
+            without a framework.
     """
 
     control: controls.Control
@@ -259,6 +285,12 @@ class Resolution:
     operator: Any
     floor: Any
     forced_by: tuple[str, ...]
+    chosen: bool = False
+
+    @property
+    def own_counts(self) -> bool:
+        """Whether the operator's own number limits something now or when a framework is gone."""
+        return self.control.setting != controls.SETTING_WHEN_FORCED or self.chosen or self.locked
 
     @property
     def locked(self) -> bool:
@@ -286,6 +318,7 @@ class Resolution:
             "forced_by": list(self.forced_by),
             "locked": self.locked,
             "enabled": self.on,
+            "own_counts": self.own_counts,
         }
 
 
@@ -295,6 +328,7 @@ def resolve_for(
     operator: Any = None,
     *,
     has_operator: bool = False,
+    chosen: bool = False,
 ) -> Resolution:
     """
     Resolve a control for a given set of frameworks and, optionally, a value of the setting.
@@ -304,6 +338,8 @@ def resolve_for(
         framework_ids: The frameworks that are on.
         operator: The operator's value, when ``has_operator``.
         has_operator: Whether ``operator`` is a value to count.
+        chosen: Whether the operator chose the number of a ``when_forced`` control, which then
+            counts although no framework asks.
 
     Returns:
         The resolution.
@@ -312,7 +348,7 @@ def resolve_for(
     asked = requirements_of(control_id, framework_ids)
     floor_value = floor_for(control_id, framework_ids)
     own = operator if has_operator else control.standard
-    if control.setting == controls.SETTING_WHEN_FORCED and not asked:
+    if control.setting == controls.SETTING_WHEN_FORCED and not asked and not chosen:
         own = control.standard
     top = max((control.rank(required.value) for _, required in asked), default=None)
     first = [name for name, required in asked if control.rank(required.value) == top]
@@ -323,6 +359,7 @@ def resolve_for(
         operator=own,
         floor=floor_value,
         forced_by=(*first, *rest),
+        chosen=chosen,
     )
 
 
@@ -342,6 +379,7 @@ def resolve(control_id: str, config: Any | None = None) -> Resolution:
         ids,
         operator_value(control, config, forced=bool(requirements_of(control_id, ids))),
         has_operator=True,
+        chosen=is_chosen(control, config),
     )
 
 

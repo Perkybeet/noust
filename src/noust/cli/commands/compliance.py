@@ -95,7 +95,15 @@ def _effect_lines(ctx: Context, plan: Plan) -> None:
         plan: The plan.
     """
     if not plan.effects:
-        ctx.logger.info("No control changes value.")
+        if plan.settings:
+            # A choice recorded while something else already asks as much or more: it limits
+            # nothing yet, and it is the reason the limit stays when that goes.
+            ctx.logger.info(
+                "No control changes value now. Recorded as your own, and in force when no "
+                f"framework asks as much: {', '.join(plan.settings)}."
+            )
+        else:
+            ctx.logger.info("No control changes value.")
         return
     rows = []
     for effect in plan.effects:
@@ -232,17 +240,18 @@ def controls_command(ctx: Context) -> None:
     ctx.logger.table(["Control", "Value", "Default", "Forced by", "Setting"], rows)
 
 
-def _apply(
-    ctx: Context, plan: Plan, *, yes: bool, acknowledge: bool, title: str, event_target: str
-) -> None:
+def _apply(ctx: Context, plan: Plan, *, yes: bool, title: str, event_target: str) -> None:
     """
     Show a plan, ask, apply it and record it.
+
+    ``--json`` is not an answer: without ``--yes`` it prints the plan and changes nothing, as
+    ``--dry-run`` does (``noust compliance disable ens-media --json`` once turned the framework
+    off with its input closed).
 
     Args:
         ctx: The CLI context.
         plan: What was asked.
-        yes: Do not ask.
-        acknowledge: Go ahead past the warnings.
+        yes: Do not ask, and go ahead past the warnings.
         title: The sentence for the confirmation.
         event_target: The audit target.
 
@@ -250,17 +259,28 @@ def _apply(
         click.Abort: When the person declines.
     """
     manager = ComplianceManager()
-    if plan.empty:
-        ctx.logger.info("Nothing changes.")
-        return
     if ctx.json_output:
-        applied = manager.apply(plan, acknowledge=acknowledge or yes)
+        if plan.empty or ctx.dry_run or not yes:
+            click.echo(
+                json.dumps(
+                    {
+                        "plan": plan.to_dict(),
+                        "applied": False,
+                        "needs": None if plan.empty or yes else "--yes",
+                    }
+                )
+            )
+            return
+        applied = manager.apply(plan, acknowledge=True)
         click.echo(
             json.dumps(
                 {"plan": plan.to_dict(), "applied": True, "after": list(applied.enabled_after)}
             )
         )
     else:
+        if plan.empty:
+            ctx.logger.info("Nothing changes.")
+            return
         _effect_lines(ctx, plan)
         for warning in plan.warnings:
             count = f" ({warning.count})" if warning.count else ""
@@ -300,7 +320,7 @@ _WARNING_WORDS = {
 }
 
 
-@cli.command("enable")
+@cli.command("enable", gates_json=True)
 @click.argument("frameworks_", metavar="FRAMEWORK...", nargs=-1, required=True, type=FRAMEWORK)
 @click.option("--yes", "-y", is_flag=True, help="Do not ask for confirmation.")
 @json_option("Print the plan as JSON.")
@@ -319,13 +339,12 @@ def enable_command(ctx: Context, frameworks_: tuple[str, ...], yes: bool) -> Non
         ctx,
         plan,
         yes=yes,
-        acknowledge=yes,
         title=f"Turn on {', '.join(frameworks_)}?",
         event_target="frameworks:" + ",".join(plan.enable),
     )
 
 
-@cli.command("disable")
+@cli.command("disable", gates_json=True)
 @click.argument("frameworks_", metavar="FRAMEWORK...", nargs=-1, required=True, type=FRAMEWORK)
 @click.option("--yes", "-y", is_flag=True, help="Do not ask for confirmation.")
 @json_option("Print the plan as JSON.")
@@ -341,7 +360,6 @@ def disable_command(ctx: Context, frameworks_: tuple[str, ...], yes: bool) -> No
         ctx,
         plan,
         yes=yes,
-        acknowledge=yes,
         title=f"Turn off {', '.join(frameworks_)}? Protection goes down.",
         event_target="frameworks:" + ",".join(plan.disable),
     )
@@ -370,7 +388,7 @@ class ControlName(click.ParamType):
         return name
 
 
-@cli.command("set")
+@cli.command("set", gates_json=True)
 @click.argument("control", type=ControlName())
 @click.argument("value")
 @click.option("--yes", "-y", is_flag=True, help="Do not ask for confirmation.")
@@ -391,7 +409,6 @@ def set_command(ctx: Context, control: str, value: str, yes: bool) -> None:
         ctx,
         plan,
         yes=yes,
-        acknowledge=yes,
         title=f"Set {control} to {value}?",
         event_target=f"control:{control}",
     )

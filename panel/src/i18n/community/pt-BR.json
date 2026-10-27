@@ -14333,7 +14333,6 @@
   "terminal.disabled.enable": "Ative-os de um terminal no servidor:",
   "terminal.off.title": "O terminal no servidor está desativado",
   "terminal.off.description": "Um shell root no navegador é a coisa mais poderosa que o console pode abrir, então ele fica desativado até um administrador ativá-lo.",
-  "terminal.off.ens": "O perfil ENS o mantém desativado mesmo quando ativado, a menos que também seja forçado, o que fica registrado.",
   "terminal.off.enable": "Ative-o de um terminal no servidor:",
   "terminal.off.force": "Para permiti-lo mesmo assim, o que fica registrado:",
   "terminal.notice.idle": "Nada foi digitado há algum tempo. Este terminal fecha em {seconds} s, a menos que você pressione uma tecla.",

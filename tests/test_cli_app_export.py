@@ -182,6 +182,7 @@ def test_import_deploys_through_wasm_create(
             "store.example.org",
             "--env-file",
             str(env_file),
+            "--yes",
         ]
     )
 

@@ -222,7 +222,17 @@ def test_the_command_sets_the_profile_through_the_engine(
 
     result = CliRunner().invoke(
         root_cli,
-        ["--json", "app", "hardening", "set", DOMAIN, "strict", "--writable", "/var/lib/shop"],
+        [
+            "--json",
+            "app",
+            "hardening",
+            "set",
+            DOMAIN,
+            "strict",
+            "--writable",
+            "/var/lib/shop",
+            "--yes",
+        ],
     )
 
     assert result.exit_code == 0, result.output
@@ -252,7 +262,7 @@ def test_no_writable_forgets_the_directories(
     monkeypatch.setattr(engine, "set_hardening", fake)
 
     CliRunner().invoke(
-        root_cli, ["--json", "app", "hardening", "set", DOMAIN, "default", "--no-writable"]
+        root_cli, ["--json", "app", "hardening", "set", DOMAIN, "default", "--no-writable", "--yes"]
     )
 
     assert seen == [()]

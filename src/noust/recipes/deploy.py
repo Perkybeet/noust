@@ -36,6 +36,7 @@ from noust.core.config import Config
 from noust.core.exceptions import DeploymentError, DomainError, NoustError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
+from noust.core.recipe_sources import recipe_source_dir
 from noust.core.store import NoustStore, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.databases import (
@@ -64,11 +65,6 @@ from noust.recipes.versions import require_compatible
 from noust.validators.domain import validate_domain
 from noust.validators.environment import validate_environment
 from noust.validators.port import find_available_port
-
-#: Directory, beside the store, that holds the sources rendered from a
-#: recipe: the files of a template source and a Compose recipe's document. A
-#: deployment copies its tree from there, and so does every later update.
-RECIPE_SOURCES_DIR = "recipe-sources"
 
 #: The file a Compose recipe's document is written to. The Compose deployer
 #: finds it by this name, among the ones Compose itself looks for.
@@ -198,20 +194,6 @@ class RecipePlan:
             theirs[2] if theirs[2] is not None else ours[2],
         )
         return merged if any(value is not None for value in merged) else None
-
-
-def recipe_source_dir(app_name: str, store: NoustStore | None = None) -> Path:
-    """
-    Say where the source rendered from a recipe is kept.
-
-    Args:
-        app_name: The application name.
-        store: The store, beside which it lives.
-
-    Returns:
-        ``<store directory>/recipe-sources/<app_name>``.
-    """
-    return (store or get_store()).db_path.parent / RECIPE_SOURCES_DIR / app_name
 
 
 def refuse_conflicts(*, source: str | None, app_type: str | None) -> None:

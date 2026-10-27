@@ -33,9 +33,8 @@ import { clock, endedSentence, secondsUntil } from "./words";
 import type { ReactNode } from "react";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
-/** The commands that turn the server's shell on, verbatim: the ones the server's own refusal names. */
+/** The commands the server's own refusal names, for a server old enough not to send its own. */
 export const SERVER_ENABLE_COMMAND = "noust config set terminal.server.enabled true";
-export const SERVER_FORCE_COMMAND = "noust config set terminal.server.force_ens true";
 export const TERMINALS_ENABLE_COMMAND = "noust config set terminal.enabled true";
 
 const PHASE_STATUS: Record<Phase, Status> = {
@@ -115,18 +114,21 @@ function Notices({ state, t }: { state: SessionState; t: T }) {
 /** Why there is no terminal here, when the server has them off. */
 function Off({ target, status, t }: { target: TerminalTarget; status: TerminalStatus; t: T }) {
   if (target.kind === "server") {
-    const forced = status.server.enabled && status.ens;
+    const { code, command, forced_by: frameworks = [] } = status.server;
+    // What blocks it is the server's to say, with the command verbatim: the console only translates the sentence.
+    const sentence =
+      code === "server_shell_control"
+        ? `${t("terminal.off.control")} ${t("terminal.off.allow")}`
+        : code === "server_shell_framework"
+          ? `${t("terminal.off.framework", { frameworks: frameworks.join(", ") })} ${t("terminal.off.force")}`
+          : `${t("terminal.off.description")} ${t("terminal.off.enable")}`;
     return (
       <EmptyState
         variant="firstUse"
         icon={<OBJECT_ICONS.terminal />}
         title={t("terminal.off.title")}
-        description={
-          <>
-            {t("terminal.off.description")} {forced ? `${t("terminal.off.ens")} ${t("terminal.off.force")}` : t("terminal.off.enable")}
-          </>
-        }
-        command={forced ? SERVER_FORCE_COMMAND : SERVER_ENABLE_COMMAND}
+        description={sentence}
+        command={command ?? SERVER_ENABLE_COMMAND}
       />
     );
   }

@@ -64,6 +64,7 @@ from noust.core import audit, compliance
 from noust.core.audit import failclosed
 from noust.core.audit.ledger import install_ledger
 from noust.core.audit.sanitize import clean_details, secret_name
+from noust.core.compliance import explain
 from noust.core.config import REDACTED
 from noust.core.ens import profile
 from noust.core.ens.profile import PROFILE_ENS_MEDIUM
@@ -221,20 +222,6 @@ def is_read_only(
     return bool(declared)
 
 
-def _why_reasons_are_asked() -> str:
-    """
-    Returns:
-        What makes this server ask for a reason: the ENS profile, or the
-        operator's own setting.
-    """
-    from noust.core.compliance import resolve
-
-    forced = resolve.resolve("change_reasons").forced_by
-    if forced:
-        return f"{', '.join(forced)} require it"
-    return "security.change_reasons is on"
-
-
 def security_profile() -> str:
     """
     The configured security profile.
@@ -378,8 +365,8 @@ class AuditedInvocation(AbstractContextManager["AuditedInvocation"]):
         if not self._reason and not entry_point and compliance.is_on("change_reasons"):
             raise click.UsageError(
                 f"'noust {self.path}' changes this server, and this server asks for a reason "
-                f"for every change ({_why_reasons_are_asked()}). Add --reason "
-                '"<change reference or why>"; it is recorded in the audit log with the command.'
+                'for every change. Add --reason "<change reference or why>"; it is recorded in '
+                "the audit log with the command.\n" + explain.why_on("change_reasons").sentence()
             )
         self.active = True
         self._actor = audit.cli_actor()

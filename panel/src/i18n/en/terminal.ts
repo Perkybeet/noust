@@ -84,8 +84,12 @@ export const terminal = {
     title: "The terminal on the server is off",
     description:
       "A root shell in the browser is the most powerful thing the console can open, so it stays off until an administrator turns it on.",
-    ens: "The ENS profile keeps it off even when it is turned on, unless it is forced as well, which is put on record.",
+    control:
+      "The control server_terminal is set to refused on this server, so the root shell in the browser stays off even though it is turned on.",
+    framework:
+      "The compliance framework in force ({frameworks}) keeps it off even when it is turned on, unless it is forced as well, which is put on record.",
     enable: "Turn it on from a terminal on the server:",
+    allow: "Allow it from a terminal on the server:",
     force: "To allow it anyway, which is put on record:",
   },
   /** Said under the screen while it lasts. */

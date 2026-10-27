@@ -435,7 +435,7 @@ def _parse_access(level: str | None, host_access: bool | None) -> FleetAccess | 
     )
 
 
-@cli.command("authorize")
+@cli.command("authorize", gates_json=True)
 @click.option(
     "--central-key",
     required=True,

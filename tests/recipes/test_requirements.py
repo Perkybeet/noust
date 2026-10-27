@@ -20,6 +20,7 @@ from noust.recipes import Recipe, RecipeError, parse_recipe
 from noust.recipes.requirements import (
     RUNTIME,
     SERVICE,
+    SOURCE,
     TOOL,
     check_requirements,
     refuse_unmet,
@@ -325,3 +326,56 @@ class TestTheApi:
 
     def test_an_unknown_recipe_is_a_404(self, client: TestClient) -> None:
         assert client.get("/api/recipes/nothing/requirements").status_code == 404
+
+
+class TestTheSourcePolicy:
+    """
+    A server that names where code may come from has to allow the catalogue's recipes, and the
+    install says so before it provisions anything, with the command that does.
+    """
+
+    def test_with_no_list_it_asks_nothing(self, machine: SimpleNamespace, real_config: Any) -> None:
+        assert [item.kind for item in check_requirements(stack())] == [TOOL]
+
+    def test_a_list_that_leaves_the_recipes_out_is_an_unmet_requirement_with_its_command(
+        self, machine: SimpleNamespace, real_config: Any
+    ) -> None:
+        real_config.set("security.allowed_sources", ["github.com/acme"])
+
+        [item] = unmet(check_requirements(stack()))
+
+        assert (item.kind, item.installable) == (SOURCE, False)
+        assert item.fix == "noust config set security.allowed_sources github.com/acme,recipes"
+
+    def test_the_command_it_gives_works(self, machine: SimpleNamespace, real_config: Any) -> None:
+        import shlex
+
+        real_config.set("security.allowed_sources", ["github.com/acme"])
+        [item] = unmet(check_requirements(stack()))
+
+        result = CliRunner().invoke(cli, shlex.split(item.fix or "")[1:])
+
+        assert result.exit_code == 0, result.output
+        assert unmet(check_requirements(stack())) == []
+
+    @pytest.mark.parametrize("entry", ["recipes", "local"])
+    def test_the_word_meets_it(
+        self, machine: SimpleNamespace, real_config: Any, entry: str
+    ) -> None:
+        real_config.set("security.allowed_sources", ["github.com/acme", entry])
+
+        found = check_requirements(stack())
+
+        assert [(item.kind, item.met) for item in found] == [(TOOL, True), (SOURCE, True)]
+
+    def test_the_install_is_refused_before_anything_is_provisioned(
+        self, machine: SimpleNamespace, real_config: Any
+    ) -> None:
+        real_config.set("security.allowed_sources", ["github.com/acme"])
+
+        with pytest.raises(RecipeError) as refused:
+            refuse_unmet(stack(), install=False, logger=Logger())
+
+        assert "noust config set security.allowed_sources github.com/acme,recipes" in (
+            refused.value.details or ""
+        )

@@ -380,7 +380,7 @@ class TestTheLimits:
         refused = SessionRegistry(
             settings=lambda: settings(server_enabled=True, ens=True), runner=lambda: runner
         )
-        with pytest.raises(TerminalDisabledError, match="compliance controls"):
+        with pytest.raises(TerminalDisabledError, match="server_terminal"):
             open_session(refused, kind="server", target=SERVER_TARGET)
 
         forced = SessionRegistry(

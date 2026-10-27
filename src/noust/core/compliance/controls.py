@@ -56,7 +56,9 @@ GROUPS: tuple[str, ...] = (GROUP_ACCESS, GROUP_ACCOUNTABILITY, GROUP_BACKUP, GRO
 #: What the operator's own setting means for a control.
 #: ``always``: it is the control's own value everywhere (``auth.session.idle_minutes``).
 #: ``when_forced``: it only tightens a limit a framework imposes (a token's longest
-#: life); on its own it limits nothing, so a default in the file is not a limit.
+#: life), because the key holds a number in every file by default (``auth.tokens.max_days`` is 90)
+#: and a default is not a choice. The control's ``own_switch`` records when the operator did choose
+#: it: from then on the number counts on its own, with or without a framework.
 SETTING_ALWAYS = "always"
 SETTING_WHEN_FORCED = "when_forced"
 
@@ -81,6 +83,8 @@ class Control:
         unit: What a number counts, for display: ``minutes``, ``hours``, ``days``,
             ``characters``, ``attempts``.
         setting: One of the ``SETTING_*`` values.
+        own_switch: For a ``when_forced`` setting, the key of the flag that says the number in
+            ``key`` is the operator's choice and counts without a framework; empty for the rest.
         on_value: What the key holds when a flag is on (``refuse`` for
             ``audit.on_failure``).
         off_value: What it holds when it is off.
@@ -98,6 +102,7 @@ class Control:
     choices: tuple[str, ...] = ()
     unit: str = ""
     setting: str = SETTING_ALWAYS
+    own_switch: str = ""
     on_value: Value = True
     off_value: Value = False
     zero_is_off: bool = False
@@ -298,6 +303,7 @@ CONTROLS: tuple[Control, ...] = (
         "auth.tokens.max_days",
         unit="days",
         setting=SETTING_WHEN_FORCED,
+        own_switch="auth.tokens.enforce_max_days",
     ),
     _choice(
         "master_token",

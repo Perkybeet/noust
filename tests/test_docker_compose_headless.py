@@ -626,7 +626,9 @@ def test_the_command_passes_the_choice_and_prints_json(monkeypatch: pytest.Monke
 
     monkeypatch.setattr(app_headless, "make_headless", fake)
 
-    result = CliRunner().invoke(root_cli, ["app", "headless", DOMAIN, "--remove-site", "--json"])
+    result = CliRunner().invoke(
+        root_cli, ["app", "headless", DOMAIN, "--remove-site", "--yes", "--json"]
+    )
 
     assert result.exit_code == 0, result.output
     assert seen == {"domain": DOMAIN, "remove_site": True}

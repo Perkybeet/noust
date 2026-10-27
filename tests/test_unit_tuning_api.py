@@ -295,6 +295,7 @@ def test_set_lays_what_is_typed_over_what_the_unit_has(
             "--memlock",
             "infinity",
             "--no-core-dumps",
+            "--yes",
         ],
     )
 
@@ -320,7 +321,7 @@ def test_set_can_remove_one_option_and_leave_the_rest(
     )
 
     result = CliRunner().invoke(
-        root_cli, ["--json", "app", "tuning", "set", DOMAIN, "--unset", "cpu_weight"]
+        root_cli, ["--json", "app", "tuning", "set", DOMAIN, "--unset", "cpu_weight", "--yes"]
     )
 
     assert result.exit_code == 0, result.output
@@ -330,7 +331,18 @@ def test_set_can_remove_one_option_and_leave_the_rest(
 def test_a_gpu_is_the_device_groups_its_vendor_needs(store: NoustStore, applied: list[Any]) -> None:
     result = CliRunner().invoke(
         root_cli,
-        ["--json", "app", "tuning", "set", DOMAIN, "--gpu", "nvidia", "--device", "/dev/kvm:r"],
+        [
+            "--json",
+            "app",
+            "tuning",
+            "set",
+            DOMAIN,
+            "--gpu",
+            "nvidia",
+            "--device",
+            "/dev/kvm:r",
+            "--yes",
+        ],
     )
 
     assert result.exit_code == 0, result.output
@@ -378,7 +390,7 @@ def test_no_restart_is_passed_on_and_said(store: NoustStore, applied: list[Any])
 
 
 def test_clear_sets_nothing(store: NoustStore, applied: list[Any]) -> None:
-    result = CliRunner().invoke(root_cli, ["--json", "app", "tuning", "clear", DOMAIN])
+    result = CliRunner().invoke(root_cli, ["--json", "app", "tuning", "clear", DOMAIN, "--yes"])
 
     assert result.exit_code == 0, result.output
     assert applied[0][1] == {}

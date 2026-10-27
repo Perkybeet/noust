@@ -2047,6 +2047,7 @@ ControlInfo = TypedDict("ControlInfo", {
     "kind": Required[str],
     "locked": Required[bool],
     "operator": NotRequired[Any],
+    "own_counts": NotRequired[bool],
     "standard": NotRequired[Any],
     "unit": Required[str],
     "value": NotRequired[Any],
@@ -6801,6 +6802,7 @@ RecipeInstallRequest = TypedDict("RecipeInstallRequest", {
 RecipeListOut = TypedDict("RecipeListOut", {
     "items": Required[list["RecipeSummaryOut"]],
     "problems": NotRequired[list["RecipeProblemOut"]],
+    "recipes_allowed": NotRequired[bool],
     "total": NotRequired[int],
 })
 
@@ -8059,7 +8061,11 @@ ServerKeyResponse = TypedDict("ServerKeyResponse", {
 
 ServerShellModel = TypedDict("ServerShellModel", {
     "allowed": Required[bool],
+    "code": NotRequired[Union[str, None]],
+    "command": NotRequired[Union[str, None]],
+    "control": NotRequired[Union[str, None]],
     "enabled": Required[bool],
+    "forced_by": NotRequired[list[str]],
     "how": NotRequired[Union[str, None]],
     "reason": NotRequired[Union[str, None]],
 })

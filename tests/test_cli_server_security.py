@@ -106,6 +106,32 @@ class TestSsh:
         assert later.exit_code == 0, later.output
         assert "port 60001" in later.output
 
+    @pytest.mark.parametrize("flag", ["-y", "--yes"])
+    def test_confirm_takes_yes_like_the_other_commands_of_the_group(self, machine, flag):
+        """A script that passes -y to every command of the group does not fail on this one."""
+        machine.runner.script(["journalctl"], stdout=accepted("root", ED_FP, at=NOW - 3600) + "\n")
+        invoke("ssh", "harden", "verbose-logging", "-y")
+        machine.runner.script(
+            ["journalctl"], stdout=accepted("root", ED_FP, at=NOW + 30, port=60001) + "\n"
+        )
+
+        result = invoke("confirm", flag)
+
+        assert result.exit_code == 0, result.output
+        assert "port 60001" in result.output
+
+    def test_confirm_with_yes_and_json_prints_the_change(self, machine):
+        machine.runner.script(["journalctl"], stdout=accepted("root", ED_FP, at=NOW - 3600) + "\n")
+        invoke("ssh", "harden", "verbose-logging", "-y")
+        machine.runner.script(
+            ["journalctl"], stdout=accepted("root", ED_FP, at=NOW + 30, port=60001) + "\n"
+        )
+
+        result = invoke("confirm", "-y", "--json")
+
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.output)["status"] == "confirmed"
+
     def test_pending_says_whether_the_login_that_keeps_the_change_is_on_record(self, machine):
         machine.runner.script(["journalctl"], stdout=accepted("root", ED_FP, at=NOW - 3600) + "\n")
         invoke("ssh", "harden", "verbose-logging", "-y")

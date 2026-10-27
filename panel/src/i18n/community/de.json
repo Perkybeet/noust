@@ -14333,7 +14333,6 @@
   "terminal.disabled.enable": "Schalten Sie sie über ein Terminal auf dem Server ein:",
   "terminal.off.title": "Das Terminal auf dem Server ist aus",
   "terminal.off.description": "Eine Root-Shell im Browser ist das Mächtigste, was die Konsole öffnen kann, daher bleibt sie aus, bis ein Administrator sie einschaltet.",
-  "terminal.off.ens": "Das ENS-Profil hält es auch dann aus, wenn es eingeschaltet ist, es sei denn, es wird zusätzlich erzwungen, was festgehalten wird.",
   "terminal.off.enable": "Schalten Sie es über ein Terminal auf dem Server ein:",
   "terminal.off.force": "Um es trotzdem zu erlauben, was festgehalten wird:",
   "terminal.notice.idle": "Seit einer Weile wurde nichts getippt. Dieses Terminal schließt in {seconds} s, wenn Sie keine Taste drücken.",

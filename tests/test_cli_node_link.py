@@ -246,6 +246,15 @@ class TestServer:
         assert body["unit"] == "noust-link-nas.service"
         assert body["remote_port"] == 24001
 
+    def test_a_second_link_asks_under_json_too(self, server):
+        """``--json`` is not an answer: a token the central already holds is replaced when said."""
+        assert run(*self.host_key_args(), "--json").exit_code == 0
+
+        again = run(*self.host_key_args(), "--json")
+
+        assert again.exit_code == 1
+        assert "Revoke it and issue a new token" in again.output
+
     def test_a_rehearsal_prints_no_code(self, server):
         result = run("--dry-run", *self.host_key_args())
 

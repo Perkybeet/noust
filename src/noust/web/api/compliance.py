@@ -112,6 +112,10 @@ class ControlInfo(BaseModel):
         forced_by: The enabled frameworks that ask anything of it, strictest first.
         locked: Whether one does, so it cannot be loosened.
         enabled: Whether it asks for more than the default.
+        own_counts: Whether the operator's own number limits something on its own. False for a
+            control such as ``token_max_days`` whose key holds a default in every file, until the
+            operator chooses a number (setting it records the choice), and then it is kept
+            when a framework is taken off.
     """
 
     id: str
@@ -128,6 +132,7 @@ class ControlInfo(BaseModel):
     forced_by: list[str]
     locked: bool
     enabled: bool
+    own_counts: bool = True
 
 
 class ComplianceState(BaseModel):

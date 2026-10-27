@@ -403,6 +403,24 @@ describe("an application's terminal page", () => {
   });
 
   describe("in Spanish", () => {
+    it("says what keeps the server's shell off from the same code, without blaming a profile", async () => {
+      await setLocale("es");
+      fakeBackend({
+        ...routes({}, WITH_TERMINAL),
+        ...serverRoutes(),
+        "GET /api/terminal/status": () =>
+          json(200, {
+            ...STATUS_BODY,
+            ens: true,
+            server: { allowed: false, enabled: true, reason: "x", how: "y", code: "server_shell_control", command: "noust compliance set server_terminal allowed", control: "server_terminal", forced_by: [] },
+          }),
+      });
+      renderConsole("/server/terminal");
+      expect(await screen.findByText(/El control server_terminal está en refused en este servidor/)).toBeInTheDocument();
+      expect(screen.getByText("noust compliance set server_terminal allowed")).toBeInTheDocument();
+      expect(screen.queryByText(/perfil ENS/)).not.toBeInTheDocument();
+    });
+
     it("speaks Spanish, from the start to the end of a session", async () => {
       await setLocale("es");
       const harness = await appPage();
@@ -476,10 +494,36 @@ describe("the server's terminal page", () => {
     expect(screen.queryByRole("button", { name: "Open terminal" })).not.toBeInTheDocument();
   });
 
-  it("says the profile keeps it off even when it is switched on, and how to force it", async () => {
-    await serverPage({ ...STATUS_BODY, ens: true, server: { allowed: false, enabled: true, reason: "The ENS profile keeps it off", how: "force" } });
-    expect(await screen.findByText(/The ENS profile keeps it off even when it is turned on/)).toBeInTheDocument();
-    expect(screen.getByText("noust config set terminal.server.force_ens true")).toBeInTheDocument();
+  it("names the framework that keeps it off even when it is switched on, with the server's own command to force it", async () => {
+    const command = 'noust config set terminal.server.force_ens true --reason "<why>"';
+    await serverPage({
+      ...STATUS_BODY,
+      ens: true,
+      server: { allowed: false, enabled: true, reason: "x", how: "y", code: "server_shell_framework", command, control: "server_terminal", forced_by: ["ens-media", "iso-27001"] },
+    });
+    expect(await screen.findByText(/The compliance framework in force \(ens-media, iso-27001\) keeps it off even when it is turned on/)).toBeInTheDocument();
+    expect(screen.getByText(command)).toBeInTheDocument();
+  });
+
+  it("blames the control, not a profile, when no framework is on", async () => {
+    await serverPage({
+      ...STATUS_BODY,
+      ens: true,
+      server: {
+        allowed: false,
+        enabled: true,
+        reason: "x",
+        how: "y",
+        code: "server_shell_control",
+        command: "noust compliance set server_terminal allowed",
+        control: "server_terminal",
+        forced_by: [],
+      },
+    });
+    expect(await screen.findByText(/The control server_terminal is set to refused on this server/)).toBeInTheDocument();
+    expect(screen.getByText("noust compliance set server_terminal allowed")).toBeInTheDocument();
+    expect(screen.queryByText(/ENS/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/force_ens/)).not.toBeInTheDocument();
   });
 
   it("opens a root shell when it is on, and says it is root", async () => {

@@ -198,7 +198,9 @@ def test_the_command_moves_everyone_with_all(
     monkeypatch.setattr(app_identity, "migrate_all", fake_all)
     monkeypatch.setattr(app_identity, "shared_account_apps", lambda store=None: [object()])
 
-    result = CliRunner().invoke(root_cli, ["--json", "app", "identity", "migrate", "--all"])
+    result = CliRunner().invoke(
+        root_cli, ["--json", "app", "identity", "migrate", "--all", "--yes"]
+    )
 
     assert result.exit_code == 0, result.output
     assert len(calls) == 1
@@ -215,7 +217,9 @@ def test_the_command_fails_loudly_when_one_was_not_moved(
     )
     monkeypatch.setattr(app_identity, "shared_account_apps", lambda store=None: [object()])
 
-    result = CliRunner().invoke(root_cli, ["--json", "app", "identity", "migrate", "--all"])
+    result = CliRunner().invoke(
+        root_cli, ["--json", "app", "identity", "migrate", "--all", "--yes"]
+    )
 
     assert result.exit_code != 0
     assert "b.example.com" in result.output

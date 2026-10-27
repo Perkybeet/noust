@@ -112,6 +112,22 @@ class TestReading:
         approvals = next(c for c in body["controls"] if c["id"] == "approvals")
         assert approvals["forced_by"] == [] and approvals["enabled"] is False
 
+    def test_a_control_says_whether_the_operators_own_number_counts(
+        self, app: Any, real_config: Config
+    ) -> None:
+        """``token_max_days`` holds a default in every file: its number counts once it is chosen."""
+        viewer = Person(app, "vera", "viewer")
+
+        def own_counts() -> dict[str, bool]:
+            body = viewer.get("/api/compliance").json()
+            return {c["id"]: c["own_counts"] for c in body["controls"]}
+
+        assert own_counts()["token_max_days"] is False
+        assert own_counts()["session_idle_minutes"] is True
+        real_config.set("auth.tokens.enforce_max_days", True)
+
+        assert own_counts()["token_max_days"] is True
+
     def test_nobody_anonymous_does(self, app: Any) -> None:
         anonymous = TestClient(app, client=("testclient", 50000))
 

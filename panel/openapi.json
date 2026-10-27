@@ -11925,7 +11925,7 @@
         "type": "object"
       },
       "ControlInfo": {
-        "description": "A control as it stands on this server.\n\nAttributes:\n    id: Its name.\n    group: ``access``, ``accountability``, ``backup`` or ``network``.\n    kind: ``flag``, ``choice``, ``min`` or ``max``.\n    standard: The default.\n    key: The configuration key of its own setting.\n    choices: For a choice, from the weakest to the strictest.\n    unit: What a number counts.\n    check_only: Whether nothing refuses it; only the check reads it.\n    value: The value in force.\n    operator: The operator's own setting.\n    floor: What the enabled frameworks leave of it.\n    forced_by: The enabled frameworks that ask anything of it, strictest first.\n    locked: Whether one does, so it cannot be loosened.\n    enabled: Whether it asks for more than the default.",
+        "description": "A control as it stands on this server.\n\nAttributes:\n    id: Its name.\n    group: ``access``, ``accountability``, ``backup`` or ``network``.\n    kind: ``flag``, ``choice``, ``min`` or ``max``.\n    standard: The default.\n    key: The configuration key of its own setting.\n    choices: For a choice, from the weakest to the strictest.\n    unit: What a number counts.\n    check_only: Whether nothing refuses it; only the check reads it.\n    value: The value in force.\n    operator: The operator's own setting.\n    floor: What the enabled frameworks leave of it.\n    forced_by: The enabled frameworks that ask anything of it, strictest first.\n    locked: Whether one does, so it cannot be loosened.\n    enabled: Whether it asks for more than the default.\n    own_counts: Whether the operator's own number limits something on its own. False for a\n        control such as ``token_max_days`` whose key holds a default in every file, until the\n        operator chooses a number (setting it records the choice), and then it is kept\n        when a framework is taken off.",
         "properties": {
           "check_only": {
             "title": "Check Only",
@@ -11974,6 +11974,11 @@
           },
           "operator": {
             "title": "Operator"
+          },
+          "own_counts": {
+            "default": true,
+            "title": "Own Counts",
+            "type": "boolean"
           },
           "standard": {
             "title": "Standard"
@@ -39563,7 +39568,7 @@
         "type": "object"
       },
       "RecipeListOut": {
-        "description": "The catalogue, or the part of it a search found.\n\nAttributes:\n    items: The recipes, the ones this release can deploy first.\n    total: How many there are.\n    problems: Files in the server's own recipes that were left out, and why.",
+        "description": "The catalogue, or the part of it a search found.\n\nAttributes:\n    items: The recipes, the ones this release can deploy first.\n    total: How many there are.\n    problems: Files in the server's own recipes that were left out, and why.\n    recipes_allowed: Whether this server lets the catalogue's recipes be deployed. False when\n        ``security.allowed_sources`` names where code may come from and leaves them out\n        (``recipes``, or ``local``, allows them); the requirements of a recipe carry the\n        command that does.",
         "properties": {
           "items": {
             "items": {
@@ -39579,6 +39584,11 @@
             },
             "title": "Problems",
             "type": "array"
+          },
+          "recipes_allowed": {
+            "default": true,
+            "title": "Recipes Allowed",
+            "type": "boolean"
           },
           "total": {
             "default": 0,
@@ -46926,10 +46936,54 @@
             "title": "Allowed",
             "type": "boolean"
           },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What blocks it, for the console to translate: server_shell_off (the switch), server_shell_control (the control server_terminal set to refused by the operator) or server_shell_framework (a framework holds that control)",
+            "title": "Code"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The command that changes it, verbatim",
+            "title": "Command"
+          },
+          "control": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The compliance control that blocks it",
+            "title": "Control"
+          },
           "enabled": {
             "description": "terminal.server.enabled",
             "title": "Enabled",
             "type": "boolean"
+          },
+          "forced_by": {
+            "description": "The frameworks that hold that control",
+            "items": {
+              "type": "string"
+            },
+            "title": "Forced By",
+            "type": "array"
           },
           "how": {
             "anyOf": [

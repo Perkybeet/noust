@@ -267,7 +267,7 @@ class TestAllowedOrigins:
         with pytest.raises(OriginNotAllowed) as caught:
             check_origin(push_source(DOMAIN), allowed=["github.com/acme"], kind="push")
         assert "push:shop.example.com" in str(caught.value)
-        assert "github.com/acme, push" in caught.value.details
+        assert "github.com/acme,push" in caught.value.details
 
     def test_local_does_not_allow_it_either(self) -> None:
         with pytest.raises(OriginNotAllowed):

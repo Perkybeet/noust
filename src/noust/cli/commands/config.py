@@ -44,6 +44,7 @@ from noust.core.config import (
     Config,
     coerce_config_value,
     is_secret_key,
+    parse_list_text,
     redact_secrets,
 )
 from noust.core.exceptions import ConfigError
@@ -290,28 +291,6 @@ def _run_get(key: str, logger: Logger) -> int:
     return 0
 
 
-def _parse_list_value(raw: str) -> list[str]:
-    """
-    Split a comma-separated command line value into a list.
-
-    This is what ``--list`` asks for: argv has no native list type, and
-    typing ``noust config set notifications.allow_private_hosts
-    internal.example,partner.example --list`` is the documented way to give a
-    list value to a key such as ``notifications.allow_private_hosts``, which
-    has no default for :func:`_coerce_cli_value` to recognise as one.
-
-    Empty items are dropped, so a trailing comma or repeated commas do not
-    store a value nobody typed.
-
-    Args:
-        raw: The value exactly as typed after ``--list``.
-
-    Returns:
-        The items, whitespace trimmed, in the order given.
-    """
-    return [item.strip() for item in raw.split(",") if item.strip()]
-
-
 def _coerce_cli_value(existing: Any, raw: str) -> Any:
     """
     Parse a command line value using the key's schema.
@@ -475,7 +454,7 @@ def _run_set(key: str, raw_value: str, logger: Logger, *, as_list: bool = False)
     existing = config.get(key, _MISSING)
 
     try:
-        value = _parse_list_value(raw_value) if as_list else _coerce_cli_value(existing, raw_value)
+        value = parse_list_text(raw_value) if as_list else _coerce_cli_value(existing, raw_value)
         config.set(key, value)
     except ConfigError as exc:
         logger.error(str(exc))
@@ -648,7 +627,7 @@ def get(ctx: Context, key: str) -> None:
     "as_list",
     is_flag=True,
     help=(
-        "Treat VALUE as a comma-separated list, for a key such as "
+        "Treat VALUE as a list, a, b, c or [a, b, c], for a key such as "
         "notifications.allow_private_hosts."
     ),
 )
@@ -691,7 +670,9 @@ def set_(
     notifications.allow_private_hosts internal.example,partner.example
     --list' splits VALUE on commas, and a key that already holds a list (for
     example monitor.email_recipients) also accepts a plain comma-separated
-    value or a JSON array such as '["a@example.com"]' without --list.
+    value or a JSON array such as '["a@example.com"]' without --list. The
+    same list may be written between brackets, '[a, b]', which are the list's
+    own and are never stored; a bracket anywhere else is refused.
 
     VALUE is coerced by the key's schema: a key with a default is parsed as
     that default's type (a boolean, a whole number, a decimal or a list), so
