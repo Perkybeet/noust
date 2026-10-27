@@ -48,9 +48,14 @@ def test_the_jobs_that_run_the_suite_are_found() -> None:
 
 @pytest.mark.parametrize(
     ("file", "name", "job"),
-    [pytest.param(file, name, job, id=f"{file}:{name}") for file, name, job in jobs_that_run_the_suite()],
+    [
+        pytest.param(file, name, job, id=f"{file}:{name}")
+        for file, name, job in jobs_that_run_the_suite()
+    ],
 )
-def test_a_machine_runs_a_slice_and_the_matrix_has_every_slice(file: str, name: str, job: dict[str, Any]) -> None:
+def test_a_machine_runs_a_slice_and_the_matrix_has_every_slice(
+    file: str, name: str, job: dict[str, Any]
+) -> None:
     declared = str(job.get("env", {}).get("NOUST_TEST_SHARD", ""))
     for step in job["steps"]:
         declared = declared or str(step.get("env", {}).get("NOUST_TEST_SHARD", ""))
