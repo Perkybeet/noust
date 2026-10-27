@@ -144,6 +144,8 @@ class TestManagerErrors:
             "hint": "use apps.directory",
             "fields": None,
             "output": None,
+            "coded": None,
+            "notes_coded": [],
         }
 
     def test_a_service_not_found_uses_the_contract(self, client: TestClient) -> None:
