@@ -48,7 +48,7 @@ class TestNeutralize:
             ("a\tb", "a\tb"),
             ("a\x1b[31mred", "a\\x1b[31mred"),
             ("a\x00b", "a\\x00b"),
-            ("a b c", "a\\u2028b\\u2029c"),
+            ("a\u2028b\u2029c", "a\\u2028b\\u2029c"),
             ("a\x85b", "a\\x85b"),
             ("été 日本", "été 日本"),
             ("", ""),

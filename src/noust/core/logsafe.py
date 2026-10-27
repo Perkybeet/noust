@@ -25,7 +25,7 @@ import re
 __all__ = ["install", "is_installed", "neutralize"]
 
 #: Every control character but the tab, and the Unicode line and paragraph separators.
-_UNSAFE = re.compile(r"[\x00-\x08\x0a-\x1f\x7f-\x9f  ]")
+_UNSAFE = re.compile(r"[\x00-\x08\x0a-\x1f\x7f-\x9f\u2028\u2029]")
 
 _NAMED = {"\n": "\\n", "\r": "\\r"}
 
@@ -64,7 +64,7 @@ def neutralize(text: str) -> str:
 class _NeutralRecord(logging.LogRecord):
     """A record whose message is safe to write as one line."""
 
-    def getMessage(self) -> str:  # noqa: N802 - the name logging calls
+    def getMessage(self) -> str:
         """
         Return the message, formatted with its arguments and neutralized.
 
@@ -96,7 +96,7 @@ def install() -> None:
     previous = logging.getLogRecordFactory()
 
     def factory(*args: object, **kwargs: object) -> logging.LogRecord:
-        record = previous(*args, **kwargs)  # type: ignore[arg-type]
+        record = previous(*args, **kwargs)
         if type(record) is logging.LogRecord:
             record.__class__ = _NeutralRecord
         return record
