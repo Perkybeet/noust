@@ -35,6 +35,13 @@ interface Entry {
   height: number;
   /** Why a route over the limit is as long as it is, and what shortens it. */
   reason?: string;
+  /**
+   * How much this route may differ from its baseline instead of the general `tolerance`, for a
+   * page whose length is data the server writes while the run goes (the audit trail: a sign-in
+   * the console retried on a slow machine is one more row of 36px). It needs `toleranceReason`.
+   */
+  tolerance?: number;
+  toleranceReason?: string;
 }
 
 interface Baseline {
@@ -238,9 +245,13 @@ test("every settings subsection fits in a screen and a half, or says why not, an
     if (found === undefined) continue;
     expect.soft(entry, `${route.id} has no entry in settings-length.baseline.json: measure it with NOUST_E2E_SETTINGS_BASELINE=write`).toBeDefined();
     if (entry === undefined) continue;
+    const tolerance = entry.tolerance ?? baseline.tolerance;
+    if (entry.tolerance !== undefined) {
+      expect.soft(entry.toleranceReason?.trim() ?? "", `${route.id} has a tolerance of its own in the baseline: it needs a toleranceReason saying what moves its length`).not.toBe("");
+    }
     expect
       .soft(found.height, `${route.id} (${route.path}) is ${String(found.height)}px tall; its baseline is ${String(entry.height)}px. Split what was added into a subsection of its own (NV-9, FM-8)`)
-      .toBeLessThanOrEqual(entry.height + baseline.tolerance);
+      .toBeLessThanOrEqual(entry.height + tolerance);
     expect
       .soft(
         found.height,
