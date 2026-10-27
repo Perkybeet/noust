@@ -176,7 +176,6 @@
   "accounts.fields.username": "Nome de usuário",
   "accounts.fields.usernameHint": "O que a pessoa digita para entrar: letras minúsculas, dígitos, pontos, hifens e sublinhados. Não pode ser alterado.",
   "accounts.fields.person": "E-mail",
-  "accounts.fields.personHint": "Identifica a pessoa, para manter separadas as contas de cada uma. Também serve para entrar enquanto só uma conta o tiver.",
   "accounts.fields.role": "Função",
   "accounts.invite.title": "Convidar uma pessoa",
   "accounts.invite.description": "Ela recebe um link para definir a própria senha e o segundo fator. Ninguém mais conhece nenhum dos dois.",

@@ -118,7 +118,9 @@ export function IdentityCard({ domain }: { domain: string }) {
           const queued = await request(
             "post",
             "/api/apps/{domain}/identity/migrate",
-            { params: { domain } },
+            // The group the new account joins is the CLI's and the API's (`--shared-group`); the
+            // console moves the application with the defaults and the server names what blocks it.
+            { params: { domain }, body: {} },
           );
           const job = await waitForJob(
             queryClient,

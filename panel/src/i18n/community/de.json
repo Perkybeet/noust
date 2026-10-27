@@ -176,7 +176,6 @@
   "accounts.fields.username": "Benutzername",
   "accounts.fields.usernameHint": "Was die Person zum Anmelden eintippt: Kleinbuchstaben, Ziffern, Punkte, Bindestriche und Unterstriche. Er kann nicht geändert werden.",
   "accounts.fields.person": "E-Mail",
-  "accounts.fields.personHint": "Identifiziert die Person, um die Konten einer Person auseinanderzuhalten. Sie meldet auch an, solange nur ein Konto sie hat.",
   "accounts.fields.role": "Rolle",
   "accounts.invite.title": "Eine Person einladen",
   "accounts.invite.description": "Sie erhält einen Link, um ihr eigenes Passwort und ihren zweiten Faktor festzulegen. Niemand sonst kennt je eines von beiden.",

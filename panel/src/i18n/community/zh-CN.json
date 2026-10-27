@@ -173,7 +173,6 @@
   "accounts.fields.username": "用户名",
   "accounts.fields.usernameHint": "此人登录时输入的内容：小写字母、数字、点、连字符和下划线。无法更改。",
   "accounts.fields.person": "邮箱",
-  "accounts.fields.personHint": "用来标识这个人，以区分不同人的账户。只要只有一个账户使用它，它也可以用来登录。",
   "accounts.fields.role": "角色",
   "accounts.invite.title": "邀请成员",
   "accounts.invite.description": "对方会收到一个链接，用来设置自己的密码和第二因素。其他人永远不会知道这两者。",

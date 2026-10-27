@@ -156,7 +156,8 @@ describe("Settings > Accounts", () => {
       username: "fer",
       expires_hours: 24,
       role: "operator",
-      person_ref: "fer@example.com",
+      // One address: the server takes it for who the person is as well as where the mail goes.
+      email: "fer@example.com",
     });
   });
 
@@ -175,7 +176,7 @@ describe("Settings > Accounts", () => {
     await user.click(screen.getByRole("button", { name: "Invite a person" }));
     const dialog = await screen.findByRole("dialog", { name: "Invite a person" });
     await user.type(within(dialog).getByLabelText(/^Username/), "fer");
-    await user.type(within(dialog).getByLabelText(/^Mail the link to/), "fer@work.example");
+    await user.type(within(dialog).getByLabelText(/^Email/), "fer@work.example");
     await user.click(within(dialog).getByRole("button", { name: "Create invitation" }));
     await confirmItsYou(user);
 
@@ -202,7 +203,7 @@ describe("Settings > Accounts", () => {
     await user.click(screen.getByRole("button", { name: "Invite a person" }));
     const dialog = await screen.findByRole("dialog", { name: "Invite a person" });
     await user.type(within(dialog).getByLabelText(/^Username/), "fer");
-    await user.type(within(dialog).getByLabelText(/^Mail the link to/), "fer@work.example");
+    await user.type(within(dialog).getByLabelText(/^Email/), "fer@work.example");
     await user.click(within(dialog).getByRole("button", { name: "Create invitation" }));
     await confirmItsYou(user);
 

@@ -82,7 +82,6 @@ export const accounts = {
     username: "Username",
     usernameHint: "What the person types to sign in: lowercase letters, digits, dots, dashes and underscores. It cannot be changed.",
     person: "Email",
-    personHint: "Identifies the person, to keep one person's accounts apart. It signs in too while only one account has it.",
     role: "Role",
   },
   invite: {
@@ -104,8 +103,8 @@ export const accounts = {
     failed: "Could not create the invitation",
     issuedTitle: "Send this invitation to {name}",
     issuedDescription: "Send the link through a channel you trust. It works once.",
-    mailLabel: "Mail the link to",
-    mailHint: "Needs a mail channel (Settings > Notifications). The link is shown here either way.",
+    mailLabel: "Email",
+    mailHint: "The link is mailed here when this server can send mail, and shown on the next screen either way. It also tells this person's accounts apart.",
     mailedTitle: "Mailed",
     mailed: "The invitation was mailed to {address}.",
     notMailedTitle: "Not mailed",

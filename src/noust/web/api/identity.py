@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from noust.core.teams import scoped_store
@@ -142,7 +142,7 @@ def identity_migrate_job(
 def post_identity_migrate(
     domain: str,
     session: Annotated[dict, Depends(require_elevated)],
-    body: IdentityMigrateRequest | None = None,
+    body: IdentityMigrateRequest = Body(default=IdentityMigrateRequest()),
 ) -> JobAcceptedResponse:
     """
     Queue the move of an application to its own system account.
@@ -169,7 +169,7 @@ def post_identity_migrate(
     """
     validated = _known(domain)
     app = scoped_store().get_app(validated)
-    shared_group = body.shared_group if body is not None else None
+    shared_group = body.shared_group
     if app is not None:
         app_identity.refuse_migration(app, shared_group=shared_group)
     actor = actor_label(session)

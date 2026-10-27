@@ -81,7 +81,6 @@ export const accounts: Catalog<typeof en> = {
     username: "Usuario",
     usernameHint: "Lo que la persona escribe para iniciar sesión: minúsculas, dígitos, puntos, guiones y guiones bajos. No se puede cambiar.",
     person: "Correo",
-    personHint: "Identifica a la persona, para distinguir las cuentas de una misma persona. También sirve para iniciar sesión mientras solo una cuenta lo tenga.",
     role: "Rol",
   },
   invite: {
@@ -103,8 +102,8 @@ export const accounts: Catalog<typeof en> = {
     failed: "No se pudo crear la invitación",
     issuedTitle: "Envía esta invitación a {name}",
     issuedDescription: "Envía el enlace por un canal de confianza. Funciona una sola vez.",
-    mailLabel: "Enviar el enlace por correo a",
-    mailHint: "Necesita un canal de correo (Ajustes > Notificaciones). El enlace se muestra aquí de todos modos.",
+    mailLabel: "Correo",
+    mailHint: "El enlace se envía aquí si el servidor puede enviar correo, y se muestra en la pantalla siguiente de todos modos. También distingue las cuentas de esta persona.",
     mailedTitle: "Enviada por correo",
     mailed: "La invitación se envió por correo a {address}.",
     notMailedTitle: "No se envió por correo",
