@@ -104,6 +104,11 @@ src/noust/
                     (an incident's snapshot, `store export`); a test fails on a column nobody ruled on
     compose_yaml.py  a Compose document read the way Compose reads it (PyYAML takes `2222:22` for a
                     base 60 number and `no` for false); every reader of a Compose file uses it
+    logsafe.py      every log record of the process reports its message on one line, so a value that
+                    came from a request cannot start another line (installed by importing logger.py)
+    templates.py    the one Jinja environment unit files, sites and pools are rendered with
+    outbound.py     where a request may go (`require_public_host`) and what its path may be
+                    (`path_segment`, `api_path`)
   validators/       names, environments, sources, ports, domains
   managers/         adapters: web server, systemd, certs, backups, databases, source, cron
     diagnose.py     why an app is down: read-only probes, most likely cause first
@@ -477,7 +482,14 @@ decided in the data layer, not in the routes.
   at one place by an allowlist (`validators/`), and that place is attacked by
   `tests/test_adversarial_inputs.py`: add a class there when you add a validator.
 - Anything that opens a request to a host somebody typed goes through `core/outbound.py`
-  (`require_public_host`), never its own resolver.
+  (`require_public_host`), never its own resolver. A name that becomes part of a request to a
+  platform's API is made one segment by `path_segment`, and the client checks the path it sends with
+  `api_path`.
+- Code scanning alerts are fixed in one place, taught to CodeQL as a model that a test proves, or
+  dismissed in GitHub with the reason written down; none is left open (a job fails while one of high
+  severity is) and none is silenced in a line of code (`docs/code-scanning.md`). A function that
+  returns a name only when it is acceptable goes in `.github/codeql/extensions/noust-python` with
+  its proof in `tests/test_codeql_models.py`, once measured to remove an alert.
 - Comments explain **why**, never what.
 - No emojis in code, comments or commit messages.
 - Absolute paths in systemd units; `shutil.which()` or `/usr/bin/`, never nvm paths.

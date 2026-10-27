@@ -166,6 +166,9 @@ sections:
       - source: docs/SECURITY-MODEL.md
         slug: security-model
         summary: The promises Noust makes about itself, how each can be checked, and the failure each one prevents.
+      - source: docs/code-scanning.md
+        slug: code-scanning
+        summary: How the scanners' findings are decided - fixed in one place, taught to CodeQL as a tested model, or dismissed with a written reason - and the job that fails while one is left open.
       - source: docs/PRIVACY.md
         slug: privacy
         summary: What Noust sends off a server (nothing about you), the one request it makes unasked, and how to check it.
