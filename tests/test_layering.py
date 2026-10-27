@@ -89,11 +89,12 @@ BASE_IMPORTS_UPWARD = {
     "noust.core.config -> noust.integrations.forges.hosts",
     "noust.core.config -> noust.managers.status_page",
     "noust.core.utils -> noust.managers.server.host",
+    # The one door to the console's token manager, for the layers that cannot import ``web``.
+    "noust.core.web_gate -> noust.web.auth",
     # The ENS profile's checks look at the running server and reach into every layer.
     "noust.core.ens.checks -> noust.central",
     "noust.core.ens.checks -> noust.central.setup",
     "noust.core.ens.checks -> noust.cli.commands.web",
-    "noust.core.ens.checks -> noust.cli.web_state",
     "noust.core.ens.checks -> noust.deployers.helpers.sandbox",
     "noust.core.ens.checks -> noust.fleet.policy",
     "noust.core.ens.checks -> noust.managers.backup_manager",
@@ -106,7 +107,6 @@ WORKING_LAYERS_IMPORT_A_SURFACE = {
     # The console's process is defined in a command module, and its sign-in classes and jobs
     # in ``web``.
     "noust.deployers.app_clone -> noust.web.jobs",
-    "noust.deployers.helpers.env_manager -> noust.cli.prompts",
     "noust.fleet.placements -> noust.web.fleet_jobs",
     "noust.fleet.policy -> noust.web.auth",
     "noust.fleet.policy -> noust.web.permissions",
@@ -116,7 +116,6 @@ WORKING_LAYERS_IMPORT_A_SURFACE = {
     "noust.managers.name_migration -> noust.web.auth",
     "noust.managers.overview -> noust.web.machine",
     "noust.managers.previews -> noust.web.jobs",
-    "noust.monitor.watch_tokens -> noust.cli.web_state",
     "noust.pushdeploy.repos -> noust.cli.commands.web",
 }
 

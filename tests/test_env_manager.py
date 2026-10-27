@@ -630,7 +630,7 @@ class TestAskingForVariables:
     @pytest.fixture
     def typed(self, env_manager, monkeypatch):
         """Answer the prompts with these lines and keep what was asked."""
-        from noust.cli import prompts
+        from noust.core import prompts
 
         monkeypatch.setattr(prompts, "AVAILABLE", False)
         answers: list[str] = []

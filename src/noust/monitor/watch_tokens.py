@@ -97,7 +97,7 @@ class TokenWatch(Watch):
         if self._tokens is not None:
             return self._tokens()
         try:
-            from noust.cli.web_state import token_manager
+            from noust.core.web_gate import token_manager
 
             return list(token_manager().list_api_tokens())
         except DependencyError:

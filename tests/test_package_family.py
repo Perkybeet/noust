@@ -210,7 +210,7 @@ class TestDependencyHint:
 class TestMissingQuestionaryHint:
     @pytest.fixture(autouse=True)
     def _without_questionary(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from noust.cli import prompts
+        from noust.core import prompts
 
         monkeypatch.setattr(prompts, "AVAILABLE", False)
 
