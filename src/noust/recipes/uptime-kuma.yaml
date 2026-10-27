@@ -21,7 +21,7 @@ docs: https://github.com/louislam/uptime-kuma/wiki
 repository: https://github.com/louislam/uptime-kuma
 license: MIT
 needs:
-  - Node.js 18 or newer, with npm
+  - Node.js 18, or 20.4 or newer, with npm
 app_type: nodejs
 source:
   git: https://github.com/louislam/uptime-kuma.git

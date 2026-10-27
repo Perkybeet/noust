@@ -1018,6 +1018,18 @@ noust app identity migrate shop.example.com   # move an existing application ont
   the records are put back exactly and the application is restarted as it was. Over the API
   it is `POST /api/apps/{domain}/identity/migrate`, which is root-equivalent, needs sudo mode
   and is subject to four-eyes approval when approvals apply.
+- **Where it writes is read first** (since 4.1). The health gate only proves that the application
+  answers, and an application that writes outside its own folder into one the shared account owns
+  (an upload directory the web server also serves) would pass it and fail at the first file it
+  wrote, days later. So the absolute paths in its `.env` and in its unit (`Environment=`,
+  `ReadWritePaths=`, `BindPaths=`, `WorkingDirectory=`, the arguments of `ExecStart=`) are read
+  before anything changes, and a folder the shared account can write and the new account could
+  not is refused by name, with who owns it and its mode. There are two ways forward: keep that
+  data inside the application, in `shared/` (a persistent path), or let the new account in
+  through a group that can write the folder, which is the group's job to say:
+  `noust app identity migrate shop.example.com --shared-group uploads` (the body of the API call is
+  `{"shared_group": "uploads"}`). The account joins the group with `usermod -aG` and leaves it
+  again if the application does not answer. Permission bits are read, not ACLs.
 - **All at once.** `noust app identity migrate --all` moves every application that can have an
   account of its own, one after the other, each behind its own health gate; one that fails is
   reported with its reason and the rest carry on. An application in zero-downtime mode starts its

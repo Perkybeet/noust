@@ -78,10 +78,21 @@ def status_command(ctx: Context, domain: str) -> None:
     default=False,
     help="Move every application that can have its own account, one at a time.",
 )
+@click.option(
+    "--shared-group",
+    metavar="GROUP",
+    default=None,
+    help=(
+        "Let the new account join this group, for an application that writes outside its own "
+        "folder into one the group can write (an upload directory the web server serves)."
+    ),
+)
 @click.option("--yes", "-y", is_flag=True, default=False, help="Do not ask for confirmation.")
 @json_option("Print what was done as JSON.")
 @pass_context
-def migrate_command(ctx: Context, domain: str | None, everyone: bool, yes: bool) -> None:
+def migrate_command(
+    ctx: Context, domain: str | None, everyone: bool, shared_group: str | None, yes: bool
+) -> None:
     """
     Run the application as its own system account instead of the shared one.
 
@@ -93,11 +104,19 @@ def migrate_command(ctx: Context, domain: str | None, everyone: bool, yes: bool)
     zero-downtime mode starts its idle instance under the new account and
     switches to it, so nothing is cut.
 
+    Before anything changes, the paths its .env and its unit name are read: an
+    application that writes outside its own folder, where only the shared
+    account can, is refused by name (it would pass the health check and fail at
+    the first file it wrote). Keep that data in shared/, or use --shared-group to
+    let the new account in through a group that can write the folder.
+
     With --all, every application that can have its own account is moved, one
     after the other; one that fails is reported and the rest carry on.
     """
     if everyone == (domain is not None):
         raise click.UsageError("Name an application, or use --all for every one.")
+    if everyone and shared_group is not None:
+        raise click.UsageError("--shared-group is for one application: name it.")
     if everyone:
         pending = app_identity.shared_account_apps()
         if not pending:
@@ -124,6 +143,8 @@ def migrate_command(ctx: Context, domain: str | None, everyone: bool, yes: bool)
             f"Restart {validated} as its own account? It is restarted behind its health check",
             abort=True,
         )
-    done = app_identity.migrate(validated, actor=_actor(), logger=ctx.logger)
+    done = app_identity.migrate(
+        validated, actor=_actor(), logger=ctx.logger, shared_group=shared_group
+    )
     if ctx.json_output:
         click.echo(json.dumps(done.to_dict()))

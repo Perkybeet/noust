@@ -39,7 +39,16 @@ from hypothesis import strategies as st
 from noust.core import domain_certificates
 from noust.core.exceptions import NoustError, SecurityError, ValidationError
 from noust.managers import site_routes
-from noust.validators import container, domain, environment, health, names, port, source
+from noust.validators import (
+    container,
+    domain,
+    environment,
+    health,
+    names,
+    object_names,
+    port,
+    source,
+)
 
 SETTINGS = settings(
     max_examples=300,
@@ -643,6 +652,73 @@ class TestIdentifiersOfThingsNoustWrote:
 
         if accepted:
             assert re.fullmatch(r"[a-z0-9][a-z0-9-]{0,31}", result)
+
+
+# ---------------------------------------------------------------------------
+# The names an operator gives to objects of Noust: one table, one rule
+# ---------------------------------------------------------------------------
+
+
+class TestTheNamesOfObjects:
+    @SETTINGS
+    @given(value=HOSTILE, kind=st.sampled_from(sorted(object_names.KINDS)))
+    def test_a_name_that_is_accepted_is_inert_where_every_kind_of_it_goes(
+        self, value: str, kind: str
+    ) -> None:
+        accepted, result = verdict(object_names.check_name, kind, value)
+
+        if accepted:
+            rule = object_names.rule_for(kind)
+            assert result == value and 1 <= len(result) <= rule.max_length
+            # A letter first, then lower-case words: nothing a unit file, a path, a SQL
+            # identifier, a URL segment or a header could be misled by.
+            assert re.fullmatch(r"[a-z][a-z0-9_-]*", result), repr(result)
+            assert not CONTROL.search(result)
+            if rule.shape == "dashes":
+                assert "_" not in result and "--" not in result and not result.endswith("-")
+            if rule.shape == "underscores":
+                assert "-" not in result and "__" not in result and not result.endswith("_")
+
+    @SETTINGS
+    @given(value=HOSTILE, room=st.integers(min_value=-3, max_value=40))
+    def test_a_team_channel_name_leaves_room_for_the_team_prefix_of_its_key(
+        self, value: str, room: int
+    ) -> None:
+        accepted, result = verdict(object_names.check_name, "team_channel", value, room)
+
+        if accepted:
+            assert 1 <= len(result) <= room
+
+    @pytest.mark.parametrize("payload", PAYLOADS)
+    def test_every_payload_that_beat_a_validator_elsewhere_is_refused_by_every_kind(
+        self, payload: str
+    ) -> None:
+        for kind in object_names.KINDS:
+            assert not object_names.is_name(kind, payload), (kind, payload)
+
+
+# ---------------------------------------------------------------------------
+# The group an operator names for an application's new account
+# ---------------------------------------------------------------------------
+
+
+class TestTheGroupOfANewAccount:
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_group_name_reaches_usermod_as_one_inert_argument(self, value: str) -> None:
+        accepted, result = verdict(names.validate_group_name, value)
+
+        if accepted:
+            assert result == value and 1 <= len(result) <= 32
+            assert re.fullmatch(r"[a-z_][a-z0-9_-]*", result), repr(result)
+            assert not result.startswith("-") and not CONTROL.search(result)
+
+    @pytest.mark.parametrize("payload", PAYLOADS)
+    def test_every_payload_that_beat_a_validator_elsewhere_is_refused(self, payload: str) -> None:
+        if payload and re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", payload):
+            return
+        accepted, _ = verdict(names.validate_group_name, payload)
+        assert not accepted, repr(payload)
 
 
 # ---------------------------------------------------------------------------

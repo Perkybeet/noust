@@ -28,10 +28,10 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.accounts import ROLES, Account, AccountManager
-from noust.core.accounts.mail import AccountMailer
+from noust.core.accounts.mail import AccountMailer, mail_invitation
 from noust.core.accounts.manager import DEFAULT_INVITATION_HOURS
-from noust.core.accounts.model import ROLE_ADMIN, AccountError, clean_email
-from noust.core.exceptions import DependencyError, EmailError, ValidationError
+from noust.core.accounts.model import ROLE_ADMIN, clean_email
+from noust.core.exceptions import DependencyError, ValidationError
 from noust.core.teams.model import TEAM_ROLES
 from noust.core.teams.onboarding import create_in_team, invite_to_team
 
@@ -317,7 +317,11 @@ def create_command(
 @click.option(
     "--email",
     default=None,
-    help="Mail the invitation to this address (needs mail set up and web.public_url).",
+    help=(
+        "Mail the invitation to this address, which is also who the person is. Needs mail "
+        "set up and web.public_url; without them the invitation is still made and the code "
+        "is yours to hand over."
+    ),
 )
 @json_option("Print the account, the code and whether it was mailed as JSON.")
 @pass_context
@@ -341,16 +345,7 @@ def invite_command(
     --email the link is also mailed to that address, and the address is kept on the
     account for password resets.
     """
-    mailer = AccountMailer() if email else None
-    if mailer is not None and not mailer.ready():
-        raise ValidationError(
-            "This server cannot send mail yet",
-            details=(
-                "Set monitor.smtp.* or monitor.email_api.* and web.public_url, or leave "
-                "--email out and hand the code over yourself."
-            ),
-            field="email",
-        )
+    address = clean_email(email)
     if team is not None:
         if role is None:
             raise ValidationError(
@@ -367,7 +362,7 @@ def invite_command(
             person_ref=person_ref,
             created_by="cli",
             expires_hours=expires_hours,
-            email=email,
+            email=address,
         )
         _record(
             "team.member.add",
@@ -382,21 +377,18 @@ def invite_command(
             person_ref=person_ref,
             created_by="cli",
             expires_hours=expires_hours,
-            email=email,
+            email=address,
         )
-    mailed, mail_error = False, None
-    if mailer is not None and email and not ctx.dry_run:
-        try:
-            mailer.send_invitation(
-                clean_email(email) or email,
-                account.username,
-                code,
-                expires_hours,
-                invited_by="root",
-            )
-            mailed = True
-        except (EmailError, AccountError) as exc:
-            mail_error = exc.message
+    # Under --dry-run nothing is saved, so nothing is sent: the code would not work.
+    sent = mail_invitation(
+        AccountMailer(),
+        None if ctx.dry_run else address,
+        account.username,
+        code,
+        expires_hours,
+        invited_by="root",
+    )
+    mailed, problem = sent.emailed, sent.problem
     _record(
         "user.invite",
         f"account:{account.username}",
@@ -409,7 +401,9 @@ def invite_command(
                     "account": account.to_dict(),
                     "code": code,
                     "emailed": mailed,
-                    "email_error": mail_error,
+                    "email_error": problem.text if problem else None,
+                    "email_error_hint": problem.hint if problem else None,
+                    "email_error_coded": problem.to_dict() if problem else None,
                 }
             )
         )
@@ -418,10 +412,12 @@ def invite_command(
     logger.success(f"Invitation issued for {account.username} ({account.role})")
     if mailed:
         logger.success(f"The invitation was mailed to {account.email}")
-    elif mail_error:
+    elif problem is not None:
         logger.warning(
-            f"The invitation could not be mailed ({mail_error}); hand the code over yourself"
+            f"The invitation could not be mailed ({problem.text}); hand the code over yourself"
         )
+        if problem.hint:
+            logger.info(problem.hint)
     logger.blank()
     click.echo(f"Code: {code}")
     logger.blank()

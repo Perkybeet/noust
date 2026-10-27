@@ -31,6 +31,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.notification_channels import ChannelAdmin, ChannelView
 from noust.core.notifications.instances import TYPES
 from noust.core.teams import Scope, TeamStore
+from noust.validators.object_names import check_name
 
 if TYPE_CHECKING:
     from noust.core.teams.model import Team
@@ -42,8 +43,7 @@ MAX_CHANNELS = 8
 #: The channel types a team may use. Email is the server's.
 TEAM_TYPES: tuple[str, ...] = tuple(name for name in TYPES if name != "email")
 
-#: A name as a team writes it; the key adds a prefix and the whole must stay a channel name (32).
-_NAME = re.compile(r"[a-z][a-z0-9_-]*")
+#: The key adds a prefix to the name a team writes, and the whole must stay a channel name (32).
 _KEY = re.compile(r"t(\d+)-(.+)")
 _KEY_LIMIT = 32
 
@@ -164,15 +164,8 @@ class TeamChannels:
         """
         team = self.team
         key = channel_key(team.id, name)
-        if not _NAME.fullmatch(name) or len(key) > _KEY_LIMIT:
-            raise ValidationError(
-                f"Invalid channel name: {name!r}",
-                details=(
-                    "Use lower-case letters, digits, '-' and '_', starting with a letter, "
-                    f"at most {_KEY_LIMIT - len(channel_key(team.id, ''))} characters."
-                ),
-                field="name",
-            )
+        # The team prefix of the key takes room from the name: the whole is a channel name.
+        check_name("team_channel", name, max_length=_KEY_LIMIT - len(channel_key(team.id, "")))
         existing = self.admin.get(key)
         if existing is not None and existing.team != team.slug:
             raise ValidationError(f"Invalid channel name: {name!r}", field="name")

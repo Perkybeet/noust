@@ -20,10 +20,13 @@ from __future__ import annotations
 
 import html
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from noust.core.accounts.model import AccountError
+from noust.core.exceptions import EmailError
 from noust.core.messages import DEFAULT_LOCALE, normalize_locale
+from noust.core.server_text import ServerText, say
 
 #: Both languages, key by key. A test holds them to the same keys and placeholders.
 TEXTS: dict[str, dict[str, str]] = {
@@ -139,16 +142,10 @@ class AccountMailer:
             MailUnavailable: When there is no transport or no public address.
         """
         if not self._transport():
-            raise MailUnavailable(
-                "There is no way to send mail from this server",
-                details="Set monitor.smtp.* or monitor.email_api.* (Settings > Notifications).",
-            )
+            raise MailUnavailable.from_text(say("mail.no_transport"))
         url = self.public_url()
         if not url:
-            raise MailUnavailable(
-                "The console has no public address to put in the link",
-                details="Set web.public_url to the address people open the console at.",
-            )
+            raise MailUnavailable.from_text(say("mail.no_public_url"))
         return url
 
     def _locale(self) -> str:
@@ -241,3 +238,59 @@ class AccountMailer:
             f"{base}{RESET_PATH}#code={code}",
             texts["link.label"],
         )
+
+
+@dataclass(frozen=True)
+class InvitationMail:
+    """
+    What came of mailing an invitation.
+
+    Attributes:
+        emailed: Whether the mail went.
+        problem: Why not, when it was asked for and did not go: the invitation exists either
+            way, and its link is handed over by whoever made it. None when it went, and when
+            no address was given to mail it to.
+    """
+
+    emailed: bool
+    problem: ServerText | None = None
+
+
+def mail_invitation(
+    mailer: AccountMailer,
+    address: str | None,
+    username: str,
+    code: str,
+    hours: int | float,
+    *,
+    invited_by: str | None = None,
+) -> InvitationMail:
+    """
+    Mail an invitation to the address it was made for, and say whether it went.
+
+    The one answer for the API and the command line: an invitation is made whether mail can be
+    sent or not, so that its link can always be handed over, and this says what became of the
+    mail. Nothing here raises for a mail that cannot go.
+
+    Args:
+        mailer: The mailer.
+        address: Where to send it, or None when it was not asked to be mailed.
+        username: The account it is for.
+        code: The invitation code, in clear.
+        hours: How long it is good for.
+        invited_by: Who invited them, when known.
+
+    Returns:
+        Whether it went and, if not, the sentence that says why.
+    """
+    if address is None:
+        return InvitationMail(False)
+    try:
+        mailer.send_invitation(address, username, code, hours, invited_by=invited_by)
+    except (EmailError, AccountError) as exc:
+        if exc.coded is not None:
+            return InvitationMail(False, exc.coded)
+        # The mail layer's own words (a server's refusal) ride as a value in a sentence of ours.
+        reason = f"{exc.message}: {exc.details}" if exc.details else exc.message
+        return InvitationMail(False, say("invitation.mail_failed", reason=reason))
+    return InvitationMail(True)

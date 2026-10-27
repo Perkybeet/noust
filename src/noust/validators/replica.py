@@ -17,17 +17,14 @@ refusal next to its input.
 from __future__ import annotations
 
 import ipaddress
-import re
 
 from noust.core.exceptions import ValidationError
 from noust.validators.domain import is_valid_domain
+from noust.validators.object_names import check_name, rule_for
 
-#: The longest replica name. ``noust_repl_`` and the name must stay an account name in every
-#: engine (MySQL allows 32 characters), and short enough to read in ``pg_stat_replication``.
-MAX_NAME_LENGTH = 20
-
-#: Lower-case letters and digits, with single underscores between them, starting with a letter.
-_NAME = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*")
+#: The longest replica name, from the one table of names (``noust.validators.object_names``): it
+#: carries the reason, and the rule is not written a second time here.
+MAX_NAME_LENGTH = rule_for("replica").max_length
 
 #: What every replication role and slot Noust makes starts with.
 ROLE_PREFIX = "noust_repl_"
@@ -45,19 +42,10 @@ def check_replica_name(name: object) -> str:
         The name, unchanged.
 
     Raises:
-        ValidationError: It is not lower-case words joined by underscores, or is longer than
-            :data:`MAX_NAME_LENGTH`.
+        ValidationError: It is not lower-case words joined by single underscores, or is longer
+            than :data:`MAX_NAME_LENGTH`.
     """
-    if not isinstance(name, str) or len(name) > MAX_NAME_LENGTH or _NAME.fullmatch(name) is None:
-        raise ValidationError(
-            f"{name!r} cannot be the name of a replica",
-            details=(
-                "Use lower-case letters, digits and single underscores, starting with a letter, "
-                f"up to {MAX_NAME_LENGTH} characters: reports, standby, eu_west."
-            ),
-            field="name",
-        )
-    return name
+    return check_name("replica", name)
 
 
 def role_for(name: str) -> str:

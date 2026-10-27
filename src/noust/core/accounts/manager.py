@@ -626,7 +626,9 @@ class AccountManager:
             username: The account's name.
             role: The role of a new account; ignored for an existing one.
             display_name: Display name of a new account.
-            person_ref: Person reference of a new account.
+            person_ref: Person reference of a new account. Left out, the address the
+                invitation is mailed to stands for it: one address is where the mail goes
+                and who the person is.
             created_by: Who is inviting, for the record.
             expires_hours: Life of the invitation, at most two weeks.
             join_default_team: Whether a new account joins the default team;
@@ -655,16 +657,17 @@ class AccountManager:
                     "A role is required to invite a new account",
                     details="Pass --role viewer, operator, admin, security or auditor.",
                 )
+            address = clean_email(email)
             account = self._insert(
                 name,
                 validate_role(role),
                 status=STATUS_INVITED,
                 password_hash=None,
                 display_name=clean_display_name(display_name),
-                person_ref=clean_person_ref(person_ref),
+                person_ref=clean_person_ref(person_ref) or address,
                 created_by=created_by,
                 join_default_team=join_default_team,
-                email=clean_email(email),
+                email=address,
             )
         elif existing.status == STATUS_DISABLED:
             raise AccountError(

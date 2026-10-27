@@ -282,7 +282,8 @@ Every error from every router has the same shape:
   "detail": "What happened",
   "hint": "How to fix it, or null",
   "fields": {"domain": "Not a valid domain"},
-  "output": "The system's own output (nginx -t, systemctl, certbot), or null"
+  "output": "The system's own output (nginx -t, systemctl, certbot), or null",
+  "coded": {"code": "tunnels.store_sealed", "params": {}}
 }
 ```
 
@@ -297,6 +298,9 @@ Every error from every router has the same shape:
   message, which the console shows next to each form control.
 - `output` carries a system tool's own output verbatim, when there is one. Show it in a
   monospace block; do not paraphrase it.
+- `coded` (since 4.1) is `detail` and `hint` as a code and its values when the error is one of
+  the sentences a client may translate, `null` otherwise. See
+  [Sentences with a code](#sentences-with-a-code).
 
 Refusals made before routing (address not allowed, TLS required, body too large, rate limit,
 lockout) have the same keys except `output`.
@@ -323,6 +327,39 @@ restore the database from the backup taken before the first of them. See
 | `422` | Request body failed validation; see `fields` |
 | `429` | Rate limit (120 requests a minute per address by default) or lockout |
 | `500` | A system operation failed; `detail`, `hint` and `output` say which and why |
+
+## Sentences with a code
+
+A sentence the server says for a person to read (an error's `detail` and `hint`, what a tunnel
+lacks, a line of the installation check, why an invitation's e-mail did not go) is Noust's own
+words, and a console that speaks another language cannot translate a string it is only handed.
+Since 4.1 such a sentence travels twice: as English text, as it always did, and as a **code**
+with its **values**:
+
+```json
+{"code": "doctor.memory.ok_swap", "params": {"amount": "1 GB", "swap": "2 GB", "minimum": "1 GB"}}
+```
+
+- Where the sentence is, the code is beside it: `coded` next to `detail`/`hint` on an error and
+  on `problem`/`hint` of `GET /api/tunnels`' `support`; `coded` and `notes_coded` next to `text`
+  and `notes` on a line of `GET /api/system/doctor`, `key` and `explain_coded` on its sections;
+  `email_error_coded` on an invitation. A field that is `null` or absent is a sentence nobody
+  coded: another program's output, or a line from a module that has not been given codes yet.
+  Show it as written.
+- A client translates by the code and puts the values in: `serverText.<code>` in the console's
+  catalog, with the values as the placeholders. The sentence's fix, when it has one, is the code
+  plus `.hint` (`tunnels.store_sealed.hint`). **A code the client does not know is shown as the
+  English text**, which is always sent, so a server newer than its client still says something
+  true. The values are text, numbers and flags; a path, a name somebody typed or a version a
+  program printed is a value and is shown as it is.
+- The English text and the code are one thing: the text is the catalog entry with the values put
+  in (`noust.core.server_text.CATALOG`, one entry per sentence, whole sentences with
+  placeholders). A new sentence is added there, asked for with `say("area.code", value=...)`,
+  and carried by the response model next to its text; a test fails on a code that is asked for
+  and absent, and on an entry nobody says. Codes are never reused for another meaning and never
+  removed while a released client may send them: a sentence that changes meaning gets a new code.
+- The catalog, as a list of codes with the values each takes, is what a client's translations
+  are held to: `python -c "from noust.core.server_text import CATALOG; print(*sorted(CATALOG), sep='\n')"`.
 
 ## Conventions
 

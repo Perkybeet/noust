@@ -176,7 +176,6 @@
   "accounts.fields.username": "Nom d'utilisateur",
   "accounts.fields.usernameHint": "Ce que la personne saisit pour se connecter : lettres minuscules, chiffres, points, tirets et tirets bas. Il ne peut pas être modifié.",
   "accounts.fields.person": "E-mail",
-  "accounts.fields.personHint": "Identifie la personne, pour distinguer les comptes d'une personne de ceux d'une autre. Il permet aussi de se connecter tant qu'un seul compte l'a.",
   "accounts.fields.role": "Rôle",
   "accounts.invite.title": "Inviter une personne",
   "accounts.invite.description": "Elle reçoit un lien pour définir son propre mot de passe et son second facteur. Personne d'autre ne connaît ni l'un ni l'autre.",

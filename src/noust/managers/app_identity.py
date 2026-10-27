@@ -27,6 +27,13 @@ health gate. When it does not answer, everything is put back exactly - the
 files' owners (only those it changed), the unit or the pool, the store - and
 restarted as it was.
 
+**Where it writes** (4.1): the move used to ask only whether the application answers. One that
+writes outside its own tree, into a folder the shared account owns (an upload directory the web
+server also serves), would pass that and fail days later at the first upload. So the paths its
+``.env`` and its unit name are read first (:func:`outside_paths`): a folder the shared account can
+write and the new account could not is refused by name, and ``--shared-group`` lets the new
+account join the group that can write it.
+
 **A monorepo** gets one account for all its workspaces' units (4.0, checklist
 L-14): its workspaces are one application, and what separates it from the other
 applications is that account.
@@ -51,7 +58,10 @@ import grp
 import hashlib
 import os
 import pwd
+import re
+import shlex
 import shutil
+import stat
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -62,6 +72,7 @@ from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.logger import Logger
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, NoustStore, get_store
+from noust.validators.names import validate_group_name
 
 if TYPE_CHECKING:
     from noust.deployers.helpers.health_gate import RestartingGate
@@ -483,16 +494,263 @@ def _known(store: NoustStore, domain: str) -> App:
     return app
 
 
-def refuse_migration(app: App) -> None:
+@dataclass(frozen=True)
+class OutsidePath:
+    """
+    A path an application names outside its own tree that its new account could not write.
+
+    Attributes:
+        path: The path as the application names it.
+        found_in: Where it names it: ``.env (UPLOAD_DIR)``, ``shop.service (ReadWritePaths)``.
+        owner: ``user:group`` of the path, or of the first folder above it that exists.
+        mode: Its permission bits, such as ``0755``.
+    """
+
+    path: str
+    found_in: str
+    owner: str
+    mode: str
+
+
+def _ids(account: str) -> tuple[int, frozenset[int]] | None:
+    """
+    Args:
+        account: A system account.
+
+    Returns:
+        Its user id and every group id it has, or None when the system does not know it.
+    """
+    try:
+        entry = pwd.getpwnam(account)
+    except KeyError:
+        return None
+    return entry.pw_uid, frozenset(os.getgrouplist(account, entry.pw_gid))
+
+
+def _group_id(name: str) -> int | None:
+    """
+    Args:
+        name: A group.
+
+    Returns:
+        Its id, or None when the system has no such group.
+    """
+    try:
+        return grp.getgrnam(name).gr_gid
+    except KeyError:
+        return None
+
+
+def _can_write(info: os.stat_result, uid: int, gids: frozenset[int]) -> bool:
+    """
+    Tell whether an account may write a file, or create inside a directory, by its mode bits.
+
+    Args:
+        info: ``stat`` of the file or directory.
+        uid: The account's user id.
+        gids: Every group the account is in.
+
+    Returns:
+        Whether the owner, group or other bits that apply to it give it write (and, for a
+        directory, search) permission. Root can always write; ACLs are not read.
+    """
+    if uid == 0:
+        return True
+    need = stat.S_IWUSR | stat.S_IXUSR if stat.S_ISDIR(info.st_mode) else stat.S_IWUSR
+    if info.st_uid == uid:
+        return bool(info.st_mode & need == need)
+    shift = need >> 3
+    if info.st_gid in gids:
+        return bool(info.st_mode & shift == shift)
+    other = need >> 6
+    return bool(info.st_mode & other == other)
+
+
+#: A path as a word of a value: it starts with one ``/`` and has nothing a shell or a unit would
+#: expand, so what is read is what would be opened.
+_PATH_WORD = re.compile(r"/(?!/)[A-Za-z0-9_.@+,=-]+(?:/[A-Za-z0-9_.@+,=-]+)*/?")
+
+#: SQLAlchemy's and Prisma's absolute SQLite file (``sqlite:////var/lib/app.db``).
+_SQLITE_FILE = re.compile(r"sqlite:/{3}(/[^\s\"'?]+)")
+
+#: The directives of a unit that name a place the application reads or writes.
+_UNIT_PATH_DIRECTIVES = (
+    "ReadWritePaths",
+    "BindPaths",
+    "WorkingDirectory",
+    "ExecStart",
+    "ExecStartPre",
+)
+
+
+def _paths_in(value: str) -> list[str]:
+    """
+    Read the absolute paths a setting names.
+
+    Args:
+        value: The value of a variable or a directive.
+
+    Returns:
+        The paths, each once. A URL, a relative path and anything with an expansion in it name
+        none.
+    """
+    found = [match.group(1) for match in _SQLITE_FILE.finditer(value)]
+    for word in re.split(r"[\s,;]+", value):
+        word = word.strip("\"'")
+        if "://" in word:
+            continue
+        for part in re.split(r"[:=]", word):
+            if _PATH_WORD.fullmatch(part):
+                found.append(os.path.normpath(part))
+    return list(dict.fromkeys(found))
+
+
+def _named_by_the_unit(unit: str, body: str) -> list[tuple[str, str]]:
+    """
+    List the places a unit names, and the directive each is in.
+
+    Args:
+        unit: The unit's name, for the label.
+        body: Its text.
+
+    Returns:
+        ``(path, label)``: the label says where, such as ``shop.service (ReadWritePaths)``.
+    """
+    found: list[tuple[str, str]] = []
+    for line in body.splitlines():
+        key, _, value = line.strip().partition("=")
+        if key == "Environment":
+            try:
+                words = shlex.split(value)
+            except ValueError:
+                continue
+            for word in words:
+                name, _, text = word.partition("=")
+                found += [(p, f"{unit}.service (Environment {name})") for p in _paths_in(text)]
+        elif key in _UNIT_PATH_DIRECTIVES:
+            text = value.removeprefix("-").removeprefix("+")
+            if key.startswith("ExecStart"):
+                # The program is read, not written; its arguments may be a place to write.
+                text = " ".join(text.split()[1:])
+            found += [(p, f"{unit}.service ({key})") for p in _paths_in(text)]
+    return found
+
+
+def _owner_of(info: os.stat_result) -> str:
+    """
+    Args:
+        info: ``stat`` of a path.
+
+    Returns:
+        ``user:group`` by name when the system knows them, by number otherwise.
+    """
+    try:
+        user = pwd.getpwuid(info.st_uid).pw_name
+    except KeyError:
+        user = str(info.st_uid)
+    try:
+        group = grp.getgrgid(info.st_gid).gr_name
+    except KeyError:
+        group = str(info.st_gid)
+    return f"{user}:{group}"
+
+
+def outside_paths(
+    app: App,
+    services: ServiceManager | None = None,
+    *,
+    shared_group: str | None = None,
+) -> list[OutsidePath]:
+    """
+    Find the places outside its own tree that an application writes today and would not after.
+
+    The ``.env`` and the unit are read for absolute paths. One counts when it is not inside the
+    application's tree or its build cache, the shared account can write it (or create inside it,
+    for a path that does not exist yet) and the new account could not: it would not be the owner,
+    would not be in the group, and the others cannot write it. A server where the shared account
+    is not known has nothing to compare, and finds none.
+
+    Args:
+        app: Its row.
+        services: The service manager, for the unit; the real one by default.
+        shared_group: A group the new account will join, which counts for it.
+
+    Returns:
+        The paths, in the order they are named.
+    """
+    from noust.deployers.helpers.env_manager import EnvManager
+    from noust.deployers.helpers.layout import app_root, env_file_for
+    from noust.deployers.helpers.sandbox import cache_dir_for
+
+    shared = _ids(service_account(app)[0])
+    if shared is None:
+        return []
+    root = app_root(app)
+    inside = (os.path.normpath(root), os.path.normpath(cache_dir_for(root.name)))
+    new_account = account_name(Path(app.app_path).name or app.domain)
+    known = _ids(new_account)
+    new_uid, new_gids = known if known is not None else (-1, frozenset())
+    if shared_group is not None and (gid := _group_id(shared_group)) is not None:
+        new_gids = new_gids | {gid}
+
+    named: list[tuple[str, str]] = []
+    try:
+        text = env_file_for(app).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        text = ""
+    for key, value in EnvManager.parse_env_text(text).items():
+        named += [(path, f".env ({key})") for path in _paths_in(value)]
+    services = services or _service_manager()
+    for unit in (*services.serving_units(app), Path(app.app_path).name):
+        body = services.read_unit(unit)
+        if body:
+            named += _named_by_the_unit(unit, body)
+
+    found: dict[str, OutsidePath] = {}
+    for path, label in named:
+        if path in found or any(path == base or path.startswith(base + os.sep) for base in inside):
+            continue
+        existing = Path(path)
+        while not existing.exists() and existing != existing.parent:
+            existing = existing.parent
+        try:
+            info = existing.stat()
+        except OSError:
+            continue
+        if _can_write(info, *shared) and not _can_write(info, new_uid, new_gids):
+            found[path] = OutsidePath(
+                path, label, _owner_of(info), f"{stat.S_IMODE(info.st_mode):04o}"
+            )
+    return list(found.values())
+
+
+def _service_manager() -> ServiceManager:
+    """
+    Returns:
+        The real service manager, imported when it is needed.
+    """
+    from noust.managers.service_manager import ServiceManager
+
+    return ServiceManager()
+
+
+def refuse_migration(
+    app: App,
+    *,
+    services: ServiceManager | None = None,
+    shared_group: str | None = None,
+) -> None:
     """
     Refuse to move an application that cannot or need not move.
 
     Args:
         app: Its row.
+        services: The service manager, to read the unit; the real one by default.
+        shared_group: A group the new account will join, so it can write what that group can.
 
     Raises:
-        ValidationError: It already has its own account, cannot have one, or
-            this process is not root.
+        ValidationError: It already has its own account, cannot have one, this process is not
+            root, the group is not one, or it writes where its own account could not.
     """
     if app.identity:
         raise ValidationError(
@@ -515,6 +773,55 @@ def refuse_migration(app: App) -> None:
             "Moving an application to its own account needs root",
             details="Only root creates accounts and hands files to them. Run it as root.",
         )
+    if shared_group is not None:
+        validate_group_name(shared_group)
+        if _group_id(shared_group) is None:
+            raise ValidationError(
+                f"There is no group called {shared_group}",
+                details="Name a group that exists (getent group), or make it with groupadd first.",
+                field="shared_group",
+            )
+    blocked = outside_paths(app, services, shared_group=shared_group)
+    if blocked:
+        raise ValidationError(
+            f"{app.domain} writes outside its own folder, where its own account could not: "
+            + ", ".join(item.path for item in blocked),
+            details=_outside_details(app.domain, blocked, shared_group),
+        )
+
+
+def _outside_details(domain: str, blocked: list[OutsidePath], shared_group: str | None) -> str:
+    """
+    Say which places block the move, what owns each, and what to do about it.
+
+    Args:
+        domain: The application.
+        blocked: The places.
+        shared_group: The group the operator offered, if any, which did not cover them.
+
+    Returns:
+        The lines for the error.
+    """
+    lines = [
+        f"{item.path} (named in {item.found_in}) belongs to {item.owner} ({item.mode})"
+        for item in blocked
+    ]
+    if shared_group is not None:
+        lines.append(
+            f"The group {shared_group} cannot write them either: make the folder writable by "
+            f"group {shared_group} (chgrp {shared_group} and chmod g+w) and run it again."
+        )
+    lines.append(
+        "The application writes there today as the shared account; as its own account it would "
+        "pass the health check and fail at the first file it wrote. Pick one:\n"
+        "1. Keep that data inside the application, in shared/ (a persistent path), and point the "
+        "setting at it.\n"
+        "2. Let the new account in through a group that can write the folder: make a group for "
+        "it, give the folder to that group with g+w, and run: "
+        f"noust app identity migrate {domain} --shared-group GROUP\n"
+        "3. Leave the application on the shared account."
+    )
+    return "\n".join(lines)
 
 
 def migrate(
@@ -526,6 +833,7 @@ def migrate(
     store: NoustStore | None = None,
     services: ServiceManager | None = None,
     gate_for: Callable[[App, NoustStore, Logger], RestartingGate] | None = None,
+    shared_group: str | None = None,
 ) -> IdentityMigration:
     """
     Move an existing application to its own account, behind its health gate.
@@ -539,6 +847,9 @@ def migrate(
         services: The service manager.
         gate_for: Builds the application's health gate from its row; the
             store-based one activations use by default.
+        shared_group: A group the new account joins, so it can write the folders outside the
+            application's tree that the group can write. It is left again when the move is put
+            back.
 
     Returns:
         What was done.
@@ -558,7 +869,7 @@ def migrate(
     runner = runner or get_runner()
     log = logger or Logger()
     app = _known(store, domain)
-    refuse_migration(app)
+    refuse_migration(app, services=services, shared_group=shared_group)
     with app_lock(domain, "identity migration"):
         return _migrate(
             _known(store, domain),
@@ -568,6 +879,7 @@ def migrate(
             store=store,
             services=services,
             gate_for=gate_for,
+            shared_group=shared_group,
         )
 
 
@@ -580,6 +892,7 @@ def _migrate(
     store: NoustStore,
     services: ServiceManager | None,
     gate_for: Callable[[App, NoustStore, Logger], RestartingGate] | None,
+    shared_group: str | None = None,
 ) -> IdentityMigration:
     """
     Move an application holding its lock; see :func:`migrate`.
@@ -592,6 +905,7 @@ def _migrate(
         store: The store.
         services: The service manager.
         gate_for: Builds its health gate.
+        shared_group: A group the new account joins.
 
     Returns:
         What was done.
@@ -614,6 +928,8 @@ def _migrate(
     undo: list[tuple[str, Callable[[], None]]] = []
     units: tuple[str, ...] = ()
     pool: str | None = None
+    if shared_group is not None:
+        _join_group(account, shared_group, runner, undo)
     # Whether what runs was touched (a pool rewrite reloads FPM; a unit's
     # account applies at its restart): only then is it restarted as it was.
     touched = False
@@ -703,9 +1019,43 @@ def _migrate(
         account=account,
         previous=f"{previous[0]}:{previous[1]}",
         by=actor,
+        shared_group=shared_group,
     )
     log.success(f"{domain} runs as its own account, {account}")
     return IdentityMigration(domain, account, previous, units, pool)
+
+
+def _join_group(
+    account: str, group: str, runner: CommandRunner, undo: list[tuple[str, Callable[[], None]]]
+) -> None:
+    """
+    Add the new account to a group, and queue taking it out again.
+
+    Args:
+        account: The application's account.
+        group: The group (already judged).
+        runner: The runner.
+        undo: What puts the move back, which gets the leaving of the group.
+
+    Raises:
+        DeploymentError: ``usermod`` failed, with its own words.
+    """
+    joined = runner.run(["usermod", "-aG", group, account], timeout=_ACCOUNT_TIMEOUT)
+    if not joined.success:
+        raise DeploymentError(
+            f"{account} could not join the group {group}",
+            details=(joined.stderr or joined.stdout).strip(),
+        )
+
+    def leave() -> None:
+        left = runner.run(["gpasswd", "-d", account, group], timeout=_ACCOUNT_TIMEOUT)
+        if not left.success:
+            raise DeploymentError(
+                f"{account} could not leave the group {group}",
+                details=(left.stderr or left.stdout).strip(),
+            )
+
+    undo.append((f"membership of the group {group}", leave))
 
 
 def _switch_instances(app: App, store: NoustStore, log: Logger) -> None:

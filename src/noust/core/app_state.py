@@ -51,6 +51,7 @@ from noust.core.utils import domain_to_app_name
 
 if TYPE_CHECKING:  # pragma: no cover - imported for types only
     from noust.core.store import App
+    from noust.deployers.compose_reclaim import OutsideStack
     from noust.managers.service_manager import ServiceManager
 
 log = logging.getLogger(__name__)
@@ -260,7 +261,7 @@ def _unit_down(app: App, state: AppState, status: dict[str, Any]) -> bool:
     )
 
 
-def _running_stacks(apps: list[App]) -> dict[str, tuple[str, ...]]:
+def _running_stacks(apps: list[App]) -> dict[str, OutsideStack]:
     """
     Ask Docker, once, which of these stacks have containers running.
 
@@ -268,39 +269,65 @@ def _running_stacks(apps: list[App]) -> dict[str, tuple[str, ...]]:
         apps: Stacks whose units are down.
 
     Returns:
-        Domain to its running containers' names; empty when Docker cannot be
-        asked, which leaves each stack the state its unit gave it.
+        Domain to its running containers and their restart policies; empty
+        when Docker cannot be asked, which leaves each stack the state its
+        unit gave it.
     """
-    from noust.deployers.compose_reclaim import running_outside_units
+    from noust.deployers.compose_reclaim import outside_stacks
 
     try:
-        return running_outside_units(apps)
+        return outside_stacks(apps)
     except NoustError as error:
         log.debug("Could not ask Docker which stacks run outside their units: %s", error)
         return {}
 
 
-def _outside_unit(app: App, containers: tuple[str, ...] | None, state: AppState) -> AppState:
+def outside_unit_sentence(stack: OutsideStack) -> str:
+    """
+    Say what a reboot would do to a stack that runs outside its unit.
+
+    It is Docker's restart policy that decides, not the unit: a stack whose
+    containers carry ``unless-stopped`` was up again after the server
+    restarted, and "a reboot would not bring it back" was wrong about it.
+
+    Args:
+        stack: The stack and its containers' policies.
+
+    Returns:
+        A clause: that Docker starts them again, which ones a reboot would
+        not bring back, or nothing about a reboot when the policies could not
+        be read.
+    """
+    if stack.reboot == "returns":
+        policies = ", ".join(sorted(set(stack.policies.values())))
+        return f"Docker starts them again after a reboot (restart: {policies})"
+    if stack.reboot == "stays_down":
+        left = ", ".join(f"{name} (restart: {stack.policies[name]})" for name in stack.stays_down)
+        return f"a reboot would not bring back {left}"
+    return "nothing done to its unit reaches them"
+
+
+def _outside_unit(app: App, stack: OutsideStack | None, state: AppState) -> AppState:
     """
     Decide a stack's state from its containers, when its unit is down.
 
     Args:
         app: The application record.
-        containers: The names of its running containers, if any runs.
+        stack: Its running containers, if any runs.
         state: What its unit's status decided.
 
     Returns:
         :data:`RUNNING_UNMANAGED` when any container runs; the unit's state
         otherwise.
     """
-    if not containers:
+    if stack is None or not stack.containers:
         return state
     return AppState(
         RUNNING_UNMANAGED,
         healthy=False,
-        detail=f"its containers run ({', '.join(containers)}) but its unit is not running: "
-        "Noust is not supervising it and a reboot would not bring it back; hand it back "
-        f"with: noust app reclaim {app.domain}",
+        detail=f"its containers run ({', '.join(stack.containers)}) but its unit is not "
+        f"running: Noust is not supervising it, and {outside_unit_sentence(stack)}; hand it "
+        f"back with: noust app reclaim {app.domain}",
     )
 
 

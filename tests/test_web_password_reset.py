@@ -24,6 +24,7 @@ from noust.core import totp
 from noust.core.accounts import AccountManager
 from noust.core.accounts.mail import AccountMailer, MailUnavailable
 from noust.core.exceptions import EmailError
+from noust.core.server_text import say
 from noust.web.api import auth_accounts
 from noust.web.auth import CSRF_HEADER_NAME
 from noust.web.server import get_token_manager
@@ -53,7 +54,7 @@ class FakeMailer(AccountMailer):
 
     def send_invitation(self, address, username, code, hours, *, invited_by=None):  # type: ignore[no-untyped-def]
         if not self.available:
-            raise MailUnavailable("There is no way to send mail from this server")
+            raise MailUnavailable.from_text(say("mail.no_transport"))
         if self.error:
             raise self.error
         self.invitations.append(
@@ -357,15 +358,65 @@ class TestInvitingByMail:
         assert response.json()["emailed"] is False
         assert mailer.invitations == []
 
-    def test_asking_to_mail_without_a_mail_channel_creates_nothing(
+    def test_asking_to_mail_without_a_mail_channel_still_makes_the_invitation(
         self, client: TestClient, mailer: FakeMailer
     ) -> None:
+        # The field says the link is shown anyway: refusing the whole invitation for want of mail
+        # made the person start again with nothing to hand over.
         mailer.available = False
 
         response = self._invite(client, email="pablo@example.com")
 
-        assert response.status_code == 400
-        assert get_token_manager().accounts.find("pablo") is None
+        body = response.json()
+        assert response.status_code == 201, response.text
+        assert body["emailed"] is False
+        assert body["code"].startswith("noust_inv_")
+        assert get_token_manager().accounts.find("pablo") is not None
+        assert mailer.invitations == []
+
+    def test_and_says_why_it_was_not_mailed_in_a_sentence_with_a_code(
+        self, client: TestClient, mailer: FakeMailer
+    ) -> None:
+        mailer.available = False
+
+        body = self._invite(client, email="pablo@example.com").json()
+
+        assert body["email_error"] == "There is no way to send mail from this server"
+        assert body["email_error_coded"] == {"code": "mail.no_transport", "params": {}}
+        # The way out is said too, naming where Settings keeps it today.
+        assert "monitor.smtp" in body["email_error_hint"]
+        assert "Settings > Channels" in body["email_error_hint"]
+
+    def test_an_invitation_that_was_not_asked_to_be_mailed_has_nothing_to_explain(
+        self, client: TestClient, mailer: FakeMailer
+    ) -> None:
+        body = self._invite(client).json()
+
+        assert body["emailed"] is False
+        assert (body["email_error"], body["email_error_coded"], body["email_error_hint"]) == (
+            None,
+            None,
+            None,
+        )
+
+    def test_one_address_is_where_it_goes_and_who_the_person_is(
+        self, client: TestClient, mailer: FakeMailer
+    ) -> None:
+        body = self._invite(client, email="Pablo@Example.com").json()
+
+        assert body["account"]["email"] == "pablo@example.com"
+        assert body["account"]["person_ref"] == "pablo@example.com"
+
+    def test_the_old_two_field_form_still_means_what_it_meant(
+        self, client: TestClient, mailer: FakeMailer
+    ) -> None:
+        both = self._invite(client, email="pablo@example.com", person_ref="emp-77").json()
+        assert both["account"]["person_ref"] == "emp-77"
+        assert both["emailed"] is True
+
+        alone = self._invite(client, username="lola", person_ref="lola@example.com").json()
+        assert alone["emailed"] is False
+        assert alone["account"]["email"] is None
 
     def test_a_mail_that_fails_leaves_the_invitation_to_hand_over(
         self, client: TestClient, mailer: FakeMailer
@@ -378,6 +429,10 @@ class TestInvitingByMail:
         assert response.status_code == 201
         assert body["emailed"] is False
         assert "mail server" in body["email_error"]
+        # The mail server's own words ride inside a sentence of ours, as a value.
+        assert body["email_error_coded"]["code"] == "invitation.mail_failed"
+        assert "The mail server said no" in body["email_error_coded"]["params"]["reason"]
+        assert "550 mailbox unavailable" in body["email_error_coded"]["params"]["reason"]
         assert body["code"].startswith("noust_inv_")
 
     def test_an_address_that_is_not_one_is_refused(

@@ -21,12 +21,11 @@ import re
 from collections.abc import Sequence
 
 from noust.core.exceptions import ValidationError
+from noust.validators.object_names import check_name, rule_for
 
-#: Longest name: ``noust-db-`` and the name must stay a short unit name.
-MAX_NAME_LENGTH = 24
-
-#: Lower-case words joined by single dashes, starting with a letter.
-_NAME = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
+#: Longest name, from the one table of names (``noust.validators.object_names``): it carries the
+#: reason, and the rule is not written a second time here.
+MAX_NAME_LENGTH = rule_for("db_instance").max_length
 
 #: ``512m``, ``2g``, ``1536``: a number and an optional unit; bare numbers are megabytes.
 _MEMORY = re.compile(r"(?P<number>[0-9]{1,7})(?P<unit>(?:[mg]b?)?)", re.IGNORECASE)
@@ -47,19 +46,10 @@ def check_instance_name(name: object) -> str:
         The name, unchanged.
 
     Raises:
-        ValidationError: It is not lower-case words joined by dashes, or it is
-            longer than :data:`MAX_NAME_LENGTH`.
+        ValidationError: It is not lower-case words joined by single dashes, or it is longer
+            than :data:`MAX_NAME_LENGTH`.
     """
-    if not isinstance(name, str) or len(name) > MAX_NAME_LENGTH or _NAME.fullmatch(name) is None:
-        raise ValidationError(
-            f"{name!r} cannot be the name of a database instance",
-            details=(
-                f"Use lower-case letters, digits and single dashes, starting with a letter, "
-                f"up to {MAX_NAME_LENGTH} characters: pg16, analytics, shop-cache."
-            ),
-            field="name",
-        )
-    return name
+    return check_name("db_instance", name)
 
 
 def parse_memory(value: object) -> int:

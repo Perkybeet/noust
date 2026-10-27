@@ -364,6 +364,10 @@ EVENTS: dict[str, EventSpec] = {
             "tunnels.create": "A Cloudflare Tunnel was created and its connector installed.",
             "tunnels.route": "A hostname was added to or removed from a Cloudflare Tunnel.",
             "tunnels.delete": "A Cloudflare Tunnel and its connector were removed.",
+            "tunnels.install_connector": (
+                "cloudflared, the connector of Cloudflare Tunnels, was installed from Cloudflare's "
+                "own package repository."
+            ),
             "certs.create": "A certificate was requested.",
             "certs.renew": "A certificate was renewed.",
             "certs.delete": "A certificate was deleted.",

@@ -36,10 +36,11 @@ operator accepts it.
 
 from __future__ import annotations
 
+import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from noust.core import audit
 from noust.core.applock import app_lock
@@ -58,6 +59,15 @@ from noust.deployers.compose_adopt import (
 )
 from noust.managers.service_manager import ServiceManager
 from noust.validators.domain import validate_domain
+
+logger = logging.getLogger(__name__)
+
+#: Restart policies with which Docker starts a container again when its daemon starts, which a
+#: reboot is. ``on-failure`` is not one: it restarts what exited with an error, and a container
+#: that was running when the machine went down did not.
+RESTARTS_AT_BOOT = frozenset({"always", "unless-stopped"})
+
+Reboot = Literal["returns", "stays_down", "unknown"]
 
 
 @dataclass(frozen=True)
@@ -167,6 +177,111 @@ def running_outside_units(
         if names:
             found[app.domain] = names
     return found
+
+
+@dataclass(frozen=True)
+class OutsideStack:
+    """
+    A stack that runs outside its unit, and what a reboot would do to it.
+
+    "A reboot would not bring it back" was said of every such stack, and a stack whose
+    containers carry ``restart: unless-stopped`` came back on its own when the server restarted.
+    What Docker restarts is the containers' own restart policy, so it is read from them.
+
+    Attributes:
+        containers: The names of its running containers.
+        policies: Each one's restart policy, for those Docker answered for; empty when it could
+            not be asked.
+    """
+
+    containers: tuple[str, ...]
+    policies: Mapping[str, str]
+
+    @property
+    def stays_down(self) -> tuple[str, ...]:
+        """The containers whose policy would not start them after a reboot."""
+        return tuple(
+            name
+            for name in self.containers
+            if name in self.policies and self.policies[name] not in RESTARTS_AT_BOOT
+        )
+
+    @property
+    def reboot(self) -> Reboot:
+        """
+        ``stays_down`` when a container is known not to return, ``returns`` when every one is
+        known to, ``unknown`` otherwise: a claim about a reboot needs the policies it is about.
+        """
+        if self.stays_down:
+            return "stays_down"
+        if all(name in self.policies for name in self.containers):
+            return "returns"
+        return "unknown"
+
+
+def restart_policies(
+    names: Sequence[str], *, runner: CommandRunner | None = None, timeout: int = DOCKER_TIMEOUT
+) -> dict[str, str]:
+    """
+    Read the restart policy of containers, with one ``docker inspect``.
+
+    Args:
+        names: The containers' names.
+        runner: The runner docker is asked through.
+        timeout: Seconds Docker has to answer.
+
+    Returns:
+        Container name to its policy (``no`` when it has none). Empty when Docker could not be
+        asked: not knowing is an answer the caller keeps apart from "none restarts".
+    """
+    if not names:
+        return {}
+    runner = runner if runner is not None else get_runner()
+    result = runner.run(
+        ["docker", "inspect", "--format", "{{.Name}} {{.HostConfig.RestartPolicy.Name}}", *names],
+        timeout=timeout,
+    )
+    if not result.success:
+        logger.debug("The restart policies were not read: %s", result.stderr.strip())
+        return {}
+    found: dict[str, str] = {}
+    for line in result.stdout.splitlines():
+        name, _, policy = line.strip().partition(" ")
+        if name:
+            found[name.lstrip("/")] = policy.strip() or "no"
+    return found
+
+
+def outside_stacks(
+    apps: Sequence[App], *, runner: CommandRunner | None = None, timeout: int = DOCKER_TIMEOUT
+) -> dict[str, OutsideStack]:
+    """
+    Find the stacks that run outside their units, with what a reboot would do to each.
+
+    Args:
+        apps: The applications whose units are not active.
+        runner: The runner docker is asked through.
+        timeout: Seconds Docker has to answer.
+
+    Returns:
+        Domain to its stack, for each that has a container running; one ``docker ps`` for all of
+        them and, when there is any, one ``docker inspect``.
+
+    Raises:
+        DeploymentError: Docker cannot be asked which containers run.
+    """
+    running = running_outside_units(apps, runner=runner, timeout=timeout)
+    if not running:
+        return {}
+    known = restart_policies(
+        sorted({name for names in running.values() for name in names}),
+        runner=runner,
+        timeout=timeout,
+    )
+    return {
+        domain: OutsideStack(names, {n: known[n] for n in names if n in known})
+        for domain, names in running.items()
+    }
 
 
 # -- Handing it back -----------------------------------------------------------------

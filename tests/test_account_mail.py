@@ -9,8 +9,9 @@ from typing import Any
 
 import pytest
 
-from noust.core.accounts.mail import TEXTS, AccountMailer, MailUnavailable
+from noust.core.accounts.mail import TEXTS, AccountMailer, MailUnavailable, mail_invitation
 from noust.core.exceptions import EmailError
+from noust.core.server_text import say
 
 
 class FakeNotifier:
@@ -64,6 +65,57 @@ class TestWhenItIsPossible:
     def test_sending_without_a_public_address_says_what_to_set(self) -> None:
         with pytest.raises(MailUnavailable, match=r"web\.public_url"):
             _mailer(url=None).send_reset("a@example.com", "ana", "noust_reset_x")
+
+    def test_each_reason_it_cannot_is_a_sentence_with_a_code(self) -> None:
+        FakeNotifier.transport = False
+        with pytest.raises(MailUnavailable) as no_way:
+            _mailer().send_invitation("a@example.com", "ana", "noust_inv_x", 24)
+        FakeNotifier.transport = True
+        with pytest.raises(MailUnavailable) as no_address:
+            _mailer(url=None).send_invitation("a@example.com", "ana", "noust_inv_x", 24)
+
+        assert no_way.value.coded == say("mail.no_transport")
+        assert no_address.value.coded == say("mail.no_public_url")
+        # The channels page is called Channels since 4.0, and the sentence says so.
+        assert "Settings > Channels" in (no_way.value.details or "")
+
+
+class TestMailingAnInvitation:
+    """One answer to "did it go, and if not why", for the API and the command line."""
+
+    def test_nothing_is_asked_when_there_is_no_address(self) -> None:
+        sent = mail_invitation(_mailer(), None, "ana", "noust_inv_x", 24)
+
+        assert (sent.emailed, sent.problem) == (False, None)
+        assert FakeNotifier.sent == []
+
+    def test_it_goes_and_says_so(self) -> None:
+        sent = mail_invitation(
+            _mailer(), "a@example.com", "ana", "noust_inv_x", 24, invited_by="yago"
+        )
+
+        assert sent.emailed is True and sent.problem is None
+        assert FakeNotifier.sent
+
+    def test_without_a_way_to_send_it_does_not_go_and_says_what_to_set(self) -> None:
+        FakeNotifier.transport = False
+
+        sent = mail_invitation(_mailer(), "a@example.com", "ana", "noust_inv_x", 24)
+
+        assert sent.emailed is False
+        assert sent.problem == say("mail.no_transport")
+
+    def test_a_mail_server_that_refuses_is_the_servers_own_words_in_a_sentence_of_ours(
+        self,
+    ) -> None:
+        FakeNotifier.failing = True
+
+        sent = mail_invitation(_mailer(), "a@example.com", "ana", "noust_inv_x", 24)
+
+        assert sent.emailed is False and sent.problem is not None
+        assert sent.problem.code == "invitation.mail_failed"
+        assert sent.problem.params["reason"]
+        assert str(sent.problem.params["reason"]) in sent.problem.text
 
 
 class TestTheInvitation:

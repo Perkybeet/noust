@@ -8,6 +8,15 @@ This module defines a hierarchy of exceptions used throughout the application
 to provide clear and actionable error messages.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, TypeVar
+
+if TYPE_CHECKING:
+    from noust.core.server_text import ServerText
+
+_E = TypeVar("_E", bound="NoustError")
+
 
 class NoustError(Exception):
     """
@@ -23,6 +32,7 @@ class NoustError(Exception):
         *,
         output: str | None = None,
         field: str | None = None,
+        coded: ServerText | None = None,
     ):
         """
         Args:
@@ -35,12 +45,39 @@ class NoustError(Exception):
             field: The request field the error is about, when there is one, so
                 the API can put it next to that input (``fields`` in its error
                 body) instead of a client guessing from the message.
+            coded: The same sentence as a code and its values
+                (:mod:`noust.core.server_text`), for the console to translate. None for an
+                error whose words are only its message.
         """
         self.message = message
         self.details = details
         self.output = output
         self.field = field
+        self.coded = coded
         super().__init__(self.message)
+
+    @classmethod
+    def from_text(
+        cls: type[_E],
+        text: ServerText,
+        *,
+        output: str | None = None,
+        field: str | None = None,
+    ) -> _E:
+        """
+        Make the error out of a sentence of the catalog, so that its words exist once.
+
+        Only for the classes that take the base constructor's arguments.
+
+        Args:
+            text: The sentence; its text is the message and its fix the details.
+            output: The failing tool's own output, when there is one.
+            field: The request field the error is about.
+
+        Returns:
+            The error, carrying the sentence for the API to send with its code.
+        """
+        return cls(text.text, text.hint or "", output=output, field=field, coded=text)
 
     def __str__(self) -> str:
         if self.details:
@@ -52,6 +89,15 @@ class ConfigError(NoustError):
     """Raised when there's a configuration error."""
 
     pass
+
+
+class WebserverInUseError(ConfigError):
+    """
+    The web server of new applications cannot change while the other one still serves sites.
+
+    A conflict with the state of the server, not a bad value: the same request is fine once
+    what is behind the other server has moved.
+    """
 
 
 class ValidationError(NoustError):

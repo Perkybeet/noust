@@ -48,6 +48,7 @@ from typing import TYPE_CHECKING
 
 from noust.core import paths
 from noust.core.config import Config
+from noust.core.dependencies import NODE_RUNTIME_TYPES
 from noust.core.exceptions import ServiceError, ValidationError
 from noust.core.store import App, NoustStore, get_store
 from noust.core.unit_hardening_store import PROFILES, HardeningRecord, get_record, set_record
@@ -69,22 +70,6 @@ ANALYZE_TIMEOUT = 60
 FAMILY_NODE = "node"
 FAMILY_PYTHON = "python"
 FAMILY_GENERIC = "generic"
-
-#: Application types whose runtime maps its own executable code (V8's JIT).
-_NODE_TYPES = frozenset(
-    {
-        "nodejs",
-        "nextjs",
-        "nuxt",
-        "remix",
-        "astro",
-        "sveltekit",
-        "angular",
-        "vite",
-        # A monorepo's workspaces are Node projects (turbo and pnpm).
-        "monorepo",
-    }
-)
 
 #: The directives this module owns, which :func:`with_hardening` removes before it writes.
 HARDENING_KEYS = frozenset(
@@ -183,7 +168,8 @@ def family_of(app_type: str | None) -> str:
         ``node``, ``python`` or ``generic``.
     """
     kind = app_type or ""
-    if kind in _NODE_TYPES:
+    # V8 maps its own executable code (the JIT), which is what a strict profile must leave alone.
+    if kind in NODE_RUNTIME_TYPES:
         return FAMILY_NODE
     if kind == "python":
         return FAMILY_PYTHON

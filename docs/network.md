@@ -505,15 +505,24 @@ back through that connection.
 
 ```bash
 noust tunnel check                                  # is cloudflared installed? is there an account?
+noust tunnel install-cloudflared                    # add Cloudflare's repository and install it
 noust tunnel create home --account cf
 noust tunnel route add home shop.example.com --app shop.example.com
 noust tunnel route add home grafana.example.com --service http://localhost:3001
 noust tunnel list | route remove home shop.example.com | remove home | repair
 ```
 
-- `cloudflared` is installed by you from Cloudflare's own package repository
-  (<https://pkg.cloudflare.com/>): the one program Noust never fetches itself, and never as
-  `latest`.
+- `cloudflared` comes from Cloudflare's own package repository (<https://pkg.cloudflare.com/>),
+  and from nowhere else: `noust tunnel install-cloudflared` (since 4.1) adds that repository the
+  way Noust adds a database engine's, with the signing key **pinned**. The key is downloaded into
+  a private directory, read with a throwaway gpg home and refused unless it is exactly one public
+  primary key with Cloudflare's fingerprint (`CC94B39C77AE7342A68B89628A682D308D4E5E73`); only
+  then is the source line (apt) or the repository file (dnf, zypper) written, naming that key
+  alone. The package manager's lists are refreshed, a repository it cannot read is taken back
+  out, and the package is installed through apt, dnf or zypper. A repository you already added
+  yourself (Cloudflare's own instructions) is used as it is, and a machine whose packages Noust
+  does not manage (an image-based system) gets the manual steps instead. It is never a script
+  piped to a shell and never `latest` from a download.
 - The connector's token goes to a file only root reads (`tunnels/<name>` of the secret store) and
   the unit hands it to the process through `EnvironmentFile=`; it is never an argument, never in
   `/tmp`, never in the unit. The unit runs as a user that exists only while it runs, with the
@@ -533,7 +542,8 @@ noust tunnel list | route remove home shop.example.com | remove home | repair
   moment while the connector still counts as connected: run the command again), and lets go of the
   records of its routes. An account a tunnel is managed with cannot be removed.
 
-API: `GET|POST /api/tunnels`, `DELETE /api/tunnels/{name}`, `POST /api/tunnels/{name}/routes`,
+API: `GET|POST /api/tunnels`, `POST /api/tunnels/install-cloudflared` (a job; needs sudo mode),
+`DELETE /api/tunnels/{name}`, `POST /api/tunnels/{name}/routes`,
 `DELETE /api/tunnels/{name}/routes/{hostname}`. Console: **Domains, Tunnels**.
 
 ## When an application is deleted

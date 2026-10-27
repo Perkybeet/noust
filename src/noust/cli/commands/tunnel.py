@@ -50,6 +50,33 @@ def check_command(ctx: Context) -> None:
     ctx.logger.error(support.problem or "A tunnel cannot run here", details=support.hint or "")
 
 
+@cli.command("install-cloudflared")
+@json_option("Print what was done as JSON.")
+@pass_context
+def install_cloudflared_command(ctx: Context) -> None:
+    """
+    Install cloudflared, the connector a tunnel runs through.
+
+    Adds Cloudflare's own package repository with the key Cloudflare signs it with (pinned: a
+    key that is not exactly that one is refused and nothing is added), refreshes the package
+    manager's lists and installs the package through apt, dnf or zypper. A repository you
+    already configured is used as it is, and nothing is done when the connector is there.
+    """
+    from noust.managers.cloudflared_install import CloudflaredInstaller
+
+    done = CloudflaredInstaller().install()
+    if ctx.json_output:
+        click.echo(json.dumps(done.to_dict()))
+        return
+    if done.rehearsal:
+        ctx.logger.success("Would install cloudflared from Cloudflare's package repository")
+    elif done.installed_now:
+        ctx.logger.success(f"Installed cloudflared ({done.version or done.path})")
+        ctx.logger.info("Create a tunnel with: noust tunnel create NAME")
+    else:
+        ctx.logger.success(f"cloudflared is already installed ({done.version or done.path})")
+
+
 @cli.command("create")
 @click.argument("name")
 @click.option(
@@ -70,8 +97,8 @@ def create_command(
     Create a tunnel at Cloudflare and run its connector here.
 
     The token goes to a file only root reads and the unit hands it to the connector;
-    nothing is put in an argument, in /tmp or in the unit. Needs cloudflared, installed
-    from Cloudflare's package repository (https://pkg.cloudflare.com/).
+    nothing is put in an argument, in /tmp or in the unit. Needs cloudflared: install it
+    with 'noust tunnel install-cloudflared'.
     """
     from noust.core.audit.actor import cli_actor
 

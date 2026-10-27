@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 
 from noust.core.accounts import Account, AuthenticationFailed, SodException
 from noust.core.accounts.local_login import load_policy as load_local_login
-from noust.core.accounts.mail import AccountMailer
+from noust.core.accounts.mail import AccountMailer, mail_invitation
 from noust.core.accounts.model import ROLE_ADMIN, AccountError, clean_email
 from noust.core.accounts.reset import (
     LIFETIME_MINUTES,
@@ -39,9 +39,9 @@ from noust.core.accounts.reset import (
 )
 from noust.core.audit import record as audit_record
 from noust.core.ens.profile import is_ens
-from noust.core.exceptions import EmailError, ValidationError
+from noust.core.exceptions import EmailError
 from noust.core.teams.onboarding import invite_to_team
-from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.api.deps import CodedText, NoustErrorRoute, require_elevated
 from noust.web.auth import (
     actor_label,
     audit_event,
@@ -260,13 +260,15 @@ class InvitationCreate(BaseModel):
         username: The account's name.
         role: The role of a new account; ignored for an existing one.
         display_name: Display name of a new account.
-        person_ref: Person reference of a new account.
+        person_ref: Person reference of a new account. Optional: the e-mail address stands
+            for it when it is not given, so the invitation needs one address, not two.
         expires_hours: How long the code is valid.
         team: The team a new account joins, instead of the default one.
         team_role: Its role there (``viewer``, ``operator``, ``admin`` or
             ``owner``); ``viewer`` when only ``team`` is given.
-        email: Where to mail the invitation, when the server can send mail: the
-            account keeps the address, and the code is also returned here.
+        email: Where to mail the invitation, and who the person is unless ``person_ref`` says.
+            The account keeps the address, and the code is returned whether the mail goes or
+            not. A ``person_ref`` alone, as before, names the person and mails nothing.
     """
 
     username: str = Field(min_length=2, max_length=64)
@@ -288,8 +290,12 @@ class InvitationIssued(BaseModel):
         code: The code; only its digest is stored.
         expires_in: Seconds it is valid for.
         emailed: Whether the invitation was also mailed to the address given.
-        email_error: Why it was not, when it was asked for and failed: the invitation
+        email_error: Why it was not, when it was asked for and did not go: the invitation
             exists, and its code is handed over by hand.
+        email_error_hint: How to fix it, when there is a way.
+        email_error_coded: ``email_error`` as a code and its values, for the console to say
+            in its language (``mail.no_transport``, ``mail.no_public_url``,
+            ``invitation.mail_failed``).
     """
 
     account: AccountInfo
@@ -297,6 +303,8 @@ class InvitationIssued(BaseModel):
     expires_in: int
     emailed: bool = False
     email_error: str | None = None
+    email_error_hint: str | None = None
+    email_error_coded: CodedText | None = None
 
 
 class InvitationCode(BaseModel):
@@ -877,7 +885,10 @@ def create_invitation(
     Invite a person: they set their own password and authenticator.
 
     For an existing account it is a recovery: accepting it replaces the
-    password and the authenticator.
+    password and the authenticator. The invitation is made whether or not it
+    can be mailed: when an address is given and the mail does not go, the
+    response says so (``emailed`` false, ``email_error`` and its code) and the
+    code is handed over by hand.
 
     Args:
         request: The incoming request.
@@ -885,7 +896,7 @@ def create_invitation(
         session: The authenticated payload, in sudo mode.
 
     Returns:
-        The account and the code, shown exactly once.
+        The account and the code, shown exactly once, and whether the mail went.
 
     Raises:
         ValidationError: When a field is refused.
@@ -893,17 +904,6 @@ def create_invitation(
     """
     accounts = get_token_manager().accounts
     address = clean_email(body.email)
-    mailer = account_mailer()
-    if address is not None and not mailer.ready():
-        # Before anything is made: an invitation nobody can be sent is the caller's to know.
-        raise ValidationError(
-            "This server cannot send mail yet",
-            details=(
-                "Set monitor.smtp.* or monitor.email_api.* and web.public_url, or leave the "
-                "address out and hand the code over yourself."
-            ),
-            field="email",
-        )
     existing = accounts.find(body.username)
     if existing is not None:
         # A recovery gives the account's role to whoever holds the code.
@@ -938,16 +938,16 @@ def create_invitation(
             expires_hours=body.expires_hours,
             email=address,
         )
-    emailed, email_error = False, None
-    if address is not None:
-        try:
-            mailer.send_invitation(
-                address, account.username, code, body.expires_hours, invited_by=actor_label(session)
-            )
-            emailed = True
-        except (EmailError, AccountError) as exc:
-            # The invitation exists either way: the code is shown to the caller to hand over.
-            email_error = exc.message
+    # The invitation exists whether the mail goes or not: its code is shown to the caller to hand
+    # over, so a server that cannot send mail does not take the invitation with it.
+    mailed = mail_invitation(
+        account_mailer(),
+        address,
+        account.username,
+        code,
+        body.expires_hours,
+        invited_by=actor_label(session),
+    )
     audit_event(
         "user.invite",
         "success",
@@ -956,15 +956,21 @@ def create_invitation(
         target=f"account:{account.username}",
         detail=(
             f"invitation valid for {body.expires_hours} hours"
-            + (", mailed" if emailed else ", mail failed" if address else "")
+            + (", mailed" if mailed.emailed else ", mail failed" if address else "")
         ),
     )
     return InvitationIssued(
         account=AccountInfo.of(account),
         code=code,
         expires_in=body.expires_hours * 3600,
-        emailed=emailed,
-        email_error=email_error,
+        emailed=mailed.emailed,
+        email_error=mailed.problem.text if mailed.problem else None,
+        email_error_hint=mailed.problem.hint if mailed.problem else None,
+        email_error_coded=(
+            CodedText(code=mailed.problem.code, params=dict(mailed.problem.params))
+            if mailed.problem
+            else None
+        ),
     )
 
 

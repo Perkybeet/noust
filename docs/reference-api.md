@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1050 operations.
+1051 operations.
 
 ## Access
 
@@ -1275,6 +1275,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 |---|---|---|---|---|---|
 | GET | `/api/tunnels` | List Tunnels | `server.read` |  |  |
 | POST | `/api/tunnels` | Create Tunnel | `server.manage` | yes |  |
+| POST | `/api/tunnels/install-cloudflared` | Post Install Cloudflared | `server.manage` | yes |  |
 | DELETE | `/api/tunnels/{name}` | Delete Tunnel | `server.manage` | yes |  |
 | POST | `/api/tunnels/{name}/routes` | Add Route | `server.manage` | yes |  |
 | DELETE | `/api/tunnels/{name}/routes/{hostname}` | Remove Route | `server.manage` | yes |  |

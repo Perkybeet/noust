@@ -28,13 +28,13 @@ from typing import Any
 from noust.core.config import DEFAULT_CONFIG, REDACTED, Config
 from noust.core.exceptions import ValidationError
 from noust.core.notifications.instances import (
-    NAME_PATTERN,
     SHARED_KEYS,
     TYPES,
     ChannelInstance,
     resolve_instances,
 )
 from noust.core.notifications.model import EVENT_KINDS, OFF_BY_DEFAULT
+from noust.validators.object_names import check_name
 
 
 @dataclass(frozen=True)
@@ -239,12 +239,7 @@ class ChannelAdmin:
             ConfigError: A setting the configuration refuses (the message
                 names the channel and the setting).
         """
-        if not NAME_PATTERN.fullmatch(name):
-            raise ValidationError(
-                f"Invalid channel name: {name!r}",
-                details="Use lower-case letters, digits, '-' and '_', starting with a letter.",
-                field="name",
-            )
+        check_name("channel", name)
         block = self._block(name)
         stored_type = block.get("type") or (name if name in TYPES else None)
         chosen = type or stored_type

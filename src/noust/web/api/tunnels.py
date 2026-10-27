@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.tunnel_store import Tunnel, TunnelRoute
+from noust.managers.cloudflared_install import CloudflaredInstaller
 from noust.managers.tunnels import (
     RouteResult,
     TunnelManager,
@@ -30,8 +31,14 @@ from noust.managers.tunnels import (
     TunnelSupport,
 )
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.api.deps import (
+    CodedText,
+    JobAcceptedResponse,
+    NoustErrorRoute,
+    require_elevated,
+)
 from noust.web.auth import actor_label
+from noust.web.jobs import JobContext, JobType, get_job_manager
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -47,6 +54,7 @@ class TunnelSupportModel(BaseModel):
         accounts: The Cloudflare accounts that can manage a tunnel.
         problem: What is missing, when something is.
         hint: How to fix it.
+        coded: The same problem and fix as a code and its values, for the console to translate.
     """
 
     available: bool
@@ -55,6 +63,7 @@ class TunnelSupportModel(BaseModel):
     accounts: list[str] = Field(default_factory=list)
     problem: str | None = None
     hint: str | None = None
+    coded: CodedText | None = None
 
 
 class TunnelRouteModel(BaseModel):
@@ -278,6 +287,64 @@ def list_tunnels(
     return TunnelListResponse(
         tunnels=[_tunnel(manager, tunnel) for tunnel in manager.all()],
         support=_support(manager.support()),
+    )
+
+
+def install_cloudflared_job(actor: str, job_context: JobContext | None = None) -> dict[str, Any]:
+    """
+    Install cloudflared as a background job.
+
+    Args:
+        actor: Who asked, for the log of the job.
+        job_context: Injected by the job manager.
+
+    Returns:
+        Where the connector is, whether this installed it and its version.
+
+    Raises:
+        PrerequisiteError: Noust installs no packages on this machine (409).
+        DependencyError: The key, the repository or the package was refused, with the tool's words.
+    """
+    if job_context is not None:
+        job_context.update("Installing cloudflared from Cloudflare's package repository", 10)
+        job_context.log(f"Requested by {actor}")
+    done = CloudflaredInstaller().install()
+    if job_context is not None:
+        job_context.update("Done", 100)
+    return done.to_dict()
+
+
+@router.post("/install-cloudflared", response_model=JobAcceptedResponse, status_code=202)
+def post_install_cloudflared(
+    session: Annotated[dict[str, Any], Depends(require_elevated)],
+) -> JobAcceptedResponse:
+    """
+    Queue the installation of cloudflared, the connector a tunnel runs through.
+
+    Adds Cloudflare's own package repository with its signing key pinned, refreshes the package
+    manager's lists and installs the package. Needs sudo mode: it changes the package manager's
+    sources and installs a package as root.
+
+    Args:
+        session: Authenticated and elevated session, injected.
+
+    Returns:
+        The queued job; its result is where the connector is.
+    """
+    actor = actor_label(session)
+    job = get_job_manager().create_job(
+        job_type=JobType.CLOUDFLARED_INSTALL,
+        name="Install cloudflared",
+        description="Installing cloudflared from Cloudflare's package repository",
+        func=install_cloudflared_job,
+        kwargs={"actor": actor},
+        actor=actor,
+    )
+    return JobAcceptedResponse(
+        job_id=job.id,
+        status=job.status.value,
+        message="Installing cloudflared",
+        job=job.to_dict(),
     )
 
 

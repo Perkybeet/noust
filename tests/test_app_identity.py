@@ -380,6 +380,9 @@ class Units:
     def serving_units(self, app: App) -> list[str]:
         return [self.unit]
 
+    def read_unit(self, name: str) -> str | None:
+        return self.bodies.get(name)
+
     def set_unit_account(self, name: str, user: str, group: str) -> str:
         previous = self.bodies[name]
         self.bodies[name] = with_account(previous, user, group)

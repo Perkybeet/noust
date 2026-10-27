@@ -26,7 +26,7 @@ import { ROLES, incompatible, roleDescription, roleLabel } from "./roles";
 import type { Role } from "./roles";
 import { samePerson } from "./data";
 
-const FIELDS = ["username", "role", "team", "team_role", "display_name", "person_ref", "email", "expires_hours"] as const;
+const FIELDS = ["username", "role", "team", "team_role", "display_name", "email", "expires_hours"] as const;
 
 const EXPIRY_HOURS = ["24", "72", "168", "336"] as const;
 
@@ -110,8 +110,8 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
   const queryClient = useQueryClient();
   const [username, setUsername] = useState(recover?.username ?? "");
   const [displayName, setDisplayName] = useState("");
-  const [person, setPerson] = useState("");
-  const [mailTo, setMailTo] = useState("");
+  // One address: where the link is mailed, and who the person is (the server takes it for both).
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("operator");
   const [teamRole, setTeamRole] = useState<TeamRole>("viewer");
   const [expiry, setExpiry] = useState<(typeof EXPIRY_HOURS)[number]>("24");
@@ -127,8 +127,7 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
         ...(recover === null ? { role: team === null ? role : "viewer" } : {}),
         ...(recover === null && team !== null ? { team: team.slug, team_role: teamRole } : {}),
         ...(recover === null && displayName.trim() !== "" ? { display_name: displayName.trim() } : {}),
-        ...(recover === null && person.trim() !== "" ? { person_ref: person.trim() } : {}),
-        ...(mailTo.trim() !== "" ? { email: mailTo.trim() } : {}),
+        ...(email.trim() !== "" ? { email: email.trim() } : {}),
       }),
     onSuccess: (result) => {
       setIssued({ answer: result, expiresAt: Date.now() + result.expires_in * 1000 });
@@ -137,7 +136,7 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
   });
   const [tried, setTried] = useState(false);
   const errors = splitErrors(create.error, FIELDS);
-  const clashes = recover === null && team === null ? samePerson(accounts, { username: username.trim(), person_ref: person }).filter((other) => incompatible(other.role, role)) : [];
+  const clashes = recover === null && team === null ? samePerson(accounts, { username: username.trim(), person_ref: email }).filter((other) => incompatible(other.role, role)) : [];
 
   const onOpenChange = (next: boolean): void => {
     if (next || create.isPending) return;
@@ -219,17 +218,6 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
                 }}
               />
             </Field>
-            <Field label={t("accounts.fields.person")} optional description={t("accounts.fields.personHint")} error={errors.fields.person_ref}>
-              <Input
-                type="email"
-                autoComplete="off"
-                maxLength={254}
-                value={person}
-                onValueChange={(value: string) => {
-                  setPerson(value);
-                }}
-              />
-            </Field>
             {team !== null ? (
               <ChoiceCards
                 legend={t("teams.members.roleLegend")}
@@ -264,9 +252,9 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
             type="email"
             autoComplete="off"
             maxLength={254}
-            value={mailTo}
+            value={email}
             onValueChange={(value: string) => {
-              setMailTo(value);
+              setEmail(value);
             }}
           />
         </Field>
