@@ -39869,6 +39869,10 @@ export interface components {
          *         coded: ``detail`` and ``hint`` as a code and its values, when the error is one of the
          *             sentences the console translates; ``None`` for an error whose words are only its
          *             message.
+         *         notes_coded: The sentences that follow ``detail`` in English, each as a code and its
+         *             values, in order (which control asks for an approval and how to turn it off);
+         *             empty when ``detail`` is only what ``coded`` says. A client that knows every code
+         *             here says them after ``coded``; one that does not shows ``detail`` whole.
          */
         ErrorResponse: {
             coded?: components["schemas"]["CodedText"] | null;
@@ -39882,6 +39886,8 @@ export interface components {
             } | null;
             /** Hint */
             hint?: string | null;
+            /** Notes Coded */
+            notes_coded?: components["schemas"]["CodedText"][];
             /** Output */
             output?: string | null;
         };
@@ -54342,31 +54348,13 @@ export interface components {
         ServerShellModel: {
             /** Allowed */
             allowed: boolean;
-            /**
-             * Code
-             * @description What blocks it, for the console to translate: server_shell_off (the switch), server_shell_control (the control server_terminal set to refused by the operator) or server_shell_framework (a framework holds that control)
-             */
-            code?: string | null;
-            /**
-             * Command
-             * @description The command that changes it, verbatim
-             */
-            command?: string | null;
-            /**
-             * Control
-             * @description The compliance control that blocks it
-             */
-            control?: string | null;
+            /** @description `reason` and `how` as a sentence with a code and its values, for the console to translate: terminal.server_off (the switch), terminal.server_control (the control server_terminal set to refused by the operator) or terminal.server_framework (a framework holds that control). The command that changes it is one of its values */
+            coded?: components["schemas"]["CodedText"] | null;
             /**
              * Enabled
              * @description terminal.server.enabled
              */
             enabled: boolean;
-            /**
-             * Forced By
-             * @description The frameworks that hold that control
-             */
-            forced_by?: string[];
             /**
              * How
              * @description What to change, verbatim
