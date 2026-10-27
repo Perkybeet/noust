@@ -10127,6 +10127,40 @@
         "title": "ClusterRolePlan",
         "type": "object"
       },
+      "CodedText": {
+        "description": "A sentence the server says, as a code and the values to put in it.\n\nSent beside the English text it stands for (``detail`` and ``hint`` of an error, ``problem``\nand ``hint`` of a report) so that the console can say it in its own language. A code the\nconsole has no entry for is shown as the English text, which is always sent.\n\nAttributes:\n    code: The key of the sentence in :mod:`noust.core.server_text`, such as\n        ``tunnels.store_sealed``. Its fix, when it has one, is that key plus ``.hint``.\n    params: The values for the sentence's placeholders: text, numbers and flags only. A\n        path, a name somebody typed or another program's own output is a value here and is\n        shown as it is.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "CodedText",
+        "type": "object"
+      },
       "CollectorModel": {
         "description": "Whether history is being recorded, and by whom.\n\nAttributes:\n    recording: True while a collector holds a live lease.\n    host: ``daemon`` (``noust-monitor``) or ``console``; null when nobody\n        is recording.\n    since: When the collector started, epoch seconds.\n    last_sample_at: Its newest tick, epoch seconds.\n    interval_s: Seconds between its ticks.\n    last_error: The newest failure it logged, verbatim.\n    reason: Why nothing is being recorded, with the fix.\n    advice: A hint when recording works but could be better (it only runs\n        while the console does).\n    retention_days: How long the hourly tier is kept.",
         "properties": {
@@ -17458,6 +17492,16 @@
       "DoctorItemOut": {
         "description": "One thing the installation check looked at.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "fix": {
             "anyOf": [
               {
@@ -17474,6 +17518,13 @@
               "type": "string"
             },
             "title": "Notes",
+            "type": "array"
+          },
+          "notes_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Notes Coded",
             "type": "array"
           },
           "status": {
@@ -17544,12 +17595,27 @@
             ],
             "title": "Explain"
           },
+          "explain_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/DoctorItemOut"
             },
             "title": "Items",
             "type": "array"
+          },
+          "key": {
+            "default": "",
+            "title": "Key",
+            "type": "string"
           },
           "title": {
             "title": "Title",
@@ -19851,8 +19917,18 @@
         "type": "object"
       },
       "ErrorResponse": {
-        "description": "Body of any failed API call.\n\nAttributes:\n    detail: What went wrong. Named ``detail`` so the shape matches\n        FastAPI's own ``HTTPException`` responses and clients need one\n        code path.\n    hint: How to fix it, when the manager supplied one.\n    error: Machine-readable error code, for clients that branch on it:\n        the lowercased :class:`~noust.core.exceptions.NoustError` subclass\n        name, or one of the fixed values in :data:`_ERROR_BY_STATUS` for\n        an error that never became a Noust exception.\n    fields: Field name to message, for a validation failure that names\n        more than one field. ``None`` for every other kind of error.\n    output: The failing tool's own output, verbatim, when the error\n        carries one - a rejected web server configuration, for example.\n        ``None`` for every error that has no external tool output to show.",
+        "description": "Body of any failed API call.\n\nAttributes:\n    detail: What went wrong. Named ``detail`` so the shape matches\n        FastAPI's own ``HTTPException`` responses and clients need one\n        code path.\n    hint: How to fix it, when the manager supplied one.\n    error: Machine-readable error code, for clients that branch on it:\n        the lowercased :class:`~noust.core.exceptions.NoustError` subclass\n        name, or one of the fixed values in :data:`_ERROR_BY_STATUS` for\n        an error that never became a Noust exception.\n    fields: Field name to message, for a validation failure that names\n        more than one field. ``None`` for every other kind of error.\n    output: The failing tool's own output, verbatim, when the error\n        carries one - a rejected web server configuration, for example.\n        ``None`` for every error that has no external tool output to show.\n    coded: ``detail`` and ``hint`` as a code and its values, when the error is one of the\n        sentences the console translates; ``None`` for an error whose words are only its\n        message.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "detail": {
             "title": "Detail",
             "type": "string"
@@ -24289,6 +24365,25 @@
         "title": "IdentityInfo",
         "type": "object"
       },
+      "IdentityMigrateRequest": {
+        "description": "How to move an application to its own account, when the defaults do not fit.\n\nAttributes:\n    shared_group: A group the new account joins, so it can write the folders outside the\n        application's own that the group can write (an upload directory the web server\n        serves). Left out, an application that writes there is refused.",
+        "properties": {
+          "shared_group": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared Group"
+          }
+        },
+        "title": "IdentityMigrateRequest",
+        "type": "object"
+      },
       "IdentityOut": {
         "description": "What the machine is called and what it runs.",
         "properties": {
@@ -25925,7 +26020,7 @@
         "type": "object"
       },
       "InvitationCreate": {
-        "description": "An invitation: a new account, or a recovery for an existing one.\n\nAttributes:\n    username: The account's name.\n    role: The role of a new account; ignored for an existing one.\n    display_name: Display name of a new account.\n    person_ref: Person reference of a new account.\n    expires_hours: How long the code is valid.\n    team: The team a new account joins, instead of the default one.\n    team_role: Its role there (``viewer``, ``operator``, ``admin`` or\n        ``owner``); ``viewer`` when only ``team`` is given.\n    email: Where to mail the invitation, when the server can send mail: the\n        account keeps the address, and the code is also returned here.",
+        "description": "An invitation: a new account, or a recovery for an existing one.\n\nAttributes:\n    username: The account's name.\n    role: The role of a new account; ignored for an existing one.\n    display_name: Display name of a new account.\n    person_ref: Person reference of a new account. Optional: the e-mail address stands\n        for it when it is not given, so the invitation needs one address, not two.\n    expires_hours: How long the code is valid.\n    team: The team a new account joins, instead of the default one.\n    team_role: Its role there (``viewer``, ``operator``, ``admin`` or\n        ``owner``); ``viewer`` when only ``team`` is given.\n    email: Where to mail the invitation, and who the person is unless ``person_ref`` says.\n        The account keeps the address, and the code is returned whether the mail goes or\n        not. A ``person_ref`` alone, as before, names the person and mails nothing.",
         "properties": {
           "display_name": {
             "anyOf": [
@@ -26019,7 +26114,7 @@
         "type": "object"
       },
       "InvitationIssued": {
-        "description": "An invitation code, shown exactly once.\n\nAttributes:\n    account: The account it is for.\n    code: The code; only its digest is stored.\n    expires_in: Seconds it is valid for.\n    emailed: Whether the invitation was also mailed to the address given.\n    email_error: Why it was not, when it was asked for and failed: the invitation\n        exists, and its code is handed over by hand.",
+        "description": "An invitation code, shown exactly once.\n\nAttributes:\n    account: The account it is for.\n    code: The code; only its digest is stored.\n    expires_in: Seconds it is valid for.\n    emailed: Whether the invitation was also mailed to the address given.\n    email_error: Why it was not, when it was asked for and did not go: the invitation\n        exists, and its code is handed over by hand.\n    email_error_hint: How to fix it, when there is a way.\n    email_error_coded: ``email_error`` as a code and its values, for the console to say\n        in its language (``mail.no_transport``, ``mail.no_public_url``,\n        ``invitation.mail_failed``).",
         "properties": {
           "account": {
             "$ref": "#/components/schemas/AccountInfo"
@@ -26038,6 +26133,27 @@
               }
             ],
             "title": "Email Error"
+          },
+          "email_error_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "email_error_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email Error Hint"
           },
           "emailed": {
             "default": false,
@@ -55457,7 +55573,7 @@
         "type": "object"
       },
       "TunnelSupportModel": {
-        "description": "Whether this server can run a tunnel, and what is missing.\n\nAttributes:\n    available: Everything needed is in place.\n    cloudflared: Where the connector is, when it is installed.\n    sealed: The secret store is sealed, so a connector could not read its token at boot.\n    accounts: The Cloudflare accounts that can manage a tunnel.\n    problem: What is missing, when something is.\n    hint: How to fix it.",
+        "description": "Whether this server can run a tunnel, and what is missing.\n\nAttributes:\n    available: Everything needed is in place.\n    cloudflared: Where the connector is, when it is installed.\n    sealed: The secret store is sealed, so a connector could not read its token at boot.\n    accounts: The Cloudflare accounts that can manage a tunnel.\n    problem: What is missing, when something is.\n    hint: How to fix it.\n    coded: The same problem and fix as a code and its values, for the console to translate.",
         "properties": {
           "accounts": {
             "items": {
@@ -55480,6 +55596,16 @@
               }
             ],
             "title": "Cloudflared"
+          },
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "hint": {
             "anyOf": [
@@ -59682,8 +59808,28 @@
         "type": "object"
       },
       "WebserverResponse": {
-        "description": "The configured web server.",
+        "description": "The web server new applications are put behind, and what is behind each today.\n\nAttributes:\n    webserver: The setting.\n    applies_to: Always ``new_applications``: every application keeps the web server it was\n        deployed behind, and changing the setting moves none of them.\n    applications: How many applications are behind each web server.\n    sites: How many sites that belong to no application are behind each.",
         "properties": {
+          "applications": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Applications",
+            "type": "object"
+          },
+          "applies_to": {
+            "const": "new_applications",
+            "default": "new_applications",
+            "title": "Applies To",
+            "type": "string"
+          },
+          "sites": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Sites",
+            "type": "object"
+          },
           "webserver": {
             "title": "Webserver",
             "type": "string"
@@ -69810,7 +69956,7 @@
     },
     "/api/apps/{domain}/identity/migrate": {
       "post": {
-        "description": "Queue the move of an application to its own system account.\n\nIt is restarted behind its health gate; when it does not answer, the\nfiles' owners, its unit or pool and the records are put back exactly.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: It cannot or need not move (400), before anything\n        is queued.",
+        "description": "Queue the move of an application to its own system account.\n\nIt is restarted behind its health gate; when it does not answer, the\nfiles' owners, its unit or pool and the records are put back exactly.\nBefore anything is queued, the paths its ``.env`` and its unit name are\nread: one that writes outside its own folder, where only the shared\naccount can, is refused (400) naming the folders, unless ``shared_group``\nnames a group that can write them.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n    body: Optionally the group the new account joins.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: It cannot or need not move (400), before anything\n        is queued.",
         "operationId": "post_identity_migrate_api_apps__domain__identity_migrate_post",
         "parameters": [
           {
@@ -69823,6 +69969,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentityMigrateRequest",
+                "default": {}
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "content": {
@@ -77416,7 +77572,7 @@
     },
     "/api/auth/invitations": {
       "post": {
-        "description": "Invite a person: they set their own password and authenticator.\n\nFor an existing account it is a recovery: accepting it replaces the\npassword and the authenticator.\n\nArgs:\n    request: The incoming request.\n    body: Who, with what role, and for how long.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The account and the code, shown exactly once.\n\nRaises:\n    ValidationError: When a field is refused.\n    AccountError: When the role clashes or the account is disabled.",
+        "description": "Invite a person: they set their own password and authenticator.\n\nFor an existing account it is a recovery: accepting it replaces the\npassword and the authenticator. The invitation is made whether or not it\ncan be mailed: when an address is given and the mail does not go, the\nresponse says so (``emailed`` false, ``email_error`` and its code) and the\ncode is handed over by hand.\n\nArgs:\n    request: The incoming request.\n    body: Who, with what role, and for how long.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The account and the code, shown exactly once, and whether the mail went.\n\nRaises:\n    ValidationError: When a field is refused.\n    AccountError: When the role clashes or the account is disabled.",
         "operationId": "create_invitation_api_auth_invitations_post",
         "requestBody": {
           "content": {
@@ -83030,7 +83186,7 @@
     },
     "/api/config/webserver": {
       "get": {
-        "description": "Get the web server configuration.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    The configured web server.",
+        "description": "Get the web server new applications are put behind, and what is behind each now.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    The setting and the counts of applications and sites behind each web server.",
         "operationId": "get_webserver_api_config_webserver_get",
         "responses": {
           "200": {
@@ -83051,7 +83207,7 @@
         "x-noust-permission": "settings.read"
       },
       "put": {
-        "description": "Update the web server setting.\n\nArgs:\n    body: Body carrying the web server name.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message and the stored web server.\n\nRaises:\n    HTTPException: 400 for an unsupported web server, or a write failure.",
+        "description": "Update the web server new applications are put behind.\n\nThe setting never moves an application: each keeps the web server it was deployed behind.\nIt is refused (409, ``webserver_in_use``) while applications or sites are still behind the\nother server, with how many are where.\n\nArgs:\n    body: Body carrying the web server name.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message and the stored web server.\n\nRaises:\n    HTTPException: 400 for an unsupported web server, or a write failure.\n    WebserverInUseError: Applications or sites are behind the other server (409).",
         "operationId": "update_webserver_api_config_webserver_put",
         "requestBody": {
           "content": {
@@ -110911,6 +111067,30 @@
           }
         },
         "summary": "Create Tunnel",
+        "tags": [
+          "Tunnels"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/tunnels/install-cloudflared": {
+      "post": {
+        "description": "Queue the installation of cloudflared, the connector a tunnel runs through.\n\nAdds Cloudflare's own package repository with its signing key pinned, refreshes the package\nmanager's lists and installs the package. Needs sudo mode: it changes the package manager's\nsources and installs a package as root.\n\nArgs:\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The queued job; its result is where the connector is.",
+        "operationId": "post_install_cloudflared_api_tunnels_install_cloudflared_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Post Install Cloudflared",
         "tags": [
           "Tunnels"
         ],

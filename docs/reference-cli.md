@@ -1496,6 +1496,7 @@ Arguments: `domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--all` | Move every application that can have its own account, one at a time. |  |
+| `--shared-group` | Let the new account join this group, for an application that writes outside its own folder into one the group can write (an upload directory the web server serves). |  |
 | `--yes`, `-y` | Do not ask for confirmation. |  |
 | `--json` | Print what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
@@ -15208,7 +15209,7 @@ Reach an application through a Cloudflare Tunnel: no public address, no open por
 noust tunnel [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`check`](#noust-tunnel-check), [`create`](#noust-tunnel-create), [`list`](#noust-tunnel-list), [`remove`](#noust-tunnel-remove), [`repair`](#noust-tunnel-repair), [`route`](#noust-tunnel-route)
+Subcommands: [`check`](#noust-tunnel-check), [`create`](#noust-tunnel-create), [`install-cloudflared`](#noust-tunnel-install-cloudflared), [`list`](#noust-tunnel-list), [`remove`](#noust-tunnel-remove), [`repair`](#noust-tunnel-repair), [`route`](#noust-tunnel-route)
 
 ### noust tunnel check
 
@@ -15237,6 +15238,19 @@ Arguments: `name`
 |---|---|---|
 | `--account` | The Cloudflare account of 'noust dns provider' to create it through. |  |
 | `--cloudflare-account` | The Cloudflare account id, when the token reaches several. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust tunnel install-cloudflared
+
+Install cloudflared, the connector a tunnel runs through.
+
+```
+noust tunnel install-cloudflared [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust tunnel list
@@ -15545,7 +15559,7 @@ Arguments: `username`
 | `--expires-hours` | How long the invitation code is valid. | `24` |
 | `--team` | Invite them into this team only, instead of the default one (a new account). |  |
 | `--team-role` | Their role in --team (viewer when omitted). |  |
-| `--email` | Mail the invitation to this address (needs mail set up and web.public_url). |  |
+| `--email` | Mail the invitation to this address, which is also who the person is. Needs mail set up and web.public_url; without them the invitation is still made and the code is yours to hand over. |  |
 | `--json` | Print the account, the code and whether it was mailed as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 

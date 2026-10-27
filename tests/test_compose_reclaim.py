@@ -282,8 +282,9 @@ def test_a_docker_that_cannot_be_asked_for_policies_knows_none(runner: FakeRunne
 def test_containers_that_docker_starts_again_are_a_stack_a_reboot_brings_back(
     runner: FakeRunner,
 ) -> None:
-    # a customer's stack: the unit was stopped, the containers carry restart: unless-stopped, and they were
-    # up again after the server restarted. Noust had said a restart would not bring it back.
+    # A customer's stack: the unit was stopped, the containers carry restart: unless-stopped, and
+    # they were up again after the server restarted. Noust had said a restart would not bring
+    # it back.
     runner.script(["docker", "ps"], stdout=converter_ps())
     converter_policies(runner, "unless-stopped")
 

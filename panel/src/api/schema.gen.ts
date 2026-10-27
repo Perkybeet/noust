@@ -3532,10 +3532,15 @@ export interface paths {
          *
          *     It is restarted behind its health gate; when it does not answer, the
          *     files' owners, its unit or pool and the records are put back exactly.
+         *     Before anything is queued, the paths its ``.env`` and its unit name are
+         *     read: one that writes outside its own folder, where only the shared
+         *     account can, is refused (400) naming the folders, unless ``shared_group``
+         *     names a group that can write them.
          *
          *     Args:
          *         domain: Domain of the application.
          *         session: The authenticated, elevated session.
+         *         body: Optionally the group the new account joins.
          *
          *     Returns:
          *         The queued job.
@@ -7912,7 +7917,10 @@ export interface paths {
          * @description Invite a person: they set their own password and authenticator.
          *
          *     For an existing account it is a recovery: accepting it replaces the
-         *     password and the authenticator.
+         *     password and the authenticator. The invitation is made whether or not it
+         *     can be mailed: when an address is given and the mail does not go, the
+         *     response says so (``emailed`` false, ``email_error`` and its code) and the
+         *     code is handed over by hand.
          *
          *     Args:
          *         request: The incoming request.
@@ -7920,7 +7928,7 @@ export interface paths {
          *         session: The authenticated payload, in sudo mode.
          *
          *     Returns:
-         *         The account and the code, shown exactly once.
+         *         The account and the code, shown exactly once, and whether the mail went.
          *
          *     Raises:
          *         ValidationError: When a field is refused.
@@ -11965,18 +11973,22 @@ export interface paths {
         };
         /**
          * Get Webserver
-         * @description Get the web server configuration.
+         * @description Get the web server new applications are put behind, and what is behind each now.
          *
          *     Args:
          *         session: Authenticated session, injected by the dependency.
          *
          *     Returns:
-         *         The configured web server.
+         *         The setting and the counts of applications and sites behind each web server.
          */
         get: operations["get_webserver_api_config_webserver_get"];
         /**
          * Update Webserver
-         * @description Update the web server setting.
+         * @description Update the web server new applications are put behind.
+         *
+         *     The setting never moves an application: each keeps the web server it was deployed behind.
+         *     It is refused (409, ``webserver_in_use``) while applications or sites are still behind the
+         *     other server, with how many are where.
          *
          *     Args:
          *         body: Body carrying the web server name.
@@ -11988,6 +12000,7 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 400 for an unsupported web server, or a write failure.
+         *         WebserverInUseError: Applications or sites are behind the other server (409).
          */
         put: operations["update_webserver_api_config_webserver_put"];
         post?: never;
@@ -28081,6 +28094,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tunnels/install-cloudflared": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Install Cloudflared
+         * @description Queue the installation of cloudflared, the connector a tunnel runs through.
+         *
+         *     Adds Cloudflare's own package repository with its signing key pinned, refreshes the package
+         *     manager's lists and installs the package. Needs sudo mode: it changes the package manager's
+         *     sources and installs a package as root.
+         *
+         *     Args:
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The queued job; its result is where the connector is.
+         */
+        post: operations["post_install_cloudflared_api_tunnels_install_cloudflared_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tunnels/{name}": {
         parameters: {
             query?: never;
@@ -34587,6 +34630,29 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * CodedText
+         * @description A sentence the server says, as a code and the values to put in it.
+         *
+         *     Sent beside the English text it stands for (``detail`` and ``hint`` of an error, ``problem``
+         *     and ``hint`` of a report) so that the console can say it in its own language. A code the
+         *     console has no entry for is shown as the English text, which is always sent.
+         *
+         *     Attributes:
+         *         code: The key of the sentence in :mod:`noust.core.server_text`, such as
+         *             ``tunnels.store_sealed``. Its fix, when it has one, is that key plus ``.hint``.
+         *         params: The values for the sentence's placeholders: text, numbers and flags only. A
+         *             path, a name somebody typed or another program's own output is a value here and is
+         *             shown as it is.
+         */
+        CodedText: {
+            /** Code */
+            code: string;
+            /** Params */
+            params?: {
+                [key: string]: boolean | number | string;
+            };
+        };
+        /**
          * CollectorModel
          * @description Whether history is being recorded, and by whom.
          *
@@ -38451,10 +38517,13 @@ export interface components {
          * @description One thing the installation check looked at.
          */
         DoctorItemOut: {
+            coded?: components["schemas"]["CodedText"] | null;
             /** Fix */
             fix?: string | null;
             /** Notes */
             notes?: string[];
+            /** Notes Coded */
+            notes_coded?: components["schemas"]["CodedText"][];
             /**
              * Status
              * @enum {string}
@@ -38484,8 +38553,14 @@ export interface components {
         DoctorSectionOut: {
             /** Explain */
             explain?: string | null;
+            explain_coded?: components["schemas"]["CodedText"] | null;
             /** Items */
             items: components["schemas"]["DoctorItemOut"][];
+            /**
+             * Key
+             * @default
+             */
+            key: string;
             /** Title */
             title: string;
         };
@@ -39782,8 +39857,12 @@ export interface components {
          *         output: The failing tool's own output, verbatim, when the error
          *             carries one - a rejected web server configuration, for example.
          *             ``None`` for every error that has no external tool output to show.
+         *         coded: ``detail`` and ``hint`` as a code and its values, when the error is one of the
+         *             sentences the console translates; ``None`` for an error whose words are only its
+         *             message.
          */
         ErrorResponse: {
+            coded?: components["schemas"]["CodedText"] | null;
             /** Detail */
             detail: string;
             /** Error */
@@ -42118,6 +42197,19 @@ export interface components {
             subject: string;
         };
         /**
+         * IdentityMigrateRequest
+         * @description How to move an application to its own account, when the defaults do not fit.
+         *
+         *     Attributes:
+         *         shared_group: A group the new account joins, so it can write the folders outside the
+         *             application's own that the group can write (an upload directory the web server
+         *             serves). Left out, an application that writes there is refused.
+         */
+        IdentityMigrateRequest: {
+            /** Shared Group */
+            shared_group?: string | null;
+        };
+        /**
          * IdentityOut
          * @description What the machine is called and what it runs.
          */
@@ -43005,13 +43097,15 @@ export interface components {
          *         username: The account's name.
          *         role: The role of a new account; ignored for an existing one.
          *         display_name: Display name of a new account.
-         *         person_ref: Person reference of a new account.
+         *         person_ref: Person reference of a new account. Optional: the e-mail address stands
+         *             for it when it is not given, so the invitation needs one address, not two.
          *         expires_hours: How long the code is valid.
          *         team: The team a new account joins, instead of the default one.
          *         team_role: Its role there (``viewer``, ``operator``, ``admin`` or
          *             ``owner``); ``viewer`` when only ``team`` is given.
-         *         email: Where to mail the invitation, when the server can send mail: the
-         *             account keeps the address, and the code is also returned here.
+         *         email: Where to mail the invitation, and who the person is unless ``person_ref`` says.
+         *             The account keeps the address, and the code is returned whether the mail goes or
+         *             not. A ``person_ref`` alone, as before, names the person and mails nothing.
          */
         InvitationCreate: {
             /** Display Name */
@@ -43043,8 +43137,12 @@ export interface components {
          *         code: The code; only its digest is stored.
          *         expires_in: Seconds it is valid for.
          *         emailed: Whether the invitation was also mailed to the address given.
-         *         email_error: Why it was not, when it was asked for and failed: the invitation
+         *         email_error: Why it was not, when it was asked for and did not go: the invitation
          *             exists, and its code is handed over by hand.
+         *         email_error_hint: How to fix it, when there is a way.
+         *         email_error_coded: ``email_error`` as a code and its values, for the console to say
+         *             in its language (``mail.no_transport``, ``mail.no_public_url``,
+         *             ``invitation.mail_failed``).
          */
         InvitationIssued: {
             account: components["schemas"]["AccountInfo"];
@@ -43052,6 +43150,9 @@ export interface components {
             code: string;
             /** Email Error */
             email_error?: string | null;
+            email_error_coded?: components["schemas"]["CodedText"] | null;
+            /** Email Error Hint */
+            email_error_hint?: string | null;
             /**
              * Emailed
              * @default false
@@ -58732,6 +58833,7 @@ export interface components {
          *         accounts: The Cloudflare accounts that can manage a tunnel.
          *         problem: What is missing, when something is.
          *         hint: How to fix it.
+         *         coded: The same problem and fix as a code and its values, for the console to translate.
          */
         TunnelSupportModel: {
             /** Accounts */
@@ -58740,6 +58842,7 @@ export interface components {
             available: boolean;
             /** Cloudflared */
             cloudflared?: string | null;
+            coded?: components["schemas"]["CodedText"] | null;
             /** Hint */
             hint?: string | null;
             /** Problem */
@@ -60914,9 +61017,30 @@ export interface components {
         };
         /**
          * WebserverResponse
-         * @description The configured web server.
+         * @description The web server new applications are put behind, and what is behind each today.
+         *
+         *     Attributes:
+         *         webserver: The setting.
+         *         applies_to: Always ``new_applications``: every application keeps the web server it was
+         *             deployed behind, and changing the setting moves none of them.
+         *         applications: How many applications are behind each web server.
+         *         sites: How many sites that belong to no application are behind each.
          */
         WebserverResponse: {
+            /** Applications */
+            applications?: {
+                [key: string]: number;
+            };
+            /**
+             * Applies To
+             * @default new_applications
+             * @constant
+             */
+            applies_to: "new_applications";
+            /** Sites */
+            sites?: {
+                [key: string]: number;
+            };
             /** Webserver */
             webserver: string;
         };
@@ -67078,7 +67202,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["IdentityMigrateRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {
@@ -93805,6 +93933,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_install_cloudflared_api_tunnels_install_cloudflared_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
         };
