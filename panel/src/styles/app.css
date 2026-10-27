@@ -29,6 +29,8 @@
   --color-rail-hover: var(--rail-hover);
   --color-edge: var(--edge);
   --color-joint: var(--joint);
+  --color-carved-shade: var(--carved-shade);
+  --color-carved-lip: var(--carved-lip);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
   --color-surface-hover: var(--surface-hover);
@@ -335,7 +337,8 @@
  * component takes the height of its role and no other (styles/design-rules.test.ts holds each
  * kit file to its role):
  *
- *   elev-carved    sunk in: fields, tracks, meters, the search box
+ *   elev-carved    sunk in, with the strong edge (A-10): fields, the search box, a checkbox, a switch's track, the rails of tabs
+ *   elev-carved-fine  the same for what nobody presses: a track, a meter, a logo's tile, a copied value
  *   elev-seated    a low slab: panels, tables, dialogs, menus. It does not react to the pointer
  *   elev-raised    what is pressed: it rises 1px under the pointer and sinks 1px when pressed
  *   elev-lift      flat until the pointer is over it, then it rises like a raised piece (a list

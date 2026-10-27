@@ -48,6 +48,18 @@
   --edge: light-dark(#ffffff, #444c47);
   --joint: light-dark(#b0b7ad, #0e1110);
 
+  /*
+   * The edge that tells a hollow from the page (WCAG 1.4.11: what identifies a field has 3:1 against
+   * what is around it, and the field has no line of its own). A hollow is told by the side that is in
+   * shadow and the side that is lit, and each theme can only make one of them strong: in light the
+   * shadow, a stone as dark as the strong border along the top inside (the hollow has its shadow above);
+   * in dark nothing is darker than the page by 3:1, not even black (1.8 at most), so the strong edge is
+   * the lit lip below. Both reach 3:1 against the page, a panel and a raised surface
+   * (styles/tokens.test.ts), and the other edge stays as soft as the other heights'.
+   */
+  --carved-shade: light-dark(#767f77, #0e1110);
+  --carved-lip: light-dark(#ffffff, #7e8880);
+
   /* Hairlines separate; strong borders bound a control that has one and meet 3:1 (WCAG 1.4.11). */
   --border: light-dark(#c8cdc5, #3a423d);
   --border-strong: light-dark(#767f77, #7e8880);
@@ -204,11 +216,12 @@
    * a light edge on top and a darker joint beneath (blur 2px at most). Never a blurred grey
    * shadow repeated under everything (styles/design-rules.test.ts fails on one).
    *
-   *   carved   sunk in: where something is typed or chosen inside, tracks and meters
+   *   carved   sunk in: where something is typed or chosen inside. Its edge is the strong one of A-10
+   *            (a field is found by it); a track or a meter, which nobody presses, takes the fine one
    *   seated   a low slab: panels and tables that are read; their rows are flat
    *   raised   what is pressed: it rises 1px under the pointer and sinks 1px when pressed
    */
-  --elev-carved: inset 0 2px 2px var(--joint), 0 1px 0 var(--edge);
+  --elev-carved: inset 0 2px 1px var(--carved-shade), 0 1px 0 var(--carved-lip);
   --elev-carved-fine: inset 0 1px 1px var(--joint);
   --elev-seated: inset 0 1px 0 var(--edge), 0 1px 0 var(--joint);
   --elev-raised: inset 0 1px 0 var(--edge), 0 2px 0 var(--joint);

@@ -17,7 +17,7 @@ Where the system lives:
 | Page kit and the seven templates | `panel/src/components/page/` |
 | Page header and URL tabs | `panel/src/app/PageHeader.tsx`, `panel/src/app/LinkTabs.tsx` |
 | The executable specification | the gallery, `/__design` (development builds only; `panel/src/dev/`) |
-| Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/indicator.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts` |
+| Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/indicator.spec.ts`, `e2e/field-edge.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts` |
 
 The brand (the mark, its violet, its construction) is `docs/brand/BRAND.md`. Copy rules and the
 English/Spanish glossary are `panel/src/i18n/README.md`. This document says how the console
@@ -109,6 +109,7 @@ where height is luminance:
 | `--surface-active` | `#d9ddd5` / `#232927` | Pressed; a skeleton's ground |
 | `--rail-hover` | `#d5d9d1` / `#1e2421` | An item of the navigation bar under the pointer |
 | `--edge`, `--joint` | `#ffffff`, `#b0b7ad` / `#444c47`, `#0e1110` | The light edge on top of a height and the dark joint under it (2.6) |
+| `--carved-shade`, `--carved-lip` | `#767f77`, `#ffffff` / `#0e1110`, `#7e8880` | The two edges of a field's hollow: the shadow along its top inside and the lit lip below. One of them is 3:1 against the page, a panel and a raised surface in each theme (C-12) |
 | `--border` | `#c8cdc5` / `#3a423d` | Hairlines that separate content |
 | `--border-strong` | `#767f77` / `#7e8880` | The boundary of a dialog, a menu or a drawer; the line of a control that has one (3:1) |
 | `--text` | `#2e3530` / `#e8ece7` | Content |
@@ -185,10 +186,20 @@ Rules:
   the DOM only on the current item (`data-nav-indicator`), so a test and a screen reader's
   `aria-current` agree on it. The frame (the navigation bars) moves to the sliding indicator of 2.7
   and the raised piece it draws, and then this rule is rewritten against that.
-- **C-12** A field has no line round it: it is carved (2.6), a darker tone with its shadow on top, and
-  is found by that, by its label and by the focus ring, which is 3:1. This is a known gap against
-  WCAG 1.4.11 for the field's boundary on its own, which `--border-strong` would close and the
-  identity does not draw; it is tracked in A-10.
+- **C-12** A field has no line round it, and is found all the same (WCAG 1.4.11, A-10). It is carved
+  (2.6): a hollow in the stone with its shadow along the top inside, because the light comes from
+  above, and its lit lip below. A hollow has those two edges and a theme can make only one of them
+  strong, so each theme makes the one it can: in light the **shadow** (`--carved-shade`, the stone of
+  `--border-strong`, 3.4:1 against the page, 3.8 against a panel, 4.0 against a raised surface); in
+  dark the **lip** (`--carved-lip`, 4.4, 3.7 and 3.2), because nothing is darker than the dark page by
+  3:1 (black on it is 1.3, on a raised surface 1.8) and the only way to tell a hollow there is the stone
+  it is cut from catching the light. The other edge stays as soft as every other height's, so a field is
+  a hollow and not a box with a border. This holds for the fields, a checkbox, the track of a switch
+  and the rails of tabs and segments; a track or a meter that nobody presses has the fine edge.
+  *Enforced by:* `styles/tokens.test.ts` (each theme's strong edge against the three grounds; the
+  carved height is made of both edges; why dark cannot do it with the shadow) and
+  `e2e/field-edge.spec.ts`, which reads the pixels a browser paints on a field, a checkbox and a
+  switch in both themes and fails under 3:1.
 
 ### 2.2 Data and charts
 
@@ -314,7 +325,7 @@ every `--elev-*` and fails on one).
 
 | Height | Is | Made of | Who |
 |---|---|---|---|
-| **Carved** (`elev-carved`, `elev-carved-fine`) | Sunk in: where something is typed or chosen inside | `--bg-sunken`, shadow on top, light below; deeper (`--bg-sunken-deep`) under the pointer | `Input`, `Textarea`, `Select`'s trigger, `Combobox`, `Checkbox`, a `Switch`'s track, `Progress` and `Meter`, the tracks of `SegmentedControl`, `Tabs` and `LinkTabs`, the search box, `LogoTile`, a command in an empty state |
+| **Carved** (`elev-carved`, `elev-carved-fine`) | Sunk in: where something is typed or chosen inside | `--bg-sunken`, shadow on top, light below; deeper (`--bg-sunken-deep`) under the pointer | `Input`, `Textarea`, `Select`'s trigger, `Combobox`, `Checkbox`, a `Switch`'s track, the tracks of `SegmentedControl`, `Tabs` and `LinkTabs`, the search box (these have the strong edge of C-12); `Progress` and `Meter`, `LogoTile`, a command in an empty state (the fine one) |
 | **Seated** (`elev-seated`) | A low slab: what is read | `--surface`, a light edge on top and a joint of 1px beneath. It does not react to the pointer; a row of a table is flat | `Card`, `DataTable`, `Dialog`, `Drawer`, `Menu`, `Popover`, the lists of `Select` and `Combobox`, `Toast`, `Disclosure`, `StatTile`, `JobProgress`, `FleetCourses`, a `Kbd`, a state pill at `md` |
 | **Raised** (`elev-raised`, `-accent`, `-fail`, `-chosen`, `elev-lift`, `elev-rest`) | What is pressed | `--surface-raised` and a joint of 2px. It rises 1px under the pointer (joint 3px) and sinks 1px when pressed (joint 1px) | `Button` (the primary with the accent's own edge, the danger button with the failure's), `IconButton`, the options of `ChoiceCards` (the chosen one with the accent as a ring), the thumb of a `Switch`, the chosen item of a row of tabs or segments (the sliding indicator), a fleet slab that opens a page |
 
@@ -1273,7 +1284,7 @@ screen where the browser has it; `onOpenLine` makes the lines something to act o
 journal's "view in context": the region becomes a listbox with one selected line, a click or Enter
 opens it, a click that ends a text selection opens nothing, and `highlightId` marks the line a
 context is about), **`SystemOutput`**: the system's output,
-verbatim, copyable. **`Mono`**: a system value. **`Kbd`**: a key. **`CommandHint`**: the CLI
+verbatim, copyable. **`Mono`**: a system value. **`ServerText`** (`coded`, `text`, `part`): a sentence the server says as a code, in the console's language, with a command set in `Mono` and the server's English when the console has no entry; it draws no element of its own, so it takes the type of the paragraph it is in (a notice, a field's error, a row's help), never a box of its own, and a system error is still shown verbatim beside it (Principle 5). **`Kbd`**: a key. **`CommandHint`**: the CLI
 equivalent. **`RelativeTime`**: "3 min ago" with the exact moment in a tooltip.
 **`SegmentedControl`**: one of a few exclusive views (a chart range).
 
@@ -1729,12 +1740,11 @@ WCAG 2.2 AA, verified rather than declared:
   never the only channel.
 - **A-8** Reduced motion drops every animation (2.7); `lang` follows the language; system values
   carry `translate="no"`; the console reflows at 320px and 200% zoom without sideways scrolling.
-- **A-10** A field is carved and has no line of 3:1 round it (C-12): it is identified by its tone, its
-  label and its focus ring, which is 3:1. WCAG 1.4.11 asks for the boundary of a text field to be
-  visible at 3:1 unless it is identified another way, and the identity does not draw one. This is
-  recorded as a known gap, and `--border-strong` (3:1 on every ground) is the token that would close it
-  if the owner decides it must be closed. Every other control meets 1.4.11: the raised ones by their
-  joint and their label, the focus ring everywhere.
+- **A-10** A field is identified at 3:1 without a line round it (closed; owner decision, 4.1): the
+  strong edge of its hollow, the shadow along the top inside in light and the lit lip below in dark
+  (C-12). It is measured twice, on the tokens and on the pixels of a browser, and the focus ring
+  (3:1) is the other thing that identifies it. Every other control meets 1.4.11: the raised ones by
+  their joint and their label.
 - **A-11** The sliding indicator and the illustrations are `aria-hidden`; the items carry the state and
   the drawing is decoration unless it is given a label. A touch screen has no tooltip, so what needs
   saying is a `HelpPopover`.
@@ -1756,6 +1766,7 @@ lint`, the E2E suite).
 | Lint | `eslint.config.js`, `no-restricted-syntax` and `no-restricted-imports` | Outside the kit (`components/`, `app/`, `dev/`) and the legacy list: raw hex, arbitrary dimensions (`max-w-[...]`, `h-[...]`, `rounded-[...]`, `z-[...]`), colour functions, hand-written `h1`-`h4`, `<label>`, `style=`, severity icons imported from lucide instead of `icons.ts`, and the icon of an object imported from lucide instead of `objectIcons.ts` (everywhere, the kit included) |
 | Ratchet | `styles/design-rules.test.ts`, rules in `styles/designRules.ts`, counts in `styles/design-baseline.json` | Per rule and per file, counts that may only go down (the rule ids below); ESLint's legacy list only shrinks; the `viz` colours stay inside `Chart`; no component of the system is left unused except those still waiting for their pages |
 | The tics and the heights | `styles/design-rules.test.ts` (`KIT_HEIGHTS` in `styles/designRules.ts`) | The list of 2.12, with samples that must be caught and samples that must not, in the sources and in the three stylesheets (a gradient, a blur, capitals, a wide tracking, a coloured side, a coloured one-sided shadow); each kit piece has the height of its role and no other, and a piece with no role that draws a height fails (a raised panel and a carved button are cases that must be caught) |
+| A field is found | `styles/tokens.test.ts`, `e2e/field-edge.spec.ts` | Each theme's strong edge of the carved hollow is 3:1 against the page, a panel and a raised surface; in the browser, the pixels painted on a field, a checkbox and a switch say the same, and the other edge stays under 3:1 (C-12, A-10) |
 | Motion | `components/ui/SlidingIndicator.test.tsx`, `e2e/indicator.spec.ts` | The indicator goes where the chosen item is, slides only between two items, never on the first frame, on a resize, with reduced motion or from nothing, queues nothing; in the browser, its transition lasts the token's duration, ends at the target's box, and does not exist with reduced motion |
 | Structure | `styles/design-structure.test.ts`, rules in `styles/designStructure.ts`, counts in `styles/design-structure-baseline.json` | The same contract for what a regular expression per line cannot see, found in the syntax tree: a component used where a kit piece exists, a file with three notices, a notice read in English words (the structural rule ids below). `npm run ux:counts` prints how much of the console is built from each piece, from the same code. Examples of what each rule counts and what it does not are `styles/design-structure.cases.test.ts` |
 | Copy | `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts` (baselines `i18n/glossary-baseline.json`, `styles/concept-doors.json`) | The words of a setting row (SW-3, SW-4); the concepts with more than one editable home (NV-8), a list that only gets shorter; a colour class that names no colour of the system; the glossary's verbs and states in both languages; a retired value that comes back, a glossary word translated otherwise, one English text translated several ways |
@@ -1892,7 +1903,7 @@ NOUST_E2E_STATIC=/tmp/noust-dev-build npx playwright test design-contract tab-sw
 | Family | Tokens |
 |---|---|
 | Surface | `--bg-rail`, `--bg-column`, `--bg`, `--bg-sunken`, `--bg-sunken-deep`, `--surface`, `--surface-raised`, `--surface-hover`, `--surface-active`, `--rail-hover` |
-| Edge | `--edge`, `--joint`, `--border`, `--border-strong` |
+| Edge | `--edge`, `--joint`, `--carved-shade`, `--carved-lip`, `--border`, `--border-strong` |
 | Text | `--text`, `--text-muted`, `--text-faint` |
 | Interactive | `--accent`, `--accent-hover`, `--accent-soft`, `--accent-text`, `--accent-edge`, `--accent-joint`, `--on-accent`, `--focus`, `--selection`, `--match` |
 | State | `--ok`, `--ok-soft`, `--ok-border`, `--warn`, `--warn-soft`, `--warn-border`, `--fail`, `--fail-soft`, `--fail-border`, `--fail-strong`, `--on-fail`, `--fail-edge`, `--fail-joint`, `--idle`, `--idle-soft`, `--idle-border` |

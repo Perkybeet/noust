@@ -77,6 +77,19 @@ const EDGE_PAIRS: [string, string][] = [
   ["fail-edge", "fail-strong"],
 ];
 const EDGE_MIN = 1.3;
+/**
+ * What a field is found by (WCAG 1.4.11, docs/DESIGN.md A-10): a field has no line of its own, so the edge of its
+ * hollow has 3:1 against what is around it. A hollow has two edges, the shadow along the top inside and the lit lip
+ * below, and a theme can make only one of them strong: in light the shadow, in dark the lip, since nothing is darker
+ * than the dark page by 3:1 (black on it is 1.3, on a raised surface 1.8). What surrounds a field is the page, a panel
+ * (a card, a dialog) and a raised surface (a menu, a popover).
+ */
+const CARVED_SURROUNDINGS = ["bg", "surface", "surface-raised"];
+const CARVED_PAIRS: [string, string][] = ["carved-shade", "carved-lip"].flatMap((edge) => CARVED_SURROUNDINGS.map((ground): [string, string] => [edge, ground]));
+const CARVED_MIN = 3;
+/** The edge each theme makes strong. */
+const STRONG_EDGE = { light: "carved-shade", dark: "carved-lip" } as const;
+
 const LIGHT_EDGE_PAIRS: [string, string][] = ["bg", "surface"].map((bg): [string, string] => ["edge", bg]);
 const LIGHT_EDGE_MIN = 1.05;
 /** The strokes of an illustration read against the page and against a panel; the second is the lighter one, for what is behind. */
@@ -277,6 +290,36 @@ describe("design tokens", () => {
     },
   );
 
+  it.each(THEMES.flatMap((theme) => CARVED_SURROUNDINGS.map((ground) => [theme, ground] as const)))(
+    "a field is found by the strong edge of its hollow: 3:1 against %s's %s (A-10)",
+    (theme, ground) => {
+      const edge = STRONG_EDGE[theme];
+      expect(contrastRatio(colour(theme, edge), colour(theme, ground)), `--${edge} on --${ground}`).toBeGreaterThanOrEqual(CARVED_MIN);
+    },
+  );
+
+  it("builds the carved height from both edges: the shadow along the top inside and the lit lip below", () => {
+    const carved = /--elev-carved:\s*([^;]+);/.exec(tokensCss)?.[1] ?? "";
+    // The hollow has its shadow above, because the light comes from above: an inset layer pushed down from the top.
+    expect(carved).toMatch(/inset 0 [1-9]\d*px \d+px var\(--carved-shade\)/);
+    // And its lit lip below, outside the field.
+    expect(carved).toMatch(/(?<!inset )0 [1-9]\d*px 0 var\(--carved-lip\)/);
+    // The fine one, for what nobody presses (a track, a meter), keeps the soft joint: only a field needs the strong edge.
+    expect(/--elev-carved-fine:\s*([^;]+);/.exec(tokensCss)?.[1]).toContain("var(--joint)");
+  });
+
+  it("explains why dark makes the lip strong and not the shadow: not even black is 3:1 below the dark page's tones", () => {
+    for (const ground of CARVED_SURROUNDINGS) {
+      expect(contrastRatio("#000000", colour("dark", ground)), `black on --${ground}`).toBeLessThan(CARVED_MIN);
+    }
+    // In light the lip is white, which cannot be 3:1 on the light page either: each theme has exactly one edge that can.
+    for (const ground of CARVED_SURROUNDINGS) {
+      expect(contrastRatio("#ffffff", colour("light", ground)), `white on --${ground}`).toBeLessThan(CARVED_MIN);
+    }
+    expect(contrastRatio(colour("dark", "carved-shade"), colour("dark", "surface-raised"))).toBeLessThan(CARVED_MIN);
+    expect(contrastRatio(colour("light", "carved-lip"), colour("light", "bg"))).toBeLessThan(CARVED_MIN);
+  });
+
   it.each(THEMES.flatMap((theme) => LIGHT_EDGE_PAIRS.map(([fg, bg]) => [fg, bg, theme] as const)))(
     "the light edge above a height (%s) exists against %s in %s",
     (fg, bg, theme) => {
@@ -463,6 +506,7 @@ describe("token parity", () => {
       ...JOINT_PAIRS,
       ...EDGE_PAIRS,
       ...LIGHT_EDGE_PAIRS,
+      ...CARVED_PAIRS,
       ...ILLUSTRATION_PAIRS.map(([fg, bg]): [string, string] => [fg, bg]),
       ...VIZ.map((v): [string, string] => [v, "surface"]),
     ];

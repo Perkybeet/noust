@@ -77,7 +77,7 @@ describe("Switch", () => {
     expect(control.className).not.toMatch(/\[|rgb\(/);
     expect(control.firstElementChild?.className).not.toMatch(/\[|rgb\(/);
     // The track is carved and the thumb is a raised piece, at rest: it does not rise under the pointer, the track does not move.
-    expect(control).toHaveClass("elev-carved-fine");
+    expect(control).toHaveClass("elev-carved");
     expect(control.firstElementChild).toHaveClass("size-4", "elev-rest");
   });
 
