@@ -19,7 +19,11 @@ a list of:
   (``noust push enable``), which are otherwise refused once a list is set for the same reason:
   whoever holds a pusher's key decides what is deployed;
 - ``upload``: an archive somebody uploaded (``noust upload add``, the console), which is
-  otherwise refused once a list is set: it says nothing about where its code came from either.
+  otherwise refused once a list is set: it says nothing about where its code came from either;
+- ``recipes``: the code Noust prepares from a recipe of the catalogue, in a folder of its own
+  beside the store (:mod:`noust.core.recipe_sources`). Without the word a server that names its
+  repositories could install nothing from the catalogue. ``local`` also covers it, as it did before
+  the word existed: a folder of this server is a directory of this server.
 
 An empty list allows everything, as every earlier version did. The list is a
 security setting (``security.*``, changed by the ``security`` role), so an
@@ -33,24 +37,39 @@ refusal is an audit event, ``apps.source.denied``, naming the source.
 
 from __future__ import annotations
 
+import shlex
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
 
 from noust.core.exceptions import SourceError
+from noust.validators.origins import LOCAL, PUSH, RECIPES, UPLOAD
+
+__all__ = [
+    "CONFIG_KEY",
+    "LOCAL",
+    "PUSH",
+    "RECIPE",
+    "RECIPES",
+    "UPLOAD",
+    "Origin",
+    "OriginNotAllowed",
+    "allow_command",
+    "allowed_sources",
+    "check_origin",
+    "describe_origin",
+    "matches",
+    "origin_kind",
+    "recipes_allowed",
+]
 
 #: The configuration key holding the list.
 CONFIG_KEY = "security.allowed_sources"
 
-#: The entry that allows directories on this server.
-LOCAL = "local"
-
-#: The entry that allows code pushed to this server's own repositories.
-PUSH = "push"
-
-#: The entry that allows code uploaded as an archive.
-UPLOAD = "upload"
+#: The kind of an origin that is the code Noust prepared from a recipe; the entry that allows it
+#: is :data:`~noust.validators.origins.RECIPES`.
+RECIPE = "recipe"
 
 
 class OriginNotAllowed(SourceError):
@@ -63,7 +82,7 @@ class Origin:
     Where a source is, without its credential.
 
     Attributes:
-        kind: ``git``, ``archive``, ``local``, ``push`` or ``upload``.
+        kind: ``git``, ``archive``, ``local``, ``push``, ``upload`` or ``recipe``.
         host: The host, lower-case; None for a local directory.
         path: The path's segments on that host (organisation, repository),
             without a ``.git`` suffix; empty for a local directory.
@@ -103,8 +122,8 @@ def describe_origin(source: str, kind: str | None = None) -> Origin:
         source: The source as given or stored: a git URL (HTTPS, SSH or the
             ``user@host:path`` form), an archive URL, a local path, or GitHub's
             ``owner/repo`` shorthand.
-        kind: ``git``, ``archive``, ``local``, ``push`` or ``upload`` when the caller already
-            classified it; guessed from the text otherwise.
+        kind: ``git``, ``archive``, ``local``, ``push``, ``upload`` or ``recipe`` when the caller
+            already classified it; guessed from the text otherwise.
 
     Returns:
         The origin.
@@ -121,6 +140,8 @@ def describe_origin(source: str, kind: str | None = None) -> Origin:
         return Origin(PUSH, None, (), text)
     if kind == UPLOAD:
         return Origin(UPLOAD, None, (), text)
+    if kind == RECIPE:
+        return Origin(RECIPE, None, (), text)
     if kind is None:
         kind = "local" if is_local_path(text) else "git"
     if kind == "local":
@@ -185,11 +206,14 @@ def matches(pattern: str, origin: Origin) -> bool:
     """
     entry = pattern.strip()
     if entry.lower() == LOCAL:
-        return origin.kind == "local"
+        # A recipe's folder is a directory of this server, and was one before it had a word.
+        return origin.kind in ("local", RECIPE)
     if entry.lower() == PUSH:
         return origin.kind == PUSH
     if entry.lower() == UPLOAD:
         return origin.kind == UPLOAD
+    if entry.lower() == RECIPES:
+        return origin.kind == RECIPE
     if origin.host is None:
         return False
     host, path = _pattern_parts(entry)
@@ -228,6 +252,85 @@ def allowed_sources(config: Any | None = None) -> list[str]:
     return [str(entry).strip() for entry in raw if str(entry).strip()]
 
 
+def origin_kind(source_type: str, source: str) -> str:
+    """
+    Say which kind of origin a classified source is.
+
+    The one place a source becomes a kind, so a deploy, an update, a preview, a webhook and a change
+    of source all judge the same text the same way: code that arrives with ``git push``, an archive
+    somebody uploaded, and the folder a recipe was rendered into are each a kind of their own, and a
+    list of hosts says nothing about them.
+
+    Args:
+        source_type: What :func:`noust.validators.source.validate_source` made of it: ``git``,
+            ``archive`` or ``local``.
+        source: The source as it is recorded, already resolved.
+
+    Returns:
+        ``push``, ``upload``, ``recipe``, or ``source_type`` itself.
+    """
+    from noust.core.recipe_sources import is_recipe_tree
+    from noust.validators.source import is_push_source, is_upload_tree
+
+    if is_push_source(source):
+        return PUSH
+    if source_type == "local":
+        if is_upload_tree(source):
+            return UPLOAD
+        if is_recipe_tree(source):
+            return RECIPE
+    return source_type
+
+
+def allow_command(entries: Sequence[str], entry: str) -> str:
+    """
+    Write the command that adds one entry to the list.
+
+    The list is written whole, so the command carries the entries the server has. The value is
+    quoted for the shell and needs no brackets: ``noust config set`` reads a comma-separated list,
+    and a test runs what this returns.
+
+    Args:
+        entries: The entries the list holds now.
+        entry: The one to add.
+
+    Returns:
+        A command an operator can paste.
+    """
+    return f"noust config set {CONFIG_KEY} {shlex.quote(','.join([*entries, entry]))}"
+
+
+def recipes_allowed(config: Any | None = None) -> bool:
+    """
+    Say whether this server lets the catalogue's recipes be deployed.
+
+    Args:
+        config: The configuration; the process-wide one by default.
+
+    Returns:
+        True when no list is set (anything is allowed) or an entry covers the folder a recipe's
+        code is prepared in (``recipes``, or ``local``, which always did).
+    """
+    entries = allowed_sources(config)
+    if not entries:
+        return True
+    return any(matches(entry, Origin(RECIPE, None, (), RECIPE)) for entry in entries)
+
+
+def _suggested_entry(origin: Origin) -> str:
+    """
+    Name the entry that would allow an origin.
+
+    Args:
+        origin: Where the refused source is.
+
+    Returns:
+        The word for a place without a host, or ``host/org/repo``: the narrowest entry that works.
+    """
+    words = {"local": LOCAL, PUSH: PUSH, UPLOAD: UPLOAD, RECIPE: RECIPES}
+    return words.get(origin.kind, origin.display)
+
+
 def _record_refusal(display: str, allowed: list[str]) -> None:
     """
     Put a refused source on record.
@@ -255,7 +358,8 @@ def check_origin(
     Args:
         source: The source as given or stored.
         allowed: The allowed entries; read from the configuration when None.
-        kind: ``git``, ``archive``, ``local``, ``push`` or ``upload`` when already classified.
+        kind: ``git``, ``archive``, ``local``, ``push``, ``upload`` or ``recipe`` when already
+            classified.
 
     Raises:
         OriginNotAllowed: A list is set and no entry covers the source.
@@ -271,7 +375,7 @@ def check_origin(
         f"Code from {origin.display} is not allowed on this server",
         details=(
             f"{CONFIG_KEY} allows: {', '.join(entries)}. Deploy from one of those, or ask the "
-            f"security officer to add it: noust config set {CONFIG_KEY} "
-            f"'[{', '.join([*entries, origin.display])}]'."
+            "security officer to allow this one (the whole list is written again, so it keeps "
+            f"the others):\n  {allow_command(entries, _suggested_entry(origin))}"
         ),
     )

@@ -33,7 +33,7 @@ from typing import Any
 from noust.central import require_server_role
 from noust.core import audit
 from noust.core.applock import app_lock
-from noust.core.ens.origins import check_origin
+from noust.core.ens.origins import check_origin, origin_kind
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.repositories import repository_key
 from noust.core.store import App, NoustStore, get_store, is_compose_backed
@@ -245,7 +245,7 @@ def _clean_target(text: str) -> tuple[str, str]:
         # the identifier it was printed with, not by the directory that stands for it.
         check_origin(normalized, kind="upload")
         return "upload", upload_source(Path(normalized).name)
-    check_origin(normalized, kind=kind)
+    check_origin(normalized, kind=origin_kind(kind, normalized))
     return kind, normalized
 
 

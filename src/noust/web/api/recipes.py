@@ -17,6 +17,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
+from noust.core.ens.origins import recipes_allowed
 from noust.core.teams import scoped_store
 from noust.recipes import (
     RecipeNotFoundError,
@@ -161,11 +162,16 @@ class RecipeListOut(BaseModel):
         items: The recipes, the ones this release can deploy first.
         total: How many there are.
         problems: Files in the server's own recipes that were left out, and why.
+        recipes_allowed: Whether this server lets the catalogue's recipes be deployed. False when
+            ``security.allowed_sources`` names where code may come from and leaves them out
+            (``recipes``, or ``local``, allows them); the requirements of a recipe carry the
+            command that does.
     """
 
     items: list[RecipeSummaryOut]
     total: int = 0
     problems: list[RecipeProblemOut] = []
+    recipes_allowed: bool = True
 
 
 class CategoryOut(BaseModel):
@@ -574,6 +580,7 @@ def get_recipes(
             for problem in catalogue_problems()
             if origin in (None, problem.origin)
         ],
+        recipes_allowed=recipes_allowed(),
     )
 
 

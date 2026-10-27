@@ -38,6 +38,7 @@ from noust.recipes.model import ENGINE_OF, SQL_REQUIREMENTS, Recipe, RecipeError
 TOOL = "tool"
 RUNTIME = "runtime"
 SERVICE = "service"
+SOURCE = "source"
 
 
 @dataclass(frozen=True)
@@ -46,7 +47,8 @@ class Requirement:
     One thing a recipe needs, and whether this server has it.
 
     Attributes:
-        kind: ``tool``, ``runtime`` or ``service``.
+        kind: ``tool``, ``runtime``, ``service`` or ``source`` (the server's list of the places
+            code may come from, which must allow the catalogue's recipes).
         name: What it is, as the operator reads it (``Docker``, ``node@22``,
             ``postgresql``).
         met: Whether the server has it now.
@@ -88,15 +90,48 @@ def check_requirements(recipe: Recipe) -> list[Requirement]:
         recipe: The recipe.
 
     Returns:
-        One entry per tool, runtime and service, met or not. A recipe that is
-        not available has none.
+        One entry per tool, runtime and service, met or not, and one for the
+        server's list of allowed sources when it has one. A recipe that is not
+        available has none.
     """
     if not recipe.available:
         return []
     found = _tools(recipe)
     found.extend(_runtime(recipe))
     found.extend(_services(recipe))
+    found.extend(_source())
     return found
+
+
+def _source() -> list[Requirement]:
+    """
+    Look at whether the server lets the catalogue's recipes be deployed.
+
+    A server with no list allows everything and is not asked about. One that names where code
+    may come from refuses the folder a recipe is prepared in unless ``recipes`` (or ``local``) is
+    on the list, and the install would fail after provisioning what it needs.
+
+    Returns:
+        Nothing without a list, else one requirement, with the command that allows them.
+    """
+    from noust.core.ens.origins import RECIPES, allow_command, allowed_sources, recipes_allowed
+
+    entries = allowed_sources()
+    if not entries:
+        return []
+    name = "recipes allowed as a source of code"
+    if recipes_allowed():
+        return [Requirement(SOURCE, name, True, "security.allowed_sources allows them")]
+    return [
+        Requirement(
+            SOURCE,
+            name,
+            False,
+            "security.allowed_sources names where code may come from, and the recipes are not "
+            "among them",
+            fix=allow_command(entries, RECIPES),
+        )
+    ]
 
 
 def _tools(recipe: Recipe) -> list[Requirement]:
@@ -250,7 +285,7 @@ def refuse_unmet(
     *,
     install: bool,
     logger: Logger,
-    kinds: tuple[str, ...] = (RUNTIME, SERVICE),
+    kinds: tuple[str, ...] = (RUNTIME, SERVICE, SOURCE),
 ) -> None:
     """
     Stop an install before anything exists when the server cannot run the recipe.

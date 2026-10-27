@@ -36,6 +36,7 @@ from noust.central import require_server_role
 from noust.core.exceptions import DeploymentError, DockerError, NoustError, RolledBackError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
+from noust.core.recipe_sources import recipe_source_dir
 from noust.core.store import DeploymentTrigger, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.hooks import HookFailedError
@@ -44,7 +45,6 @@ from noust.recipes.deploy import (
     add_entrypoints,
     plan_entrypoints,
     prepare_source,
-    recipe_source_dir,
     require_available,
 )
 from noust.recipes.installed import (

@@ -77,7 +77,6 @@ from noust.core.runner import CommandResult, CommandRunner
 from noust.managers.base_manager import BaseManager
 from noust.validators.source import (
     is_push_source,
-    is_upload_tree,
     parse_git_url,
     parse_ssh_remote,
     validate_source,
@@ -595,18 +594,13 @@ def _validate_source_keeping_credentials(source: str) -> tuple[str, str]:
     Raises:
         SourceError: If the source is invalid, or from an origin not allowed.
     """
-    from noust.core.ens.origins import check_origin
+    from noust.core.ens.origins import check_origin, origin_kind
 
     source_type, normalized = _classify_source(source)
-    # Code that arrives with git push, or as an archive somebody uploaded, is a kind of its own
-    # for the allowed origins: whoever holds a pusher's key or the console decides what is
-    # deployed, which a list of hosts says nothing about.
-    kind = source_type
-    if is_push_source(normalized):
-        kind = "push"
-    elif source_type == "local" and is_upload_tree(normalized):
-        kind = "upload"
-    check_origin(normalized, kind=kind)
+    # Code that arrives with git push, an archive somebody uploaded and the folder a recipe was
+    # rendered into are kinds of their own for the allowed origins: whoever holds a pusher's key or
+    # the console decides what is deployed, which a list of hosts says nothing about.
+    check_origin(normalized, kind=origin_kind(source_type, normalized))
     return source_type, normalized
 
 

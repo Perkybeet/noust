@@ -488,3 +488,26 @@ def test_the_job_runs_the_recipe_update_and_reports_it(monkeypatch: pytest.Monke
     assert any(entry.step == 25 for entry in job.logs)
     with pytest.raises(ValueError, match="job_context is required"):
         update_recipe_job(DOMAIN)
+
+
+class TestWhetherTheCatalogueMayBeDeployed:
+    """
+    A server that names where code may come from refuses a recipe unless it allows ``recipes``
+    (or ``local``): the console asks first, to offer to allow them instead of failing at the end.
+    """
+
+    def test_with_no_list_the_recipes_are_allowed(self, client: TestClient) -> None:
+        assert client.get("/api/recipes").json()["recipes_allowed"] is True
+
+    def test_a_list_that_leaves_them_out_says_so(
+        self, client: TestClient, real_config: Any
+    ) -> None:
+        real_config.set("security.allowed_sources", ["github.com/acme"])
+
+        assert client.get("/api/recipes").json()["recipes_allowed"] is False
+
+    @pytest.mark.parametrize("entry", ["recipes", "local"])
+    def test_the_word_allows_them(self, client: TestClient, real_config: Any, entry: str) -> None:
+        real_config.set("security.allowed_sources", ["github.com/acme", entry])
+
+        assert client.get("/api/recipes").json()["recipes_allowed"] is True
