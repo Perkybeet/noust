@@ -25,6 +25,7 @@ from noust.cli.app import Context, NoustCommand, NoustGroup, cli, pass_context
 from noust.core.audit import Actor, get_log
 from noust.core.exceptions import NoustError
 from noust.core.fs import get_fs
+from tests.cli_tree_support import walk
 
 OPERATOR = Actor(kind="cli", id="1000", name="ana", via="sudo", source="10.9.8.7")
 
@@ -270,16 +271,6 @@ class TestReason:
         leaf = cli.get_command(click.Context(cli), "delete")
         assert leaf is not None
         assert "--reason" in {opt for param in leaf.params for opt in getattr(param, "opts", [])}
-
-
-def walk(command: click.Command, path: tuple[str, ...] = ()):
-    yield path, command
-    if isinstance(command, click.Group):
-        ctx = click.Context(command)
-        for name in command.list_commands(ctx):
-            sub = command.get_command(ctx, name)
-            if sub is not None:
-                yield from walk(sub, (*path, name))
 
 
 class TestPolicy:

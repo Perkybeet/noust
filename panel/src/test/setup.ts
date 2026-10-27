@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
 import { resetApiHooks } from "../api/client";
@@ -7,6 +7,13 @@ import { resetLocale } from "../app/locale";
 import { cancelElevation } from "../features/auth/elevation";
 import { loadCatalog } from "../i18n/catalogs";
 import { FakeEventSource, FakeWebSocket } from "./fakes";
+
+// How long findBy and waitFor look before they say something is missing. The first second is what a
+// fast machine needs; a page that is read in steps, and the first test of a file that has to load
+// the route's code, take longer on a CI runner and several times longer on a loaded one, and it
+// was one file after another that asked for five (two still do). It costs nothing when what is
+// waited for arrives: the wait ends when it does, and only a test that is wrong waits the five.
+configure({ asyncUtilTimeout: 5_000 });
 
 // Every file starts in English, on <html> too, whatever the machine's browser languages.
 resetLocale("en");
