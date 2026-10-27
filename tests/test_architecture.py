@@ -27,6 +27,7 @@ from pathlib import Path
 import pytest
 
 import noust
+from tests.ratchet_support import check_ratchet
 
 SRC = Path(noust.__file__).resolve().parent
 REPO = SRC.parent.parent
@@ -53,35 +54,6 @@ def relative(path: Path) -> str:
         A short path suitable for a failure message.
     """
     return str(path.relative_to(REPO))
-
-
-def check_ratchet(violations: set[str], known: set[str], rule: str) -> None:
-    """
-    Compare violations against the list of known offenders.
-
-    Args:
-        violations: Files that currently break the rule.
-        known: Files recorded as breaking it.
-        rule: What the rule is, for the failure message.
-
-    Raises:
-        AssertionError: When a new violation appears, or when a recorded one
-            has been fixed without updating the list.
-    """
-    added = violations - known
-    assert not added, (
-        f"New violations of '{rule}':\n"
-        + "\n".join(f"  {name}" for name in sorted(added))
-        + "\n\nFix them, or add them to the list in tests/test_architecture.py "
-        "with a reason."
-    )
-
-    fixed = known - violations
-    assert not fixed, (
-        f"These files no longer violate '{rule}':\n"
-        + "\n".join(f"  {name}" for name in sorted(fixed))
-        + "\n\nRemove them from the list so it keeps shrinking."
-    )
 
 
 class TestExecutionSeam:
