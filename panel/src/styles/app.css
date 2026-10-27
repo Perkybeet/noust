@@ -9,7 +9,7 @@
  * screen comes from tokens.css.
  *
  * Tokens whose names coincide with Tailwind's namespaces (--font-sans, --font-mono,
- * --ease-out, --radius-*, --shadow-overlay) are defined unlayered in tokens.css, which beats
+ * --ease-out, --radius-*) are defined unlayered in tokens.css, which beats
  * Tailwind's `theme` layer, so the self-references below resolve to the token value.
  */
 @theme {
@@ -21,8 +21,14 @@
 }
 
 @theme inline {
+  --color-bg-rail: var(--bg-rail);
+  --color-bg-column: var(--bg-column);
   --color-bg: var(--bg);
   --color-bg-sunken: var(--bg-sunken);
+  --color-bg-sunken-deep: var(--bg-sunken-deep);
+  --color-rail-hover: var(--rail-hover);
+  --color-edge: var(--edge);
+  --color-joint: var(--joint);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
   --color-surface-hover: var(--surface-hover);
@@ -36,7 +42,14 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
   --color-accent-fg: var(--accent-text);
+  --color-accent-edge: var(--accent-edge);
+  --color-accent-joint: var(--accent-joint);
   --color-on-accent: var(--on-accent);
+  --color-on-fail: var(--on-fail);
+  --color-fail-edge: var(--fail-edge);
+  --color-fail-joint: var(--fail-joint);
+  --color-il-stroke: var(--il-stroke);
+  --color-il-stroke-2: var(--il-stroke-2);
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
   --color-warn: var(--warn);
@@ -78,6 +91,7 @@
   --radius-chip: var(--radius-chip);
   --radius-control: var(--radius-control);
   --radius-card: var(--radius-card);
+  --radius-wall: var(--radius-wall);
   --radius-pill: var(--radius-pill);
 
   /* Named sizes: h-control-md, size-icon-sm, max-w-measure, w-dialog-md... */
@@ -105,15 +119,40 @@
   --container-drawer-lg: var(--width-drawer-lg);
   --container-search: var(--width-search);
 
-  --shadow-raised: var(--shadow-raised);
-  --shadow-overlay: var(--shadow-overlay);
-
   --animate-spin: spin 0.8s linear infinite;
   --animate-pulse-once: pulse-once 0.9s var(--ease-out) 1;
   --animate-breathe: breathe 1.6s ease-in-out infinite;
   --animate-indeterminate: indeterminate 1.4s var(--ease-out) infinite;
   --animate-flow: flow 1.2s linear infinite;
   --animate-flow-fast: flow 0.6s linear infinite;
+  --animate-settle: settle var(--duration-enter) var(--ease-enter) both;
+  --animate-retire: retire var(--duration-fast) var(--ease-exit) both;
+}
+
+/*
+ * A new slab settles (it comes down 6px and fixes, decelerating); a removed one lifts and fades
+ * in less time, accelerating. Only opacity and transform.
+ */
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes retire {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 
 @keyframes spin {
@@ -199,7 +238,8 @@
     font-feature-settings: "calt" 0;
   }
 
-  :focus-visible {
+  :focus-visible,
+  [data-force="focus"] {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
@@ -241,15 +281,22 @@
   }
 }
 
+/*
+ * The two voices of the display face. Both set Bricolage Grotesque; the more a title is a title,
+ * the narrower it is (its width axis is the character), and weight is 650 and 700, never the 600
+ * of the interface. `title` heads a section, a card or a dialog; `display` a page.
+ */
 @utility title {
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 650;
   font-stretch: var(--stretch-title);
   letter-spacing: var(--tracking-title);
 }
 
 @utility display {
-  font-weight: 600;
-  font-stretch: var(--stretch-title);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-stretch: var(--stretch-display);
   letter-spacing: var(--tracking-display);
 }
 
@@ -283,18 +330,151 @@
   scrollbar-gutter: stable;
 }
 
-/* A state rail: the 2px left edge that marks a row or a log line with a state. */
-@utility state-rail-ok {
-  box-shadow: inset 2px 0 0 var(--ok);
+/*
+ * Elevation (docs/DESIGN.md 2.6). Three heights, one light from above, hard edges only. A
+ * component takes the height of its role and no other (styles/design-rules.test.ts holds each
+ * kit file to its role):
+ *
+ *   elev-carved    sunk in: fields, tracks, meters, the search box
+ *   elev-seated    a low slab: panels, tables, dialogs, menus. It does not react to the pointer
+ *   elev-raised    what is pressed: it rises 1px under the pointer and sinks 1px when pressed
+ *   elev-lift      flat until the pointer is over it, then it rises like a raised piece (a list
+ *                  item, a tab, a segment); the chosen one is the SlidingIndicator, which is raised
+ */
+@utility elev-carved {
+  box-shadow: var(--elev-carved);
 }
-@utility state-rail-warn {
-  box-shadow: inset 2px 0 0 var(--warn);
+
+@utility elev-carved-fine {
+  box-shadow: var(--elev-carved-fine);
 }
-@utility state-rail-fail {
-  box-shadow: inset 2px 0 0 var(--fail);
+
+@utility elev-seated {
+  box-shadow: var(--elev-seated);
 }
-@utility state-rail-idle {
-  box-shadow: inset 2px 0 0 var(--idle);
+
+/* Raised and still: the thumb of a switch, a piece that is part of another that moves. */
+@utility elev-rest {
+  box-shadow: var(--elev-raised);
+}
+
+@utility elev-raised {
+  box-shadow: var(--elev-raised);
+  transition:
+    transform var(--duration-press) var(--ease-standard),
+    box-shadow var(--duration-press) var(--ease-standard),
+    background-color var(--duration-press) var(--ease-standard),
+    color var(--duration-press) var(--ease-standard);
+  &:where(:not(:disabled, [data-disabled], [aria-disabled="true"])):is(:hover, [data-force="hover"]) {
+    transform: translateY(-1px);
+    box-shadow: var(--elev-raised-high);
+  }
+  &:where(:not(:disabled, [data-disabled], [aria-disabled="true"])):is(:active, [data-force="pressed"]) {
+    transform: translateY(1px);
+    box-shadow: var(--elev-raised-pressed);
+  }
+}
+
+@utility elev-raised-accent {
+  box-shadow: var(--elev-raised-accent);
+  transition:
+    transform var(--duration-press) var(--ease-standard),
+    box-shadow var(--duration-press) var(--ease-standard),
+    background-color var(--duration-press) var(--ease-standard);
+  &:where(:not(:disabled, [data-disabled], [aria-disabled="true"])):is(:hover, [data-force="hover"]) {
+    transform: translateY(-1px);
+    box-shadow: var(--elev-raised-accent-high);
+  }
+  &:where(:not(:disabled, [data-disabled], [aria-disabled="true"])):is(:active, [data-force="pressed"]) {
+    transform: translateY(1px);
+    box-shadow: var(--elev-raised-accent-pressed);
+  }
+}
+
+@utility elev-raised-fail {
+  box-shadow: var(--elev-raised-fail);
+  transition:
+    transform var(--duration-press) var(--ease-standard),
+    box-shadow var(--duration-press) var(--ease-standard),
+    background-color var(--duration-press) var(--ease-standard);
+  &:where(:not(:disabled, [data-disabled], [aria-disabled="true"])):is(:hover, [data-force="hover"]) {
+    transform: translateY(-1px);
+    box-shadow: var(--elev-raised-fail-high);
+  }
+  &:where(:not(:disabled, [data-disabled], [aria-disabled="true"])):is(:active, [data-force="pressed"]) {
+    transform: translateY(1px);
+    box-shadow: var(--elev-raised-fail-pressed);
+  }
+}
+
+/* The chosen option of a group of cards: the accent as a ring, and the same rise and sink. */
+@utility elev-raised-chosen {
+  box-shadow: var(--elev-raised-chosen);
+  transition:
+    transform var(--duration-press) var(--ease-standard),
+    box-shadow var(--duration-press) var(--ease-standard),
+    background-color var(--duration-press) var(--ease-standard);
+  &:where(:not(:disabled, [data-disabled], [aria-disabled="true"])):is(:hover, [data-force="hover"]) {
+    transform: translateY(-1px);
+    box-shadow: var(--elev-raised-chosen-high);
+  }
+  &:where(:not(:disabled, [data-disabled], [aria-disabled="true"])):is(:active, [data-force="pressed"]) {
+    transform: translateY(1px);
+    box-shadow: var(--elev-raised-chosen-pressed);
+  }
+}
+
+@utility elev-lift {
+  transition:
+    transform var(--duration-press) var(--ease-standard),
+    box-shadow var(--duration-press) var(--ease-standard),
+    background-color var(--duration-press) var(--ease-standard),
+    color var(--duration-press) var(--ease-standard);
+  &:where(:not(:disabled, [data-disabled], [aria-disabled="true"])):is(:hover, [data-force="hover"]) {
+    transform: translateY(-1px);
+    box-shadow: var(--elev-raised-high);
+  }
+  &:where(:not(:disabled, [data-disabled], [aria-disabled="true"])):is(:active, [data-force="pressed"]) {
+    transform: translateY(1px);
+    box-shadow: var(--elev-raised-pressed);
+  }
+}
+
+/*
+ * The sliding indicator: the raised piece of the active item of a row of tabs, a group of
+ * segments or a list of navigation items, which moves to the item the person picks instead of
+ * lighting up at once (components/ui/SlidingIndicator.tsx). The position and the size are the
+ * custom properties the hook writes through the CSSOM (never an inline style attribute). The
+ * position moves by `translate`, which is the compositor's; the size by `width` and `height`,
+ * because scaling a piece would stretch its rounded corners. That is the one exception to "only
+ * opacity and transform" (docs/DESIGN.md 2.7): the element is absolute and has no children, so
+ * no layout depends on it. It is instant when `data-animate` is absent: the first frame, a
+ * resize, and an active item that was not in the list.
+ */
+@utility sliding-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  box-shadow: var(--elev-raised);
+  width: var(--indicator-width, 0px);
+  height: var(--indicator-height, 0px);
+  translate: var(--indicator-x, 0px) var(--indicator-y, 0px);
+  opacity: 1;
+  /* The highlight of an option being passed over is a tone, not a piece that is pressed. */
+  &[data-variant="flat"] {
+    box-shadow: none;
+  }
+  &[data-state="hidden"] {
+    opacity: 0;
+  }
+  &[data-animate] {
+    transition:
+      translate var(--duration-move) var(--ease-standard),
+      width var(--duration-move) var(--ease-standard),
+      height var(--duration-move) var(--ease-standard),
+      opacity var(--duration-fast) var(--ease-standard);
+  }
 }
 
 @utility scroll-thin {
@@ -348,9 +528,9 @@
       )
       scale(var(--scale));
     transition:
-      transform var(--duration-base) var(--ease-out),
-      opacity var(--duration-base) var(--ease-out),
-      height var(--duration-fast) var(--ease-out);
+      transform var(--duration-enter) var(--ease-enter),
+      opacity var(--duration-enter) var(--ease-enter),
+      height var(--duration-fast) var(--ease-standard);
     user-select: none;
   }
   .toast::after {
@@ -383,28 +563,12 @@
   }
   .toast-content {
     height: 100%;
-    transition: opacity var(--duration-base) var(--ease-out);
+    transition: opacity var(--duration-enter) var(--ease-enter);
   }
   .toast-content[data-behind] {
     opacity: 0;
   }
   .toast-content[data-expanded] {
     opacity: 1;
-  }
-}
-
-/*
- * A tab strip wider than its screen scrolls sideways; an end that hides tabs fades out, so
- * the row reads as continuing rather than ending at the last visible tab (see useTabStrip).
- */
-@layer components {
-  .tab-strip[data-overflow="end"] {
-    mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
-  }
-  .tab-strip[data-overflow="start"] {
-    mask-image: linear-gradient(to left, #000 calc(100% - 2rem), transparent);
-  }
-  .tab-strip[data-overflow="both"] {
-    mask-image: linear-gradient(to right, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
   }
 }

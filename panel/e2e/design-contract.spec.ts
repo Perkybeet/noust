@@ -3,10 +3,11 @@
  * rule can see - inline styles, inherited values, a library's own CSS, an alpha mixed with
  * what is under it - is caught here on the computed style of every visible element:
  *
- * - text is set in one of the seven sizes (or a system value's 0.92em of one), in Mona Sans
- *   or JetBrains Mono, at 400, 500 or 600;
- * - corners are 0, 4, 6, 10 or a pill; borders are 0, 1 or 2 pixels;
- * - every opaque colour is grey or one of the tokens of tokens.css, in either theme;
+ * - text is set in one of the seven sizes (or a system value's 0.92em of one), in Atkinson
+ *   Hyperlegible Next, Bricolage Grotesque (titles, at 650 or 700) or JetBrains Mono, at 400, 500 or 600;
+ * - corners are 0, 6, 9, 14, 22 or a pill; borders are 0, 1 or 2 pixels;
+ * - every opaque colour is a tone of stone (grey with a trace of green) or one of the tokens of
+ *   tokens.css, in either theme;
  * - a view has at most one primary button outside a dialog, and at most one banner;
  * - and that last, on every route of e2e/routes.ts, as the page loads and again with unsaved changes
  *   (the header's primary yields to the save bar's, so there is still one), on a desk and on a phone.
@@ -54,9 +55,9 @@ interface Violation {
  */
 function auditPage(): Violation[] {
   const SIZES = [12, 13, 14, 16, 18, 24, 32];
-  const FAMILIES = ["Mona Sans Variable", "JetBrains Mono Variable"];
-  const WEIGHTS = ["400", "500", "600"];
-  const RADII = [0, 4, 6, 10];
+  const FAMILIES = ["Atkinson Hyperlegible Next Variable", "Bricolage Grotesque Variable", "JetBrains Mono Variable"];
+  const WEIGHTS = ["400", "500", "600", "650", "700"];
+  const RADII = [0, 6, 9, 14, 22];
   const BORDERS = [0, 1, 2];
 
   const canvas = document.createElement("canvas");
@@ -85,7 +86,7 @@ function auditPage(): Violation[] {
     }
     const visit = (list: CSSRuleList): void => {
       for (const rule of list) {
-        if (rule instanceof CSSStyleRule && rule.selectorText === ":root") {
+        if (rule instanceof CSSStyleRule && rule.selectorText.split(",").some((selector) => selector.trim() === ":root")) {
           for (const property of rule.style) {
             const value = rule.style.getPropertyValue(property);
             // light-dark(#a, #b) as written, or as Lightning CSS lowers it for older browsers:
@@ -498,7 +499,7 @@ test.describe("the design gallery", () => {
     if (main === undefined || arrow === undefined) throw new Error("a split button has two buttons");
     const heights = await Promise.all([main.boundingBox(), arrow.boundingBox()]).then(([a, b]) => [a?.height, b?.height]);
     expect(heights[0]).toBe(heights[1]);
-    expect(heights[0]).toBe(32);
+    expect(heights[0]).toBe(36);
     // By keyboard, so the ring is the focus-visible one: out of the pair and back in at its first part.
     await main.focus();
     await page.keyboard.press("Shift+Tab");

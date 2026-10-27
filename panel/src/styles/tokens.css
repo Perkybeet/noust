@@ -1,86 +1,126 @@
 /*
- * Noust console design tokens. docs/DESIGN.md says what each one is for; this file is the
- * only place a value is written.
+ * Noust console design tokens ("dry stone", docs/DESIGN.md). The document says what each one is
+ * for; this file is the only place a value is written.
  *
  * Every colour is written once as light-dark(light, dark). The document follows the system
  * theme through `color-scheme: light dark`; `data-theme` on any element pins a subtree to one
  * theme, which is how the explicit theme setting and the design gallery work without a second
  * copy of the palette.
  *
- * Surfaces are strictly achromatic (R = G = B). Hue on screen means one of three things: the
- * state of something (ok, warn, fail, idle), something the operator can act on (accent), or
- * which series a line of a chart is (viz, inside a plot only). Contrast and colour-vision
- * distance are verified by styles/tokens.test.ts; change a value here and that test tells you
- * whether the pair still reads.
+ * Surfaces are tones of stone (grey with a trace of green: chroma under 0.02, tested), and so are
+ * the edges that give them height. Hue on screen means one of three things: the state of
+ * something (ok, warn, fail, idle), something the operator can act on (accent), or which series
+ * a line of a chart is (viz, inside a plot only). Contrast and colour-vision distance are
+ * verified by styles/tokens.test.ts; change a value here and that test tells you whether the pair
+ * still reads.
+ *
+ * Height is made with three kinds of edge and one light that falls from above, never with a blurred
+ * shadow: carved (a field, a track), seated (a panel, a table) and raised (what is pressed). See
+ * "Elevation" below and docs/DESIGN.md 2.6.
  */
 
-:root {
+/*
+ * The palette is declared on :root and again on a subtree pinned to a theme. The second is the same
+ * block, not a second copy: a build that lowers light-dark() for older browsers (the console's does)
+ * resolves a custom property where it is declared, so a panel pinned with data-theme inside a page of
+ * the other theme (the design gallery shows both side by side) would otherwise inherit the page's
+ * colours and ignore its own pin.
+ */
+:root,
+[data-theme="light"],
+[data-theme="dark"] {
   color-scheme: light dark;
 
-  /* Surfaces. In dark, elevation is luminance: each step up is lighter. */
-  --bg: light-dark(#f7f7f7, #111111);
-  --bg-sunken: light-dark(#f0f0f0, #0b0b0b);
-  --surface: light-dark(#ffffff, #171717);
-  --surface-raised: light-dark(#ffffff, #1f1f1f);
-  --surface-hover: light-dark(#f2f2f2, #222222);
-  --surface-active: light-dark(#ebebeb, #2a2a2a);
+  /* Surfaces, from the darkest stone (the rail) to the lightest (a raised piece). In dark the
+     page is the middle of the wall: carved and seated tones are lighter, the rail darker. */
+  --bg-rail: light-dark(#c9cec6, #121615);
+  --bg-column: light-dark(#d6dad3, #181c1a);
+  --bg: light-dark(#e5e8e3, #1d2220);
+  --bg-sunken: light-dark(#d9ddd5, #232927);
+  --bg-sunken-deep: light-dark(#d0d4cc, #1b201e);
+  --surface: light-dark(#f4f6f2, #2a302d);
+  --surface-raised: light-dark(#fbfcfa, #323a36);
+  --surface-hover: light-dark(#fbfcfa, #323a36);
+  --surface-active: light-dark(#d9ddd5, #232927);
+  --rail-hover: light-dark(#d5d9d1, #1e2421);
 
-  /* Hairlines separate; strong borders bound a control and meet 3:1 (WCAG 1.4.11). */
-  --border: light-dark(#e3e3e3, #2a2a2a);
-  --border-strong: light-dark(#898989, #6e6e6e);
+  /* The two edges of every height: the light one on top, the dark joint beneath. */
+  --edge: light-dark(#ffffff, #444c47);
+  --joint: light-dark(#b0b7ad, #0e1110);
+
+  /* Hairlines separate; strong borders bound a control that has one and meet 3:1 (WCAG 1.4.11). */
+  --border: light-dark(#c8cdc5, #3a423d);
+  --border-strong: light-dark(#767f77, #7e8880);
 
   /* Text. Faint is still body-legible (4.5:1 on every surface), never decorative grey. */
-  --text: light-dark(#161616, #ededed);
-  --text-muted: light-dark(#555555, #a3a3a3);
-  --text-faint: light-dark(#6b6b6b, #8c8c8c);
+  --text: light-dark(#2e3530, #e8ece7);
+  --text-muted: light-dark(#434c45, #bec6bf);
+  --text-faint: light-dark(#515b55, #9ea79f);
 
-  /* The accent: violet. Interactive only. */
-  --accent: light-dark(#6a45d5, #7152de);
-  --accent-hover: light-dark(#5b37c2, #7a5be5);
-  --accent-soft: light-dark(#f0ebfd, #1f1937);
-  --accent-text: light-dark(#5a36c6, #ae9aff);
-  --on-accent: #ffffff;
+  /* The accent: the hull's violet. Interactive only. */
+  --accent: light-dark(#6a4df5, #9b86ff);
+  --accent-hover: light-dark(#5a3df0, #a898ff);
+  --accent-soft: light-dark(#e3defb, #38305f);
+  --accent-text: light-dark(#5236d6, #b4a5ff);
+  --accent-edge: light-dark(#8f7bff, #c0b3ff);
+  --accent-joint: light-dark(#3f2aa6, #5a47b8);
+  --on-accent: light-dark(#ffffff, #15102f);
 
-  /* State. Each pairs a foreground (text, icons) with a soft ground (pills, rows). */
-  --ok: light-dark(#16784a, #4dc47e);
-  --ok-soft: light-dark(#e6f4ec, #0f2619);
-  --warn: light-dark(#8c5800, #e3a73c);
-  --warn-soft: light-dark(#fbf0da, #2a1f0b);
-  --fail: light-dark(#c12c24, #ff736a);
-  --fail-soft: light-dark(#fceae8, #301514);
-  --fail-strong: light-dark(#c12c24, #cf3a30);
-  --idle: light-dark(#636363, #9e9e9e);
-  --idle-soft: light-dark(#ececec, #242424);
-  /* The border of a tinted block (Notice, a failed job): the state colour at 35% over
-     surface, a token rather than an alpha so its contrast is tested, not left to what is
+  /* State. Each pairs a foreground (text, icons) with a soft ground (only a problem tints its
+     surface, never what is healthy). */
+  --ok: light-dark(#176a40, #5ad48e);
+  --ok-soft: light-dark(#d4e6d9, #1f3a2b);
+  --warn: light-dark(#7f5000, #ecb24c);
+  --warn-soft: light-dark(#f1e3c4, #3d3220);
+  --fail: light-dark(#b3261e, #ff8179);
+  --fail-soft: light-dark(#f4d9d6, #432725);
+  --fail-strong: light-dark(#b3261e, #cf3a30);
+  --fail-edge: light-dark(#e0766f, #e8756c);
+  --fail-joint: light-dark(#7a1913, #7c2019);
+  --on-fail: #ffffff;
+  --idle: light-dark(#525c54, #a4ada5);
+  --idle-soft: light-dark(#d3d8d0, #343b37);
+  /* The border of a tinted block (Notice, a failed job): the state colour at 35% over the stone
+     ground, a token rather than an alpha so its contrast is tested, not left to what is
      underneath. */
-  --ok-border: light-dark(#add0c0, #2a543b);
-  --warn-border: light-dark(#d7c5a6, #5e4924);
-  --fail-border: light-dark(#e9b5b2, #683734);
-  --idle-border: light-dark(#c8c8c8, #464646);
+  --ok-border: light-dark(#a7c7b3, #2f5c43);
+  --warn-border: light-dark(#cdb98d, #6b5426);
+  --fail-border: light-dark(#e0a8a3, #7a3b37);
+  --idle-border: light-dark(#a9b1a8, #4d564f);
 
   /* Chart series identity, inside a plot and nowhere else. Blue and magenta: 35 degrees of
      hue or more from the accent and every state, and apart for protanopia and deuteranopia.
      Series 3 and 4 are neutral (text-muted dashed, text-faint dotted): there is no fifth. */
-  --viz-1: light-dark(#0274c7, #3496ef);
-  --viz-2: light-dark(#9b2673, #ca549d);
+  --viz-1: light-dark(#006fb8, #3496ef);
+  --viz-2: light-dark(#9b2673, #d462a8);
 
-  --focus: light-dark(#6a45d5, #a08bff);
-  --selection: light-dark(#ddd3fb, #3a2c73);
-  --match: light-dark(#e3dafc, #352868);
+  --focus: light-dark(#5236d6, #b4a5ff);
+  --selection: light-dark(#d3cbf8, #4a3f86);
+  --match: light-dark(#d9d2fa, #43386f);
 
   /* A program's own ANSI colours, reproduced verbatim in logs and tuned for the log ground. */
-  --ansi-blue: light-dark(#1f5fbf, #6fa8ff);
-  --ansi-magenta: light-dark(#a3319f, #e58be0);
-  --ansi-cyan: light-dark(#0e7285, #4fc7d6);
+  --ansi-blue: light-dark(#1b55ad, #6fa8ff);
+  --ansi-magenta: light-dark(#962c92, #e58be0);
+  --ansi-cyan: light-dark(#0b6578, #4fc7d6);
 
-  /* Type. Mona Sans carries the interface; JetBrains Mono carries every system value. Build
-     and deploy logs are CLI output verbatim (CONTRIBUTING.md: never paraphrased), and the CLI
-     writes emoji glyphs (📦, 🔨...) into its own progress lines; JetBrains Mono has no glyphs
-     for them, so an emoji-capable fallback font is listed after it, only for the code points
-     JetBrains Mono itself does not cover. Right after each real font come its metric-matched
-     fallbacks (fonts.css), which draw the text until it arrives in the room it will take. */
-  --font-sans: "Mona Sans Variable", "Mona Sans Fallback", "Mona Sans Fallback DejaVu", ui-sans-serif, system-ui, sans-serif;
+  /* Illustration: one grey stroke, lighter for what is behind, and the hull in violet. Read by
+     the illustrations of the first time and by the fill of a meter that is not a problem. */
+  --il-stroke: light-dark(#6f776f, #8d968e);
+  --il-stroke-2: light-dark(#9aa29a, #5f6862);
+
+  /* Type. Atkinson Hyperlegible Next carries the interface; Bricolage Grotesque, in its narrow
+     widths, the titles; JetBrains Mono every system value, and nothing else. Build and deploy
+     logs are CLI output verbatim (CONTRIBUTING.md: never paraphrased), and the CLI writes emoji
+     glyphs into its own progress lines; JetBrains Mono has no glyphs for them, so an
+     emoji-capable fallback font is listed after it, only for the code points JetBrains Mono
+     itself does not cover. Right after each real font come its metric-matched fallbacks
+     (fonts.css), which draw the text until it arrives in the room it will take. */
+  --font-sans:
+    "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next Fallback", "Atkinson Hyperlegible Next Fallback DejaVu",
+    ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    "Bricolage Grotesque Variable", "Bricolage Grotesque Fallback", "Bricolage Grotesque Fallback DejaVu", "Atkinson Hyperlegible Next Variable",
+    ui-sans-serif, system-ui, sans-serif;
   --font-mono:
     "JetBrains Mono Variable", "JetBrains Mono Fallback", "JetBrains Mono Fallback Consolas", "JetBrains Mono Fallback Liberation",
     ui-monospace, "SFMono-Regular", Menlo, "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", monospace;
@@ -98,10 +138,12 @@
   --lh-24: 2rem;
   --fs-32: 2rem;
   --lh-32: 2.5rem;
-  /* Titles are set a notch wider and tighter: Mona Sans's width axis is the display voice. */
-  --stretch-title: 110%;
-  --tracking-title: -0.018em;
-  --tracking-display: -0.028em;
+  /* Bricolage Grotesque's width axis is the display voice: the more a title is a title, the
+     narrower it is (a section 92%, a page 78%). */
+  --stretch-title: 90%;
+  --stretch-display: 78%;
+  --tracking-title: -0.005em;
+  --tracking-display: -0.01em;
 
   /* Prose keeps a reading measure; help text under a field a shorter one. */
   --measure: 68ch;
@@ -111,17 +153,20 @@
      64. Nothing else (docs/DESIGN.md, "Spacing"). */
   --space: 0.25rem;
 
-  /* Four radii: chips (keys, badges, inline code), controls, cards and overlays, pills. */
-  --radius-chip: 4px;
-  --radius-control: 6px;
-  --radius-card: 10px;
+  /* Five radii, by hierarchy: a pebble (chips, pills' squares, keys), a piece (what is pressed
+     or typed in), a slab (panels, tables, tracks), a wall (a dialog, the first-use panel) and a
+     pill. A piece sits inside a slab with the slab's padding, so the corners stay concentric. */
+  --radius-chip: 6px;
+  --radius-control: 9px;
+  --radius-card: 14px;
+  --radius-wall: 22px;
   --radius-pill: 999px;
 
   /* Control heights. Every button, field and select reads one, so a coarse pointer (below)
      grows them all at once to a comfortable target. */
-  --control-sm: 1.75rem;
-  --control-md: 2rem;
-  --control-lg: 2.5rem;
+  --control-sm: 2rem;
+  --control-md: 2.25rem;
+  --control-lg: 2.75rem;
 
   /* Icon sizes: 12 a status glyph in a dense row, 14 beside 13px text and in small buttons,
      16 the default, 20 an empty state, 24 illustration only. */
@@ -154,17 +199,46 @@
   /* A file editor or a full log takes the screen, less the header and its bar. */
   --height-editor: max(24rem, calc(100dvh - 20rem));
 
-  /* Light gets a whisper of shadow; dark relies on luminance and keeps shadows for overlays. */
-  --shadow-color: light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.55));
-  --shadow-raised: 0 1px 2px light-dark(rgb(0 0 0 / 0.05), transparent);
-  --shadow-overlay:
-    0 0 0 1px light-dark(rgb(0 0 0 / 0.04), rgb(255 255 255 / 0.02)),
-    0 2px 4px -1px var(--shadow-color),
-    0 12px 32px -6px var(--shadow-color);
-  --backdrop: light-dark(rgb(10 10 10 / 0.28), rgb(0 0 0 / 0.64));
+  /*
+   * Elevation. Three heights and one light that falls from above, made of hard edges: a tone,
+   * a light edge on top and a darker joint beneath (blur 2px at most). Never a blurred grey
+   * shadow repeated under everything (styles/design-rules.test.ts fails on one).
+   *
+   *   carved   sunk in: where something is typed or chosen inside, tracks and meters
+   *   seated   a low slab: panels and tables that are read; their rows are flat
+   *   raised   what is pressed: it rises 1px under the pointer and sinks 1px when pressed
+   */
+  --elev-carved: inset 0 2px 2px var(--joint), 0 1px 0 var(--edge);
+  --elev-carved-fine: inset 0 1px 1px var(--joint);
+  --elev-seated: inset 0 1px 0 var(--edge), 0 1px 0 var(--joint);
+  --elev-raised: inset 0 1px 0 var(--edge), 0 2px 0 var(--joint);
+  --elev-raised-high: inset 0 1px 0 var(--edge), 0 3px 0 var(--joint);
+  --elev-raised-pressed: inset 0 1px 0 var(--edge), 0 1px 0 var(--joint);
+  --elev-raised-accent: inset 0 1px 0 var(--accent-edge), 0 2px 0 var(--accent-joint);
+  --elev-raised-accent-high: inset 0 1px 0 var(--accent-edge), 0 3px 0 var(--accent-joint);
+  --elev-raised-accent-pressed: inset 0 1px 0 var(--accent-edge), 0 1px 0 var(--accent-joint);
+  --elev-raised-fail: inset 0 1px 0 var(--fail-edge), 0 2px 0 var(--fail-joint);
+  --elev-raised-fail-high: inset 0 1px 0 var(--fail-edge), 0 3px 0 var(--fail-joint);
+  --elev-raised-fail-pressed: inset 0 1px 0 var(--fail-edge), 0 1px 0 var(--fail-joint);
+  --elev-raised-chosen: inset 0 0 0 2px var(--accent), 0 2px 0 var(--joint);
+  --elev-raised-chosen-high: inset 0 0 0 2px var(--accent), 0 3px 0 var(--joint);
+  --elev-raised-chosen-pressed: inset 0 0 0 2px var(--accent), 0 1px 0 var(--joint);
+  --backdrop: light-dark(rgb(46 53 48 / 0.5), rgb(8 10 9 / 0.66));
 
-  --duration-fast: 120ms;
-  --duration-base: 180ms;
+  /*
+   * Motion. Each curve has a job: what enters decelerates, what leaves accelerates and takes
+   * less, what moves from one place to another goes by the standard curve, and what answers a
+   * pointer (over, pressed) takes about 100ms. Only opacity and transform change (docs/DESIGN.md
+   * 2.7), with one stated exception: the width and height of the sliding indicator.
+   */
+  --duration-press: 100ms;
+  --duration-fast: 140ms;
+  --duration-move: 200ms;
+  --duration-enter: 240ms;
+  --duration-large: 360ms;
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -172,9 +246,9 @@
    24px; 36-44px is what a thumb hits reliably). */
 @media (pointer: coarse) {
   :root {
-    --control-sm: 2.25rem;
-    --control-md: 2.5rem;
-    --control-lg: 2.75rem;
+    --control-sm: 2.5rem;
+    --control-md: 2.75rem;
+    --control-lg: 3rem;
   }
 }
 
@@ -188,7 +262,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --duration-press: 0ms;
     --duration-fast: 0ms;
-    --duration-base: 0ms;
+    --duration-move: 0ms;
+    --duration-enter: 0ms;
+    --duration-large: 0ms;
   }
 }

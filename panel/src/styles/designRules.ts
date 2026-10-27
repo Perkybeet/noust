@@ -41,6 +41,24 @@ export const ARBITRARY_DIMENSION =
  */
 export const COLOUR_FUNCTION = /(?<![a-zA-Z0-9-])(?:rgba?|hsla?|oklch|oklab|color-mix)\((?=[\s_]*(?:\d|\.|in[\s_]|var\(|from[\s_]))/g;
 
+/**
+ * A stripe of colour down one side of a container: a one-sided border (`border-l-2`) with a state or
+ * accent colour in the same class string, in either order, a one-sided inset shadow in such a colour
+ * (`shadow-[inset_2px_0_0_var(--fail)]`) and the retired `state-rail-*` utilities. A state is told by a
+ * glyph, a word and, when it is a problem, a tinted surface; never by a line at the edge of a card, a
+ * row or an alert, which is the commonest mark of a templated interface (docs/DESIGN.md 2.12).
+ */
+export const SIDE_STRIPE =
+  /(?<=border-(?:ok|warn|fail|idle|accent)(?:-border)?\b[^"'`\n]*)(?<![\w-])border-[lrtbse](?:-\d+)?(?![\w-])|(?<![\w-])border-[lrtbse](?:-\d+)?(?![\w-])(?=[^"'`\n]*\bborder-(?:ok|warn|fail|idle|accent)(?:-border)?\b)|(?<![\w-])border-[lrtbse]-(?:ok|warn|fail|idle|accent)\b|(?<![\w-])state-rail-|shadow-\[inset_(?:-?\d+px_0_0|0_-?\d+px_0)_(?:0_)?var\(--(?:ok|warn|fail|idle|accent)\b/g;
+
+/**
+ * A tile behind an icon: a small square or round box with a ground that centres a glyph. The only
+ * tile in the console is a real logo's (`LogoTile`); an icon of the console's own stands bare, and a
+ * tile behind it is a decoration that says nothing.
+ */
+export const ICON_TILE =
+  /(?<=["'`])(?=[^"'`\n]*\bsize-(?:8|9|10|11|12|14)\b)(?=[^"'`\n]*\bitems-center\b)(?=[^"'`\n]*\bjustify-center\b)(?=[^"'`\n]*\brounded-(?:control|card|chip)\b)(?=[^"'`\n]*\bbg-(?:surface|bg-sunken|accent-soft|ok-soft|warn-soft|fail-soft|idle-soft|accent|surface-raised)\b)[^"'`\n]*/g;
+
 export const DESIGN_RULES: readonly DesignRule[] = [
   {
     id: "hand-surface",
@@ -155,9 +173,10 @@ export const DESIGN_RULES: readonly DesignRule[] = [
   },
   {
     id: "semibold",
-    fix: "Weights are 400 and 500; 600 only through the title utility.",
+    fix: "Weights are 400 and 500 in a feature; 600 is the kit's (buttons, pills, table headers) and 650 and 700 come only through the title and display utilities.",
     pattern: /\bfont-(?:semibold|bold|extrabold|black)\b/g,
-    applies: everywhere,
+    // The kit writes 600 for what is pressed or names a column (docs/DESIGN.md 2.3); a feature never does.
+    applies: outsideKit,
   },
   {
     id: "z-arbitrary",
@@ -202,6 +221,74 @@ export const DESIGN_RULES: readonly DesignRule[] = [
     pattern: /\bvalue:\s*"(?:true|false|yes|no)"/g,
     applies: outsideKit,
   },
+  // The tics of a templated interface, which the owner asked never to see again
+  // (item 97, docs/DESIGN.md 2.12). Counted everywhere, the kit included.
+  {
+    id: "side-stripe",
+    fix: "Say the state with its glyph, its word and a tinted surface (StatusPill, Notice), not with a stripe down one side of a container.",
+    pattern: SIDE_STRIPE,
+    applies: everywhere,
+  },
+  {
+    id: "gradient",
+    fix: "No gradients outside an illustration: a surface is a tone of stone, and an edge is a hard line.",
+    pattern: /\bbg-(?:linear|radial|conic|gradient)\b|(?<![\w-])(?:from|via|to)-(?:accent|ok|warn|fail|idle|bg|surface|border)\b|(?:linear|radial|conic)-gradient\(|createLinearGradient|createRadialGradient|\bmask-(?:image|linear|radial)\b/g,
+    applies: everywhere,
+  },
+  {
+    id: "blur",
+    fix: "No blur (a frosted bar, a soft halo): a bar over the content is a solid tone of stone.",
+    pattern: /\bbackdrop-(?:blur|filter)\b|(?<![\w-])blur-(?:xs|sm|md|lg|xl|2xl|3xl|\[)|(?<![\w-])filter-blur|(?<![\w.-])blur\(\d/g,
+    applies: everywhere,
+  },
+  {
+    id: "diffuse-shadow",
+    fix: "Height is a hard edge, not a blurred shadow: take elev-carved, elev-seated or elev-raised (docs/DESIGN.md 2.6).",
+    pattern: /(?<![\w-])(?:shadow-(?:xs|sm|md|lg|xl|2xl|inner)|drop-shadow(?:-[a-z0-9]+)?)(?![\w-])/g,
+    applies: everywhere,
+  },
+  {
+    id: "caps-label",
+    fix: "Sentence case, never capitals with a wide tracking above a title or a label.",
+    pattern: /(?<![\w-])(?:uppercase|small-caps|capitalize|tracking-(?:wide|wider|widest))(?![\w-])/g,
+    applies: everywhere,
+  },
+  {
+    id: "middle-dot",
+    fix: "No middle dot between facts: put each one in its own place (a column, a line, a chip), or join them with a sentence.",
+    pattern: /·|&middot;|&#183;|\\u00b7/g,
+    applies: everywhere,
+  },
+  {
+    id: "arrow-glyph",
+    fix: "No arrow in a label or a button: a button says its verb; a way from here to there is the route's breadcrumbs.",
+    pattern: /→|&rarr;|\\u2192/g,
+    applies: everywhere,
+  },
+  {
+    id: "arrow-button",
+    fix: "A button does not end in an arrow: its verb and, when it needs one, its own icon at the start.",
+    pattern: /trailingIcon=\{<(?:ArrowRight|ChevronRight|MoveRight|ArrowBigRight|ArrowUpRight)\b/g,
+    applies: everywhere,
+  },
+  {
+    id: "icon-tile",
+    fix: "An icon stands bare; a tile behind one is only for a real logo (LogoTile).",
+    pattern: ICON_TILE,
+    applies: except("components/ui/LogoTile.tsx"),
+  },
+  {
+    id: "tooltip-by-hand",
+    fix: "A Tooltip only names an icon, and IconButton does it; what needs explaining is a HelpPopover, which a touch screen can open.",
+    pattern: /<Tooltip\b/g,
+    applies: outsideKit,
+  },
+  {
+    id: "elev-outside-kit",
+    fix: "A feature does not build its own heights: a panel is a Card, a pressed piece a Button, a field a Field (docs/DESIGN.md 2.6).",
+    pattern: /(?<![\w-])elev-[a-z-]+/g,
+    applies: outsideKit,
+  },
   {
     id: "page-without-template",
     fix: "Compose the page from a template (ListPage, DetailPage, SettingsLayout, DashboardPage, Wizard, FileEditorPage, AuthLayout).",
@@ -209,6 +296,84 @@ export const DESIGN_RULES: readonly DesignRule[] = [
     applies: (path) => !path.startsWith("components/") && !path.startsWith("app/"),
   },
 ];
+
+/** The three heights of the console, and the utilities each is made of (app.css). */
+export type Height = "carved" | "seated" | "raised";
+
+const HEIGHT_UTILITIES: readonly (readonly [Height, RegExp])[] = [
+  ["carved", /(?<![\w-])elev-carved(?:-fine)?(?![\w-])/],
+  ["seated", /(?<![\w-])elev-seated(?![\w-])/],
+  ["raised", /(?<![\w-])(?:elev-raised(?:-accent|-fail|-chosen)?|elev-rest|elev-lift)(?![\w-])/],
+];
+
+/**
+ * The height each piece of the kit has by its role (docs/DESIGN.md 2.6): what is typed or chosen
+ * inside is carved, what is read is seated, what is pressed is raised, and a piece that has two
+ * (a select is a carved field that opens a seated list) says both. A piece that is not here has
+ * none: a new one is added with its role, and the test that reads this table fails until it is.
+ */
+export const KIT_HEIGHTS: Readonly<Record<string, readonly Height[]>> = {
+  // carved: where something is typed or chosen inside, and the tracks and meters
+  "components/ui/Input.tsx": ["carved"],
+  "components/ui/Checkbox.tsx": ["carved"],
+  "components/ui/Switch.tsx": ["carved", "raised"],
+  "components/ui/Progress.tsx": ["carved"],
+  "components/ui/CopyValue.tsx": ["carved"],
+  "components/ui/EmptyState.tsx": ["carved"],
+  "components/ui/LogoTile.tsx": ["carved"],
+  "components/page/SegmentedControl.tsx": ["carved", "raised"],
+  "components/page/SettingsLayout.tsx": ["raised"],
+  "components/ui/Tabs.tsx": ["carved", "raised"],
+  "app/LinkTabs.tsx": ["carved", "raised"],
+  // seated: what is read
+  "components/ui/Card.tsx": ["seated"],
+  "components/ui/DataTable.tsx": ["seated"],
+  "components/ui/Dialog.tsx": ["seated"],
+  "components/ui/Drawer.tsx": ["seated"],
+  "components/ui/Disclosure.tsx": ["seated"],
+  "components/ui/Kbd.tsx": ["seated"],
+  "components/ui/Popover.tsx": ["seated"],
+  "components/ui/RowList.tsx": ["seated"],
+  "components/ui/Toast.tsx": ["seated"],
+  "components/ui/StatusPill.tsx": ["seated"],
+  "components/ui/Chart.tsx": ["seated"],
+  "components/ui/LogViewer.tsx": ["seated"],
+  "components/ui/Select.tsx": ["seated"],
+  "components/ui/Combobox.tsx": ["seated"],
+  "components/ui/Menu.tsx": ["seated"],
+  "components/page/StatTile.tsx": ["seated"],
+  "components/page/JobProgress.tsx": ["seated"],
+  "components/page/DangerZone.tsx": ["seated"],
+  "components/ui/FleetCourses.tsx": ["carved", "seated", "raised"],
+  // raised: what is pressed
+  "components/ui/Button.tsx": ["raised"],
+  "components/ui/IconButton.tsx": ["raised"],
+  "components/ui/ChoiceCards.tsx": ["raised"],
+  // the frame
+  "app/Topbar.tsx": ["carved"],
+  "app/Shell.tsx": ["seated"],
+  "app/ThemeSwitch.tsx": ["carved"],
+  "app/LanguageSwitch.tsx": ["carved"],
+};
+
+/** The heights a source draws, by the utilities it writes. */
+export function heightsUsed(source: string): Set<Height> {
+  const used = new Set<Height>();
+  for (const [height, pattern] of HEIGHT_UTILITIES) if (pattern.test(source)) used.add(height);
+  return used;
+}
+
+/**
+ * What is wrong with the heights of one kit file: it draws a height that is not its role's, or it
+ * draws one and has no role. A file outside the kit is the ratchet's (`elev-outside-kit`).
+ */
+export function heightViolations(path: string, source: string): string[] {
+  const used = heightsUsed(source);
+  if (used.size === 0) return [];
+  const allowed = KIT_HEIGHTS[path];
+  if (allowed === undefined) return [`${path} draws ${[...used].join(" and ")} and has no role in KIT_HEIGHTS (styles/designRules.ts): say what it is`];
+  return [...used].filter((height) => !allowed.includes(height)).map((height) => `${path} is ${allowed.join(" and ")} and draws ${height}`);
+}
 
 /** `design-exception: <rule-id> <reason>` on a line or the one above it excuses that line. */
 export const EXCEPTION = /design-exception:\s*([a-z-]+)\s+(\S.*)?/;
