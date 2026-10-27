@@ -1045,7 +1045,7 @@
   },
   "app.outside_unit": {
     "chat_id": "-1001234567890",
-    "text": "▲ <b>Application running outside Noust</b> · shop.example.com\nIts containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.\n\n<b>Server:</b> web-1\n<b>Unit:</b> <code>shop-example-com</code>\n<b>Containers:</b> <code>shop-example-com-web-1, shop-example-com-db-1</code>\n<b>Hand it back with:</b> <code>noust app reclaim shop.example.com</code>",
+    "text": "▲ <b>Application running outside Noust</b> · shop.example.com\nIts containers run, but its unit is stopped: Noust is not supervising it.\n\n<b>Server:</b> web-1\n<b>Unit:</b> <code>shop-example-com</code>\n<b>Containers:</b> <code>shop-example-com-web-1, shop-example-com-db-1</code>\n<b>Hand it back with:</b> <code>noust app reclaim shop.example.com</code>",
     "link_preview_options": {
       "is_disabled": true
     },

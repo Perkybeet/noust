@@ -947,7 +947,7 @@
     "event_action": "trigger",
     "dedup_key": "noust/web-1/unit/shop.example.com",
     "payload": {
-      "summary": "Aplicación en marcha fuera de Noust · shop.example.com: Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.",
+      "summary": "Aplicación en marcha fuera de Noust · shop.example.com: Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa.",
       "source": "web-1",
       "severity": "warning",
       "timestamp": "2026-09-29T10:45:51.000Z",

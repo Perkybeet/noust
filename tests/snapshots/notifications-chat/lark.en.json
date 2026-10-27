@@ -4523,7 +4523,7 @@
           "tag": "div",
           "text": {
             "tag": "plain_text",
-            "content": "Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back."
+            "content": "Its containers run, but its unit is stopped: Noust is not supervising it."
           }
         },
         {

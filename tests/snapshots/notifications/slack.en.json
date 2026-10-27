@@ -3484,7 +3484,7 @@
             "type": "section",
             "text": {
               "type": "mrkdwn",
-              "text": "Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back."
+              "text": "Its containers run, but its unit is stopped: Noust is not supervising it."
             }
           },
           {

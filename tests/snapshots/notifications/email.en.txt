@@ -1430,7 +1430,7 @@ X-Noust-Code: app.outside_unit
 X-Noust-Server: web-1
 
 ▲ Application running outside Noust · shop.example.com
-Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.
+Its containers run, but its unit is stopped: Noust is not supervising it.
 
 Server: web-1
 Unit: shop-example-com

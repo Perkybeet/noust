@@ -393,9 +393,9 @@
   },
   "app.outside_unit": {
     "msgtype": "m.text",
-    "body": "▲ Application running outside Noust · shop.example.com\nIts containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.\n\nServer: web-1\nUnit: shop-example-com\nContainers: shop-example-com-web-1, shop-example-com-db-1\nHand it back with: noust app reclaim shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "body": "▲ Application running outside Noust · shop.example.com\nIts containers run, but its unit is stopped: Noust is not supervising it.\n\nServer: web-1\nUnit: shop-example-com\nContainers: shop-example-com-web-1, shop-example-com-db-1\nHand it back with: noust app reclaim shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
     "format": "org.matrix.custom.html",
-    "formatted_body": "<b>▲ Application running outside Noust · shop.example.com</b><br>Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.<ul><li><b>Server:</b> web-1</li><li><b>Unit:</b> <code>shop-example-com</code></li><li><b>Containers:</b> <code>shop-example-com-web-1, shop-example-com-db-1</code></li><li><b>Hand it back with:</b> <code>noust app reclaim shop.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Open in the console</a>",
+    "formatted_body": "<b>▲ Application running outside Noust · shop.example.com</b><br>Its containers run, but its unit is stopped: Noust is not supervising it.<ul><li><b>Server:</b> web-1</li><li><b>Unit:</b> <code>shop-example-com</code></li><li><b>Containers:</b> <code>shop-example-com-web-1, shop-example-com-db-1</code></li><li><b>Hand it back with:</b> <code>noust app reclaim shop.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Open in the console</a>",
     "m.mentions": {}
   },
   "alert.above": {

@@ -189,7 +189,7 @@ class TestValidation:
         ("channels", "needle"),
         [
             ("nope", "must be a mapping"),
-            ({"Slack": {}}, "named with lower-case"),
+            ({"Slack": {}}, "Use lower-case letters"),
             ({"x" * 40: {"type": "slack"}}, "at most 32"),
             ({"slack": "http://x"}, "mapping of settings"),
             ({"mine": {}}, "not a channel type"),

@@ -209,7 +209,8 @@ class TestReason:
 
         result = CliRunner().invoke(thing, ["change", "shop"], obj=Context())
 
-        assert result.exit_code == 2 and "security.change_reasons" in result.output
+        assert result.exit_code == 2
+        assert "noust compliance set change_reasons off" in result.output
 
     def test_a_framework_that_asks_for_a_change_reference_requires_a_reason(
         self, real_config: Any

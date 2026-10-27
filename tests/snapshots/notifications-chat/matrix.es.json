@@ -393,9 +393,9 @@
   },
   "app.outside_unit": {
     "msgtype": "m.text",
-    "body": "▲ Aplicación en marcha fuera de Noust · shop.example.com\nSus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.\n\nServidor: web-1\nUnidad: shop-example-com\nContenedores: shop-example-com-web-1, shop-example-com-db-1\nDevuélvela a Noust con: noust app reclaim shop.example.com\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com",
+    "body": "▲ Aplicación en marcha fuera de Noust · shop.example.com\nSus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa.\n\nServidor: web-1\nUnidad: shop-example-com\nContenedores: shop-example-com-web-1, shop-example-com-db-1\nDevuélvela a Noust con: noust app reclaim shop.example.com\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com",
     "format": "org.matrix.custom.html",
-    "formatted_body": "<b>▲ Aplicación en marcha fuera de Noust · shop.example.com</b><br>Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.<ul><li><b>Servidor:</b> web-1</li><li><b>Unidad:</b> <code>shop-example-com</code></li><li><b>Contenedores:</b> <code>shop-example-com-web-1, shop-example-com-db-1</code></li><li><b>Devuélvela a Noust con:</b> <code>noust app reclaim shop.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Abrir en la consola</a>",
+    "formatted_body": "<b>▲ Aplicación en marcha fuera de Noust · shop.example.com</b><br>Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa.<ul><li><b>Servidor:</b> web-1</li><li><b>Unidad:</b> <code>shop-example-com</code></li><li><b>Contenedores:</b> <code>shop-example-com-web-1, shop-example-com-db-1</code></li><li><b>Devuélvela a Noust con:</b> <code>noust app reclaim shop.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Abrir en la consola</a>",
     "m.mentions": {}
   },
   "alert.above": {

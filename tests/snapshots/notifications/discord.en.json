@@ -1989,7 +1989,7 @@
     "embeds": [
       {
         "title": "▲ Application running outside Noust · shop.example.com",
-        "description": "Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.\n\n**Hand it back with:** `noust app reclaim shop.example.com`",
+        "description": "Its containers run, but its unit is stopped: Noust is not supervising it.\n\n**Hand it back with:** `noust app reclaim shop.example.com`",
         "color": 14919484,
         "fields": [
           {

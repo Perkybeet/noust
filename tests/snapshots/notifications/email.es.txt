@@ -1430,7 +1430,7 @@ X-Noust-Code: app.outside_unit
 X-Noust-Server: web-1
 
 ▲ Aplicación en marcha fuera de Noust · shop.example.com
-Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.
+Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa.
 
 Servidor: web-1
 Unidad: shop-example-com

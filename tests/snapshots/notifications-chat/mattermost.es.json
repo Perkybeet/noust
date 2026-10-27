@@ -1744,7 +1744,7 @@
         "fallback": "▲ Aplicación en marcha fuera de Noust · shop.example.com",
         "color": "#e3a73c",
         "title": "▲ Aplicación en marcha fuera de Noust · shop.example.com",
-        "text": "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.\n\n**Devuélvela a Noust con:** `noust app reclaim shop.example.com`",
+        "text": "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa.\n\n**Devuélvela a Noust con:** `noust app reclaim shop.example.com`",
         "fields": [
           {
             "short": true,

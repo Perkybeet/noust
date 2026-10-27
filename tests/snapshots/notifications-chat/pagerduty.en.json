@@ -947,7 +947,7 @@
     "event_action": "trigger",
     "dedup_key": "noust/web-1/unit/shop.example.com",
     "payload": {
-      "summary": "Application running outside Noust · shop.example.com: Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.",
+      "summary": "Application running outside Noust · shop.example.com: Its containers run, but its unit is stopped: Noust is not supervising it.",
       "source": "web-1",
       "severity": "warning",
       "timestamp": "2026-09-29T10:45:51.000Z",

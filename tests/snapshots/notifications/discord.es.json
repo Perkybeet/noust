@@ -1989,7 +1989,7 @@
     "embeds": [
       {
         "title": "▲ Aplicación en marcha fuera de Noust · shop.example.com",
-        "description": "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.\n\n**Devuélvela a Noust con:** `noust app reclaim shop.example.com`",
+        "description": "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa.\n\n**Devuélvela a Noust con:** `noust app reclaim shop.example.com`",
         "color": 14919484,
         "fields": [
           {

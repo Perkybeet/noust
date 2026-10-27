@@ -179,9 +179,15 @@ class TestTheContainerImage:
 
         assert "COPY dist/noust-${NOUST_VERSION}-py3-none-any.whl" in dockerfile
         installs = [
-            line
+            command.strip().rstrip("\\").strip()
             for line in dockerfile.splitlines()
-            if "pip install" in line and not line.lstrip().startswith("#")
+            if not line.lstrip().startswith("#")
+            for command in line.split("&&")
+            if "pip install" in command
         ]
-        assert installs, "the Dockerfile installs nothing"
-        assert all("/tmp/noust-${NOUST_VERSION}-py3-none-any.whl" in line for line in installs)
+        # pip itself is brought up to date first (a fix it carries is published after the base
+        # image); everything else that goes in is the release's own wheel.
+        noust = [command for command in installs if "--upgrade pip" not in command]
+        assert noust, "the Dockerfile installs nothing"
+        assert all(command.endswith("--upgrade pip") for command in installs if command not in noust)
+        assert all("/tmp/noust-${NOUST_VERSION}-py3-none-any.whl" in command for command in noust)

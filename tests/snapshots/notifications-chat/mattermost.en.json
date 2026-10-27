@@ -1744,7 +1744,7 @@
         "fallback": "▲ Application running outside Noust · shop.example.com",
         "color": "#e3a73c",
         "title": "▲ Application running outside Noust · shop.example.com",
-        "text": "Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.\n\n**Hand it back with:** `noust app reclaim shop.example.com`",
+        "text": "Its containers run, but its unit is stopped: Noust is not supervising it.\n\n**Hand it back with:** `noust app reclaim shop.example.com`",
         "fields": [
           {
             "short": true,

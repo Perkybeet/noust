@@ -3460,7 +3460,7 @@
             },
             {
               "type": "TextBlock",
-              "text": "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.",
+              "text": "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa.",
               "wrap": true
             },
             {
