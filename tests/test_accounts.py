@@ -582,6 +582,19 @@ class TestSignInByEmail:
 
 
 class TestInvitations:
+    def test_the_address_an_invitation_is_for_also_says_which_person_it_is(self, accounts):
+        # Two fields with the same address were one too many: the address is where the mail goes
+        # and, unless a reference is given, who the person is.
+        account, _ = accounts.invite("lucia", "viewer", email="Lucia@Example.com")
+        assert (account.email, account.person_ref) == ("lucia@example.com", "lucia@example.com")
+
+        other, _ = accounts.invite("ana", "viewer", email="ana@example.com", person_ref="emp-1")
+        assert (other.email, other.person_ref) == ("ana@example.com", "emp-1")
+
+        # The old form: a reference alone names the person and mails nothing.
+        third, _ = accounts.invite("bea", "viewer", person_ref="bea@example.com")
+        assert (third.email, third.person_ref) == (None, "bea@example.com")
+
     def test_an_invitation_is_single_use_and_activates_the_account(self, accounts, clock):
         account, code = accounts.invite("lucia", "operator", created_by="maria")
         assert account.status == "invited" and code.startswith("noust_inv_")

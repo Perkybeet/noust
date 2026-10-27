@@ -17,6 +17,7 @@ from noust.cli.app import cli as root_cli
 from noust.cli.commands import user as user_cli
 from noust.core.accounts import AccountManager, passwords
 from noust.core.accounts.mail import AccountMailer, MailUnavailable
+from noust.core.server_text import say
 from noust.core.store import NoustStore
 from noust.web.auth import STATE_DIR_ENV
 
@@ -56,7 +57,7 @@ class FakeMailer(AccountMailer):
 
     def send_invitation(self, address, username, code, hours, *, invited_by=None):  # type: ignore[no-untyped-def]
         if not FakeMailer.available:
-            raise MailUnavailable("There is no way to send mail from this server")
+            raise MailUnavailable.from_text(say("mail.no_transport"))
         FakeMailer.sent.append({"address": address, "username": username, "code": code})
 
 
@@ -104,13 +105,39 @@ def test_an_invitation_is_mailed_with_its_code_and_the_address_is_kept() -> None
     assert body["account"]["email"] == "lucia@example.com"
 
 
-def test_without_mail_the_invitation_is_not_made() -> None:
+def test_without_mail_the_invitation_is_still_made_and_the_code_is_to_hand_over() -> None:
     FakeMailer.available = False
 
     result = _run("user", "invite", "lucia", "--role", "auditor", "--email", "lucia@example.com")
 
-    assert result.exit_code != 0
-    assert AccountManager().find("lucia") is None
+    assert result.exit_code == 0, result.output
+    assert AccountManager().find("lucia") is not None
+    assert "could not be mailed" in result.output
+    assert "There is no way to send mail from this server" in result.output
+    assert "Code: noust_inv_" in result.output
+
+
+def test_without_mail_the_json_says_why_with_a_code() -> None:
+    FakeMailer.available = False
+
+    result = _run(
+        "--json", "user", "invite", "lucia", "--role", "auditor", "--email", "lucia@example.com"
+    )
+
+    body = json.loads(result.output)
+    assert result.exit_code == 0, result.output
+    assert body["emailed"] is False
+    assert body["email_error"] == "There is no way to send mail from this server"
+    assert body["email_error_coded"] == {"code": "mail.no_transport", "params": {}}
+    assert body["code"].startswith("noust_inv_")
+
+
+def test_the_address_is_also_who_the_person_is() -> None:
+    result = _run(
+        "--json", "user", "invite", "lucia", "--role", "auditor", "--email", "Lucia@Example.com"
+    )
+
+    assert json.loads(result.output)["account"]["person_ref"] == "lucia@example.com"
 
 
 def test_an_invitation_with_no_address_mails_nothing() -> None:

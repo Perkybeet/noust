@@ -61,6 +61,15 @@ CATALOG: dict[str, str] = {
         "Add one with Account > Cloudflare Tunnel:Edit: "
         "noust dns provider add NAME --kind cloudflare --token-stdin"
     ),
+    # -- Mail an account is sent (an invitation, a password reset) -------------------------
+    "mail.no_transport": "There is no way to send mail from this server",
+    "mail.no_transport.hint": (
+        "Set monitor.smtp.* or monitor.email_api.* (Settings > Channels), then ask again."
+    ),
+    "mail.no_public_url": "The console has no public address to put in the link",
+    "mail.no_public_url.hint": "Set web.public_url to the address people open the console at.",
+    "invitation.mail_failed": "The invitation could not be mailed: {reason}",
+    "invitation.mail_failed.hint": "The invitation exists: hand its link over yourself.",
     # -- The installation check (Settings > About, noust setup doctor) ---------------------
     # Sections: the heading's text is its own key in the console; only the sentence that
     # explains one is here.
