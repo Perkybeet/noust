@@ -159,6 +159,14 @@ class TestTheSecurityWorkflow:
 
         assert "pull_request_target" not in text
 
+    def test_the_repository_scan_leaves_out_the_harness_and_only_the_harness(
+        self, security: dict[str, Any]
+    ) -> None:
+        scan = step_using(security["jobs"]["trivy-repository"], "aquasecurity/trivy-action")
+
+        assert scan["with"]["skip-dirs"] == "tests/integration"
+        assert (ROOT / "tests" / "integration").is_dir()
+
     def test_the_configuration_files_it_names_exist(self) -> None:
         assert (ROOT / ".github" / "codeql" / "codeql-config.yml").is_file()
         assert (ROOT / ".trivyignore").is_file()

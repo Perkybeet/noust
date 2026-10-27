@@ -33,12 +33,17 @@ LABEL org.opencontainers.image.title="Noust central" \
 # SIGTERM, so `docker stop` is a clean shutdown. openssh-client opens the
 # tunnels; openssl mints the console's self-signed certificate and seals the
 # secrets; git is what noust's source handling calls.
+# The base image is a floating tag rebuilt on its maintainers' schedule, so it can be behind a
+# published fix (a time zone database, the pip it carries) on the day this is built: the system
+# packages are brought up to date here, and pip below, before anything of Noust's goes in.
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends tini openssh-client openssl git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 COPY dist/noust-${NOUST_VERSION}-py3-none-any.whl /tmp/
-RUN pip install --no-cache-dir --no-compile "/tmp/noust-${NOUST_VERSION}-py3-none-any.whl[web]" \
+RUN pip install --no-cache-dir --no-compile --upgrade pip \
+    && pip install --no-cache-dir --no-compile "/tmp/noust-${NOUST_VERSION}-py3-none-any.whl[web]" \
     && rm /tmp/noust-*.whl
 
 # The installer a central sends to a server that has no Noust yet, when it enrolls

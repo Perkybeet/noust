@@ -102,11 +102,17 @@ jobs:
       # Reports, never blocks: the findings of the lock files change with the
       # advisory database, not with the commit. Fixable ones only, so what
       # shows up is what an upgrade resolves.
+      #
+      # tests/integration is not scanned: its Dockerfiles are the harness's own
+      # throwaway containers (systemd as PID 1, which needs root, and fixtures
+      # that only have to start), and an exception per file in .trivyignore would
+      # hide the same rule from a Dockerfile that ships.
       - name: Scan the repository
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
+          skip-dirs: tests/integration
           scanners: vuln,misconfig
           severity: CRITICAL,HIGH
           ignore-unfixed: true
