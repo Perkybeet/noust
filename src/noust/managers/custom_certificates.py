@@ -42,6 +42,7 @@ from noust.core.openssl_names import OPENSSL_NAME_FORMAT
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.teams.model import ResourceNotFoundError
 from noust.validators.domain import is_valid_domain, is_wildcard, wildcard_covers
+from noust.validators.names import validate_filename
 
 
 class UploadNotFoundError(ResourceNotFoundError, CertificateError):
@@ -82,7 +83,18 @@ def certificate_dir(name: str) -> Path:
 
     Returns:
         Its directory.
+
+    Raises:
+        ValidationError: It is not a name an upload can have. Every path of an uploaded
+            certificate is built here, so a name that reaches it from a request (the
+            certificate a host engine is given) cannot name another directory.
     """
+    if not _NAME.fullmatch(name):
+        raise ValidationError(
+            f"{name!r} cannot be a certificate name",
+            details="Use lower case letters, digits, dots, dashes and underscores.",
+            field="name",
+        )
     return certificates_root() / name
 
 
@@ -124,10 +136,14 @@ def served_files(domain: str, source: str, name: str | None, live_dir: Path) -> 
     Returns:
         ``(fullchain, private key)``: the upload's, the named lineage's, or the
         lineage under the domain's own name.
+
+    Raises:
+        ValidationError: The upload's or the lineage's name is not a name.
     """
     if source == "custom" and name:
         return fullchain_path(name), key_path(name)
-    base = live_dir / (name if source == "lineage" and name else domain)
+    # A lineage is a directory of certbot's, named like a file: nothing that climbs out of live/.
+    base = live_dir / (validate_filename(name) if source == "lineage" and name else domain)
     return base / "fullchain.pem", base / "privkey.pem"
 
 

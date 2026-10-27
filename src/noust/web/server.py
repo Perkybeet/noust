@@ -2196,15 +2196,16 @@ def mount_console(app: FastAPI) -> None:
         app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 
     # The files Vite copies from panel/public, served at the root where the
-    # built index.html references them. A fixed set read once: a name is only
+    # built index.html references them. A fixed table read once, from the names
+    # to the files the directory listing returned: a requested name is only
     # ever looked up in it, never joined onto a path, so no traversal can
     # reach outside the directory.
     root_files = (
-        {entry.name for entry in STATIC_DIR.iterdir() if entry.is_file()}
+        {entry.name: entry for entry in STATIC_DIR.iterdir() if entry.is_file()}
         if STATIC_DIR.is_dir()
-        else set()
+        else {}
     )
-    root_files.discard(INDEX_HTML.name)
+    root_files.pop(INDEX_HTML.name, None)
 
     @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     async def console(path: str) -> Response:
@@ -2228,8 +2229,9 @@ def mount_console(app: FastAPI) -> None:
         """
         if is_machine_path(f"/{path}"):
             raise HTTPException(status_code=404, detail="Not found")
-        if path in root_files:
-            return FileResponse(STATIC_DIR / path)
+        root_file = root_files.get(path)
+        if root_file is not None:
+            return FileResponse(root_file)
         return console_index()
 
 

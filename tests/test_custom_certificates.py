@@ -354,3 +354,44 @@ def test_what_an_upload_and_the_secrets_keep_is_under_the_directories_noust_self
     assert taken, "the self-backup has directories to take"
     for path in kept:
         assert any(path.is_relative_to(source) for source in taken), path
+
+
+class TestTheNameOfACertificateIsOnlyEverAName:
+    """
+    CodeQL py/path-injection: the name in ``certificate`` of a host engine's TLS request became part
+    of the path ``served_files`` returned, and the plan reads that file with the permission to read
+    databases.
+    """
+
+    @pytest.mark.parametrize(
+        "name", ["..", "../..", "../../etc", "a/b", "/etc", "A", "", "x\n", "x" * 70, ".hidden"]
+    )
+    def test_the_directory_of_something_that_is_not_an_upload_name_is_not_named(
+        self, name: str
+    ) -> None:
+        with pytest.raises(ValidationError):
+            custom_module.certificate_dir(name)
+
+    def test_the_files_of_an_upload_are_under_the_uploads(self) -> None:
+        chain, key = custom_module.served_files("db.example.com", "custom", "origin", Path("/live"))
+
+        assert chain == custom_module.certificates_root() / "origin" / "fullchain.pem"
+        assert key == custom_module.certificates_root() / "origin" / "privkey.pem"
+
+    @pytest.mark.parametrize("name", ["..", "../../etc", "a/b", "/etc", "x\n", ".hidden"])
+    def test_a_lineage_that_is_not_a_name_is_not_a_directory_of_certbot(self, name: str) -> None:
+        with pytest.raises(ValidationError):
+            custom_module.served_files("db.example.com", "lineage", name, Path("/live"))
+
+    def test_a_lineage_is_a_directory_of_certbots_live(self) -> None:
+        chain, key = custom_module.served_files(
+            "db.example.com", "lineage", "example.com-0001", Path("/live")
+        )
+
+        assert chain == Path("/live/example.com-0001/fullchain.pem")
+        assert key == Path("/live/example.com-0001/privkey.pem")
+
+    def test_a_domain_is_its_own_lineage(self) -> None:
+        chain, _ = custom_module.served_files("db.example.com", "acme", None, Path("/live"))
+
+        assert chain == Path("/live/db.example.com/fullchain.pem")
