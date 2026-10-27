@@ -48,6 +48,8 @@ HEAVY = {
 #: ``noust/__init__.py`` and ``noust/core/__init__.py`` imported the configuration, the store and
 #: the notifier to re-export their classes, and ``entrypoint()`` imported the renaming of 4.0
 #: (about 200 modules) before it knew whether it would run; after it, 20 modules and 115 ms.
+#: ``--help`` took 788 modules and 1.4 s because it imported every command to read the first
+#: paragraph of its help; it now reads ``cli/command_summaries.py`` and takes 27 modules and 140 ms.
 BUDGET_MEASURED = 16
 
 #: The measure plus half of it. A module joining the closure of the entry points is a decision

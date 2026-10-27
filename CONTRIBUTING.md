@@ -494,6 +494,12 @@ decided in the data layer, not in the routes.
   returns a name only when it is acceptable goes in `.github/codeql/extensions/noust-python` with
   its proof in `tests/test_codeql_models.py`, once measured to remove an alert.
 - Comments explain **why**, never what.
+- **Start-up is a budget.** `noust --version` and `noust --help` import 16 Noust modules between them
+  and `tests/test_cli_startup_budget.py` fails past 24. A package `__init__` that re-exports classes
+  does it through `core/lazy_exports.py`: importing anything below a package runs its `__init__`, so
+  imports at the top of it load everything the package offers. The root's `--help` and the shell
+  completion read each command's line from `cli/command_summaries.py`; after changing a command's help
+  or adding a command, run `python scripts/generate_command_summaries.py` (a test fails until you have).
 - No emojis in code, comments or commit messages.
 - Absolute paths in systemd units; `shutil.which()` or `/usr/bin/`, never nvm paths.
 - Noust requires root. There is no `sudo` inside argv and no `run_command_sudo`.
@@ -514,6 +520,7 @@ mypy                            # types (blocking in CI)
 
 python scripts/release.py --check         # version consistency
 python scripts/security_model.py --write  # regenerate docs/SECURITY-MODEL.md after changing a role, a header, a route or a guarantee
+python scripts/generate_command_summaries.py  # regenerate cli/command_summaries.py after changing a command's help or adding a command
 ```
 
 The integration harness deploys for real (nginx, systemd, Docker, a database) inside one privileged
