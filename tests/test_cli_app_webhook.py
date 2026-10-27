@@ -395,7 +395,7 @@ def test_rotate_json_carries_the_secret_and_the_url(
 ) -> None:
     expose(monkeypatch, "https://hooks.example.com/hooks")
 
-    body = json.loads(run("rotate", DOMAIN, "--json").output)
+    body = json.loads(run("rotate", DOMAIN, "--yes", "--json").output)
 
     assert body["secret"] == store.get_webhook_secret(DOMAIN)
     assert body["hook_url"] == f"https://hooks.example.com/hooks/deploy/{DOMAIN}"

@@ -250,7 +250,7 @@ def cancel_command(ctx: Context, name: str) -> None:
 # -- On the server ---------------------------------------------------------------------
 
 
-@fleet_cli.command("link")
+@fleet_cli.command("link", gates_json=True)
 @click.option("--name", "central", required=True, help="The central's name.")
 @click.option(
     "--as",

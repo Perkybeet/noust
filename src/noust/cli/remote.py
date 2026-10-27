@@ -47,8 +47,12 @@ class RemoteCommand(NoustCommand):
     Not audited on this machine: the audit trail that matters is the server's,
     which records the token's owner and the call. Everything else is a
     :class:`~noust.cli.app.NoustCommand` (``--json`` is refused unless the
-    command supports it).
+    command supports it, and does not answer a question). ``--dry-run`` rehearses
+    this machine's seams and a call to another server is not one, so it is no way
+    to look here.
     """
+
+    honours_dry_run = False
 
     def invoke(self, ctx: click.Context) -> Any:
         """
@@ -61,13 +65,10 @@ class RemoteCommand(NoustCommand):
             What the command returns.
 
         Raises:
-            click.UsageError: When ``--json`` is given to a command without it.
+            click.UsageError: When ``--json`` is given to a command without it, or answers
+                a question.
         """
-        state = ctx.ensure_object(Context)
-        if state.json_output and not self._declares_json_option():
-            raise click.UsageError(
-                f"'{ctx.command_path}' has no JSON output; drop --json to run it."
-            )
+        self.refuse_json_misuse(ctx)
         return click.Command.invoke(self, ctx)
 
 

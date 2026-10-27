@@ -240,6 +240,7 @@ def test_the_command_takes_a_unit_a_path_and_a_site(
             str(world.legacy),
             "--site",
             "legacy.example.com",
+            "--yes",
         ],
     )
 

@@ -33,6 +33,7 @@ import contextlib
 import importlib
 import io
 import logging
+import re
 import sys
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
@@ -303,6 +304,51 @@ def _adopt_reason(click_ctx: click.Context, _param: click.Parameter, value: str 
         click_ctx.ensure_object(Context).reason = value
 
 
+#: The spellings of a flag that answers a command's question before it is asked.
+_CONSENT_SPELLINGS = frozenset({"--yes", "-y", "--force", "-f"})
+
+#: What the help of such a flag says when it spares a question ("Do not ask for confirmation",
+#: "Adopt without asking"). ``--force`` and ``-f`` also mean "rebuild anyway" and "follow" in other
+#: commands, and a ``--yes`` can mean "accept this warning" with no prompt anywhere, so the help
+#: decides, and ``tests/test_cli_json_consent.py`` lists every ``--yes`` it leaves out.
+_SPARES_A_QUESTION = re.compile(r"\b(?:do(?: not|n't) ask|without ask)", re.IGNORECASE)
+
+
+def _consent_flags(command: click.Command) -> list[click.Option]:
+    """
+    Find the flags of a command that answer its question in advance.
+
+    Args:
+        command: The command.
+
+    Returns:
+        The options, in declaration order; empty when the command asks nothing.
+    """
+    return [
+        param
+        for param in command.params
+        if isinstance(param, click.Option)
+        and param.is_flag
+        and param.name
+        and _CONSENT_SPELLINGS & set(param.opts)
+        and _SPARES_A_QUESTION.search(param.help or "")
+    ]
+
+
+def consent_options(command: click.Command) -> tuple[str, ...]:
+    """
+    Name the parameters of a command whose flag answers its question in advance.
+
+    Args:
+        command: The command.
+
+    Returns:
+        The parameter names (``yes``, ``assume_yes``, ``force``), in declaration order; empty when
+        the command asks nothing.
+    """
+    return tuple(param.name for param in _consent_flags(command) if param.name)
+
+
 class NoustCommand(click.Command):
     """
     A leaf command that refuses ``--json`` unless it explicitly supports it.
@@ -329,11 +375,30 @@ class NoustCommand(click.Command):
     records nothing; a command that only reads in some of its forms (``noust
     server reboot --status``) passes a predicate over its parsed parameters
     instead, ``read_only=lambda params: bool(params["show_status"])``.
+
+    ``--json`` is not an answer. A script that wants JSON has nobody to ask, which is a reason to
+    say ``--yes``, not to skip the question: ``noust compliance disable ens-media --json`` once
+    turned a framework off with its input closed. So a command that changes something and has a
+    flag that spares its question (:func:`consent_options`) is refused under ``--json`` without
+    that flag, before its body runs (:meth:`consent_missing`); ``--dry-run`` is the way to look. A
+    command that holds the gate itself, by printing its plan and changing nothing without the flag,
+    declares ``gates_json=True``, and ``tests/test_cli_json_consent.py`` proves each one.
     """
 
-    def __init__(self, *args: Any, read_only: bool | ReadOnlyWhen = False, **kwargs: Any) -> None:
+    #: Whether ``--dry-run`` leaves what this command changes untouched. It does for everything
+    #: that goes through this machine's seams; a command that calls another server's API says no.
+    honours_dry_run = True
+
+    def __init__(
+        self,
+        *args: Any,
+        read_only: bool | ReadOnlyWhen = False,
+        gates_json: bool = False,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.read_only = read_only
+        self.gates_json = gates_json
         declared = {opt for param in self.params for opt in getattr(param, "opts", [])}
         if "--reason" not in declared:
             self.params.append(
@@ -349,13 +414,86 @@ class NoustCommand(click.Command):
     def invoke(self, ctx: click.Context) -> Any:
         from noust.cli.audit_policy import audited
 
+        self.refuse_json_misuse(ctx)
+        with audited(ctx, self):
+            return super().invoke(ctx)
+
+    def refuse_json_misuse(self, ctx: click.Context) -> None:
+        """
+        Refuse ``--json`` where it means nothing, or where it would answer a question.
+
+        Both checks live here so that a command that is not audited on this machine
+        (:class:`~noust.cli.remote.RemoteCommand`) meets the same ones.
+
+        Args:
+            ctx: The command's context.
+
+        Raises:
+            click.UsageError: The command has no JSON output, or changes something, asks first
+                and was given ``--json`` without the flag that spares the question.
+        """
         state = ctx.ensure_object(Context)
         if state.json_output and not self._declares_json_option():
             raise click.UsageError(
                 f"'{ctx.command_path}' has no JSON output; drop --json to run it."
             )
-        with audited(ctx, self):
-            return super().invoke(ctx)
+        missing = self.consent_missing(ctx)
+        if missing is not None:
+            look = (
+                ", or --dry-run to see what it would do without changing anything"
+                if self.honours_dry_run
+                else ""
+            )
+            raise click.UsageError(
+                f"'{ctx.command_path}' changes a server and asks first, and --json asks "
+                f"nothing, so it needs {missing} to go ahead. Add {missing} to apply it{look}."
+            )
+
+    def consent_missing(self, ctx: click.Context) -> str | None:
+        """
+        Say whether ``--json`` is about to answer a question for the operator.
+
+        Args:
+            ctx: The command's context, its parameters parsed.
+
+        Returns:
+            The flag to add (``--yes``, or ``--force`` where that is the spelling) when the command
+            changes something, asks first, was given ``--json`` and not that flag, and is not a
+            rehearsal; None otherwise.
+        """
+        from noust.cli.audit_policy import command_path, is_read_only
+
+        state = ctx.ensure_object(Context)
+        rehearsal = self.honours_dry_run and (state.dry_run or state.dry_run_active)
+        if not state.json_output or rehearsal or self.gates_json:
+            return None
+        names = consent_options(self)
+        if not names or any(ctx.params.get(name) for name in names):
+            return None
+        if self._shows_a_plan(ctx) or is_read_only(self, command_path(ctx), ctx.params):
+            return None
+        option = _consent_flags(self)[0]
+        return next((o for o in option.opts if o in ("--yes", "--force")), option.opts[0])
+
+    def _shows_a_plan(self, ctx: click.Context) -> bool:
+        """
+        Report whether the invocation is one that says what it would do and stops.
+
+        ``--plan`` is spelled the same, and means the same, wherever the CLI has it as a flag
+        ("only show what would happen"); a command whose ``--plan`` takes a value (a provider's
+        plan id) is not one.
+
+        Args:
+            ctx: The command's context, its parameters parsed.
+
+        Returns:
+            True when such a flag was given.
+        """
+        return any(
+            ctx.params.get(param.name or "")
+            for param in self.params
+            if isinstance(param, click.Option) and param.is_flag and "--plan" in param.opts
+        )
 
     def _declares_json_option(self) -> bool:
         """
@@ -725,7 +863,13 @@ VERSION_MESSAGE = (
     is_flag=True,
     help="Rehearse without changing anything. Read-only checks still run.",
 )
-@click.option("--json", "json_output", is_flag=True, help="Emit JSON where supported.")
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Emit JSON where supported. It answers no question: a command that asks before it "
+    "changes something needs --yes with it.",
+)
 @click.option("--no-color", is_flag=True, help="Never emit colour.")
 @click.option("--reason", metavar="TEXT", default=None, help=REASON_HELP)
 @click.option("--changelog", is_flag=True, help="Show what changed in this release.")

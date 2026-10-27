@@ -218,7 +218,7 @@ def move_command(
     )
 
 
-@cli.command("migrate")
+@cli.command("migrate", gates_json=True)
 @click.argument("domain")
 @click.option(
     "--persist",

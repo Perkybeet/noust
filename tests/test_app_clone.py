@@ -417,7 +417,7 @@ class TestTheCommandLine:
             lambda context: deployed(store, specs),
         )
 
-        result = CliRunner().invoke(root_cli, ["--json", "app", "clone", SOURCE, CLONE])
+        result = CliRunner().invoke(root_cli, ["--json", "app", "clone", SOURCE, CLONE, "--yes"])
         assert result.exit_code == 0, f"{result.output} {result.exception}"
         body = json.loads(result.stdout)
 

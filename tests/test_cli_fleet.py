@@ -194,6 +194,20 @@ class TestAuthorizeCommand:
         results = [e["result"] for e in _audit(state_dir)]
         assert results == ["success", "failure", "success"]
 
+    def test_a_second_authorize_asks_under_json_too(self, node, state_dir):
+        """
+        ``--json`` is not an answer: the guided enrollment runs ``authorize --json`` without
+        ``--yes``, and a token the central already holds is replaced only when it is said.
+        """
+        args = ["fleet", "authorize", "--central-key", CENTRAL_KEY, "--name", "nas"]
+        CliRunner().invoke(root_cli, args)
+
+        declined = CliRunner().invoke(root_cli, [*args, "--json"])
+
+        assert declined.exit_code == 1
+        assert "Revoke it and issue a new token" in declined.output
+        assert "success" not in [e["result"] for e in _audit(state_dir)][1:]
+
     def test_deauthorize(self, node, state_dir):
         CliRunner().invoke(
             root_cli, ["fleet", "authorize", "--central-key", CENTRAL_KEY, "--name", "nas"]
