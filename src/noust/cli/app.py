@@ -1060,8 +1060,6 @@ def main(argv: list[str] | None = None) -> int:
 
 def entrypoint() -> None:
     """Console script entry point."""
-    from noust.managers.name_migration import run_automatically as run_names_automatically
-
     args = sys.argv[1:]
     # The first line of the files Noust wrote before 3.0, once (name_migration). Only on a
     # server whose data has been moved: where it has not, the command that follows refuses to
@@ -1073,6 +1071,11 @@ def entrypoint() -> None:
         except ConfigError:
             pass
         else:
+            # Imported here and not at the top of the function: it reaches every manager (about
+            # two hundred modules), and a command line that only asks for the version or the
+            # help, or runs on a server whose data is not moved, never gets this far.
+            from noust.managers.name_migration import run_automatically as run_names_automatically
+
             run_names_automatically(args, _announce_names)
 
     checker = None

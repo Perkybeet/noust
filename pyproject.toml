@@ -243,9 +243,6 @@ ignore = [
 # The store builds statements from column names it owns; every value is bound
 # as a parameter. S608 cannot tell the difference.
 "src/noust/core/store.py" = ["S608"]
-# The version is read before the re-exports so a broken optional import cannot
-# stop `noust --version` from answering.
-"src/noust/__init__.py" = ["E402"]
 # Startup banner and update notice: the one place output precedes the logger.
 "src/noust/core/update_checker.py" = ["T201"]
 "src/noust/web/server.py" = ["T201", "S104"]
