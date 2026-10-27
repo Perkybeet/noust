@@ -24,6 +24,8 @@ from pathlib import Path
 
 import click
 
+from noust.cli.app import documented_commands
+
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACT = ROOT / "tests/contracts/cli_surface.json"
 
@@ -88,17 +90,10 @@ def click_tree(command: click.Command, path: tuple[str, ...] = ()) -> dict[str, 
     tree = {key: {"options": options, "positionals": positionals, "aliases": []}}
 
     if isinstance(command, click.Group):
-        ctx = click.Context(command)
-        for name in command.list_commands(ctx):
-            try:
-                sub = command.get_command(ctx, name)
-            except click.ClickException:
-                # A group that has not been migrated yet. Reporting it as
-                # missing is the point of running this while the work is in
-                # progress.
-                continue
-            if sub is None:
-                continue
+        # The reader the reference and the manual use: the root lists no `deploy` (it is `create`
+        # under its old name) and dispatches the verbs of `noust deploy` by itself, so a walk
+        # over `list_commands` never saw them.
+        for name, sub in documented_commands(command, click.Context(command)):
             tree.update(click_tree(sub, (*path, name)))
     return tree
 

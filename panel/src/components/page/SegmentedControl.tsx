@@ -20,7 +20,9 @@ export interface SegmentedControlProps<V extends string> {
 
 /**
  * One of a few mutually exclusive views of the same thing (a chart's time range). A radio
- * group: one tab stop, arrow keys move the choice.
+ * group: one tab stop, arrow keys move the choice. It keeps its width (`shrink-0`) but never asks
+ * for more than its container has: past that its options wrap, because a pill wider than a phone
+ * widens the whole page.
  */
 export function SegmentedControl<V extends string>({ label, options, value, onValueChange, className }: SegmentedControlProps<V>) {
   return (
@@ -30,7 +32,10 @@ export function SegmentedControl<V extends string>({ label, options, value, onVa
       onValueChange={(next: V) => {
         onValueChange(next);
       }}
-      className={cx("elev-carved relative isolate inline-flex shrink-0 items-center gap-0.5 rounded-card bg-bg-sunken p-0.5", className)}
+      className={cx(
+        "elev-carved relative isolate inline-flex max-w-full shrink-0 flex-wrap items-center gap-0.5 rounded-card bg-bg-sunken p-0.5",
+        className,
+      )}
     >
       <SlidingIndicator className="rounded-control bg-surface" />
       {options.map((option) => (

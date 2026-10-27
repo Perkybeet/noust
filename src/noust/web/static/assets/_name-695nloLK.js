@@ -1,0 +1,1 @@
+import{rn as e}from"./useNode-DfMNU3VA.js";import{t}from"./_name-DVxowTdq.js";import{t as n}from"./ServiceLayout-DdwD0aTQ.js";var r=e();function i(){let{name:e}=t.useParams();return(0,r.jsx)(n,{name:e},e)}export{i as component};

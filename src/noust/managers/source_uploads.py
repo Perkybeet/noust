@@ -455,7 +455,7 @@ class SourceUploads:
             The file holding what is known about the upload, outside the tree so it is never
             copied into a release.
         """
-        return paths.uploads_dir() / f"{upload_id}.json"
+        return paths.uploads_dir() / f"{check_upload_id(upload_id)}.json"
 
     def _used(self) -> set[str]:
         """

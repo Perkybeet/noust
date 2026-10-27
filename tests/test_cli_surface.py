@@ -22,6 +22,7 @@ import pytest
 from click.testing import CliRunner
 
 from noust.cli.app import ALIASES, cli
+from tests.cli_tree_support import walk
 
 CONTRACT_FILE = Path(__file__).parent / "contracts/cli_surface.json"
 CONTRACT: dict[str, dict] = json.loads(CONTRACT_FILE.read_text(encoding="utf-8"))
@@ -151,25 +152,6 @@ class TestGlobalFlags:
         ("cert", "renew"),
     }
 
-    def walk(self, command: click.Command, path: tuple[str, ...] = ()):
-        """
-        Yield every command in the tree with its path.
-
-        Args:
-            command: Root to walk from.
-            path: Names leading here.
-
-        Yields:
-            Tuples of path and command.
-        """
-        yield path, command
-        if isinstance(command, click.Group):
-            ctx = click.Context(command)
-            for name in command.list_commands(ctx):
-                sub = command.get_command(ctx, name)
-                if sub is not None:
-                    yield from self.walk(sub, (*path, name))
-
     def test_no_subcommand_binds_a_global_flag_to_its_own_variable(self):
         """
         A subcommand's copy of a global flag must not become a parameter.
@@ -180,7 +162,7 @@ class TestGlobalFlags:
         presence, but whether it carries a value into the command.
         """
         offenders = []
-        for path, command in self.walk(cli):
+        for path, command in walk(cli):
             if not path or path[:2] in self.OWN_FLAG_ALLOWED or path[-1:] in self.OWN_FLAG_ALLOWED:
                 continue
             for param in command.params:

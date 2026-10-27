@@ -11,11 +11,10 @@ and hands it back. A comment someone deleted is created again.
 
 from __future__ import annotations
 
-from urllib.parse import quote
-
+from noust.core.exceptions import ValidationError
 from noust.integrations.github.app import installation_for, load_app
-from noust.integrations.github.client import GitHubAPIError
-from noust.validators.source import GITHUB_SHORTHAND_PATTERN
+from noust.integrations.github.client import GitHubAPIError, repo_path
+from noust.validators.source import github_repository_parts
 
 
 def upsert_pr_comment(
@@ -38,7 +37,9 @@ def upsert_pr_comment(
     Raises:
         IntegrationError: GitHub refused or could not be reached.
     """
-    if not GITHUB_SHORTHAND_PATTERN.match(f"github:{repository}"):
+    try:
+        github_repository_parts(repository)
+    except ValidationError:
         return None
     app = load_app()
     if app is None:
@@ -46,8 +47,7 @@ def upsert_pr_comment(
     installation = installation_for(repository)
     if installation is None:
         return None
-    owner, _, name = repository.partition("/")
-    base = f"/repos/{quote(owner)}/{quote(name)}"
+    base = repo_path(repository)
 
     if comment_ref and comment_ref.isdigit():
         try:

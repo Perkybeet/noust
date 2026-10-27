@@ -79,6 +79,7 @@ export { scimAdmin } from "./scimAdmin";
 export { ldapAdmin } from "./ldapAdmin";
 export { samlAdmin } from "./samlAdmin";
 export { servers } from "./servers";
+export { serverText } from "./serverText";
 export { services } from "./services";
 export { settings } from "./settings";
 export { shell } from "./shell";

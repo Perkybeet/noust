@@ -20,6 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from noust.core import paths
+from noust.validators.db_instance import check_instance_name
 
 #: The label every container of an instance carries, naming the instance. The
 #: store's row is the authority on what is Noust's; the label is how discovery
@@ -76,8 +77,13 @@ def directory(name: str) -> Path:
 
     Returns:
         Its directory, ``<state>/db-instances/<name>``.
+
+    Raises:
+        ValidationError: It is not a name an instance can have. Every other path of an instance
+            starts here, so a name that reaches this module from a request cannot name another
+            directory.
     """
-    return instances_dir() / name
+    return instances_dir() / check_instance_name(name)
 
 
 def init_directory(name: str) -> Path:

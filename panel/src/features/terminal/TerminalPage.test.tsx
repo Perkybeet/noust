@@ -12,6 +12,15 @@ import { onDesktop, serverRoutes } from "../server/testing";
 import { installFakeCanvas } from "../../components/ui/terminal/testing";
 import { FakeTerminalSocket, STATUS_BODY, readyFrame, terminalRoutes, ticketBody } from "./testing";
 
+/** The server's shell when the control server_terminal is set to refused and no framework asks for it. */
+const CONTROL_REFUSES = {
+  allowed: false,
+  enabled: true,
+  reason: "The control server_terminal is set to refused on this server, so the terminal on the server itself stays off",
+  how: "No framework asks for it: it was set in Settings > Controls or with the command line. To allow it: noust compliance set server_terminal allowed",
+  coded: { code: "terminal.server_control", params: { control: "server_terminal", command: "noust compliance set server_terminal allowed" } },
+};
+
 const APP_PATH = `/apps/${TAB_DOMAIN}/terminal`;
 
 const WITH_TERMINAL: SessionInfo = { ...SESSION, permissions: [...(SESSION.permissions ?? []), "apps.terminal", "server.terminal"] };
@@ -412,13 +421,16 @@ describe("an application's terminal page", () => {
           json(200, {
             ...STATUS_BODY,
             ens: true,
-            server: { allowed: false, enabled: true, reason: "x", how: "y", code: "server_shell_control", command: "noust compliance set server_terminal allowed", control: "server_terminal", forced_by: [] },
+            server: CONTROL_REFUSES,
           }),
       });
       renderConsole("/server/terminal");
       expect(await screen.findByText(/El control server_terminal está en refused en este servidor/)).toBeInTheDocument();
-      expect(screen.getByText("noust compliance set server_terminal allowed")).toBeInTheDocument();
+      // Both halves of the sentence are the console's Spanish; the command is the server's, as it is.
+      expect(screen.getByText(/Ningún marco de cumplimiento lo pide/)).toBeInTheDocument();
+      expect(screen.getByText("noust compliance set server_terminal allowed")).toHaveClass("mono");
       expect(screen.queryByText(/perfil ENS/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/No framework asks for it/)).not.toBeInTheDocument();
     });
 
     it("speaks Spanish, from the start to the end of a session", async () => {
@@ -490,22 +502,14 @@ describe("the server's terminal page", () => {
   it("says the shell is off, and how to turn it on", async () => {
     await serverPage(STATUS_BODY);
     expect(await screen.findByText("The terminal on the server is off")).toBeInTheDocument();
-    expect(screen.getByText("noust config set terminal.server.enabled true")).toBeInTheDocument();
+    expect(screen.getByText(/The terminal on the server itself is off \(terminal\.server\.enabled\)/)).toBeInTheDocument();
+    expect(screen.getByText("noust config set terminal.server.enabled true")).toHaveClass("mono");
     expect(screen.queryByRole("button", { name: "Open terminal" })).not.toBeInTheDocument();
   });
 
   it("names the framework that keeps it off even when it is switched on, with the server's own command to force it", async () => {
     const command = 'noust config set terminal.server.force_ens true --reason "<why>"';
-    await serverPage({
-      ...STATUS_BODY,
-      ens: true,
-      server: { allowed: false, enabled: true, reason: "x", how: "y", code: "server_shell_framework", command, control: "server_terminal", forced_by: ["ens-media", "iso-27001"] },
-    });
-    expect(await screen.findByText(/The compliance framework in force \(ens-media, iso-27001\) keeps it off even when it is turned on/)).toBeInTheDocument();
-    expect(screen.getByText(command)).toBeInTheDocument();
-  });
-
-  it("blames the control, not a profile, when no framework is on", async () => {
+    const turnOff = 'noust compliance disable ens-media iso-27001 --reason "<why>"';
     await serverPage({
       ...STATUS_BODY,
       ens: true,
@@ -514,16 +518,36 @@ describe("the server's terminal page", () => {
         enabled: true,
         reason: "x",
         how: "y",
-        code: "server_shell_control",
-        command: "noust compliance set server_terminal allowed",
-        control: "server_terminal",
-        forced_by: [],
+        coded: { code: "terminal.server_framework", params: { control: "server_terminal", frameworks: "ens-media, iso-27001", command, turn_off_command: turnOff } },
       },
     });
+    expect(await screen.findByText(/The compliance framework in force \(ens-media, iso-27001\) keeps the terminal on the server itself off/)).toBeInTheDocument();
+    expect(screen.getByText(command)).toBeInTheDocument();
+    expect(screen.getByText(turnOff)).toBeInTheDocument();
+  });
+
+  it("blames the control, not a profile, when no framework is on", async () => {
+    await serverPage({ ...STATUS_BODY, ens: true, server: CONTROL_REFUSES });
     expect(await screen.findByText(/The control server_terminal is set to refused on this server/)).toBeInTheDocument();
     expect(screen.getByText("noust compliance set server_terminal allowed")).toBeInTheDocument();
     expect(screen.queryByText(/ENS/)).not.toBeInTheDocument();
     expect(screen.queryByText(/force_ens/)).not.toBeInTheDocument();
+  });
+
+  it("shows a server that sent no code the words it did send, as they came", async () => {
+    await serverPage({ ...STATUS_BODY, server: { allowed: false, enabled: false, reason: "Off, said by an older server", how: "Ask your administrator to turn it on" } });
+    expect(await screen.findByText("The terminal on the server is off")).toBeInTheDocument();
+    expect(screen.getByText(/Off, said by an older server/)).toBeInTheDocument();
+    expect(screen.getByText(/Ask your administrator to turn it on/)).toBeInTheDocument();
+  });
+
+  it("shows a code it does not know, from a newer server, in the server's English", async () => {
+    await serverPage({
+      ...STATUS_BODY,
+      server: { allowed: false, enabled: false, reason: "A reason a newer server gave", how: "A fix a newer server gave", coded: { code: "terminal.from_the_future", params: {} } },
+    });
+    expect(await screen.findByText(/A reason a newer server gave/)).toBeInTheDocument();
+    expect(screen.getByText(/A fix a newer server gave/)).toBeInTheDocument();
   });
 
   it("opens a root shell when it is on, and says it is root", async () => {

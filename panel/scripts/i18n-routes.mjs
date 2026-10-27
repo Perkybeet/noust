@@ -35,6 +35,12 @@ const FRAME = ["__root__", "/_console"];
 const KIT = ["components", "lib", "api", "nodes", "realtime", "app"];
 /** Kit files whose texts are a page's, read export by export: the lists the tabs are drawn from. */
 const BY_EXPORT = ["app/nav.ts"];
+/**
+ * Kit files that draw a namespace by a key they build from data, which no literal names: a page that
+ * reaches one of them draws that namespace. `ServerText` looks `serverText.<code>` up for whatever
+ * code the server sends.
+ */
+const DRAWS = { "components/ui/ServerText.tsx": ["serverText"] };
 
 /** @param {string} dir @param {string[]} [out] @returns {string[]} */
 function walk(dir, out = []) {
@@ -154,6 +160,7 @@ export function routeNamespaces(root = src) {
   const known = new Set(namespaces(root));
   const kitDirs = KIT.map((dir) => path.join(root, dir) + path.sep);
   const byExport = new Set(BY_EXPORT.map((file) => path.join(root, file)));
+  const draws = new Map(Object.entries(DRAWS).map(([file, list]) => [path.join(root, file), list]));
   /** @type {Map<string, ReturnType<typeof read>>} */
   const cache = new Map();
   /** @param {string} file */
@@ -193,6 +200,7 @@ export function routeNamespaces(root = src) {
       seen.set(target, done);
       const entry = info(target);
       const kit = kitDirs.some((dir) => target.startsWith(dir));
+      for (const namespace of draws.get(target) ?? []) if (known.has(namespace)) wanted.add(namespace);
       if (byExport.has(target)) {
         for (const namespace of entry.shared) wanted.add(namespace);
         for (const name of fresh) {

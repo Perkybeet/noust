@@ -19922,7 +19922,7 @@
         "type": "object"
       },
       "ErrorResponse": {
-        "description": "Body of any failed API call.\n\nAttributes:\n    detail: What went wrong. Named ``detail`` so the shape matches\n        FastAPI's own ``HTTPException`` responses and clients need one\n        code path.\n    hint: How to fix it, when the manager supplied one.\n    error: Machine-readable error code, for clients that branch on it:\n        the lowercased :class:`~noust.core.exceptions.NoustError` subclass\n        name, or one of the fixed values in :data:`_ERROR_BY_STATUS` for\n        an error that never became a Noust exception.\n    fields: Field name to message, for a validation failure that names\n        more than one field. ``None`` for every other kind of error.\n    output: The failing tool's own output, verbatim, when the error\n        carries one - a rejected web server configuration, for example.\n        ``None`` for every error that has no external tool output to show.\n    coded: ``detail`` and ``hint`` as a code and its values, when the error is one of the\n        sentences the console translates; ``None`` for an error whose words are only its\n        message.",
+        "description": "Body of any failed API call.\n\nAttributes:\n    detail: What went wrong. Named ``detail`` so the shape matches\n        FastAPI's own ``HTTPException`` responses and clients need one\n        code path.\n    hint: How to fix it, when the manager supplied one.\n    error: Machine-readable error code, for clients that branch on it:\n        the lowercased :class:`~noust.core.exceptions.NoustError` subclass\n        name, or one of the fixed values in :data:`_ERROR_BY_STATUS` for\n        an error that never became a Noust exception.\n    fields: Field name to message, for a validation failure that names\n        more than one field. ``None`` for every other kind of error.\n    output: The failing tool's own output, verbatim, when the error\n        carries one - a rejected web server configuration, for example.\n        ``None`` for every error that has no external tool output to show.\n    coded: ``detail`` and ``hint`` as a code and its values, when the error is one of the\n        sentences the console translates; ``None`` for an error whose words are only its\n        message.\n    notes_coded: The sentences that follow ``detail`` in English, each as a code and its\n        values, in order (which control asks for an approval and how to turn it off);\n        empty when ``detail`` is only what ``coded`` says. A client that knows every code\n        here says them after ``coded``; one that does not shows ``detail`` whole.",
         "properties": {
           "coded": {
             "anyOf": [
@@ -19966,6 +19966,13 @@
               }
             ],
             "title": "Hint"
+          },
+          "notes_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Notes Coded",
+            "type": "array"
           },
           "output": {
             "anyOf": [
@@ -46936,54 +46943,21 @@
             "title": "Allowed",
             "type": "boolean"
           },
-          "code": {
+          "coded": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/CodedText"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "What blocks it, for the console to translate: server_shell_off (the switch), server_shell_control (the control server_terminal set to refused by the operator) or server_shell_framework (a framework holds that control)",
-            "title": "Code"
-          },
-          "command": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The command that changes it, verbatim",
-            "title": "Command"
-          },
-          "control": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The compliance control that blocks it",
-            "title": "Control"
+            "description": "`reason` and `how` as a sentence with a code and its values, for the console to translate: terminal.server_off (the switch), terminal.server_control (the control server_terminal set to refused by the operator) or terminal.server_framework (a framework holds that control). The command that changes it is one of its values"
           },
           "enabled": {
             "description": "terminal.server.enabled",
             "title": "Enabled",
             "type": "boolean"
-          },
-          "forced_by": {
-            "description": "The frameworks that hold that control",
-            "items": {
-              "type": "string"
-            },
-            "title": "Forced By",
-            "type": "array"
           },
           "how": {
             "anyOf": [

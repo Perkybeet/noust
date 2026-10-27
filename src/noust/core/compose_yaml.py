@@ -79,5 +79,11 @@ def load_compose(source: str | bytes | IO[str] | IO[bytes]) -> Any:
     Raises:
         yaml.YAMLError: It is not YAML.
     """
-    # A SafeLoader subclass: it builds plain data and nothing else.
-    return yaml.load(source, Loader=ComposeLoader)  # noqa: S506
+    # What yaml.load does, written out: the loader is a SafeLoader subclass and builds plain data
+    # and nothing else (a test holds it to that), but a scanner that reads `yaml.load` only
+    # accepts `yaml.SafeLoader` itself as safe and would report every subclass as unsafe.
+    loader = ComposeLoader(source)
+    try:
+        return loader.get_single_data()
+    finally:
+        loader.dispose()

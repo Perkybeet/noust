@@ -22,6 +22,7 @@ import os
 import stat
 import subprocess
 import sys
+import unittest
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,10 +31,76 @@ import pytest
 
 from noust.core.fs import set_fs
 from noust.core.runner import FakeRunner, set_runner
+from tests.sharding import parse_shard, select
 
 
 class RealSubprocessAttempted(AssertionError):
     """Raised when a test tries to execute a real process."""
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """
+    Add ``--shard K/N``, which keeps one slice of the suite.
+
+    Args:
+        parser: The command line parser.
+    """
+    parser.addoption(
+        "--shard",
+        action="store",
+        default=None,
+        metavar="K/N",
+        help=(
+            "run only slice K of N of the suite, cut by whole test files "
+            "(NOUST_TEST_SHARD=K/N does the same; CI runs one slice per machine)"
+        ),
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """
+    Keep the slice this run was asked for.
+
+    Every xdist worker collects the whole suite and applies the same cut, so they agree on what
+    the run is made of without being told.
+
+    Args:
+        config: The pytest configuration object.
+        items: The collected tests; the ones outside the slice are removed in place.
+    """
+    spec = config.getoption("--shard") or os.environ.get("NOUST_TEST_SHARD")
+    if not spec:
+        return
+    kept, dropped = select(items, *parse_shard(spec))
+    config.hook.pytest_deselected(items=dropped)
+    items[:] = kept
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> Iterator[None]:
+    """
+    Let go of what a test of a class kept on ``self``, once the test and its fixtures are done.
+
+    pytest keeps every collected item for the whole run, and an item keeps the instance of its
+    class. The console's tests keep their client on ``self``, and a client holds the application
+    built for it (about 25 MiB of routes and validators): a worker held every one of them, twenty
+    after three hundred tests, until the run ended, and CI's runner ran out of memory. Each test
+    has an instance of its own, so nothing reads it afterwards. A ``unittest`` case's instance is
+    the framework's and keeps its state for the report, so it is left as it is.
+
+    Args:
+        item: The test that has just run.
+        nextitem: The one that runs after it, if any.
+
+    Yields:
+        Control to the teardown proper; the instance is emptied after it, whatever its outcome.
+    """
+    try:
+        return (yield)
+    finally:
+        instance = getattr(item, "instance", None)
+        if instance is not None and not isinstance(instance, unittest.TestCase):
+            vars(instance).clear()
 
 
 def pytest_configure(config: pytest.Config) -> None:

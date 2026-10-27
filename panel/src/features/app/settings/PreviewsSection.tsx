@@ -33,6 +33,7 @@ import { StatusPill } from "../../../components/ui/StatusPill";
 import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import { formatCount } from "../../../lib/format";
+import { isGithubSource } from "../../../lib/githubSource";
 import { useNode } from "../../../nodes/useNode";
 import { appNameOf, previewParentOf } from "../../apps/data";
 import { reportActionError } from "../../apps/useAppActions";
@@ -569,7 +570,7 @@ export function PreviewsSettings() {
   const data = previews.data;
   const settings = data?.settings ?? null;
   const hint = <CommandHint command={`noust preview enable ${domain} --domain previews.example.com --max 3 --ttl 7d`} label={t("common.words.fromTerminal")} />;
-  const onGithub = /github\.com[:/]/i.test(app.source ?? "");
+  const onGithub = isGithubSource(app.source);
   return (
     <Section
       title={t("appSettings.previews.title")} icon={OBJECT_ICONS.preview}

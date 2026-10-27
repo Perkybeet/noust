@@ -39,7 +39,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import quote, urlencode, urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from noust.core import audit
 from noust.core.config import Config
@@ -53,6 +53,7 @@ from noust.core.gitlab_store import (
     connection_secret,
     oauth_secret,
 )
+from noust.core.outbound import UnsafePath, path_segment
 from noust.core.secrets import SecretStore
 from noust.deployers.importers.remote import RemoteClient, read_token
 
@@ -188,6 +189,28 @@ def check_host(host: str) -> str:
             "A GitLab host is needed", details="For example gitlab.com.", field="host"
         )
     return checked
+
+
+def _segment(value: str, field: str) -> str:
+    """
+    Make something a person typed one part of GitLab's API path.
+
+    Args:
+        value: A group's full path or a project's id.
+        field: Which request field it came from, for the error.
+
+    Returns:
+        The value as one path segment.
+
+    Raises:
+        ValidationError: It cannot be one (empty, ``.``, ``..`` or a control character).
+    """
+    try:
+        return path_segment(value)
+    except UnsafePath:
+        raise ValidationError(
+            f"Not a GitLab {field}: {value!r}", field=field, details="Use its path or its id."
+        ) from None
 
 
 class GitLabService:
@@ -578,7 +601,7 @@ class GitLabService:
         if search:
             query["search"] = search
         if group:
-            path = f"/groups/{quote(group.strip('/'), safe='')}/projects"
+            path = f"/groups/{_segment(group.strip('/'), 'group')}/projects"
             query["include_subgroups"] = "true"
         else:
             path = "/projects"
@@ -615,7 +638,7 @@ class GitLabService:
         """
         items = self._paginate(
             self.client_for(name),
-            f"/projects/{quote(str(project_id), safe='')}/repository/branches",
+            f"/projects/{_segment(str(project_id), 'project')}/repository/branches",
             {},
             limit,
         )

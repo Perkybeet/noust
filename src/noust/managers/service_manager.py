@@ -82,7 +82,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any, ClassVar
 
-from jinja2 import Environment, PackageLoader, TemplateNotFound
+from jinja2 import Environment, TemplateNotFound
 from jinja2 import TemplateError as JinjaTemplateError
 
 from noust.central import require_server_role
@@ -100,6 +100,7 @@ from noust.core.store import (
     is_adopted,
     runs_as_instances,
 )
+from noust.core.templates import text_environment
 from noust.core.utils import domain_to_app_name
 from noust.managers.base_manager import BaseManager
 from noust.validators.environment import validate_environment, validate_unit_value
@@ -627,12 +628,7 @@ class ServiceManager(BaseManager):
 
         try:
             # Unit files are not markup: autoescaping would corrupt ExecStart.
-            self.jinja_env: Environment | None = Environment(
-                loader=PackageLoader("noust", "templates/systemd"),
-                trim_blocks=True,
-                lstrip_blocks=True,
-                autoescape=False,  # noqa: S701
-            )
+            self.jinja_env: Environment | None = text_environment("templates/systemd")
         except (ImportError, ValueError, OSError) as exc:
             # A missing template package is not fatal: everything except
             # create_service keeps working.

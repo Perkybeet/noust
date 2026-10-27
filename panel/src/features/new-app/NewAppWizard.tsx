@@ -527,6 +527,10 @@ export function NewAppWizard() {
   const cancelInspection = (): void => {
     abort.current?.abort();
     inspect.reset();
+    // A read the field's blur asked for and that is still waiting out its 80ms is the one being
+    // cancelled: left alone it starts again once the request is reset, and the screen goes back to
+    // "Loading the repository" a moment after the operator said stop.
+    setSettleAsk(0);
   };
 
   // A temporary address is no DNS question: the service that answers it is the one that made it.
@@ -750,6 +754,10 @@ export function NewAppWizard() {
         loading: inspect.isPending,
         onClick: () => {
           setSourceErrors({});
+          // Pressing Continue is the ask: the read the field's blur scheduled 80ms ahead (pressing
+          // the button is what blurs it) is no longer wanted, and left to fire it would race the
+          // press for who starts the read.
+          setSettleAsk(0);
           // A source read already (on paste) goes straight on; one being read goes on when it is
           // read; one that was not is read now, and then goes on.
           if (ready) go(stepAfterSource(inspected.inspection, review));

@@ -58,7 +58,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Environment, PackageLoader, TemplateError
+from jinja2 import Environment, TemplateError
 
 from noust.central import require_server_role
 from noust.core import paths
@@ -83,6 +83,7 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.templates import text_environment
 from noust.managers.database.base import PROFILES, BaseDatabaseManager, is_loopback
 from noust.managers.database.exposure import listening_sockets, public_address
 from noust.managers.database.instances import engine_of, storage_name
@@ -252,13 +253,7 @@ def _templates() -> Environment:
     Returns:
         A Jinja environment over ``templates/systemd``.
     """
-    return Environment(
-        loader=PackageLoader("noust", "templates/systemd"),
-        trim_blocks=True,
-        lstrip_blocks=True,
-        # Systemd units are not markup: HTML escaping would corrupt them.
-        autoescape=False,  # noqa: S701 - systemd unit files, not markup
-    )
+    return text_environment("templates/systemd")
 
 
 def listen_spec(address: str, port: int) -> str:

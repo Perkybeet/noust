@@ -324,6 +324,10 @@ class ErrorResponse(BaseModel):
         coded: ``detail`` and ``hint`` as a code and its values, when the error is one of the
             sentences the console translates; ``None`` for an error whose words are only its
             message.
+        notes_coded: The sentences that follow ``detail`` in English, each as a code and its
+            values, in order (which control asks for an approval and how to turn it off);
+            empty when ``detail`` is only what ``coded`` says. A client that knows every code
+            here says them after ``coded``; one that does not shows ``detail`` whole.
     """
 
     detail: str
@@ -332,6 +336,7 @@ class ErrorResponse(BaseModel):
     fields: dict[str, str] | None = None
     output: str | None = None
     coded: CodedText | None = None
+    notes_coded: list[CodedText] = Field(default_factory=list)
 
 
 class JobAcceptedResponse(BaseModel):
@@ -596,6 +601,10 @@ async def handle_http_exception(request: Request, exc: StarletteHTTPException) -
             "hint": detail.get("hint"),
             "fields": detail.get("fields"),
             "output": detail.get("output"),
+            # The sentences a refusal says with a code (noust.core.server_text), as for a
+            # NoustError: a client reads one shape whichever way the answer was raised.
+            "coded": detail.get("coded"),
+            "notes_coded": detail.get("notes_coded") or [],
         }
         return JSONResponse(status_code=exc.status_code, content=body, headers=headers)
 

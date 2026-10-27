@@ -15,12 +15,11 @@ preview there is made from the branch.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from urllib.parse import quote
 
-from noust.core.exceptions import IntegrationError
+from noust.core.exceptions import IntegrationError, ValidationError
 from noust.integrations.github.app import GitHubApp, installation_for, load_app
-from noust.integrations.github.client import GitHubAPIError, json_object
-from noust.validators.source import GITHUB_SHORTHAND_PATTERN
+from noust.integrations.github.client import GitHubAPIError, json_object, repo_path
+from noust.validators.source import github_repository_parts
 
 #: Most open pull requests listed: a repository with more has a queue nobody previews.
 MAX_PULL_REQUESTS = 200
@@ -102,12 +101,14 @@ def _app_for(repository: str, installation_id: int | None) -> tuple[GitHubApp, i
         IntegrationError: There is no App, or none of its installations covers
             the repository; the message says what to do.
     """
-    if not GITHUB_SHORTHAND_PATTERN.match(f"github:{repository}"):
+    try:
+        github_repository_parts(repository)
+    except ValidationError:
         raise IntegrationError(
             f"{repository} is not a GitHub repository",
             details="Only GitHub's pull requests can be read; make a preview from a branch "
             "or a tag instead.",
-        )
+        ) from None
     app = load_app()
     installation = installation_for(repository, installation_id) if app is not None else None
     if app is None or installation is None:
@@ -135,8 +136,7 @@ def list_open(repository: str, installation_id: int | None = None) -> list[OpenP
             refused or could not be reached.
     """
     app, installation = _app_for(repository, installation_id)
-    owner, _, name = repository.partition("/")
-    path = f"/repos/{quote(owner)}/{quote(name)}/pulls?state=open&sort=created&direction=desc"
+    path = f"{repo_path(repository)}/pulls?state=open&sort=created&direction=desc"
     items = app.paginate_as_installation(installation, path)
     found = [pull for pull in (_read(item, repository) for item in items) if pull is not None]
     return found[:MAX_PULL_REQUESTS]
@@ -159,10 +159,9 @@ def get(repository: str, number: int, installation_id: int | None = None) -> Ope
             no such pull request; or GitHub refused or could not be reached.
     """
     app, installation = _app_for(repository, installation_id)
-    owner, _, name = repository.partition("/")
     try:
         answer = app.as_installation(
-            installation, "GET", f"/repos/{quote(owner)}/{quote(name)}/pulls/{int(number)}"
+            installation, "GET", f"{repo_path(repository)}/pulls/{int(number)}"
         )
     except GitHubAPIError as exc:
         if exc.status == 404:
@@ -199,8 +198,7 @@ def changed_files(repository: str, number: int, installation_id: int | None = No
             or could not be reached.
     """
     app, installation = _app_for(repository, installation_id)
-    owner, _, name = repository.partition("/")
-    path = f"/repos/{quote(owner)}/{quote(name)}/pulls/{int(number)}/files"
+    path = f"{repo_path(repository)}/pulls/{int(number)}/files"
     files: list[str] = []
     for item in app.paginate_as_installation(installation, path):
         data = json_object(item)

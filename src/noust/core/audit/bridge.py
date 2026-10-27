@@ -27,6 +27,7 @@ import re
 from typing import Any
 
 from noust.core.audit.actor import Actor
+from noust.core.logsafe import neutralize
 
 #: The logger the old call sites write to.
 LOGGER_NAME = "noust.audit"
@@ -64,6 +65,52 @@ LEGACY_EVENTS: dict[str, str] = {
 
 #: Detail keys that name the target of the event, in order of preference.
 TARGET_KEYS = ("domain", "database", "name", "user", "installation_id", "app")
+
+#: What a value may be to stand in a line as it is: no blank, no quote, no ``=``.
+_PLAIN_VALUE = re.compile(r"[\w./:@+\-]+")
+
+
+class _Value(str):
+    """
+    A string argument of an audit line, written so that it can only be one value.
+
+    ``%s`` of it is the text itself when that is plain and its quoted spelling otherwise
+    (``'x session=master'``), which :func:`parse_line` reads back as that one value; ``%r`` is
+    the ordinary representation. A name that held a blank and ``session=`` used to name the actor.
+    """
+
+    __slots__ = ()
+
+    def __str__(self) -> str:
+        text = str.__str__(self)
+        return text if _PLAIN_VALUE.fullmatch(text) else repr(text)
+
+    __repr__ = str.__repr__
+
+
+def audit_line(record: logging.LogRecord) -> str:
+    """
+    Format a record as the line :func:`parse_line` reads.
+
+    Args:
+        record: The log record of an audit line.
+
+    Returns:
+        The message with each string argument standing for one value, and no line break.
+
+    Raises:
+        TypeError: The message does not match its arguments.
+        ValueError: The message is not a valid format string.
+    """
+    args = record.args
+    if isinstance(args, tuple) and args:
+        values: Any = tuple(_Value(item) if isinstance(item, str) else item for item in args)
+    elif isinstance(args, dict) and args:
+        values = {k: _Value(v) if isinstance(v, str) else v for k, v in args.items()}
+    else:
+        return record.getMessage()
+    return neutralize(str(record.msg) % values)
+
 
 _PAIR = re.compile(r"(\w+)=('(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"|\S*)")
 
@@ -106,7 +153,7 @@ class AuditLogHandler(logging.Handler):
         from noust.core.audit.sanitize import statement_digest
 
         try:
-            message = record.getMessage()
+            message = audit_line(record)
         except (TypeError, ValueError):
             self.handleError(record)
             return

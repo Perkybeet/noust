@@ -47,7 +47,12 @@
     "settings-access": { "path": "/settings/access", "height": 763 },
     "settings-sso": { "path": "/settings/sso", "height": 767 },
     "settings-approvals": { "path": "/settings/approvals", "height": 305 },
-    "settings-audit": { "path": "/settings/audit", "height": 1345 },
+    "settings-audit": {
+      "path": "/settings/audit",
+      "height": 1308,
+      "tolerance": 160,
+      "toleranceReason": "The page is the audit trail, one row of 36px per event the server has recorded, and the server records the sign-in's own retries: a quiet machine measures 1308 (CI as well) and a loaded one 1345 to 1453. A page that grew is still caught: more than four rows over the quiet length fails."
+    },
     "settings-compliance": {
       "path": "/settings/compliance",
       "height": 4802,

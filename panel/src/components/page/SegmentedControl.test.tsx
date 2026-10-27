@@ -47,6 +47,14 @@ describe("SegmentedControl", () => {
     expect(screen.getByRole("radio", { name: "30d" })).toHaveAttribute("aria-checked", "true");
   });
 
+  it("never asks for more room than its container has: its options wrap instead of overflowing the page", () => {
+    // jsdom does no layout, so what is held here is the rule that does it (the E2E suite measures
+    // a phone): an unbounded no-shrink pill of six languages was 372px wide on a 390px screen.
+    render(<Picker />);
+    const group = screen.getByRole("radiogroup", { name: "Time range" });
+    expect(group).toHaveClass("max-w-full", "flex-wrap");
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = render(<Picker />);
     await expectNoAxeViolations(container);

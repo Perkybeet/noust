@@ -33,14 +33,23 @@ keeps running the night after an upgrade.
 The notifier, the package index and the backup destinations call this module;
 :func:`resolve_host` is the one function a test replaces so that the suite never
 resolves a real name.
+
+The host is only half of where a request goes. A client of a platform's API
+(GitHub, GitLab, Gitea, Coolify) fixes the host and builds the rest from a
+repository, a group or a project somebody named, and a name such as ``..`` moves
+the request to another endpoint of the same host, with the same credential:
+:func:`path_segment` makes a name one segment and :func:`api_path` is what
+every such client asks of the path it is about to send.
 """
 
 from __future__ import annotations
 
 import ipaddress
+import re
 import socket
 from collections.abc import Callable, Iterable
 from typing import Any
+from urllib.parse import quote, unquote
 
 #: Address family alias.
 IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
@@ -87,6 +96,24 @@ NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
 #: The setting an operator names a trusted internal destination in. A list of
 #: host names or address literals, compared exactly (case-insensitively).
 ALLOW_SETTING = "security.allow_private_hosts"
+
+
+#: What a path sent to a platform's API is made of: printable ASCII after the first ``/``,
+#: nothing that is whitespace or a control character (a header or a second request line in the
+#: making), no backslash (some servers read it as a slash) and no ``#``. A name that is not ASCII
+#: reaches the path already percent-encoded, by :func:`path_segment`. Written as what is allowed,
+#: and applied with ``fullmatch``, so that what a scanner reads is a restriction of the value.
+_PLAIN_PATH = re.compile(r"/[\x21-\x22\x24-\x5b\x5d-\x7e]*")
+
+#: What :func:`urllib.parse.quote` leaves in a segment it was given with ``safe=""``.
+_ENCODED_SEGMENT = re.compile(r"[A-Za-z0-9_.~%-]+")
+
+#: What no single name holds, whatever is done with it afterwards.
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
+
+
+class UnsafePath(ValueError):
+    """A request path, or a part of one, that would not stay where its caller meant it to."""
 
 
 class DestinationRefused(ValueError):
@@ -283,3 +310,52 @@ def require_public_host(
                 reason="internal",
                 address=str(address),
             )
+
+
+def api_path(path: str) -> str:
+    """
+    Check the path of a request to a platform's API host before it is sent.
+
+    Args:
+        path: What follows the host: starts with one ``/`` and may end in a
+            query string.
+
+    Returns:
+        The path, unchanged.
+
+    Raises:
+        UnsafePath: It does not start with a single ``/`` (a second one makes
+            the rest a host), holds whitespace, a control character, a
+            backslash or ``#`` (or is not printable ASCII), or has a segment
+            that is ``.`` or ``..`` (written out or percent-encoded), which
+            would reach another endpoint of the same host.
+    """
+    if not _PLAIN_PATH.fullmatch(path) or path.startswith("//"):
+        raise UnsafePath(f"Not a plain path on the platform's own host: {path!r}")
+    for segment in path.split("?", 1)[0].split("/"):
+        if unquote(segment) in (".", ".."):
+            raise UnsafePath(f"A path may not move up or stay in place: {path!r}")
+    return path
+
+
+def path_segment(value: str | int) -> str:
+    """
+    Turn a name into one segment of a request path.
+
+    Args:
+        value: A repository, a group, a project or an id somebody named.
+
+    Returns:
+        The value percent-encoded, ``/`` included, so that it cannot become
+        two segments.
+
+    Raises:
+        UnsafePath: It is empty, ``.``, ``..`` or holds a control character.
+    """
+    text = str(value)
+    if _CONTROL.search(text):
+        raise UnsafePath(f"Not a name that can be one part of a path: {text!r}")
+    segment = quote(text, safe="")
+    if not _ENCODED_SEGMENT.fullmatch(segment) or segment in (".", ".."):
+        raise UnsafePath(f"Not a name that can be one part of a path: {text!r}")
+    return segment

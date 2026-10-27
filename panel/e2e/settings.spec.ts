@@ -131,8 +131,12 @@ test("on a phone each subsection is its own page, with its way back", async ({ p
   await signIn(page, consoleServer, "/settings/notifications");
   await expect(page.getByRole("heading", { level: 2, name: "Channels", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "All sections" })).toBeVisible();
+  // The whole page, not what has drawn so far: the widest thing on it (the language of the messages)
+  // is far below the channels and arrives with them. Measured as soon as the way back showed, the
+  // width was 390 on a fast machine and 409 on a slow one, for the same page.
+  await expect(page.getByRole("radiogroup", { name: "Language of notifications" })).toBeVisible();
+  await settle(page);
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(390);
-  await settle(page);
   await expectNoA11yViolations(page, "notifications on a phone");
 });

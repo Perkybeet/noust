@@ -86,10 +86,19 @@ export function readyFrame(options: { session?: string; resumed?: boolean; lost?
   };
 }
 
+/** The server's shell when its switch is off, as the server answers: the English and the same sentence with a code. */
+export const SERVER_OFF = {
+  allowed: false,
+  enabled: false,
+  reason: "The terminal on the server itself is off (terminal.server.enabled)",
+  how: "It is a root shell, so it stays off until an administrator turns it on: noust config set terminal.server.enabled true",
+  coded: { code: "terminal.server_off", params: { command: "noust config set terminal.server.enabled true" } },
+};
+
 /** The status the server reports when terminals are on and the server's shell is off. */
 export const STATUS_BODY = {
   enabled: true,
-  server: { allowed: false, enabled: false, reason: "The terminal on the server itself is off", how: "noust config set terminal.server.enabled true" },
+  server: SERVER_OFF,
   idle_seconds: 600,
   max_seconds: 7200,
   max_sessions: 8,

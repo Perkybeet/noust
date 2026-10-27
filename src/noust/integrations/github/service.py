@@ -33,9 +33,8 @@ from noust.integrations.github.app import (
     read_meta,
     write_meta,
 )
-from noust.integrations.github.client import json_object
+from noust.integrations.github.client import json_object, repo_path
 from noust.integrations.hooks_site import public_hooks_url
-from noust.validators.source import GITHUB_SHORTHAND_PATTERN
 
 logger = logging.getLogger(__name__)
 
@@ -404,8 +403,7 @@ def list_branches(owner: str, repo: str) -> list[dict[str, Any]]:
             refused.
     """
     full_name = f"{owner}/{repo}"
-    if not GITHUB_SHORTHAND_PATTERN.match(f"github:{full_name}"):
-        raise ValidationError(f"Not a GitHub repository: {full_name!r}", field="repository")
+    path = repo_path(full_name)
     app = _require_app()
     installation = installation_for(full_name)
     if installation is None:
@@ -414,9 +412,7 @@ def list_branches(owner: str, repo: str) -> list[dict[str, Any]]:
             details=f"Install the App on the {owner} account, or add the repository to "
             "its installation.",
         )
-    items = app.paginate_as_installation(
-        installation, f"/repos/{quote(owner)}/{quote(repo)}/branches"
-    )
+    items = app.paginate_as_installation(installation, f"{path}/branches")
     branches = []
     for item in items:
         if not isinstance(item, dict) or not item.get("name"):

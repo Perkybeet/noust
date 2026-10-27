@@ -57,7 +57,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Environment, PackageLoader, TemplateError
+from jinja2 import TemplateError
 
 from noust.central import require_server_role
 from noust.core import paths
@@ -68,6 +68,7 @@ from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import get_store
+from noust.core.templates import text_environment
 from noust.deployers.helpers.compose_exec import ComposeExec, compose_exec
 from noust.deployers.helpers.layout import code_path_for
 from noust.managers import cron_ledger
@@ -378,14 +379,8 @@ class CronManager:
         self.logger = Logger(verbose=verbose)
         self._runner = runner
         self._fs = fs
-        self.jinja_env = Environment(
-            loader=PackageLoader("noust", "templates/systemd"),
-            trim_blocks=True,
-            lstrip_blocks=True,
-            # Systemd units are not markup: HTML escaping would corrupt them.
-            # The templates escape what matters through the _escape.j2 macros.
-            autoescape=False,  # noqa: S701 - systemd unit files, not markup
-        )
+        # Systemd units are not markup; the templates escape what matters through _escape.j2.
+        self.jinja_env = text_environment("templates/systemd")
 
     @property
     def runner(self) -> CommandRunner:

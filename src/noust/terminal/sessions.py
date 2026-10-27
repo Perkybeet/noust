@@ -46,6 +46,7 @@ from noust.core.runner import (
     PtyHandle,
     get_runner,
 )
+from noust.core.server_text import say
 from noust.terminal import recording as recordings
 from noust.terminal.settings import TerminalSettings, load_settings
 from noust.terminal.targets import KIND_SERVER, SessionPlan
@@ -564,28 +565,18 @@ class SessionRegistry:
             TerminalLimitError: The limits are reached.
         """
         settings = self._settings()
-        if kind == KIND_SERVER:
-            block = settings.server_block()
-            if block is not None:
-                raise TerminalDisabledError(block.what, details=block.how)
-        elif not settings.enabled:
-            raise TerminalDisabledError(
-                "Terminals are turned off on this server",
-                details="An administrator turns them on with: noust config set terminal.enabled true",
-            )
+        # Each refusal is a sentence of the catalog, so that the console can say it in its own
+        # language and the person is given a command that runs as printed.
+        off = settings.server_block() if kind == KIND_SERVER else settings.disabled_block()
+        if off is not None:
+            raise TerminalDisabledError.from_text(off)
         with self._lock:
             live = list(self._sessions.values())
         if len(live) >= settings.max_sessions:
-            raise TerminalLimitError(
-                f"{len(live)} terminals are open, the most this server allows",
-                details="Close one, or raise terminal.max_sessions.",
-            )
+            raise TerminalLimitError.from_text(say("terminal.limit_total", open=len(live)))
         mine = sum(1 for session in live if session.grant.actor == actor_label)
         if mine >= settings.max_sessions_per_user:
-            raise TerminalLimitError(
-                f"You already have {mine} terminals open, the most one person may",
-                details="Close one, or raise terminal.max_sessions_per_user.",
-            )
+            raise TerminalLimitError.from_text(say("terminal.limit_user", open=mine))
         return settings
 
     def open(self, grant: TerminalGrant, plan: SessionPlan, *, actor: Actor) -> TerminalSession:

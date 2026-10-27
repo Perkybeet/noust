@@ -27,6 +27,7 @@ from typing import Any
 
 from noust.core.compliance import explain
 from noust.core.ens import profile
+from noust.core.server_text import ServerText, say
 
 logger = logging.getLogger(__name__)
 
@@ -40,37 +41,13 @@ DEFAULT_RECORDING_MB = 8
 DEFAULT_EXEC_MAX_SECONDS = 1800
 DEFAULT_RETENTION_DAYS = 90
 
-#: The command-line fix for a server shell that is off, shown verbatim.
+#: The command-line fixes for a terminal that is off, shown verbatim.
 SERVER_ENABLE_COMMAND = "noust config set terminal.server.enabled true"
 SERVER_FORCE_COMMAND = "noust config set terminal.server.force_ens true"
+TERMINALS_ENABLE_COMMAND = "noust config set terminal.enabled true"
 
-#: What blocks the server's shell, as the console translates it: the switch is off, the control
-#: ``server_terminal`` is refused by the operator's own setting, or by a framework.
-BLOCK_OFF = "server_shell_off"
-BLOCK_CONTROL = "server_shell_control"
-BLOCK_FRAMEWORK = "server_shell_framework"
-
-
-@dataclass(frozen=True)
-class ServerBlock:
-    """
-    What keeps the server's shell from opening, and the exact command that changes it.
-
-    Attributes:
-        code: ``server_shell_off``, ``server_shell_control`` or ``server_shell_framework``.
-        what: The sentence that says what blocks it.
-        how: What to change, with the command in it.
-        command: The command alone, verbatim.
-        control: The compliance control that blocks it, when one does (``server_terminal``).
-        forced_by: The frameworks that hold that control, when any do.
-    """
-
-    code: str
-    what: str
-    how: str
-    command: str
-    control: str | None = None
-    forced_by: tuple[str, ...] = ()
+#: The control that keeps the server's shell off when an operator or a framework asks it to.
+SERVER_CONTROL = "server_terminal"
 
 
 @dataclass(frozen=True)
@@ -128,12 +105,12 @@ class TerminalSettings:
         Say why the server's shell cannot be opened, and how to change that.
 
         Returns:
-            ``(what, how to fix it)``, or None when it may be opened.
+            ``(what, how to fix it)`` in English, or None when it may be opened.
         """
         block = self.server_block()
-        return None if block is None else (block.what, block.how)
+        return None if block is None else (block.text, block.hint or "")
 
-    def server_block(self) -> ServerBlock | None:
+    def server_block(self) -> ServerText | None:
         """
         Say what keeps the server's shell from opening, and the exact command that changes it.
 
@@ -142,42 +119,36 @@ class TerminalSettings:
         frameworks that hold it. It is never put down to the ENS profile unless that is what is on.
 
         Returns:
-            The block, or None when it may be opened.
+            The sentence, with its fix and the command as a value, or None when it may be opened.
         """
-        enable = SERVER_ENABLE_COMMAND + self.reason_suffix
-        force = SERVER_FORCE_COMMAND + self.reason_suffix
         if not self.server_enabled:
-            return ServerBlock(
-                BLOCK_OFF,
-                "The terminal on the server itself is off (terminal.server.enabled)",
-                f"It is a root shell, so it stays off until an administrator turns it on: {enable}",
-                enable,
-            )
+            return say("terminal.server_off", command=SERVER_ENABLE_COMMAND + self.reason_suffix)
         if not self.ens or self.server_forced:
             return None
         if self.server_forced_by:
-            names = ", ".join(self.server_forced_by)
-            many = len(self.server_forced_by) > 1
-            return ServerBlock(
-                BLOCK_FRAMEWORK,
-                f"{names} {'keep' if many else 'keeps'} the terminal on the server itself off "
-                "(the control server_terminal is refused)",
-                "A root shell in the browser is the console at its most root-equivalent. "
-                f"To allow it anyway, which is put on record: {force}. "
-                f"Or turn the framework off: {self.server_allow_command}",
-                force,
-                "server_terminal",
-                self.server_forced_by,
+            return say(
+                "terminal.server_framework",
+                control=SERVER_CONTROL,
+                frameworks=", ".join(self.server_forced_by),
+                command=SERVER_FORCE_COMMAND + self.reason_suffix,
+                turn_off_command=self.server_allow_command,
             )
-        return ServerBlock(
-            BLOCK_CONTROL,
-            "The control server_terminal is set to refused on this server, so the terminal on "
-            "the server itself stays off",
-            "No framework asks for it: it was set in Settings > Controls or with the command "
-            f"line. To allow it: {self.server_allow_command}",
-            self.server_allow_command,
-            "server_terminal",
+        return say(
+            "terminal.server_control",
+            control=SERVER_CONTROL,
+            command=self.server_allow_command,
         )
+
+    def disabled_block(self) -> ServerText | None:
+        """
+        Say that terminals as a whole are off, and the command that turns them on.
+
+        Returns:
+            The sentence, or None when application terminals may be opened.
+        """
+        if self.enabled:
+            return None
+        return say("terminal.disabled", command=TERMINALS_ENABLE_COMMAND + self.reason_suffix)
 
 
 def _integer(raw: Any, default: int, low: int, high: int) -> int:
@@ -260,7 +231,7 @@ def load_settings(config: Any | None = None) -> TerminalSettings:
         retention = max(retention, defaults.audit_retention_days)
     idle = min(idle, defaults.terminal_idle_minutes)
     longest = min(longest, defaults.terminal_max_minutes)
-    why = explain.why_on("server_terminal", config)
+    why = explain.why_on(SERVER_CONTROL, config)
     return TerminalSettings(
         enabled=_flag(read("terminal.enabled", True), True),
         idle_seconds=idle * 60,

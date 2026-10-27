@@ -104,6 +104,11 @@ src/noust/
                     (an incident's snapshot, `store export`); a test fails on a column nobody ruled on
     compose_yaml.py  a Compose document read the way Compose reads it (PyYAML takes `2222:22` for a
                     base 60 number and `no` for false); every reader of a Compose file uses it
+    logsafe.py      every log record of the process reports its message on one line, so a value that
+                    came from a request cannot start another line (installed by importing logger.py)
+    templates.py    the one Jinja environment unit files, sites and pools are rendered with
+    outbound.py     where a request may go (`require_public_host`) and what its path may be
+                    (`path_segment`, `api_path`)
   validators/       names, environments, sources, ports, domains
   managers/         adapters: web server, systemd, certs, backups, databases, source, cron
     diagnose.py     why an app is down: read-only probes, most likely cause first
@@ -180,7 +185,10 @@ terraform-provider-noust/   the Terraform and OpenTofu provider (Go, Plugin Fram
 scripts/reproducible_build.py   the wheel and the sdist of a commit, byte for byte
                             (docs/reproducible-builds.md); CI and the release workflow build with it
 tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest. The 4.0
-                            features' scenarios are in scenarios_34.py (loaded by run.py), and
+                            features' scenarios (how an application arrives: Procfile, scheduled updates,
+                            push, uploads, previews; and what protects its data: S3 backups, database
+                            instances, restoring a server) are in scenarios_delivery_and_data.py (loaded
+                            by run.py), and
                             `--upgrade-from-3.3` (scenarios_upgrade.py) upgrades a 3.3.1 server that
                             carries every legacy name; `--downgrade-to-3.3` goes back over a store the
                             new version migrated. scenarios_real.py holds the ones that run the real
@@ -477,7 +485,14 @@ decided in the data layer, not in the routes.
   at one place by an allowlist (`validators/`), and that place is attacked by
   `tests/test_adversarial_inputs.py`: add a class there when you add a validator.
 - Anything that opens a request to a host somebody typed goes through `core/outbound.py`
-  (`require_public_host`), never its own resolver.
+  (`require_public_host`), never its own resolver. A name that becomes part of a request to a
+  platform's API is made one segment by `path_segment`, and the client checks the path it sends with
+  `api_path`.
+- Code scanning alerts are fixed in one place, taught to CodeQL as a model that a test proves, or
+  dismissed in GitHub with the reason written down; none is left open (a job fails while one of high
+  severity is) and none is silenced in a line of code (`docs/code-scanning.md`). A function that
+  returns a name only when it is acceptable goes in `.github/codeql/extensions/noust-python` with
+  its proof in `tests/test_codeql_models.py`, once measured to remove an alert.
 - Comments explain **why**, never what.
 - No emojis in code, comments or commit messages.
 - Absolute paths in systemd units; `shutil.which()` or `/usr/bin/`, never nvm paths.
@@ -492,6 +507,7 @@ pip install -e ".[all,dev]"     # development install
 
 pytest                          # tests
 pytest --cov=noust              # with coverage
+pytest --shard 2/6              # one slice of the suite, by whole files (CI runs each slice on its own machine)
 ruff check src/noust tests      # lint (blocking in CI)
 ruff format src/noust tests     # format (blocking in CI)
 mypy                            # types (blocking in CI)
@@ -690,3 +706,12 @@ browser"). Nothing but `catalogs.ts` imports a catalog; a test fails on the next
 
 A system error is never paraphrased. Show nginx's or systemd's own output verbatim in mono,
 with the suggested fix above it.
+
+A console test waits for what it asserts, never for a time. CI failed by turns on tests that
+passed on a fast machine: a read a field's blur had scheduled 80ms ahead started again after a
+Cancel, and two announcements fifty milliseconds apart in one live region left only the second
+drawn. A longer `timeout` on a `findBy` or a `waitFor` hides that race on the next machine, it does
+not remove it. Take the thing the test waits for out of the clock (the announcement is recorded
+with `vi.mock`, a request is counted), prove an absence by counting after the window in which it
+would have happened, and run the test under a loaded CPU before trusting it
+(`taskset -c 0-3` with a few busy loops on the same cores, and `repeats: 40` on the test).

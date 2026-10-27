@@ -39,6 +39,7 @@ from click.testing import CliRunner
 from noust.cli.app import Context, NoustCommand
 from noust.cli.app import cli as root_cli
 from noust.cli.commands import webapp
+from tests.cli_tree_support import walk
 from tests.test_cli_webapp import ServiceSpy, StoreSpy, console, make_app, services, store
 
 # Re-exported so pytest discovers them as fixtures in this module too.
@@ -273,22 +274,11 @@ def _leaf_commands() -> list[tuple[str, click.Command]]:
     Returns:
         ``(space-separated path, command)`` pairs, in a stable order.
     """
-    leaves: list[tuple[str, click.Command]] = []
-
-    def walk(command: click.Command, path: list[str], parent_ctx: click.Context) -> None:
-        if isinstance(command, click.Group):
-            ctx = click.Context(
-                command, parent=parent_ctx, info_name=command.name or path[-1:] or "cli"
-            )
-            for name in sorted(command.list_commands(ctx)):
-                sub = command.get_command(ctx, name)
-                if sub is not None:
-                    walk(sub, [*path, name], ctx)
-        else:
-            leaves.append((" ".join(path), command))
-
-    walk(root_cli, [], click.Context(root_cli))
-    return leaves
+    return [
+        (" ".join(path), command)
+        for path, command in walk(root_cli)
+        if not isinstance(command, click.Group)
+    ]
 
 
 LEAF_COMMANDS = _leaf_commands()
