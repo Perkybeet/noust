@@ -764,6 +764,65 @@ def test_set_get_round_trips_a_list_value(wasm: Wasm, real_config_path: Path) ->
     assert yaml.safe_load(result.output) == ["internal.example"]
 
 
+def test_set_reads_a_list_in_brackets_and_never_stores_the_brackets(
+    wasm: Wasm, real_config_path: Path
+) -> None:
+    """
+    The report: ``'[github.com/Arenna-Labs, local]'`` stored ``[github.com/Arenna-Labs`` and
+    ``local]``, and no repository of the organisation matched until it was corrected by hand.
+    """
+    result = wasm("config", "set", "security.allowed_sources", "[github.com/Arenna-Labs, local]")
+
+    assert result.exit_code == 0, result.output
+    stored = stored_config(real_config_path)
+    assert stored["security"]["allowed_sources"] == ["github.com/Arenna-Labs", "local"]
+
+
+@pytest.mark.parametrize(
+    "typed", ["[a.example, b.example]", "['a.example', \"b.example\"]", " [a.example,b.example] "]
+)
+def test_set_list_flag_reads_brackets_too(wasm: Wasm, real_config_path: Path, typed: str) -> None:
+    result = wasm("config", "set", "notifications.allow_private_hosts", typed, "--list")
+
+    assert result.exit_code == 0, result.output
+    stored = stored_config(real_config_path)
+    assert stored["notifications"]["allow_private_hosts"] == ["a.example", "b.example"]
+
+
+@pytest.mark.parametrize("typed", ["[a.example, b.example", "a.example, b.example]", "[a, [b]]"])
+def test_set_refuses_a_bracket_in_the_wrong_place_and_says_the_shape_that_works(
+    wasm: Wasm, real_config_path: Path, typed: str
+) -> None:
+    result = wasm("config", "set", "notifications.allow_private_hosts", typed, "--list")
+
+    assert result.exit_code == 1
+    assert "bracket" in result.output and "[a, b, c]" in result.output
+    assert not real_config_path.exists(), "nothing is written for a value that is refused"
+
+
+def test_set_validates_every_allowed_source_when_it_saves_it(
+    wasm: Wasm, real_config_path: Path
+) -> None:
+    result = wasm("config", "set", "security.allowed_sources", "github.com/acme,/srv/code")
+
+    assert result.exit_code == 1
+    assert "/srv/code" in result.output and "github.com/acme/shop" in result.output
+    assert not real_config_path.exists(), "nothing is written for a value that is refused"
+
+
+def test_set_stores_allowed_sources_as_a_list_whichever_way_they_are_typed(
+    wasm: Wasm, real_config_path: Path
+) -> None:
+    """The key has no default, so only the validator makes a comma-separated value a list."""
+    result = wasm(
+        "config", "set", "security.allowed_sources", "https://github.com/acme/shop.git, LOCAL"
+    )
+
+    assert result.exit_code == 0, result.output
+    stored = stored_config(real_config_path)
+    assert stored["security"]["allowed_sources"] == ["github.com/acme/shop", "local"]
+
+
 def test_the_deprecated_apps_directory_alias_writes_the_canonical_key(
     wasm: Wasm, real_config_path: Path
 ) -> None:

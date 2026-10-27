@@ -817,6 +817,67 @@ class TestWhatAMoveOfADatabaseNames:
 
 
 # ---------------------------------------------------------------------------
+# Where code may be deployed from: the entries of security.allowed_sources
+# ---------------------------------------------------------------------------
+
+
+class TestAnAllowedSourceIsComparedAsText:
+    """An entry decides what is deployed as this server, and is compared against a URL as text."""
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p.strip()])
+    def test_the_known_payloads_are_never_stored_as_they_came(self, payload: str) -> None:
+        from noust.validators import origins
+
+        accepted, result = verdict(origins.check_allowed_source, payload)
+
+        if accepted:
+            assert result == payload.strip().lower() or result.startswith(
+                payload.strip().split("/", 1)[0].lower()
+            ), repr(result)
+            assert not CONTROL.search(result) and " " not in result
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_is_stored_is_one_clean_line_that_stores_as_itself(self, value: str) -> None:
+        from noust.validators import origins
+
+        accepted, result = verdict(origins.check_allowed_source, value)
+
+        if accepted:
+            assert not CONTROL.search(result) and result.isascii()
+            assert not any(char in result for char in " ;|&$`'\"<>(){}[]\\,@:?#%")
+            assert result == origins.check_allowed_source(result)
+            assert len(result) <= origins.MAX_ENTRY_LENGTH
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_stored_entry_means_to_the_matcher_what_it_means_to_the_validator(
+        self, value: str
+    ) -> None:
+        from noust.core.ens import origins as matcher
+        from noust.validators import origins
+
+        accepted, result = verdict(origins.parse_allowed_source, value)
+
+        if accepted and result.keyword is None:
+            host, path = matcher._pattern_parts(result.text)
+            assert host == result.host
+            assert path == tuple(part.lower() for part in result.path)
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_list_typed_with_brackets_never_stores_one(self, value: str) -> None:
+        from noust.core.config import ConfigError, parse_list_text
+
+        try:
+            items = parse_list_text(value)
+        except ConfigError:
+            return
+        assert all("[" not in item and "]" not in item for item in items)
+        assert all(item == item.strip() and item for item in items)
+
+
+# ---------------------------------------------------------------------------
 # The runner's own refusal
 # ---------------------------------------------------------------------------
 
