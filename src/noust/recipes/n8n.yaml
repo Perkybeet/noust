@@ -1,9 +1,12 @@
 # n8n is published as an npm package, not as a repository to build, so the
 # source is a two-line package.json rendered from the recipe (assets/n8n/)
-# that depends on a pinned n8n. The 1.x line runs on Node.js 20.19 to 24; 2.x
-# needs Node.js 24 and is a recipe revision of its own once it has been
-# deployed here. Its SQLite database and encryption key file live in
-# N8N_USER_FOLDER, kept in shared/ across releases.
+# that depends on a pinned n8n. The 1.x line declares Node.js 20.19 to 24, but
+# its isolated-vm 6 asks for Node.js 22 and does not compile on 20 (a server's
+# own Node, profleet 2026-10-26), so the recipe pins node@22 and Noust fetches
+# its own when the server's is another major; 2.x needs Node.js 24 and is a
+# recipe revision of its own once it has been deployed here. Its SQLite
+# database and encryption key file live in N8N_USER_FOLDER, kept in shared/
+# across releases.
 #
 # The version in assets/n8n/package.json and `version` below are one number:
 # a test refuses a recipe where they differ.
@@ -17,20 +20,22 @@ category: automation
 tags: [automation, workflows, integrations, nodejs]
 logo: logo.svg
 version: "1.123.82"
-revision: 1
-updated: 2026-10-06
+revision: 2
+updated: 2026-10-27
 homepage: https://n8n.io
 docs: https://docs.n8n.io
 repository: https://github.com/n8n-io/n8n
 license: LicenseRef-n8n-Sustainable-Use
 needs:
-  - Node.js 20.19 to 24, with npm
+  - Node.js 22, with npm (Noust installs its own copy when the server's is another version)
   - About 2 GB of disk for its dependencies
 app_type: nodejs
 source:
   template:
     package.json: package.json
 layout: releases
+build:
+  runtime: node@22
 port: 5678
 variables:
   PUBLIC_URL: {from: url}

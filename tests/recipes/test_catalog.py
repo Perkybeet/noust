@@ -329,6 +329,55 @@ def test_the_n8n_recipe_version_is_the_version_its_package_json_installs() -> No
     assert package["dependencies"]["n8n"] == get_recipe("n8n").version
 
 
+def test_n8n_pins_node_22_because_isolated_vm_does_not_build_on_the_node_20_of_a_server() -> None:
+    """
+    n8n 1.123.82 depends on isolated-vm 6, which asks for Node 22 and does not compile on 20.
+
+    The recipe declared ``>=20.19 <=24.x``, which the server's own Node 20 meets, so Noust used it and
+    the install failed in the middle (profleet, 2026-10-26). The recipe test that passed ran on an
+    image whose Node 18 did not meet the range, so Noust had fetched its own: the path of a Node
+    inside the range was never run. Pinning the runtime makes both paths the same.
+    """
+    n8n = get_recipe("n8n")
+
+    assert n8n.build is not None and n8n.build.runtime == "node@22"
+    package = json.loads(read_asset("n8n", "package.json"))
+    assert package["engines"]["node"] == ">=22 <=24.x"
+    assert any("Node.js 22" in need for need in n8n.needs)
+
+
+def _native_template_recipes() -> list[str]:
+    return [
+        recipe.name
+        for recipe in list_recipes()
+        if recipe.kind == "native"
+        and recipe.source is not None
+        and recipe.source.kind == "template"
+    ]
+
+
+@pytest.mark.parametrize("name", _native_template_recipes())
+def test_a_recipe_that_renders_a_package_json_pins_a_runtime_the_package_json_accepts(
+    name: str,
+) -> None:
+    """The range a recipe declares and the Node it runs on are one decision, not two."""
+    recipe = get_recipe(name)
+    try:
+        package = json.loads(read_asset(name, "package.json"))
+    except (FileNotFoundError, OSError, RecipeError):
+        pytest.skip("this template renders no package.json")
+    wanted = package.get("engines", {}).get("node")
+    if wanted is None:
+        pytest.skip("it declares no Node range")
+
+    assert recipe.build is not None and recipe.build.runtime, (
+        f"{name} declares node {wanted} but pins no runtime, so the server's own Node decides"
+    )
+    major = int(recipe.build.runtime.split("@", 1)[1].split(".")[0])
+    lowest = int(re.match(r">=\s*(\d+)", wanted).group(1))  # type: ignore[union-attr]
+    assert major >= lowest, (name, wanted, recipe.build.runtime)
+
+
 def test_a_git_recipe_pins_a_tag_never_a_branch() -> None:
     """A release tag."""
     for name in ("uptime-kuma", "umami"):
