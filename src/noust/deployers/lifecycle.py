@@ -62,6 +62,7 @@ from noust.core import app_rollout_store, audit, cancellation, deploy_guard
 from noust.core.app_health_store import HealthExtras
 from noust.core.app_health_store import set_extras as set_health_extras
 from noust.core.app_health_store import validated as validated_extras
+from noust.core.app_lookup import require_app
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.container_store import forget_secrets
@@ -1174,7 +1175,7 @@ def _write_branch_pin(store: NoustStore, domain: str, branch: str | None) -> str
     """
     from noust.core.audit import current_actor
 
-    app = _known_app(store, domain)
+    app = require_app(store, domain)
     previous = app.branch
     app.branch = branch
     store.update_app(app)
@@ -3884,7 +3885,7 @@ def set_health_check(
     """
     require_server_role("Applications")
     store = get_store()
-    app = _known_app(store, validate_domain(domain))
+    app = require_app(store, validate_domain(domain))
     if app.is_static and app.app_type != PHP_FPM:
         raise DeploymentError(
             f"{app.domain} is a static site; nothing answers HTTP for it but the web server",
@@ -3900,7 +3901,7 @@ def set_health_check(
         store.set_app_health(app.domain, path=path, expect=expect, timeout=timeout)
         if extras is not None:
             set_health_extras(app.domain, extras, updated_by=updated_by, store=store)
-    return _known_app(store, app.domain)
+    return require_app(store, app.domain)
 
 
 @dataclass(frozen=True)
@@ -3953,7 +3954,7 @@ def set_branch(
 
     require_server_role("Applications")
     store = get_store()
-    app = _known_app(store, validate_domain(domain))
+    app = require_app(store, validate_domain(domain))
     if branch is not None and _followed_pattern(app):
         raise ValidationError(
             f"{app.domain} follows tags ({_followed_pattern(app)}), so it has no branch to pin",
@@ -4019,7 +4020,7 @@ def set_follow_tags(domain: str, pattern: str | None) -> TagFollow:
 
     require_server_role("Applications")
     store = get_store()
-    app = _known_app(store, validate_domain(domain))
+    app = require_app(store, validate_domain(domain))
     if pattern is not None:
         if not app.source or validate_source(app.source)[0] != "git":
             raise SourceError(
@@ -4042,28 +4043,6 @@ def set_follow_tags(domain: str, pattern: str | None) -> TagFollow:
         details={"follow_tags": pattern, "previous": previous},
     )
     return TagFollow(domain=app.domain, pattern=pattern, previous=previous)
-
-
-def _known_app(store: NoustStore, domain: str) -> App:
-    """
-    Read an application's row, or say it is not deployed.
-
-    Args:
-        store: The store.
-        domain: A validated domain.
-
-    Returns:
-        The row.
-
-    Raises:
-        NoustError: There is none.
-    """
-    app = store.get_app(domain)
-    if app is None:
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
-    return app
 
 
 # ---------------------------------------------------------------------------

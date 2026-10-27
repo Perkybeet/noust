@@ -30,23 +30,12 @@ from noust.core.app_compose_store import (
     ComposeOptions,
     words,
 )
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
 from noust.deployers import compose_document
 from noust.deployers.helpers import compose_variables
 from noust.deployers.helpers.compose_settings import change_compose, describe_compose, reset_compose
 from noust.validators.domain import validate_domain
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def _print(ctx: Context, domain: str, options: ComposeOptions) -> None:
@@ -209,7 +198,7 @@ def set_command(
     if ctx.dry_run:
         ctx.logger.info(f"Would set {', '.join(sorted(given))} of {validated}")
         return
-    options = change_compose(validated, given, actor=_actor())
+    options = change_compose(validated, given, actor=cli_actor().label)
     if ctx.json_output:
         click.echo(json.dumps({"domain": validated, **options.to_dict()}))
         return
@@ -242,7 +231,7 @@ def document_command(ctx: Context, domain: str) -> None:
     one: a stack from a repository keeps its compose file in git, and a recipe's is the recipe's.
     The document can hold a value typed into it, so reading it is recorded.
     """
-    found = compose_document.read_document(validate_domain(domain), actor=_actor())
+    found = compose_document.read_document(validate_domain(domain), actor=cli_actor().label)
     if ctx.json_output:
         click.echo(json.dumps({"domain": found.domain, "path": found.path, "document": found.text}))
         return
@@ -343,7 +332,7 @@ def replace_command(
         validated,
         text,
         apply=apply_now,
-        actor=_actor(),
+        actor=cli_actor().label,
         on_phase=lambda index, total, message: logger.step(index, total, message),
         on_step=logger.substep,
         logger=logger,

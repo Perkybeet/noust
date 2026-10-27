@@ -17,14 +17,13 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from noust.core.app_process_store import ProcessRecord
-from noust.core.teams import scoped_store
 from noust.managers.app_processes import ProcessManager
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.auth import actor_label
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -105,25 +104,6 @@ class ProcessLogsResponse(BaseModel):
     lines: int
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 def _info(entry: dict[str, Any]) -> ProcessInfo:
     return ProcessInfo(**entry)
 
@@ -145,7 +125,7 @@ def list_processes(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     found = [_info(item.to_dict()) for item in ProcessManager().status(validated)]
     return ProcessListResponse(domain=validated, processes=found, total=len(found))
 
@@ -177,7 +157,7 @@ def put_process(
         ValidationError: A name, count, command or limit a unit cannot have (400).
         DeploymentError: A copy did not stay up (the process is as it was).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     change = ProcessManager().set_process(
         validated,
         ProcessRecord(
@@ -225,7 +205,7 @@ def scale_process(
         ValidationError: There is no such process, or the count is out of range (400).
         DeploymentError: A new copy did not stay up (the count is as it was).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     change = ProcessManager().scale(validated, name, body.instances, actor=actor_label(session))
     return ProcessChangeResponse(
         domain=change.domain,
@@ -255,7 +235,7 @@ def delete_process(
         HTTPException: 404 when the application is unknown.
         ValidationError: There is no such process (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     change = ProcessManager().remove(validated, name, actor=actor_label(session))
     return ProcessChangeResponse(
         domain=change.domain, name=change.name, stopped=list(change.stopped), removed=True
@@ -285,7 +265,7 @@ def process_logs(
         HTTPException: 404 when the application is unknown.
         ValidationError: There is no such process (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     text = ProcessManager().logs(validated, name, lines=lines)
     return ProcessLogsResponse(
         domain=validated, name=name, logs=text or "No logs available", lines=lines

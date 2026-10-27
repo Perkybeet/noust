@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
@@ -29,7 +29,7 @@ from noust.deployers import access
 from noust.managers import trusted_proxies
 from noust.managers.site_forward_auth import PRESETS
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app
 from noust.web.api.scope import require_instance_scope
 from noust.web.auth import get_client_ip
 from noust.web.permissions import Permission
@@ -319,25 +319,6 @@ class RangesRefresh(RangesResponse):
 _HSTS_TO_POLICY: dict[str, bool | None] = {"default": None, "on": True, "off": False}
 
 
-def _require_app(domain: str) -> str:
-    """
-    Validate an application's domain and require that it is deployed.
-
-    Args:
-        domain: The domain from the path.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 def _response(view: access.AccessView) -> PolicyResponse:
     """
     Translate a view to its response model.
@@ -463,7 +444,7 @@ def get_http3(
     Returns:
         What is available, what is missing and the firewall's answer for UDP 443.
     """
-    return Http3Model(**access.http3_support(_require_app(domain)).to_dict())
+    return Http3Model(**access.http3_support(known_app(domain)).to_dict())
 
 
 def _guard_proxy_ports(routes: list[RouteFields] | None) -> None:
@@ -499,7 +480,7 @@ def get_policy(
     Returns:
         The policy in force. No password hash is ever returned.
     """
-    return _response(access.describe(_require_app(domain)))
+    return _response(access.describe(known_app(domain)))
 
 
 @router.put("/{domain}/policy", response_model=PolicyResponse)
@@ -528,7 +509,7 @@ def put_policy(
     Raises:
         ValidationError: A value is not acceptable (400, naming the field).
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     _guard_proxy_ports(data.routes)
     if data.forward_auth is not None:
         # nginx will call whatever address is named, from this machine: the server's to choose.
@@ -557,7 +538,7 @@ def delete_policy(
     Returns:
         The policy now in force.
     """
-    return _response(access.reset_policy(_require_app(domain)))
+    return _response(access.reset_policy(known_app(domain)))
 
 
 @router.put("/{domain}/policy/users/{username}", response_model=PolicyResponse)
@@ -579,7 +560,7 @@ def put_policy_user(
     Returns:
         The policy and its accounts.
     """
-    return _response(access.set_user(_require_app(domain), username, data.password))
+    return _response(access.set_user(known_app(domain), username, data.password))
 
 
 @router.delete("/{domain}/policy/users/{username}", response_model=PolicyResponse)
@@ -599,7 +580,7 @@ def delete_policy_user(
     Returns:
         The policy and its accounts.
     """
-    return _response(access.remove_user(_require_app(domain), username))
+    return _response(access.remove_user(known_app(domain), username))
 
 
 def _ranges() -> RangesResponse:

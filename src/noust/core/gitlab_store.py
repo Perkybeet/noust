@@ -20,11 +20,11 @@ from __future__ import annotations
 import builtins
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 #: How a connection signs in.
 KINDS = ("token", "oauth")
@@ -169,14 +169,6 @@ def oauth_secret(host: str) -> str:
     return f"gitlab/oauth/{host.replace(':', '_')}"
 
 
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 in UTC.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
 def _connection(row: Any) -> GitLabConnection:
     """
     Args:
@@ -297,7 +289,7 @@ class GitLabStore:
                 details="Choose one of: " + ", ".join(KINDS) + ".",
                 field="kind",
             )
-        now = _now()
+        now = utc_now_iso("seconds")
         with self._store._transaction() as cursor:
             cursor.execute("SELECT 1 FROM gitlab_connections WHERE name = ?", (name,))
             if cursor.fetchone() is not None:
@@ -326,7 +318,7 @@ class GitLabStore:
             username: The user GitLab named, when it did.
             error: What GitLab said, when it did not.
         """
-        now = _now()
+        now = utc_now_iso("seconds")
         with self._store._transaction() as cursor:
             cursor.execute(
                 "UPDATE gitlab_connections SET last_checked_at = ?, last_status = ?, "
@@ -407,7 +399,13 @@ class GitLabStore:
                 "INSERT INTO gitlab_oauth_apps (host, client_id, secret_name, created_at, "
                 "created_by) VALUES (?, ?, ?, ?, ?) ON CONFLICT(host) DO UPDATE SET "
                 "client_id = excluded.client_id, created_by = excluded.created_by",
-                (host.lower(), client_id, oauth_secret(host.lower()), _now(), created_by),
+                (
+                    host.lower(),
+                    client_id,
+                    oauth_secret(host.lower()),
+                    utc_now_iso("seconds"),
+                    created_by,
+                ),
             )
         stored = self.oauth_application(host)
         if stored is None:  # pragma: no cover - the upsert just succeeded

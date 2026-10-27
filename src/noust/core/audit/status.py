@@ -15,11 +15,8 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from noust.core.timeutil import utc_now_iso
 
 
 @dataclass
@@ -71,7 +68,7 @@ def mark_failure(message: str) -> bool:
         _state.failing = True
         _state.failures += 1
         _state.last_failure = message
-        _state.last_failure_at = _now()
+        _state.last_failure_at = utc_now_iso()
         return first
 
 
@@ -87,7 +84,7 @@ def mark_success() -> bool:
         if not _state.failing:
             return False
         _state.failing = False
-        _state.recovered_at = _now()
+        _state.recovered_at = utc_now_iso()
         return True
 
 
@@ -109,7 +106,7 @@ def mark_sink(sink_id: str, error: str | None, lag_seconds: float | None = None)
         status.ok = error is None
         if error is not None:
             status.error = error
-            status.error_at = _now()
+            status.error_at = utc_now_iso()
         status.lag_seconds = lag_seconds
         return changed
 

@@ -41,6 +41,7 @@ def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStor
     NoustStore.reset_instance()
     instance = NoustStore(tmp_path / "noust.db")
     monkeypatch.setattr(hardening_api, "scoped_store", lambda: ScopedStore(store=instance))
+    monkeypatch.setattr("noust.web.api.deps.scoped_store", lambda: ScopedStore(store=instance))
     instance.create_app(
         App(domain=DOMAIN, app_type="nodejs", port=3100, app_path="/var/www/apps/shop-example-com")
     )

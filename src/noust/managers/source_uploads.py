@@ -35,7 +35,6 @@ import re
 import secrets
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +43,7 @@ from noust.core.config import Config
 from noust.core.exceptions import SourceError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 from noust.managers.database.uploads import (
     Upload,
     UploadProfile,
@@ -180,10 +180,6 @@ def validate_dockerfile(content: str) -> str:
             field="content",
         )
     return content
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _measure(tree: Path) -> tuple[int, int]:
@@ -325,7 +321,7 @@ class SourceUploads:
             files=files,
             bytes=total,
             owner=session.owner,
-            created_at=_now(),
+            created_at=utc_now_iso("seconds"),
         )
         self.fs.write_text(self._sidecar(upload_id), json.dumps(asdict(uploaded)), mode=SECRET_MODE)
         return uploaded
@@ -381,7 +377,7 @@ class SourceUploads:
             files=1,
             bytes=len(data),
             owner=owner,
-            created_at=_now(),
+            created_at=utc_now_iso("seconds"),
         )
         self.fs.write_text(self._sidecar(upload_id), json.dumps(asdict(uploaded)), mode=SECRET_MODE)
         audit.record(

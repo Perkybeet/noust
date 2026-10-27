@@ -34,7 +34,6 @@ from __future__ import annotations
 import builtins
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 import yaml
@@ -43,6 +42,7 @@ from noust.core import audit
 from noust.core.exceptions import NodeError, ValidationError
 from noust.core.secret_detection import classify
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 from noust.fleet.cloud.models import validate_script_name
 
 #: The two kinds of entry.
@@ -183,11 +183,6 @@ BUILTIN_ENTRIES: tuple[LibraryEntry, ...] = (
         builtin=True,
     ),
 )
-
-
-def _now() -> str:
-    """Returns: The current time, ISO 8601 UTC."""
-    return datetime.now(timezone.utc).isoformat()
 
 
 # ---------------------------------------------------------------- validation
@@ -570,7 +565,7 @@ class CloudInitLibrary:
             raise ValidationError(
                 "A description is one line of at most 200 characters", field="description"
             )
-        now = _now()
+        now = utc_now_iso()
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO cloud_init_scripts (name, kind, description, content, created_at, "

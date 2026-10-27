@@ -20,16 +20,15 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from noust.core import app_source_store
 from noust.core.exceptions import ValidationError
-from noust.core.teams import scoped_store
 from noust.deployers import source_change
 from noust.web.api.apps import _require_local_source_privilege
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.auth import actor_label
 from noust.web.pydantic_compat import dump_model
 
@@ -80,25 +79,6 @@ def _response(domain: str, options: app_source_store.SourceOptions) -> SourceOpt
     return SourceOptionsResponse(domain=domain, **options.to_dict())
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/source-options", response_model=SourceOptionsResponse)
 def get_source_options(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -116,7 +96,7 @@ def get_source_options(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     return _response(validated, app_source_store.get_options(validated))
 
 
@@ -144,7 +124,7 @@ def put_source_options(
         HTTPException: 404 when the application is unknown.
         ValidationError: A value is not acceptable (400, with the field).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     given = {key: value for key, value in dump_model(body).items() if value is not None}
     if not given:
         raise ValidationError(
@@ -173,7 +153,7 @@ def delete_source_options(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     app_source_store.reset_options(validated, actor=actor_label(session))
     return _response(validated, app_source_store.get_options(validated))
 
@@ -257,7 +237,7 @@ def plan_source_change(
             is not acceptable (400, with the field).
         SourceError: The remote cannot be read, or has no such branch (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     _require_local_source_privilege(request, session, body.source)
     plan = source_change.plan_change(validated, body.source, body.branch, check=body.check)
     return SourcePlanResponse(**plan.to_dict())
@@ -293,7 +273,7 @@ def put_source(
         SourceError: The remote cannot be read, or has no such branch (400).
         AppBusyError: Another operation is running on the application (409).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     _require_local_source_privilege(request, session, body.source)
     done = source_change.change_source(
         validated, body.source, body.branch, check=body.check, actor=actor_label(session)

@@ -20,15 +20,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.audit import Actor
 from noust.core.deploy_keys import DeployKey
-from noust.core.teams import scoped_store
 from noust.managers.source_keys import MAX_PRIVATE_KEY, DeployKeyManager, DeployKeyView
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.auth import actor_label
 from noust.web.permissions.principal import actor_of
 from noust.web.pydantic_compat import iso_offset_validator
@@ -313,25 +312,6 @@ def _view(manager: DeployKeyManager, view: DeployKeyView) -> AppDeployKeyRespons
     )
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/deploy-key", response_model=AppDeployKeyResponse)
 def get_deploy_key(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -350,7 +330,7 @@ def get_deploy_key(
         HTTPException: 404 when the application is unknown.
     """
     manager = _manager(session)
-    return _view(manager, manager.view(_known(domain)))
+    return _view(manager, manager.view(known_app(domain)))
 
 
 @router.post("/{domain}/deploy-key", response_model=AppDeployKeyResponse, status_code=201)
@@ -378,7 +358,7 @@ def create_deploy_key(
         ValidationError: The application has no git repository, already has a
             key, or the name is taken (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     manager = _manager(session)
     if body.key:
         manager.assign(validated, body.key)
@@ -411,7 +391,7 @@ def import_deploy_key(
         HTTPException: 404 when the application is unknown.
         ValidationError: The key is not valid or has a passphrase (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     manager = _manager(session)
     manager.import_key(validated, body.private_key, name=body.name)
     return _view(manager, manager.view(validated))
@@ -436,7 +416,7 @@ def delete_deploy_key(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     manager = _manager(session)
     manager.remove(validated)
     return _view(manager, manager.view(validated))
@@ -465,7 +445,7 @@ def start_rotation(
         HTTPException: 404 when the application is unknown.
         ValidationError: The application has no deploy key (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     manager = _manager(session)
     manager.rotate_start(validated)
     return _view(manager, manager.view(validated))
@@ -488,7 +468,7 @@ def cancel_rotation(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     manager = _manager(session)
     manager.rotate_cancel(validated)
     return _view(manager, manager.view(validated))
@@ -516,7 +496,7 @@ def test_deploy_key(
         SourceError: The repository cannot be read; git's own words are in the
             error (a refused key, a host key that changed).
     """
-    return DeployKeyTestResponse(message=_manager(session).verify(_known(domain)))
+    return DeployKeyTestResponse(message=_manager(session).verify(known_app(domain)))
 
 
 @keys_router.get("", response_model=DeployKeyListResponse)

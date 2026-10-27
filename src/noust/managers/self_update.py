@@ -39,7 +39,7 @@ import time
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -48,6 +48,7 @@ from noust.core import paths
 from noust.core.exceptions import NoustError
 from noust.core.fs import SECRET_MODE, FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.timeutil import utc_now_iso
 from noust.core.update_checker import web_installed
 from noust.managers.transient_unit import (
     JobVerdict,
@@ -260,11 +261,6 @@ class SelfUpdateRecord:
             return cls(**{key: data[key] for key in cls.__dataclass_fields__ if key in data})
         except TypeError:
             return None
-
-
-def _now() -> str:
-    """Returns: Now, ISO 8601 UTC."""
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _process_started() -> float:
@@ -594,7 +590,7 @@ class SelfUpdate:
             record.status = "installed"
         if record.status != before or record.status in ("succeeded", "failed"):
             if record.status in ("succeeded", "failed"):
-                record.finished_at = _now()
+                record.finished_at = utc_now_iso()
                 record.to_version = self.version
             self.write(record)
         return record
@@ -700,7 +696,7 @@ class SelfUpdate:
             from_version=self.version,
             target_version=target_version,
             argv=list(command.install),
-            started_at=_now(),
+            started_at=utc_now_iso(),
             job_id=job_id,
             actor=actor,
         )
@@ -715,7 +711,7 @@ class SelfUpdate:
             record.tail = (result.stdout + result.stderr).splitlines()[-TAIL_LINES:]
             record.status = "succeeded" if result.success else "failed"
             record.error = None if result.success else f"{command.install[0]} failed"
-            record.finished_at = _now()
+            record.finished_at = utc_now_iso()
             self.write(record)
             return record
 
@@ -739,7 +735,7 @@ class SelfUpdate:
             record.status = "failed"
             record.error = "systemd-run refused to start the update"
             record.tail = (started.stdout + started.stderr).splitlines()[-TAIL_LINES:]
-            record.finished_at = _now()
+            record.finished_at = utc_now_iso()
             self.write(record)
             raise SelfUpdateRefused(
                 "unit_failed",

@@ -19,22 +19,11 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
 from noust.deployers import unit_tuning as engine
 from noust.managers import unit_tuning
 from noust.validators.domain import validate_domain
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def _memlock(value: str | None) -> int | str | None:
@@ -317,7 +306,7 @@ def _apply(
             abort=True,
         )
     change = engine.set_tuning(
-        domain, options, restart=not no_restart, actor=_actor(), logger=ctx.logger
+        domain, options, restart=not no_restart, actor=cli_actor().label, logger=ctx.logger
     )
     if ctx.json_output:
         click.echo(json.dumps(change.to_dict()))

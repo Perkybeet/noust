@@ -23,23 +23,12 @@ import json
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.runner import get_runner
 from noust.core.store import get_store
 from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.sandbox_trial import run_trial
 from noust.validators.domain import validate_domain
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def _print_state(ctx: Context, state: build_sandbox.SandboxState) -> None:
@@ -163,7 +152,7 @@ def enable_command(
     Build the application in the sandbox from its next deploy on.
     """
     state = build_sandbox.enable(
-        validate_domain(domain), actor=_actor(), force=force, network=network, pty=pty
+        validate_domain(domain), actor=cli_actor().label, force=force, network=network, pty=pty
     )
     if ctx.json_output:
         click.echo(json.dumps(state.to_dict()))
@@ -196,7 +185,7 @@ def disable_command(ctx: Context, domain: str, reason: str | None, yes: bool) ->
             f"Build {validated} as root? Its dependencies' install scripts get root's access",
             abort=True,
         )
-    state = build_sandbox.disable(validated, actor=_actor(), reason=reason)
+    state = build_sandbox.disable(validated, actor=cli_actor().label, reason=reason)
     if ctx.json_output:
         click.echo(json.dumps(state.to_dict()))
         return
@@ -221,12 +210,14 @@ def compose_exception_command(
     """
     validated = validate_domain(domain)
     if revoke:
-        build_sandbox.set_compose_exception(validated, allowed=False, actor=_actor())
+        build_sandbox.set_compose_exception(validated, allowed=False, actor=cli_actor().label)
         ctx.logger.success(f"{validated} may no longer run privileged containers")
         return
     if not (yes or ctx.dry_run):
         click.confirm(f"Allow {validated} containers that are root on this server?", abort=True)
-    build_sandbox.set_compose_exception(validated, allowed=True, actor=_actor(), reason=reason)
+    build_sandbox.set_compose_exception(
+        validated, allowed=True, actor=cli_actor().label, reason=reason
+    )
     ctx.logger.warning(f"{validated} may run privileged containers and mount the Docker socket")
 
 

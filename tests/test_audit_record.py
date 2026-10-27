@@ -93,6 +93,27 @@ class TestActor:
         assert Actor.from_dict(actor.to_dict()) == actor
 
 
+class TestTheNameOfWhoActs:
+    """What a manager writes in ``created_by`` and ``updated_by``, read from the bound actor."""
+
+    def test_nobody_bound_is_none(self) -> None:
+        assert audit.current_actor_name() is None
+
+    @pytest.mark.parametrize(
+        ("actor", "name"),
+        [
+            (Actor(kind="user", id="17", name="maria"), "maria"),
+            (Actor(kind="token", name="ci"), "ci"),
+            (Actor(kind="user", id="17"), "17"),
+            (Actor(kind="master"), "master"),
+            (Actor(kind="system"), "system"),
+        ],
+    )
+    def test_it_is_the_name_then_the_id_then_the_kind(self, actor: Actor, name: str) -> None:
+        with bind(actor=actor):
+            assert audit.current_actor_name() == name
+
+
 class TestOperatingSystemIdentity:
     def test_the_login_uid_names_who_ran_sudo(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

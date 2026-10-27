@@ -18,10 +18,10 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 #: The record exists and nothing, or only part of it, is on the machine yet.
 OPENING = "opening"
@@ -182,7 +182,7 @@ class StreamStore:
         Raises:
             sqlite3.IntegrityError: The name or the port and protocol are held.
         """
-        created = exposure.created_at or _now()
+        created = exposure.created_at or utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 """
@@ -271,11 +271,3 @@ def _exposure(row: sqlite3.Row) -> StreamExposure:
         created_at=row["created_at"],
         created_by=row["created_by"],
     )
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 UTC.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")

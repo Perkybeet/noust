@@ -18,22 +18,11 @@ import json
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
 from noust.core.unit_hardening_store import PROFILES
 from noust.deployers import hardening
 from noust.validators.domain import validate_domain
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 @click.group("hardening", cls=NoustGroup)
@@ -138,7 +127,7 @@ def set_command(
         profile,
         writable_paths=() if no_writable else (list(writable) if writable else None),
         restart=not no_restart,
-        actor=_actor(),
+        actor=cli_actor().label,
         logger=ctx.logger,
     )
     if ctx.json_output:

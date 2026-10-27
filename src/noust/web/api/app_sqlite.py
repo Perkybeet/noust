@@ -15,15 +15,13 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
-from noust.core.store import App
-from noust.core.teams import scoped_store
 from noust.managers import sqlite_files
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app_row
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -74,26 +72,6 @@ class SqliteCheckResponse(BaseModel):
     seconds: float
 
 
-def _known(domain: str) -> App:
-    """
-    Validate a domain and find what is deployed there.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The application's row, as the caller's teams see it.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    found = scoped_store().get_app(validated)
-    if found is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return found
-
-
 @router.get("/{domain}/sqlite", response_model=SqliteListResponse)
 def list_app_sqlite(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -111,7 +89,7 @@ def list_app_sqlite(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    listing = sqlite_files.find(_known(domain))
+    listing = sqlite_files.find(known_app_row(domain))
     return SqliteListResponse(**listing.to_dict())
 
 
@@ -141,7 +119,7 @@ def check_app_sqlite(
         ValidationError: The path is not a database of this application, or it is too large
             for a request (400).
     """
-    app = _known(domain)
+    app = known_app_row(domain)
     located = sqlite_files.locate(app, body.path)
     if located.stat().st_size > sqlite_files.MAX_REQUEST_BYTES:
         raise ValidationError(

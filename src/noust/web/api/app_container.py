@@ -20,17 +20,16 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from noust.core.teams import scoped_store
 from noust.deployers.helpers.container_settings import (
     ContainerView,
     change_container,
     describe_container,
 )
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app
 from noust.web.auth import actor_label
 from noust.web.pydantic_compat import dump_model
 
@@ -180,25 +179,6 @@ def request_to_changes(body: ContainerSettingsRequest) -> dict[str, Any]:
     return changes
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 def _response(view: ContainerView) -> ContainerSettingsResponse:
     """
     Args:
@@ -228,7 +208,7 @@ def get_app_container(
         HTTPException: 404 when the application is unknown.
         ValidationError: It is not a container application (400).
     """
-    return _response(describe_container(_known(domain)))
+    return _response(describe_container(known_app(domain)))
 
 
 @router.put("/{domain}/container", response_model=ContainerSettingsResponse)
@@ -257,7 +237,7 @@ def put_app_container(
             change moves between an image and a repository.
         AppBusyError: Another operation is running on the application (409).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     change_container(validated, request_to_changes(body), actor=actor_label(session))
     return _response(describe_container(validated))
 
@@ -306,4 +286,4 @@ def check_app_image(
     """
     from noust.managers.image_updates import check_image
 
-    return ImageCheckResponse(**check_image(_known(domain)).to_dict())
+    return ImageCheckResponse(**check_image(known_app(domain)).to_dict())

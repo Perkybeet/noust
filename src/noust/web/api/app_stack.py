@@ -53,31 +53,12 @@ from noust.web.api.deps import (
     ErrorResponse,
     NoustErrorRoute,
     error_response,
+    known_app,
     require_elevated,
-    strict_domain,
 )
 from noust.web.auth import actor_label
 
 router = APIRouter(route_class=NoustErrorRoute)
-
-
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed at it.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +105,7 @@ def patch_backup_before_update(
         HTTPException: 404 when nothing is deployed at the domain.
         ValidationError: It is not a Docker Compose stack (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     previous = set_backup_before_update(validated, body.enabled)
     return BackupBeforeUpdateResponse(
         domain=validated, backup_before_update=body.enabled, previous=previous
@@ -193,7 +174,7 @@ def get_backup_required(
     Raises:
         HTTPException: 404 when nothing is deployed at the domain.
     """
-    return _required_response(update_backup_policy(_known(domain)))
+    return _required_response(update_backup_policy(known_app(domain)))
 
 
 @router.put("/{domain}/backup-required", response_model=BackupRequiredResponse)
@@ -222,7 +203,7 @@ def put_backup_required(
     Raises:
         HTTPException: 404 when nothing is deployed at the domain.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     policy = set_update_backup_required(validated, body.required, actor=actor_label(session))
     return _required_response(policy)
 
@@ -282,7 +263,7 @@ def get_headless(
     Raises:
         HTTPException: 404 when nothing is deployed at the domain.
     """
-    check = headless_check(_known(domain))
+    check = headless_check(known_app(domain))
     return HeadlessCheckResponse(
         domain=check.domain,
         headless=check.headless,
@@ -317,7 +298,7 @@ def post_headless(
         ValidationError: It is not a Compose stack, or it publishes a port (400).
         AppBusyError: Another operation is running on it (409).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     change = make_headless(
         validated,
         remove_site=body.remove_site if body is not None else False,
@@ -393,7 +374,7 @@ def post_reclaim(
         ServiceError: systemd refused to enable or start the unit.
         AppBusyError: Another operation is running on it (409).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     wanted = body if body is not None else ReclaimRequest()
     try:
         plan = plan_reclaim(validated, accept_recreate=wanted.accept_recreate)
@@ -501,7 +482,7 @@ def get_networks(
     Raises:
         HTTPException: 404 when nothing is deployed at the domain.
     """
-    app = scoped_store().get_app(_known(domain))
-    if app is None:  # pragma: no cover - _known just proved it
+    app = scoped_store().get_app(known_app(domain))
+    if app is None:  # pragma: no cover - known_app just proved it
         raise HTTPException(status_code=404, detail=f"Application not found: {domain}")
     return StackNetworksResponse(**stack_networks(app).to_dict())

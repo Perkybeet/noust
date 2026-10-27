@@ -57,6 +57,7 @@ from typing import Any
 from noust.central import require_server_role
 from noust.core import audit, cdn_networks
 from noust.core.applock import app_lock
+from noust.core.audit.context import current_actor_name
 from noust.core.certificate_store import CertificateStore
 from noust.core.config import Config
 from noust.core.domain_certificates import OWN, SHARED, check_mode
@@ -348,7 +349,7 @@ def _add_domain(
                 name,
                 challenge=challenge,
                 dns_provider=dns_provider,
-                updated_by=_actor(),
+                updated_by=current_actor_name(),
             )
         )
         store.set_domain_certificate(app.domain, name, OWN)
@@ -697,10 +698,10 @@ def _set_canonical(
                 store.remove_domain(app.domain, name)
             store.add_domain(app.domain, name, kind)
             changed.append((name, existing))
-        policies.save(app.domain, replace(before, canonical=choice), actor=_actor())
+        policies.save(app.domain, replace(before, canonical=choice), actor=current_actor_name())
         deployer.refresh_site(with_ssl=tls)
     except _APPLY_ERRORS:
-        policies.save(app.domain, before, actor=_actor())
+        policies.save(app.domain, before, actor=current_actor_name())
         for name, existing in reversed(changed):
             store.remove_domain(app.domain, name)
             if existing is not None:
@@ -1061,15 +1062,6 @@ def machine_addresses() -> tuple[str, ...]:
 # -- Internals ----------------------------------------------------------------
 
 
-def _actor() -> str | None:
-    """
-    Returns:
-        A label for who is acting, for the records' ``updated_by``.
-    """
-    actor = audit.current_actor()
-    return None if actor is None else str(actor.name or actor.id or actor.kind)
-
-
 #: Types whose site serves files or several servers of its own: no single port to choose.
 #: A Compose stack is in the list because it routes by ``noust.nginx.yaml``; a name of it may
 #: still go to a port the stack publishes (a service that answers on an address of its own).
@@ -1224,7 +1216,7 @@ def _point_dns(app: App, name: str, log: Logger) -> tuple[dict[str, Any], ...]:
     from noust.managers.dns.records import ManagedDns
 
     try:
-        entries = ManagedDns().ensure_for_domain(app.domain, name, actor=_actor())
+        entries = ManagedDns().ensure_for_domain(app.domain, name, actor=current_actor_name())
     except (NoustError, sqlite3.Error) as exc:
         log.warning(f"DNS for {name} was not looked at: {exc}")
         return ()

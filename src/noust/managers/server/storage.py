@@ -30,13 +30,13 @@ import re
 import sqlite3
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from noust.core.exceptions import DependencyError, ValidationError
 from noust.core.fs import DryRunFileSystem, FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.timeutil import utc_now_iso
 from noust.deployers.helpers.compose_retention import PREVIOUS_TAGS as PREVIOUS_TAGS_OF_STACKS
 from noust.managers.server.errors import (
     ConfirmationRequiredError,
@@ -546,7 +546,7 @@ class StorageManager:
             reclaimable_bytes=max(0, size - target),
             action="journal",
             detail=f"Reduce it to {DEFAULT_JOURNAL_MB} MB",
-            measured_at=_now(),
+            measured_at=utc_now_iso(),
         )
 
     def docker_df(self) -> dict[str, dict[str, Any]] | None:
@@ -575,7 +575,7 @@ class StorageManager:
         table = self.docker_df()
         if not table:
             return []
-        now = _now()
+        now = utc_now_iso()
         found = []
         cache = table.get("Build Cache")
         if cache:
@@ -703,7 +703,7 @@ class StorageManager:
                 reclaimable_bytes=size if reclaim_all else None,
                 action=action,
                 detail=detail or str(path),
-                measured_at=_now(),
+                measured_at=utc_now_iso(),
             )
         )
 
@@ -721,7 +721,7 @@ class StorageManager:
             The analysis.
         """
         report = on_step or (lambda text: None)
-        out = Analysis(measured_at=_now())
+        out = Analysis(measured_at=utc_now_iso())
 
         report("Package caches")
         for identifier, relative in (
@@ -822,7 +822,7 @@ class StorageManager:
                     reclaimable_bytes=reclaimable,
                     action="releases",
                     detail=f"{apps} application(s) keep more releases than they are set to",
-                    measured_at=_now(),
+                    measured_at=utc_now_iso(),
                 )
             )
 
@@ -845,7 +845,7 @@ class StorageManager:
                     id="backups",
                     size_bytes=int(usage["total_size_bytes"]),
                     detail=f"{usage.get('total_backups', 0)} backups; their retention is a backup setting",
-                    measured_at=_now(),
+                    measured_at=utc_now_iso(),
                 )
             )
 
@@ -1281,13 +1281,3 @@ def _reclaimed(lines: list[str]) -> int | None:
         if "reclaimed space" in line.lower():
             return parse_docker_size(line.rsplit(":", 1)[-1])
     return None
-
-
-def _now() -> str:
-    """
-    Read the clock as the analysis writes it.
-
-    Returns:
-        ISO 8601 UTC.
-    """
-    return datetime.now(timezone.utc).isoformat()

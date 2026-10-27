@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
@@ -28,8 +28,8 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     JobAcceptedResponse,
     NoustErrorRoute,
+    known_app,
     require_elevated,
-    strict_domain,
 )
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
@@ -77,25 +77,6 @@ class HardeningRequest(BaseModel):
     )
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/hardening", response_model=HardeningResponse)
 def get_hardening(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -113,7 +94,7 @@ def get_hardening(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return HardeningResponse(**hardening_engine.status(_known(domain)).to_dict())
+    return HardeningResponse(**hardening_engine.status(known_app(domain)).to_dict())
 
 
 def hardening_job(
@@ -194,7 +175,7 @@ def put_hardening(
         ValidationError: A profile or a path a unit cannot have, or an
             application that cannot be hardened (400), before anything is queued.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     app = scoped_store().get_app(validated)
     if app is not None:
         reason = unit_hardening.ineligible(app)

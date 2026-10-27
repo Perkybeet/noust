@@ -21,11 +21,11 @@ from __future__ import annotations
 
 import builtins
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.exceptions import NodeError
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 from noust.fleet.models import validate_node_name
 from noust.fleet.placements import checked_domain
 
@@ -134,7 +134,7 @@ class Builders:
                 details="List them with 'noust node list'.",
                 field="node",
             )
-        now = _now()
+        now = utc_now_iso()
         current = self.get(key)
         builder = Builder(
             domain=key,
@@ -189,8 +189,3 @@ class Builders:
             created_by=row["created_by"],
             updated_at=row["updated_at"],
         )
-
-
-def _now() -> str:
-    """Returns: The current time, ISO 8601 UTC."""
-    return datetime.now(timezone.utc).isoformat()

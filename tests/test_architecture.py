@@ -260,6 +260,71 @@ class TestOneImplementation:
                 "it has its own copy of the folding logic"
             )
 
+    #: Helpers that were pasted into dozens of modules, each copy a place for the next fix to
+    #: miss. A module may define one of these names for something of its own; two modules may not
+    #: define it the same way.
+    COPIED_HELPERS = ("_known", "_actor", "_now")
+
+    #: What thirty-three routers each had under three names (`_known`, `_require_app`...): the
+    #: lookup of the application in the path, which is `noust.web.api.deps.known_app`.
+    KNOWN_APP_BODY = """
+validated = strict_domain(domain)
+if scoped_store().get_app(validated) is None:
+    raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
+return validated
+"""
+
+    @staticmethod
+    def _without_docstring(function: ast.FunctionDef) -> list[ast.stmt]:
+        body = function.body
+        first = body[0]
+        if isinstance(first, ast.Expr) and isinstance(getattr(first, "value", None), ast.Constant):
+            return body[1:]
+        return body
+
+    def test_a_helper_that_was_copied_is_defined_once(self):
+        """
+        ``_known`` had 50 definitions, ``_actor`` 31 and ``_now`` 45, most of them the same text.
+        The ones that differ stay (a function by that name may mean something else in its
+        module); what fails is the same definition in a second module.
+        """
+        seen: dict[tuple[str, str], list[str]] = {}
+        for path in python_files():
+            for node in ast.parse(path.read_text(encoding="utf-8")).body:
+                if isinstance(node, ast.FunctionDef) and node.name in self.COPIED_HELPERS:
+                    shape = ast.dump(ast.Module(self._without_docstring(node), []))
+                    arguments = ast.dump(node.args)
+                    seen.setdefault((node.name, arguments + shape), []).append(relative(path))
+
+        copies = sorted(
+            f"{name}: {', '.join(paths)}" for (name, _), paths in seen.items() if len(paths) > 1
+        )
+        assert not copies, (
+            "The same helper is defined in several modules; use the one that exists "
+            "(noust.web.api.deps.known_app, noust.cli.lookup.known_app, "
+            "noust.core.app_lookup.require_app, noust.core.audit.actor.cli_actor, "
+            "noust.core.audit.current_actor_name, noust.core.timeutil):\n  " + "\n  ".join(copies)
+        )
+
+    def test_no_router_looks_the_application_in_the_path_up_by_itself(self):
+        """
+        Whatever the copy is called. A router that writes its own forgets, one day, the scope
+        that makes another team's application read as absent.
+        """
+        wanted = ast.dump(ast.Module(ast.parse(self.KNOWN_APP_BODY).body, []))
+        offenders = set()
+        for path in python_files():
+            if path.name == "deps.py" or "web/api" not in path.as_posix():
+                continue
+            for node in ast.parse(path.read_text(encoding="utf-8")).body:
+                if isinstance(node, ast.FunctionDef):
+                    if ast.dump(ast.Module(self._without_docstring(node), [])) == wanted:
+                        offenders.add(f"{relative(path)}: {node.name}")
+
+        assert not offenders, "Use noust.web.api.deps.known_app:\n  " + "\n  ".join(
+            sorted(offenders)
+        )
+
 
 class TestFilesystemSeam:
     """

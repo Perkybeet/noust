@@ -30,6 +30,7 @@ from typing import Any
 from noust.central import require_server_role
 from noust.core import audit
 from noust.core.applock import app_lock
+from noust.core.audit.context import current_actor_name
 from noust.core.certificate_store import (
     CHALLENGE_DNS,
     CHALLENGE_HTTP,
@@ -245,7 +246,7 @@ def _use_acme(
         source=SOURCE_ACME,
         challenge=challenge,
         dns_provider=dns_provider,
-        updated_by=_actor(),
+        updated_by=current_actor_name(),
     )
     # Ordering again is needed when the way it is proven or the place it comes from
     # changes under a certificate that is already there.
@@ -373,7 +374,7 @@ def use_uploaded(app_domain: str, name: str, *, verbose: bool = False) -> Certif
                 name=name,
                 challenge=CHALLENGE_HTTP,
                 dns_provider=None,
-                updated_by=_actor(),
+                updated_by=current_actor_name(),
             )
         )
         deployer = domains.site_deployer(app, verbose=verbose)
@@ -459,12 +460,3 @@ def _require_supported(app: App) -> None:
             details="A monorepo's names include each workspace's subdomain, which only its "
             f"deploy knows. Redeploy it to order the certificate: noust update {app.domain}",
         )
-
-
-def _actor() -> str | None:
-    """
-    Returns:
-        A label for who is acting, for the records' ``updated_by``.
-    """
-    actor = audit.current_actor()
-    return None if actor is None else str(actor.name or actor.id or actor.kind)

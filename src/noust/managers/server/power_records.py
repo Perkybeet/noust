@@ -18,9 +18,9 @@ second way to write the store is how a ``--dry-run`` ends up leaving a row behin
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 #: The two things that can be scheduled.
 ACTIONS = ("reboot", "poweroff")
@@ -63,16 +63,6 @@ class ScheduledPower:
         return asdict(self)
 
 
-def _now() -> str:
-    """
-    Read the clock as the rows write it.
-
-    Returns:
-        ISO 8601 UTC.
-    """
-    return datetime.now(timezone.utc).isoformat()
-
-
 class PowerRecords:
     """Reads and writes the schedule."""
 
@@ -113,7 +103,7 @@ class PowerRecords:
         Returns:
             The new row.
         """
-        now = _now()
+        now = utc_now_iso()
         with self.store._transaction() as cursor:
             cursor.execute(
                 "UPDATE server_power_actions SET status = 'cancelled', finished_at = ? "
@@ -163,7 +153,7 @@ class PowerRecords:
             cursor.execute(
                 "UPDATE server_power_actions SET status = ?, finished_at = ? "
                 "WHERE id = ? AND status = 'scheduled'",
-                (status, _now(), action_id),
+                (status, utc_now_iso(), action_id),
             )
             return cursor.rowcount > 0
 

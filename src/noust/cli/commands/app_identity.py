@@ -19,20 +19,9 @@ import json
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.managers import app_identity
 from noust.validators.domain import validate_domain
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 @click.group("identity", cls=NoustGroup)
@@ -128,7 +117,7 @@ def migrate_command(
                 "restarted behind its health check",
                 abort=True,
             )
-        outcome = app_identity.migrate_all(actor=_actor(), logger=ctx.logger)
+        outcome = app_identity.migrate_all(actor=cli_actor().label, logger=ctx.logger)
         if ctx.json_output:
             click.echo(json.dumps(outcome.to_dict()))
         if outcome.failed:
@@ -144,7 +133,7 @@ def migrate_command(
             abort=True,
         )
     done = app_identity.migrate(
-        validated, actor=_actor(), logger=ctx.logger, shared_group=shared_group
+        validated, actor=cli_actor().label, logger=ctx.logger, shared_group=shared_group
     )
     if ctx.json_output:
         click.echo(json.dumps(done.to_dict()))

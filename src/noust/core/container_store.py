@@ -31,10 +31,10 @@ import json
 import sqlite3
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from noust.core.exceptions import ValidationError
+from noust.core.timeutil import utc_now_iso
 from noust.validators import container as rules
 
 if TYPE_CHECKING:
@@ -408,14 +408,6 @@ def forget_secrets(app_name: str, secrets: SecretStore | None = None) -> None:
     (secrets or SecretStore()).delete_namespace(f"{SECRET_NAMESPACE}/{app_name}")
 
 
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 in UTC.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
 def _decode_json(raw: Any, default: Any) -> Any:
     """
     Read a JSON column.
@@ -578,7 +570,7 @@ class ContainerStore:
                     None if settings.entrypoint is None else json.dumps(list(settings.entrypoint)),
                     None if settings.command is None else json.dumps(list(settings.command)),
                     actor,
-                    _now(),
+                    utc_now_iso("seconds"),
                 ),
             )
             return True
@@ -601,7 +593,7 @@ class ContainerStore:
                 # The column is one of this module's own setters', never input.
                 f"UPDATE app_container SET {column} = ?, updated_by = COALESCE(?, updated_by), "  # noqa: S608
                 "updated_at = ? WHERE app_id = (SELECT id FROM apps WHERE domain = ?)",
-                (value, actor, _now(), domain),
+                (value, actor, utc_now_iso("seconds"), domain),
             )
             return cursor.rowcount > 0
 
@@ -877,6 +869,6 @@ class ContainerStore:
                 "UPDATE app_container SET registry_server = ?, registry_username = ?, "
                 "registry_secret = ?, updated_at = ? "
                 "WHERE app_id = (SELECT id FROM apps WHERE domain = ?)",
-                (server, username, secret, _now(), domain),
+                (server, username, secret, utc_now_iso("seconds"), domain),
             )
             return cursor.rowcount > 0

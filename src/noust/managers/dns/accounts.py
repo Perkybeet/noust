@@ -34,6 +34,7 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.secrets import SecretStore
 from noust.core.store import NoustStore
 from noust.core.teams.model import ResourceNotFoundError
+from noust.core.timeutil import utc_now_iso
 from noust.core.tunnel_store import TunnelStore
 from noust.managers.dns import digitalocean, gandi, hetzner, route53
 from noust.managers.dns.catalog import KINDS, ProviderKind, kind_of
@@ -211,7 +212,7 @@ class DnsAccounts:
             kind=kind,
             automatic=automatic and spec.native,
             settings=settings,
-            verified_at=None if not spec.native else _now(),
+            verified_at=None if not spec.native else utc_now_iso(),
             last_error=error,
             created_by=created_by,
         )
@@ -554,13 +555,3 @@ class DnsAccounts:
                 f"certbot has no {spec.plugin} plugin",
                 details=f"Install it ({spec.package}) and add the account again.",
             )
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 in UTC.
-    """
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).isoformat()

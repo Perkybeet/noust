@@ -21,18 +21,17 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.dns_store import DnsAccount, ManagedRecord
 from noust.core.exceptions import ValidationError
-from noust.core.teams import scoped_store
 from noust.deployers.domains import list_domains
 from noust.managers.dns.accounts import DnsAccounts
 from noust.managers.dns.catalog import KINDS
 from noust.managers.dns.records import ManagedDns, server_addresses
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.auth import actor_label
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -355,25 +354,6 @@ def _record(record: ManagedRecord, apps: list[str]) -> ManagedRecordModel:
     )
 
 
-def _require_app(domain: str) -> str:
-    """
-    Validate an application's domain and require that it is deployed.
-
-    Args:
-        domain: The domain from the path.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/providers", response_model=DnsAccountList)
 def list_providers(
     session: Annotated[dict[str, Any], Depends(get_current_session)],
@@ -571,7 +551,7 @@ def get_app_dns(
     Returns:
         The plans, the names no account holds, and the managed records.
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     dns = ManagedDns()
     addresses = server_addresses()
     plans: list[DnsPlanModel] = []
@@ -629,7 +609,7 @@ def ensure_app_dns(
     Raises:
         ValidationError: The target cannot be published, or this server has no public address.
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     content = data.content
     if not content:
         addresses = server_addresses()

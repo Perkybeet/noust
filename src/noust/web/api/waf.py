@@ -14,13 +14,12 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from noust.core.teams import scoped_store
 from noust.deployers import access
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.api.scope import require_instance_scope
 from noust.web.permissions import Permission
 
@@ -143,25 +142,6 @@ class InstallResponse(BaseModel):
     packages: list[str]
 
 
-def _require_app(domain: str) -> str:
-    """
-    Validate an application's domain and require that it is deployed.
-
-    Args:
-        domain: The domain from the path.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/waf", response_model=WafModel)
 def get_waf(
     domain: str, session: Annotated[dict[str, Any], Depends(get_current_session)]
@@ -176,7 +156,7 @@ def get_waf(
     Returns:
         What is available, what is missing and how to fix it.
     """
-    return WafModel(**access.waf_support(_require_app(domain)).to_dict())
+    return WafModel(**access.waf_support(known_app(domain)).to_dict())
 
 
 @router.get("/{domain}/waf/events", response_model=WafEventsResponse)
@@ -196,7 +176,7 @@ def get_waf_events(
     Returns:
         The requests, newest first, and the rules that matched most often.
     """
-    events, noisy = access.waf_events(_require_app(domain), limit=limit)
+    events, noisy = access.waf_events(known_app(domain), limit=limit)
     return WafEventsResponse(
         events=[WafEventModel(**event.to_dict()) for event in events],
         noisy=[

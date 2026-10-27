@@ -19,18 +19,17 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from noust.core.teams import scoped_store
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.app_packages import MAX_PACKAGES, AppPackages, PackageState
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     JobAcceptedResponse,
     NoustErrorRoute,
+    known_app,
     require_elevated,
-    strict_domain,
 )
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
@@ -66,25 +65,6 @@ class PackagesResponse(BaseModel):
     updated_by: str | None = Field(description="Who changed it")
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one the principal cannot see.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 def _response(state: PackageState) -> PackagesResponse:
     """
     Args:
@@ -114,7 +94,7 @@ def get_packages(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return _response(AppPackages().state(_known(domain)))
+    return _response(AppPackages().state(known_app(domain)))
 
 
 @router.put("/{domain}/packages", response_model=PackagesResponse)
@@ -144,7 +124,7 @@ def put_packages(
             containers (400, with the field).
         AppBusyError: Another operation is running on the application (409).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     change = AppPackages().set(validated, body.packages, actor=actor_label(session), install=False)
     return _response(change.state)
 
@@ -199,7 +179,7 @@ def install_packages(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     actor = actor_label(session)
     job = get_job_manager().create_job(
         job_type=JobType.CUSTOM,

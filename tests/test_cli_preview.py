@@ -273,7 +273,7 @@ def test_sweep_removes_the_expired(
     from datetime import datetime, timezone
 
     preview(store)
-    monkeypatch.setattr(previews, "_now", lambda: datetime(2026, 10, 6, tzinfo=timezone.utc))
+    monkeypatch.setattr(previews, "utc_now", lambda: datetime(2026, 10, 6, tzinfo=timezone.utc))
 
     result = invoke(["preview", "sweep", "--json"])
 

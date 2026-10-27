@@ -62,6 +62,7 @@ from typing import Any, Literal, overload
 
 from noust.central import require_server_role
 from noust.core import audit
+from noust.core.audit.context import current_actor_name
 from noust.core.certificate_store import (
     CHALLENGE_DNS,
     SOURCE_ACME,
@@ -1703,7 +1704,7 @@ class CertManager(BaseManager):
                     domain=primary,
                     source=SOURCE_LINEAGE,
                     name=lineage,
-                    updated_by=_actor_name(),
+                    updated_by=current_actor_name(),
                 )
             )
             audit.record(
@@ -2465,12 +2466,3 @@ class CertManager(BaseManager):
             not_after=not_after,
             path=str(cert_path),
         )
-
-
-def _actor_name() -> str | None:
-    """
-    Returns:
-        A label for who is acting, for the records' ``updated_by``.
-    """
-    actor = audit.current_actor()
-    return None if actor is None else str(actor.name or actor.id or actor.kind)

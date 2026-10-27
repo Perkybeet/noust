@@ -19,14 +19,14 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
 from noust.core.teams import scoped_store
 from noust.managers.app_mounts import MountManager
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.auth import actor_label
 from noust.web.permissions import Permission
 from noust.web.permissions.enforce import PermissionDenied, has_permission
@@ -82,25 +82,6 @@ class PutMountRequest(BaseModel):
     read_only: bool = Field(default=True, description="For a path: mount it read-only")
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/mounts", response_model=MountList)
 def list_mounts(domain: str, session: Annotated[dict, Depends(get_current_session)]) -> MountList:
     """
@@ -117,7 +98,7 @@ def list_mounts(domain: str, session: Annotated[dict, Depends(get_current_sessio
         HTTPException: 404 when the application is unknown.
         ValidationError: The application takes no mounts (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     found = [MountInfo(**view.to_dict()) for view in MountManager().list_mounts(validated)]
     app = scoped_store().get_app(validated)
     return MountList(
@@ -149,7 +130,7 @@ def read_mount(
         HTTPException: 404 when the application is unknown.
         ValidationError: There is no such file, or it is not text (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     text = MountManager().read_file(validated, target, actor=actor_label(session))
     return MountContent(domain=validated, target=target, content=text)
 
@@ -173,7 +154,7 @@ def put_mount(
         HTTPException: 404 when the application is unknown.
         ValidationError: A target, content, mode or path that cannot be mounted (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     manager = MountManager()
     actor = actor_label(session)
     view: Any
@@ -222,7 +203,7 @@ def delete_mount(
         HTTPException: 404 when the application is unknown.
         ValidationError: There is no such mount (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     manager = MountManager()
     manager.remove(validated, target, actor=actor_label(session))
     found = [MountInfo(**view.to_dict()) for view in manager.list_mounts(validated)]

@@ -31,8 +31,8 @@ from noust.web.api.deps import (
     JobAcceptedResponse,
     NoustErrorRoute,
     ensure_elevated,
+    known_app,
     require_elevated,
-    strict_domain,
 )
 from noust.web.auth import actor_label, ensure_scope, get_audit_logger, get_client_ip
 from noust.web.jobs import JobType, get_job_manager
@@ -264,25 +264,6 @@ def _preview_out(record: PreviewRecord) -> PreviewOut:
     )
 
 
-def _known_app(domain: str) -> str:
-    """
-    Validate a domain and require an application behind it.
-
-    Args:
-        domain: From the path.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 def _audit(request: Request, session: dict[str, Any], action: str, detail: str) -> None:
     """
     Record a previews change in the audit log, with what changed.
@@ -322,7 +303,7 @@ def list_previews(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known_app(domain)
+    validated = known_app(domain)
     store = get_store()
     settings = store.get_preview_settings(validated)
     items = [_preview_out(record) for record in store.list_previews(validated)]
@@ -383,7 +364,7 @@ def get_preview_dns(
         HTTPException: 404 when the application is unknown.
         ValidationError: Previews are off for it (400).
     """
-    validated = _known_app(domain)
+    validated = known_app(domain)
     return PreviewDnsResponse(**preview_dns.check_preview_dns(validated).to_dict())
 
 
@@ -420,7 +401,7 @@ def put_preview_settings(
         ValidationError: A value is refused (400, with the reason).
         ServiceError: The sweep timer could not be installed.
     """
-    validated = _known_app(domain)
+    validated = known_app(domain)
     stored = previews.enable_previews(
         validated,
         body.base_domain,
@@ -472,7 +453,7 @@ def delete_preview_settings(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known_app(domain)
+    validated = known_app(domain)
     store = get_store()
     had_settings = store.delete_preview_settings(validated)
     removing = [record.domain for record in store.list_previews(validated)]
@@ -726,7 +707,7 @@ def list_pull_requests(
         HTTPException: 404 when the application is unknown.
         IntegrationError: No GitHub App reaches the repository (502).
     """
-    validated = _known_app(domain)
+    validated = known_app(domain)
     items = [PullRequestOut(**item) for item in previews.list_pull_requests(validated)]
     return PullRequestsResponse(domain=validated, pull_requests=items, total=len(items))
 
@@ -750,7 +731,7 @@ def get_preview_variables(
     Returns:
         Them, secrets masked unless asked for.
     """
-    validated = _known_app(domain)
+    validated = known_app(domain)
     if unmask:
         ensure_scope(request, session, "admin")
         ensure_elevated(request, session)
@@ -787,7 +768,7 @@ def put_preview_variable(
     Returns:
         The variables defined for previews.
     """
-    validated = _known_app(domain)
+    validated = known_app(domain)
     app_id = _app_id(validated)
     VariableStore().set(
         PREVIEW,
@@ -824,7 +805,7 @@ def delete_preview_variable(
     Raises:
         HTTPException: 404 when it is not defined.
     """
-    validated = _known_app(domain)
+    validated = known_app(domain)
     app_id = _app_id(validated)
     if not VariableStore().delete(PREVIEW, app_id, name):
         raise HTTPException(status_code=404, detail=f"No variable {name} for previews")
@@ -859,7 +840,7 @@ def create_preview(
             cannot be previewed (400).
         IntegrationError: The pull request cannot be read (502).
     """
-    validated = _known_app(domain)
+    validated = known_app(domain)
     created = previews.create_preview(
         validated,
         pull_request=body.pull_request,
@@ -889,7 +870,7 @@ def _known_preview(domain: str, number: int) -> tuple[str, PreviewRecord]:
     Raises:
         HTTPException: 404 when the application or the preview is unknown.
     """
-    validated = _known_app(domain)
+    validated = known_app(domain)
     record = get_store().get_preview(validated, number)
     if record is None:
         raise HTTPException(
@@ -1151,7 +1132,7 @@ def delete_preview(
     Raises:
         HTTPException: 404 when the application or the preview is unknown.
     """
-    validated = _known_app(domain)
+    validated = known_app(domain)
     record = get_store().get_preview(validated, number)
     if record is None:
         raise HTTPException(

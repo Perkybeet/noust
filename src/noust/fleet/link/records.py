@@ -15,11 +15,11 @@ from __future__ import annotations
 import builtins
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.exceptions import NodeError
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 #: The server was invited and has not answered yet.
 INVITED = "invited"
@@ -35,11 +35,6 @@ STATES = (INVITED, ACTIVE)
 #: an outgoing connection.
 PORT_FIRST = 24000
 PORT_LAST = 24999
-
-
-def _now() -> str:
-    """Returns: The current time, ISO 8601 UTC."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @dataclass(frozen=True)
@@ -216,7 +211,7 @@ class LinkRecords:
                         nonce,
                         central_host,
                         central_port,
-                        created_at or _now(),
+                        created_at or utc_now_iso("seconds"),
                         actor,
                     ),
                 )
@@ -242,7 +237,7 @@ class LinkRecords:
         with self.store._transaction() as cursor:
             cursor.execute(
                 "UPDATE node_links SET state = ?, link_key = ?, activated_at = ? WHERE node = ?",
-                (ACTIVE, link_key, _now(), node),
+                (ACTIVE, link_key, utc_now_iso("seconds"), node),
             )
 
     def deactivate(self, node: str) -> None:

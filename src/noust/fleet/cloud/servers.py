@@ -17,11 +17,11 @@ key. :class:`CloudServers` is the only reader and writer of ``cloud_servers``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.exceptions import NodeError, ValidationError
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 #: The machine was asked for and the provider has answered.
 CREATING = "creating"
@@ -40,11 +40,6 @@ STATES = (CREATING, BOOTING, ENROLLING, READY, FAILED, DELETED)
 
 #: Longest error kept in a row.
 MAX_ERROR = 2000
-
-
-def _now() -> str:
-    """Returns: The current time, ISO 8601 UTC."""
-    return datetime.now(timezone.utc).isoformat()
 
 
 @dataclass(frozen=True)
@@ -254,7 +249,7 @@ class CloudServers:
                 details="Delete it first, or choose another name.",
                 field="name",
             )
-        now = _now()
+        now = utc_now_iso()
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT OR REPLACE INTO cloud_servers (node, account, provider, provider_id, "
@@ -313,7 +308,7 @@ class CloudServers:
             cursor.execute(
                 "UPDATE cloud_servers SET state = ?, address = ?, error = ?, updated_at = ? "
                 "WHERE node = ?",
-                (new_state, address or current.address, new_error, _now(), node),
+                (new_state, address or current.address, new_error, utc_now_iso(), node),
             )
         return self.get(node)
 

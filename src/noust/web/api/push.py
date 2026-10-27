@@ -16,14 +16,13 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from noust.core.teams import scoped_store
 from noust.pushdeploy.host import PushHost
 from noust.pushdeploy.repos import PushInfo, PushRepos
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.auth import actor_label
 
 #: ``/api/push``: the server's side.
@@ -124,25 +123,6 @@ def _out(info: PushInfo) -> PushOut:
     return PushOut(**info.to_dict())
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one the principal cannot see.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 def _repos(session: dict[str, Any]) -> PushRepos:
     """
     Args:
@@ -210,7 +190,7 @@ def get_app_push(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return _out(_repos(session).describe(_known(domain), host=host))
+    return _out(_repos(session).describe(known_app(domain), host=host))
 
 
 @apps_router.put("/{domain}/push", response_model=PushOut)
@@ -237,7 +217,7 @@ def put_app_push(
         NoustError: The server is not set up, the application builds in place or is a stack,
             or the branch or the key is not valid (400, naming the field).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     info = _repos(session).enable(
         validated, branch=body.branch, key=body.key, label=body.label, host=body.host
     )
@@ -268,7 +248,7 @@ def delete_app_push(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return _out(_repos(session).disable(_known(domain), delete_repository=delete_repository))
+    return _out(_repos(session).disable(known_app(domain), delete_repository=delete_repository))
 
 
 @apps_router.post("/{domain}/push/refresh", response_model=PushOut)
@@ -288,7 +268,7 @@ def refresh_app_push(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return _out(_repos(session).refresh(_known(domain)))
+    return _out(_repos(session).refresh(known_app(domain)))
 
 
 @apps_router.get("/{domain}/push/keys", response_model=list[PushKeyOut])
@@ -308,7 +288,7 @@ def list_app_push_keys(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return [PushKeyOut(**key.to_dict()) for key in _repos(session).keys.list(_known(domain))]
+    return [PushKeyOut(**key.to_dict()) for key in _repos(session).keys.list(known_app(domain))]
 
 
 @apps_router.post("/{domain}/push/keys", response_model=list[PushKeyOut], status_code=201)
@@ -332,7 +312,7 @@ def add_app_push_key(
         HTTPException: 404 when the application is unknown.
         ValidationError: The key or its label is not valid, or the key is already used (400).
     """
-    keys = _repos(session).add_key(_known(domain), body.label, body.key)
+    keys = _repos(session).add_key(known_app(domain), body.label, body.key)
     return [PushKeyOut(**key.to_dict()) for key in keys]
 
 
@@ -358,5 +338,5 @@ def remove_app_push_key(
         ValidationError: No key of the application has that label (400).
     """
     return [
-        PushKeyOut(**key.to_dict()) for key in _repos(session).remove_key(_known(domain), label)
+        PushKeyOut(**key.to_dict()) for key in _repos(session).remove_key(known_app(domain), label)
     ]

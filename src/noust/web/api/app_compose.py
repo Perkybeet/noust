@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core import app_compose_store
@@ -42,7 +42,7 @@ from noust.deployers.helpers.compose_settings import (
 )
 from noust.web.api.auth import get_current_session
 from noust.web.api.compose import ComposeAnalysisOut, analysis_out
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.auth import actor_label
 from noust.web.pydantic_compat import dump_model
 
@@ -172,25 +172,6 @@ def _response(domain: str, options: app_compose_store.ComposeOptions) -> Compose
     )
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/compose", response_model=ComposeSettingsResponse)
 def get_compose_settings(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -209,7 +190,7 @@ def get_compose_settings(
         HTTPException: 404 when the application is unknown.
         NoustError: It is not a Compose stack.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     return _response(validated, describe_compose(validated))
 
 
@@ -235,7 +216,7 @@ def get_compose_variables(
         ValidationError: It is not a Compose stack (400).
         DeploymentError: Its compose file cannot be found or read.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     app = scoped_store().get_app(validated)
     if app is None or app.app_type != "docker-compose":
         raise ValidationError(
@@ -273,7 +254,7 @@ def put_compose_settings(
         DeploymentError: The compose file is not in the stack's directory.
         AppBusyError: Another operation is running on the stack.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     given = {key: value for key, value in dump_model(body).items() if value is not None}
     if not given:
         raise ValidationError(
@@ -302,7 +283,7 @@ def delete_compose_settings(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     reset_compose(validated)
     return _response(validated, describe_compose(validated))
 
@@ -329,7 +310,7 @@ def get_compose_document(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     app = scoped_store().get_app(validated)
     reason = None if app is None else compose_document.why_not_editable(app, get_store())
     if reason is not None:
@@ -365,7 +346,7 @@ def check_compose_document(
         ValidationError: The stack has no document Noust keeps, or the text is not a Compose
             document at all (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     check = compose_document.check_document(validated, body.document)
     return ComposeDocumentCheckResponse(
         domain=validated,
@@ -404,7 +385,7 @@ def put_compose_document(
             the details name each reason).
         DeploymentError: The document requires a variable the stack has no value for.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     change = compose_document.replace_document(validated, body.document, actor=actor_label(session))
     return ComposeDocumentSavedResponse(
         domain=validated,

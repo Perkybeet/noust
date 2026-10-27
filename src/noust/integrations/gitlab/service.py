@@ -42,6 +42,7 @@ from typing import Any
 from urllib.parse import urlencode, urlsplit
 
 from noust.core import audit
+from noust.core.audit.actor import cli_actor
 from noust.core.config import Config
 from noust.core.exceptions import ConfigError, IntegrationError, ValidationError
 from noust.core.github_host import validate_host
@@ -150,16 +151,6 @@ states = _States()
 
 #: One refresh at a time: GitLab rotates the refresh token, so a second request with the old one fails.
 _refresh_lock = threading.Lock()
-
-
-def _actor() -> str:
-    """
-    Returns:
-        The audit label of whoever is acting, for the rows.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def check_host(host: str) -> str:
@@ -460,7 +451,7 @@ class GitLabService:
         self.secrets.write_json(connection_secret(name), {"token": secret})
         try:
             connection = self.connections.add(
-                name, checked, "token", username=username, created_by=actor or _actor()
+                name, checked, "token", username=username, created_by=actor or cli_actor().label
             )
         except ValidationError:
             self.secrets.delete(connection_secret(name))
@@ -700,7 +691,7 @@ class GitLabService:
             )
         self.secrets.write(oauth_secret(checked), client_secret.strip())
         application = self.connections.save_oauth_application(
-            checked, client_id.strip(), created_by=actor or _actor()
+            checked, client_id.strip(), created_by=actor or cli_actor().label
         )
         audit.record(
             "integration.gitlab.oauth_app", target=f"gitlab:{checked}", details={"action": "set"}
@@ -828,7 +819,7 @@ class GitLabService:
             user = self._client(pending.host, access, bearer=True).get("/user")
             username = user.get("username") if isinstance(user, dict) else None
             connection = self.connections.add(
-                pending.name, pending.host, "oauth", username=username, created_by=_actor()
+                pending.name, pending.host, "oauth", username=username, created_by=cli_actor().label
             )
         except (IntegrationError, ValidationError):
             self.secrets.delete(secret_name)

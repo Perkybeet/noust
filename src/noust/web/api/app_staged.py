@@ -21,13 +21,12 @@ from pydantic import BaseModel, Field
 
 from noust.core import deploy_guard
 from noust.core.store import DeploymentTrigger
-from noust.core.teams import scoped_store
 from noust.deployers.lifecycle import list_releases
 from noust.deployers.recorder import CapturingLogger
 from noust.deployers.releases import is_release_id
 from noust.deployers.staged import promote_staged, stage_build
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, strict_domain
+from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, known_app
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
 
@@ -159,23 +158,6 @@ def promote_release_job(
     }
 
 
-def _known(domain: str) -> str:
-    """
-    Args:
-        domain: From the path.
-
-    Returns:
-        The validated domain of an application the caller sees.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.post("/{domain}/releases/stage", response_model=JobAcceptedResponse, status_code=202)
 def stage_release(
     domain: str,
@@ -199,7 +181,7 @@ def stage_release(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     job = get_job_manager().create_job(
         job_type=JobType.UPDATE,
         name=f"Build {validated} without activating",
@@ -252,7 +234,7 @@ def promote_release(
             application or a release that does not wait.
         DeploysFrozenError: 409 while a freeze holds it and ``frozen_ok`` was not given.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     if not is_release_id(release_id):
         raise HTTPException(status_code=400, detail=f"Not a release id: {release_id!r}")
     if not any(info.id == release_id and info.waiting for info in list_releases(validated)):

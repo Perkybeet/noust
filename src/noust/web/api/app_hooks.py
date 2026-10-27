@@ -17,13 +17,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from noust.core.teams import scoped_store
 from noust.deployers.helpers.hooks import AppHooks, Hook, describe_hooks, set_operator_hooks
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.auth import actor_label
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -119,25 +118,6 @@ def _response(described: AppHooks) -> AppHooksResponse:
     )
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/hooks", response_model=AppHooksResponse)
 def get_app_hooks(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -155,7 +135,7 @@ def get_app_hooks(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return _response(describe_hooks(_known(domain)))
+    return _response(describe_hooks(known_app(domain)))
 
 
 @router.put("/{domain}/hooks", response_model=AppHooksResponse)
@@ -184,7 +164,7 @@ def put_app_hooks(
         ValidationError: The document is not valid, or the application's
             type has no hooks (400, with the field).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     set_operator_hooks(validated, body.document, actor=actor_label(session))
     return _response(describe_hooks(validated))
 
@@ -206,6 +186,6 @@ def delete_app_hooks(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     set_operator_hooks(validated, None, actor=actor_label(session))
     return _response(describe_hooks(validated))

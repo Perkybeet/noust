@@ -46,7 +46,6 @@ import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import quote
 
@@ -54,6 +53,7 @@ from noust.core import package_index
 from noust.core.audit import record as record_audit
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.store import NodeRecord, NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 from noust.fleet.aggregate import (
     VERSION_PATH,
     Asker,
@@ -120,11 +120,6 @@ RETRIED_SKIPS = frozenset({"aborted", "busy", "elevation_expired"})
 
 #: A job whose worker is gone ended with the server where it was.
 INTERRUPTED_REASON = "The central restarted; the node's own jobs may still be running"
-
-
-def _now() -> str:
-    """Returns: Now, ISO 8601 UTC."""
-    return datetime.now(timezone.utc).isoformat()
 
 
 class ActionFailed(NoustError):
@@ -1666,7 +1661,7 @@ class FleetJobs:
                             "options": plan.options,
                         }
                     ),
-                    _now(),
+                    utc_now_iso(),
                     created_by,
                     os.getpid(),
                     plan.request.retry_of,
@@ -1754,7 +1749,7 @@ class FleetJobs:
         with self.store._transaction() as cursor:
             cursor.execute(
                 "UPDATE fleet_jobs SET status = ?, finished_at = ? WHERE job_id = ?",
-                (status, _now(), job_id),
+                (status, utc_now_iso(), job_id),
             )
 
     def _nodes(self, job_id: str, interrupted: bool) -> list[NodeState]:
@@ -2128,7 +2123,7 @@ class Runner:
                 self._changed(node, f"{name}: skipped")
                 return
             node.state = "running"
-            node.started_at = _now()
+            node.started_at = utc_now_iso()
             self._changed(node, f"{name}: started")
             run = self._node_run(node, source)
             try:
@@ -2148,7 +2143,7 @@ class Runner:
         finally:
             _release(name, self.job_id)
             get_aggregator().forget(name)
-        node.ended_at = _now()
+        node.ended_at = utc_now_iso()
         level = (
             "success"
             if node.state == "succeeded"
@@ -2225,7 +2220,7 @@ class Runner:
             finally:
                 _release(name, self.job_id)
                 get_aggregator().forget(name)
-            node.ended_at = _now()
+            node.ended_at = utc_now_iso()
             self._changed(node, f"{name}: {node.state}")
 
     def _step(self, node: NodeState, text: str) -> None:

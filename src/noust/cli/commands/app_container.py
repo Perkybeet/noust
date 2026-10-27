@@ -30,6 +30,7 @@ from typing import Any, TypeVar
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
 from noust.deployers.helpers.container_settings import (
     ContainerView,
@@ -53,18 +54,6 @@ CLEARABLE = (
     "command",
     "entrypoint",
 )
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def _pairs(values: tuple[str, ...], what: str) -> dict[str, str]:
@@ -425,7 +414,7 @@ def set_command(
     if ctx.dry_run:
         ctx.logger.info(f"Would change {validated}: {', '.join(sorted(changes))}")
         return
-    outcome = change_container(validated, changes, actor=_actor())
+    outcome = change_container(validated, changes, actor=cli_actor().label)
     if ctx.json_output:
         click.echo(json.dumps(describe_container(validated).to_dict()))
         return

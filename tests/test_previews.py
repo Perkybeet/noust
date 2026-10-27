@@ -64,7 +64,7 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
 def clock(monkeypatch: pytest.MonkeyPatch) -> list[datetime]:
     """Stop the clock at NOW; a test moves it by replacing the only item."""
     moment = [NOW]
-    monkeypatch.setattr(previews, "_now", lambda: moment[0])
+    monkeypatch.setattr(previews, "utc_now", lambda: moment[0])
     return moment
 
 

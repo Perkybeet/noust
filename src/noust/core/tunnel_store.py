@@ -19,10 +19,10 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 #: The tunnel is being created: the row exists and some of what it needs may not.
 CREATING = "creating"
@@ -169,7 +169,7 @@ class TunnelStore:
         Raises:
             sqlite3.IntegrityError: The name is taken, or the DNS account is unknown.
         """
-        created = tunnel.created_at or _now()
+        created = tunnel.created_at or utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 """
@@ -269,7 +269,7 @@ class TunnelStore:
         Raises:
             sqlite3.IntegrityError: The name is carried by another tunnel.
         """
-        created = route.created_at or _now()
+        created = route.created_at or utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 """
@@ -353,11 +353,3 @@ def _route(row: sqlite3.Row) -> TunnelRoute:
         app_domain=row["app_domain"],
         created_at=row["created_at"],
     )
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 UTC.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")

@@ -20,6 +20,7 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustCommand, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import NoustError
 from noust.core.store import get_store
 from noust.core.utils import format_bytes
@@ -32,18 +33,6 @@ _QUOTA_WORDS = {
     "unsupported": "not offered by this filesystem",
     "unknown": "could not be asked",
 }
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def _show(ctx: Context, shown: dict[str, Any]) -> None:
@@ -155,7 +144,7 @@ def disk_command(
             details="Check 'noust list' for the exact domain.",
         )
     if limit is not None or no_limit:
-        app_disk.set_disk_limit(app, None if no_limit else limit, actor=_actor())
+        app_disk.set_disk_limit(app, None if no_limit else limit, actor=cli_actor().label)
     if kernel is not None:
         if kernel:
             # Before the sentence about a long walk, so a refusal is not preceded by a promise.
@@ -165,7 +154,7 @@ def disk_command(
             if kernel
             else "Taking the project off the tree."
         )
-        app_disk.kernel_state_after(validated, kernel, actor=_actor())
+        app_disk.kernel_state_after(validated, kernel, actor=cli_actor().label)
     if measure:
         ctx.logger.info("Measuring; a large tree takes a while.")
         app_disk.measure_and_record(app)

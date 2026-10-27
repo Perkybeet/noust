@@ -25,6 +25,7 @@ import yaml
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core import app_build_store
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
 from noust.deployers.helpers.build_config import (
@@ -58,18 +59,6 @@ _LABELS = {
     "cache": "Build cache",
     "timeout": "Timeout (seconds)",
 }
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def _print(ctx: Context, described: AppBuild) -> None:
@@ -272,7 +261,7 @@ def set_command(
     if ctx.dry_run:
         ctx.logger.info(f"Would set the build block of {validated}")
         return
-    set_operator_build(validated, document, actor=_actor())
+    set_operator_build(validated, document, actor=cli_actor().label)
     described = describe_build(validated)
     if ctx.json_output:
         click.echo(json.dumps(described.to_dict()))
@@ -309,11 +298,13 @@ def unset_command(ctx: Context, domain: str, keys: tuple[str, ...]) -> None:
         )
         return
     if not wanted:
-        set_operator_build(validated, None, actor=_actor())
+        set_operator_build(validated, None, actor=cli_actor().label)
         ctx.logger.success(
             f"{validated} has no build block of its own: the repository's noust.yaml applies again"
         )
         return
     remaining = {key: value for key, value in _stored(validated).items() if key not in wanted}
-    set_operator_build(validated, _document(remaining) if remaining else None, actor=_actor())
+    set_operator_build(
+        validated, _document(remaining) if remaining else None, actor=cli_actor().label
+    )
     ctx.logger.success(f"Unset {', '.join(wanted)} for {validated}")

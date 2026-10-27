@@ -16,14 +16,13 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core import update_schedule_store
-from noust.core.teams import scoped_store
 from noust.managers.update_scheduler import ALIASES, UpdateScheduler
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app
 from noust.web.auth import actor_label
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -66,23 +65,6 @@ class UpdateScheduleRequest(BaseModel):
     enabled: bool = True
     backup_first: bool = True
     only_if_new: bool = True
-
-
-def _known(domain: str) -> str:
-    """
-    Args:
-        domain: From the path.
-
-    Returns:
-        The validated domain of an application the caller sees.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
 
 
 def _out(domain: str) -> UpdateScheduleOut:
@@ -129,7 +111,7 @@ def get_update_schedule(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return _out(_known(domain))
+    return _out(known_app(domain))
 
 
 @router.put("/{domain}/update-schedule", response_model=UpdateScheduleOut)
@@ -159,7 +141,7 @@ def put_update_schedule(
             a preview (400).
         BackupError: The timer could not be written.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     UpdateScheduler().set(
         validated,
         body.calendar,
@@ -188,6 +170,6 @@ def delete_update_schedule(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     UpdateScheduler().remove(validated)
     return _out(validated)

@@ -19,20 +19,9 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.app_process_store import MAX_INSTANCES, ProcessRecord
+from noust.core.audit.actor import cli_actor
 from noust.managers.app_processes import ProcessManager
 from noust.validators.domain import validate_domain
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 @click.group("process", cls=NoustGroup)
@@ -116,7 +105,7 @@ def set_command(
             cpu_quota_percent=cpu_quota_percent,
             tasks_max=tasks_max,
         ),
-        actor=_actor(),
+        actor=cli_actor().label,
     )
     if ctx.json_output:
         click.echo(
@@ -149,7 +138,7 @@ def scale_command(ctx: Context, domain: str, name: str, instances: int) -> None:
     The copies that already run are not restarted.
     """
     change = ProcessManager(log=ctx.logger).scale(
-        validate_domain(domain), name, instances, actor=_actor()
+        validate_domain(domain), name, instances, actor=cli_actor().label
     )
     if ctx.json_output:
         click.echo(
@@ -180,7 +169,9 @@ def remove_command(ctx: Context, domain: str, name: str, yes: bool) -> None:
     """
     if not (yes or ctx.json_output or ctx.dry_run):
         click.confirm(f"Stop {name} and remove it from {domain}?", abort=True)
-    change = ProcessManager(log=ctx.logger).remove(validate_domain(domain), name, actor=_actor())
+    change = ProcessManager(log=ctx.logger).remove(
+        validate_domain(domain), name, actor=cli_actor().label
+    )
     ctx.logger.success(f"Removed {change.name}")
 
 

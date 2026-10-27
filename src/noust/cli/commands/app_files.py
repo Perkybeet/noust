@@ -21,21 +21,10 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
 from noust.managers import app_files
 from noust.validators.domain import validate_domain
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def _files(domain: str) -> app_files.AppFiles:
@@ -48,7 +37,7 @@ def _files(domain: str) -> app_files.AppFiles:
     Returns:
         The operations.
     """
-    return app_files.files_for(validate_domain(domain), actor=_actor())
+    return app_files.files_for(validate_domain(domain), actor=cli_actor().label)
 
 
 @click.group("files", cls=NoustGroup)

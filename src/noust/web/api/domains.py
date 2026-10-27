@@ -25,7 +25,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from noust.core.domain_certificates import check_mode
@@ -55,7 +55,13 @@ from noust.deployers.temporary_domain import (
 )
 from noust.managers.site_policy import SitePolicyManager
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain, strict_server_name
+from noust.web.api.deps import (
+    NoustErrorRoute,
+    known_app,
+    require_elevated,
+    strict_domain,
+    strict_server_name,
+)
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
 from noust.web.pydantic_compat import iso_offset_validator
@@ -206,25 +212,6 @@ class DnsCheckResponse(BaseModel):
     resolver: str = ""
 
 
-def _require_app(domain: str) -> str:
-    """
-    Validate an application's domain and require that it is deployed.
-
-    Args:
-        domain: The domain from the path.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 def _entry(record: DomainRecord, binding: NameBinding | None = None) -> AppDomain:
     """
     Translate a domain record to its response model.
@@ -323,7 +310,7 @@ def get_domains(
     Returns:
         Its domains, primary first.
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     return AppDomainList(
         app=validated,
         domains=_entries(validated, list_domains(validated)),
@@ -378,7 +365,7 @@ def post_domain(
     Returns:
         The application's domains afterwards.
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     name = strict_server_name(data.domain)
     change = add_domain(
         validated,
@@ -428,7 +415,7 @@ def delete_domain(
     Returns:
         The application's domains afterwards.
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     change = remove_domain(validated, strict_server_name(name), reduce_cert=False)
     job_id: str | None = None
     if change.lineage_pending:
@@ -514,7 +501,7 @@ def put_canonical(
     Raises:
         ValidationError: The name has no www spelling, or the web server refuses the site.
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     change = set_canonical(validated, data.canonical, issue_cert=False)
     job_id: str | None = None
     if change.tls and data.canonical not in ("", "none"):
@@ -550,7 +537,7 @@ def put_domain_port(
     Returns:
         The application's domains afterwards.
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     return _changed(set_domain_port(validated, strict_server_name(name), data.port))
 
 
@@ -579,7 +566,7 @@ def put_domain_enabled(
     Raises:
         DomainError: The name is the primary or the canonical pair, or not the application's.
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     bare = strict_server_name(name)
     if data.enabled:
         change = enable_domain(validated, bare, issue_cert=False)
@@ -721,7 +708,7 @@ def put_domain_certificate(
         ValidationError: The mode or the way of proving it is not acceptable (400).
         DomainError: The name is not the application's, or is its primary (400).
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     bare = strict_server_name(name)
     check_mode(data.certificate)
     if data.challenge is not None:
@@ -775,7 +762,7 @@ def get_domain_dns(
     Returns:
         What it resolves to, compared with this server's addresses.
     """
-    _require_app(domain)
+    known_app(domain)
     check = check_dns(strict_domain(name))
     return DnsCheckResponse(
         domain=check.domain,

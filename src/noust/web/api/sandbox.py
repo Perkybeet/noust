@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.store import get_store
@@ -29,8 +29,8 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     JobAcceptedResponse,
     NoustErrorRoute,
+    known_app,
     require_elevated,
-    strict_domain,
 )
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
@@ -156,25 +156,6 @@ def _response(domain: str) -> SandboxResponse:
     )
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/sandbox", response_model=SandboxResponse)
 def get_sandbox(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -192,7 +173,7 @@ def get_sandbox(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return _response(_known(domain))
+    return _response(known_app(domain))
 
 
 def sandbox_test_job(domain: str, job_context: JobContext | None = None) -> dict[str, Any]:
@@ -253,7 +234,7 @@ def post_sandbox_test(
         HTTPException: 404 when the application is unknown.
         ValidationError: A compose stack (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     app = scoped_store().get_app(validated)
     if app is not None:
         build_sandbox.refuse_unsupported(app)
@@ -296,7 +277,7 @@ def post_sandbox_enable(
         ValidationError: No passing trial and no ``force``, or a type whose
             builds do not run in the sandbox (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     build_sandbox.enable(
         validated,
         actor=actor_label(session),
@@ -330,7 +311,7 @@ def post_sandbox_disable(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     build_sandbox.disable(validated, actor=actor_label(session), reason=body.reason)
     return _response(validated)
 
@@ -358,7 +339,7 @@ def put_compose_exception(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     build_sandbox.set_compose_exception(
         validated, allowed=True, actor=actor_label(session), reason=body.reason
     )
@@ -382,6 +363,6 @@ def delete_compose_exception(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     build_sandbox.set_compose_exception(validated, allowed=False, actor=actor_label(session))
     return _response(validated)

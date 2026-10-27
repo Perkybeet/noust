@@ -21,10 +21,10 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from noust.core.exceptions import ValidationError
+from noust.core.timeutil import utc_now_iso
 
 if TYPE_CHECKING:
     from noust.core.store import NoustStore
@@ -110,14 +110,6 @@ class MigrationRecord:
             "created_by": self.created_by,
             "finished_at": self.finished_at,
         }
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 in UTC.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _decode(raw: str | None) -> tuple[MovedDatabase, ...]:
@@ -260,7 +252,7 @@ class DbMigrationStore:
         Returns:
             The row, ``moving``.
         """
-        now = _now()
+        now = utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO db_instance_migrations (source_key, target_name, flavour, "
@@ -313,7 +305,7 @@ class DbMigrationStore:
                 details=f"The states are: {', '.join(STATES)}.",
                 field="state",
             )
-        finished = _now() if state in (DONE, ROLLED_BACK, FAILED) else None
+        finished = utc_now_iso("seconds") if state in (DONE, ROLLED_BACK, FAILED) else None
         with self.store._transaction() as cursor:
             cursor.execute(
                 "UPDATE db_instance_migrations SET state = ?, finished_at = ? WHERE id = ?",

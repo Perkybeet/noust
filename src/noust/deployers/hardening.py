@@ -22,6 +22,7 @@ from typing import Any
 
 from noust.central import require_server_role
 from noust.core import audit
+from noust.core.app_lookup import require_app
 from noust.core.applock import app_lock
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.logger import Logger
@@ -115,28 +116,6 @@ class HardeningChange:
     exposure_after: float | None = None
 
 
-def _known(store: NoustStore, domain: str) -> App:
-    """
-    Return an application's row, refusing an unknown one.
-
-    Args:
-        store: The store.
-        domain: The application.
-
-    Returns:
-        The row.
-
-    Raises:
-        NoustError: Nothing is deployed there.
-    """
-    app = store.get_app(domain)
-    if app is None:
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
-    return app
-
-
 def status(
     domain: str,
     *,
@@ -163,7 +142,7 @@ def status(
         NoustError: The application is unknown.
     """
     store = store or get_store()
-    app = _known(store, validate_domain(domain))
+    app = require_app(store, validate_domain(domain))
     record = get_record(app.domain, store=store)
     reason = unit_hardening.ineligible(app)
     if reason is not None:
@@ -244,7 +223,7 @@ def set_hardening(
     log = logger or Logger()
     store = store or get_store()
     domain = validate_domain(domain)
-    app = _known(store, domain)
+    app = require_app(store, domain)
     if profile not in PROFILES:
         raise ValidationError(
             f"{profile!r} is not a hardening profile",
@@ -264,7 +243,7 @@ def set_hardening(
     )
     with app_lock(domain, "hardening change"):
         change = _apply(
-            _known(store, domain),
+            require_app(store, domain),
             profile,
             declared,
             previous=previous,

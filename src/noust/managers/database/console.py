@@ -49,6 +49,7 @@ from noust.core.exceptions import (
 )
 from noust.core.redact import Scrubber, known_credentials
 from noust.core.store import NoustStore
+from noust.core.timeutil import utc_now_iso
 from noust.managers.database.base import (
     DEFAULT_STRUCTURED_ROW_CAP,
     STATEMENT_TIMEOUTS,
@@ -119,14 +120,6 @@ def check_timeout(timeout_s: int) -> int:
             details=f"Use one of: {', '.join(str(value) for value in STATEMENT_TIMEOUTS)} seconds.",
         )
     return timeout_s
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 with its UTC offset.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _scrub(text: str) -> str:
@@ -275,7 +268,7 @@ class QueryRecords:
                     row_count,
                     duration_ms,
                     _scrub(error)[:_ERROR_KEPT] if error else None,
-                    _now(),
+                    utc_now_iso("seconds"),
                 ),
             )
             cursor.execute(
@@ -421,7 +414,7 @@ class QueryRecords:
                 details="Choose a shorter name.",
             )
         statement = console_request(statement, single=False)
-        now = _now()
+        now = utc_now_iso("seconds")
         values = (name, engine, database or "", _scrub(statement), now)
         try:
             with self.store._transaction() as cursor:

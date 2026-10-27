@@ -22,10 +22,10 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.store import NoustStore
+from noust.core.timeutil import utc_now_iso
 
 __all__ = ["STATUS_FAILED", "STATUS_OK", "PitrPolicy", "PitrRecords"]
 
@@ -35,10 +35,6 @@ STATUS_FAILED = "failed"
 
 #: The longest error a row keeps: the end of it, where a tool says why it stopped.
 _MAX_ERROR = 4000
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @dataclass
@@ -158,7 +154,7 @@ class PitrRecords:
         Returns:
             The policy as stored.
         """
-        stamp = _now()
+        stamp = utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO db_pitr (engine, system_id, archive_path, base_every_hours, "
@@ -202,7 +198,7 @@ class PitrRecords:
             base: Whether the run took a base backup.
             sync: Whether the run sent the archive to every destination.
         """
-        stamp = _now()
+        stamp = utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 "UPDATE db_pitr SET last_run_at = ?, last_status = ?, last_error = ?, "

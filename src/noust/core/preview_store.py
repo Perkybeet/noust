@@ -29,10 +29,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
 
 from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 #: Every variable of the application, less ``exclude_env`` (the 2.2 behaviour).
 INHERIT_ALL = "all"
@@ -183,10 +183,6 @@ def validate_fork_policy(policy: str) -> str:
     return policy
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
 def preview_identity(store: NoustStore, domain: str) -> tuple[int | None, str | None]:
     """
     Say which preview an application is, for the variables Noust gives it.
@@ -318,7 +314,7 @@ class PreviewStore:
                     options.inherit_env,
                     json.dumps(list(options.allow_env)),
                     DATA_EMPTY if cloned else options.data_mode,
-                    _now(),
+                    utc_now_iso("seconds"),
                 ),
             )
             cursor.execute(
@@ -333,7 +329,7 @@ class PreviewStore:
                     int(options.noindex),
                     options.fork_policy,
                     "clone" if cloned else "none",
-                    _now(),
+                    utc_now_iso("seconds"),
                 ),
             )
         return self.options(options.app_domain)
@@ -427,7 +423,7 @@ class PreviewStore:
                     origin.kind,
                     origin.ref,
                     origin.created_by,
-                    _now(),
+                    utc_now_iso("seconds"),
                     json.dumps(list(origin.given_env)),
                     json.dumps(list(origin.owned_env)),
                     json.dumps(list(origin.databases)),

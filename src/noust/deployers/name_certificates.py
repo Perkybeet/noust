@@ -45,6 +45,7 @@ from dataclasses import dataclass
 from noust.central import require_server_role
 from noust.core import audit
 from noust.core.applock import app_lock
+from noust.core.audit.context import current_actor_name
 from noust.core.certificate_store import (
     CHALLENGE_DNS,
     SOURCE_ACME,
@@ -230,7 +231,11 @@ def _take_own(
     already = record.certificate == OWN
     before = certificates.get_settings(name)
     wanted = certificates.settings_for_name(
-        app.domain, name, challenge=challenge, dns_provider=dns_provider, updated_by=_actor()
+        app.domain,
+        name,
+        challenge=challenge,
+        dns_provider=dns_provider,
+        updated_by=current_actor_name(),
     )
     if wanted.challenge == CHALLENGE_DNS:
         check_choice(wanted.challenge, wanted.dns_provider)
@@ -466,15 +471,6 @@ def _on_disk(lineage: str) -> bool:
         Whether certbot's live directory holds its certificate.
     """
     return (CertManager.LETSENCRYPT_DIR / "live" / lineage / "fullchain.pem").is_file()
-
-
-def _actor() -> str | None:
-    """
-    Returns:
-        A label for who is acting, for the records' ``updated_by``.
-    """
-    actor = audit.current_actor()
-    return None if actor is None else str(actor.name or actor.id or actor.kind)
 
 
 def bindings(app_domain: str, *, include_disabled: bool = True) -> list[NameBinding]:

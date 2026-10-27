@@ -85,6 +85,19 @@ def current_actor() -> Actor | None:
     return _actor.get()
 
 
+def current_actor_name() -> str | None:
+    """
+    The name of whoever is acting, for a record's ``created_by`` or ``updated_by``.
+
+    Returns:
+        The bound actor's name, else its id, else its kind; None when nothing
+        bound one. The short form a column holds, not the audit label
+        (:attr:`~noust.core.audit.actor.Actor.label`, which says how they got in).
+    """
+    actor = _actor.get()
+    return None if actor is None else str(actor.name or actor.id or actor.kind)
+
+
 def current_correlation_id() -> str | None:
     """
     The correlation id bound to the current context.

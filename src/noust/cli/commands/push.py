@@ -20,6 +20,7 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
 from noust.pushdeploy.host import PushHost
 from noust.pushdeploy.keys import MAX_KEY_LINE
@@ -27,24 +28,12 @@ from noust.pushdeploy.repos import PushInfo, PushRepos, ssh_config_snippet
 from noust.validators.domain import validate_domain
 
 
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
-
-
 def _repos() -> PushRepos:
     """
     Returns:
         The push deployments of this server, acting for whoever runs the command.
     """
-    return PushRepos(actor=_actor())
+    return PushRepos(actor=cli_actor().label)
 
 
 def _read_key(key: str | None, key_file: str | None) -> str | None:
@@ -146,7 +135,7 @@ def setup_command(ctx: Context) -> None:
     repository it was added for. sshd is checked before it is reloaded, and the change is
     undone if sshd does not apply it.
     """
-    result = PushHost().setup(dry_run=ctx.dry_run, actor=_actor())
+    result = PushHost().setup(dry_run=ctx.dry_run, actor=cli_actor().label)
     if ctx.json_output:
         click.echo(json.dumps(result.to_dict()))
         return

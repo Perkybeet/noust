@@ -83,7 +83,6 @@ import sqlite3
 import threading
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import asdict, dataclass, field, replace
-from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -94,6 +93,7 @@ from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.logger import Logger
 from noust.core.runner import SANDBOX_UNIT_PREFIX, CommandRunner, SandboxSpec, is_account_name
 from noust.core.store import App, NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 #: The account every sandboxed build runs as.
 BUILD_USER = "noust-build"
@@ -230,16 +230,6 @@ _COLUMNS = (
     "test_detail",
     "auto_trial_at",
 )
-
-
-def _now() -> str:
-    """
-    Return the current time for a record.
-
-    Returns:
-        ISO 8601, UTC.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _audit(domain: str, outcome: str = "ok", **details: Any) -> None:
@@ -416,7 +406,7 @@ def adopt_new_app(domain: str, *, preview: bool, store: NoustStore | None = None
         mode=SandboxMode.ON.value,
         network=network,
         changed_by="noust",
-        changed_at=_now(),
+        changed_at=utc_now_iso("seconds"),
     )
 
 
@@ -552,7 +542,7 @@ def enable(
         "mode": SandboxMode.ON.value,
         "reason": None,
         "changed_by": actor,
-        "changed_at": _now(),
+        "changed_at": utc_now_iso("seconds"),
     }
     if network is not None:
         fields["network"] = network
@@ -602,7 +592,7 @@ def disable(
         mode=SandboxMode.OFF.value,
         reason=text,
         changed_by=actor,
-        changed_at=_now(),
+        changed_at=utc_now_iso("seconds"),
     )
     _audit(domain, action="disable", by=actor, reason=state.reason)
     return state
@@ -632,7 +622,7 @@ def record_trial(
     Returns:
         The new state.
     """
-    now = _now()
+    now = utc_now_iso("seconds")
     fields: dict[str, Any] = {
         "tested_at": now,
         "tested_commit": commit,
@@ -738,7 +728,7 @@ def set_compose_exception(
             "A privileged container needs a reason",
             details="It is root on this server and this server asks why: --reason '...'.",
         )
-    exception = ComposeException(domain, text, actor, _now())
+    exception = ComposeException(domain, text, actor, utc_now_iso("seconds"))
     with store._transaction() as cursor:
         cursor.execute(
             "INSERT INTO compose_exceptions (domain, reason, allowed_by, allowed_at) "

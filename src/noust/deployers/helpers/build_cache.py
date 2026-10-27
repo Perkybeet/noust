@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from noust.core import audit
-from noust.core.exceptions import NoustError
+from noust.core.app_lookup import require_app
 from noust.core.store import NoustStore, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers import sandbox as build_sandbox
@@ -61,23 +61,6 @@ class BuildCache:
         }
 
 
-def _known(domain: str, store: NoustStore) -> None:
-    """
-    Require an application behind a domain.
-
-    Args:
-        domain: A validated domain.
-        store: The store.
-
-    Raises:
-        NoustError: It is unknown.
-    """
-    if store.get_app(domain) is None:
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
-
-
 def describe(domain: str, *, store: NoustStore | None = None) -> BuildCache:
     """
     Say what an application's build cache holds.
@@ -93,7 +76,7 @@ def describe(domain: str, *, store: NoustStore | None = None) -> BuildCache:
         NoustError: The application is unknown.
     """
     target = store or get_store()
-    _known(domain, target)
+    require_app(target, domain)
     name = domain_to_app_name(domain)
     path = build_sandbox.cache_dir_for(name)
     return BuildCache(

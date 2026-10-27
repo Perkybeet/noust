@@ -32,9 +32,10 @@ from typing import Any
 
 from noust.central import require_server_role
 from noust.core import audit
+from noust.core.app_lookup import require_app
 from noust.core.applock import app_lock
 from noust.core.ens.origins import check_origin, origin_kind
-from noust.core.exceptions import NoustError, ValidationError
+from noust.core.exceptions import ValidationError
 from noust.core.repositories import repository_key
 from noust.core.store import App, NoustStore, get_store, is_compose_backed
 from noust.deployers.helpers.layout import RELEASES
@@ -142,26 +143,6 @@ def _canonical(source: str) -> str:
     if is_upload_tree(text):
         return upload_source(Path(text).name)
     return text
-
-
-def _known(store: NoustStore, domain: str) -> App:
-    """
-    Args:
-        store: The store.
-        domain: The application's domain, validated.
-
-    Returns:
-        Its row.
-
-    Raises:
-        NoustError: Nothing is deployed there.
-    """
-    app = store.get_app(domain)
-    if app is None:
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
-    return app
 
 
 def _refuse_unsuitable(app: App) -> None:
@@ -283,7 +264,7 @@ def plan_change(
     """
     require_server_role("Applications")
     store = store or get_store()
-    app = _known(store, validate_domain(domain))
+    app = require_app(store, validate_domain(domain))
     _refuse_unsuitable(app)
     kind, target = _clean_target(source)
     current = app.source or ""
@@ -431,7 +412,7 @@ def change_source(
     # Refused while an update runs: it read the source it builds already, and a deploy writes
     # back the whole row it started with.
     with app_lock(plan.domain, "source change"):
-        app = _known(store, plan.domain)
+        app = require_app(store, plan.domain)
         app.source = plan.target
         app.branch = plan.target_branch
         store.update_app(app)

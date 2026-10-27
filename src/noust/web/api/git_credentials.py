@@ -14,11 +14,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.audit import Actor
-from noust.core.teams import scoped_store
 from noust.managers.source_credentials import (
     MAX_SECRET,
     MAX_USERNAME,
@@ -26,7 +25,7 @@ from noust.managers.source_credentials import (
     GitCredentialManager,
 )
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.auth import actor_label
 from noust.web.permissions.principal import actor_of
 
@@ -104,25 +103,6 @@ def _response(view: CredentialView) -> GitCredentialResponse:
     )
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/git-credential", response_model=GitCredentialResponse)
 def get_git_credential(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -140,7 +120,7 @@ def get_git_credential(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return _response(_manager(session).view(_known(domain)))
+    return _response(_manager(session).view(known_app(domain)))
 
 
 @router.put("/{domain}/git-credential", response_model=GitCredentialResponse)
@@ -168,7 +148,7 @@ def put_git_credential(
         ValidationError: The application has no git repository, or a value is
             not acceptable (400).
     """
-    return _response(_manager(session).put(_known(domain), body.username, body.secret))
+    return _response(_manager(session).put(known_app(domain), body.username, body.secret))
 
 
 @router.delete("/{domain}/git-credential", response_model=GitCredentialResponse)
@@ -188,7 +168,7 @@ def delete_git_credential(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     manager = _manager(session)
     manager.remove(validated)
     return _response(manager.view(validated))
