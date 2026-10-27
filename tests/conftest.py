@@ -22,6 +22,7 @@ import os
 import stat
 import subprocess
 import sys
+import unittest
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -73,6 +74,33 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     kept, dropped = select(items, *parse_shard(spec))
     config.hook.pytest_deselected(items=dropped)
     items[:] = kept
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> Iterator[None]:
+    """
+    Let go of what a test of a class kept on ``self``, once the test and its fixtures are done.
+
+    pytest keeps every collected item for the whole run, and an item keeps the instance of its
+    class. The console's tests keep their client on ``self``, and a client holds the application
+    built for it (about 25 MiB of routes and validators): a worker held every one of them, twenty
+    after three hundred tests, until the run ended, and CI's runner ran out of memory. Each test
+    has an instance of its own, so nothing reads it afterwards. A ``unittest`` case's instance is
+    the framework's and keeps its state for the report, so it is left as it is.
+
+    Args:
+        item: The test that has just run.
+        nextitem: The one that runs after it, if any.
+
+    Yields:
+        Control to the teardown proper; the instance is emptied after it, whatever its outcome.
+    """
+    try:
+        return (yield)
+    finally:
+        instance = getattr(item, "instance", None)
+        if instance is not None and not isinstance(instance, unittest.TestCase):
+            vars(instance).clear()
 
 
 def pytest_configure(config: pytest.Config) -> None:
