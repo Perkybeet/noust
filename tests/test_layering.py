@@ -218,6 +218,59 @@ def oversize_modules(modules: dict[str, Path], limit: int) -> dict[str, int]:
     return {name: lines for name, lines in counts.items() if lines > limit}
 
 
+LAYER_TABLE_START = "<!-- layers:start -->"
+LAYER_TABLE_END = "<!-- layers:end -->"
+
+
+def render_layer_table() -> str:
+    """
+    Write the table of CONTRIBUTING.md's "Layers" from the rules and their lists above.
+
+    Returns:
+        A Markdown table: what each layer must not do, and how many places still do it.
+    """
+
+    def names(layers: frozenset[str]) -> str:
+        return ", ".join(f"`{name}`" for name in sorted(layers))
+
+    rows = [
+        (
+            names(BASE_LAYERS),
+            f"import {names(ABOVE_THE_BASE)}",
+            len(BASE_IMPORTS_UPWARD),
+        ),
+        (
+            names(WORKING_LAYERS),
+            f"import {names(SURFACES)}",
+            len(WORKING_LAYERS_IMPORT_A_SURFACE),
+        ),
+        ("`web`", "import `cli`", len(WEB_IMPORTS_THE_CLI)),
+        (
+            "any module",
+            "import a module that imports it back when it loads",
+            len(MODULES_IN_A_CYCLE),
+        ),
+        (
+            "any module",
+            f"pass {MAX_MODULE_LINES} lines",
+            len(OVERSIZE_MODULES),
+        ),
+    ]
+    lines = ["| Layer | Must not | Places that still do |", "|---|---|---:|"]
+    lines += [f"| {layer} | {rule} | {count} |" for layer, rule, count in rows]
+    return "\n".join(lines)
+
+
+def table_in_contributing() -> str:
+    """
+    Returns:
+        What CONTRIBUTING.md holds between the markers of the layers' table.
+    """
+    text = (ROOT.parent.parent / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    start = text.index(LAYER_TABLE_START) + len(LAYER_TABLE_START)
+    return text[start : text.index(LAYER_TABLE_END)].strip("\n")
+
+
 @pytest.fixture(scope="module")
 def modules() -> dict[str, Path]:
     return graph.package_modules(ROOT)
@@ -306,6 +359,17 @@ class TestNoModuleGrowsWithoutEnd:
         assert not shorter, (
             "These modules got shorter: lower their figure so they cannot grow back:\n"
             + "\n".join(f'  "{name}": {now},' for name, (_, now) in sorted(shorter.items()))
+        )
+
+
+class TestTheRulesAreWrittenDown:
+    """CONTRIBUTING.md says what this file holds, from this file's own lists."""
+
+    def test_the_table_of_layers_is_the_one_these_lists_make(self):
+        assert table_in_contributing() == render_layer_table(), (
+            "The table in CONTRIBUTING.md (section Architecture, Layers) is out of date. "
+            f"Between {LAYER_TABLE_START} and {LAYER_TABLE_END} it should read:\n\n"
+            + render_layer_table()
         )
 
 
