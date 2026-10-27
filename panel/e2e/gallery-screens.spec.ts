@@ -31,6 +31,10 @@ test.describe("the design gallery, in pictures @screens", () => {
         .catch(() => false);
       test.skip(!present, "The gallery is only in a development build.");
       await settle(page);
+      // The gallery's own bar is sticky and would cross a section's picture: set aside, through the CSSOM.
+      await page.evaluate(() => {
+        for (const bar of document.querySelectorAll<HTMLElement>("header.sticky")) bar.style.display = "none";
+      });
       for (const id of SECTIONS) {
         const section = page.locator(`#${id}`);
         await section.scrollIntoViewIfNeeded();
