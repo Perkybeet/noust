@@ -1,0 +1,1 @@
+import{Tt as e}from"./useNode-BDJR0RM8.js";function t(t){return e({from:t.from,strict:t.strict,shouldThrow:t.shouldThrow,structuralSharing:t.structuralSharing,select:e=>t.select?t.select(e.search):e.search})}export{t};

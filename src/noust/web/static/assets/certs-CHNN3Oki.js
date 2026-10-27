@@ -1,0 +1,1 @@
+import{cr as e,p as t}from"./Notice-rItomFI3.js";var n={all:[`certs`],details:[`cert`],detail:e=>[`cert`,e]},r=()=>e({queryKey:n.all,queryFn:({signal:e})=>t(`get`,`/api/certs`,{signal:e})});export{r as n,n as t};

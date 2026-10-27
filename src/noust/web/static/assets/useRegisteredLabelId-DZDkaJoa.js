@@ -1,1 +1,0 @@
-import{c as e}from"./Notice-CxTkZhCH.js";import{st as t}from"./useNode-DfMNU3VA.js";function n(n,r){let i=e(n);return t(()=>(r(i),()=>{r(e=>e===i?void 0:e)}),[i,r]),i}export{n as t};

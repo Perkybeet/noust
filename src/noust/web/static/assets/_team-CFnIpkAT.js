@@ -1,0 +1,1 @@
+import{rn as e}from"./useNode-BDJR0RM8.js";import{t}from"./_team-C-WOBmcg.js";import{t as n}from"./TeamLayout-DbcgSGNM.js";var r=e();function i(){let{team:e}=t.useParams();return(0,r.jsx)(n,{team:e},e)}export{i as component};

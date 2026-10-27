@@ -1,1 +1,0 @@
-import{rn as e}from"./useNode-DfMNU3VA.js";import{n as t}from"./Match-DTxyjuV4.js";import{t as n}from"./SettingsShell-BC48q1ks.js";var r=e();function i(){return(0,r.jsx)(n,{children:(0,r.jsx)(t,{})})}export{i as component};

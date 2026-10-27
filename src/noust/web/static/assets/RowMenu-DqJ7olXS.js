@@ -1,0 +1,1 @@
+import{n as e,r as t}from"./Notice-rItomFI3.js";import{rn as n,y as r}from"./useNode-BDJR0RM8.js";import{t as i}from"./Menu-DnA1WpCA.js";var a=n();function o({name:n,children:o,align:s=`end`}){let c=r();return(0,a.jsx)(i,{align:s,trigger:(0,a.jsx)(t,{label:c(`common.rowActions`,{name:n}),icon:(0,a.jsx)(e.more,{}),size:`sm`,tooltip:!1}),children:o})}export{o as t};
