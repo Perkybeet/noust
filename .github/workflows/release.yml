@@ -481,39 +481,49 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
 
+      # The tag is text somebody typed (a manual run asks for it): it reaches the shell as a
+      # variable, never substituted into the script.
       - name: Get version from tag
         id: get_version
+        env:
+          EVENT: ${{ github.event_name }}
+          REQUESTED_TAG: ${{ inputs.tag }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ inputs.tag }}"
+          if [ "${EVENT}" = "workflow_dispatch" ]; then
+            TAG="${REQUESTED_TAG}"
           else
             TAG="${GITHUB_REF#refs/tags/}"
           fi
           VERSION="${TAG#v}"
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          {
+            echo "version=${VERSION}"
+            echo "tag=${TAG}"
+          } >> "$GITHUB_OUTPUT"
 
       # The entry for this version, up to the next entry.
       - name: Extract changelog
         id: changelog
+        env:
+          VERSION: ${{ steps.get_version.outputs.version }}
         run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
           CHANGELOG=$(awk -v v="${VERSION}" '
             /^[a-z0-9][a-z0-9.+-]* \(/ { if (found) exit; if (index($0, "(" v "-")) { found = 1; next } }
             found && !/^ -- / { sub(/^  /, ""); print }
           ' obs/debian.changelog)
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "changelog<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
           # A release that fixes a vulnerability says so (checklist L-43): a
           # changelog bullet starting `SECURITY:` (scripts/release.py -m
           # "SECURITY: ...") puts "(security release)" at the end of its title,
           # which is what the update check, `noust health` and the console read
           # (noust.core.package_index.is_security_release).
           if printf '%s\n' "$CHANGELOG" | grep -Eq '^\* SECURITY:'; then
-            echo "title_suffix= (security release)" >> $GITHUB_OUTPUT
+            echo "title_suffix= (security release)" >> "$GITHUB_OUTPUT"
           else
-            echo "title_suffix=" >> $GITHUB_OUTPUT
+            echo "title_suffix=" >> "$GITHUB_OUTPUT"
           fi
 
       # The SBOM is written here, not by supply-chain.yml's release trigger: a
@@ -878,10 +888,21 @@ jobs:
 
   # Nothing is announced before this: the release becomes the latest (what servers' update
   # checks, `releases/latest/download/install.sh` and the fleet's target version read) only
-  # when every channel has the version. A failure above leaves it a pre-release and says why.
+  # when every channel has the version and its files are signed. A failure above leaves it a
+  # pre-release and says why. It waits for every job of the workflow (attest-assets included, which
+  # nothing else waits for: tests/test_workflow_needs.py fails on a job that nobody waits for), and no
+  # job it waits for has an `if`, because a skipped job skips it too.
   announce:
     name: Announce the release
-    needs: [release, build-sdist, installer, build-deb, publish-pypi, publish-container, obs-published]
+    needs:
+      - release
+      - build-sdist
+      - installer
+      - build-deb
+      - attest-assets
+      - publish-pypi
+      - publish-container
+      - obs-published
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -889,7 +910,8 @@ jobs:
       - name: Make it the latest release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "${{ needs.release.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
+          TAG: ${{ needs.release.outputs.tag }}
+        run: gh release edit "${TAG}" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
 
   # The central for a NAS: ghcr.io/perkybeet/noust, amd64 and arm64, from the
   # wheel of this tag. The container-image gate already built and started it
