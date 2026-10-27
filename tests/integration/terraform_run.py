@@ -73,7 +73,7 @@ import live_api  # noqa: E402 - the sibling module, importable once the director
 DEFAULT_PREFIX = "noust-test-jl"
 LABEL = "noust.test=1"
 
-GO_IMAGE = "golang:1.25"
+GO_IMAGE = "golang:1.26"
 TERRAFORM_IMAGE = "hashicorp/terraform:1.16.6"
 OPENTOFU_IMAGE = "ghcr.io/opentofu/opentofu:1.12.8"
 PYTHON_IMAGE = "python:3.12-slim-bookworm"
