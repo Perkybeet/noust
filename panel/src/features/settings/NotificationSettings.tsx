@@ -227,6 +227,13 @@ function EventGroup({
   );
 }
 
+/**
+ * The languages the server writes its messages in. Its catalogs are English and Spanish and
+ * `notifications.language` refuses any other, so the console's released community languages (which
+ * are the console's own) are not offered here: choosing one could not be saved.
+ */
+const MESSAGE_LANGUAGES: readonly Locale[] = ["en", "es"];
+
 /** The language Noust writes its messages in, and where their link leads. */
 function Messages({ language, publicUrl }: { language: SettingsForm<{ language: string }>; publicUrl: string }) {
   const t = useT();
@@ -236,7 +243,7 @@ function Messages({ language, publicUrl }: { language: SettingsForm<{ language: 
       <FieldGroup legend={t("settings.notifications.language.fieldLabel")} description={t("settings.notifications.language.description")} error={language.fieldErrors.language}>
         <SegmentedControl<Locale>
           label={t("settings.notifications.language.fieldLabel")}
-          options={LOCALE_CHOICES.map((choice) => ({ value: choice.value, label: choice.label }))}
+          options={LOCALE_CHOICES.filter((choice) => MESSAGE_LANGUAGES.includes(choice.value))}
           value={value}
           onValueChange={(next) => {
             language.set("language", next);

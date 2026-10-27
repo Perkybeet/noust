@@ -485,6 +485,17 @@ describe("Settings > Notifications", () => {
     expect(host).toHaveAttribute("aria-invalid", "true");
   });
 
+  it("offers the two languages the server writes its messages in, and no more", { timeout: 20_000 }, async () => {
+    // The server's catalogs are English and Spanish and it refuses any other
+    // (notifications.language must be 'en' or 'es'): the console's released community languages are
+    // the console's own, and offering one here was a choice that could not be saved. Six of them in a
+    // pill that does not shrink were also wider than a phone.
+    notificationsBackend();
+    renderConsole("/settings/notifications");
+    const group = await screen.findByRole("radiogroup", { name: "Language of notifications" });
+    expect(within(group).getAllByRole("radio").map((radio) => radio.textContent)).toEqual(["English", "Español"]);
+  });
+
   it("turns notifications on at once, and saves events and language from the one bar", { timeout: 20_000 }, async () => {
     const backend = notificationsBackend();
     const { user } = renderConsole("/settings/notifications");
