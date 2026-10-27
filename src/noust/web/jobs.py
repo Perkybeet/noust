@@ -138,6 +138,8 @@ class JobType(str, Enum):
     SANDBOX_TEST = "sandbox_test"
     # Moving an application to its own system account (3.2).
     IDENTITY_MIGRATE = "identity_migrate"
+    # Installing cloudflared, the connector of Cloudflare Tunnels, from Cloudflare's repository (4.1).
+    CLOUDFLARED_INSTALL = "cloudflared_install"
     # Changing how hardened an application's unit is (4.0).
     HARDENING = "hardening"
     # Tuning an application's unit beyond its hard limits (4.0).

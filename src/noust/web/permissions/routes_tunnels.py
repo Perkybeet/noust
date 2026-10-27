@@ -17,6 +17,8 @@ from noust.web.permissions import Permission
 ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/tunnels"): Permission.SERVER_READ,
     ("POST", "/api/tunnels"): Permission.SERVER_MANAGE,
+    # Adds Cloudflare's package repository and installs a package as root: sudo mode is asked.
+    ("POST", "/api/tunnels/install-cloudflared"): Permission.SERVER_MANAGE,
     ("DELETE", "/api/tunnels/{name}"): Permission.SERVER_MANAGE,
     ("POST", "/api/tunnels/{name}/routes"): Permission.SERVER_MANAGE,
     ("DELETE", "/api/tunnels/{name}/routes/{hostname}"): Permission.SERVER_MANAGE,
