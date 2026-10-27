@@ -344,3 +344,38 @@ class TestRequestCorrelation:
         forged = {"headers": [(b"x-noust-request-id", b"x\nfake line")]}
         assert request_correlation_id(forged) != "x\nfake line"
         assert len(request_correlation_id({"headers": []})) == 16
+
+
+class TestAStatementIsRedactedInTimeWhateverItHolds:
+    """CodeQL py/polynomial-redos: the quoted-secret pattern had two overlapping ``\\s*``."""
+
+    @pytest.mark.parametrize(
+        ("statement", "kept"),
+        [
+            ("ALTER USER app WITH PASSWORD 'hunter2'", "PASSWORD '"),
+            ("SET password='hunter2'", "password='"),
+            ("SET password = 'hunter2'", "password = '"),
+            ("CREATE USER a IDENTIFIED   BY 'hunter2'", "IDENTIFIED   BY '"),
+            ("set token\t=\t'hunter2'", "token\t=\t'"),
+        ],
+    )
+    def test_the_spellings_that_were_redacted_still_are(self, statement: str, kept: str) -> None:
+        from noust.core.audit.sanitize import scrub_statement
+        from noust.core.config import REDACTED
+
+        scrubbed = scrub_statement(statement)
+
+        assert "hunter2" not in scrubbed
+        assert f"{kept}{REDACTED}'" in scrubbed
+
+    @pytest.mark.parametrize("word", ["token", "password", "identified by"])
+    def test_a_long_run_of_blanks_after_the_keyword_is_linear(self, word: str) -> None:
+        import time
+
+        from noust.core.audit.sanitize import scrub_statement
+
+        started = time.perf_counter()
+        scrub_statement(word + "\t" * 40000)
+        scrub_statement(("token " + "\t" * 50) * 800)
+
+        assert time.perf_counter() - started < 1.0
