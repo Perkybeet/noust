@@ -125,24 +125,10 @@ WEB_IMPORTS_THE_CLI = {
     "noust.web.api.ens -> noust.cli.commands.web",
 }
 
-#: Modules that import each other when they are loaded, whatever the order. A group is here
-#: because one of its modules registers itself with another by importing it at the end of the file.
-MODULES_IN_A_CYCLE = {
-    "noust.cli.commands.deploy",
-    "noust.cli.commands.deploy_gates",
-    "noust.cli.commands.fleet",
-    "noust.cli.commands.fleet_builder",
-    "noust.cli.commands.fleet_cloud",
-    "noust.cli.commands.fleet_enroll",
-    "noust.cli.commands.fleet_placement",
-    "noust.cli.commands.fleet_views",
-    "noust.cli.commands.node",
-    "noust.cli.commands.node_link",
-    "noust.web.fleet_database_actions",
-    "noust.web.fleet_jobs",
-    "noust.web.fleet_placement_actions",
-    "noust.web.fleet_ship_actions",
-}
+#: Modules that import each other when they are loaded, whatever the order. Empty: a command that
+#: attaches itself to a group imports the module that defines the group (a leaf of its own), and
+#: nothing imports its siblings at the end of a file.
+MODULES_IN_A_CYCLE: set[str] = set()
 
 #: A module may not be longer than this. A new one past it is split before it is written; the
 #: ones below were already past it, and may only get shorter.
@@ -158,13 +144,13 @@ OVERSIZE_MODULES = {
     "noust.core.store": 5821,
     "noust.deployers.base": 5032,
     "noust.deployers.docker_compose": 4349,
-    "noust.deployers.lifecycle": 4929,
+    "noust.deployers.lifecycle": 4908,
     "noust.managers.backup_manager": 5249,
     "noust.managers.database.base": 3386,
     "noust.managers.database.postgres": 3296,
     "noust.managers.database.service": 3859,
     "noust.managers.database.settings": 3394,
-    "noust.managers.previews": 3291,
+    "noust.managers.previews": 3282,
     "noust.managers.service_manager": 3425,
     "noust.managers.source_manager": 4332,
     "noust.managers.webserver": 3710,

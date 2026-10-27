@@ -22,6 +22,7 @@ from click.testing import CliRunner
 
 from noust.cli.app import cli as root_cli
 from noust.cli.commands import fleet as fleet_cli
+from noust.cli.commands import fleet_common
 from noust.core.exceptions import NodeError
 from noust.core.store import NoustStore
 from noust.fleet import authorize as authorize_module
@@ -61,7 +62,7 @@ class TestAuthorizeCommand:
 
         node = Node(tmp_path, token_manager())
         node.console_outcome = fleet_cli.ConsoleOutcome(port=8080)
-        monkeypatch.setattr(fleet_cli, "check_root", lambda: True)
+        monkeypatch.setattr(fleet_common, "check_root", lambda: True)
         monkeypatch.setattr(
             fleet_cli, "ensure_console_on_loopback", lambda verbose, dry, **kw: node.console_outcome
         )
@@ -96,7 +97,7 @@ class TestAuthorizeCommand:
         NoustStore.reset_instance()
 
     def test_needs_root(self, state_dir, monkeypatch):
-        monkeypatch.setattr(fleet_cli, "check_root", lambda: False)
+        monkeypatch.setattr(fleet_common, "check_root", lambda: False)
         result = CliRunner().invoke(
             root_cli, ["fleet", "authorize", "--central-key", CENTRAL_KEY, "--name", "nas"]
         )
@@ -387,7 +388,7 @@ class TestAccessCommand:
         NoustStore.reset_instance()
         store = NoustStore(tmp_path / "noust.db", fs=RecordingFileSystem())
         monkeypatch.setattr("noust.core.store.get_store", lambda *a, **k: store)
-        monkeypatch.setattr(fleet_cli, "check_root", lambda: True)
+        monkeypatch.setattr(fleet_common, "check_root", lambda: True)
         yield store
         NoustStore.reset_instance()
 
@@ -416,7 +417,7 @@ class TestAccessCommand:
         assert current_access(store) == FleetAccess("admin", False)
 
     def test_changing_it_needs_root(self, store, monkeypatch):
-        monkeypatch.setattr(fleet_cli, "check_root", lambda: False)
+        monkeypatch.setattr(fleet_common, "check_root", lambda: False)
 
         shown = CliRunner().invoke(root_cli, ["fleet", "access"])
         assert shown.exit_code == 0

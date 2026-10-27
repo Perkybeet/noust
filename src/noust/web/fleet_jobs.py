@@ -1058,6 +1058,28 @@ ACTIONS: dict[str, ActionSpec] = {
 }
 
 
+def all_actions() -> dict[str, ActionSpec]:
+    """
+    Every bulk action, by name.
+
+    The actions of an application on several servers are in their own modules, which add
+    themselves to :data:`ACTIONS` when they are imported and import this one for what they are
+    made of. They are imported here, when the registry is read, and not when this module loads:
+    a module that imports the modules that import it works only in the order it was first
+    imported in.
+
+    Returns:
+        The registry, complete.
+    """
+    from noust.web import (  # noqa: F401
+        fleet_database_actions,
+        fleet_placement_actions,
+        fleet_ship_actions,
+    )
+
+    return ACTIONS
+
+
 # --------------------------------------------------------------- request
 
 
@@ -1096,11 +1118,12 @@ class FleetRequest:
         Raises:
             ValidationError: For an action that does not exist.
         """
-        spec = ACTIONS.get(self.action)
+        actions = all_actions()
+        spec = actions.get(self.action)
         if spec is None:
             raise ValidationError(
                 f"Unknown fleet action: {self.action!r}",
-                details=f"Use one of: {', '.join(ACTIONS)}.",
+                details=f"Use one of: {', '.join(actions)}.",
                 field="action",
             )
         return spec
@@ -1815,7 +1838,7 @@ class FleetJobs:
         if interrupted:
             status = "interrupted"
         nodes = self._nodes(job_id, interrupted)
-        spec = ACTIONS.get(row["action"])
+        spec = all_actions().get(row["action"])
         return {
             "job_id": row["job_id"],
             "action": row["action"],
@@ -2449,10 +2472,3 @@ def start_job(
 def new_job_id() -> str:
     """Returns: An identifier for a fleet job run outside the console (the CLI)."""
     return uuid.uuid4().hex[:8]
-
-
-# The actions of an application on several servers are in their own module, which
-# registers them in ACTIONS: it needs everything above to exist.
-from noust.web import fleet_database_actions as _database_actions  # noqa: E402,F401
-from noust.web import fleet_placement_actions as _placement_actions  # noqa: E402,F401
-from noust.web import fleet_ship_actions as _ship_actions  # noqa: E402,F401

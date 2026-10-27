@@ -21,6 +21,7 @@ from click.testing import CliRunner
 
 from noust.cli.app import cli as root_cli
 from noust.cli.commands import fleet as fleet_cli
+from noust.cli.commands import fleet_common
 from noust.core.exceptions import NodeError
 from noust.core.store import NoustStore
 from noust.fleet import nodes as nodes_module
@@ -69,7 +70,7 @@ def rig(tmp_path: Path, state_dir: Path, monkeypatch: pytest.MonkeyPatch) -> Lin
     built = build_link_rig(tmp_path / "central")
     monkeypatch.setattr("noust.cli.commands.node_link._links", lambda: built.links)
     monkeypatch.setattr(nodes_module, "NodeManager", lambda *a, **k: _Registry(built.manager))
-    monkeypatch.setattr(fleet_cli, "check_root", lambda: True)
+    monkeypatch.setattr(fleet_common, "check_root", lambda: True)
     monkeypatch.setattr("noust.cli.commands.node_link._operator", lambda: "cli:root")
     return built
 
@@ -80,7 +81,7 @@ def run(*args: str, input: str | None = None):
 
 class TestCentral:
     def test_setup_needs_root(self, rig, monkeypatch):
-        monkeypatch.setattr(fleet_cli, "check_root", lambda: False)
+        monkeypatch.setattr(fleet_common, "check_root", lambda: False)
         result = run("node", "link", "setup")
         assert isinstance(result.exception, NodeError)
         assert "needs root" in result.exception.message
@@ -168,7 +169,7 @@ class TestServer:
         from noust.cli.web_state import token_manager
 
         built = Server(tmp_path, token_manager())
-        monkeypatch.setattr(fleet_cli, "check_root", lambda: True)
+        monkeypatch.setattr(fleet_common, "check_root", lambda: True)
         monkeypatch.setattr("noust.cli.commands.node_link._operator", lambda: "cli:root")
         monkeypatch.setattr(
             "noust.cli.commands.node_link.ensure_console_on_loopback",
@@ -221,7 +222,7 @@ class TestServer:
         )
 
     def test_link_needs_root(self, server, monkeypatch):
-        monkeypatch.setattr(fleet_cli, "check_root", lambda: False)
+        monkeypatch.setattr(fleet_common, "check_root", lambda: False)
         result = run(*self.host_key_args())
         assert isinstance(result.exception, NodeError)
         assert "needs root" in result.exception.message

@@ -29,18 +29,20 @@ from typing import TYPE_CHECKING, Any
 
 import click
 
-from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.app import Context, json_option, pass_context
+
+# The fleet's views and bulk actions, and node labels (B5b), and servers behind NAT
+# (noust node link ..., and noust fleet link/unlink on the server) live in their own modules and
+# attach themselves to this group; importing them here is what makes them part of 'noust node'.
+from noust.cli.commands import fleet_views as _fleet_views  # noqa: F401
+from noust.cli.commands import node_link as _node_link  # noqa: F401
+from noust.cli.commands.node_group import cli
 from noust.core.exceptions import NodeError
 from noust.core.teams.nodes import NodeAssignments
 
 if TYPE_CHECKING:
     from noust.core.store import NodeRecord
     from noust.fleet.nodes import NodeManager
-
-
-@click.group("node", cls=NoustGroup)
-def cli() -> None:
-    """Manage the servers this central manages, through their API over SSH tunnels."""
 
 
 def _manager() -> NodeManager:
@@ -908,12 +910,3 @@ def resume_command(ctx: Context, name: str) -> None:
     Liveness(manager.store).resume(name)
     audit("fleet.node.resume", "success", resource=f"node:{name}")
     ctx.logger.success(f"{name} is monitored again")
-
-
-# The fleet's views and bulk actions, and node labels, live in their own module
-# (B5b) and attach themselves to this group; importing it here is what makes
-# them part of 'noust node'.
-from noust.cli.commands import fleet_views as _fleet_views  # noqa: E402,F401
-
-# Servers behind NAT (noust node link ..., and noust fleet link/unlink on the server).
-from noust.cli.commands import node_link as _node_link  # noqa: E402,F401

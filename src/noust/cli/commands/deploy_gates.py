@@ -25,7 +25,7 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
-from noust.cli.commands.deploy import cli
+from noust.cli.commands.deploy_group import cli
 from noust.cli.lookup import known_app
 from noust.core import app_rollout_store, delivery, deploy_freeze, deploy_guard
 from noust.core import webhook_deliveries as deliveries_log
