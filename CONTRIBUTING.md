@@ -495,6 +495,7 @@ pip install -e ".[all,dev]"     # development install
 
 pytest                          # tests
 pytest --cov=noust              # with coverage
+pytest --shard 2/6              # one slice of the suite, by whole files (CI runs each slice on its own machine)
 ruff check src/noust tests      # lint (blocking in CI)
 ruff format src/noust tests     # format (blocking in CI)
 mypy                            # types (blocking in CI)

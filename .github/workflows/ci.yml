@@ -87,8 +87,17 @@ jobs:
         run: python scripts/reproducible_build.py verify --ref HEAD
 
   test:
-    name: Test on Python ${{ matrix.python-version }}
+    name: Test on Python ${{ matrix.python-version }} (${{ matrix.shard }}/6)
     runs-on: ubuntu-latest
+    env:
+      # The suite is forty-two thousand tests. One job ran them all in half an hour on a good run and
+      # over an hour on a bad one, and the runner that carried Python 3.14 with coverage was lost
+      # before it finished, again and again, with no test failing. Measured on a sixth of the suite
+      # with three workers: 3.8 GiB on Python 3.14 and 7.2 GiB with coverage, growing with every test
+      # a worker has run, so the whole suite on four workers would ask for several times the 16 GiB of
+      # a runner. The suite is cut into six slices by whole test files (tests/sharding.py), one
+      # machine each; tests/test_ci_shards.py holds the 6 here to the matrix below.
+      NOUST_TEST_SHARD: ${{ matrix.shard }}/6
     strategy:
       fail-fast: false
       matrix:
@@ -100,6 +109,7 @@ jobs:
         # pull request into it test every version in between as well (a tag
         # is verified again by release.yml before anything is published).
         python-version: ${{ fromJSON(github.event_name == 'push' && github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') && '["3.10", "3.14"]' || '["3.10", "3.11", "3.12", "3.13", "3.14"]') }}
+        shard: [1, 2, 3, 4, 5, 6]
 
     steps:
       - uses: actions/checkout@v7

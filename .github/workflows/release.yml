@@ -36,12 +36,17 @@ jobs:
   # every OBS target then failed to build. A tag is a request to publish, not
   # evidence that publishing is safe.
   verify:
-    name: Verify before publishing
+    name: Verify before publishing (${{ matrix.python-version }}, ${{ matrix.shard }}/6)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
       matrix:
         python-version: ["3.10", "3.12", "3.14"]
+        # The suite is cut into six slices by whole test files, one machine each, as in ci.yml: a
+        # single job for forty-two thousand tests ran from half an hour to over an hour, and a
+        # worker's memory grows with every test it runs (see the test job there). The slices add up
+        # to the suite (tests/test_ci_shards.py holds the two numbers together).
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -56,6 +61,8 @@ jobs:
 
       # One worker per vCPU; see the test job in ci.yml for why not `auto`.
       - name: Run tests
+        env:
+          NOUST_TEST_SHARD: ${{ matrix.shard }}/6
         run: pytest -n logical
 
       # A tag whose version does not match the files is a release nobody can
