@@ -1027,6 +1027,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("timeline", "read_timeline"): ("GET", "/api/timeline", "server.read", False),
     ("tunnels", "list_tunnels"): ("GET", "/api/tunnels", "server.read", False),
     ("tunnels", "create_tunnel"): ("POST", "/api/tunnels", "server.manage", True),
+    ("tunnels", "post_install_cloudflared"): ("POST", "/api/tunnels/install-cloudflared", "server.manage", True),
     ("tunnels", "delete_tunnel"): ("DELETE", "/api/tunnels/{name}", "server.manage", True),
     ("tunnels", "add_route"): ("POST", "/api/tunnels/{name}/routes", "server.manage", True),
     ("tunnels", "remove_route"): ("DELETE", "/api/tunnels/{name}/routes/{hostname}", "server.manage", True),
@@ -1866,13 +1867,13 @@ class Applications:
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/identity", query=None, body=None)
 
-    def post_identity_migrate(self, domain: str) -> "JobAcceptedResponse":
+    def post_identity_migrate(self, domain: str, *, body: Union["IdentityMigrateRequest", None] = None) -> "JobAcceptedResponse":
         """POST /api/apps/{domain}/identity/migrate
 
         Post Identity Migrate
 
         Needs: permission `root_equivalent`, sudo mode, a second person's approval can be required."""
-        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/identity/migrate", query=None, body=None)
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/identity/migrate", query=None, body=body)
 
     def update_app_limits(self, domain: str, body: "UpdateLimitsRequest") -> "LimitsResponse":
         """PATCH /api/apps/{domain}/limits
@@ -9461,7 +9462,7 @@ class Timeline:
 
 
 class Tunnels:
-    """Tunnels: 5 operations."""
+    """Tunnels: 6 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -9481,6 +9482,14 @@ class Tunnels:
 
         Needs: permission `server.manage`, sudo mode."""
         return self._call("POST", "/api/tunnels", query=None, body=body)
+
+    def post_install_cloudflared(self) -> "JobAcceptedResponse":
+        """POST /api/tunnels/install-cloudflared
+
+        Post Install Cloudflared
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("POST", "/api/tunnels/install-cloudflared", query=None, body=None)
 
     def delete_tunnel(self, name: str) -> "TunnelResultResponse":
         """DELETE /api/tunnels/{name}

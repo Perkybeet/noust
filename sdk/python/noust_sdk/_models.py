@@ -1744,6 +1744,11 @@ ClusterRolePlan = TypedDict("ClusterRolePlan", {
     "reason": NotRequired[Union[str, None]],
 })
 
+CodedText = TypedDict("CodedText", {
+    "code": Required[str],
+    "params": NotRequired[dict[str, Union[bool, int, float, str]]],
+})
+
 CollectorModel = TypedDict("CollectorModel", {
     "advice": NotRequired[Union["ReasonModel", None]],
     "host": NotRequired[Union[str, None]],
@@ -2939,8 +2944,10 @@ DockerfileRequest = TypedDict("DockerfileRequest", {
 })
 
 DoctorItemOut = TypedDict("DoctorItemOut", {
+    "coded": NotRequired[Union["CodedText", None]],
     "fix": NotRequired[Union[str, None]],
     "notes": NotRequired[list[str]],
+    "notes_coded": NotRequired[list["CodedText"]],
     "status": Required[Literal["ok", "info", "warn", "fail"]],
     "text": Required[str],
 })
@@ -2954,7 +2961,9 @@ DoctorOut = TypedDict("DoctorOut", {
 
 DoctorSectionOut = TypedDict("DoctorSectionOut", {
     "explain": NotRequired[Union[str, None]],
+    "explain_coded": NotRequired[Union["CodedText", None]],
     "items": Required[list["DoctorItemOut"]],
+    "key": NotRequired[str],
     "title": Required[str],
 })
 
@@ -3371,6 +3380,7 @@ EolOut = TypedDict("EolOut", {
 })
 
 ErrorResponse = TypedDict("ErrorResponse", {
+    "coded": NotRequired[Union["CodedText", None]],
     "detail": Required[str],
     "error": Required[str],
     "fields": NotRequired[Union[dict[str, str], None]],
@@ -4149,6 +4159,10 @@ IdentityInfo = TypedDict("IdentityInfo", {
     "subject": Required[str],
 })
 
+IdentityMigrateRequest = TypedDict("IdentityMigrateRequest", {
+    "shared_group": NotRequired[Union[str, None]],
+})
+
 IdentityOut = TypedDict("IdentityOut", {
     "architecture": Required[str],
     "booted_at": NotRequired[Union[str, None]],
@@ -4448,6 +4462,8 @@ InvitationIssued = TypedDict("InvitationIssued", {
     "account": Required["AccountInfo"],
     "code": Required[str],
     "email_error": NotRequired[Union[str, None]],
+    "email_error_coded": NotRequired[Union["CodedText", None]],
+    "email_error_hint": NotRequired[Union[str, None]],
     "emailed": NotRequired[bool],
     "expires_in": Required[int],
 })
@@ -9558,6 +9574,7 @@ TunnelSupportModel = TypedDict("TunnelSupportModel", {
     "accounts": NotRequired[list[str]],
     "available": Required[bool],
     "cloudflared": NotRequired[Union[str, None]],
+    "coded": NotRequired[Union["CodedText", None]],
     "hint": NotRequired[Union[str, None]],
     "problem": NotRequired[Union[str, None]],
     "sealed": NotRequired[bool],
@@ -10275,6 +10292,9 @@ WebserverConfig = TypedDict("WebserverConfig", {
 })
 
 WebserverResponse = TypedDict("WebserverResponse", {
+    "applications": NotRequired[dict[str, int]],
+    "applies_to": NotRequired[Literal["new_applications"]],
+    "sites": NotRequired[dict[str, int]],
     "webserver": Required[str],
 })
 
