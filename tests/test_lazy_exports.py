@@ -29,6 +29,10 @@ SRC = Path(noust.__file__).resolve().parent
 PACKAGES = (
     "noust",
     "noust.core",
+    "noust.managers",
+    "noust.deployers",
+    "noust.deployers.helpers",
+    "noust.cli.commands",
 )
 
 
