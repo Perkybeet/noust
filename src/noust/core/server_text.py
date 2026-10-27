@@ -24,9 +24,17 @@ and a sentence without one has none. One code in a response therefore tells the 
 the problem and the way out.
 
 **What is never a sentence here**: another program's own output (nginx's, systemd's,
-certbot's), a command to run, a path, a version a program printed, a name somebody typed. They
-are values, sent as parameters or as the text beside the code, and the console shows them as
-they are (``docs/api.md``, "Sentences with a code").
+certbot's), a command to run, a path, a version a program printed, a name somebody typed, a
+control's id, a person. They are values, sent as parameters or as the text beside the code, and
+the console shows them as they are (``docs/api.md``, "Sentences with a code"). A value named
+``command``, or ending in ``_command``, is a command: :func:`is_command`.
+
+**The console is held to this catalog.** :func:`typescript_codes` writes the table
+``panel/src/api/serverTextCodes.gen.ts`` (``scripts/generate_server_text.py``), and a test of the
+console fails for a code without an entry in English and in Spanish, with the same values. There
+is no other way for a sentence to reach the console with a code: a module that says something to
+a person in words of its own (a flag, a ``what``/``how`` pair, a dict of fields) has not been
+given codes yet.
 """
 
 from __future__ import annotations
@@ -41,6 +49,12 @@ Param = str | int | float | bool
 
 #: Appended to a sentence's code to name its fix.
 HINT_SUFFIX = ".hint"
+
+#: What a call that waits for a second person's decision is told to do next, said twice below.
+_SEND_AGAIN = (
+    "Once approved, send exactly the same call again with the header {header}: {request}, "
+    "within {minutes} minutes."
+)
 
 #: Every sentence, by code. Grouped by the area that says it. ``tests/test_server_text.py`` holds
 #: it to the code: a code asked for and absent fails, and a sentence nobody says fails.
@@ -164,7 +178,83 @@ CATALOG: dict[str, str] = {
         "Nothing here stops working: Noust accepts the old names while they are met. "
         "'noust setup rename' finishes what can be finished without restarting anything."
     ),
+    # -- The terminal: what keeps it from opening, and its limits ----------------------------
+    # A command is a value ({command}): the console shows it as it is, and a test runs it.
+    "terminal.server_off": "The terminal on the server itself is off (terminal.server.enabled)",
+    "terminal.server_off.hint": (
+        "It is a root shell, so it stays off until an administrator turns it on: {command}"
+    ),
+    "terminal.server_control": (
+        "The control {control} is set to refused on this server, so the terminal on the server "
+        "itself stays off"
+    ),
+    "terminal.server_control.hint": (
+        "No framework asks for it: it was set in Settings > Controls or with the command line. "
+        "To allow it: {command}"
+    ),
+    "terminal.server_framework": (
+        "The compliance framework in force ({frameworks}) keeps the terminal on the server "
+        "itself off (the control {control} is refused)"
+    ),
+    "terminal.server_framework.hint": (
+        "A root shell in the browser is the console at its most root-equivalent. To allow it "
+        "anyway, which is put on record: {command}. "
+        "Or turn the framework off: {turn_off_command}"
+    ),
+    "terminal.disabled": "Terminals are turned off on this server",
+    "terminal.disabled.hint": "An administrator turns them on with: {command}",
+    "terminal.limit_total": "{open} terminals are open, the most this server allows",
+    "terminal.limit_total.hint": "Close one, or raise terminal.max_sessions.",
+    "terminal.limit_user": "You already have {open} terminals open, the most one person may",
+    "terminal.limit_user.hint": "Close one, or raise terminal.max_sessions_per_user.",
+    # -- Which control asks something of a person, and how to stop it asking -----------------
+    # (noust.core.compliance.explain decides which one; the words are here.)
+    "controls.asked_by_setting": (
+        "The control {control} asks for it, and it was turned on in Settings > Controls (or "
+        "with the command line). It applies to everybody, whatever their role."
+    ),
+    "controls.asked_by_setting.hint": "To turn it off there, or:\n  {command}",
+    "controls.asked_by_framework": (
+        "The control {control} asks for it, and the framework in force ({frameworks}) asks for "
+        "that control, so it stays on while the framework is on and cannot be turned off by "
+        "itself."
+    ),
+    "controls.asked_by_framework.hint": (
+        "To turn the framework off (Settings > Controls):\n  {command}"
+    ),
+    # -- A call that needs a second person's approval, or a reason ---------------------------
+    "approvals.asked_waiting": (
+        "This needs a second person's approval, whoever you are. Request {request} is waiting "
+        "for an account with one of these roles to decide it: {approvers}."
+    ),
+    "approvals.asked_waiting.hint": _SEND_AGAIN,
+    "approvals.asked_approved": (
+        "This needs a second person's approval, whoever you are. Request {request} is "
+        "approved: send the call again with it now."
+    ),
+    "approvals.asked_approved.hint": _SEND_AGAIN,
+    "approvals.reason_required": (
+        "Say why: this call needs a second person's approval, and a reason."
+    ),
+    "approvals.reason_required.hint": "Send the reason in the {header} header (percent-encoded).",
+    "approvals.central_missing": "This needs a second person's approval on the central.",
+    "approvals.central_missing.hint": (
+        "Ask for it on the central and retry through it once it is approved."
+    ),
 }
+
+
+def _names_in(template: str | None) -> tuple[str, ...] | None:
+    """
+    Args:
+        template: A catalog entry, or None.
+
+    Returns:
+        The values the entry is said with, sorted; None when there is no entry.
+    """
+    if template is None:
+        return None
+    return tuple(sorted({name for _, name, _, _ in string.Formatter().parse(template) if name}))
 
 
 def values_of(code: str) -> set[str]:
@@ -177,10 +267,75 @@ def values_of(code: str) -> set[str]:
     """
     names: set[str] = set()
     for key in (code, code + HINT_SUFFIX):
-        template = CATALOG.get(key)
-        if template is not None:
-            names |= {name for _, name, _, _ in string.Formatter().parse(template) if name}
+        names |= set(_names_in(CATALOG.get(key)) or ())
     return names
+
+
+def is_command(name: str) -> bool:
+    """
+    Args:
+        name: The name of a value a sentence takes.
+
+    Returns:
+        Whether the value is a command to run: ``command``, or a name that ends in ``_command``.
+        The console shows such a value as it is, in mono, and never translates or breaks it.
+    """
+    return name == "command" or name.endswith("_command")
+
+
+def commands_of(code: str) -> tuple[str, ...]:
+    """
+    Args:
+        code: A sentence's code.
+
+    Returns:
+        The values of the sentence and of its fix that are commands, sorted.
+    """
+    return tuple(sorted(name for name in values_of(code) if is_command(name)))
+
+
+def typescript_codes() -> str:
+    """
+    Returns:
+        The table of sentences as the TypeScript module the console is held to
+        (``panel/src/api/serverTextCodes.gen.ts``), byte for byte what the generator writes: for
+        each sentence the values its text takes, the values its fix takes (null when it has
+        none) and which of them are commands. The console's English and Spanish catalogs must
+        have an entry for each, with the same values.
+    """
+    import json
+
+    lines = []
+    for code in sorted(CATALOG):
+        if code.endswith(HINT_SUFFIX):
+            continue
+        text = _names_in(CATALOG[code])
+        hint = _names_in(CATALOG.get(code + HINT_SUFFIX))
+        lines.append(
+            f"  {json.dumps(code)}: {{ "
+            f"text: {json.dumps(list(text or ()))}, "
+            f"hint: {json.dumps(None if hint is None else list(hint))}, "
+            f"commands: {json.dumps(list(commands_of(code)))} }},"
+        )
+    body = "\n".join(lines)
+    return (
+        "// Generated by scripts/generate_server_text.py from src/noust/core/server_text.py.\n"
+        "// Do not edit: change the sentence there and run the script.\n"
+        "\n"
+        "export interface ServerTextEntry {\n"
+        "  /** The values the sentence is said with. */\n"
+        "  readonly text: readonly string[];\n"
+        "  /** The values its fix is said with; null when the sentence has no fix. */\n"
+        "  readonly hint: readonly string[] | null;\n"
+        "  /** The values that are commands: shown as they are, in mono. */\n"
+        "  readonly commands: readonly string[];\n"
+        "}\n"
+        "\n"
+        "/** Every sentence the server says with a code, with the values each takes. */\n"
+        f"export const SERVER_TEXT = {{\n{body}\n}} as const satisfies Record<string, ServerTextEntry>;\n"
+        "\n"
+        "export type ServerTextCode = keyof typeof SERVER_TEXT;\n"
+    )
 
 
 @dataclass(frozen=True)

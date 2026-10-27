@@ -74,15 +74,6 @@ export const terminal: Catalog<typeof en> = {
   },
   off: {
     title: "El terminal del servidor está desactivado",
-    description:
-      "Una shell de root en el navegador es lo más potente que puede abrir la consola, así que sigue desactivada hasta que un administrador la active.",
-    control:
-      "El control server_terminal está en refused en este servidor, así que la shell de root en el navegador sigue desactivada aunque esté activada.",
-    framework:
-      "El marco de cumplimiento en vigor ({frameworks}) la mantiene desactivada aunque se active, a menos que además se fuerce, lo cual queda registrado.",
-    enable: "Actívala desde un terminal en el servidor:",
-    allow: "Permítela desde un terminal en el servidor:",
-    force: "Para permitirla de todos modos, lo cual queda registrado:",
   },
   notice: {
     idle: "Hace rato que no se teclea nada. Este terminal se cierra en {seconds} s a menos que pulses una tecla.",

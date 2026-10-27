@@ -361,7 +361,8 @@ class TestTheAnswerSaysWhichControlAsks:
     """
     The owner, holding every permission, was asked for an approval and for a reason and read it as a
     problem with their permissions. Both come from controls that apply to everybody, and the answer
-    says which control, who turned it on, and the command that turns it off.
+    says which control, who turned it on, and the command that turns it off, as sentences with a
+    code (``coded`` and ``notes_coded``) that the console translates.
     """
 
     def test_an_approval_names_the_control_the_operator_switched_on(
@@ -378,9 +379,28 @@ class TestTheAnswerSaysWhichControlAsks:
         assert "whoever you are" in body["detail"]
         assert "noust compliance set approvals off" in body["detail"]
         assert "Settings > Controls" in body["detail"]
-        assert body["fields"]["control"] == "approvals"
-        assert body["fields"]["forced_by"] == []
-        assert body["fields"]["turn_off"] == "noust compliance set approvals off"
+        assert body["coded"]["code"] == "approvals.asked_waiting"
+        assert body["coded"]["params"]["request"] == int(body["fields"]["approval"])
+        assert body["notes_coded"] == [
+            {
+                "code": "controls.asked_by_setting",
+                "params": {
+                    "control": "approvals",
+                    "command": "noust compliance set approvals off",
+                },
+            }
+        ]
+
+    def test_the_fields_are_the_two_a_release_shipped_and_no_more(
+        self, app: Any, policy: dict[str, Any], real_config: Any
+    ) -> None:
+        real_config.set("approval.enabled", True)
+        alice = Person(app, "alice", "admin")
+        alice.elevate()
+
+        body = alice.post("/api/cron", JOB, **{"X-Noust-Reason": "ticket 42"}).json()
+
+        assert set(body["fields"]) == {"approval", "state"}
 
     def test_an_approval_a_framework_asks_for_names_the_framework(
         self, app: Any, policy: dict[str, Any], real_config: Any
@@ -392,9 +412,11 @@ class TestTheAnswerSaysWhichControlAsks:
         asked = alice.post("/api/cron", JOB, **{"X-Noust-Reason": "ticket 42"})
 
         body = asked.json()
-        assert body["fields"]["forced_by"] == ["ens-media"]
-        assert body["fields"]["turn_off"].startswith("noust compliance disable ens-media")
         assert "ens-media" in body["detail"]
+        [note] = body["notes_coded"]
+        assert note["code"] == "controls.asked_by_framework"
+        assert note["params"]["frameworks"] == "ens-media"
+        assert note["params"]["command"].startswith("noust compliance disable ens-media")
 
     def test_the_reason_names_its_own_control(
         self, app: Any, policy: dict[str, Any], real_config: Any
@@ -409,8 +431,87 @@ class TestTheAnswerSaysWhichControlAsks:
         assert refused.status_code == 400
         body = refused.json()
         assert body["error"] == "approval_reason_required"
-        assert body["fields"]["control"] == "change_reasons"
+        assert body["fields"] is None
+        assert body["coded"] == {
+            "code": "approvals.reason_required",
+            "params": {"header": "X-Noust-Reason"},
+        }
+        [note] = body["notes_coded"]
+        assert note["code"] == "controls.asked_by_setting"
+        assert note["params"]["control"] == "change_reasons"
         assert "noust compliance set change_reasons off" in body["detail"]
+
+    def test_what_a_client_that_knows_no_codes_reads_is_the_same_english(
+        self, app: Any, policy: dict[str, Any], real_config: Any
+    ) -> None:
+        from noust.core.server_text import say
+
+        real_config.set("security.change_reasons", True)
+        policy["reason_required"] = True
+        alice = Person(app, "alice", "admin")
+        alice.elevate()
+
+        body = alice.post("/api/cron", JOB).json()
+
+        asked = say("approvals.reason_required", header="X-Noust-Reason")
+        assert body["detail"].startswith(asked.text)
+        assert body["hint"] == asked.hint
+
+    def test_an_answer_nobody_coded_says_so_with_nothing(self, app: Any) -> None:
+        alice = Person(app, "alice", "admin")
+
+        missing = alice.client.get("/api/apps/no-such-app.example.com")
+
+        assert missing.json().get("coded") is None
+        assert missing.json().get("notes_coded", []) == []
+
+    def test_an_approval_already_given_says_to_send_the_call_now(self) -> None:
+        from types import SimpleNamespace
+
+        from noust.web.api.approvals import asked_sentence
+
+        policy = ApprovalPolicy(enabled=True)
+        waiting = asked_sentence(SimpleNamespace(id=7, state="requested"), policy)  # type: ignore[arg-type]
+        given = asked_sentence(SimpleNamespace(id=7, state="approved"), policy)  # type: ignore[arg-type]
+
+        assert waiting.code == "approvals.asked_waiting" and waiting.params["request"] == 7
+        assert given.code == "approvals.asked_approved"
+        assert "send the call again" in given.text
+        assert given.hint is not None and "X-Noust-Approval: 7" in given.hint
+
+
+class TestACentralThatDidNotVouch:
+    """A node asks for the second person's word on the central, in a sentence the console can translate."""
+
+    def test_the_refusal_is_a_sentence_with_a_code_and_the_control_that_asks(
+        self, app: Any, cron: Any, policy: dict[str, Any], real_config: Any
+    ) -> None:
+        real_config.set("approval.enabled", True)
+        allow_root_equivalent_from_centrals()
+        token = str(get_token_manager().create_fleet_token("fleet-nas")["token"])
+        client = TestClient(app, client=("127.0.0.1", 50000))
+
+        refused = client.post(
+            "/api/cron",
+            json=JOB,
+            headers={
+                "Authorization": f"Bearer {token}",
+                FLEET_ACTOR_HEADER: "maria",
+                FLEET_ACTOR_ROLE_HEADER: "admin",
+                FLEET_ELEVATED_HEADER: "1",
+            },
+        )
+
+        assert refused.status_code == 403, refused.text
+        body = refused.json()
+        assert body["error"] == "approval_required"
+        assert body["coded"] == {"code": "approvals.central_missing", "params": {}}
+        assert body["fields"] is None
+        [note] = body["notes_coded"]
+        assert note["code"] == "controls.asked_by_setting"
+        assert "second person's approval on the central" in body["detail"]
+        assert body["hint"].startswith("Ask for it on the central")
+        assert cron.created == []
 
 
 class TestFleet:

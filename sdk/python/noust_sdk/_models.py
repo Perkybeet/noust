@@ -3385,6 +3385,7 @@ ErrorResponse = TypedDict("ErrorResponse", {
     "error": Required[str],
     "fields": NotRequired[Union[dict[str, str], None]],
     "hint": NotRequired[Union[str, None]],
+    "notes_coded": NotRequired[list["CodedText"]],
     "output": NotRequired[Union[str, None]],
 })
 
@@ -8077,11 +8078,8 @@ ServerKeyResponse = TypedDict("ServerKeyResponse", {
 
 ServerShellModel = TypedDict("ServerShellModel", {
     "allowed": Required[bool],
-    "code": NotRequired[Union[str, None]],
-    "command": NotRequired[Union[str, None]],
-    "control": NotRequired[Union[str, None]],
+    "coded": NotRequired[Union["CodedText", None]],
     "enabled": Required[bool],
-    "forced_by": NotRequired[list[str]],
     "how": NotRequired[Union[str, None]],
     "reason": NotRequired[Union[str, None]],
 })

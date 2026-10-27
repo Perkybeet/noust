@@ -57,7 +57,7 @@ export const appPages: Catalog<typeof en> = {
     deployFailedTitle: "El último despliegue falló {time}",
     deployFailedBody: "La versión que estaba en producción sigue sirviendo.",
     unmanagedTitle: "Está en marcha fuera de Noust",
-    unmanagedBody: "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar. Seguramente alguien la arrancó a mano con docker compose.",
+    unmanagedBody: "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa. Seguramente alguien la arrancó a mano con docker compose.",
   },
 
   reclaim: {

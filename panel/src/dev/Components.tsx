@@ -34,6 +34,7 @@ import {
   Popover,
   Progress,
   Select,
+  ServerText,
   Skeleton,
   SkeletonText,
   Spinner,
@@ -669,6 +670,19 @@ function Attributes() {
                 <Mono tone="muted">a1b2c3d</Mono>
                 <Mono>shop-example-dev.service</Mono>
               </div>
+            </Item>
+            <Item label="A sentence of the server, in the console's language">
+              <p className="max-w-measure-help text-14 text-fg-muted">
+                <ServerText
+                  coded={{ code: "terminal.server_off", params: { command: "noust config set terminal.server.enabled true" } }}
+                  text="The terminal on the server itself is off (terminal.server.enabled)"
+                />{" "}
+                <ServerText
+                  coded={{ code: "terminal.server_off", params: { command: "noust config set terminal.server.enabled true" } }}
+                  text="It is a root shell, so it stays off until an administrator turns it on: noust config set terminal.server.enabled true"
+                  part="hint"
+                />
+              </p>
             </Item>
             <Item label="Links">
               <div className="flex flex-col gap-2">
