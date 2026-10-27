@@ -597,7 +597,7 @@ def gather(sources: Sources | None = None) -> Facts:
         manager = sources.token_manager
         owned = manager is None
         if manager is None:
-            from noust.cli.web_state import token_manager
+            from noust.core.web_gate import token_manager
 
             manager = token_manager()
         try:

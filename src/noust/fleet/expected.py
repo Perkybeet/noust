@@ -33,6 +33,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now
 
 log = logging.getLogger(__name__)
 
@@ -77,16 +78,6 @@ class ExpectedOutage:
         return asdict(self)
 
 
-def _now() -> datetime:
-    """
-    Return the wall clock, in UTC.
-
-    Returns:
-        Now.
-    """
-    return datetime.now(timezone.utc)
-
-
 def _parse(text: str | None) -> datetime | None:
     """
     Read an ISO 8601 moment, assuming UTC when it names no zone.
@@ -128,7 +119,7 @@ def expect_reboot(
     Returns:
         The expectation.
     """
-    moment = now or _now()
+    moment = now or utc_now()
     due_at = max(_parse(due) or moment, moment)
     outage = ExpectedOutage(
         node=node,
@@ -198,7 +189,7 @@ def current(
         return None
     outage = ExpectedOutage(*tuple(row))
     expires = _parse(outage.expires_at)
-    if expires is None or expires <= (now or _now()):
+    if expires is None or expires <= (now or utc_now()):
         clear(node, store=store)
         return None
     return outage
@@ -218,7 +209,7 @@ def answered(node: str, *, store: NoustStore | None = None, now: datetime | None
     if outage is None:
         return
     due = _parse(outage.due_at)
-    if due is not None and due <= (now or _now()):
+    if due is not None and due <= (now or utc_now()):
         clear(node, store=store)
 
 

@@ -49,6 +49,7 @@ from typing import TYPE_CHECKING
 
 from noust.central import require_server_role
 from noust.core import delivery
+from noust.core.app_lookup import require_app
 from noust.core.applock import app_lock
 from noust.core.exceptions import (
     DeploymentError,
@@ -1629,28 +1630,6 @@ class ModeChange:
     rehearsed: bool = False
 
 
-def _known_app(domain: str, store: NoustStore) -> App:
-    """
-    Read an application's row.
-
-    Args:
-        domain: A validated domain.
-        store: The store.
-
-    Returns:
-        The row.
-
-    Raises:
-        NoustError: Nothing is deployed there.
-    """
-    app = store.get_app(domain)
-    if app is None:
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
-    return app
-
-
 def zero_downtime_status(
     domain: str,
     *,
@@ -1675,7 +1654,7 @@ def zero_downtime_status(
         NoustError: The application is unknown.
     """
     store = get_store()
-    app = _known_app(validate_domain(domain), store)
+    app = require_app(store, validate_domain(domain))
     if not app.zero_downtime:
         try:
             check_eligible(app, store=store)
@@ -1809,7 +1788,7 @@ def set_zero_downtime(
     build = engine if engine is not None else (lambda row, out: BlueGreen(row, logger=out))
 
     with app_lock(domain, "zero-downtime switch"):
-        app = _known_app(domain, store)
+        app = require_app(store, domain)
         drain = drain_seconds if drain_seconds is not None else app.drain_seconds
 
         if app.zero_downtime == enabled:

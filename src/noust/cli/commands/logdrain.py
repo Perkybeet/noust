@@ -26,22 +26,11 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
 from noust.core.log_drain_store import KINDS
 from noust.managers import log_shipping
 from noust.managers.log_drains import SYSLOG_TRANSPORTS, LogDrains
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def _pairs(values: tuple[str, ...]) -> dict[str, str]:
@@ -243,7 +232,7 @@ def add_command(
         secret=secret,
         keep_secret=secret is None,
         enabled=not disabled,
-        actor=_actor(),
+        actor=cli_actor().label,
     )
     ctx.logger.success(f"Destination {saved.name} saved")
     if saved.enabled:
@@ -264,7 +253,7 @@ def test_command(ctx: Context, name: str) -> None:
     """
     Send one line to a destination, and say what it answered.
     """
-    sent = LogDrains().test(name, actor=_actor())
+    sent = LogDrains().test(name, actor=cli_actor().label)
     ctx.logger.success(f"Accepted: {sent}")
 
 
@@ -278,7 +267,7 @@ def remove_command(ctx: Context, name: str, yes: bool) -> None:
     """
     if not (yes or ctx.dry_run):
         click.confirm(f"Stop shipping logs to {name} and forget it?", abort=True)
-    LogDrains().remove(name, actor=_actor())
+    LogDrains().remove(name, actor=cli_actor().label)
     ctx.logger.success(f"Removed {name}")
 
 
@@ -289,7 +278,7 @@ def enable_command(ctx: Context, name: str) -> None:
     """
     Ship to a destination again.
     """
-    LogDrains().set_enabled(name, True, actor=_actor())
+    LogDrains().set_enabled(name, True, actor=cli_actor().label)
     log_shipping.ensure_service()
     ctx.logger.success(f"Shipping to {name}")
 
@@ -301,7 +290,7 @@ def disable_command(ctx: Context, name: str) -> None:
     """
     Stop shipping to a destination, keeping it.
     """
-    LogDrains().set_enabled(name, False, actor=_actor())
+    LogDrains().set_enabled(name, False, actor=cli_actor().label)
     ctx.logger.success(f"No longer shipping to {name}")
 
 

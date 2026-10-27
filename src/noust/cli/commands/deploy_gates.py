@@ -25,35 +25,12 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
-from noust.cli.commands.deploy import cli
+from noust.cli.commands.deploy_group import cli
+from noust.cli.lookup import known_app
 from noust.core import app_rollout_store, delivery, deploy_freeze, deploy_guard
 from noust.core import webhook_deliveries as deliveries_log
 from noust.core.audit.actor import cli_actor
-from noust.core.exceptions import NoustError
 from noust.core.store import get_store
-from noust.validators.domain import validate_domain
-
-
-def _known(domain: str) -> str:
-    """
-    Validate a domain and require an application behind it.
-
-    Args:
-        domain: What the operator typed.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        NoustError: Nothing is deployed there.
-    """
-    validated = validate_domain(domain)
-    if get_store().get_app(validated) is None:
-        raise NoustError(
-            f"Application not found: {validated}",
-            details="Run 'noust list' to see what is deployed.",
-        )
-    return validated
 
 
 def _held(domain: str, since: str | None) -> int:
@@ -105,7 +82,7 @@ def pause_command(ctx: Context, domain: str, reason: str | None) -> None:
     itself, so that the next push does not undo the rollback. Release it with:
     noust deploy resume DOMAIN
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     if ctx.dry_run:
         ctx.logger.info(f"Would pause what deploys {validated} by itself")
         return
@@ -123,7 +100,7 @@ def pause_command(ctx: Context, domain: str, reason: str | None) -> None:
 @pass_context
 def resume_command(ctx: Context, domain: str) -> None:
     """Let an application's pushes, tags and schedules deploy it again."""
-    validated = _known(domain)
+    validated = known_app(domain)
     if ctx.dry_run:
         ctx.logger.info(f"Would resume what deploys {validated} by itself")
         return
@@ -156,7 +133,7 @@ def pause_on_rollback_command(ctx: Context, domain: str, choice: str | None) -> 
     On by default: after a rollback the next push would otherwise deploy again the
     code that was rolled back from.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     if choice is not None:
         if ctx.dry_run:
             ctx.logger.info(f"Would turn pause-on-rollback {choice} for {validated}")
@@ -209,7 +186,7 @@ def freeze_command(
 
     Lift it with: noust deploy unfreeze [DOMAIN]
     """
-    validated = _known(domain) if domain else None
+    validated = known_app(domain) if domain else None
     if ctx.dry_run:
         ctx.logger.info(f"Would freeze deploys of {validated or 'the whole server'}")
         return
@@ -246,7 +223,7 @@ def unfreeze_command(ctx: Context, domain: str | None, identifier: int | None) -
     Only the freezes of that scope are lifted: lifting an application's leaves the
     server's.
     """
-    validated = _known(domain) if domain else None
+    validated = known_app(domain) if domain else None
     if ctx.dry_run:
         ctx.logger.info(f"Would lift the freeze of {validated or 'the whole server'}")
         return
@@ -297,7 +274,7 @@ def keep_command(ctx: Context, domain: str, count: str | None) -> None:
     This is the history shown in the console and by 'noust app deploylog'; the builds
     kept on disk to roll back to are 'noust releases keep'.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     if count is not None:
         value: int | None
         if count.strip().lower() == "default":
@@ -343,7 +320,7 @@ def keep_command(ctx: Context, domain: str, count: str | None) -> None:
 @pass_context
 def held_command(ctx: Context, domain: str) -> None:
     """Say what holds the deploys of an application, if anything: a pause or a freeze."""
-    validated = _known(domain)
+    validated = known_app(domain)
     automatic = deploy_guard.gate_for(validated, automatic=True)
     manual = deploy_guard.gate_for(validated, automatic=False)
     if ctx.json_output:
@@ -414,7 +391,7 @@ def schedule_set(
     """
     from noust.managers.update_scheduler import UpdateScheduler
 
-    validated = _known(domain)
+    validated = known_app(domain)
     if ctx.dry_run:
         ctx.logger.info(f"Would schedule the updates of {validated} at {calendar}")
         return
@@ -446,7 +423,7 @@ def schedule_show(ctx: Context, domain: str) -> None:
     from noust.core import update_schedule_store
     from noust.managers.update_scheduler import UpdateScheduler
 
-    validated = _known(domain)
+    validated = known_app(domain)
     saved = update_schedule_store.get(validated)
     if ctx.json_output:
         click.echo(
@@ -510,7 +487,7 @@ def schedule_remove(ctx: Context, domain: str) -> None:
     """Stop an application updating itself: the timer and the schedule go."""
     from noust.managers.update_scheduler import UpdateScheduler
 
-    validated = _known(domain)
+    validated = known_app(domain)
     if ctx.dry_run:
         ctx.logger.info(f"Would remove the scheduled update of {validated}")
         return
@@ -533,7 +510,7 @@ def schedule_run(ctx: Context, domain: str) -> None:
     """
     from noust.managers.update_scheduler import run_scheduled
 
-    validated = _known(domain)
+    validated = known_app(domain)
     outcome = run_scheduled(validated, logger=ctx.logger)
     if outcome.outcome in ("failed", "backup_failed"):
         raise click.exceptions.Exit(1)

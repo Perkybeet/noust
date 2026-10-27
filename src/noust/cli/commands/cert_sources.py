@@ -22,6 +22,7 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustCommand, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.certificate_store import CustomCertificate
 from noust.core.exceptions import ValidationError
 from noust.deployers import certificates, internal_certificates
@@ -58,16 +59,6 @@ def _read(path: str, what: str) -> str:
     if len(text) > _MAX_FILE:
         raise ValidationError(f"The {what} {path} is far too large to be a PEM", field=what)
     return text
-
-
-def _actor() -> str:
-    """
-    Returns:
-        The audit's label for whoever runs this command.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 #: ``noust cert acme`` only reads when it is asked to change nothing and register nothing.
@@ -190,7 +181,7 @@ def upload_command(
         _read(cert_file, "certificate"),
         _read(key_file, "private_key"),
         _read(chain_file, "chain") if chain_file else "",
-        uploaded_by=_actor(),
+        uploaded_by=cli_actor().label,
     )
     if ctx.json_output:
         click.echo(json.dumps(_describe(kept)))

@@ -20,6 +20,7 @@ from typing import Any
 
 from noust.central import require_server_role
 from noust.core import audit
+from noust.core.app_lookup import require_app
 from noust.core.applock import app_lock
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.logger import Logger
@@ -109,28 +110,6 @@ class TuningChange:
         }
 
 
-def _known(store: NoustStore, domain: str) -> App:
-    """
-    Return an application's row, refusing an unknown one.
-
-    Args:
-        store: The store.
-        domain: The application.
-
-    Returns:
-        The row.
-
-    Raises:
-        NoustError: Nothing is deployed there.
-    """
-    app = store.get_app(domain)
-    if app is None:
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
-    return app
-
-
 def status(domain: str, *, store: NoustStore | None = None) -> TuningStatus:
     """
     Say how an application's unit is tuned. Changes nothing.
@@ -148,7 +127,7 @@ def status(domain: str, *, store: NoustStore | None = None) -> TuningStatus:
     import os
 
     store = store or get_store()
-    app = _known(store, validate_domain(domain))
+    app = require_app(store, validate_domain(domain))
     cpus = os.cpu_count() or 1
     reason = unit_hardening.ineligible(app)
     record = get_record(app.domain, store=store)
@@ -210,7 +189,7 @@ def set_tuning(
     log = logger or Logger()
     store = store or get_store()
     domain = validate_domain(domain)
-    app = _known(store, domain)
+    app = require_app(store, domain)
     reason = unit_hardening.ineligible(app)
     if reason is not None:
         raise ValidationError(
@@ -220,7 +199,7 @@ def set_tuning(
     unit_tuning.check_against_limits(tuning, app)
     with app_lock(domain, "tuning change"):
         return _apply(
-            _known(store, domain),
+            require_app(store, domain),
             tuning,
             previous=get_record(domain, store=store),
             restart=restart,

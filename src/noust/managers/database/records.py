@@ -21,10 +21,10 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.store import NoustStore
+from noust.core.timeutil import utc_now_iso
 
 #: What the link to a Redis instance is called by default; everything else
 #: gets ``DATABASE_URL``.
@@ -43,14 +43,6 @@ def default_env_var(engine: str) -> str:
         ``REDIS_URL`` for Redis, ``DATABASE_URL`` for every other engine.
     """
     return DEFAULT_ENV_VARS.get(engine.partition("@")[0], "DATABASE_URL")
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 with its UTC offset.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @dataclass
@@ -239,7 +231,7 @@ class DatabaseRecords:
         Returns:
             The link as stored.
         """
-        now = _now()
+        now = utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO database_links "
@@ -370,7 +362,7 @@ class DatabaseRecords:
         Returns:
             The record as stored.
         """
-        now = _now()
+        now = utc_now_iso("seconds")
         current = self.account(engine, username, host)
         with self.store._transaction() as cursor:
             if current is None:

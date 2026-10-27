@@ -34,14 +34,13 @@ from pydantic import BaseModel, Field
 from noust.core import deploy_guard
 from noust.core.exceptions import ValidationError
 from noust.core.store import DeploymentTrigger
-from noust.core.teams import scoped_store
 from noust.deployers.bundle_spool import BUNDLE_UPLOADS, MAX_READ_BYTES, BundleSpool, SpooledBundle
 from noust.deployers.recorder import CapturingLogger
 from noust.deployers.release_bundles import build_and_pack, receive
 from noust.deployers.releases import is_release_id
 from noust.managers.database.uploads import Upload, UploadOffsetError, UploadStore
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, strict_domain
+from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, known_app
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
 
@@ -137,23 +136,6 @@ def _uploads() -> UploadStore:
         The bundles arriving on this server.
     """
     return UploadStore(profile=BUNDLE_UPLOADS)
-
-
-def _known(domain: str) -> str:
-    """
-    Args:
-        domain: From the path.
-
-    Returns:
-        The validated domain of an application the caller sees.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
 
 
 def _bundle(item: SpooledBundle) -> BundleOut:
@@ -327,7 +309,7 @@ def build_bundle(
     Raises:
         HTTPException: 400 for a release id that is not one, 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     if body.release_id is not None and not is_release_id(body.release_id):
         raise HTTPException(status_code=400, detail=f"Not a release id: {body.release_id!r}")
     job = get_job_manager().create_job(
@@ -366,7 +348,7 @@ def list_bundles(
     Returns:
         Its bundles, newest first.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     return BundleListOut(bundles=[_bundle(item) for item in _spool().list(validated)])
 
 
@@ -385,7 +367,7 @@ def bundle_info(
     Returns:
         It.
     """
-    return _bundle(_spool().get(bundle_id, _known(domain)))
+    return _bundle(_spool().get(bundle_id, known_app(domain)))
 
 
 class BundleBytes(Response):
@@ -428,7 +410,7 @@ async def bundle_data(
     Returns:
         The raw bytes; fewer at the end of the file, none past it.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     data = await run_in_threadpool(_spool().read, bundle_id, validated, offset, length)
     return BundleBytes(content=data)
 
@@ -445,7 +427,7 @@ def discard_bundle(
         bundle_id: The bundle.
         session: The authenticated session.
     """
-    _spool().discard(bundle_id, _known(domain))
+    _spool().discard(bundle_id, known_app(domain))
 
 
 # ------------------------------------------------------------------------------- receiving
@@ -491,7 +473,7 @@ def start_bundle_upload(
     Raises:
         ValidationError: 400 for a size past the limit or the disk, or a digest that is not one.
     """
-    _known(domain)
+    known_app(domain)
     upload = _uploads().create(
         body.file_name, body.size, owner=actor_label(session), sha256=body.sha256
     )
@@ -518,7 +500,7 @@ def bundle_upload_status(
     Raises:
         ValidationError: 400 when there is no such upload, or it is another's.
     """
-    _known(domain)
+    known_app(domain)
     return _upload(_uploads().get(upload_id, owner=actor_label(session)))
 
 
@@ -549,7 +531,7 @@ async def send_bundle_chunk(
     Raises:
         ValidationError: 400 for an unknown or finished upload, or a chunk past the size.
     """
-    _known(domain)
+    known_app(domain)
     data = await request.body()
     if len(data) > CHUNK_BYTES:
         raise ValidationError(
@@ -586,7 +568,7 @@ def complete_bundle_upload(
         ValidationError: 400 when the digest does not match (the data is discarded) or the upload
             is unknown.
     """
-    _known(domain)
+    known_app(domain)
     try:
         upload = _uploads().complete(upload_id, owner=actor_label(session))
     except UploadOffsetError as exc:
@@ -608,7 +590,7 @@ def discard_bundle_upload(
         upload_id: The upload.
         session: The authenticated session; only the one that started it.
     """
-    _known(domain)
+    known_app(domain)
     store = _uploads()
     store.get(upload_id, owner=actor_label(session))
     store.discard(upload_id)
@@ -640,7 +622,7 @@ def receive_bundle(
         DeploysFrozenError: 409 while a freeze holds it and ``frozen_ok`` was not given.
         ValidationError: 400 when the upload is unknown, another's or not finished.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     upload = _uploads().get(body.upload_id, owner=actor_label(session))
     if not upload.complete:
         raise ValidationError(

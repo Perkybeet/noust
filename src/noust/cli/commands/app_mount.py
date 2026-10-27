@@ -20,20 +20,9 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.managers.app_mounts import MountManager
 from noust.validators.domain import validate_domain
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 @click.group("mount", cls=NoustGroup)
@@ -82,7 +71,9 @@ def show_command(ctx: Context, domain: str, target: str) -> None:
     Print the text of a mounted file. It may hold a secret: the read is on record.
     """
     click.echo(
-        MountManager(log=ctx.logger).read_file(validate_domain(domain), target, actor=_actor()),
+        MountManager(log=ctx.logger).read_file(
+            validate_domain(domain), target, actor=cli_actor().label
+        ),
         nl=False,
     )
 
@@ -109,7 +100,7 @@ def file_command(ctx: Context, domain: str, target: str, source: Path | None, mo
     """
     text = source.read_text(encoding="utf-8") if source is not None else sys.stdin.read()
     view = MountManager(log=ctx.logger).put_file(
-        validate_domain(domain), target, text, mode=int(mode, 8), actor=_actor()
+        validate_domain(domain), target, text, mode=int(mode, 8), actor=cli_actor().label
     )
     ctx.logger.success(f"Kept {view.record.target} ({view.size} bytes) at {view.path}")
 
@@ -128,7 +119,7 @@ def bind_command(ctx: Context, domain: str, source: str, target: str, writable: 
     it, so the server's own state and the Docker socket are refused.
     """
     view = MountManager(log=ctx.logger).put_path(
-        validate_domain(domain), source, target, read_only=not writable, actor=_actor()
+        validate_domain(domain), source, target, read_only=not writable, actor=cli_actor().label
     )
     ctx.logger.success(
         f"Bound {view.record.source} at {view.record.target} "
@@ -147,5 +138,5 @@ def remove_command(ctx: Context, domain: str, target: str, yes: bool) -> None:
     """
     if not (yes or ctx.dry_run):
         click.confirm(f"Remove the mount at {target} from {domain}?", abort=True)
-    MountManager(log=ctx.logger).remove(validate_domain(domain), target, actor=_actor())
+    MountManager(log=ctx.logger).remove(validate_domain(domain), target, actor=cli_actor().label)
     ctx.logger.success(f"Removed {target}")

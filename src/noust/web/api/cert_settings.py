@@ -20,11 +20,10 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
-from noust.core.teams import scoped_store
 from noust.deployers import certificates, internal_certificates
 from noust.managers.acme import AUTHORITIES, AcmeSettings
 from noust.managers.cert_manager import CertManager
@@ -35,8 +34,8 @@ from noust.web.api.deps import (
     JobAcceptedResponse,
     NoustErrorRoute,
     ensure_elevated,
+    known_app,
     require_elevated,
-    strict_domain,
 )
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
@@ -242,25 +241,6 @@ class ChooseCertificateRequest(BaseModel):
     dns_provider: str | None = None
     order: bool = True
     days: int | None = Field(default=None, ge=1, le=397)
-
-
-def _require_app(domain: str) -> str:
-    """
-    Validate an application's domain and require that it is deployed.
-
-    Args:
-        domain: The domain from the path.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
 
 
 def _acme(settings: AcmeSettings) -> AcmeModel:
@@ -557,7 +537,7 @@ def get_app_certificate(
     Returns:
         The description.
     """
-    return _view(certificates.describe(_require_app(domain)))
+    return _view(certificates.describe(known_app(domain)))
 
 
 @apps_router.put("/{domain}/certificate", response_model=AppCertificate)
@@ -586,7 +566,7 @@ def put_app_certificate(
     Raises:
         ValidationError: The choice is not acceptable (400, naming the field).
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     if data.source == "custom":
         if not data.name:
             raise ValidationError("Name the uploaded certificate", field="name")

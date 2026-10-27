@@ -109,6 +109,13 @@ src/noust/
     templates.py    the one Jinja environment unit files, sites and pools are rendered with
     outbound.py     where a request may go (`require_public_host`) and what its path may be
                     (`path_segment`, `api_path`)
+    timeutil.py     the one clock: `utc_now_iso` (to the second or with its fraction, as each
+                    column was written), `local_now_iso`, `utc_now`; no module keeps a `_now`
+    app_lookup.py   "is there an application here" for what runs as the instance (the console's
+                    scoped answer is `web/api/deps.py` `known_app`); the command line's is
+                    `cli/lookup.py`
+    web_gate.py     the one door to the console's token manager for the layers that cannot import
+                    `web`, with the error that says how to install its dependencies
   validators/       names, environments, sources, ports, domains
   managers/         adapters: web server, systemd, certs, backups, databases, source, cron
     diagnose.py     why an app is down: read-only probes, most likely cause first
@@ -156,6 +163,22 @@ src/noust/
                     guided enrollment from the central (a credential used once, never kept)
   central/          what a central is: role() (hub or server), setup.py (data directory, TLS,
                     the allow-list), unlock.py the socket a sealed central takes a passphrase on
+  monitor/          what watches the server: the collector and its samples, alert rules and the
+                    notifiers they reach, the process monitor and the reachability probe that
+                    `noust-monitor` runs
+  recipes/          well-known applications as data, never code (`<name>.yaml` and the assets they
+                    render or copy): the schema, the catalog, the Coolify and Dokploy importers
+                    and the deploy of a recipe
+  integrations/     services outside the server: code hosts (forges/, github/, gitlab/) and the
+                    webhooks a registry or a forge calls
+  terminal/         the console's shell in the browser and its one-off commands: tickets, sessions,
+                    recordings, and the limits around the most root-equivalent thing the console opens
+  manifest/         a server written down: schema, plan and apply, as a client of the API (rule 3)
+  pushdeploy/       a push as a way to deploy: a bare repository per application and who may push
+  client/           Noust as a client of another Noust server, from a laptop or a pipeline, with a
+                    token and no SSH: the API, contexts and jobs
+  templates/, completions/   data and no Python: the Jinja templates of nginx, Apache, PHP-FPM and
+                    systemd, and the generated shell completions
   web/
     api/            thin layer over the managers; one error contract for every router;
                     node_proxy.py forwards every node call, event and WebSocket over its
@@ -224,6 +247,36 @@ tests/integration/forge_run.py        a real Gitea and a real Forgejo: a deploym
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
                             signed SHA256SUMS; its platform table is generated, never edited
 ```
+
+### Layers
+
+Imports go down, never up. `core` and `validators` are the base; `managers`, `deployers`, `fleet`,
+`monitor` and `pushdeploy` do the work on top of it; `web` and `cli` are the two ways in, and nothing
+under them imports them. `tests/test_layering.py` holds the rules, each with the list of places that
+still break it: the test fails when a new place appears and when a listed one is fixed and not taken
+off, so the lists can only get shorter. A command attaches itself to its group by importing the group
+(a module of its own), never the other way round, so no module imports another that imports it back
+when it loads. The graph is read from the syntax tree (`tests/import_graph_support.py`); an import
+under `TYPE_CHECKING` is not one at run time and does not count.
+
+<!-- layers:start -->
+| Layer | Must not | Places that still do |
+|---|---|---:|
+| `core`, `validators` | import `central`, `cli`, `deployers`, `fleet`, `integrations`, `managers`, `monitor`, `terminal`, `web` | 29 |
+| `deployers`, `fleet`, `managers`, `monitor`, `pushdeploy` | import `cli`, `web` | 11 |
+| `web` | import `cli` | 1 |
+| any module | import a module that imports it back when it loads | 0 |
+| any module | pass 3000 lines | 20 |
+<!-- layers:end -->
+
+The table is written from the test's own lists. A new module past 3000 lines is split before it is
+written, and the ones that are past it do not grow: new code goes in a module of its own beside them.
+
+The names an installed server reads do not move with the code: `noust.main:cli` (the console script of
+every copy installed before the command tree moved), `python -m noust`, and the three modules a
+transient unit runs with `python -m` (`managers/network_maintenance`, `managers/server/security_checks`
+and `managers/server/security_pending`). `tests/test_installed_names.py` fixes them; a move that
+touches one leaves a one-line module under the old name and records until when in `core/legacy_names.py`.
 
 ### Adding a deployer
 

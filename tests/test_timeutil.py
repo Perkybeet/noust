@@ -14,9 +14,10 @@ funnels through.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 
-from noust.core.timeutil import to_iso_offset
+from noust.core.timeutil import local_now_iso, to_iso_offset, utc_now, utc_now_iso
 
 
 def test_none_stays_none() -> None:
@@ -106,3 +107,51 @@ def test_the_offset_reflects_daylight_saving_at_that_date_not_today() -> None:
     assert winter_result is not None and summer_result is not None
     assert datetime.fromisoformat(winter_result).utcoffset() == winter.astimezone().utcoffset()
     assert datetime.fromisoformat(summer_result).utcoffset() == summer.astimezone().utcoffset()
+
+
+# -- The clock the stores and the managers read ------------------------------------------------
+#
+# Forty-five modules each had their own ``_now``, in five spellings that stored three formats. The
+# format a column holds is data: a later reader parses and compares it, so each spelling is one
+# function here and a module keeps the one it wrote.
+
+
+def test_the_clock_with_seconds_is_utc_with_its_offset_and_no_fraction() -> None:
+    text = utc_now_iso("seconds")
+
+    parsed = datetime.fromisoformat(text)
+    assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+00:00", text)
+    assert parsed.utcoffset() == timedelta(0)
+
+
+def test_the_clock_without_a_timespec_writes_what_isoformat_writes() -> None:
+    """The default is ``datetime.isoformat()``: a fraction whenever there is one."""
+    text = utc_now_iso()
+
+    assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{6})?\+00:00", text)
+    assert datetime.fromisoformat(text).utcoffset() == timedelta(0)
+
+
+def test_the_timespec_is_the_one_datetime_takes() -> None:
+    assert re.fullmatch(r"[^.]*\.\d{6}\+00:00", utc_now_iso("microseconds"))
+    assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d\+00:00", utc_now_iso("minutes"))
+
+
+def test_the_local_clock_is_naive_and_to_the_second() -> None:
+    """The store's own spelling: what ``NoustStore`` writes and ``to_iso_offset`` reads."""
+    text = local_now_iso()
+
+    assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d", text)
+    assert datetime.fromisoformat(text).tzinfo is None
+
+
+def test_the_clock_of_datetimes_is_utc() -> None:
+    assert utc_now().utcoffset() == timedelta(0)
+
+
+def test_the_clocks_move_together_with_the_machines() -> None:
+    before = datetime.now(timezone.utc)
+
+    moment = datetime.fromisoformat(utc_now_iso())
+
+    assert before <= moment <= datetime.now(timezone.utc)

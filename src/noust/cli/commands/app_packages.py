@@ -18,45 +18,9 @@ import json
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
-from noust.core.store import get_store
+from noust.cli.lookup import known_app
+from noust.core.audit.actor import cli_actor
 from noust.managers.app_packages import AppPackages, PackageChange, PackageState
-from noust.validators.domain import validate_domain
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
-
-
-def _known(domain: str) -> str:
-    """
-    Validate a domain and require an application behind it.
-
-    Args:
-        domain: What the operator typed.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        NoustError: Nothing is deployed there.
-    """
-    from noust.core.exceptions import NoustError
-
-    validated = validate_domain(domain)
-    if get_store().get_app(validated) is None:
-        raise NoustError(
-            f"Application not found: {validated}",
-            details="Run 'noust list' to see what is deployed.",
-        )
-    return validated
 
 
 def _print_state(ctx: Context, state: PackageState) -> None:
@@ -121,7 +85,7 @@ def packages() -> None:
 @pass_context
 def show_command(ctx: Context, domain: str) -> None:
     """Show what an application declares, what the host has of it, and the server's policy."""
-    state = AppPackages().state(_known(domain))
+    state = AppPackages().state(known_app(domain))
     if ctx.json_output:
         click.echo(json.dumps(state.to_dict()))
         return
@@ -142,14 +106,14 @@ def set_command(ctx: Context, domain: str, names: tuple[str, ...], no_install: b
     versions and no options. Without names the list is emptied; what is installed stays. A
     package outside security.app_packages, when the server sets it, is refused.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     if ctx.dry_run:
         ctx.logger.info(f"Would declare {', '.join(names) or 'no packages'} for {validated}")
         return
     change = AppPackages().set(
         validated,
         names,
-        actor=_actor(),
+        actor=cli_actor().label,
         install=not no_install,
         logger=None if ctx.json_output else ctx.logger,
     )
@@ -166,7 +130,7 @@ def set_command(ctx: Context, domain: str, names: tuple[str, ...], no_install: b
 @pass_context
 def add_command(ctx: Context, domain: str, names: tuple[str, ...], no_install: bool) -> None:
     """Add packages to what an application declares, keeping the others, and install them."""
-    validated = _known(domain)
+    validated = known_app(domain)
     if ctx.dry_run:
         ctx.logger.info(f"Would add {', '.join(names)} to {validated}")
         return
@@ -175,7 +139,7 @@ def add_command(ctx: Context, domain: str, names: tuple[str, ...], no_install: b
     change = manager.set(
         validated,
         (*declared, *names),
-        actor=_actor(),
+        actor=cli_actor().label,
         install=not no_install,
         logger=None if ctx.json_output else ctx.logger,
     )
@@ -191,7 +155,7 @@ def remove_command(ctx: Context, domain: str, names: tuple[str, ...]) -> None:
     """
     Stop declaring packages. They stay installed: another application, or the system, may use them.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     if ctx.dry_run:
         ctx.logger.info(f"Would stop declaring {', '.join(names)} for {validated}")
         return
@@ -201,7 +165,7 @@ def remove_command(ctx: Context, domain: str, names: tuple[str, ...]) -> None:
     if unknown:
         raise click.UsageError(f"{validated} does not declare: {', '.join(unknown)}")
     kept = tuple(name for name in declared if name not in names)
-    change = manager.set(validated, kept, actor=_actor(), install=False)
+    change = manager.set(validated, kept, actor=cli_actor().label, install=False)
     _print_change(ctx, change, f"{validated} no longer declares: {', '.join(names)}")
 
 
@@ -211,11 +175,11 @@ def remove_command(ctx: Context, domain: str, names: tuple[str, ...]) -> None:
 @pass_context
 def install_command(ctx: Context, domain: str) -> None:
     """Install the packages an application declares that the host lacks."""
-    validated = _known(domain)
+    validated = known_app(domain)
     if ctx.dry_run:
         ctx.logger.info(f"Would install what {validated} declares and the host lacks")
         return
     change = AppPackages().install(
-        validated, actor=_actor(), logger=None if ctx.json_output else ctx.logger
+        validated, actor=cli_actor().label, logger=None if ctx.json_output else ctx.logger
     )
     _print_change(ctx, change, f"The packages {validated} needs are on this server")

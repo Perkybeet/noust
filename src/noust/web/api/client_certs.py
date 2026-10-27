@@ -18,14 +18,13 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.client_cert_store import ClientCertificate
-from noust.core.teams import scoped_store
 from noust.deployers import access
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -142,25 +141,6 @@ def _out(certificate: ClientCertificate) -> ClientCertificateOut:
     )
 
 
-def _require_app(domain: str) -> str:
-    """
-    Validate an application's domain and require that it is deployed.
-
-    Args:
-        domain: The domain from the path.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/client-certs", response_model=ClientCertificatesOut)
 def list_client_certificates(
     domain: str, session: Annotated[dict[str, Any], Depends(get_current_session)]
@@ -175,7 +155,7 @@ def list_client_certificates(
     Returns:
         Whether the site asks for one, and the certificates made for it.
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     return ClientCertificatesOut(
         enabled=access.describe(validated).policy.client_certs,
         authority=access.client_authority(validated) is not None,
@@ -205,7 +185,7 @@ def issue_client_certificate(
     Raises:
         ValidationError: The name or the validity is not acceptable, or the name is taken (400).
     """
-    issued = access.issue_client_certificate(_require_app(domain), body.name, days=body.days)
+    issued = access.issue_client_certificate(known_app(domain), body.name, days=body.days)
     return IssuedClientCertificateOut(
         certificate=_out(issued.record),
         bundle=issued.bundle_base64(),
@@ -235,7 +215,7 @@ def revoke_client_certificate(
     Raises:
         ValidationError: There is no such certificate, or it is the last valid one (400).
     """
-    access.revoke_client_certificate(_require_app(domain), serial, accept_lockout=accept_lockout)
+    access.revoke_client_certificate(known_app(domain), serial, accept_lockout=accept_lockout)
 
 
 @router.get("/{domain}/client-certs/ca", response_model=ClientAuthorityOut)
@@ -252,4 +232,4 @@ def get_client_authority(
     Returns:
         Its certificate, which is public; None before the first certificate is made.
     """
-    return ClientAuthorityOut(certificate=access.client_authority(_require_app(domain)))
+    return ClientAuthorityOut(certificate=access.client_authority(known_app(domain)))

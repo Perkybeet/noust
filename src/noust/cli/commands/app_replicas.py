@@ -18,20 +18,9 @@ import click
 
 from noust.cli.app import Context, NoustCommand, json_option, pass_context
 from noust.core.app_replica_store import MAX_COPIES
+from noust.core.audit.actor import cli_actor
 from noust.managers.app_replicas import ReplicaManager
 from noust.validators.domain import validate_domain
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 @click.command("replicas", cls=NoustCommand)
@@ -50,7 +39,7 @@ def replicas_command(ctx: Context, domain: str, copies: int | None) -> None:
     validated = validate_domain(domain)
     manager = ReplicaManager(log=ctx.logger)
     if copies is not None:
-        change = manager.set_copies(validated, copies, actor=_actor())
+        change = manager.set_copies(validated, copies, actor=cli_actor().label)
         if ctx.json_output:
             click.echo(
                 json.dumps(

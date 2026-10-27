@@ -21,6 +21,7 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 
 
 @click.group("console", cls=NoustGroup)
@@ -121,7 +122,7 @@ def expose_command(
         force_ens=force_ens,
         skip_dns_check=skip_dns_check,
         restart="now",
-        actor=_actor(),
+        actor=cli_actor().label,
         progress=progress,
     )
     if ctx.json_output:
@@ -154,18 +155,6 @@ def _confirm_ens_override(ctx: Context) -> bool:
             "Publish the console anyway, restricted to the --allow-ip list?", default=False
         )
     )
-
-
-def _actor() -> str:
-    """
-    Name the operator at this terminal, for the record of who exposed the console.
-
-    Returns:
-        The audit actor's label.
-    """
-    from noust.core import audit
-
-    return audit.cli_actor().label
 
 
 @cli.command("unexpose")

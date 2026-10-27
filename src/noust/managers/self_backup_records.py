@@ -21,10 +21,10 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.store import NoustStore
+from noust.core.timeutil import utc_now_iso
 
 __all__ = ["STATUS_FAILED", "STATUS_OK", "SelfBackupRecords", "SelfBackupSchedule"]
 
@@ -34,10 +34,6 @@ STATUS_FAILED = "failed"
 
 #: The longest error a row keeps: the end of it, where a tool says why it stopped.
 _MAX_ERROR = 4000
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @dataclass
@@ -149,7 +145,7 @@ class SelfBackupRecords:
         Returns:
             The schedule as stored.
         """
-        stamp = _now()
+        stamp = utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO self_backup_schedule (id, schedule, retention_count, "
@@ -186,7 +182,7 @@ class SelfBackupRecords:
             error: What it said when it did not, verbatim.
             file: The bundle it took, when it took one.
         """
-        stamp = _now()
+        stamp = utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 "UPDATE self_backup_schedule SET last_run_at = ?, last_status = ?, "
@@ -213,7 +209,7 @@ class SelfBackupRecords:
             cursor.execute(
                 "UPDATE self_backup_schedule SET last_verified_at = ?, "
                 "last_verify_status = ? WHERE id = 1",
-                (_now(), STATUS_OK if ok else STATUS_FAILED),
+                (utc_now_iso("seconds"), STATUS_OK if ok else STATUS_FAILED),
             )
 
     def delete(self) -> bool:

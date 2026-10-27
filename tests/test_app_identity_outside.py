@@ -286,6 +286,7 @@ def test_the_api_refuses_before_queueing_and_names_the_folder(
     (app_path / ".env").write_text(f"UPLOAD_DIR={uploads}\n")
     own_store.create_app(App(domain="shop.example.com", app_type="nodejs", app_path=str(app_path)))
     monkeypatch.setattr("noust.web.api.identity.scoped_store", lambda: ScopedStore(store=own_store))
+    monkeypatch.setattr("noust.web.api.deps.scoped_store", lambda: ScopedStore(store=own_store))
     monkeypatch.setattr("noust.managers.app_identity.get_store", lambda: own_store)
     monkeypatch.setattr(app_identity, "running_as_root", lambda: True)
 

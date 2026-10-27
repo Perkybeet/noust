@@ -16,12 +16,12 @@ validates what goes in it (rule 4), and is the only one that reads or writes the
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core import audit
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 #: How a run ended, as the row says it.
 UPDATED = "updated"
@@ -90,14 +90,6 @@ class UpdateSchedule:
             "last_detail": self.last_detail,
             "last_deployment_id": self.last_deployment_id,
         }
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time in UTC, ISO 8601 with its offset.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 _SELECT = (
@@ -198,7 +190,7 @@ def save(
         if not isinstance(value, bool):
             raise ValidationError(f"{name} must be true or false", field=name)
     target = store or get_store()
-    now = _now()
+    now = utc_now_iso("seconds")
     with target._transaction() as cursor:
         cursor.execute("SELECT id FROM apps WHERE domain = ?", (domain,))
         row = cursor.fetchone()
@@ -288,7 +280,7 @@ def record_run(
         cursor.execute(
             "UPDATE update_schedules SET last_run_at = ?, last_outcome = ?, last_detail = ?, "
             "last_deployment_id = ? WHERE app_id = (SELECT id FROM apps WHERE domain = ?)",
-            (_now(), outcome, text, deployment_id, domain),
+            (utc_now_iso("seconds"), outcome, text, deployment_id, domain),
         )
     audit.record(
         "deploys.scheduled",

@@ -32,15 +32,15 @@ from typing import TYPE_CHECKING
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
-from noust.cli.commands.fleet import (
+from noust.cli.commands.fleet_common import (
     Steps,
     _operator,
     _parse_access,
     _require_root,
     ensure_console_on_loopback,
 )
-from noust.cli.commands.fleet import cli as fleet_cli
-from noust.cli.commands.node import cli as node_cli
+from noust.cli.commands.fleet_group import cli as fleet_cli
+from noust.cli.commands.node_group import cli as node_cli
 from noust.core.exceptions import NodeError
 
 if TYPE_CHECKING:

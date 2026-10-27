@@ -24,13 +24,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core import audit
 from noust.core.exceptions import NodeError, ValidationError
 from noust.core.secrets import SecretStore
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 from noust.fleet.cloud.models import validate_account_name
 from noust.fleet.cloud.providers import CloudProvider, provider_class, provider_for
 
@@ -49,11 +49,6 @@ _BAD_TOKEN = re.compile(r"[\s\x00-\x1f\x7f]")
 
 #: How many characters of a token the row remembers.
 TAIL = 4
-
-
-def _now() -> str:
-    """Returns: The current time, ISO 8601 UTC."""
-    return datetime.now(timezone.utc).isoformat()
 
 
 @dataclass(frozen=True)
@@ -265,8 +260,8 @@ class CloudAccounts:
         verified = None
         if verify:
             provider_for(provider, token, **self._options).verify()
-            verified = _now()
-        now = _now()
+            verified = utc_now_iso()
+        now = utc_now_iso()
         self.secrets.write(f"{NAMESPACE}/{name}", token)
         with self.store._transaction() as cursor:
             cursor.execute(
@@ -306,7 +301,7 @@ class CloudAccounts:
         verified = None
         if verify:
             provider_for(account.provider, token, **self._options).verify()
-            verified = _now()
+            verified = utc_now_iso()
         self.secrets.write(f"{NAMESPACE}/{name}", token)
         with self.store._transaction() as cursor:
             cursor.execute(
@@ -337,7 +332,7 @@ class CloudAccounts:
         self.provider(name).verify()
         with self.store._transaction() as cursor:
             cursor.execute(
-                "UPDATE cloud_accounts SET verified_at = ? WHERE name = ?", (_now(), name)
+                "UPDATE cloud_accounts SET verified_at = ? WHERE name = ?", (utc_now_iso(), name)
             )
         return self.get(name)
 
@@ -350,7 +345,7 @@ class CloudAccounts:
         """
         with self.store._transaction() as cursor:
             cursor.execute(
-                "UPDATE cloud_accounts SET last_used_at = ? WHERE name = ?", (_now(), name)
+                "UPDATE cloud_accounts SET last_used_at = ? WHERE name = ?", (utc_now_iso(), name)
             )
 
     def remove(self, name: str, *, actor: str | None = None, force: bool = False) -> None:

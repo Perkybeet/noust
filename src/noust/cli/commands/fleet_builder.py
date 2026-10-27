@@ -18,7 +18,7 @@ import json
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
-from noust.cli.commands.fleet import cli as fleet_cli
+from noust.cli.commands.fleet_group import cli as fleet_cli
 from noust.core.audit import record as record_audit
 from noust.core.exceptions import ValidationError
 

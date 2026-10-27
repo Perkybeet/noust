@@ -89,7 +89,13 @@ from noust.integrations import webhook as webhook_service
 from noust.integrations.webhook import mint_secret as mint_webhook_secret
 from noust.managers.previews import handle_pull_request
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, error_response, require_elevated, strict_domain
+from noust.web.api.deps import (
+    NoustErrorRoute,
+    error_response,
+    known_app,
+    require_elevated,
+    strict_domain,
+)
 from noust.web.auth import actor_label, get_audit_logger, get_client_ip
 from noust.web.jobs import JobContext, JobType, get_job_manager, run_update
 from noust.web.pydantic_compat import iso_offset_validator
@@ -1234,29 +1240,6 @@ def _hooks_base(request: Request) -> str:
     return public_hooks_url() or f"{str(request.base_url).rstrip('/')}/hooks"
 
 
-def _known_app_domain(domain: str) -> str:
-    """
-    Validate a domain and require an application behind it.
-
-    This is the authenticated management surface, so unlike the hook itself it
-    may say plainly that nothing is deployed there.
-
-    Args:
-        domain: Domain from the request path.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when no application is deployed at the domain.
-        DomainError: When the value is not a domain.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @admin_router.post("/{domain}/webhook-secret", response_model=WebhookSecretResponse)
 def create_webhook_secret(
     domain: str,
@@ -1283,7 +1266,7 @@ def create_webhook_secret(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known_app_domain(domain)
+    validated = known_app(domain)
     secret = mint_webhook_secret(validated)
 
     audit = get_audit_logger()
@@ -1324,7 +1307,7 @@ def delete_webhook_secret(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known_app_domain(domain)
+    validated = known_app(domain)
     webhook_service.disable_secret(validated)
 
     audit = get_audit_logger()
@@ -1414,7 +1397,7 @@ def webhook_deliveries(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known_app_domain(domain)
+    validated = known_app(domain)
     records = scoped_store().list_deployments(domain=validated, limit=_DELIVERY_FETCH_LIMIT)
     items = [
         _to_delivery(record)
@@ -1660,7 +1643,7 @@ def webhook_state(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known_app_domain(domain)
+    validated = known_app(domain)
     app = scoped_store().get_app(validated)
     if app is None:  # deleted between the check and the read
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
@@ -1712,7 +1695,7 @@ def webhook_received(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known_app_domain(domain)
+    validated = known_app(domain)
     app = scoped_store().get_app(validated)
     if app is None or app.id is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
@@ -1745,7 +1728,7 @@ def reveal_webhook_secret(
     Raises:
         HTTPException: 404 when the application is unknown or has no secret.
     """
-    validated = _known_app_domain(domain)
+    validated = known_app(domain)
     try:
         secret = webhook_service.reveal_secret(validated)
     except DeploymentError as exc:
@@ -1843,7 +1826,7 @@ def registry_hook_state(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return _registry_hook(request, _known_app_domain(domain), reveal=False)
+    return _registry_hook(request, known_app(domain), reveal=False)
 
 
 @admin_router.post("/{domain}/webhook/registry/reveal", response_model=RegistryHookResponse)
@@ -1867,7 +1850,7 @@ def reveal_registry_hook(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known_app_domain(domain)
+    validated = known_app(domain)
     answer = _registry_hook(request, validated, reveal=True)
     audit = get_audit_logger()
     if audit:

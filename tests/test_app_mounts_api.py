@@ -44,6 +44,7 @@ ADMIN = [Permission.APPS_READ, Permission.APPS_MANAGE, Permission.SECRETS_REVEAL
 @pytest.fixture(autouse=True)
 def wired(store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(mounts_api, "scoped_store", lambda: ScopedStore(store=store))
+    monkeypatch.setattr("noust.web.api.deps.scoped_store", lambda: ScopedStore(store=store))
     monkeypatch.setattr(app_mounts, "get_store", lambda: store)
     monkeypatch.setattr(app_mounts, "get_fs", lambda: OwnerFs())
     yield

@@ -26,11 +26,11 @@ import builtins
 import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.exceptions import DomainError, NodeError, ValidationError
 from noust.core.store import NodeRecord, NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 from noust.fleet.labels import matches, parse_selector
 from noust.fleet.models import validate_node_name
 from noust.validators.domain import validate_domain
@@ -263,14 +263,14 @@ class Placements:
             max_failures=None,
             canary=None,
             rollback_on_failure=True,
-            created_at=_now(),
+            created_at=utc_now_iso(),
             created_by=actor,
-            updated_at=_now(),
+            updated_at=utc_now_iso(),
         )
         changes: dict[str, Any] = {
             "nodes": chosen_nodes,
             "selector": dict(chosen_selector),
-            "updated_at": _now(),
+            "updated_at": utc_now_iso(),
         }
         if serial is not UNSET:
             changes["serial"] = checked_serial(serial)
@@ -343,7 +343,7 @@ class Placements:
                     placement,
                     nodes=kept,
                     canary=None if placement.canary == node else placement.canary,
-                    updated_at=_now(),
+                    updated_at=utc_now_iso(),
                 )
             )
 
@@ -461,8 +461,3 @@ class Placements:
             created_by=row["created_by"],
             updated_at=row["updated_at"],
         )
-
-
-def _now() -> str:
-    """Returns: The current time, ISO 8601 UTC."""
-    return datetime.now(timezone.utc).isoformat()

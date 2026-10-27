@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -38,7 +39,7 @@ def cli(rig: PushRig, monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr("noust.cli.commands.push.PushHost", lambda: rig.world.host())
     monkeypatch.setattr("noust.cli.commands.push._repos", lambda: rig.repos)
-    monkeypatch.setattr("noust.cli.commands.push._actor", lambda: "root")
+    monkeypatch.setattr("noust.cli.commands.push.cli_actor", lambda: SimpleNamespace(label="root"))
 
     def invoke(*args: str, stdin: str | None = None) -> Any:
         return CliRunner().invoke(root_cli, ["push", *args], input=stdin)

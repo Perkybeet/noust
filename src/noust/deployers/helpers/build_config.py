@@ -45,7 +45,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
 
-from noust.core.exceptions import NoustError, ValidationError
+from noust.core.app_lookup import require_app
+from noust.core.exceptions import ValidationError
 from noust.core.versions import RuntimeRequest
 
 if TYPE_CHECKING:
@@ -353,28 +354,6 @@ class AppBuild:
         }
 
 
-def _known(domain: str, store: NoustStore) -> App:
-    """
-    Read an application's row or say it does not exist.
-
-    Args:
-        domain: A validated domain.
-        store: The store.
-
-    Returns:
-        The row.
-
-    Raises:
-        NoustError: The application is unknown.
-    """
-    app = store.get_app(domain)
-    if app is None:
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
-    return app
-
-
 def describe_build(domain: str, *, store: NoustStore | None = None) -> AppBuild:
     """
     Say which build block an application's next deployment uses: the one read CLI and API share.
@@ -398,7 +377,7 @@ def describe_build(domain: str, *, store: NoustStore | None = None) -> AppBuild:
     from noust.deployers.helpers.project_file import load_project_file, parse_build_document
 
     target = store or get_store()
-    app = _known(domain, target)
+    app = require_app(target, domain)
     applied = app_build_store.get_applied(domain, store=target)
     document = app_build_store.get_document(domain, store=target)
     if document is not None:
@@ -546,7 +525,7 @@ def set_operator_build(
     from noust.deployers.helpers.project_file import parse_build_document
 
     target = store or get_store()
-    app = _known(domain, target)
+    app = require_app(target, domain)
     build = BuildConfig()
     stored: str | None = None
     if document is not None:

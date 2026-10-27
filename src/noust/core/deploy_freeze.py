@@ -24,6 +24,7 @@ from typing import Any
 from noust.core import audit
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now
 
 #: Longest reason a freeze keeps.
 MAX_REASON = 300
@@ -71,7 +72,7 @@ class Freeze:
         Returns:
             ``active``, ``scheduled`` (starts later), ``ended`` or ``lifted``.
         """
-        moment = now or _now()
+        moment = now or utc_now()
         if self.lifted_at is not None:
             return "lifted"
         if _parse(self.starts_at) > moment:
@@ -103,16 +104,6 @@ class Freeze:
             "lifted_by": self.lifted_by,
             "state": self.state(now),
         }
-
-
-def _now() -> datetime:
-    """
-    Read the clock. A function so tests can move it.
-
-    Returns:
-        The current time in UTC.
-    """
-    return datetime.now(timezone.utc)
 
 
 def _parse(text: str) -> datetime:
@@ -241,7 +232,7 @@ def create(
         )
     if ends_at is not None and until_hours is not None:
         raise ValidationError("Give when it ends, or for how long, not both", field="ends_at")
-    start = parse_moment(starts_at, field="starts_at") if starts_at is not None else _now()
+    start = parse_moment(starts_at, field="starts_at") if starts_at is not None else utc_now()
     end: datetime | None = None
     if ends_at is not None:
         end = parse_moment(ends_at, field="ends_at")
@@ -283,7 +274,7 @@ def create(
                 _iso(start),
                 None if end is None else _iso(end),
                 by,
-                _iso(_now()),
+                _iso(utc_now()),
             ),
         )
         identifier = int(cursor.lastrowid or 0)
@@ -337,7 +328,7 @@ def list_freezes(
         rows = [_from_row(row) for row in cursor.fetchall()]
     if include_past:
         return rows
-    moment = now or _now()
+    moment = now or utc_now()
     return [freeze for freeze in rows if freeze.state(moment) in ("active", "scheduled")]
 
 
@@ -356,7 +347,7 @@ def active_for(
         The one that ends last (the application's own over the server's when they end
         together), or None when nothing is frozen.
     """
-    moment = now or _now()
+    moment = now or utc_now()
     held = [
         freeze
         for freeze in list_freezes(store=store, now=moment)
@@ -395,7 +386,7 @@ def lift(
         The freezes that were lifted; empty when nothing was frozen there.
     """
     target = store or get_store()
-    moment = _now()
+    moment = utc_now()
     candidates = [
         freeze
         for freeze in list_freezes(store=target, now=moment)

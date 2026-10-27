@@ -32,7 +32,7 @@ from noust.core.teams import scoped_store
 from noust.managers import tag_deploys
 from noust.web.api.apps import restart_application
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app
 from noust.web.api.jobs import UpdateManyRequest, update_group
 from noust.web.api.services import restart_refusal, restart_unit
 from noust.web.permissions import Permission
@@ -170,23 +170,6 @@ class RestartTagResponse(BaseModel):
     restarted: int
 
 
-def _known(domain: str) -> str:
-    """
-    Args:
-        domain: From the path.
-
-    Returns:
-        The validated domain of an application the caller sees.
-
-    Raises:
-        HTTPException: 404 when it is not there for the caller.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @app_router.get("/{domain}/tags", response_model=TagsResponse)
 def get_app_tags(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -201,7 +184,7 @@ def get_app_tags(
     Returns:
         Its tags.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     return TagsResponse(domain=validated, tags=AppTags().of(validated))
 
 
@@ -223,7 +206,7 @@ def put_app_tags(
     Raises:
         ValidationError: A tag is not one, or there are too many (400).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     tags = AppTags().set(validated, body.tags)
     audit_record(
         "apps.tags.set",

@@ -25,10 +25,10 @@ from __future__ import annotations
 import re
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime
 
 from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import local_now_iso
 
 #: Longest key name; it is also a directory name under the secrets.
 MAX_NAME_LENGTH = 63
@@ -116,14 +116,6 @@ class DeployKey:
     last_used_at: str | None = None
     pending: PendingKey | None = None
     repositories: tuple[str, ...] = field(default_factory=tuple)
-
-
-def _now() -> str:
-    """
-    Returns:
-        The time, in the store's own spelling: ISO 8601 without an offset.
-    """
-    return datetime.now().isoformat(timespec="seconds")
 
 
 class DeployKeyStore:
@@ -288,7 +280,7 @@ class DeployKeyStore:
                 cursor.execute(
                     "INSERT INTO deploy_keys (name, origin, key_type, fingerprint, public_key, "
                     "created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (name, origin, key_type, fingerprint, public_key, _now(), created_by),
+                    (name, origin, key_type, fingerprint, public_key, local_now_iso(), created_by),
                 )
         except sqlite3.IntegrityError as exc:
             raise ValidationError(
@@ -305,7 +297,7 @@ class DeployKeyStore:
                 key_type=key_type,
                 fingerprint=fingerprint,
                 public_key=public_key,
-                created_at=_now(),
+                created_at=local_now_iso(),
                 created_by=created_by,
             )
         return created
@@ -337,7 +329,7 @@ class DeployKeyStore:
             cursor.execute(
                 "INSERT OR IGNORE INTO deploy_key_repositories (repository, key_id, assigned_at) "
                 "VALUES (?, ?, ?)",
-                (repository, key.id, _now()),
+                (repository, key.id, local_now_iso()),
             )
 
     def unassign(self, repository: str) -> str | None:
@@ -383,7 +375,7 @@ class DeployKeyStore:
             cursor.execute(
                 "UPDATE deploy_keys SET pending_key_type = ?, pending_fingerprint = ?, "
                 "pending_public_key = ?, pending_since = ? WHERE name = ?",
-                (key_type, fingerprint, public_key, _now(), name),
+                (key_type, fingerprint, public_key, local_now_iso(), name),
             )
 
     def clear_pending(self, name: str) -> None:
@@ -414,7 +406,7 @@ class DeployKeyStore:
                 "rotated_at = ?, pending_key_type = NULL, pending_fingerprint = NULL, "
                 "pending_public_key = NULL, pending_since = NULL "
                 "WHERE name = ? AND pending_public_key IS NOT NULL",
-                (_now(), name),
+                (local_now_iso(), name),
             )
 
     def touch_used(self, name: str) -> None:
@@ -425,4 +417,6 @@ class DeployKeyStore:
             name: The key.
         """
         with self.store._transaction() as cursor:
-            cursor.execute("UPDATE deploy_keys SET last_used_at = ? WHERE name = ?", (_now(), name))
+            cursor.execute(
+                "UPDATE deploy_keys SET last_used_at = ? WHERE name = ?", (local_now_iso(), name)
+            )

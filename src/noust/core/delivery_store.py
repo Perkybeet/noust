@@ -25,9 +25,9 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
 
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 #: The deployment stopped: its build was interrupted and its release removed.
 CANCELLED = "cancelled"
@@ -69,14 +69,6 @@ class CancelRequest:
     requested_at: str
     outcome: str | None = None
     decided_at: str | None = None
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time in UTC, ISO 8601 with its offset.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _request_from(row: sqlite3.Row) -> CancelRequest:
@@ -140,7 +132,7 @@ def put_request(
             holder_pid=holder_pid,
             holder_started_at=holder_started_at,
             requested_by=who,
-            requested_at=_now(),
+            requested_at=utc_now_iso("seconds"),
         )
         cursor.execute(
             """INSERT OR REPLACE INTO delivery_cancel_requests
@@ -223,7 +215,7 @@ def decide(
             """UPDATE delivery_cancel_requests SET outcome = ?, decided_at = ?
                WHERE domain = ? AND holder_pid = ? AND holder_started_at = ?
                  AND outcome IS NULL""",
-            (outcome, _now(), domain, holder_pid, holder_started_at),
+            (outcome, utc_now_iso("seconds"), domain, holder_pid, holder_started_at),
         )
         return cursor.rowcount > 0
 
@@ -276,6 +268,6 @@ def mark_deployment_cancelled(
     with (store or get_store())._transaction() as cursor:
         cursor.execute(
             "UPDATE deployments SET cancelled_at = ?, cancelled_by = ? WHERE id = ?",
-            (_now(), who, deployment_id),
+            (utc_now_iso("seconds"), who, deployment_id),
         )
         return cursor.rowcount > 0

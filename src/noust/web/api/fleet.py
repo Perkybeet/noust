@@ -762,9 +762,9 @@ def list_actions(session: Session) -> dict[str, Any]:
         ``actions``: each with ``name``, ``title``, ``operations``, ``serial``
         and ``max_failures``.
     """
-    from noust.web.fleet_jobs import ACTIONS
+    from noust.web.fleet_jobs import all_actions
 
-    return {"actions": [spec.describe() for spec in ACTIONS.values()]}
+    return {"actions": [spec.describe() for spec in all_actions().values()]}
 
 
 def _request_from(body: ActionIn, retry_of: str | None = None) -> Any:

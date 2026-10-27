@@ -30,12 +30,12 @@ acceptable (rule 4).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core import audit, delivery
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 #: Deployments of one application's history that can be kept, at least and at most.
 MIN_HISTORY_KEEP = 1
@@ -119,14 +119,6 @@ class Rollout:
             ),
             "customised": self.customised,
         }
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time in UTC, ISO 8601 with its offset.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def get(domain: str, *, store: NoustStore | None = None) -> Rollout:
@@ -306,7 +298,7 @@ def _write(
             f"INSERT INTO app_rollout (app_id, {columns}, updated_by, updated_at) "  # noqa: S608 - names checked above, values bound
             f"VALUES (?, {marks}, ?, ?) ON CONFLICT(app_id) DO UPDATE SET {updates}, "
             "updated_by = excluded.updated_by, updated_at = excluded.updated_at",
-            (row[0], *changes.values(), actor, _now()),
+            (row[0], *changes.values(), actor, utc_now_iso("seconds")),
         )
     return get(domain, store=target)
 
@@ -449,7 +441,7 @@ def pause(
     settings = _write(
         domain,
         {
-            "paused_at": current.paused_at or _now(),
+            "paused_at": current.paused_at or utc_now_iso("seconds"),
             "paused_by": by,
             "paused_reason": text,
         },

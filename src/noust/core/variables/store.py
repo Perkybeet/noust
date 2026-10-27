@@ -22,10 +22,10 @@ import builtins
 import sqlite3
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
 
 from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 from noust.core.variables.model import (
     BOTH,
     MAX_VARIABLES,
@@ -50,14 +50,6 @@ _OWNER_COLUMN = {
     "environment": "environment_id",
     "preview": "app_id",
 }
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time as UTC ISO 8601, seconds.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @dataclass(frozen=True)
@@ -197,7 +189,7 @@ class VariableStore:
         validate_env_name(name)
         text = validate_shared_value(value, name=name)
         validate_audience(audience)
-        stamp = _now()
+        stamp = utc_now_iso("seconds")
         column = _OWNER_COLUMN.get(scope)
         with self.store._transaction() as cursor:
             if self._count(cursor, scope, owner) >= MAX_VARIABLES and not self._exists(

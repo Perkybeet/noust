@@ -35,7 +35,7 @@ the two are deliberately the same function.
 from __future__ import annotations
 
 from collections.abc import Callable, Coroutine, Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.datastructures import Default, DefaultPlaceholder
@@ -94,6 +94,7 @@ from noust.core.teams import (
     TeamConflictError,
     TeamError,
     TeamNotFoundError,
+    scoped_store,
 )
 from noust.terminal.recording import RecordingNotFound
 from noust.terminal.sessions import TerminalDisabledError, TerminalGone, TerminalLimitError
@@ -113,6 +114,9 @@ from noust.web.auth import (
 )
 from noust.web.pydantic_compat import dump_model
 from noust.web.versioning import API_PREFIX
+
+if TYPE_CHECKING:
+    from noust.core.store import App
 
 #: Requests under this prefix are the JSON API and answer in the contract this
 #: module defines. Everything else - server-rendered pages, the webhook
@@ -978,3 +982,51 @@ def strict_domain(value: str) -> str:
             ),
         )
     return normalised
+
+
+def _visible_app(domain: str) -> tuple[str, App]:
+    validated = strict_domain(domain)
+    app = scoped_store().get_app(validated)
+    if app is None:
+        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
+    return validated, app
+
+
+def known_app(domain: str) -> str:
+    """
+    Validate a domain from a path and refuse one nothing is deployed at.
+
+    The one answer, for every route under ``/apps/{domain}``, to "is there an application here
+    for this caller": a domain of another team's reads exactly like one nobody has (a 403 would
+    say it exists), because the lookup is the caller's scoped one. Thirty-three routers had
+    their own copy, and a router that forgets the scope is the one that answers for another
+    team's application.
+
+    Args:
+        domain: The domain as the client sent it.
+
+    Returns:
+        The validated, lowercased domain.
+
+    Raises:
+        DomainError: When the value is not a bare domain (see :func:`strict_domain`).
+        HTTPException: 404 when nothing is deployed there, or it is outside the caller's teams.
+    """
+    return _visible_app(domain)[0]
+
+
+def known_app_row(domain: str) -> App:
+    """
+    Validate a domain from a path and read the application deployed there, as the caller sees it.
+
+    Args:
+        domain: The domain as the client sent it.
+
+    Returns:
+        The application's row.
+
+    Raises:
+        DomainError: When the value is not a bare domain.
+        HTTPException: 404 when nothing is deployed there, or it is outside the caller's teams.
+    """
+    return _visible_app(domain)[1]

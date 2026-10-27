@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core import app_rollout_store, delivery, deploy_freeze, deploy_guard
@@ -31,7 +31,7 @@ from noust.core.store import AppType
 from noust.core.teams import scoped_store
 from noust.deployers.lifecycle import PHP_FPM, set_stop_policy
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app
 from noust.web.auth import actor_label
 from noust.web.pydantic_compat import dump_set_fields
 
@@ -113,25 +113,6 @@ class ResumeResponse(BaseModel):
     domain: str
     was_paused: bool
     held: int = Field(description="Pushes and tags that were not deployed while it was paused")
-
-
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
 
 
 def stop_supported(app_type: str | None, is_static: bool) -> bool:
@@ -222,7 +203,7 @@ def get_rollout(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return _response(_known(domain))
+    return _response(known_app(domain))
 
 
 @router.put("/{domain}/rollout", response_model=RolloutResponse)
@@ -252,7 +233,7 @@ def put_rollout(
             was given.
         DeploymentError: Its unit cannot be given a stop policy (409).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     given: dict[str, Any] = dump_set_fields(body)
     if not given:
         raise ValidationError(
@@ -306,7 +287,7 @@ def pause_deploys(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     app_rollout_store.pause(validated, reason=body.reason, by=actor_label(session))
     return _response(validated)
 
@@ -329,7 +310,7 @@ def resume_deploys(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     settings = app_rollout_store.get(validated)
     held = _held(validated, settings.paused_at)
     was_paused = app_rollout_store.resume(validated, by=actor_label(session))

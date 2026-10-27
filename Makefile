@@ -1,4 +1,4 @@
-.PHONY: help install dev-install build clean test lint format debian obs
+.PHONY: help install dev-install build clean test test-cov lint format obs-status obs-status-watch obs-logs
 
 help:
 	@echo "Noust Makefile"
@@ -43,10 +43,10 @@ clean:
 	find . -type f -name "*.pyc" -delete
 
 test:
-	pytest -n auto
+	pytest -n logical
 
 test-cov:
-	pytest -n auto --cov=noust --cov-report=html
+	pytest -n logical --cov=noust --cov-report=html
 	@echo "Coverage report: htmlcov/index.html"
 
 lint:
@@ -54,8 +54,7 @@ lint:
 	mypy src/noust
 
 format:
-	black src/noust tests
-	isort src/noust tests
+	ruff format src/noust tests
 	ruff check --fix src/noust tests
 
 # OBS (Open Build Service) targets

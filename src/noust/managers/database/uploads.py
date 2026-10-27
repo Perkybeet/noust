@@ -51,7 +51,6 @@ import secrets
 import shutil
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +58,7 @@ from noust.core.audit import Actor, record
 from noust.core.config import Config
 from noust.core.exceptions import ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
+from noust.core.timeutil import utc_now_iso
 
 __all__ = [
     "ALLOWED_EXTENSIONS",
@@ -250,10 +250,6 @@ def check_file_name(name: str, profile: UploadProfile = DUMPS) -> str:
             field="file_name",
         )
     return name
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 class UploadStore:
@@ -465,7 +461,7 @@ class UploadStore:
             directory / _DATA, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, SECRET_MODE
         )
         os.close(descriptor)
-        stamp = _now()
+        stamp = utc_now_iso("seconds")
         upload = Upload(
             id=upload_id,
             file_name=file_name,
@@ -533,7 +529,7 @@ class UploadStore:
         finally:
             os.close(descriptor)
         upload.received = offset + len(data)
-        upload.updated_at = _now()
+        upload.updated_at = utc_now_iso("seconds")
         self._write(directory, upload)
         return upload
 
@@ -573,7 +569,7 @@ class UploadStore:
                     field="sha256",
                 )
         upload.complete = True
-        upload.updated_at = _now()
+        upload.updated_at = utc_now_iso("seconds")
         self._write(directory, upload)
         record(
             self.profile.event,

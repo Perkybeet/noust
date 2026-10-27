@@ -46,7 +46,6 @@ import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import quote
 
@@ -54,6 +53,7 @@ from noust.core import package_index
 from noust.core.audit import record as record_audit
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.store import NodeRecord, NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 from noust.fleet.aggregate import (
     VERSION_PATH,
     Asker,
@@ -120,11 +120,6 @@ RETRIED_SKIPS = frozenset({"aborted", "busy", "elevation_expired"})
 
 #: A job whose worker is gone ended with the server where it was.
 INTERRUPTED_REASON = "The central restarted; the node's own jobs may still be running"
-
-
-def _now() -> str:
-    """Returns: Now, ISO 8601 UTC."""
-    return datetime.now(timezone.utc).isoformat()
 
 
 class ActionFailed(NoustError):
@@ -1063,6 +1058,28 @@ ACTIONS: dict[str, ActionSpec] = {
 }
 
 
+def all_actions() -> dict[str, ActionSpec]:
+    """
+    Every bulk action, by name.
+
+    The actions of an application on several servers are in their own modules, which add
+    themselves to :data:`ACTIONS` when they are imported and import this one for what they are
+    made of. They are imported here, when the registry is read, and not when this module loads:
+    a module that imports the modules that import it works only in the order it was first
+    imported in.
+
+    Returns:
+        The registry, complete.
+    """
+    from noust.web import (  # noqa: F401
+        fleet_database_actions,
+        fleet_placement_actions,
+        fleet_ship_actions,
+    )
+
+    return ACTIONS
+
+
 # --------------------------------------------------------------- request
 
 
@@ -1101,11 +1118,12 @@ class FleetRequest:
         Raises:
             ValidationError: For an action that does not exist.
         """
-        spec = ACTIONS.get(self.action)
+        actions = all_actions()
+        spec = actions.get(self.action)
         if spec is None:
             raise ValidationError(
                 f"Unknown fleet action: {self.action!r}",
-                details=f"Use one of: {', '.join(ACTIONS)}.",
+                details=f"Use one of: {', '.join(actions)}.",
                 field="action",
             )
         return spec
@@ -1666,7 +1684,7 @@ class FleetJobs:
                             "options": plan.options,
                         }
                     ),
-                    _now(),
+                    utc_now_iso(),
                     created_by,
                     os.getpid(),
                     plan.request.retry_of,
@@ -1754,7 +1772,7 @@ class FleetJobs:
         with self.store._transaction() as cursor:
             cursor.execute(
                 "UPDATE fleet_jobs SET status = ?, finished_at = ? WHERE job_id = ?",
-                (status, _now(), job_id),
+                (status, utc_now_iso(), job_id),
             )
 
     def _nodes(self, job_id: str, interrupted: bool) -> list[NodeState]:
@@ -1820,7 +1838,7 @@ class FleetJobs:
         if interrupted:
             status = "interrupted"
         nodes = self._nodes(job_id, interrupted)
-        spec = ACTIONS.get(row["action"])
+        spec = all_actions().get(row["action"])
         return {
             "job_id": row["job_id"],
             "action": row["action"],
@@ -2128,7 +2146,7 @@ class Runner:
                 self._changed(node, f"{name}: skipped")
                 return
             node.state = "running"
-            node.started_at = _now()
+            node.started_at = utc_now_iso()
             self._changed(node, f"{name}: started")
             run = self._node_run(node, source)
             try:
@@ -2148,7 +2166,7 @@ class Runner:
         finally:
             _release(name, self.job_id)
             get_aggregator().forget(name)
-        node.ended_at = _now()
+        node.ended_at = utc_now_iso()
         level = (
             "success"
             if node.state == "succeeded"
@@ -2225,7 +2243,7 @@ class Runner:
             finally:
                 _release(name, self.job_id)
                 get_aggregator().forget(name)
-            node.ended_at = _now()
+            node.ended_at = utc_now_iso()
             self._changed(node, f"{name}: {node.state}")
 
     def _step(self, node: NodeState, text: str) -> None:
@@ -2454,10 +2472,3 @@ def start_job(
 def new_job_id() -> str:
     """Returns: An identifier for a fleet job run outside the console (the CLI)."""
     return uuid.uuid4().hex[:8]
-
-
-# The actions of an application on several servers are in their own module, which
-# registers them in ACTIONS: it needs everything above to exist.
-from noust.web import fleet_database_actions as _database_actions  # noqa: E402,F401
-from noust.web import fleet_placement_actions as _placement_actions  # noqa: E402,F401
-from noust.web import fleet_ship_actions as _ship_actions  # noqa: E402,F401

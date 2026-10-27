@@ -543,7 +543,7 @@ class EnvManager:
         """
         Interactively prompt for variable values grouped by category.
 
-        Prompts come from :mod:`noust.cli.prompts`, falling back to input()
+        Prompts come from :mod:`noust.core.prompts`, falling back to input()
         when questionary is missing.
 
         Args:
@@ -565,7 +565,7 @@ class EnvManager:
                 categories[cat] = []
             categories[cat].append(var)
 
-        from noust.cli import prompts
+        from noust.core import prompts
 
         for category, cat_vars in sorted(categories.items()):
             self.logger.info(f"\n  [{category}]")

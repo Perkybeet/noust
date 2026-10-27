@@ -601,6 +601,7 @@ def identity_client(*, elevated: bool) -> Any:
 def api_app(own_store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> NoustStore:
     """The process-wide store with one in-place application from before 3.2."""
     monkeypatch.setattr("noust.web.api.identity.scoped_store", lambda: ScopedStore(store=own_store))
+    monkeypatch.setattr("noust.web.api.deps.scoped_store", lambda: ScopedStore(store=own_store))
     monkeypatch.setattr("noust.managers.app_identity.get_store", lambda: own_store)
     own_store.create_app(
         App(domain="shop.example.com", app_type="nodejs", app_path="/var/www/apps/shop-example-com")

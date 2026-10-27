@@ -122,6 +122,7 @@ from noust.core.store import (
 )
 from noust.core.templates import text_environment
 from noust.core.terminal_context import TerminalContext
+from noust.core.timeutil import utc_now
 from noust.core.utils import domain_to_app_name, find_noust_executable
 from noust.deployers.helpers.hooks import Hook, HookPhase
 from noust.integrations.github import pulls
@@ -292,16 +293,6 @@ def _checked_max(max_previews: int) -> int:
             "Let's Encrypt allows 50 certificates a week per registered domain.",
         )
     return max_previews
-
-
-def _now() -> datetime:
-    """
-    Read the clock. A function so tests can move it.
-
-    Returns:
-        The current time in UTC.
-    """
-    return datetime.now(timezone.utc)
 
 
 def _iso(moment: datetime) -> str:
@@ -1377,7 +1368,7 @@ def _expiry(ttl_hours: int) -> str:
     Returns:
         UTC ISO 8601, as the store compares it.
     """
-    return _iso(_now() + timedelta(hours=ttl_hours))
+    return _iso(utc_now() + timedelta(hours=ttl_hours))
 
 
 def _set_status(
@@ -3034,10 +3025,10 @@ def sweep(*, logger: Logger | None = None) -> list[str]:
         The domains of the previews removed.
     """
     store = get_store()
-    now = _iso(_now())
+    now = _iso(utc_now())
     due: dict[str, str] = {record.domain: "expired" for record in store.list_expired_previews(now)}
     records = store.list_previews()
-    stuck = _iso(_now() - _REMOVING_GRACE)
+    stuck = _iso(utc_now() - _REMOVING_GRACE)
     for record in records:
         if record.domain in due:
             continue

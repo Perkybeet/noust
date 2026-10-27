@@ -22,6 +22,7 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
 from noust.deployers.helpers.hooks import (
@@ -41,18 +42,6 @@ _SOURCES = {
     "repo": "the repository's noust.yaml, in the code that runs now",
     "none": "none declared",
 }
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def _print_hooks(logger: Logger, hooks: HookSet) -> None:
@@ -169,7 +158,7 @@ def set_command(ctx: Context, domain: str, path: str) -> None:
     if ctx.dry_run:
         ctx.logger.info(f"Would set the hooks of {validated} from {path}")
         return
-    set_operator_hooks(validated, document, actor=_actor())
+    set_operator_hooks(validated, document, actor=cli_actor().label)
     if ctx.json_output:
         click.echo(json.dumps(describe_hooks(validated).to_dict()))
         return
@@ -188,7 +177,7 @@ def clear_command(ctx: Context, domain: str) -> None:
     if ctx.dry_run:
         ctx.logger.info(f"Would clear the hooks of {validated}")
         return
-    set_operator_hooks(validated, None, actor=_actor())
+    set_operator_hooks(validated, None, actor=cli_actor().label)
     ctx.logger.success(
         f"{validated} has no hooks of its own: the repository's noust.yaml applies again"
     )

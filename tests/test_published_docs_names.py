@@ -24,7 +24,7 @@ REVERSED = ("tseggorp",)
 
 #: What is published as documentation: the docs site, the manual pages and the root guides.
 PUBLISHED = ("docs", "man")
-ROOT_GUIDES = ("README.md", "CONTRIBUTING.md", "SECURITY.md", "obs/noust.1")
+ROOT_GUIDES = ("README.md", "CONTRIBUTING.md", "SECURITY.md")
 
 
 def test_the_published_documentation_names_no_private_project() -> None:

@@ -17,11 +17,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
-from noust.core.teams import scoped_store
 from noust.deployers.project_apply import (
     apply_declaration,
     export_declaration,
@@ -29,7 +28,7 @@ from noust.deployers.project_apply import (
     plan_declaration,
 )
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.auth import actor_label, ensure_scope
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -92,25 +91,6 @@ class ApplyResponse(BaseModel):
     steps: list[AppliedStep]
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/declaration", response_model=DeclarationResponse)
 def get_declaration(
     domain: str, request: Request, session: Annotated[dict, Depends(get_current_session)]
@@ -133,7 +113,7 @@ def get_declaration(
         HTTPException: 403 below admin scope; 404 when the application is unknown.
     """
     ensure_scope(request, session, "admin")
-    validated = _known(domain)
+    validated = known_app(domain)
     return DeclarationResponse(domain=validated, declaration=export_declaration(validated))
 
 
@@ -160,7 +140,7 @@ def apply(
             commands and ``confirm`` was not given.
         AppBusyError: Another operation is running on the application.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     plan = plan_declaration(validated, parse_declaration(body.declaration), prune=body.prune)
     model = ApplyPlanModel(**plan.to_dict())
     if body.check:

@@ -18,19 +18,15 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.store import NoustStore
+from noust.core.timeutil import utc_now_iso
 
 __all__ = ["HostTlsRecord", "HostTlsRecords"]
 
 #: The longest error a row keeps.
 _MAX_ERROR = 4000
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @dataclass
@@ -132,7 +128,7 @@ class HostTlsRecords:
         Returns:
             The record as stored.
         """
-        stamp = _now()
+        stamp = utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO db_host_tls (engine, hostname, source, certificate, installed_dir, "
@@ -189,12 +185,12 @@ class HostTlsRecords:
                 "fingerprint = COALESCE(?, fingerprint), not_after = COALESCE(?, not_after), "
                 "updated_at = ? WHERE engine = ?",
                 (
-                    _now(),
+                    utc_now_iso("seconds"),
                     "ok" if ok else "failed",
                     None if ok else (error or "")[-_MAX_ERROR:],
                     fingerprint,
                     not_after,
-                    _now(),
+                    utc_now_iso("seconds"),
                     engine,
                 ),
             )

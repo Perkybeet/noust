@@ -37,10 +37,10 @@ import re
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from noust.core.exceptions import DatabaseExistsError, ValidationError
+from noust.core.timeutil import utc_now_iso
 from noust.validators import container as image_rules
 from noust.validators import db_instance as rules
 
@@ -244,14 +244,6 @@ def _names_of(raw: object) -> tuple[str, ...]:
     except ValueError:
         return ()
     return tuple(item for item in found if isinstance(item, str)) if isinstance(found, list) else ()
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 in UTC.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def check_flavour(flavour: object) -> str:
@@ -720,7 +712,7 @@ class DbInstanceStore:
             check_image_tag(image_tag)
         scripts = [rules.check_init_script_name(name) for name in init_scripts]
         words, extra = check_launch(command, args)
-        now = _now()
+        now = utc_now_iso("seconds")
         try:
             with self.store._transaction() as cursor:
                 cursor.execute(
@@ -786,7 +778,7 @@ class DbInstanceStore:
         with self.store._transaction() as cursor:
             cursor.execute(
                 f"UPDATE db_instances SET {columns}, updated_at = ? WHERE name = ?",  # noqa: S608
-                (*assignments.values(), _now(), name),
+                (*assignments.values(), utc_now_iso("seconds"), name),
             )
             return cursor.rowcount > 0
 
@@ -945,7 +937,7 @@ class DbInstanceStore:
             cursor.execute(
                 "UPDATE db_instances SET previous_digest = digest, digest = ?, "
                 "upgraded_at = ?, updated_at = ? WHERE name = ?",
-                (digest, _now(), _now(), name),
+                (digest, utc_now_iso("seconds"), utc_now_iso("seconds"), name),
             )
             return cursor.rowcount > 0
 
@@ -1000,7 +992,7 @@ class DbInstanceStore:
             cursor.execute(
                 "UPDATE db_instances SET previous_digest = digest, image = ?, image_tag = ?, "
                 "digest = ?, upgraded_at = ?, updated_at = ? WHERE name = ?",
-                (image, tag, digest, _now(), _now(), name),
+                (image, tag, digest, utc_now_iso("seconds"), utc_now_iso("seconds"), name),
             )
             return cursor.rowcount > 0
 

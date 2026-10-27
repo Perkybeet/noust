@@ -32,10 +32,7 @@ recursive-include man *
 
 # Exclude everything else
 exclude Makefile
-exclude pytest.ini
-exclude build-and-upload-obs.sh
 recursive-exclude tests *
-recursive-exclude docker *
 exclude Dockerfile*
 exclude docker-compose*.yml
 recursive-exclude .github *

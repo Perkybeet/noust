@@ -24,6 +24,7 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
 from noust.managers.source_uploads import (
     DOCKERFILE_MAX_BYTES,
@@ -32,18 +33,6 @@ from noust.managers.source_uploads import (
     UploadedSource,
 )
 from noust.validators.source import check_upload_id
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def _size(count: int) -> str:
@@ -94,15 +83,15 @@ def add_command(ctx: Context, archive: Path, dockerfile: bool) -> None:
     manager = SourceUploads()
     if dockerfile and str(archive) == "-":
         text = sys.stdin.read(DOCKERFILE_MAX_BYTES + 1)
-        uploaded = manager.add_dockerfile(text, owner=_actor())
+        uploaded = manager.add_dockerfile(text, owner=cli_actor().label)
     elif dockerfile and archive.name not in DOCKERFILE_NAMES:
         try:
             text = archive.expanduser().read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as exc:
             raise ValidationError(f"Cannot read {archive}: {exc}", field="archive") from exc
-        uploaded = manager.add_dockerfile(text, owner=_actor())
+        uploaded = manager.add_dockerfile(text, owner=cli_actor().label)
     else:
-        uploaded = manager.add_file(archive.expanduser(), owner=_actor())
+        uploaded = manager.add_file(archive.expanduser(), owner=cli_actor().label)
     if ctx.json_output:
         click.echo(json.dumps(uploaded.to_dict()))
         return

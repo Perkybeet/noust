@@ -24,11 +24,11 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
+from noust.core.timeutil import utc_now_iso
 
 __all__ = [
     "CONSISTENCY_MODES",
@@ -49,10 +49,6 @@ STATUS_FAILED = "failed"
 
 #: The longest error a row keeps: the end of it, where a tool says why it stopped.
 _MAX_ERROR = 4000
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _list_of(raw: str | None, kind: type) -> list[Any]:
@@ -214,7 +210,7 @@ class VolumeRecords:
                 details=f"Use one of: {', '.join(CONSISTENCY_MODES)}.",
                 field="consistency",
             )
-        stamp = _now()
+        stamp = utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO volume_backup_policies (app_domain, targets, extra_paths, schedule, "
@@ -260,7 +256,7 @@ class VolumeRecords:
             error: What it said when it did not, verbatim.
             backup: The last backup it took, when it took one.
         """
-        stamp = _now()
+        stamp = utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 "UPDATE volume_backup_policies SET last_run_at = ?, last_status = ?, "

@@ -26,7 +26,7 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, json_option, pass_context
-from noust.cli.commands.fleet import cli as fleet_cli
+from noust.cli.commands.fleet_group import cli as fleet_cli
 from noust.core.exceptions import NodeError
 
 #: How the enrollment's log levels read on a terminal.

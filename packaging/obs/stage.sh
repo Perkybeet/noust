@@ -13,7 +13,8 @@
 # silently missing there while the GitHub build, which copied it by hand,
 # passed. Building from the staged set is what makes the gate mean something.
 #
-# Only committed files ship: the tarball is `git archive HEAD`.
+# Only committed files ship: the tarball is `git archive HEAD` less what no recipe
+# reads (the list is at the `git archive` below).
 #
 # A tree is released when obs/debian.changelog's top entry is noust at the
 # version in pyproject.toml: scripts/release.py writes the two together. A tree
@@ -60,7 +61,14 @@ fi
 
 case "$package" in
     noust)
-        git -C "$root" archive --format=tar.gz --prefix="noust-${version}/" HEAD ':!debian' \
+        # Left out: what neither the spec nor debian.rules nor setup.py reads, which is a third of
+        # the download of every build: the console's source (its build is committed in
+        # src/noust/web/static and Node never runs here), the generators and the SDK. They stay
+        # in the repository and in `git archive`, so the wheel, the sdist and GitHub's source
+        # archive of a tag are the same as ever; only what OBS is given is smaller.
+        # tests/test_obs_tarball.py holds this list to what the recipes read.
+        git -C "$root" archive --format=tar.gz --prefix="noust-${version}/" HEAD \
+            ':!debian' ':!panel' ':!sdk' ':!scripts' \
             > "$out/noust-${version}.tar.gz"
         cp "$root/rpm/noust.spec" "$root/obs/noust.dsc" "$out/"
         cp "$root"/obs/debian.* "$out/"

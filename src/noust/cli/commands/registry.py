@@ -26,24 +26,13 @@ import sys
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
 from noust.core.registry_store import KINDS, RegistryLogin
 from noust.managers.registry_logins import RegistryManager
 from noust.validators.domain import validate_domain
 
 PASSWORD_ENV = "NOUST_REGISTRY_PASSWORD"  # noqa: S105 - the name of a variable, not a credential
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def _password(from_stdin: bool, required: bool) -> str | None:
@@ -172,7 +161,9 @@ def add_command(
     if ctx.dry_run:
         ctx.logger.info(f"Would add the registry login {name} ({kind})")
         return
-    login = RegistryManager().add(name, kind, username, password, server=server, actor=_actor())
+    login = RegistryManager().add(
+        name, kind, username, password, server=server, actor=cli_actor().label
+    )
     if ctx.json_output:
         click.echo(json.dumps(login.to_dict()))
         return
@@ -283,7 +274,7 @@ def attach_command(ctx: Context, domain: str, names: tuple[str, ...], clear: boo
             f"Would set the registry logins of {validated} to {', '.join(names) or 'none'}"
         )
         return
-    RegistryManager().attach(validated, list(names), actor=_actor())
+    RegistryManager().attach(validated, list(names), actor=cli_actor().label)
     ctx.logger.success(
         f"{validated} uses {', '.join(names)}" if names else f"{validated} uses no registry account"
     )

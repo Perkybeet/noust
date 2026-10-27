@@ -55,6 +55,7 @@ from noust.core.exceptions import (
 )
 from noust.core.logger import Logger
 from noust.core.store import App, NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 from noust.deployers.domains import DnsCheck, check_dns
 from noust.managers.backup_destinations import BackupDestinationManager
 from noust.managers.backup_manager import BackupManager
@@ -318,14 +319,6 @@ class MigrationCheck:
         }
 
 
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 in UTC.
-    """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
 class ServerMigration:
     """
     Prepare a move to another server, and check it once it has happened.
@@ -565,7 +558,7 @@ class ServerMigration:
         report = PreparedMigration(
             host=plan.host,
             destination=destination,
-            started_at=_now(),
+            started_at=utc_now_iso("seconds"),
             warnings=list(plan.warnings),
         )
         for entry in plan.applications:
@@ -579,7 +572,7 @@ class ServerMigration:
         for name in plan.databases:
             report.steps.append(self._back_up_database(name, destination))
         report.steps.append(self._seal_state(destination, passphrase, report))
-        report.finished_at = _now()
+        report.finished_at = utc_now_iso("seconds")
         report.next_steps = self._next_steps(report, plan)
         audit.record(
             "server.migrate.prepare",
@@ -756,7 +749,9 @@ class ServerMigration:
         """
         require_server_role("Checking a moved server")
         apps = self._applications()
-        report = MigrationCheck(generated_at=_now(), host=self.self_backups.host_slug())
+        report = MigrationCheck(
+            generated_at=utc_now_iso("seconds"), host=self.self_backups.host_slug()
+        )
         states = self._states(apps) if self._states else resolve_states(apps, ServiceManager())
         certificates = self._certificate_days()
         records = DatabaseRecords(self.store)

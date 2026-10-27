@@ -18,13 +18,12 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
-from noust.core.teams import scoped_store
 from noust.deployers import private_access
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.api.scope import require_instance_scope
 from noust.web.auth import get_client_ip
 from noust.web.permissions import Permission
@@ -132,25 +131,6 @@ class TailnetCertificateModel(BaseModel):
     applications: list[str]
 
 
-def _require_app(domain: str) -> str:
-    """
-    Validate an application's domain and require that it is deployed.
-
-    Args:
-        domain: The domain from the path.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed there.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 def _model(status: private_access.PrivateStatus) -> PrivateModel:
     """
     Args:
@@ -195,7 +175,7 @@ def get_private(
     Returns:
         The answer, with the networks it could be published to.
     """
-    return _model(private_access.status(_require_app(domain)))
+    return _model(private_access.status(known_app(domain)))
 
 
 @router.put("/{domain}/private", response_model=PrivateModel)
@@ -224,7 +204,7 @@ def put_private(
         ValidationError: Nothing was named, the network is down or a range is public (400).
     """
     status = private_access.enable(
-        _require_app(domain),
+        known_app(domain),
         network=data.network,
         cidrs=data.cidrs,
         operator_addresses=[get_client_ip(request)],
@@ -253,7 +233,7 @@ def delete_private(
         The answer afterwards.
     """
     status = private_access.disable(
-        _require_app(domain),
+        known_app(domain),
         operator_addresses=[get_client_ip(request)],
         accept_lockout=accept_lockout,
     )
@@ -280,7 +260,7 @@ def post_tailnet_certificate(
         ValidationError: The server is not on a tailnet, it cannot issue certificates, or the
             application answers on a name the certificate does not cover (400).
     """
-    validated = _require_app(domain)
+    validated = known_app(domain)
     require_instance_scope(Permission.APPS_MANAGE)
     issued = private_access.tailnet_certificate(validated)
     return TailnetCertificateModel(

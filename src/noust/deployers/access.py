@@ -31,6 +31,7 @@ from typing import Any
 from noust.central import require_server_role
 from noust.core import audit
 from noust.core.applock import app_lock
+from noust.core.audit.context import current_actor_name
 from noust.core.client_cert_store import ClientCertificate
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.runner import get_runner
@@ -350,7 +351,7 @@ def set_user(app_domain: str, username: str, password: str, *, verbose: bool = F
             )
         _require_applicable(app, policy, verbose=verbose)
         previous = {user.username: user for user in manager.users(app.domain)}.get(name)
-        manager.records.set_user(app.domain, name, hashed, created_by=audit_actor())
+        manager.records.set_user(app.domain, name, hashed, created_by=current_actor_name())
         try:
             if policy.uses_accounts:
                 domains.refresh_site(app, verbose=verbose)
@@ -483,15 +484,6 @@ def _keep_brute_force_jails_true(operator_addresses: Sequence[str]) -> None:
     from noust.managers.server.security_fail2ban import keep_web_jails_true
 
     keep_web_jails_true(operator_addresses)
-
-
-def audit_actor() -> str | None:
-    """
-    Returns:
-        A label for who is acting, for the records' ``created_by``.
-    """
-    actor = audit.current_actor()
-    return None if actor is None else str(actor.name or actor.id or actor.kind)
 
 
 def forget(app_domain: str) -> None:
@@ -774,7 +766,7 @@ def issue_client_certificate(
                 f"A policy would change nothing on {app.domain}: {_unsupported(app, verbose=verbose)}",
                 field="policy",
             )
-        return ClientCertificates().issue(app.domain, name, days=days, actor=audit_actor())
+        return ClientCertificates().issue(app.domain, name, days=days, actor=current_actor_name())
 
 
 def revoke_client_certificate(
@@ -819,7 +811,7 @@ def revoke_client_certificate(
                     "it (--accept-lockout; in the console, the confirmation box).",
                     field="serial",
                 )
-        revoked = certificates.revoke(app.domain, serial, actor=audit_actor())
+        revoked = certificates.revoke(app.domain, serial, actor=current_actor_name())
         if revoked and manager.get(app.domain).client_certs:
             domains.refresh_site(app, verbose=verbose)
         return revoked
@@ -905,7 +897,7 @@ def _apply(
         ValidationError: The web server refused the new site; the policy is back.
         NoustError: Anything else the render raises; the policy is back.
     """
-    actor = audit_actor()
+    actor = current_actor_name()
     manager.save(app.domain, after, actor=actor)
     try:
         domains.refresh_site(app, verbose=verbose)

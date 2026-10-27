@@ -33,13 +33,13 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core import paths
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.notifications.composers_watch import compose_cleanup
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 from noust.managers.server.errors import ServerError
 from noust.managers.server.storage import CLEANUP_ACTIONS, StorageManager
 
@@ -70,11 +70,6 @@ STATUSES = ("ok", "partial", "failed", "skipped")
 
 #: The unit pair that runs the policy.
 TIMER_DESCRIPTION = "Noust storage cleanup timer"
-
-
-def _now() -> str:
-    """Returns: The current time, ISO 8601 UTC."""
-    return datetime.now(timezone.utc).isoformat()
 
 
 @dataclass(frozen=True)
@@ -248,7 +243,7 @@ class CleanupRun:
     trigger: str
     status: str = "ok"
     id: int = 0
-    started_at: str = field(default_factory=_now)
+    started_at: str = field(default_factory=utc_now_iso)
     ended_at: str | None = None
     mount: str | None = None
     percent_before: float | None = None
@@ -260,7 +255,7 @@ class CleanupRun:
 
     def finish(self) -> None:
         """Settle the status and the total from the actions, and stamp the end."""
-        self.ended_at = _now()
+        self.ended_at = utc_now_iso()
         failed = [a for a in self.actions if a.status != "ok"]
         if self.reason and not self.actions:
             self.status = self.status if self.status in ("skipped", "failed") else "skipped"
@@ -487,7 +482,7 @@ class CleanupSchedule:
                 "INSERT INTO storage_cleanup_policy (id, document, updated_at, updated_by) "
                 "VALUES (1, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET document = excluded.document, "
                 "updated_at = excluded.updated_at, updated_by = excluded.updated_by",
-                (json.dumps(policy.to_dict()), _now(), actor),
+                (json.dumps(policy.to_dict()), utc_now_iso(), actor),
             )
         return policy
 

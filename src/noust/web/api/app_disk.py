@@ -15,13 +15,17 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from noust.core.teams import scoped_store
 from noust.managers import app_disk
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import (
+    JobAcceptedResponse,
+    NoustErrorRoute,
+    known_app_row,
+    require_elevated,
+)
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
 
@@ -102,26 +106,6 @@ class DiskKernelRequest(BaseModel):
     enabled: bool = Field(description="True gives it a project quota; false takes it off")
 
 
-def _known(domain: str) -> Any:
-    """
-    Find an application the caller may see.
-
-    Args:
-        domain: The domain from the path.
-
-    Returns:
-        Its row.
-
-    Raises:
-        HTTPException: 404 when it does not exist or is outside the caller's teams.
-    """
-    validated = strict_domain(domain)
-    app = scoped_store().get_app(validated)
-    if app is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return app
-
-
 @router.get("/{domain}/disk", response_model=DiskResponse)
 def get_disk(domain: str, session: Annotated[dict, Depends(get_current_session)]) -> DiskResponse:
     """
@@ -137,7 +121,7 @@ def get_disk(domain: str, session: Annotated[dict, Depends(get_current_session)]
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return DiskResponse(**app_disk.status(_known(domain)).to_dict())
+    return DiskResponse(**app_disk.status(known_app_row(domain)).to_dict())
 
 
 @router.put("/{domain}/disk", response_model=DiskResponse)
@@ -164,7 +148,7 @@ def put_disk(
         HTTPException: 404 when the application is unknown.
         ValidationError: The limit is out of range (400).
     """
-    app = _known(domain)
+    app = known_app_row(domain)
     app_disk.set_disk_limit(app, body.soft_mb, actor=actor_label(session))
     return DiskResponse(**app_disk.status(app).to_dict())
 
@@ -209,7 +193,7 @@ def post_disk_measure(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain).domain
+    validated = known_app_row(domain).domain
     actor = actor_label(session)
     job = get_job_manager().create_job(
         job_type=JobType.DISK,
@@ -285,7 +269,7 @@ def put_disk_kernel(
         ValidationError: No limit is set, the tree is not one to put a quota on, or the
             filesystem is not mounted with project quotas (400), before anything is queued.
     """
-    app = _known(domain)
+    app = known_app_row(domain)
     if body.enabled:
         app_disk.check_kernel_possible(app)
     actor = actor_label(session)

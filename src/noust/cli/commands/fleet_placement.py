@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
-from noust.cli.commands.fleet import cli as fleet_cli
+from noust.cli.commands.fleet_group import cli as fleet_cli
 from noust.core.exceptions import ValidationError
 
 if TYPE_CHECKING:

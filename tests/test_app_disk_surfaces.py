@@ -42,7 +42,7 @@ from tests.test_app_disk import (  # noqa: F401 - the fixtures of a tree with re
 @pytest.fixture(autouse=True)
 def where_it_looks(store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> None:
     """Make the API read the test's store, as a request in the console does."""
-    monkeypatch.setattr(disk_api, "scoped_store", lambda: ScopedStore(store=store))
+    monkeypatch.setattr("noust.web.api.deps.scoped_store", lambda: ScopedStore(store=store))
 
 
 def client() -> TestClient:

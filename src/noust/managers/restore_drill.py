@@ -48,6 +48,7 @@ from noust.core.exceptions import DatabaseError, NoustError
 from noust.core.logger import Logger
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 from noust.managers import sqlite_files
 from noust.managers.backup_manager import BackupManager
 from noust.managers.database.redis_drill import redis_restore_test
@@ -149,10 +150,6 @@ class DrillReport:
             "summary": self.summary,
             "steps": [step.to_dict() for step in self.steps],
         }
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 class DrillRecords:
@@ -359,14 +356,14 @@ class RestoreDrill:
             The report: ``ok`` when everything that was tried passed.
         """
         say = on_step or (lambda text: None)
-        report = DrillReport(domain, backup_id, trigger, _now())
+        report = DrillReport(domain, backup_id, trigger, utc_now_iso("seconds"))
         try:
             self._rehearse(report, say)
         except NoustError as exc:
             report.steps.append(
                 DrillStep("drill", False, f"{exc.message}\n{exc.details or ''}".strip())
             )
-        report.finished_at = _now()
+        report.finished_at = utc_now_iso("seconds")
         DrillRecords(self.store).save(report)
         audit.record(
             "restore_drill.run",

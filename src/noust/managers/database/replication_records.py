@@ -19,10 +19,10 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.store import NoustStore
+from noust.core.timeutil import utc_now_iso
 
 __all__ = ["PRIMARY", "REPLICA", "ReplicaRecord", "ReplicationRecords"]
 
@@ -32,10 +32,6 @@ REPLICA = "replica"
 
 #: The longest error a row keeps.
 _MAX_ERROR = 4000
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @dataclass
@@ -164,7 +160,7 @@ class ReplicationRecords:
         Returns:
             The record as stored.
         """
-        stamp = _now()
+        stamp = utc_now_iso("seconds")
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO db_replication (engine, side, name, account, slot, host, port, "
@@ -222,7 +218,14 @@ class ReplicationRecords:
             cursor.execute(
                 "UPDATE db_replication SET state = ?, last_error = ?, updated_at = ? "
                 "WHERE engine = ? AND side = ? AND name = ?",
-                (state, (error or "")[-_MAX_ERROR:] or None, _now(), engine, side, name),
+                (
+                    state,
+                    (error or "")[-_MAX_ERROR:] or None,
+                    utc_now_iso("seconds"),
+                    engine,
+                    side,
+                    name,
+                ),
             )
 
     def delete(self, side: str, name: str, engine: str = "postgresql") -> bool:

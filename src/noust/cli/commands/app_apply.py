@@ -20,6 +20,7 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustCommand, global_flags, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
 from noust.deployers.project_apply import (
     ApplyPlan,
@@ -29,18 +30,6 @@ from noust.deployers.project_apply import (
     plan_declaration,
 )
 from noust.validators.domain import validate_domain
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
 
 
 def _print_plan(ctx: Context, plan: ApplyPlan) -> None:
@@ -134,7 +123,7 @@ def apply_command(
                 field="confirm",
             )
         click.confirm(f"Apply it to {validated}? It sets {reasons}", abort=True)
-    report = apply_declaration(plan, actor=_actor(), logger=ctx.logger)
+    report = apply_declaration(plan, actor=cli_actor().label, logger=ctx.logger)
     if ctx.json_output:
         click.echo(json.dumps({"plan": plan.to_dict(), "result": report.to_dict()}))
         return

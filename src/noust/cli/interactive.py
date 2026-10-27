@@ -4,13 +4,13 @@
 """
 Interactive mode.
 
-Prompts come from :mod:`noust.cli.prompts`, which is built on questionary. The
+Prompts come from :mod:`noust.core.prompts`, which is built on questionary. The
 previous implementation used inquirer, which is not packaged in Debian or
 Ubuntu, so interactive mode never worked on the distributions most Noust users
 run.
 """
 
-from noust.cli import prompts
+from noust.core import prompts
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
 from noust.core.package_family import PackageFamily, for_this_machine

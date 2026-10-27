@@ -8,20 +8,15 @@
 
 # Exclude build and test files
 Makefile export-ignore
-pytest.ini export-ignore
 tests/ export-ignore
 examples/ export-ignore
 Dockerfile* export-ignore
 # The central's image recipe ships: it is a product artefact, not a test fixture.
 packaging/container/Dockerfile -export-ignore
-docker/ export-ignore
 docker-compose*.yml export-ignore
 # A product of its own, published from a repository of its own (docs/terraform-registry.md): the
 # packages do not carry its Go source, and a build host has no network to fetch its modules.
 terraform-provider-noust/ export-ignore
-
-# Exclude documentation for developers (keep README.md and docs/)
-build-and-upload-obs.sh export-ignore
 
 # Keep these for distribution builds
 # obs/ - needed for Debian/Ubuntu packages
@@ -33,4 +28,14 @@ build-and-upload-obs.sh export-ignore
 # pyproject.toml - needed for builds
 # docs/ - user documentation
 
-# Design research, specs and plans are for contributors, not for packages
+# What a build writes, not what a person wrote: a pull request's diff folds these away and the
+# language statistics leave them out. A script rewrites each one (CONTRIBUTING.md, "Commands").
+src/noust/web/static/** linguist-generated=true
+*.gen.ts linguist-generated=true
+panel/openapi*.json linguist-generated=true
+man/noust.1 linguist-generated=true
+docs/reference-*.md linguist-generated=true
+docs/SECURITY-MODEL.md linguist-generated=true
+sdk/python/noust_sdk/_models.py linguist-generated=true
+sdk/python/noust_sdk/_operations.py linguist-generated=true
+src/noust/changelog.json linguist-generated=true

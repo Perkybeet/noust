@@ -19,11 +19,10 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 import yaml
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
-from noust.core.teams import scoped_store
 from noust.deployers.helpers import build_cache
 from noust.deployers.helpers.build_config import (
     BUILD_KEYS,
@@ -34,7 +33,7 @@ from noust.deployers.helpers.build_config import (
     set_operator_build,
 )
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
 from noust.web.auth import actor_label
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -109,25 +108,6 @@ def _response(described: AppBuild) -> AppBuildResponse:
     return AppBuildResponse(**data)
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/build", response_model=AppBuildResponse)
 def get_app_build(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -145,7 +125,7 @@ def get_app_build(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return _response(describe_build(_known(domain)))
+    return _response(describe_build(known_app(domain)))
 
 
 @router.put("/{domain}/build", response_model=AppBuildResponse)
@@ -176,7 +156,7 @@ def put_app_build(
         ValidationError: The block is not valid, or sets what the application's
             type cannot do (400, with the field).
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     given = {key: getattr(body, key) for key in BUILD_KEYS if getattr(body, key) is not None}
     if not given:
         raise ValidationError(
@@ -207,7 +187,7 @@ def delete_app_build(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     set_operator_build(validated, None, actor=actor_label(session))
     return _response(describe_build(validated))
 
@@ -238,7 +218,7 @@ def get_build_cache(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return BuildCacheResponse(**build_cache.describe(_known(domain)).to_dict())
+    return BuildCacheResponse(**build_cache.describe(known_app(domain)).to_dict())
 
 
 @router.delete("/{domain}/build-cache", response_model=BuildCacheResponse)
@@ -258,4 +238,4 @@ def delete_build_cache(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return BuildCacheResponse(**build_cache.clear(_known(domain)).to_dict())
+    return BuildCacheResponse(**build_cache.clear(known_app(domain)).to_dict())

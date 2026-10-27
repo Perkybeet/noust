@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.app_replica_store import MAX_COPIES, check_copies
@@ -28,8 +28,8 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     JobAcceptedResponse,
     NoustErrorRoute,
+    known_app,
     require_elevated,
-    strict_domain,
 )
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
@@ -70,25 +70,6 @@ class ReplicasRequest(BaseModel):
     )
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/replicas", response_model=ReplicasResponse)
 def get_replicas(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -106,7 +87,7 @@ def get_replicas(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return ReplicasResponse(**ReplicaManager(log=Logger()).status(_known(domain)).to_dict())
+    return ReplicasResponse(**ReplicaManager(log=Logger()).status(known_app(domain)).to_dict())
 
 
 def replicas_job(
@@ -173,7 +154,7 @@ def put_replicas(
         ValidationError: The application cannot be scaled out, or the count is out
             of range (400), before anything is queued.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     check_copies(body.copies)
     app = scoped_store().get_app(validated)
     if body.copies > 1 and app is not None:

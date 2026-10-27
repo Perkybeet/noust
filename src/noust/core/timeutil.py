@@ -17,11 +17,54 @@ applies the same conversion instead of each endpoint growing its own slightly
 different guess. Nothing here changes what the store writes: other code
 compares those naive datetimes directly, and rewriting the column would break
 that comparison for a UI convenience.
+
+It is also the one clock. Forty-five modules each had a private ``_now`` and
+they wrote three different things: a UTC timestamp to the second, a UTC
+timestamp with its fraction, and the store's own naive local one. What a column
+holds is data that a later reader parses and compares, so each spelling is a
+function here and a module calls the one it always wrote; none of them may be
+swapped for another without a migration.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def utc_now_iso(timespec: str = "auto") -> str:
+    """
+    Read the clock as ISO 8601 in UTC, with its offset.
+
+    Args:
+        timespec: What :meth:`datetime.isoformat` takes. ``"seconds"`` for a
+            record that never needs finer than that; the default writes the
+            fraction whenever there is one.
+
+    Returns:
+        For example ``2026-10-27T18:00:00+00:00``.
+    """
+    return datetime.now(timezone.utc).isoformat(timespec=timespec)
+
+
+def local_now_iso() -> str:
+    """
+    Read the clock the way the store writes its own timestamps.
+
+    Returns:
+        ISO 8601 to the second, in this machine's local time and with no offset
+        (``to_iso_offset`` attaches the machine's when a browser needs one).
+    """
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def utc_now() -> datetime:
+    """
+    Read the clock as an aware datetime in UTC.
+
+    Returns:
+        The current time. A function, so a test can move it where it is read.
+    """
+    return datetime.now(timezone.utc)
 
 
 def to_iso_offset(value: str | datetime | None) -> str | None:

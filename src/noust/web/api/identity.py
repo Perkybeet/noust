@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.teams import scoped_store
@@ -26,8 +26,8 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     JobAcceptedResponse,
     NoustErrorRoute,
+    known_app,
     require_elevated,
-    strict_domain,
 )
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
@@ -64,25 +64,6 @@ class IdentityMigrateRequest(BaseModel):
     shared_group: str | None = Field(default=None, max_length=32)
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @router.get("/{domain}/identity", response_model=IdentityResponse)
 def get_identity(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -100,7 +81,7 @@ def get_identity(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    return IdentityResponse(**app_identity.status(_known(domain)))
+    return IdentityResponse(**app_identity.status(known_app(domain)))
 
 
 def identity_migrate_job(
@@ -167,7 +148,7 @@ def post_identity_migrate(
         ValidationError: It cannot or need not move (400), before anything
             is queued.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     app = scoped_store().get_app(validated)
     shared_group = body.shared_group
     if app is not None:

@@ -64,8 +64,8 @@ from noust.web.api.deps import (
     CodedText,
     JobAcceptedResponse,
     NoustErrorRoute,
+    known_app,
     require_elevated,
-    strict_domain,
 )
 from noust.web.api.scope import require_instance_scope
 from noust.web.auth import actor_label, get_client_ip
@@ -442,25 +442,6 @@ def _runner() -> Any:
     return get_runner()
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one the caller cannot see.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    validated = strict_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 @apps_router.post("/{domain}/terminal", response_model=TerminalTicketResponse)
 def open_app_terminal(
     domain: str,
@@ -491,7 +472,7 @@ def open_app_terminal(
         TerminalDisabledError: 403 when terminals are off.
         TerminalLimitError: 429 when a limit is reached.
     """
-    return _mint(request, session, kind=KIND_APP, domain=_known(domain), body=body)
+    return _mint(request, session, kind=KIND_APP, domain=known_app(domain), body=body)
 
 
 @server_router.post("/terminal", response_model=TerminalTicketResponse)
@@ -551,7 +532,7 @@ def exec_in_app(
         HTTPException: 404 when the application is unknown.
         ValidationError: 400 for a command or a time that is not acceptable.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     command = list(validate_command(body.argv))
     service = validate_service(body.service)
     seconds = execution.clamp_timeout(body.timeout)

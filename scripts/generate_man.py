@@ -5,10 +5,11 @@
 """
 Generate the man page from the command tree.
 
-There were two of them, ``man/noust.1`` and ``obs/noust.1``, they had diverged,
-both were about fifteen releases behind the code, and the one actually shipped
-in the .deb and .rpm declared "Licensed under the MIT License" for a project
-released under another licence. That is not a documentation slip, it is the
+There were two copies of it, one in ``man/`` and one in ``obs/``, they had
+diverged, both were about fifteen releases behind the code, and the one actually
+shipped in the .deb and .rpm declared "Licensed under the MIT License" for a
+project released under another licence. The packages install ``man/noust.1``
+and nothing read the other, so there is one file now. That is not a documentation slip, it is the
 wrong licence on the artifact users install. It happened again when the
 project was relicensed, because the licence was a literal here.
 
@@ -19,8 +20,8 @@ read from the file rather than from whatever copy of noust happens to be
 installed, which is how the manual of 2.0.1 came to say 2.0.0.
 
 Usage:
-    scripts/generate_man.py            Write man/noust.1 and obs/noust.1.
-    scripts/generate_man.py --check    Fail if either is out of date. CI runs this.
+    scripts/generate_man.py            Write man/noust.1.
+    scripts/generate_man.py --check    Fail if it is out of date. CI runs this.
 """
 
 from __future__ import annotations
@@ -39,7 +40,7 @@ else:  # pragma: no cover - only on 3.10
     import tomli as tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
-TARGETS = (ROOT / "man/noust.1", ROOT / "obs/noust.1")
+TARGETS = (ROOT / "man/noust.1",)
 
 
 def project_metadata() -> tuple[str, str]:

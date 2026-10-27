@@ -22,9 +22,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
 
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 #: The lineage the certificate authority keeps under the application's name.
 SOURCE_ACME = "acme"
@@ -181,7 +181,7 @@ class CertificateStore:
                     settings.challenge,
                     settings.dns_provider,
                     settings.updated_by,
-                    _now(),
+                    utc_now_iso(),
                 ),
             )
 
@@ -389,11 +389,3 @@ def _custom(row: object) -> CustomCertificate:
         uploaded_by=data["uploaded_by"],
         uploaded_at=str(data["uploaded_at"]),
     )
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 in UTC.
-    """
-    return datetime.now(timezone.utc).isoformat()

@@ -18,9 +18,9 @@ rendered from them each time, whichever deployer renders it.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 
 @dataclass(frozen=True)
@@ -91,7 +91,7 @@ class SitePolicyStore:
                     updated_by = excluded.updated_by,
                     updated_at = excluded.updated_at
                 """,
-                (domain, document, updated_by, _now()),
+                (domain, document, updated_by, utc_now_iso()),
             )
 
     def list_users(self, domain: str) -> list[AuthUser]:
@@ -152,7 +152,7 @@ class SitePolicyStore:
                     password_hash = excluded.password_hash,
                     created_by = excluded.created_by
                 """,
-                (domain, username, password_hash, created_by, _now()),
+                (domain, username, password_hash, created_by, utc_now_iso()),
             )
         return not existed
 
@@ -198,11 +198,3 @@ class SitePolicyStore:
             .fetchall()
         )
         return [str(row["domain"]) for row in rows]
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 in UTC.
-    """
-    return datetime.now(timezone.utc).isoformat()

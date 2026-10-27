@@ -23,10 +23,10 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import utc_now_iso
 
 
 @dataclass(frozen=True)
@@ -187,7 +187,7 @@ class DnsStore:
                     json.dumps(account.settings, sort_keys=True),
                     account.verified_at,
                     account.last_error,
-                    account.created_at or _now(),
+                    account.created_at or utc_now_iso(),
                     account.created_by,
                 ),
             )
@@ -203,7 +203,7 @@ class DnsStore:
         with self.store._transaction() as cursor:
             cursor.execute(
                 "UPDATE dns_providers SET verified_at = ?, last_error = ? WHERE name = ?",
-                (_now() if error is None else None, error, name),
+                (utc_now_iso() if error is None else None, error, name),
             )
 
     def delete_account(self, name: str) -> bool:
@@ -290,7 +290,7 @@ class DnsStore:
         if not record.uuid:
             record.uuid = uuid.uuid4().hex[:12]
         if not record.created_at:
-            record.created_at = _now()
+            record.created_at = utc_now_iso()
         with self.store._transaction() as cursor:
             cursor.execute(
                 """
@@ -357,7 +357,7 @@ class DnsStore:
             cursor.execute(
                 "INSERT OR IGNORE INTO dns_record_refs (record_id, app_domain, created_at) "
                 "VALUES (?, ?, ?)",
-                (record_id, app_domain, _now()),
+                (record_id, app_domain, utc_now_iso()),
             )
             cursor.execute(
                 "UPDATE dns_records SET unreferenced_since = NULL WHERE id = ?", (record_id,)
@@ -388,7 +388,7 @@ class DnsStore:
                 cursor.execute(
                     "UPDATE dns_records SET unreferenced_since = COALESCE(unreferenced_since, ?) "
                     "WHERE id = ?",
-                    (_now(), record_id),
+                    (utc_now_iso(), record_id),
                 )
         return left
 
@@ -478,11 +478,3 @@ def _record(row: Any) -> ManagedRecord:
         created_by=row["created_by"],
         unreferenced_since=row["unreferenced_since"],
     )
-
-
-def _now() -> str:
-    """
-    Returns:
-        The current time, ISO 8601 in UTC.
-    """
-    return datetime.now(timezone.utc).isoformat()

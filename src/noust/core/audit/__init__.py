@@ -45,6 +45,7 @@ from noust.core.audit.catalog import EVENTS, EventSpec, UnknownAuditEvent, is_kn
 from noust.core.audit.context import (
     bind,
     current_actor,
+    current_actor_name,
     current_correlation_id,
     new_correlation_id,
     run_with,
@@ -65,6 +66,7 @@ __all__ = [
     "bind",
     "cli_actor",
     "current_actor",
+    "current_actor_name",
     "current_correlation_id",
     "default_log_path",
     "get_log",

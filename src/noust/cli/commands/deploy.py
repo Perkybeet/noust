@@ -21,7 +21,12 @@ from typing import Any
 
 import click
 
-from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.app import Context, json_option, pass_context
+
+# The verbs that hold and release deploys attach themselves to ``cli``; importing them is what
+# makes them part of 'noust deploy'.
+from noust.cli.commands import deploy_gates  # noqa: F401
+from noust.cli.commands.deploy_group import cli
 from noust.core import cancellation, delivery, delivery_store
 from noust.core.audit.actor import cli_actor
 from noust.core.delivery_queue import (
@@ -42,11 +47,6 @@ _JOB_ID = re.compile(r"^[0-9a-f]{1,36}$")
 
 #: Seconds ``cancel`` waits for the build to say it stopped.
 DEFAULT_WAIT = 30
-
-
-@click.group("deploy", cls=NoustGroup)
-def cli() -> None:
-    """Follow the deploy queue, cancel a build, and hold, freeze or release deploys."""
 
 
 def _unfinished(record: JobRecord) -> bool:
@@ -368,8 +368,3 @@ def _wait(ctx: Context, domain: str, result: cancellation.CancelResult, wait_sec
             f"The {result.operation} of {domain} was asked to stop and still runs: it stops at "
             "the next safe point. Follow it with: noust deploy queue"
         )
-
-
-# The verbs that hold and release deploys register themselves on ``cli``; imported last, because
-# they import it.
-from noust.cli.commands import deploy_gates  # noqa: E402, F401

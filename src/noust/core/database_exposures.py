@@ -20,11 +20,11 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from noust.core.exceptions import DatabaseExistsError
 from noust.core.store import NoustStore, get_store
+from noust.core.timeutil import local_now_iso
 
 #: The states a row goes through: being opened, open, being closed.
 OPENING = "opening"
@@ -95,14 +95,6 @@ class Exposure:
             "created_at": self.created_at,
             "created_by": self.created_by,
         }
-
-
-def _now() -> str:
-    """
-    Returns:
-        The time, in the store's own spelling: ISO 8601 without an offset.
-    """
-    return datetime.now().isoformat(timespec="seconds")
 
 
 def _build(row: sqlite3.Row) -> Exposure:
@@ -250,7 +242,7 @@ class ExposureStore:
                         profile,
                         unit,
                         OPENING,
-                        _now(),
+                        local_now_iso(),
                         created_by,
                     ),
                 )
@@ -273,7 +265,7 @@ class ExposureStore:
                 profile=profile,
                 unit=unit,
                 state=OPENING,
-                created_at=_now(),
+                created_at=local_now_iso(),
                 created_by=created_by,
             )
         return created

@@ -20,46 +20,11 @@ import sys
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.lookup import known_app
 from noust.core import app_source_store
 from noust.core.app_source_store import SourceOptions
-from noust.core.exceptions import NoustError
-from noust.core.store import get_store
+from noust.core.audit.actor import cli_actor
 from noust.deployers import source_change
-from noust.validators.domain import validate_domain
-
-
-def _actor() -> str:
-    """
-    Name whoever runs this command, for the records.
-
-    Returns:
-        The audit's label for the operating system identity.
-    """
-    from noust.core.audit.actor import cli_actor
-
-    return cli_actor().label
-
-
-def _known(domain: str) -> str:
-    """
-    Validate a domain and require an application behind it.
-
-    Args:
-        domain: What the operator typed.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        NoustError: Nothing is deployed there.
-    """
-    validated = validate_domain(domain)
-    if get_store().get_app(validated) is None:
-        raise NoustError(
-            f"Application not found: {validated}",
-            details="Run 'noust list' to see what is deployed.",
-        )
-    return validated
 
 
 def _on_off(value: bool) -> str:
@@ -110,7 +75,7 @@ def source() -> None:
 @pass_context
 def show_command(ctx: Context, domain: str) -> None:
     """Show submodules, Git LFS, shallow clone, watch paths and skip markers of an application."""
-    validated = _known(domain)
+    validated = known_app(domain)
     _print(ctx, validated, app_source_store.get_options(validated))
 
 
@@ -160,7 +125,7 @@ def set_command(
 
     They apply to the next fetch and to the next delivery; nothing is rebuilt now.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     if clear_watch_paths and watch_paths:
         raise click.UsageError("Give --watch-path, or --clear-watch-paths, not both")
     watch: list[str] | None = [] if clear_watch_paths else list(watch_paths) or None
@@ -187,7 +152,7 @@ def set_command(
         shallow=shallow,
         watch_paths=watch,
         skip_markers=skip_markers,
-        actor=_actor(),
+        actor=cli_actor().label,
     )
     if ctx.json_output:
         click.echo(json.dumps({"domain": validated, **options.to_dict()}))
@@ -201,11 +166,11 @@ def set_command(
 @pass_context
 def reset_command(ctx: Context, domain: str) -> None:
     """Go back to the default source options."""
-    validated = _known(domain)
+    validated = known_app(domain)
     if ctx.dry_run:
         ctx.logger.info(f"Would reset the source options of {validated}")
         return
-    app_source_store.reset_options(validated, actor=_actor())
+    app_source_store.reset_options(validated, actor=cli_actor().label)
     ctx.logger.success(f"{validated} uses the default source options again")
 
 
@@ -277,7 +242,7 @@ def change_command(
     built; the next 'noust update' builds the new source and the release that
     serves keeps serving until then.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     plan = source_change.plan_change(validated, new_source, branch, check=not no_check)
     if ctx.json_output and (ctx.dry_run or not plan.changed):
         click.echo(json.dumps({**plan.to_dict(), "applied": False}))
@@ -296,7 +261,7 @@ def change_command(
             ctx.logger.info("Nothing changed")
             return
     done = source_change.change_source(
-        validated, new_source, branch, check=not no_check, actor=_actor()
+        validated, new_source, branch, check=not no_check, actor=cli_actor().label
     )
     if ctx.json_output:
         click.echo(json.dumps({**done.to_dict(), "applied": True}))

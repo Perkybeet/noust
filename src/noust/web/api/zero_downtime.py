@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.store import MAX_DRAIN_SECONDS
@@ -31,8 +31,8 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     JobAcceptedResponse,
     NoustErrorRoute,
+    known_app,
     require_elevated,
-    strict_domain,
 )
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
@@ -115,20 +115,6 @@ def _response(status: ZeroDowntimeStatus) -> ZeroDowntimeResponse:
     )
 
 
-def _known(domain: str) -> None:
-    """
-    Refuse a domain nothing is deployed at.
-
-    Args:
-        domain: A validated domain.
-
-    Raises:
-        HTTPException: 404.
-    """
-    if scoped_store().get_app(domain) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {domain}")
-
-
 @router.get("/{domain}/zero-downtime", response_model=ZeroDowntimeResponse)
 def get_zero_downtime(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
@@ -147,8 +133,7 @@ def get_zero_downtime(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = strict_domain(domain)
-    _known(validated)
+    validated = known_app(domain)
     return _response(zero_downtime_status(validated))
 
 
@@ -218,8 +203,7 @@ def put_zero_downtime(
         HTTPException: 404 when the application is unknown.
         ValidationError: It cannot run as two instances (400, with why).
     """
-    validated = strict_domain(domain)
-    _known(validated)
+    validated = known_app(domain)
     app = scoped_store().get_app(validated)
     if app is not None and body.enabled and not app.zero_downtime:
         # Not the site of a Compose stack: turning its relay on writes the
