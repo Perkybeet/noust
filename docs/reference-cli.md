@@ -13422,6 +13422,7 @@ Arguments: `change_id`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--yes`, `-y` | Accepted like the other commands of the group take it; keeping a change asks nothing. |  |
 | `--json` | Print the change as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 

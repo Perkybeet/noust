@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import click
 
 from noust import __copyright__, __license__, __source__, __version__
+from noust.cli import secret_prompt
 from noust.core import retired_names
 from noust.core.exceptions import ConfigError, NoustError
 from noust.core.fs import DryRunFileSystem, set_fs
@@ -53,6 +54,9 @@ if TYPE_CHECKING:
     from noust.client import RemoteSettings
 
 log = logging.getLogger(__name__)
+
+# Every secret the commands ask for is read through one prompt, which stays quiet on a pipe.
+secret_prompt.install()
 
 #: Command group to the module that defines it. The value is the module path;
 #: the attribute is always ``cli``.

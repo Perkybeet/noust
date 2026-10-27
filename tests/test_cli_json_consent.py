@@ -45,6 +45,8 @@ NOT_A_QUESTION: dict[str, str] = {
     "otherwise, with or without --json, and no prompt is ever shown",
     "db settings": "its --yes accepts a restart the settings need; the manager refuses without it, "
     "with or without --json, and no prompt is ever shown",
+    "server security confirm": "keeping a change asks nothing; the flag is accepted so that a script "
+    "can pass -y to every command of the group",
 }
 
 #: Commands that hold the gate themselves under ``--json``, with where it is proved: they print their

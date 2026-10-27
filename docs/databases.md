@@ -42,6 +42,13 @@ asked first and nothing is saved if it refuses:
 noust db config --engine mysql --user root --password    # asks for the password without echo
 ```
 
+A script gives the password on standard input, one line, without it reaching a command line or a
+warning on standard error (every secret a command asks for is read that way):
+
+```bash
+printf '%s\n' "$ROOT_PASSWORD" | noust db config --engine mysql --user root --password
+```
+
 PostgreSQL is reached as the system's `postgres` user (peer authentication), and MongoDB as the
 `noust_admin` administrator Noust created; their messages say what to restore.
 

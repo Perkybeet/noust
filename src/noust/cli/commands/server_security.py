@@ -373,9 +373,16 @@ def _only_pending(ctx: Context, change_id: str | None) -> str:
 
 @security.command("confirm")
 @click.argument("change_id", required=False)
+@click.option(
+    "--yes",
+    "-y",
+    "_yes",
+    is_flag=True,
+    help="Accepted like the other commands of the group take it; keeping a change asks nothing.",
+)
 @json_option("Print the change as JSON.")
 @pass_context
-def confirm_command(ctx: Context, change_id: str | None) -> None:
+def confirm_command(ctx: Context, change_id: str | None, _yes: bool) -> None:
     """
     Keep a pending change, once a new SSH login since it was applied is on record.
 
