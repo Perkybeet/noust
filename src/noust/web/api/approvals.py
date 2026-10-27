@@ -47,6 +47,7 @@ from noust.core.accounts.approvals import (
     ApprovalDenied,
     ApprovalError,
     ApprovalManager,
+    ApprovalPolicy,
     ApprovalRequest,
     describe_rules,
     may_need_approval,
@@ -55,6 +56,7 @@ from noust.core.accounts.approvals import (
     snapshot,
 )
 from noust.core.compliance import explain
+from noust.core.server_text import Param, ServerText, say
 from noust.web.api.deps import NoustErrorRoute, ensure_elevated, require_elevated
 from noust.web.api.openapi import api_routes, route_requires_elevation
 from noust.web.auth import FLEET_ACTOR_PATTERN, get_client_ip, is_fleet, require_auth
@@ -437,29 +439,68 @@ def _vouched_by_central(request: Request, session: dict[str, Any], action: str) 
     )
     raise HTTPException(
         status_code=403,
-        detail={
-            "error": "approval_required",
-            "detail": _said(
-                "This needs a second person's approval on the central.", explain.why_on("approvals")
-            ),
-            "hint": "Ask for it on the central and retry through it once it is approved.",
-            "fields": explain.why_on("approvals").to_fields(),
-        },
+        detail=_refusal(
+            "approval_required",
+            say("approvals.central_missing"),
+            explain.why_on("approvals").said(),
+        ),
     )
 
 
-def _said(text: str, asks: explain.WhyOn) -> str:
+def _refusal(
+    error: str,
+    said: ServerText,
+    why: ServerText | None,
+    *,
+    fields: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
-    Add to what a refusal says which control asks and how to stop it.
+    Make the body of an answer that asks something of a person, in the API's error contract.
+
+    The English ``detail`` is what the sentence says followed by which control asks and how to
+    stop it, as it always was; ``coded`` and ``notes_coded`` are the same sentences as codes and
+    values, for a console to say in its own language.
 
     Args:
-        text: What the answer says.
-        asks: Why the control is on, from :func:`~noust.core.compliance.explain.why_on`.
+        error: The answer's machine-readable code.
+        said: What the call needs (a sentence of the catalog); its fix is the ``hint``.
+        why: Which control asks and how to stop it, from
+            :meth:`~noust.core.compliance.explain.WhyOn.said`; None when the control is off.
+        fields: The answer's own fields, when it has any.
 
     Returns:
-        The text, followed by the explanation when the control is on.
+        The ``detail`` of the HTTP exception, which the error handler turns into the body.
     """
-    return f"{text} {asks.sentence()}".strip()
+    detail = said.text if why is None else f"{said.text} {why.text} {why.hint}"
+    return {
+        "error": error,
+        "detail": detail,
+        "hint": said.hint,
+        "fields": fields,
+        "coded": said.to_dict(),
+        "notes_coded": [] if why is None else [why.to_dict()],
+    }
+
+
+def asked_sentence(approval: Any, policy: ApprovalPolicy) -> ServerText:
+    """
+    Say that a call became a request for a second person's approval, and what to do next.
+
+    Args:
+        approval: The request that was made (or found), with its ``id`` and ``state``.
+        policy: The approval policy in force.
+
+    Returns:
+        The sentence: waiting for somebody to decide it, or already approved.
+    """
+    values: dict[str, Param] = {
+        "request": approval.id,
+        "header": APPROVAL_HEADER,
+        "minutes": int(policy.execute_minutes),
+    }
+    if approval.state == "approved":
+        return say("approvals.asked_approved", **values)
+    return say("approvals.asked_waiting", approvers=", ".join(policy.approvers), **values)
 
 
 async def require_approval(
@@ -547,17 +588,13 @@ async def require_approval(
         ensure_elevated(request, session)
     reason = _reason(request)
     if policy.reason_required and not reason:
-        asks = explain.why_on("change_reasons")
         raise HTTPException(
             status_code=400,
-            detail={
-                "error": "approval_reason_required",
-                "detail": _said(
-                    "Say why: this call needs a second person's approval, and a reason.", asks
-                ),
-                "hint": f"Send the reason in the {REASON_HEADER} header (percent-encoded).",
-                "fields": asks.to_fields(),
-            },
+            detail=_refusal(
+                "approval_reason_required",
+                say("approvals.reason_required", header=REASON_HEADER),
+                explain.why_on("change_reasons").said(),
+            ),
         )
     try:
         approval, _created = manager.request(
@@ -571,30 +608,14 @@ async def require_approval(
         )
     except ApprovalError as exc:
         raise _http(exc) from exc
-    asks = explain.why_on("approvals")
     raise HTTPException(
         status_code=202,
-        detail={
-            "error": "approval_required",
-            "detail": _said(
-                f"This needs a second person's approval, whoever you are. Request {approval.id} is "
-                + (
-                    "approved: send the call again with it now."
-                    if approval.state == "approved"
-                    else f"waiting for a {' or '.join(policy.approvers)} account to decide it."
-                ),
-                asks,
-            ),
-            "hint": (
-                f"Once approved, send exactly the same call again with the header "
-                f"{APPROVAL_HEADER}: {approval.id}, within {int(policy.execute_minutes)} minutes."
-            ),
-            "fields": {
-                "approval": str(approval.id),
-                "state": approval.state,
-                **asks.to_fields(),
-            },
-        },
+        detail=_refusal(
+            "approval_required",
+            asked_sentence(approval, policy),
+            explain.why_on("approvals").said(),
+            fields={"approval": str(approval.id), "state": approval.state},
+        ),
         headers={
             "Location": f"/api/approvals/{approval.id}",
             APPROVAL_REQUEST_HEADER: str(approval.id),

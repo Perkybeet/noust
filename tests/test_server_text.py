@@ -187,3 +187,87 @@ def test_every_sentence_in_the_catalog_is_said_somewhere() -> None:
     )
 
     assert unused == []
+
+
+# -- the values that are commands ------------------------------------------------------
+
+
+def test_a_value_named_command_is_a_command_and_so_is_one_that_ends_in_it() -> None:
+    assert server_text.is_command("command")
+    assert server_text.is_command("turn_off_command")
+    assert not server_text.is_command("commands")
+    assert not server_text.is_command("path")
+
+
+def test_the_commands_of_a_sentence_are_the_values_it_shows_as_they_are() -> None:
+    assert server_text.commands_of("terminal.server_off") == ("command",)
+    assert server_text.commands_of("terminal.server_framework") == ("command", "turn_off_command")
+    assert server_text.commands_of("tunnels.store_sealed") == ()
+
+
+# -- what the console is held to -------------------------------------------------------
+
+
+def test_the_typescript_file_the_console_reads_is_what_the_catalog_generates() -> None:
+    root = SRC.parent.parent
+    committed = (root / "panel" / "src" / "api" / "serverTextCodes.gen.ts").read_text(
+        encoding="utf-8"
+    )
+
+    assert committed == server_text.typescript_codes(), (
+        "panel/src/api/serverTextCodes.gen.ts is stale: run python scripts/generate_server_text.py"
+    )
+
+
+def test_the_generated_table_has_a_line_for_each_sentence_and_none_for_a_fix() -> None:
+    table = server_text.typescript_codes()
+
+    for code in CATALOG:
+        if code.endswith(HINT_SUFFIX):
+            assert f'"{code}"' not in table, code
+        else:
+            assert f'"{code}": {{' in table, code
+
+
+def test_the_generator_script_checks_and_writes_the_same_file(tmp_path: Path) -> None:
+    import importlib.util
+
+    script = SRC.parent.parent / "scripts" / "generate_server_text.py"
+    spec = importlib.util.spec_from_file_location("generate_server_text", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert module.main(["--check"]) == 0
+    stale = tmp_path / "serverTextCodes.gen.ts"
+    stale.write_text("// old\n", encoding="utf-8")
+    assert module.main(["--check", "--output", str(stale)]) == 1
+    assert module.main(["--output", str(stale)]) == 0
+    assert stale.read_text(encoding="utf-8") == server_text.typescript_codes()
+
+
+# -- the sentences of the terminal, the controls and the approvals ----------------------
+
+
+@pytest.mark.parametrize(
+    ("code", "values"),
+    [
+        ("terminal.server_off", {"command"}),
+        ("terminal.server_control", {"control", "command"}),
+        ("terminal.server_framework", {"control", "frameworks", "command", "turn_off_command"}),
+        ("terminal.disabled", {"command"}),
+        ("terminal.limit_total", {"open"}),
+        ("terminal.limit_user", {"open"}),
+        ("controls.asked_by_setting", {"control", "command"}),
+        ("controls.asked_by_framework", {"control", "frameworks", "command"}),
+        ("approvals.asked_waiting", {"request", "approvers", "header", "minutes"}),
+        ("approvals.asked_approved", {"request", "header", "minutes"}),
+        ("approvals.reason_required", {"header"}),
+        ("approvals.central_missing", set()),
+    ],
+)
+def test_a_command_a_control_and_a_person_are_values_never_text_glued_in(
+    code: str, values: set[str]
+) -> None:
+    assert server_text.values_of(code) == values
+    assert code in CATALOG and code + HINT_SUFFIX in CATALOG

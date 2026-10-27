@@ -204,10 +204,12 @@ noust config set terminal.server.force_ens true
 ```
 
 When it is off the page says exactly what keeps it off (the switch, the control, or the framework
-by name) and prints the command that changes it, and `GET /api/terminal/status` carries the same as
-`server.code` (`server_shell_off`, `server_shell_control` or `server_shell_framework`),
-`server.command`, `server.control` and `server.forced_by`. On a server that asks for a reason with
-every change the command carries `--reason "<why>"`. Everything else in
+by name) and prints the command that changes it, and `GET /api/terminal/status` carries the same
+in `server.reason` and `server.how`, and as a [sentence with a code](api.md#sentences-with-a-code)
+in `server.coded`: `terminal.server_off`, `terminal.server_control` or `terminal.server_framework`,
+with the control, the frameworks and the command as its values. Opening a terminal that is off
+is refused with the same sentence. On a server that asks for a reason with every change the
+command carries `--reason "<why>"`. Everything else in
 [The security model](#the-security-model) applies, with the four-eyes approval on top.
 
 ## When the connection drops

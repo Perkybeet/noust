@@ -61,6 +61,7 @@ from noust.terminal.tickets import KIND_SERVER as TICKET_SERVER
 from noust.terminal.tickets import TICKET_TTL_SECONDS, TicketRefused, get_tickets
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
+    CodedText,
     JobAcceptedResponse,
     NoustErrorRoute,
     require_elevated,
@@ -158,16 +159,12 @@ class ServerShellModel(BaseModel):
     enabled: bool = Field(description="terminal.server.enabled")
     reason: str | None = Field(default=None, description="Why it may not be opened")
     how: str | None = Field(default=None, description="What to change, verbatim")
-    code: str | None = Field(
+    coded: CodedText | None = Field(
         default=None,
-        description="What blocks it, for the console to translate: server_shell_off (the switch), "
-        "server_shell_control (the control server_terminal set to refused by the operator) or "
-        "server_shell_framework (a framework holds that control)",
-    )
-    command: str | None = Field(default=None, description="The command that changes it, verbatim")
-    control: str | None = Field(default=None, description="The compliance control that blocks it")
-    forced_by: list[str] = Field(
-        default_factory=list, description="The frameworks that hold that control"
+        description="`reason` and `how` as a sentence with a code and its values, for the console "
+        "to translate: terminal.server_off (the switch), terminal.server_control (the control "
+        "server_terminal set to refused by the operator) or terminal.server_framework (a "
+        "framework holds that control). The command that changes it is one of its values",
     )
 
 
@@ -600,12 +597,9 @@ def terminal_status(
         server=ServerShellModel(
             allowed=block is None,
             enabled=settings.server_enabled,
-            reason=block.what if block else None,
-            how=block.how if block else None,
-            code=block.code if block else None,
-            command=block.command if block else None,
-            control=block.control if block else None,
-            forced_by=list(block.forced_by) if block else [],
+            reason=block.text if block else None,
+            how=block.hint if block else None,
+            coded=CodedText(code=block.code, params=dict(block.params)) if block else None,
         ),
         idle_seconds=settings.idle_seconds,
         max_seconds=settings.max_seconds,

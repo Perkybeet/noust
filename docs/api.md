@@ -261,10 +261,19 @@ Location: /api/approvals/17
 X-Noust-Approval-Request: 17
 
 {"error": "approval_required",
- "detail": "This needs a second person's approval. Request 17 is waiting for a security account to decide it.",
+ "detail": "This needs a second person's approval, whoever you are. Request 17 is waiting for an account with one of these roles to decide it: security. The control approvals asks for it, and it was turned on in Settings > Controls (or with the command line). It applies to everybody, whatever their role. To turn it off there, or:\n  noust compliance set approvals off",
  "hint": "Once approved, send exactly the same call again with the header X-Noust-Approval: 17, within 30 minutes.",
- "fields": {"approval": "17", "state": "requested"}}
+ "fields": {"approval": "17", "state": "requested"},
+ "coded": {"code": "approvals.asked_waiting", "params": {"request": 17, "approvers": "security", "header": "X-Noust-Approval", "minutes": 30}},
+ "notes_coded": [{"code": "controls.asked_by_setting", "params": {"control": "approvals", "command": "noust compliance set approvals off"}}]}
 ```
+
+The answer says which **control** asks (`approvals` here, `change_reasons` for a missing reason),
+whoever turned it on (the operator's setting, or the frameworks it names), and the command that
+turns it off. It applies to everybody, the server's owner included, which is why a person who
+holds every permission is asked all the same. The same holds for the `400 approval_reason_required`
+of a call sent without `X-Noust-Reason` and for the `403 approval_required` of a server that was
+called by a central that did not vouch for an approval.
 
 Send `X-Noust-Reason` (percent-encoded UTF-8) with the first call to say why; the `ens-medium`
 profile requires it. Another person decides with `POST /api/approvals/{id}/approve` or
@@ -283,7 +292,8 @@ Every error from every router has the same shape:
   "hint": "How to fix it, or null",
   "fields": {"domain": "Not a valid domain"},
   "output": "The system's own output (nginx -t, systemctl, certbot), or null",
-  "coded": {"code": "tunnels.store_sealed", "params": {}}
+  "coded": {"code": "tunnels.store_sealed", "params": {}},
+  "notes_coded": []
 }
 ```
 
@@ -301,6 +311,9 @@ Every error from every router has the same shape:
 - `coded` (since 4.1) is `detail` and `hint` as a code and its values when the error is one of
   the sentences a client may translate, `null` otherwise. See
   [Sentences with a code](#sentences-with-a-code).
+- `notes_coded` (since 4.1) is the sentences that follow `detail` in English, each as a code and
+  its values, in order; empty when `detail` is only what `coded` says. An approval's answer
+  uses it for which control asks and how to turn it off.
 
 Refusals made before routing (address not allowed, TLS required, body too large, rate limit,
 lockout) have the same keys except `output`.
@@ -340,26 +353,35 @@ with its **values**:
 {"code": "doctor.memory.ok_swap", "params": {"amount": "1 GB", "swap": "2 GB", "minimum": "1 GB"}}
 ```
 
-- Where the sentence is, the code is beside it: `coded` next to `detail`/`hint` on an error and
-  on `problem`/`hint` of `GET /api/tunnels`' `support`; `coded` and `notes_coded` next to `text`
-  and `notes` on a line of `GET /api/system/doctor`, `key` and `explain_coded` on its sections;
-  `email_error_coded` on an invitation. A field that is `null` or absent is a sentence nobody
-  coded: another program's output, or a line from a module that has not been given codes yet.
-  Show it as written.
-- A client translates by the code and puts the values in: `serverText.<code>` in the console's
-  catalog, with the values as the placeholders. The sentence's fix, when it has one, is the code
-  plus `.hint` (`tunnels.store_sealed.hint`). **A code the client does not know is shown as the
-  English text**, which is always sent, so a server newer than its client still says something
-  true. The values are text, numbers and flags; a path, a name somebody typed or a version a
-  program printed is a value and is shown as it is.
+- Where the sentence is, the code is beside it: `coded` (and `notes_coded`, the sentences that
+  follow) next to `detail`/`hint` on an error, including the answers of an approval and of a
+  reason that is asked for; on `problem`/`hint` of `GET /api/tunnels`' `support`; `coded` and
+  `notes_coded` next to `text` and `notes` on a line of `GET /api/system/doctor`, `key` and
+  `explain_coded` on its sections; `email_error_coded` on an invitation; `server.coded` next to
+  `server.reason` and `server.how` on `GET /api/terminal/status`. A field that is `null` or
+  absent is a sentence nobody coded: another program's output, or a line from a module that has
+  not been given codes yet. Show it as written.
+- A client translates by the code and puts the values in: the console's catalog has the sentence
+  at `serverText.<code>.text` and its fix, when it has one, at `serverText.<code>.hint`
+  (`serverText.tunnels.store_sealed.hint`), with the values as the placeholders; the server's own
+  catalog spells the fix as the code plus `.hint`. **A code the client does not know is shown as
+  the English text**, which is always sent, so a server newer than its client still says
+  something true. The values are text, numbers and flags; a path, a name somebody typed or a
+  version a program printed is a value and is shown as it is. So is a **command**, a value named
+  `command` or ending in `_command`, which a client shows as it is, in a typeface of its own,
+  and never breaks or translates: it runs as printed.
 - The English text and the code are one thing: the text is the catalog entry with the values put
   in (`noust.core.server_text.CATALOG`, one entry per sentence, whole sentences with
   placeholders). A new sentence is added there, asked for with `say("area.code", value=...)`,
   and carried by the response model next to its text; a test fails on a code that is asked for
   and absent, and on an entry nobody says. Codes are never reused for another meaning and never
   removed while a released client may send them: a sentence that changes meaning gets a new code.
+  A control, a command or a person is a value of the sentence, never text glued into it.
 - The catalog, as a list of codes with the values each takes, is what a client's translations
-  are held to: `python -c "from noust.core.server_text import CATALOG; print(*sorted(CATALOG), sep='\n')"`.
+  are held to: `python scripts/generate_server_text.py` writes it as the TypeScript table the
+  console's tests compare its English and Spanish against (`--check` fails when it is stale), and
+  `python -c "from noust.core.server_text import CATALOG; print(*sorted(CATALOG), sep='\n')"`
+  lists the codes.
 
 ## Conventions
 

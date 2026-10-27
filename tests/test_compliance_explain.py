@@ -60,6 +60,21 @@ class TestAControlTheOperatorSwitchedOn:
         assert "Settings > Controls" in why.sentence()
         assert "approvals" in why.sentence() and why.command in why.sentence()
 
+    def test_it_is_a_sentence_of_the_catalog_with_the_control_and_the_command_as_values(
+        self, real_config: Config
+    ) -> None:
+        real_config.set("approval.enabled", True)
+
+        said = why_on("approvals", real_config).said()
+
+        assert said is not None
+        assert said.code == "controls.asked_by_setting"
+        assert said.params == {
+            "control": "approvals",
+            "command": "noust compliance set approvals off",
+        }
+        assert said.hint is not None and "noust compliance set approvals off" in said.hint
+
     def test_the_command_it_names_works(self, real_config: Config) -> None:
         real_config.set("approval.enabled", True)
         why = why_on("approvals", real_config)
@@ -82,6 +97,18 @@ class TestAControlAFrameworkAsksFor:
         assert why.command.startswith("noust compliance disable ens-media")
         assert "ens-media" in why.sentence()
         assert "cannot" in why.sentence() or "stays" in why.sentence()
+
+    def test_it_is_the_sentence_for_a_framework_with_the_frameworks_as_a_value(
+        self, real_config: Config
+    ) -> None:
+        run(["compliance", "enable", "ens-media", "iso-27001", "--yes"])
+
+        said = why_on("separation_of_duties", real_config).said()
+
+        assert said is not None
+        assert said.code == "controls.asked_by_framework"
+        assert said.params["frameworks"] == "ens-media, iso-27001"
+        assert said.params["control"] == "separation_of_duties"
 
     def test_the_command_it_names_works_and_carries_the_reason_that_server_asks_for(
         self, real_config: Config
@@ -109,6 +136,7 @@ class TestAControlThatIsOff:
 
         assert why.on is False
         assert why.sentence() == ""
+        assert why.said() is None
 
 
 class TestTheReasonTheCommandLineAsksFor:
