@@ -52,6 +52,7 @@ from noust.core.notifications.render import pagerduty, webhook
 from noust.core.notifications.routing import Flood, QuietHours, Route, Routing, Summary
 from noust.core.notifier_requests import MATRIX_ROOM_ID
 from noust.validators.discord import validate_discord_id
+from noust.validators.object_names import is_name, rule_for
 from noust.validators.telegram import validate_telegram_chat_id
 
 logger = logging.getLogger(__name__)
@@ -60,10 +61,6 @@ logger = logging.getLogger(__name__)
 #: (:data:`noust.core.config.REDACTED`; this package cannot import the
 #: configuration, which reads its rules from here).
 REDACTED = "***"
-
-#: How an instance may be named: the name is a key of the configuration, a
-#: column of the delivery ledger and a path segment of the API.
-NAME_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,31}")
 
 #: Most instances a server may have: a handful of destinations of its own, and room for the
 #: few each team keeps (:data:`noust.core.notifications.team_channels.MAX_CHANNELS`).
@@ -426,11 +423,8 @@ def _instance(name: str, block: Mapping[str, Any], *, strict: bool = True) -> Ch
             acceptable; the message names the instance and says what to change.
     """
     where = f"notifications.channels.{name}"
-    if not NAME_PATTERN.fullmatch(name):
-        raise ValueError(
-            f"{where}: a channel is named with lower-case letters, digits, '-' and '_', "
-            "starting with a letter, at most 32 characters"
-        )
+    if not is_name("channel", name):
+        raise ValueError(f"{where}: {rule_for('channel').help().text}")
     if not isinstance(block, Mapping):
         raise ValueError(f"{where} must be a mapping of settings")
     declared = block.get("type")

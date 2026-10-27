@@ -101,6 +101,17 @@ class TestAProbeIsCheckedBeforeItIsKept:
 
         assert (checked.method, checked.expect_status) == ("GET", "200-399")
 
+    def test_a_name_with_an_underscore_is_accepted_because_the_help_says_it_may_be(self) -> None:
+        # admon_shoprent was refused with "Invalid probe name" under a help that listed '_'.
+        assert validate_probe(probe(name="admon_shoprent")).name == "admon_shoprent"
+
+    def test_the_refusal_says_the_rule_the_help_is_made_from(self) -> None:
+        with pytest.raises(ValidationError) as raised:
+            validate_probe(probe(name="Shop"))
+
+        assert raised.value.message == "Invalid probe name: 'Shop'"
+        assert "'-' and '_'" in raised.value.details and "at most 40" in raised.value.details
+
     @pytest.mark.parametrize(
         ("field", "value"),
         [

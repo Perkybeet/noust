@@ -40,12 +40,10 @@ from urllib.parse import urlsplit
 
 from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore, get_store
+from noust.validators.object_names import check_name
 
 #: Probes a server may have: a handful of addresses, not a monitoring product.
 MAX_PROBES = 50
-
-#: A probe is named like an application's slug.
-NAME_PATTERN = re.compile(r"[a-z][a-z0-9-]{0,39}")
 
 METHODS = ("GET", "HEAD")
 
@@ -161,12 +159,7 @@ def validate_probe(probe: Probe) -> Probe:
     Raises:
         ValidationError: Naming the field that is not acceptable.
     """
-    if not NAME_PATTERN.fullmatch(probe.name):
-        raise ValidationError(
-            f"Invalid probe name: {probe.name!r}",
-            details="Use lower-case letters, digits and '-', starting with a letter, at most 40.",
-            field="name",
-        )
+    check_name("probe", probe.name)
     parts = urlsplit(probe.url.strip())
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise ValidationError(

@@ -61,6 +61,19 @@ CATALOG: dict[str, str] = {
         "Add one with Account > Cloudflare Tunnel:Edit: "
         "noust dns provider add NAME --kind cloudflare --token-stdin"
     ),
+    # -- What an operator may call an object (noust.validators.object_names) ----------------
+    "names.rule.words": (
+        "Use lower-case letters, digits, '-' and '_', starting with a letter, "
+        "at most {max} characters."
+    ),
+    "names.rule.dashes": (
+        "Use lower-case letters, digits and single dashes, starting with a letter, "
+        "at most {max} characters."
+    ),
+    "names.rule.underscores": (
+        "Use lower-case letters, digits and single underscores, starting with a letter, "
+        "at most {max} characters."
+    ),
     # -- Mail an account is sent (an invitation, a password reset) -------------------------
     "mail.no_transport": "There is no way to send mail from this server",
     "mail.no_transport.hint": (

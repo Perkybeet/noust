@@ -44,9 +44,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from noust.core.exceptions import ValidationError
-
-#: How a rule may be named: a short identifier for the CLI and the API.
-NAME_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,47}")
+from noust.validators.object_names import check_name
 
 #: The comparators a rule accepts.
 COMPARATORS: tuple[str, ...] = (">", ">=", "<", "<=")
@@ -404,12 +402,7 @@ def validate_rule(rule: AlertRule) -> AlertRule:
     Raises:
         ValidationError: Naming the field and how to fix it.
     """
-    if not NAME_PATTERN.fullmatch(rule.name):
-        raise ValidationError(
-            f"Invalid rule name: {rule.name!r}",
-            details="Use lower-case letters, digits, '-' and '_', starting with a letter (48 at most).",
-            field="name",
-        )
+    check_name("alert_rule", rule.name)
     if rule.metric not in METRICS:
         raise ValidationError(
             f"Unknown metric: {rule.metric!r}",
