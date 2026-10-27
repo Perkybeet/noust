@@ -21,13 +21,14 @@ from __future__ import annotations
 import logging
 import platform
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
 from noust.core import paths
 from noust.core.config import DEFAULT_APPS_DIR, DEFAULT_CONFIG_PATH, DEFAULT_LOG_DIR
+from noust.core.dependencies import NODE_RUNTIME_TYPES
 from noust.core.exceptions import NoustError
 from noust.core.package_family import INSTALL_COMMANDS, detect_family
 from noust.core.runner import get_runner
@@ -155,6 +156,9 @@ class DoctorEnvironment:
             kernel through ``ss``.
         include_ssh: Whether to try the connection to GitHub. The console leaves it out: a
             handshake with another host does not belong in a page load.
+        app_types: The kinds of application the store holds (``nodejs``, ``docker-compose``...);
+            None reads the real store. What a server runs decides whether Node.js missing is an
+            error or only a note.
     """
 
     command_exists: Callable[[str], bool] = command_exists
@@ -167,6 +171,7 @@ class DoctorEnvironment:
     resources: Callable[[], requirements.Resources] | None = None
     listeners: Callable[[], list[tuple[int, tuple[str, ...]]]] | None = None
     include_ssh: bool = True
+    app_types: Callable[[], Collection[str]] | None = None
 
     @classmethod
     def default(cls, *, include_ssh: bool = False) -> DoctorEnvironment:
@@ -397,6 +402,45 @@ def _listening_programs() -> list[tuple[int, tuple[str, ...]]]:
     return [(socket.port, socket.processes) for socket in listening_sockets(get_runner())]
 
 
+def _registered_app_types() -> set[str]:
+    """
+    Returns:
+        The type of every application the store holds.
+
+    Raises:
+        NoustError: When the store cannot be read.
+    """
+    from noust.core.store import get_store
+
+    try:
+        return {app.app_type for app in get_store().list_apps()}
+    except (sqlite3.Error, OSError) as exc:
+        raise NoustError("The applications could not be read", details=str(exc)) from exc
+
+
+def _node_is_needed(env: DoctorEnvironment) -> bool:
+    """
+    Whether an application registered here runs on the server's Node.js.
+
+    A server that only runs Compose stacks, or nothing yet, has no use for it, and calling its
+    absence an error sends the operator to install what nothing uses. What cannot be read is
+    taken as needed: an answer that cleared a missing Node because the store would not open
+    would be wrong exactly when it matters.
+
+    Args:
+        env: The environment.
+
+    Returns:
+        True when some application needs Node.js, or when that could not be told.
+    """
+    try:
+        kinds = (env.app_types or _registered_app_types)()
+    except NoustError as exc:
+        logger.debug("The applications were not read, so Node.js is taken as needed: %s", exc)
+        return True
+    return any(kind in NODE_RUNTIME_TYPES for kind in kinds)
+
+
 def _unit_item(env: DoctorEnvironment, unit: str) -> DoctorItem:
     """
     Say whether a systemd unit is running.
@@ -478,8 +522,16 @@ def collect(env: DoctorEnvironment | None = None) -> DoctorReport:
                 node.append(DoctorItem("ok", f"{manager}: {_version(manager)}"))
             else:
                 node.append(DoctorItem("info", f"{manager}: not installed (optional)"))
-    else:
+    elif _node_is_needed(env):
         node.append(DoctorItem("fail", "node: not installed", fix="sudo noust setup init"))
+    else:
+        node.append(
+            DoctorItem(
+                "info",
+                "node: not installed (only Node.js applications need it)",
+                fix="sudo noust setup init",
+            )
+        )
     sections.append(DoctorSection("Node.js Environment", tuple(node)))
 
     py: list[DoctorItem] = []

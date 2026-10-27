@@ -63,7 +63,8 @@ def sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             # about what the doctor says, and must not depend on the laptop they run on.
             resources=lambda: Resources(4096, 0, 2, (DiskFree(str(apps), 51200, 102400),)),
             listeners=lambda: [(80, ("nginx",)), (443, ("nginx",))],
-            **extra,
+            # Which kinds of application the store holds is described too, for the same reason.
+            **{"app_types": lambda: {"nodejs"}, **extra},
         ),
     }
 
@@ -183,6 +184,82 @@ def test_no_node_points_at_setup_init(sandbox: dict[str, Any], runner: FakeRunne
     node = items(setup_doctor.collect(sandbox["env"]()), "Node.js Environment")
 
     assert [(i.status, i.fix) for i in node] == [("fail", "sudo noust setup init")]
+
+
+@pytest.mark.parametrize("kinds", [set(), {"docker-compose"}, {"python", "static", "container"}])
+def test_no_node_is_not_a_failure_on_a_server_with_no_application_that_runs_on_it(
+    sandbox: dict[str, Any], runner: FakeRunner, kinds: set[str]
+) -> None:
+    # A server that only runs Compose stacks (or nothing yet) does not need Node.js, and an
+    # installation check that calls it an error sends the operator to install what nothing uses.
+    prepare(sandbox)
+    sandbox["installed"].discard("node")
+
+    report = setup_doctor.collect(sandbox["env"](app_types=lambda: kinds))
+
+    node = items(report, "Node.js Environment")
+    assert [(i.status, i.fix) for i in node] == [("info", "sudo noust setup init")]
+    assert "only" in node[0].text
+    assert report.ready and report.issues == 0
+
+
+@pytest.mark.parametrize("kind", ["nodejs", "nextjs", "vite", "nuxt", "monorepo"])
+def test_no_node_still_fails_when_an_application_that_runs_on_it_is_registered(
+    sandbox: dict[str, Any], runner: FakeRunner, kind: str
+) -> None:
+    prepare(sandbox)
+    sandbox["installed"].discard("node")
+
+    report = setup_doctor.collect(sandbox["env"](app_types=lambda: {"docker-compose", kind}))
+
+    assert [i.status for i in items(report, "Node.js Environment")] == ["fail"]
+    assert not report.ready
+
+
+def test_a_store_the_doctor_cannot_read_does_not_clear_a_missing_node(
+    sandbox: dict[str, Any], runner: FakeRunner
+) -> None:
+    # What cannot be proved unused stays an error: the answer must not depend on the store opening.
+    from noust.core.exceptions import NoustError
+
+    prepare(sandbox)
+    sandbox["installed"].discard("node")
+
+    def broken() -> set[str]:
+        raise NoustError("cannot open the store")
+
+    report = setup_doctor.collect(sandbox["env"](app_types=broken))
+
+    assert [i.status for i in items(report, "Node.js Environment")] == ["fail"]
+
+
+def test_the_default_reads_the_kinds_of_application_from_the_store(
+    sandbox: dict[str, Any], runner: FakeRunner
+) -> None:
+    from noust.core.store import App, get_store
+
+    prepare(sandbox)
+    sandbox["installed"].discard("node")
+    env = sandbox["env"](app_types=None)
+    get_store().create_app(App(domain="shop.example.com", app_type="docker-compose"))
+
+    assert [i.status for i in items(setup_doctor.collect(env), "Node.js Environment")] == ["info"]
+
+    get_store().create_app(App(domain="www.example.com", app_type="nextjs"))
+
+    assert [i.status for i in items(setup_doctor.collect(env), "Node.js Environment")] == ["fail"]
+
+
+def test_node_that_is_installed_is_reported_whatever_the_applications(
+    sandbox: dict[str, Any], runner: FakeRunner
+) -> None:
+    prepare(sandbox)
+
+    node = items(
+        setup_doctor.collect(sandbox["env"](app_types=lambda: set())), "Node.js Environment"
+    )
+
+    assert node[0].status == "ok"
 
 
 def test_python_and_certbot_are_warnings_because_deployments_of_other_types_still_work(

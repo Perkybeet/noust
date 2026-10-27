@@ -121,6 +121,12 @@ NODE_APP_TYPES: tuple[str, ...] = (
     "angular",
 )
 
+#: Every application type whose build or whose process needs the server's Node.js: the Node
+#: types and a monorepo, whose workspaces are Node projects (turbo and pnpm). The one answer to
+#: "does this server need Node for what it runs"; the installation check and the unit hardening
+#: both ask it.
+NODE_RUNTIME_TYPES: frozenset[str] = frozenset({*NODE_APP_TYPES, "monorepo"})
+
 
 class DependencyStatus(Enum):
     """Status of a dependency check."""
