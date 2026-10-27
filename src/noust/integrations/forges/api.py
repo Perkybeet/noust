@@ -23,9 +23,10 @@ import base64
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 
 from noust.core.exceptions import IntegrationError
+from noust.core.outbound import path_segment
 from noust.deployers.importers.remote import Opener, RemoteClient, RemoteRefused
 from noust.integrations.forges.hosts import BITBUCKET, GITLAB, GOGS, api_family
 
@@ -153,11 +154,11 @@ class GitLabAPI(ForgeAPI):
 
     @property
     def _project(self) -> str:
-        return quote(self.repository, safe="")
+        return path_segment(self.repository)
 
     def set_status(self, sha: str, state: str, *, description: str, url: str, context: str) -> None:
         self.client.post_form(
-            f"/projects/{self._project}/statuses/{quote(sha, safe='')}",
+            f"/projects/{self._project}/statuses/{path_segment(sha)}",
             {
                 "state": self._STATES[state],
                 "name": context,
@@ -199,11 +200,11 @@ class GiteaAPI(ForgeAPI):
     @property
     def _base(self) -> str:
         owner, _, name = self.repository.partition("/")
-        return f"/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
+        return f"/repos/{path_segment(owner)}/{path_segment(name)}"
 
     def set_status(self, sha: str, state: str, *, description: str, url: str, context: str) -> None:
         self.client.post_json(
-            f"{self._base}/statuses/{quote(sha, safe='')}",
+            f"{self._base}/statuses/{path_segment(sha)}",
             {
                 "state": self._STATES[state],
                 "target_url": url,
@@ -256,11 +257,11 @@ class BitbucketAPI(ForgeAPI):
     @property
     def _base(self) -> str:
         workspace, _, name = self.repository.partition("/")
-        return f"/repositories/{quote(workspace, safe='')}/{quote(name, safe='')}"
+        return f"/repositories/{path_segment(workspace)}/{path_segment(name)}"
 
     def set_status(self, sha: str, state: str, *, description: str, url: str, context: str) -> None:
         self.client.post_json(
-            f"{self._base}/commit/{quote(sha, safe='')}/statuses/build",
+            f"{self._base}/commit/{path_segment(sha)}/statuses/build",
             {
                 # A key is at most 40 characters, and is what a later state replaces.
                 "key": context[:40],

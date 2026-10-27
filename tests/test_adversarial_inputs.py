@@ -36,7 +36,7 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from noust.core import domain_certificates
+from noust.core import domain_certificates, outbound
 from noust.core.exceptions import NoustError, SecurityError, ValidationError
 from noust.managers import site_routes
 from noust.validators import container, domain, environment, health, names, port, source
@@ -846,3 +846,50 @@ class TestTheRunnerRefusesWhatCannotBeAnArgumentList:
 
         with pytest.raises(ValueError, match="empty"):
             _validate([])
+
+
+class TestRepositoriesAndNamesThatBecomePartsOfAnApiPath:
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p])
+    def test_no_known_payload_is_a_repository(self, payload: str) -> None:
+        for value in (payload, f"octo/{payload}", f"{payload}/hello"):
+            accepted, result = verdict(source.github_repository_parts, value)
+
+            assert not accepted or all(
+                part.strip(".") and "/" not in part and not CONTROL.search(part) for part in result
+            ), (value, result)
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_is_accepted_is_two_inert_names(self, value: str) -> None:
+        accepted, result = verdict(source.github_repository_parts, value)
+
+        if not accepted:
+            return
+        owner, repo = result
+        assert f"{owner}/{repo}" == value, "the names are returned as they were given"
+        assert re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}", owner), owner
+        assert re.fullmatch(r"[A-Za-z0-9._-]{1,100}", repo) and repo.strip("."), repo
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_becomes_a_segment_is_one_and_moves_nothing(self, value: str) -> None:
+        try:
+            segment = outbound.path_segment(value)
+        except outbound.UnsafePath:
+            return
+        assert "/" not in segment and not CONTROL.search(segment)
+        assert segment not in {"", ".", ".."}
+        assert outbound.api_path(f"/repos/{segment}/branches") == f"/repos/{segment}/branches"
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_path_is_sent_or_it_is_plain(self, value: str) -> None:
+        for path in (value, f"/{value}", f"/repos/{value}/branches"):
+            try:
+                accepted = outbound.api_path(path)
+            except outbound.UnsafePath:
+                continue
+            assert accepted == path
+            assert path.startswith("/") and not path.startswith("//")
+            assert not CONTROL.search(path) and " " not in path and "\\" not in path
+            assert all(part not in {".", ".."} for part in path.split("?", 1)[0].split("/")), path

@@ -30,7 +30,6 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import quote
 
 from noust.core.background import BackgroundQueue
 from noust.core.exceptions import NoustError
@@ -38,6 +37,7 @@ from noust.core.github_host import integration_repository
 from noust.core.store import get_store
 from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.integrations.github.app import GitHubApp, installation_for, load_app
+from noust.integrations.github.client import repo_path
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +269,7 @@ class StatusReporter:
         answer = app.as_installation(
             target.installation_id,
             "POST",
-            f"{_repo_path(target.repository)}/deployments",
+            f"{repo_path(target.repository)}/deployments",
             {
                 "ref": ref,
                 "environment": target.environment,
@@ -310,23 +310,9 @@ class StatusReporter:
         app.as_installation(
             target.installation_id,
             "POST",
-            f"{_repo_path(target.repository)}/deployments/{deployment}/statuses",
+            f"{repo_path(target.repository)}/deployments/{deployment}/statuses",
             body,
         )
-
-
-def _repo_path(repository: str) -> str:
-    """
-    Spell a repository's API path.
-
-    Args:
-        repository: ``owner/repo``.
-
-    Returns:
-        ``/repos/<owner>/<repo>``.
-    """
-    owner, _, name = repository.partition("/")
-    return f"/repos/{quote(owner)}/{quote(name)}"
 
 
 def _describe_failure(error: str | None) -> str:

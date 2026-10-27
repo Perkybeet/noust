@@ -30,6 +30,7 @@ from urllib.parse import urlencode, urlsplit
 from noust import __version__
 from noust.core import notifier
 from noust.core.exceptions import IntegrationError, ValidationError
+from noust.core.outbound import UnsafePath, api_path
 
 #: Seconds before a call is abandoned.
 REQUEST_TIMEOUT = 20
@@ -265,8 +266,10 @@ class RemoteClient:
         Raises:
             IntegrationError: As :meth:`get`.
         """
-        if not path.startswith("/") or path.startswith("//"):
-            raise IntegrationError(f"Refusing to request {path!r} from {self.platform}")
+        try:
+            path = api_path(path)
+        except UnsafePath:
+            raise IntegrationError(f"Refusing to request {path!r} from {self.platform}") from None
         url = f"{self.base_url}{path}"
         if query:
             url = f"{url}?{urlencode(query)}"
