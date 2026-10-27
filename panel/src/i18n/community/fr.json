@@ -14334,7 +14334,6 @@
   "terminal.disabled.enable": "Activez-les depuis un terminal sur le serveur :",
   "terminal.off.title": "Le terminal du serveur est désactivé",
   "terminal.off.description": "Un shell root dans le navigateur est ce que la console peut ouvrir de plus puissant : il reste donc désactivé jusqu'à ce qu'un administrateur l'active.",
-  "terminal.off.ens": "Le profil ENS le garde désactivé même quand il est activé, sauf s'il est aussi forcé, ce qui est consigné.",
   "terminal.off.enable": "Activez-le depuis un terminal sur le serveur :",
   "terminal.off.force": "Pour l'autoriser malgré tout, ce qui est consigné :",
   "terminal.notice.idle": "Rien n'a été tapé depuis un moment. Ce terminal se ferme dans {seconds} s sauf si vous appuyez sur une touche.",

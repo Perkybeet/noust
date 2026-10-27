@@ -14002,7 +14002,6 @@
   "terminal.disabled.enable": "在服务器的终端中开启：",
   "terminal.off.title": "服务器上的终端已关闭",
   "terminal.off.description": "浏览器中的 root shell 是控制台能打开的最强大的功能，所以在管理员开启之前它一直是关闭的。",
-  "terminal.off.ens": "ENS 配置会让它保持关闭，即使已开启也是如此，除非同时强制开启；强制开启会被记录在案。",
   "terminal.off.enable": "在服务器的终端中开启：",
   "terminal.off.force": "要强制允许（会被记录在案）：",
   "terminal.notice.idle": "已有一段时间没有键入。除非你按下一个键，此终端将在 {seconds} 秒后关闭。",

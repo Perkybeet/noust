@@ -35510,6 +35510,10 @@ export interface components {
          *         forced_by: The enabled frameworks that ask anything of it, strictest first.
          *         locked: Whether one does, so it cannot be loosened.
          *         enabled: Whether it asks for more than the default.
+         *         own_counts: Whether the operator's own number limits something on its own. False for a
+         *             control such as ``token_max_days`` whose key holds a default in every file, until the
+         *             operator chooses a number (setting it records the choice), and then it is kept
+         *             when a framework is taken off.
          */
         ControlInfo: {
             /** Check Only */
@@ -35534,6 +35538,11 @@ export interface components {
             locked: boolean;
             /** Operator */
             operator?: unknown;
+            /**
+             * Own Counts
+             * @default true
+             */
+            own_counts: boolean;
             /** Standard */
             standard?: unknown;
             /** Unit */
@@ -50232,6 +50241,10 @@ export interface components {
          *         items: The recipes, the ones this release can deploy first.
          *         total: How many there are.
          *         problems: Files in the server's own recipes that were left out, and why.
+         *         recipes_allowed: Whether this server lets the catalogue's recipes be deployed. False when
+         *             ``security.allowed_sources`` names where code may come from and leaves them out
+         *             (``recipes``, or ``local``, allows them); the requirements of a recipe carry the
+         *             command that does.
          */
         RecipeListOut: {
             /** Items */
@@ -50241,6 +50254,11 @@ export interface components {
              * @default []
              */
             problems: components["schemas"]["RecipeProblemOut"][];
+            /**
+             * Recipes Allowed
+             * @default true
+             */
+            recipes_allowed: boolean;
             /**
              * Total
              * @default 0
@@ -54224,10 +54242,30 @@ export interface components {
             /** Allowed */
             allowed: boolean;
             /**
+             * Code
+             * @description What blocks it, for the console to translate: server_shell_off (the switch), server_shell_control (the control server_terminal set to refused by the operator) or server_shell_framework (a framework holds that control)
+             */
+            code?: string | null;
+            /**
+             * Command
+             * @description The command that changes it, verbatim
+             */
+            command?: string | null;
+            /**
+             * Control
+             * @description The compliance control that blocks it
+             */
+            control?: string | null;
+            /**
              * Enabled
              * @description terminal.server.enabled
              */
             enabled: boolean;
+            /**
+             * Forced By
+             * @description The frameworks that hold that control
+             */
+            forced_by?: string[];
             /**
              * How
              * @description What to change, verbatim

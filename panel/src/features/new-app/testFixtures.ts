@@ -97,6 +97,7 @@ export const RECIPES: RecipeList = {
   ],
   total: 3,
   problems: [],
+  recipes_allowed: true,
 };
 
 /** A variable of a recipe as the API lists it: one the operator may set, unless the patch says otherwise. */
