@@ -30,10 +30,49 @@ import pytest
 
 from noust.core.fs import set_fs
 from noust.core.runner import FakeRunner, set_runner
+from tests.sharding import parse_shard, select
 
 
 class RealSubprocessAttempted(AssertionError):
     """Raised when a test tries to execute a real process."""
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """
+    Add ``--shard K/N``, which keeps one slice of the suite.
+
+    Args:
+        parser: The command line parser.
+    """
+    parser.addoption(
+        "--shard",
+        action="store",
+        default=None,
+        metavar="K/N",
+        help=(
+            "run only slice K of N of the suite, cut by whole test files "
+            "(NOUST_TEST_SHARD=K/N does the same; CI runs one slice per machine)"
+        ),
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """
+    Keep the slice this run was asked for.
+
+    Every xdist worker collects the whole suite and applies the same cut, so they agree on what
+    the run is made of without being told.
+
+    Args:
+        config: The pytest configuration object.
+        items: The collected tests; the ones outside the slice are removed in place.
+    """
+    spec = config.getoption("--shard") or os.environ.get("NOUST_TEST_SHARD")
+    if not spec:
+        return
+    kept, dropped = select(items, *parse_shard(spec))
+    config.hook.pytest_deselected(items=dropped)
+    items[:] = kept
 
 
 def pytest_configure(config: pytest.Config) -> None:
