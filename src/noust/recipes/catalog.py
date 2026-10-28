@@ -19,7 +19,8 @@ from typing import Any
 import yaml
 
 from noust.recipes import catalog_package
-from noust.recipes.assets import read_asset, set_asset_root
+from noust.recipes.assets import read_asset, read_simple_icon, set_asset_root
+from noust.recipes.logos import simple_icon_slug
 from noust.recipes.model import (
     CATEGORIES,
     KINDS,
@@ -292,4 +293,7 @@ def logo_svg(name: str) -> str:
     recipe = get_recipe(name)
     if recipe.logo is None:
         raise RecipeNotFoundError(f"{recipe.title} has no logo")
+    slug = simple_icon_slug(recipe.logo)
+    if slug is not None:
+        return read_simple_icon(slug)
     return read_asset(name, recipe.logo)

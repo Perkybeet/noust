@@ -682,10 +682,9 @@ def _parse_metadata(
         raise recipe_error(name, "license must be an SPDX expression such as AGPL-3.0-only")
     logo = data.get("logo")
     if logo is not None:
-        from noust.recipes.assets import read_asset
-        from noust.recipes.logos import validate_svg
+        from noust.recipes.logos import check_logo
 
-        validate_svg(name, read_asset(name, checked_asset(name, logo)))
+        logo = check_logo(name, logo)
     return {
         "title": _string(name, data, "title"),
         "slogan": slogan,
@@ -1435,7 +1434,9 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
         raise recipe_error(name, "name must be the file's name")
     metadata = _parse_metadata(name, data)
     if metadata["logo"] is None:
-        raise recipe_error(name, "logo is required: an SVG under assets/<recipe>/")
+        raise recipe_error(
+            name, "logo is required: an SVG under assets/<recipe>/ or simple-icons:<slug>"
+        )
     metadata["min_noust"] = _parse_min_noust(name, data.get("min_noust"))
     metadata["architectures"] = _parse_architectures(name, kind, data.get("architectures"))
     requires = _parse_requires(name, kind, data.get("requires"))

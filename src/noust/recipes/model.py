@@ -149,6 +149,53 @@ FLOATING_TAGS = frozenset(
 )
 
 
+#: What a ``logo:`` that names a mark of the simple-icons collection starts with.
+SIMPLE_ICONS_PREFIX = "simple-icons:"
+
+#: The licence the collection publishes its files under.
+SIMPLE_ICONS_LICENSE = "CC0-1.0"
+
+
+def simple_icon_slug(logo: str | None) -> str | None:
+    """
+    Args:
+        logo: A recipe's ``logo:`` as written, or None.
+
+    Returns:
+        The slug when the logo names a mark of the simple-icons collection; None for a file
+        of the recipe and for no logo.
+    """
+    if logo is not None and logo.startswith(SIMPLE_ICONS_PREFIX):
+        return logo[len(SIMPLE_ICONS_PREFIX) :]
+    return None
+
+
+def logo_source(logo: str | None) -> str | None:
+    """
+    Args:
+        logo: A recipe's ``logo:`` as written, or None.
+
+    Returns:
+        ``simple-icons`` for a mark of the collection, ``asset`` for a file of the recipe,
+        None for no logo.
+    """
+    if logo is None:
+        return None
+    return "simple-icons" if simple_icon_slug(logo) is not None else "asset"
+
+
+def logo_license(logo: str | None) -> str | None:
+    """
+    Args:
+        logo: A recipe's ``logo:`` as written, or None.
+
+    Returns:
+        The licence of the mark's file when it is the collection's (CC0-1.0); None for a file
+        of the recipe, whose licence is the recipe's own (the monogram is Noust's).
+    """
+    return SIMPLE_ICONS_LICENSE if simple_icon_slug(logo) is not None else None
+
+
 class RecipeError(ValidationError):
     """A recipe file is not valid, or names something that does not exist."""
 
@@ -638,6 +685,11 @@ class Recipe:
         return self.kind == "compose"
 
     @property
+    def logo_icon(self) -> str | None:
+        """The slug of the simple-icons mark the recipe's logo names, or None."""
+        return simple_icon_slug(self.logo)
+
+    @property
     def database_engine(self) -> str | None:
         """
         The SQL database it is given, in the helper's spelling, or None.
@@ -707,6 +759,9 @@ class Recipe:
             "category": self.category,
             "tags": list(self.tags),
             "logo": self.logo,
+            "logo_source": logo_source(self.logo),
+            "logo_icon": self.logo_icon,
+            "logo_license": logo_license(self.logo),
             "version": self.version or None,
             "revision": self.revision,
             "updated": self.updated.isoformat() if self.updated else None,
