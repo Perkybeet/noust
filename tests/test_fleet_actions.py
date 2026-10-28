@@ -23,13 +23,12 @@ import pytest
 
 from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
-from noust.fleet.aggregate import Asker, set_aggregator
+from noust.fleet.aggregate import set_aggregator
 from noust.fleet.labels import NodeLabels
 from noust.web import fleet_jobs
-from noust.web.fleet_jobs import FleetJobs, FleetRequest, Runner, batch_size, plan, retry_request
+from noust.web.fleet_jobs import FleetJobs, FleetRequest, batch_size, plan, retry_request
+from tests.support.fleet_actions import ADMIN, _run, _states
 from tests.support.fleet_views_support import SCHEMA_30, Central, build_central
-
-ADMIN = Asker(actor="ana", scope="admin", role="admin", elevated=True)
 
 
 @pytest.fixture
@@ -38,46 +37,6 @@ def central(tmp_path: Path):
     yield built
     set_aggregator(None)
     NoustStore.reset_instance()
-
-
-class Recorder:
-    """A reporter that keeps what it is told."""
-
-    def __init__(self) -> None:
-        self.lines: list[tuple[str, str]] = []
-        self.snapshots: list[dict[str, Any]] = []
-
-    def log(self, message: str, level: str = "info") -> None:
-        self.lines.append((level, message))
-
-    def publish(self, snapshot: dict[str, Any], done: int, step: str) -> None:
-        self.snapshots.append(snapshot)
-
-
-def _run(
-    central: Central, request: FleetRequest, **kw: Any
-) -> tuple[dict[str, Any], Recorder, str]:
-    the_plan = plan(request, manager=central.manager, asker=ADMIN)
-    recorder = Recorder()
-    jobs = FleetJobs(central.store)
-    job_id = fleet_jobs.new_job_id()
-    jobs.create(job_id, the_plan, created_by="ana")
-    snapshot = Runner(
-        plan=the_plan,
-        job_id=job_id,
-        manager=central.manager,
-        asker=ADMIN,
-        reporter=recorder,
-        elevated_until=kw.pop("elevated_until", float("inf")),
-        jobs=jobs,
-        poll=0,
-        sleep=lambda seconds: None,
-    ).run()
-    return snapshot, recorder, job_id
-
-
-def _states(snapshot: dict[str, Any]) -> dict[str, tuple[str, str | None]]:
-    return {node["node"]: (node["state"], node["reason"]) for node in snapshot["nodes"]}
 
 
 def _renewal(node: Any, failed: bool) -> Any:

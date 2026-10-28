@@ -26,7 +26,7 @@ from noust.core import delivery
 from noust.core.store import NoustStore
 from noust.deployers import lifecycle
 from noust.deployers.static import StaticDeployer
-from tests.test_release_pipeline import (
+from tests.support.release_pipeline import (
     DOMAIN,
     GIT_URL,
     PORT,

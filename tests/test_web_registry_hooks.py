@@ -29,7 +29,7 @@ from noust.core.store import App, NoustStore
 from noust.web.api import hooks as hooks_module
 from noust.web.api import registry_hooks
 from noust.web.api.hooks import mint_webhook_secret
-from tests.test_web_hooks import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.web_hooks import (  # noqa: F401  (pytest resolves fixtures by name)
     app,
     client,
     fresh_delivery_cache,

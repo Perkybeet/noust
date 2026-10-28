@@ -26,7 +26,7 @@ from noust.core.config import Config
 from noust.web.api.auth import _narrows
 from noust.web.auth import CSRF_HEADER_NAME, STATE_DIR_ENV
 from noust.web.server import get_token_manager
-from tests.test_web_accounts import (  # noqa: F401 - the fixtures of the account tests
+from tests.support.web_accounts import (  # noqa: F401 - the fixtures of the account tests
     accounts,
     build,
     cheap_hashes,

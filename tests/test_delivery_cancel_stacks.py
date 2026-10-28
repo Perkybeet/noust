@@ -29,8 +29,8 @@ from noust.core.cancellation import operation_window, request_cancel
 from noust.core.exceptions import CancelRefused, DeploymentCancelled
 from noust.core.runner import CommandCancelled
 from noust.core.store import App, AppLayout, NoustStore
-from tests.test_compose_release_retention import DOMAIN as STACK
-from tests.test_compose_release_retention import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.compose_release_retention import DOMAIN as STACK
+from tests.support.compose_release_retention import (  # noqa: F401  (pytest resolves fixtures by name)
     Docker,
     Probe,
     docker,
@@ -39,7 +39,7 @@ from tests.test_compose_release_retention import (  # noqa: F401  (pytest resolv
     root,
     store,
 )
-from tests.test_compose_release_retention import deployer as stack_deployer
+from tests.support.compose_release_retention import deployer as stack_deployer
 
 WHO = "token:ci"
 

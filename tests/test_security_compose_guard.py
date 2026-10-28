@@ -30,7 +30,7 @@ from noust.core.runner import set_runner
 from noust.core.store import App, NoustStore, get_store
 from noust.deployers.docker_compose import DockerComposeDeployer
 from noust.managers.nginx_manager import NginxManager
-from tests.test_compose_adopt import FIXTURES, RECREATES, Docker, web  # noqa: F401
+from tests.support.compose_adopt import FIXTURES, RECREATES, Docker, web  # noqa: F401
 
 DOMAIN = "proggest.es"
 

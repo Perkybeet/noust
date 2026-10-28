@@ -27,7 +27,7 @@ from fastapi.testclient import TestClient
 from noust.monitor.models import ProcessInfo
 from noust.web.api import monitor as monitor_api
 from noust.web.server import get_token_manager
-from tests.test_web_auth import bearer, build_client, issue_token, login
+from tests.support.web_auth import bearer, build_client, issue_token, login
 
 #: What a secret-carrying process looks like on the wire: a password passed
 #: as a CLI flag, exactly the shape this guard exists for.

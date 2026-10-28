@@ -42,8 +42,8 @@ from noust.web.versioning import (
     deprecated,
     versioned_api_path,
 )
-from tests.test_permission_routes import signed_in
-from tests.test_web_auth import build_client, login
+from tests.support.permission_routes import signed_in
+from tests.support.web_auth import build_client, login
 
 
 @pytest.fixture(autouse=True)
@@ -201,7 +201,7 @@ class TestServedUnderBothAddresses:
             "/api/v1/auth/logout", headers={CSRF_HEADER_NAME: csrf}
         )  # any mutation the middleware audits
 
-        from tests.test_web_auth import read_audit
+        from tests.support.web_auth import read_audit
 
         paths = [str(event.get("resource", "")) for event in read_audit(sandbox)]
         assert not any(p.startswith("/api/v1") for p in paths), paths

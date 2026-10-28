@@ -26,7 +26,7 @@ from noust.validators.source import upload_tree
 from noust.web.api.source_uploads import CHUNK_BYTES
 from noust.web.permissions import Permission
 from noust.web.permissions.routes_uploads import ROUTES
-from tests.test_source_uploads import PROJECT, make_tgz, make_zip
+from tests.support.source_uploads import PROJECT, make_tgz, make_zip
 
 DOMAIN = "shop.example.com"
 

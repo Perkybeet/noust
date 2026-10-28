@@ -16,12 +16,7 @@ from noust.recipes.catalog import catalogue_problems
 from noust.recipes.model import RecipeError
 from noust.recipes.sources import MAX_RECIPE_BYTES
 from tests.recipes.factory import compose_recipe
-
-LOGO = (
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Acme">'
-    "<title>Acme</title>"
-    '<rect width="64" height="64" rx="14" fill="#24292f"/></svg>'
-)
+from tests.support.recipes_operator_recipes import LOGO, write_recipe
 
 
 @pytest.fixture
@@ -31,18 +26,6 @@ def folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     directory.mkdir(mode=0o755)
     monkeypatch.setenv("NOUST_RECIPES_DIR", str(directory))
     return directory
-
-
-def write_recipe(directory: Path, name: str = "acme-wiki", **overrides: object) -> Path:
-    """Write a valid private recipe, with its logo, and return its file."""
-    document = compose_recipe(name=name, title="Acme Wiki", **overrides)
-    file = directory / f"{name}.yaml"
-    file.write_text(yaml.safe_dump(document, sort_keys=False))
-    file.chmod(0o644)
-    assets = directory / "assets" / name
-    assets.mkdir(parents=True, exist_ok=True)
-    (assets / "logo.svg").write_text(LOGO)
-    return file
 
 
 class TestAFolderOfRecipes:

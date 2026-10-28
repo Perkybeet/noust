@@ -20,7 +20,7 @@ import pytest
 from noust.core.exceptions import CertificateError
 from noust.managers import health as health_module
 from noust.managers.internal_ca import CaStatus
-from tests.test_cli_health import _FakeCerts, server  # noqa: F401
+from tests.support.cli_health import _FakeCerts, server  # noqa: F401
 
 
 def status(days_left: int) -> CaStatus:

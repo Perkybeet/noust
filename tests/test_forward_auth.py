@@ -29,7 +29,7 @@ from noust.managers.site_forward_auth import (
     forward_auth_from,
 )
 from noust.managers.site_policy import SitePolicy, SitePolicyManager, locks_out, validated
-from tests.test_domains import (  # noqa: F401 - fixtures of the domains harness
+from tests.support.domains import (  # noqa: F401 - fixtures of the domains harness
     Machine,
     certs,
     machine,

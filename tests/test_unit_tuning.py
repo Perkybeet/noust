@@ -33,7 +33,7 @@ from noust.deployers import hardening as hardening_engine
 from noust.deployers import unit_tuning as engine
 from noust.managers import unit_hardening, unit_tuning
 from noust.managers.service_manager import ServiceManager
-from tests.test_service_manager import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.service_manager import (  # noqa: F401  (pytest resolves fixtures by name)
     manager,
     store,
     unit_dirs,

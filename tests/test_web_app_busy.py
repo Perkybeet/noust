@@ -23,7 +23,7 @@ from noust.core.store import App, NoustStore
 from noust.web.api.deps import error_response
 from noust.web.auth import SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.test_web_auth import bearer
+from tests.support.web_auth import bearer
 
 DOMAIN = "shop.example.com"
 

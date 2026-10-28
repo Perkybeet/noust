@@ -30,7 +30,7 @@ from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.instance_records import key_of, stub_instance
 from noust.managers.database.records import DatabaseLink, DatabaseRecords
 from noust.managers.database.service import DatabaseService
-from tests.test_database_service import FakeEngine
+from tests.support.database_service import FakeEngine
 
 DOMAIN = "shop.example.com"
 HOST = "postgresql"

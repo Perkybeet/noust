@@ -26,7 +26,7 @@ from noust.managers.dns import records as records_module
 from noust.managers.dns.records import ManagedDns
 from noust.managers.site_policy import SitePolicyManager
 from tests.support.dns_support import dns_answer
-from tests.test_domains import (  # noqa: F401 - the harness
+from tests.support.domains import (  # noqa: F401 - the harness
     Machine,
     certs,
     machine,

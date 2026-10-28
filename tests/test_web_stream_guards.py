@@ -34,8 +34,9 @@ from noust.web.auth import (
     credential_is_current,
 )
 from noust.web.server import get_token_manager
-from tests.test_web_auth import build_client, issue_token, login
-from tests.test_web_websockets import connect_code, token_subprotocols
+from tests.support.web_auth import build_client, issue_token, login
+from tests.support.web_stream_guards import ConnectedRequest
+from tests.support.web_websockets import connect_code, token_subprotocols
 
 # The package re-exports the APIRouter under the module's own name, so the
 # module is fetched from sys.modules to patch its constants.
@@ -372,17 +373,6 @@ def test_a_socket_does_not_outlive_its_maximum_lifetime(
 
 
 # ----------------------------------------------------------------- the event stream
-
-
-class ConnectedRequest:
-    """A request whose client never goes away; see tests/test_web_events.py."""
-
-    async def is_disconnected(self) -> bool:
-        """
-        Returns:
-            Always False.
-        """
-        return False
 
 
 def test_the_event_stream_ends_when_its_credential_is_revoked(

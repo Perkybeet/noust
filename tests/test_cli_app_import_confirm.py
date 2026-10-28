@@ -31,7 +31,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.store import App, NoustStore
 from noust.deployers import app_export
 from noust.managers.cron_manager import CronJob
-from tests.test_cli_app_export import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.cli_app_export import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     STRIPE,
     _real_runner,

@@ -19,7 +19,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from tests.test_web_app_export import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.web_app_export import (  # noqa: F401  (pytest resolves fixtures by name)
     STRIPE,
     app,
     elevated,

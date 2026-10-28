@@ -19,6 +19,7 @@ import pytest
 
 from noust.core import app_build_store
 from noust.core.store import App, NoustStore
+from tests.support.build_surfaces import build_client
 
 DOMAIN = "app.example.com"
 
@@ -284,30 +285,6 @@ class TestRuntimeCommands:
 
         assert result.exit_code == 0, result.output
         assert "Would install node@22" in result.output
-
-
-def build_client(*, elevated: bool) -> Any:
-    """A client for the build router alone, authenticated, elevated or not."""
-    from fastapi import FastAPI, HTTPException
-    from fastapi.testclient import TestClient
-
-    from noust.web.api import app_build
-    from noust.web.api.auth import get_current_session
-    from noust.web.api.deps import install_error_handlers, require_elevated
-
-    app = FastAPI()
-    install_error_handlers(app)
-    app.include_router(app_build.router, prefix="/api/apps")
-    session = {"type": "session", "session_id": "s", "scope": "admin", "name": "alice"}
-    app.dependency_overrides[get_current_session] = lambda: session
-
-    def elevation() -> dict[str, Any]:
-        if not elevated:
-            raise HTTPException(status_code=403, detail={"error": "elevation_required"})
-        return session
-
-    app.dependency_overrides[require_elevated] = elevation
-    return TestClient(app)
 
 
 class TestTheApi:

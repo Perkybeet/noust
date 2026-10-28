@@ -36,7 +36,7 @@ from noust.core.store import App, NoustStore
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.recorder import CapturingLogger, DeploymentRecorder
 from noust.web.jobs import Job, JobContext, JobManager, JobType
-from tests.test_deployers import build_deployer
+from tests.support.deployers import build_deployer
 
 DOMAIN = "app.example.com"
 SECRET = "sk_live_9f8e7d6c5b4a"

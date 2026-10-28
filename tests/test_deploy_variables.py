@@ -25,7 +25,7 @@ from noust.deployers.helpers.app_env import write_app_env
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.unit_launch import release_env_line, with_release_env
 from noust.deployers.static import StaticDeployer
-from tests.test_release_pipeline import (
+from tests.support.release_pipeline import (
     DOMAIN,
     deploy_new,
     git,

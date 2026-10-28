@@ -14,11 +14,14 @@ guards now read the tree through it.
 
 from __future__ import annotations
 
+import ast
+from pathlib import Path
+
 import pytest
 
 from noust.cli.app import DEPLOY_VERBS, cli
 from scripts import cli_parity
-from tests import test_cli_audit, test_cli_json, test_cli_surface
+from tests.support.cli_json import LEAF_COMMANDS
 from tests.support.cli_tree_support import walk
 
 #: The eleven verbs and the five commands of ``deploy schedule``: sixteen things to type.
@@ -41,18 +44,41 @@ def test_the_command_surface_script_reaches_them() -> None:
     assert DEPLOY_PATHS <= set(cli_parity.click_tree(cli))
 
 
+def _takes_the_shared_walker(module: str) -> bool:
+    """
+    Whether a guard module walks the tree with the shared ``walk`` and not one of its own.
+
+    It reads the module's source: a test module is not imported by another.
+
+    Args:
+        module: The name of the test module, without its extension.
+
+    Returns:
+        True when it imports ``walk`` from the support module and defines no ``walk`` after it.
+    """
+    tree = ast.parse((Path(__file__).parent / f"{module}.py").read_text(encoding="utf-8"))
+    imported = any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "tests.support.cli_tree_support"
+        and any(alias.name == "walk" and alias.asname is None for alias in node.names)
+        for node in tree.body
+    )
+    redefined = any(isinstance(node, ast.FunctionDef) and node.name == "walk" for node in tree.body)
+    return imported and not redefined
+
+
 def test_the_audit_guards_reach_them() -> None:
-    assert test_cli_audit.walk is walk
+    assert _takes_the_shared_walker("test_cli_audit")
 
 
 def test_the_json_guards_reach_them() -> None:
     # A leaf is a command that runs; `deploy schedule` is the group that holds five of them.
-    paths = {path for path, _command in test_cli_json.LEAF_COMMANDS}
+    paths = {path for path, _command in LEAF_COMMANDS}
     assert DEPLOY_PATHS - {"deploy schedule"} <= paths
 
 
 def test_the_global_flag_guard_reaches_them() -> None:
-    assert test_cli_surface.walk is walk
+    assert _takes_the_shared_walker("test_cli_surface")
 
 
 @pytest.mark.parametrize("path", sorted(DEPLOY_PATHS - {"deploy schedule"}))

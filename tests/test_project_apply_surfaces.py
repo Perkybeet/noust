@@ -21,7 +21,7 @@ import pytest
 
 from noust.core.store import App, NoustStore
 from noust.deployers import app_export, project_apply
-from tests.test_project_apply import DOMAIN, FakeCron, Recorder
+from tests.support.project_apply import DOMAIN, FakeCron, Recorder
 
 DECLARATION = (
     "app:\n  limits: {memory_max_mb: 256}\nenv:\n  LOG_LEVEL: debug\n"

@@ -11,7 +11,6 @@ repository of the language that has nothing to run.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
 from pathlib import Path
 
 import pytest
@@ -20,43 +19,17 @@ from noust.core.exceptions import DeploymentError
 from noust.core.runner import FakeRunner, set_runner
 from noust.core.store import NoustStore
 from noust.deployers.inspect import inspect_source
+from tests.support.native_stacks_inspect import (  # noqa: F401
+    GO,
+    project,
+    store,
+)
+
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
 
 
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    """
-    Provide an isolated store, installed as the process-wide singleton.
-
-    Args:
-        tmp_path: Per-test temporary directory.
-
-    Yields:
-        The store.
-    """
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
-    set_runner(None)
-
-
-def project(root: Path, files: Mapping[str, str]) -> str:
-    """
-    Args:
-        root: Where to make the project.
-        files: Path to content.
-
-    Returns:
-        The project's path, as the source of an inspection.
-    """
-    for name, content in files.items():
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
-    return str(root)
-
-
-GO = {"go.mod": "module example.com/app\n\ngo 1.22\n", "main.go": "package main\n"}
 RUST = {
     "Cargo.toml": '[package]\nname = "app"\nversion = "0.1.0"\n',
     "src/main.rs": "fn main() {}\n",

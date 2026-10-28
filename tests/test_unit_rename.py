@@ -22,7 +22,12 @@ from noust.core.fs import DryRunFileSystem
 from noust.core.runner import FakeRunner
 from noust.core.store import Service
 from noust.managers.service_manager import ServiceManager
-from tests.test_service_manager import FakeStore, manager, store, unit_dirs  # noqa: F401 - fixtures
+from tests.support.service_manager import (  # noqa: F401 - fixtures
+    FakeStore,
+    manager,
+    store,
+    unit_dirs,
+)
 
 OLD_MARKER = legacy_names.GENERATED_MARKER
 

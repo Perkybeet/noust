@@ -42,8 +42,8 @@ from tests.support.database_backup_support import (
     make_engine,
     make_service,
 )
-from tests.test_database_backups import FakeScheduler
-from tests.test_database_managers import StubConfig, existing_database
+from tests.support.database_backups import FakeScheduler
+from tests.support.database_managers import StubConfig, existing_database
 
 
 @pytest.fixture(autouse=True)

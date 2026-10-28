@@ -26,7 +26,7 @@ from noust.managers.database.pitr_archive import BaseBackup
 from noust.web.api.deps import JobAcceptedResponse
 from noust.web.permissions import Permission
 from noust.web.permissions.routes_database_pitr import ROUTES
-from tests.test_web_databases_api import (  # noqa: F401 - fixtures
+from tests.support.web_databases_api import (  # noqa: F401 - fixtures
     anonymous,
     app,
     client,

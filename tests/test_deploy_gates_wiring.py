@@ -33,7 +33,7 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers
 from noust.web.api.hooks import webhook_update_job
 from noust.web.jobs import Job, JobType
-from tests.test_web_hooks import (
+from tests.support.web_hooks import (
     DOMAIN,
     PUSH_MAIN,
     admin,

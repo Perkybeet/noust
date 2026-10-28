@@ -24,7 +24,7 @@ from noust.managers.database.base import (
 )
 from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.postgres import PostgresManager
-from tests.test_database_managers import mysql, postgres  # noqa: F401 - fixtures
+from tests.support.database_managers import mysql, postgres  # noqa: F401 - fixtures
 
 
 def test_the_prefixes_are_the_two_spellings() -> None:

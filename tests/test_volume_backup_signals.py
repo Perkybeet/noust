@@ -15,7 +15,7 @@ import pytest
 
 from noust.core.signal_guard import stop_as_exit
 from noust.managers.volume_backups import VolumeBackupManager
-from tests.test_volume_backups import (  # noqa: F401
+from tests.support.volume_backups import (  # noqa: F401
     APP,
     DOMAIN,
     FakeServices,

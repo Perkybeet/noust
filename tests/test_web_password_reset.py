@@ -28,7 +28,7 @@ from noust.core.server_text import say
 from noust.web.api import auth_accounts
 from noust.web.auth import CSRF_HEADER_NAME
 from noust.web.server import get_token_manager
-from tests.test_web_accounts import (
+from tests.support.web_accounts import (
     PASSWORD,
     build,
     elevate_master,

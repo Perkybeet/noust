@@ -33,7 +33,7 @@ from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
 from tests.support.database_migration_support import Lab, build_lab
 from tests.support.database_move_support import DOMAIN, HOST
-from tests.test_database_tls import TlsHost, UnprivilegedFs
+from tests.support.database_tls import TlsHost, UnprivilegedFs
 
 
 def without_chown(monkeypatch: pytest.MonkeyPatch) -> None:

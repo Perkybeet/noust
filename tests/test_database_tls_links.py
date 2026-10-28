@@ -51,7 +51,7 @@ from tests.support.database_move_support import (
     Rig,
     build_rig,
 )
-from tests.test_database_tls import TlsHost, UnprivilegedFs
+from tests.support.database_tls import TlsHost, UnprivilegedFs
 
 CA = Path("/etc/noust/tls/ca.crt")
 

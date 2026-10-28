@@ -16,7 +16,7 @@ import pytest
 
 from noust.core.exceptions import CloudProviderError, NodeError
 from noust.core.store import NodeRecord
-from tests.test_cloud_provision import World, server_json, world  # noqa: F401
+from tests.support.cloud_provision import World, server_json, world  # noqa: F401
 
 
 def register(world: World, name: str = "web-2", host: str = "203.0.113.9") -> None:  # noqa: F811

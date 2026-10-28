@@ -44,7 +44,7 @@ from noust.managers.database.extensions import SEPARATOR, Extensions
 from noust.managers.database.service import DatabaseService
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.test_database_service import FakeEngine
+from tests.support.database_service import FakeEngine
 
 OFFERED = {
     # name: (default version, trusted, requires, comment)

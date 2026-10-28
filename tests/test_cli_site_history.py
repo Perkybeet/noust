@@ -23,7 +23,7 @@ from noust.cli.commands import site_history
 from noust.core.logger import Logger
 from noust.core.runner import FakeRunner
 from noust.managers.nginx_manager import NginxManager
-from tests.test_domains import (  # noqa: F401 - fixtures of the domains harness
+from tests.support.domains import (  # noqa: F401 - fixtures of the domains harness
     Machine,
     certs,
     machine,

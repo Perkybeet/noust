@@ -14,11 +14,8 @@ allowed origins treat an upload as a kind of its own.
 
 from __future__ import annotations
 
-import io
 import os
-import tarfile
 import time
-import zipfile
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -42,6 +39,7 @@ from noust.validators.source import (
     upload_tree,
     validate_source,
 )
+from tests.support.source_uploads import PROJECT, make_tgz, make_zip
 
 OWNER = "user:ana"
 OTHER = "user:bo"
@@ -79,40 +77,12 @@ class Limits:
         return self.values.get(key, default)
 
 
-def make_zip(files: dict[str, bytes], *, top: str | None = None) -> bytes:
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as archive:
-        for name, content in files.items():
-            archive.writestr(f"{top}/{name}" if top else name, content)
-    return buffer.getvalue()
-
-
-def make_tgz(members: list[tuple[str, bytes | str]]) -> bytes:
-    """Members are (name, content), or (name, "-> target") for a symbolic link."""
-    buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
-        for name, content in members:
-            info = tarfile.TarInfo(name)
-            if isinstance(content, str) and content.startswith("-> "):
-                info.type = tarfile.SYMTYPE
-                info.linkname = content[3:]
-                archive.addfile(info)
-            else:
-                data = content.encode() if isinstance(content, str) else content
-                info.size = len(data)
-                archive.addfile(info, io.BytesIO(data))
-    return buffer.getvalue()
-
-
 def send(manager: SourceUploads, name: str, data: bytes, *, owner: str = OWNER, chunk: int = 4096):
     """Start an upload and send it all; returns the session."""
     session = manager.start(name, len(data), owner=owner)
     for offset in range(0, len(data), chunk):
         manager.sessions.append(session.id, offset, data[offset : offset + chunk], owner=owner)
     return session
-
-
-PROJECT = {"package.json": b'{"name": "shop"}', "src/index.js": b"console.log(1)"}
 
 
 class TestSendingAnArchive:

@@ -23,7 +23,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
 from noust.deployers.migrate import migrate, plan_migration
 from noust.deployers.php_fpm import PHP_SETTINGS_FILE
-from tests.test_migrate import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.migrate import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     machine,
     root,

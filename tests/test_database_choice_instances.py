@@ -30,7 +30,7 @@ from noust.managers.database.choice import choices, resolve_choice
 from noust.managers.database.instance_catalog import SPECS, resolve_pin
 from noust.managers.database.instance_records import assign_managed
 from noust.managers.database.service import DatabaseService
-from tests.test_database_choice import (  # noqa: F401 - the autouse fixture
+from tests.support.database_choice import (  # noqa: F401 - the autouse fixture
     DOMAIN,
     engine_classes,
     noble,

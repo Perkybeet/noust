@@ -19,7 +19,7 @@ from noust.core.store import NoustStore
 from noust.deployers import lifecycle
 from noust.deployers.helpers.seed_files import DEFAULT_MODE, seed_files, seeded_paths
 from noust.deployers.php_fpm import PhpFpmDeployer
-from tests.test_php_fpm import (
+from tests.support.php_fpm import (
     DOMAIN,
     WORDPRESS,
     WORDPRESS_OPTIONS,
@@ -28,7 +28,7 @@ from tests.test_php_fpm import (
     store,  # noqa: F401
     wire,
 )
-from tests.test_release_pipeline import write_tree
+from tests.support.release_pipeline import write_tree
 
 
 def seed(root: Path, files: dict[str, str], modes: dict[str, int] | None = None) -> list[str]:

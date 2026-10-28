@@ -26,9 +26,9 @@ from noust.core.runner import FakeRunner
 from noust.core.secrets import secrets_dir
 from noust.core.store import NoustStore
 from noust.web.api.deps import error_response
-from noust.web.auth import CSRF_HEADER_NAME
 from noust.web.server import create_app, get_token_manager
-from tests.test_web_auth import make_config, read_audit
+from tests.support.web_auth import make_config, read_audit
+from tests.support.web_central import elevate, sign_in
 
 PASSPHRASE = "correct horse battery staple"
 
@@ -59,19 +59,6 @@ def sealed() -> Iterator[Path]:
     sealing.lock(root)
     yield root
     sealing.lock(root)
-
-
-def sign_in(client: TestClient) -> str:
-    master = get_token_manager().generate_master_token()
-    response = client.post("/api/auth/login", json={"token": master})
-    assert response.status_code == 200, response.text
-    client.headers[CSRF_HEADER_NAME] = response.json()["csrf_token"]
-    return master
-
-
-def elevate(client: TestClient, master: str) -> None:
-    response = client.post("/api/auth/elevate", json={"token": master})
-    assert response.status_code == 200, response.text
 
 
 class TestSession:

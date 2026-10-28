@@ -15,70 +15,14 @@ from click.testing import CliRunner
 
 from noust.cli.app import cli
 from noust.core.exceptions import BackupError, NoustError
-from noust.core.store import Database, NoustStore
+from noust.core.store import NoustStore
 from noust.core.update_policy_store import get_policy, set_required
 from noust.deployers import lifecycle
-from tests.test_lifecycle import DOMAIN, FakeDeployer, Recorder, make_app
-from tests.test_lifecycle import store as store
-
-
-@pytest.fixture
-def backups(monkeypatch: pytest.MonkeyPatch, store: NoustStore) -> SimpleNamespace:
-    """
-    Every collaborator of an update faked, and the pre-update backup scripted.
-
-    ``failure`` is raised by the backup when set; ``taken`` records what it was asked.
-    """
-    rec = Recorder()
-    state = SimpleNamespace(recorder=rec, failure=None, taken=[], release_calls=[])
-
-    def take(**kwargs: Any) -> None:
-        state.taken.append(kwargs)
-        rec.calls.append(("backup", kwargs["domain"]))
-        if state.failure is not None:
-            raise state.failure
-        return SimpleNamespace(id="backup-1")
-
-    monkeypatch.setattr(
-        lifecycle,
-        "RollbackManager",
-        lambda verbose=False: SimpleNamespace(create_pre_deploy_backup=take),
-    )
-    monkeypatch.setattr(
-        lifecycle,
-        "SourceManager",
-        lambda verbose=False: SimpleNamespace(
-            get_repo_info=lambda path: {"commit": "abc1234", "branch": None},
-            pull=lambda path, branch=None: rec.calls.append(("pull",)),
-        ),
-    )
-    monkeypatch.setattr(
-        lifecycle,
-        "ServiceManager",
-        lambda verbose=False: SimpleNamespace(
-            get_status=lambda name: {"exists": True, "active": True},
-            restart=lambda name: rec.calls.append(("restart", name)) or True,
-            get_service_config=lambda name: None,
-        ),
-    )
-    monkeypatch.setattr(lifecycle.time, "sleep", lambda seconds: None)
-    monkeypatch.setattr(
-        lifecycle, "get_deployer", lambda app_type, verbose=False: FakeDeployer(rec)
-    )
-
-    def update_release(*args: Any, **kwargs: Any) -> str:
-        rec.calls.append(("update_release",))
-        return "released"
-
-    monkeypatch.setattr(lifecycle, "_update_release", update_release)
-    return state
-
-
-def with_database(store: NoustStore, domain: str = DOMAIN) -> None:
-    """Link a database to the application."""
-    app = store.get_app(domain)
-    assert app is not None and app.id is not None
-    store.create_database(Database(name="shop", engine="postgresql", app_id=app.id))
+from tests.support.lifecycle import DOMAIN, make_app
+from tests.support.update_backup_required import (  # noqa: F401
+    backups,
+    with_database,
+)
 
 
 class TestThePolicy:

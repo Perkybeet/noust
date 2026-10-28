@@ -25,14 +25,14 @@ import pytest
 
 from noust.core.exceptions import DeploymentError, ValidationError
 from noust.managers import app_identity
-from tests.test_app_identity import (  # noqa: F401 - fixtures and helpers used by name
+from tests.support.app_identity import (  # noqa: F401 - fixtures and helpers used by name
     Gate,
     as_root,
     existing,
     migrate,
     own_store,
 )
-from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
+from tests.support.release_pipeline import (  # noqa: F401 - fixtures used by name
     DOMAIN,
     machine,
     root,
@@ -278,7 +278,7 @@ def test_the_api_refuses_before_queueing_and_names_the_folder(
 ) -> None:
     from noust.core.store import App
     from noust.core.teams import ScopedStore
-    from tests.test_app_identity import identity_client
+    from tests.support.app_identity import identity_client
 
     uploads = folder(tmp_path)
     app_path = tmp_path / "apps" / "shop-example-com"

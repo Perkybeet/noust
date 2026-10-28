@@ -642,7 +642,7 @@ VIEWER = "view.example.com"
 
 def two_addresses(version: str) -> dict[str, Any]:
     """A catalogue document with a second public address."""
-    from tests.recipes.test_entrypoints import two_address_recipe
+    from tests.support.recipes_entrypoints import two_address_recipe
 
     return two_address_recipe(name="demo", version=version)
 

@@ -39,7 +39,7 @@ from noust.core.console_exposure_store import (
 )
 from noust.core.store import NoustStore
 from noust.managers.console_exposure import second_factor_blockers
-from tests.test_web_accounts import (  # noqa: F401 - fixtures used by name
+from tests.support.web_accounts import (  # noqa: F401 - fixtures used by name
     build,
     cheap_hashes,
     make_account,

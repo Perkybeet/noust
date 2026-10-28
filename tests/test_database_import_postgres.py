@@ -20,8 +20,8 @@ import pytest
 from noust.core.runner import FakeRunner
 from noust.managers.database import postgres as postgres_module
 from noust.managers.database.postgres import PostgresManager
-from tests.test_database_import_formats import DUMP_WITH_OWNERS, PG_CUSTOM
-from tests.test_database_managers import StubConfig
+from tests.support.database_import_formats import DUMP_WITH_OWNERS, PG_CUSTOM
+from tests.support.database_managers import StubConfig
 
 
 @pytest.fixture

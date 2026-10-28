@@ -21,7 +21,7 @@ from noust.core.exceptions import NoustError
 from noust.recipes import RecipeNotFoundError, get_recipe
 from noust.recipes.model import RecipeError
 from noust.recipes.private import add_recipes, read_bundles, remove_recipe
-from tests.recipes.test_operator_recipes import write_recipe
+from tests.support.recipes_operator_recipes import write_recipe
 
 
 @pytest.fixture

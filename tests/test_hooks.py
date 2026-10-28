@@ -36,7 +36,7 @@ from noust.deployers.helpers.hooks import (
     run_hooks,
     set_operator_hooks,
 )
-from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
+from tests.support.release_pipeline import (  # noqa: F401 - fixtures used by name
     DOMAIN,
     GIT_URL,
     PORT,
@@ -466,7 +466,7 @@ class TestADeploymentWithHooks:
     ) -> None:
         from noust.deployers import lifecycle
         from noust.deployers.nodejs import NodeJSDeployer
-        from tests.test_release_pipeline import wire
+        from tests.support.release_pipeline import wire
 
         hooked_tree(root, POST)
         (root / ".git").mkdir()

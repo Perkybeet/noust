@@ -28,13 +28,7 @@ from noust.core.exceptions import BackupError
 from noust.core.logger import Logger
 from noust.core.store import NoustStore
 from noust.managers.server_migration import ServerMigration
-from tests.test_server_migration import (
-    HOST,
-    FakeSelf,
-    Recorder,
-    add_app,
-    checker,
-)
+from tests.support.server_migration import HOST, FakeSelf, Recorder, add_app, checker
 
 
 @pytest.fixture

@@ -13,16 +13,14 @@ an operator does, with the checks in front of them.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
 
 from noust.core import paths
 from noust.core.exceptions import ValidationError
-from noust.core.fs import RecordingFileSystem
 from noust.core.runner import FakeRunner
-from noust.core.store import NoustStore
 from noust.managers.server.errors import PreflightError, ServerError
 from noust.managers.server.power import (
     LAST_BOOT_FILE,
@@ -33,29 +31,19 @@ from noust.managers.server.power import (
     unenabled_app_units,
 )
 from noust.managers.server.power_records import PowerRecords
-from tests.support.server_support import make_host
+from tests.support.server_power import (  # noqa: F401
+    NOW,
+    _healthy,
+    _manager,
+    host,
+    store,
+)
 
-NOW = datetime(2026, 9, 29, 21, 0, tzinfo=timezone.utc)
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
+
 BOOT = "d875e599869f472296c96f9b3e1b5356"
-
-
-@pytest.fixture
-def store(tmp_path: Path):
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "power.db", fs=RecordingFileSystem())
-    try:
-        yield instance
-    finally:
-        instance.close()
-        NoustStore.reset_instance()
-
-
-@pytest.fixture
-def host(tmp_path: Path):
-    root = make_host(tmp_path / "root")
-    (root.boot_id).write_text("d875e599-869f-4722-96c9-6f9b3e1b5356\n")
-    root.proc_uptime.write_text("12345.67 45678.90\n")
-    return root
 
 
 @pytest.fixture
@@ -64,25 +52,6 @@ def state_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     directory.mkdir()
     monkeypatch.setattr(paths, "state_dir", lambda: directory)
     return directory
-
-
-def _manager(store, host, runner: FakeRunner | None = None, **kwargs) -> PowerManager:
-    runner = runner or FakeRunner()
-    kwargs.setdefault("apps_check", lambda r: [])
-    return PowerManager(
-        runner=runner,
-        fs=RecordingFileSystem(),
-        host=host,
-        records=PowerRecords(store),
-        clock=lambda: NOW,
-        **kwargs,
-    )
-
-
-def _healthy(runner: FakeRunner) -> FakeRunner:
-    runner.script(["systemctl", "is-enabled"], stdout="enabled\n")
-    runner.script(["findmnt", "--verify"], stdout="Success, no errors or warnings detected\n")
-    return runner
 
 
 class TestWhen:

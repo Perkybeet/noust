@@ -20,7 +20,7 @@ from noust.core.runner import FakeRunner
 from noust.managers.server.errors import HostBusyError, ServerError
 from noust.managers.server.power import parse_inhibitors
 from noust.managers.server.power_records import PowerRecords
-from tests.test_server_power import _healthy, _manager, host, store  # noqa: F401
+from tests.support.server_power import _healthy, _manager, host, store  # noqa: F401
 
 INHIBITORS = """\
 Unattended Upgrades Shutdown   0 root  987 unattended-upgr shutdown Stop ongoing upgrades or perform upgrades before shutdown delay

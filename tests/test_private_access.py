@@ -33,7 +33,7 @@ from noust.managers.private_networks import (
     checked_cidrs,
     is_private_range,
 )
-from tests.test_domains import (  # noqa: F401 - fixtures of the domains harness
+from tests.support.domains import (  # noqa: F401 - fixtures of the domains harness
     Machine,
     certs,
     machine,

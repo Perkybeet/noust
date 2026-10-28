@@ -31,8 +31,8 @@ from noust.core.store import NoustStore
 from noust.managers import self_backup
 from noust.managers.self_backup import SelfBackupManager
 from noust.web.api import self_backup as api
-from tests.test_self_backup import PASSPHRASE, FakeTimers, Runner, Server, origin
-from tests.test_web_databases_api import (  # noqa: F401
+from tests.support.self_backup import PASSPHRASE, FakeTimers, Runner, Server, origin
+from tests.support.web_databases_api import (  # noqa: F401
     _capture_queued_jobs,
     anonymous,
     app,

@@ -15,30 +15,18 @@ not on behaviour the CLI happens to have today.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from click.testing import CliRunner
 
-from noust.cli.app import Context
-from noust.cli.commands.backup import cli
 from noust.core.runner import FakeRunner
-from noust.core.store import BackupScheduleRecord, NoustStore, get_store
+from noust.core.store import BackupScheduleRecord, get_store
 from noust.managers.backup_scheduler import BackupScheduler
-
-
-@pytest.fixture(autouse=True)
-def _reset_store() -> Iterator[None]:
-    NoustStore.reset_instance()
-    yield
-    NoustStore.reset_instance()
-
-
-@pytest.fixture(autouse=True)
-def _rclone(runner: FakeRunner) -> None:
-    runner.only_knows("rclone")
-    runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
+from tests.support.cli_backup_destinations import (  # noqa: F401
+    _rclone,
+    _reset_store,
+    invoke,
+)
 
 
 @pytest.fixture
@@ -47,10 +35,6 @@ def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path.mkdir()
     monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", path)
     return path
-
-
-def invoke(argv: list[str], **kwargs: object):
-    return CliRunner().invoke(cli, argv, obj=Context(), **kwargs)
 
 
 # ---------------------------------------------------------------------------

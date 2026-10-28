@@ -24,19 +24,14 @@ from noust.managers.backup_scheduler import BackupScheduler
 from noust.managers.database.backups import DatabaseBackups
 from noust.managers.database.service import DatabaseService
 from noust.managers.volume_backups import VolumeBackupManager
-from tests.test_database_backups import (  # noqa: F401
-    RcloneRunner,
-    _reset_store,
-    dumps_dir,
-    engine,
-    service,
-)
-from tests.test_database_backups import runner as db_runner  # noqa: F401
-from tests.test_self_backup import PASSPHRASE, Runner, Server, old  # noqa: F401
-from tests.test_volume_backups import DOMAIN as VOLUME_DOMAIN
-from tests.test_volume_backups import app, app_dir, services  # noqa: F401
-from tests.test_volume_backups import manager as volume_manager  # noqa: F401
-from tests.test_volume_backups import runner as volume_runner  # noqa: F401
+from tests.support.database_backup_support import RcloneRunner
+from tests.support.database_backups import _reset_store, dumps_dir, engine, service  # noqa: F401
+from tests.support.database_backups import runner as db_runner  # noqa: F401
+from tests.support.self_backup import PASSPHRASE, Runner, Server, old  # noqa: F401
+from tests.support.volume_backups import DOMAIN as VOLUME_DOMAIN
+from tests.support.volume_backups import app, app_dir, services  # noqa: F401
+from tests.support.volume_backups import manager as volume_manager  # noqa: F401
+from tests.support.volume_backups import runner as volume_runner  # noqa: F401
 
 
 @pytest.fixture

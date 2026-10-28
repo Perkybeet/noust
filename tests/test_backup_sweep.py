@@ -26,8 +26,8 @@ import pytest
 from noust.core.exceptions import DatabaseBackupError
 from noust.managers.database.backups import DatabaseBackups
 from noust.managers.retention import without_newest_good
-from tests.test_database_backups import (  # noqa: F401
-    RcloneRunner,
+from tests.support.database_backup_support import RcloneRunner
+from tests.support.database_backups import (  # noqa: F401
     _reset_store,
     audited,
     backups,

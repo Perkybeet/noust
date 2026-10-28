@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from noust.core.store import App, Database, NoustStore, get_store
 from noust.web.permissions import Permission
 from noust.web.permissions.routes_app_stack import ROUTES
-from tests.test_web_app_stack import make_client
+from tests.support.web_app_stack import make_client
 
 DOMAIN = "shop.example.com"
 

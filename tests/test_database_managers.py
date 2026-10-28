@@ -17,10 +17,8 @@ import hashlib
 import re
 import stat
 import tarfile
-from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -33,7 +31,6 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import RealFileSystem
 from noust.core.runner import FakeRunner, SubprocessRunner, set_runner
-from noust.core.store import NoustStore
 from noust.managers.database.base import (
     NAME_PATTERN,
     PRIVILEGE_PATTERN,
@@ -46,6 +43,17 @@ from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.redis import ACL_COMMAND_PATTERN, ACL_PATTERN_RULE, RedisManager
 from noust.managers.database.registry import DatabaseRegistry, get_db_manager
 from tests.conftest import OwnershipChange
+from tests.support.database_managers import (  # noqa: F401
+    PSQL_PREFIX,
+    StubConfig,
+    existing_database,
+    mysql,
+    postgres,
+)
+
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
 
 # A dump that breaks every naive "echo '...' > file" implementation: single
 # quotes, shell metacharacters and a run of non-ASCII bytes.
@@ -64,8 +72,6 @@ PASSWORD = "s3cr3t'; DROP TABLE users; --"
 #: absent from argv is evidence rather than an artefact.
 PLAIN_PASSWORD = "correcthorsebatterystaple42"
 
-PSQL_PREFIX = ("runuser", "-u", "postgres", "--", "psql")
-
 
 def _command_strings(call: tuple[str, ...]) -> list[str]:
     """
@@ -78,77 +84,6 @@ def _command_strings(call: tuple[str, ...]) -> list[str]:
         The command strings, in order.
     """
     return [call[i + 1] for i, arg in enumerate(call[:-1]) if arg == "-c"]
-
-
-class StubConfig:
-    """A configuration that answers with whatever the test put in it."""
-
-    def __init__(self, data: dict[str, Any]):
-        """
-        Args:
-            data: Values keyed by top level configuration key.
-        """
-        self._data = data
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """
-        Read a configuration key.
-
-        Args:
-            key: Configuration key.
-            default: Value returned when the key is absent.
-
-        Returns:
-            The configured value or the default.
-        """
-        return self._data.get(key, default)
-
-
-@pytest.fixture
-def postgres(runner: FakeRunner, tmp_path: Path) -> Iterator[PostgresManager]:
-    """
-    Provide a PostgreSQL manager whose backups land in a temporary directory.
-
-    The store is reopened for the test, because the read-only console keeps
-    its role passwords beside it and the store is a process-wide singleton:
-    without this, one test would read the password another test stored.
-
-    Args:
-        runner: The fake runner installed process-wide.
-        tmp_path: Per-test temporary directory.
-
-    Yields:
-        A configured manager.
-    """
-    NoustStore.reset_instance()
-    manager = PostgresManager()
-    manager.BACKUP_DIR = tmp_path / "backups"
-    # The host's own /etc/wasm/config.yaml must not leak into the argv tables.
-    manager.config = StubConfig({})
-    try:
-        yield manager
-    finally:
-        NoustStore.reset_instance()
-
-
-@pytest.fixture
-def mysql(runner: FakeRunner, tmp_path: Path) -> MySQLManager:
-    """
-    Provide a MySQL manager whose backups land in a temporary directory.
-
-    Args:
-        runner: The fake runner installed process-wide.
-        tmp_path: Per-test temporary directory.
-
-    Returns:
-        A configured manager.
-    """
-    runner.only_knows("mysql", "mysqldump")
-    manager = MySQLManager()
-    manager.BACKUP_DIR = tmp_path / "backups"
-    # The host's own /etc/wasm/config.yaml must not leak into the argv tables.
-    manager.config = StubConfig({})
-    return manager
 
 
 @pytest.fixture
@@ -186,17 +121,6 @@ def redis(runner: FakeRunner, tmp_path: Path) -> RedisManager:
     manager.DATA_DIR = tmp_path / "redis"
     manager.PERSISTENCE_POLLS = 1
     return manager
-
-
-def existing_database(manager, exists: bool = True) -> None:
-    """
-    Pin what the manager believes about a database, without scripting SQL.
-
-    Args:
-        manager: The manager to patch.
-        exists: What ``database_exists`` should answer.
-    """
-    manager.database_exists = lambda name, _exists=exists: _exists
 
 
 def existing_user(manager, exists: bool = True) -> None:

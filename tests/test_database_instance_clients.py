@@ -28,7 +28,7 @@ from noust.managers.database.instance_records import stub_instance
 from noust.managers.database.instances import discover
 from noust.managers.database.mongodb import MongoDBManager
 from noust.managers.database.mysql import MySQLManager
-from tests.test_database_instances import container
+from tests.support.database_instances import container
 
 SILENT = 'void (prompt = () => "")'
 

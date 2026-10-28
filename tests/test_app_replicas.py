@@ -43,7 +43,7 @@ from noust.managers.app_replicas import (
     copy_command,
     eligibility_problem,
 )
-from tests.test_bluegreen import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.bluegreen import (  # noqa: F401  (pytest resolves fixtures by name)
     BASE,
     COMMAND,
     DOMAIN,

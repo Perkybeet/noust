@@ -18,7 +18,7 @@ from typing import Any
 
 from noust.deployers.importers import dokploy
 from noust.deployers.importers.base import Proposal
-from tests.test_importers_remote import DOKPLOY_APP, TOKEN, FakeServer
+from tests.support.importers_remote import DOKPLOY_APP, TOKEN, FakeServer
 
 APP = {
     **DOKPLOY_APP,

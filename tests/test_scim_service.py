@@ -35,8 +35,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
 from noust.core.teams import TeamStore
 from noust.web.permissions.access import AccessManager
-from tests.support.oidc_support import FakeIdP
-from tests.test_oidc_manager import (  # noqa: F401 - the fixtures of the manager tests
+from tests.support.oidc_manager import (  # noqa: F401 - the fixtures of the manager tests
     accounts,
     admin,
     cheap_hashes,
@@ -49,6 +48,7 @@ from tests.test_oidc_manager import (  # noqa: F401 - the fixtures of the manage
     secure,
     store,
 )
+from tests.support.oidc_support import FakeIdP
 
 
 @pytest.fixture

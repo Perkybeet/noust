@@ -27,7 +27,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.teams import TeamStore
 from noust.web.permissions.access import AccessManager
 from tests.support.ldap_support import FakeDirectory, entry
-from tests.test_oidc_manager import (  # noqa: F401 - the fixtures of the manager tests
+from tests.support.oidc_manager import (  # noqa: F401 - the fixtures of the manager tests
     accounts,
     admin,
     cheap_hashes,

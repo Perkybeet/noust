@@ -27,8 +27,8 @@ from noust.web.auth import FLEET_ACTOR_HEADER, FLEET_ACTOR_ROLE_HEADER, FLEET_AC
 from noust.web.permissions import Permission
 from noust.web.permissions.roles import ADMIN, ADMIN_STANDARD, OPERATOR, VIEWER
 from noust.web.server import create_app, get_token_manager
-from tests.test_fleet_node_security import client_from, fleet_headers
-from tests.test_web_auth import make_config
+from tests.support.fleet_node_security import client_from, fleet_headers
+from tests.support.web_auth import make_config
 
 
 @pytest.fixture

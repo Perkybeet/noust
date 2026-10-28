@@ -15,7 +15,6 @@ from __future__ import annotations
 import fcntl
 import json
 import os
-import threading
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -24,6 +23,7 @@ import pytest
 from noust.core.applock import AppBusyError, app_lock, is_held_here, lock_path
 from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.store import NoustStore
+from tests.support.applock import Holder, attempt_elsewhere
 
 DOMAIN = "shop.example.com"
 
@@ -35,31 +35,6 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
     instance = NoustStore(tmp_path / "state" / "wasm.db")
     yield instance
     NoustStore.reset_instance()
-
-
-class Holder:
-    """Holds an application's lock in another thread until told to let go."""
-
-    def __init__(self, domain: str, operation: str) -> None:
-        self.domain = domain
-        self.operation = operation
-        self.acquired = threading.Event()
-        self.release = threading.Event()
-        self.thread = threading.Thread(target=self._run, daemon=True)
-
-    def _run(self) -> None:
-        with app_lock(self.domain, self.operation):
-            self.acquired.set()
-            self.release.wait(timeout=10)
-
-    def __enter__(self) -> Holder:
-        self.thread.start()
-        assert self.acquired.wait(timeout=5)
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        self.release.set()
-        self.thread.join(timeout=5)
 
 
 def test_the_lock_file_lives_beside_the_store_not_in_the_application(
@@ -79,28 +54,6 @@ def test_a_second_operation_fails_at_once_naming_the_one_running() -> None:
     assert "update started at" in error.message
     assert "rollback of shop.example.com" in error.message
     assert "Wait for that one to finish" in error.details
-
-
-def attempt_elsewhere(domain: str, operation: str) -> BaseException | None:
-    """
-    Try to take a lock from another thread, as a concurrent request would.
-
-    Returns:
-        What the attempt raised, or None when it got the lock.
-    """
-    outcome: list[BaseException | None] = []
-
-    def run() -> None:
-        try:
-            with app_lock(domain, operation):
-                outcome.append(None)
-        except AppBusyError as error:
-            outcome.append(error)
-
-    thread = threading.Thread(target=run)
-    thread.start()
-    thread.join(timeout=5)
-    return outcome[0]
 
 
 def test_the_holder_records_what_it_is_doing_and_clears_it_on_release() -> None:

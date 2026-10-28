@@ -38,12 +38,15 @@ from noust.managers.site_policy import (
     site_names,
     validated,
 )
-from tests.test_domains import (  # noqa: F401 - fixtures of the domains harness
+from tests.support.domains import (  # noqa: F401 - fixtures of the domains harness
     Machine,
     certs,
     machine,
     store,
     web,
+)
+from tests.support.site_policy import (  # noqa: F401
+    served,
 )
 
 HASH = "$6$salt$" + "a" * 86
@@ -498,12 +501,6 @@ def test_limits_are_nginx_only(tmp_path: Path) -> None:
 
 
 # -- changing a policy ----------------------------------------------------------
-
-
-@pytest.fixture
-def served(machine: Machine, store: NoustStore) -> NoustStore:
-    machine.deploy(app_type="nodejs")
-    return store
 
 
 def test_setting_a_policy_renders_the_site_and_is_audited(

@@ -37,14 +37,9 @@ from noust.core.store import App, NoustStore
 from noust.deployers.compose_adopt import StackContainer
 from noust.deployers.compose_reclaim import running_outside_units, stack_identity
 from noust.managers.nginx_manager import NginxManager
-from tests.test_app_reachability_events import (
-    DOMAIN as SHOP,
-)
-from tests.test_app_reachability_events import (
-    STOPPED_BY_COMMAND,
-    Scans,
-)
-from tests.test_compose_adopt import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.app_reachability_events import DOMAIN as SHOP
+from tests.support.app_reachability_events import STOPPED_BY_COMMAND, Scans
+from tests.support.compose_adopt import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     PROJECT,
     RECREATES,

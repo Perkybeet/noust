@@ -20,26 +20,22 @@ from pathlib import Path
 import pytest
 
 from noust.core.exceptions import NodeError
-from noust.core.fs import RecordingFileSystem
 from noust.core.store import NoustStore
 from noust.fleet.link.code import LinkCode
 from noust.fleet.link.listener import LINK_USER
 from noust.fleet.link.node import (
     KEY_NAME,
     KNOWN_HOSTS_NAME,
-    link,
     link_argv,
     link_dir,
     render_unit,
     unit_name,
-    unlink,
 )
 from noust.fleet.tunnels import PINNED_ALGORITHMS
 from noust.web.auth import STATE_DIR_ENV, SecurityConfig, TokenManager
-from tests.support.fleet_support import HOST_KEY, TOKEN, KeygenRunner, fingerprint
+from tests.support.fleet_link_node import Server
+from tests.support.fleet_support import HOST_KEY, TOKEN, fingerprint
 from tests.support.link_support import NONCE
-
-CENTRAL_HOST_KEY = HOST_KEY
 
 
 @pytest.fixture
@@ -48,61 +44,6 @@ def tokens(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TokenManager:
     directory.mkdir()
     monkeypatch.setenv(STATE_DIR_ENV, str(directory))
     return TokenManager(SecurityConfig())
-
-
-class Server:
-    """A server's directories, runner and token manager, for one test."""
-
-    def __init__(self, tmp_path: Path, tokens: TokenManager) -> None:
-        self.tokens = tokens
-        self.link_root = tmp_path / "link"
-        self.unit_dir = tmp_path / "systemd"
-        self.unit_dir.mkdir()
-        self.runner = KeygenRunner()
-        self.runner.script(["systemctl", "is-active"], stdout="active\n")
-        self.console_calls = 0
-        NoustStore.reset_instance()
-        self.store = NoustStore(tmp_path / "noust.db", fs=RecordingFileSystem())
-
-    def console(self) -> int:
-        self.console_calls += 1
-        return 8080
-
-    def link(self, **overrides):
-        values = {
-            "central": "nas",
-            "host": "central.example.com",
-            "ssh_port": 2222,
-            "host_key": CENTRAL_HOST_KEY,
-            "remote_port": 24001,
-            "nonce": NONCE,
-            "node_name": "web-5",
-            "tokens": self.tokens,
-            "ensure_console": self.console,
-            "confirm_replace": lambda names: True,
-            "runner": self.runner,
-            "link_root": self.link_root,
-            "unit_dir": self.unit_dir,
-            "store": self.store,
-            "ssh_program": "/usr/bin/ssh",
-        }
-        values.update(overrides)
-        return link(**values)
-
-    def unlink(self, **overrides):
-        values = {
-            "central": "nas",
-            "tokens": self.tokens,
-            "runner": self.runner,
-            "link_root": self.link_root,
-            "unit_dir": self.unit_dir,
-        }
-        values.update(overrides)
-        return unlink(**values)
-
-    @property
-    def unit(self) -> Path:
-        return self.unit_dir / unit_name("nas")
 
 
 @pytest.fixture

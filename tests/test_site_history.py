@@ -29,7 +29,7 @@ from noust.core.store import NoustStore
 from noust.deployers import domains
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.site_history import GRACE_SECONDS, SiteHistory, unified_diff
-from tests.test_domains import (  # noqa: F401 - fixtures of the domains harness
+from tests.support.domains import (  # noqa: F401 - fixtures of the domains harness
     Machine,
     certs,
     machine,

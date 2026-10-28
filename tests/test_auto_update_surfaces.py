@@ -20,7 +20,7 @@ from noust.cli.app import cli as root_cli
 from noust.core import audit
 from noust.managers import auto_update
 from noust.managers.self_update import SelfUpdateRefused
-from tests.test_auto_update import (  # noqa: F401 - the fixture
+from tests.support.auto_update import (  # noqa: F401 - the fixture
     FakeUpdater,
     Harness,
     check,

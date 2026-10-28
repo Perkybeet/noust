@@ -25,7 +25,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.runner import FakeRunner
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.webserver import WebServerManager
-from tests.test_webserver_managers import (  # noqa: F401
+from tests.support.webserver_managers import (  # noqa: F401
     apache,
     managers,
     nginx,

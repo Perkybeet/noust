@@ -35,7 +35,7 @@ from noust.deployers.helpers.container_settings import (
     describe_container,
     settings_for_new_app,
 )
-from tests.test_applock import Holder
+from tests.support.applock import Holder
 
 DOMAIN = "shop.example.com"
 APP = "shop-example-com"

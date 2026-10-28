@@ -34,7 +34,7 @@ from noust.managers.service_manager import (
     ServiceManager,
     with_resource_limits,
 )
-from tests.test_service_manager import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.service_manager import (  # noqa: F401  (pytest resolves fixtures by name)
     manager,
     store,
     unit_dirs,
@@ -405,7 +405,7 @@ def test_a_redeploy_writes_the_recorded_limits_into_the_new_unit(
 ) -> None:
     """The limits are the application's, not the deployment's."""
     from noust.deployers.nodejs import NodeJSDeployer
-    from tests.test_release_pipeline import FakeServices
+    from tests.support.release_pipeline import FakeServices
 
     NoustStore.reset_instance()
     instance = NoustStore(tmp_path / "wasm.db")

@@ -22,7 +22,7 @@ from noust.deployers.helpers.hooks import ALL_PHASES, Hook, HookSet
 from noust.deployers.helpers.project_file import parse_hooks_document
 from noust.managers import previews
 from noust.terminal import execution
-from tests.test_previews import (
+from tests.support.previews import (
     PARENT,
     FakeContext,
     child_domain,
@@ -227,7 +227,7 @@ class TestWhereTheyHappen:
             "run_preview_hooks",
             lambda domain, phase, report: seen.append((domain, phase)) or [],
         )
-        from tests.test_previews import event
+        from tests.support.previews import event
 
         previews.handle_pull_request(event())
         self.build(monkeypatch, store, existed=False)
@@ -254,7 +254,7 @@ class TestWhereTheyHappen:
         monkeypatch.setattr(
             previews, "run_preview_hooks", lambda domain, phase, report: ["the seed exited with 3"]
         )
-        from tests.test_previews import event
+        from tests.support.previews import event
 
         previews.handle_pull_request(event())
         self.build(monkeypatch, store, existed=False)

@@ -23,7 +23,7 @@ from noust.deployers.importers.base import (
     service_container,
     tarball_restore,
 )
-from tests.test_importers_caprover import CACHE, DB, SHOP, definition, read
+from tests.support.importers_caprover import CACHE, DB, SHOP, definition, read
 
 HOSTILE = [
     "x; touch /tmp/pwned",

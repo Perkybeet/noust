@@ -28,14 +28,7 @@ from noust.core.variables.predefined import Deployment
 from noust.core.variables.resolver import Resolver, UnresolvedReferenceError, context_for
 from noust.integrations.github import pulls
 from noust.managers import previews
-from tests.test_previews import (
-    BASE,
-    clock,
-    event,
-    jobs,
-    posted,
-    timer,
-)
+from tests.support.previews import BASE, clock, event, jobs, posted, timer
 
 FIXTURES = (clock, jobs, posted, timer)
 

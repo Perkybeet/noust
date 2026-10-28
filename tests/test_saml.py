@@ -39,15 +39,7 @@ from noust.core.accounts.saml import (
 )
 from noust.core.exceptions import ValidationError
 from noust.core.teams import TeamStore
-from tests.support.oidc_support import Clock
-from tests.support.saml_support import (
-    NS_SAML,
-    FakeIdp,
-    Scenario,
-    make_identity,
-    read_redirect,
-)
-from tests.test_oidc_manager import (  # noqa: F401 - the fixtures of the manager tests
+from tests.support.oidc_manager import (  # noqa: F401 - the fixtures of the manager tests
     accounts,
     admin,
     cheap_hashes,
@@ -55,10 +47,17 @@ from tests.test_oidc_manager import (  # noqa: F401 - the fixtures of the manage
     secure,
     store,
 )
+from tests.support.oidc_support import Clock
+from tests.support.saml import ISSUER, SSO, metadata_xml
+from tests.support.saml_support import (
+    NS_SAML,
+    FakeIdp,
+    Scenario,
+    make_identity,
+    read_redirect,
+)
 
 ORIGIN = "https://noust.acme.test"
-ISSUER = "https://idp.acme.test/metadata"
-SSO = "https://idp.acme.test/sso"
 IP = "203.0.113.5"
 ENTITY = f"{ORIGIN}{METADATA_PATH}/corp"
 ACS = f"{ORIGIN}{ACS_PATH}"
@@ -113,30 +112,6 @@ def refused(saml: SamlManager, idp: FakeIdp, **answer: Any) -> OidcError:
     with pytest.raises(OidcError) as caught:
         run(saml, idp, **answer)
     return caught.value
-
-
-METADATA = """<?xml version="1.0"?>
-<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
-    xmlns:ds="http://www.w3.org/2000/09/xmldsig#" entityID="https://idp.acme.test/metadata">
-  <md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
-    <md:KeyDescriptor use="signing"><ds:KeyInfo><ds:X509Data>
-      <ds:X509Certificate>{cert}</ds:X509Certificate>
-    </ds:X509Data></ds:KeyInfo></md:KeyDescriptor>
-    <md:KeyDescriptor use="encryption"><ds:KeyInfo><ds:X509Data>
-      <ds:X509Certificate>ZW5jcnlwdGlvbg==</ds:X509Certificate>
-    </ds:X509Data></ds:KeyInfo></md:KeyDescriptor>
-    <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
-        Location="https://idp.acme.test/post"/>
-    <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
-        Location="https://idp.acme.test/sso"/>
-  </md:IDPSSODescriptor>
-</md:EntityDescriptor>"""
-
-
-def metadata_xml() -> str:
-    _key, pem = make_identity()
-    body = "".join(pem.strip().splitlines()[1:-1])
-    return METADATA.format(cert=body)
 
 
 class TestInstants:

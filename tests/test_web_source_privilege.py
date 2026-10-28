@@ -27,7 +27,7 @@ from fastapi.testclient import TestClient
 from noust.core.store import App, NoustStore
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig, required_scope
 from noust.web.server import create_app, get_token_manager
-from tests.test_web_auth import bearer, issue_token
+from tests.support.web_auth import bearer, issue_token
 
 LOCAL_SOURCES = ("/srv/app", "./app", "~/app", "/")
 

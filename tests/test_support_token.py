@@ -21,7 +21,7 @@ from click.testing import CliRunner
 from noust.cli.app import cli as root_cli
 from noust.web.auth import STATE_DIR_ENV, actor_label
 from noust.web.server import get_token_manager
-from tests.test_web_accounts import (  # noqa: F401 - the fixtures of the account tests
+from tests.support.web_accounts import (  # noqa: F401 - the fixtures of the account tests
     accounts,
     build,
     cheap_hashes,

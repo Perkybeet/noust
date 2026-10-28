@@ -29,12 +29,7 @@ from noust.managers.stream_exposure import StreamExposures
 from noust.web.api import streams as streams_api
 from noust.web.api.deps import install_error_handlers
 from noust.web.auth import require_auth
-from tests.test_stream_exposure import (
-    DEBIAN_V,
-    NO_STREAM_V,
-    FakeFirewall,
-    dump,
-)
+from tests.support.stream_exposure import DEBIAN_V, NO_STREAM_V, FakeFirewall, dump
 
 pytestmark = pytest.mark.real_listeners
 

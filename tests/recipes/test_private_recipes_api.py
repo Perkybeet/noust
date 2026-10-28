@@ -17,8 +17,8 @@ from noust.recipes import get_recipe
 from noust.web.api import recipes as recipes_api
 from noust.web.api.deps import require_elevated
 from tests.recipes.factory import compose_recipe
-from tests.recipes.test_api import small_app
-from tests.recipes.test_operator_recipes import LOGO
+from tests.support.recipes_api import small_app
+from tests.support.recipes_operator_recipes import LOGO
 
 
 @pytest.fixture

@@ -17,11 +17,7 @@ from noust.managers.backup_destinations import (
     encrypt_new_destinations,
     resolve_encryption,
 )
-from tests.test_cli_backup_destinations import (  # noqa: F401
-    _rclone,
-    _reset_store,
-    invoke,
-)
+from tests.support.cli_backup_destinations import _rclone, _reset_store, invoke  # noqa: F401
 
 ADD = [
     "backup",

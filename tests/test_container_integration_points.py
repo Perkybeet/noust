@@ -31,7 +31,7 @@ from noust.deployers.helpers.sandbox import sandbox_warning
 from noust.deployers.unit_environment import _unit_of
 from noust.managers import app_identity
 from noust.managers.database.service import OWN_DATABASE_TYPES
-from tests.test_sampling_plan import (  # noqa: F401 - fixtures used by name
+from tests.support.sampling_plan import (  # noqa: F401 - fixtures used by name
     CONTAINER,
     FakeManager,
     app,

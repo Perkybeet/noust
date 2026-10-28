@@ -30,7 +30,7 @@ from noust.deployers.helpers.site import certificate_names
 from noust.web.api import domains as domains_api
 from noust.web.api.deps import install_error_handlers
 from noust.web.auth import require_auth
-from tests.test_domains import (
+from tests.support.domains import (
     NGINX_REJECTS,
     Machine,
     certs,

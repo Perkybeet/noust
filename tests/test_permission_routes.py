@@ -20,9 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from noust.core import totp
 from noust.core.accounts import ROLES, AuthPolicy, passwords
 from noust.core.store import NoustStore
 from noust.web.api.openapi import api_routes
@@ -40,9 +38,8 @@ from noust.web.permissions.roles import (
     VIEWER,
     permissions_for_role,
 )
-from noust.web.server import create_app, get_token_manager
-
-PASSWORD = "correct horse battery staple"
+from noust.web.server import create_app
+from tests.support.permission_routes import signed_in
 
 #: Routes that answer without a credential, on purpose, and nothing else.
 EXPECTED_PUBLIC = {
@@ -309,31 +306,6 @@ class TestRefinements:
         assert match_path("GET", "/api/apps/types") == ("/api/apps/types", Permission.APPS_READ)
 
 
-def signed_in(app: Any, role: str) -> tuple[TestClient, str]:
-    """
-    Create an account of a role and sign it in.
-
-    Args:
-        app: The application.
-        role: The role.
-
-    Returns:
-        A client holding the session, and its CSRF token.
-    """
-    manager = get_token_manager().accounts
-    username = f"{role}-user"
-    account = manager.create(username, role, password=PASSWORD)
-    secret = manager.begin_totp(account.id)
-    codes = manager.confirm_totp(account.id, totp.totp_now(secret))
-    assert codes is not None
-    client = TestClient(app, client=("testclient", 50000))
-    response = client.post(
-        "/api/auth/login", json={"username": username, "password": PASSWORD, "totp_code": codes[0]}
-    )
-    assert response.status_code == 200, response.text
-    return client, response.json()["csrf_token"]
-
-
 def concrete(path: str) -> str:
     """
     Fill a template's parameters with a value any of them accepts.
@@ -409,7 +381,7 @@ class TestWebSocketsDeclareAPermission:
 
     def test_every_websocket_route_declares_a_permission(self, app: Any) -> None:
         from noust.web.permissions.websockets import websocket_permission_for_template
-        from tests.test_web_auth import iter_routes
+        from tests.support.web_auth import iter_routes
 
         templates = [
             path.replace(":path}", "}")

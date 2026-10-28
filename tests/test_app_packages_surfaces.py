@@ -26,7 +26,7 @@ from noust.managers.app_packages import AppPackages
 from noust.web.permissions import Permission
 from noust.web.permissions.roles import ROLE_PERMISSIONS
 from noust.web.permissions.routes_app_packages import ROUTES
-from tests.test_app_packages import APT, DOMAIN, Config, HostRunner
+from tests.support.app_packages import APT, DOMAIN, Config, HostRunner
 
 OTHER = "api.example.com"
 

@@ -32,7 +32,7 @@ from noust.deployers.helpers import build_cache
 from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.build_config import BuildConfig, refuse_unsupported
 from noust.deployers.helpers.project_file import load_project_file, parse_build_document
-from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
+from tests.support.release_pipeline import (  # noqa: F401 - fixtures used by name
     DOMAIN,
     active_id,
     deploy_new,

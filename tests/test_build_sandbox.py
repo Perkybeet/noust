@@ -34,7 +34,11 @@ from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers import sandbox_trial
 from noust.deployers.helpers.sandbox import BuildPhase, SandboxState
 from noust.deployers.nodejs import NodeJSDeployer
-from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
+from tests.support.build_sandbox import (  # noqa: F401
+    as_root,
+    forget_regime,
+)
+from tests.support.release_pipeline import (  # noqa: F401 - fixtures used by name
     DOMAIN,
     deploy_new,
     git,
@@ -45,28 +49,6 @@ from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
     update,
     wire,
 )
-
-
-@pytest.fixture
-def as_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
-    """
-    Pretend to be root, with a self-test that passes and caches in the test's directory.
-
-    Returns:
-        Where the cache root and the protected configuration directory are.
-    """
-    cache_root = tmp_path / "cache" / "build"
-    config = tmp_path / "etc-noust"
-    config.mkdir()
-    monkeypatch.setattr(build_sandbox, "running_as_root", lambda: True)
-    monkeypatch.setattr(paths, "BUILD_CACHE_DIR", cache_root)
-    monkeypatch.setattr(paths, "config_dir", lambda: config)
-    monkeypatch.setattr(
-        build_sandbox,
-        "self_test",
-        lambda runner, fs=None: build_sandbox.SelfTest(passed=True, checks=(("ok", True, ""),)),
-    )
-    return SimpleNamespace(cache_root=cache_root, config=config)
 
 
 def sandboxed(runner: FakeRunner, *argv: str) -> list[SandboxSpec]:
@@ -198,12 +180,6 @@ def test_the_sandbox_failing_its_self_test_stops_the_build_instead_of_running_as
 # ---------------------------------------------------------------------------
 # Applications from before 3.1, and an explicit root build
 # ---------------------------------------------------------------------------
-
-
-def forget_regime(store: NoustStore) -> None:
-    """Make the application look like one from before 3.1: no row."""
-    with store._transaction() as cursor:
-        cursor.execute("DELETE FROM build_sandbox")
 
 
 def test_an_application_from_before_keeps_building_as_root_with_a_warning_and_its_env(

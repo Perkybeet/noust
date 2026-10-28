@@ -27,15 +27,7 @@ from noust.deployers.importers import (
 )
 from noust.deployers.importers import railway as railway_module
 from noust.deployers.importers.base import Proposal, declared_env, health_timeout
-
-
-def tree(root: Path, files: dict[str, str]) -> Path:
-    """Write a fake repository."""
-    for name, content in files.items():
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
-    return root
+from tests.support.importers import joined, tree
 
 
 def env_of(proposal: Proposal) -> dict[str, dict[str, object]]:
@@ -49,11 +41,6 @@ def env_of(proposal: Proposal) -> dict[str, dict[str, object]]:
         }
         for v in proposal.env
     }
-
-
-def joined(proposal: Proposal) -> str:
-    """Every warning in one string, to search."""
-    return "\n".join(proposal.warnings)
 
 
 # Registry ---------------------------------------------------------------------

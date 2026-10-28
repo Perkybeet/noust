@@ -32,8 +32,8 @@ from noust.web.permissions.registry import route_map
 from noust.web.server import create_app, get_token_manager
 from tests.support.fleet_views_support import Central, build_central
 from tests.support.placement_support import DOMAIN, SECRET_VALUE, Shop, Upstream
-from tests.test_web_auth import make_config
-from tests.test_web_central import elevate, sign_in
+from tests.support.web_auth import make_config
+from tests.support.web_central import elevate, sign_in
 
 NAMES = ("web-1", "web-2", "web-3")
 

@@ -38,7 +38,7 @@ from noust.core.store import NoustStore
 from noust.deployers import lifecycle
 from noust.deployers.helpers.process_declaration import declare_restored_release
 from noust.managers.rollback_manager import RollbackManager
-from tests.test_declared_processes import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.declared_processes import (  # noqa: F401  (pytest resolves fixtures by name)
     BASE,
     BROKEN_WORKER,
     CLOCK,
@@ -51,7 +51,7 @@ from tests.test_declared_processes import (  # noqa: F401  (pytest resolves fixt
     project,
     world,
 )
-from tests.test_release_pipeline import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.release_pipeline import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     active_id,
     deploy_new,

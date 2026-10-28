@@ -28,7 +28,7 @@ from noust.core.store import App, NoustStore
 from noust.deployers import bluegreen, lifecycle
 from noust.deployers.bluegreen import BlueGreen, adopt_for_new_app
 from noust.managers.service_manager import ResourceLimits
-from tests.test_bluegreen import (
+from tests.support.bluegreen import (
     BASE,
     BROKEN,
     DOMAIN,

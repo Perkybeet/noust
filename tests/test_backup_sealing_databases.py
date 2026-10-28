@@ -24,7 +24,7 @@ from noust.managers.backup_destination_files import file_sha256
 from noust.managers.backup_sealing import SealExisting
 from noust.managers.database.backups import DatabaseBackups, DumpView
 from tests.support.database_backup_support import PG_ARCHIVE
-from tests.test_database_sealed_backups import (  # noqa: F401 - fixtures
+from tests.support.database_sealed_backups import (  # noqa: F401 - fixtures
     OpensslRunner,
     _reset_store,
     backups,

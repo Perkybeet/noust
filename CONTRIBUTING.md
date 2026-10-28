@@ -221,6 +221,10 @@ terraform-provider-noust/   the Terraform and OpenTofu provider (Go, Plugin Fram
                             (docs/terraform-registry.md, scripts/prepare_terraform_registry.py)
 scripts/reproducible_build.py   the wheel and the sdist of a commit, byte for byte
                             (docs/reproducible-builds.md); CI and the release workflow build with it
+tests/support/              what the tests share and is not a test: simulated machines, factories, builders
+                            and the helpers of test modules (a test module is never imported by another,
+                            and nothing but `test_*.py`, `conftest.py` and `__init__.py` sits loose in
+                            `tests/`; `tests/test_tests_layout.py` holds both)
 tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest. The 4.0
                             features' scenarios (how an application arrives: Procfile, scheduled updates,
                             push, uploads, previews; and what protects its data: S3 backups, database

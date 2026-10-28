@@ -22,7 +22,7 @@ from noust.managers.database import instance_compose
 from noust.managers.database.instance_compose import TLS_MOUNT, tls_supported
 from noust.managers.database.instance_records import stub_instance
 from noust.managers.database.redis import RedisManager
-from tests.test_database_instance_compose import record
+from tests.support.database_instance_compose import record
 
 FAMILY = ("redis", "valkey", "keydb")
 

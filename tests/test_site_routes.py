@@ -33,7 +33,7 @@ from noust.managers.site_policy import (
 )
 from noust.managers.site_routes import SiteRoute, normal_path, regex_of, route_from, routes_from
 from noust.managers.webserver import APACHE_BACKEND
-from tests.test_domains import (  # noqa: F401 - fixtures of the domains harness
+from tests.support.domains import (  # noqa: F401 - fixtures of the domains harness
     Machine,
     certs,
     machine,

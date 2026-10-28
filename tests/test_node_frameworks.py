@@ -22,6 +22,7 @@ from typing import Any
 
 import pytest
 
+from noust.core.appdir.layout import RELEASES
 from noust.core.exceptions import DeploymentError
 from noust.core.runner import FakeRunner
 from noust.core.store import NoustStore
@@ -34,12 +35,11 @@ from noust.deployers.registry import DeployerRegistry, detect_app_type
 from noust.deployers.remix import RemixDeployer
 from noust.deployers.sveltekit import SvelteKitDeployer
 from noust.deployers.vite import ViteDeployer
-from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
+from tests.support.release_pipeline import (  # noqa: F401 - fixtures used by name
     DOMAIN,
     GIT_URL,
     LOCKFILE,
     PORT,
-    RELEASES,
     active_id,
     deploy_new,
     git,

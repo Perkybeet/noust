@@ -25,7 +25,7 @@ from noust.core.runner import FakeRunner
 from noust.managers.diagnose import Check, Diagnosis
 from noust.web.api import diagnose as diagnose_api
 from noust.web.api.auth import get_current_session
-from tests.test_web_auth import build_client
+from tests.support.web_auth import build_client
 
 
 @pytest.fixture

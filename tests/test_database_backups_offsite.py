@@ -49,7 +49,7 @@ from tests.support.database_backup_support import (
     make_engine,
     make_service,
 )
-from tests.test_database_backups import FakeScheduler, add_destination
+from tests.support.database_backups import FakeScheduler, add_destination
 
 FOLDER = Path("noust-backups") / "databases" / "postgresql" / "shop"
 

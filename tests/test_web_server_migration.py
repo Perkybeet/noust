@@ -29,7 +29,7 @@ from noust.core.store import NoustStore
 from noust.managers.server_migration import ServerMigration
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.test_server_migration import HOST, Recorder, add_app, checker
+from tests.support.server_migration import HOST, Recorder, add_app, checker
 
 PASSPHRASE = "correct horse battery staple"
 

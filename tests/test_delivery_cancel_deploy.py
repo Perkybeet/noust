@@ -34,7 +34,7 @@ from noust.core.exceptions import CancelRefused, DeploymentCancelled
 from noust.core.runner import CommandCancelled
 from noust.core.store import NoustStore
 from noust.deployers.nodejs import NodeJSDeployer
-from tests.test_release_pipeline import (
+from tests.support.release_pipeline import (
     DOMAIN,
     GIT_URL,
     GOOD_SERVER,

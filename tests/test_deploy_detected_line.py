@@ -20,15 +20,15 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from noust.core.appdir.layout import RELEASES
 from noust.core.store import NoustStore
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.recorder import CapturingLogger
 from noust.deployers.static import StaticDeployer
-from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
+from tests.support.release_pipeline import (  # noqa: F401 - fixtures used by name
     DOMAIN,
     GIT_URL,
     PORT,
-    RELEASES,
     git,
     machine,
     node_tree,

@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 
 from noust.managers.database.base import BaseDatabaseManager
 from tests.support.database_backup_support import PG_ARCHIVE
-from tests.test_web_database_backups import (  # noqa: F401
+from tests.support.web_database_backups import (  # noqa: F401
     _reset_store,
     audited,
     engine,
@@ -28,7 +28,7 @@ from tests.test_web_database_backups import (  # noqa: F401
     systemd_dir,
     take_dump,
 )
-from tests.test_web_databases_api import (  # noqa: F401
+from tests.support.web_databases_api import (  # noqa: F401
     _capture_queued_jobs,
     anonymous,
     app,

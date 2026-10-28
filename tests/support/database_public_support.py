@@ -23,7 +23,7 @@ from typing import Any
 from noust.core.exceptions import DatabaseUserError
 from noust.core.runner import CommandResult, FakeRunner
 from noust.managers.database.base import BaseDatabaseManager
-from tests.test_web_databases_api import make_engine
+from tests.support.web_databases_api import make_engine
 
 #: What ``ufw status verbose`` prints.
 UFW_ACTIVE = """Status: active

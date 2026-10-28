@@ -24,7 +24,7 @@ from click.testing import CliRunner
 from noust.cli.app import Context, cli
 from noust.cli.commands.timer_options import describe_timer_options
 from noust.core.runner import FakeRunner
-from tests.test_backup_safety_22 import DOMAIN, _reset_store, systemd_dir  # noqa: F401
+from tests.support.backup_safety_22 import DOMAIN, _reset_store, systemd_dir  # noqa: F401
 
 UNIT = "noust-backup-shop-example-com"
 

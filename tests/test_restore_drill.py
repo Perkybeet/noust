@@ -34,7 +34,7 @@ from noust.managers.restore_drill import (
     drill_days,
     drill_due,
 )
-from tests.test_backup_integrity import (  # noqa: F401
+from tests.support.backup_integrity import (  # noqa: F401
     FakeApp,
     FakeDatabase,
     _use_store,

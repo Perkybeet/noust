@@ -41,6 +41,7 @@ from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.redis import RedisManager
 from noust.managers.server.host import HostPaths, OsRelease
+from tests.support.database_flavours import colons
 
 
 def release(distro: str, codename: str, pretty: str | None = None) -> OsRelease:
@@ -62,28 +63,6 @@ NOBLE = release("ubuntu", "noble", "Ubuntu 24.04.3 LTS")
 BOOKWORM = release("debian", "bookworm", "Debian GNU/Linux 12 (bookworm)")
 TRIXIE = release("debian", "trixie", "Debian GNU/Linux 13 (trixie)")
 JAMMY = release("ubuntu", "jammy", "Ubuntu 22.04.5 LTS")
-
-
-def colons(*fingerprints: str) -> str:
-    """
-    Render what ``gpg --show-keys --with-colons`` prints for some keys.
-
-    Args:
-        *fingerprints: One primary fingerprint per key.
-
-    Returns:
-        The output, with a subkey after each primary key.
-    """
-    lines: list[str] = []
-    for fingerprint in fingerprints:
-        lines += [
-            f"pub:-:4096:1:{fingerprint[-16:]}:1318537154:::-:::scSC::::::23::0:",
-            f"fpr:::::::::{fingerprint}:",
-            "uid:-::::1483540543::690A::Signing Key::::::::::0:",
-            "sub:-:4096:1:AAAABBBBCCCCDDDD:1318537154::::::e::::::23:",
-            "fpr:::::::::0000000000000000000000000000AAAABBBBCCCCDDDD:",
-        ]
-    return "\n".join(lines) + "\n"
 
 
 def secret(fingerprint: str) -> str:

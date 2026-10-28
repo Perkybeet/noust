@@ -30,7 +30,7 @@ from noust.core.exceptions import ConfigError, EmailError, EmailRefused
 from noust.core.notifications.model import Notification, State
 from noust.core.notifier import Notifier, is_transient
 from noust.monitor.email_notifier import EmailNotifier, SMTPConfig
-from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.notifier import config  # noqa: F401  (pytest resolves fixtures by name)
 
 # ruff: noqa: F811
 

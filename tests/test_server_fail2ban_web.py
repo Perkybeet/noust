@@ -390,7 +390,7 @@ def test_stopping_what_was_never_started_changes_nothing(runner: FakeSshd, host:
 
 # -- the API ------------------------------------------------------------------------------
 
-from tests.test_web_server_security_api import (  # noqa: E402, F401 - the API harness
+from tests.support.web_server_security_api import (  # noqa: E402, F401 - the API harness
     PREFIX,
     client,
     fresh,

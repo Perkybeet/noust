@@ -28,7 +28,7 @@ from noust.deployers import docker_compose
 from noust.deployers.docker_compose import DockerComposeDeployer
 from noust.deployers.helpers import compose_variables
 from noust.managers.nginx_manager import NginxManager
-from tests.test_docker_compose_sites import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.docker_compose_sites import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     certs,
     deployed_row,

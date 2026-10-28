@@ -33,8 +33,7 @@ from noust.web import fleet_jobs
 from noust.web.auth import STATE_DIR_ENV
 from noust.web.fleet_jobs import plan
 from noust.web.fleet_ship_actions import builder_declined, update_request
-from tests.support.fleet_views_support import Central
-from tests.test_fleet_ship import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.fleet_ship import (  # noqa: F401  (pytest resolves fixtures by name)
     ADMIN,
     DOMAIN,
     Builder,
@@ -45,6 +44,7 @@ from tests.test_fleet_ship import (  # noqa: F401  (pytest resolves fixtures by 
     states,
     targets,
 )
+from tests.support.fleet_views_support import Central
 
 MEMBERS = ["web-1", "web-2"]
 

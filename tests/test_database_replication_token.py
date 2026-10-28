@@ -33,39 +33,7 @@ from noust.validators.replica import (
     role_for,
     slot_for,
 )
-
-PASSWORD = "aB3" * 12
-CA = (
-    "-----BEGIN CERTIFICATE-----\n"
-    + "MIIBszCCAVmgAwIBAgIUQ2xhdWRlVGVzdENlcnRpZmljYXRlMDAwMDEwCgYIKoZI\n" * 2
-    + "-----END CERTIFICATE-----\n"
-)
-
-
-def token(**overrides: Any) -> ReplicaToken:
-    """
-    Build a code with sensible values.
-
-    Args:
-        **overrides: Fields to change.
-
-    Returns:
-        The code.
-    """
-    fields: dict[str, Any] = {
-        "name": "reports",
-        "host": "db.example.com",
-        "port": 5432,
-        "role": "noust_repl_reports",
-        "password": PASSWORD,
-        "slot": "noust_reports",
-        "major": 16,
-        "size": 1024,
-        "requires": dict.fromkeys(REQUIRED_SETTINGS, 8),
-        "ca": CA,
-    }
-    fields.update(overrides)
-    return ReplicaToken(**fields)
+from tests.support.database_replication_token import CA, PASSWORD, token
 
 
 def damaged(**changes: Any) -> str:

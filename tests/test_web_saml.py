@@ -31,7 +31,7 @@ from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_brute_force, get_token_manager
 from tests.support.mfa_support import require_second_factor
 from tests.support.saml_support import FakeIdp, make_identity
-from tests.test_web_oidc import (  # noqa: F401 - the fixtures and helpers of the sign-in tests
+from tests.support.web_oidc import (  # noqa: F401 - the fixtures and helpers of the sign-in tests
     BASE,
     PASSWORD,
     accounts,
@@ -482,7 +482,7 @@ class TestAdministration:
         assert "certificates" in recorded[-1]["detail"]
 
     def test_the_providers_metadata_fills_what_the_provider_needs(self, app: Any) -> None:
-        from tests.test_saml import metadata_xml
+        from tests.support.saml import metadata_xml
 
         client = self.sign_in_as_security(app)
         self.elevate(client)

@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.test_web_backup_schedules import app, client, elevate, systemd_dir  # noqa: F401
+from tests.support.web_backup_schedules import app, client, elevate, systemd_dir  # noqa: F401
 
 UNIT = "noust-backup-shop-example-com"
 

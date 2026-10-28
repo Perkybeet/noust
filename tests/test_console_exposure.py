@@ -49,48 +49,9 @@ from noust.managers.console_exposure import (
     second_factor_blockers,
 )
 from noust.managers.webserver import NGINX_BACKEND, WebServerManager
+from tests.support.console_exposure import DOMAIN, FakeCerts
 
-DOMAIN = "console.example.com"
 PORT = 8080
-
-
-class FakeCerts:
-    """A certificate manager that issues on paper."""
-
-    def __init__(self, *, already: bool = False, fail: bool = False) -> None:
-        self.installed = True
-        self.fail = fail
-        self.obtained: list[str] = []
-        self.existing = {DOMAIN} if already else set()
-        self.deleted: list[str] = []
-
-    def is_installed(self) -> bool:
-        return self.installed
-
-    def cert_exists(self, domain: str) -> bool:
-        return domain in self.existing or domain in self.obtained
-
-    def test_cert(self, domain: str) -> dict[str, Any]:
-        return {"valid": True}
-
-    def cert_covers_domains(self, domain: str, names: list[str]) -> bool:
-        return True
-
-    def obtain(self, domain: str, **kwargs: Any) -> bool:
-        if self.fail:
-            raise CertificateError("Certificate issuance failed", details="DNS does not point here")
-        self.obtained.append(domain)
-        return True
-
-    def get_cert_path(self, domain: str) -> dict[str, Path]:
-        live = Path("/etc/letsencrypt/live") / domain
-        return {"fullchain": live / "fullchain.pem", "privkey": live / "privkey.pem"}
-
-    def delete(self, domain: str) -> bool:
-        self.deleted.append(domain)
-        self.obtained = [d for d in self.obtained if d != domain]
-        self.existing.discard(domain)
-        return True
 
 
 class FakeConsole:

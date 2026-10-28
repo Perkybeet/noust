@@ -23,7 +23,7 @@ import pytest
 from noust.core.exceptions import DatabaseBackupError
 from noust.core.runner import FakeRunner
 from noust.managers.database.postgres import PostgresManager
-from tests.test_database_managers import PSQL_PREFIX, postgres  # noqa: F401
+from tests.support.database_managers import PSQL_PREFIX, postgres  # noqa: F401
 
 GLOBALS = (
     "SET client_encoding = 'UTF8';\n"

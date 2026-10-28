@@ -24,7 +24,7 @@ from noust.managers.database.host_limits import LimitsOutcome, LimitsStatus, Lim
 from noust.managers.database.service import DatabaseService
 from noust.web.permissions import Permission
 from noust.web.permissions.routes_databases import ROUTES
-from tests.test_web_databases_api import (  # noqa: F401 - fixtures
+from tests.support.web_databases_api import (  # noqa: F401 - fixtures
     anonymous,
     app,
     client,

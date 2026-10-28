@@ -23,7 +23,7 @@ from noust.core.dns_store import DnsAccount, DnsStore
 from noust.core.exceptions import CertificateError, ValidationError
 from noust.core.runner import FakeRunner
 from noust.deployers import certificates, domains
-from tests.test_domains import (  # noqa: F401 - the harness
+from tests.support.domains import (  # noqa: F401 - the harness
     Machine,
     certs,
     machine,

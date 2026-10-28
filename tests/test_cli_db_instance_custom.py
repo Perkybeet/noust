@@ -21,8 +21,8 @@ from click.testing import CliRunner
 from noust.cli.app import cli as root_cli
 from noust.core.db_instance_store import DbInstanceStore
 from noust.core.runner import SubprocessRunner
+from tests.support.cli_db_instances import cli_world, log, world  # noqa: F401
 from tests.support.database_instance_support import World
-from tests.test_cli_db_instances import cli_world, log, world  # noqa: F401
 
 # The fixtures above are the instance commands' own, imported so there is one definition of "a
 # server the CLI is pointed at".

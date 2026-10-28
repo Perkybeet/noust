@@ -36,7 +36,7 @@ from noust.core.store import NoustStore
 from noust.deployers.helpers.php_fpm import pool_env_lines, pool_tmp_dir, render_pool
 from noust.deployers.php_fpm import PHP_SETTINGS_FILE, PhpSettings
 from noust.managers.nginx_manager import NGINX_BACKEND, NginxManager
-from tests.test_php_fpm import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.php_fpm import (  # noqa: F401  (pytest resolves fixtures by name)
     APP,
     DOMAIN,
     WORDPRESS,
@@ -46,8 +46,8 @@ from tests.test_php_fpm import (  # noqa: F401  (pytest resolves fixtures by nam
     spec,
     store,
 )
-from tests.test_release_pipeline import write_tree
-from tests.test_webserver_managers import FakeStore
+from tests.support.release_pipeline import write_tree
+from tests.support.webserver_managers import FakeStore
 
 # ---------------------------------------------------------------------------
 # env[] values FPM would expand

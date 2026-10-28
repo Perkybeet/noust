@@ -16,7 +16,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from noust.core.config import Config
-from tests.test_web_config_api import client, config_path, stored_value  # noqa: F401
+from tests.support.web_config_api import client, config_path, stored_value  # noqa: F401
 
 # ruff: noqa: F811
 

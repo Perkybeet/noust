@@ -24,8 +24,8 @@ import pytest
 
 from noust.web import events as events_module
 from noust.web.server import SecurityMiddleware, get_security_config, get_token_manager
-from tests.test_web_auth import build_client, issue_token, login
-from tests.test_web_stream_guards import ConnectedRequest
+from tests.support.web_auth import build_client, issue_token, login
+from tests.support.web_stream_guards import ConnectedRequest
 
 
 class Harness:

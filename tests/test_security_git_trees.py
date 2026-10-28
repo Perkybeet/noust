@@ -163,7 +163,7 @@ def test_the_commit_subject_of_a_foreign_tree_is_read_as_its_owner(
 ) -> None:
     """git log runs gpg.program when the tree's config says log.showSignature."""
     from noust.deployers.nodejs import NodeJSDeployer
-    from tests.test_deployers import build_deployer
+    from tests.support.deployers import build_deployer
 
     deployer = build_deployer(NodeJSDeployer, tmp_path)
     deployer.app_path.mkdir(parents=True, exist_ok=True)

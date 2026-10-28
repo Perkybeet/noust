@@ -34,7 +34,7 @@ from noust.web.jobs import JobStatus, JobType, get_job_manager
 from noust.web.permissions import Permission
 from noust.web.permissions.registry import permission_for_route
 from noust.web.server import create_app, get_token_manager
-from tests.test_web_auth import make_config
+from tests.support.web_auth import make_config
 
 PASSWORD = "correct-horse-battery-1234"
 FINGERPRINT = "SHA256:" + "k" * 43

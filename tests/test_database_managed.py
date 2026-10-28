@@ -40,7 +40,7 @@ from noust.core.exceptions import (
 from noust.managers.database import instance_layout as layout
 from noust.managers.database.instance_compose import render_compose
 from tests.support.database_instance_support import World, build_world, close_world
-from tests.test_database_instances import container
+from tests.support.database_instances import container
 
 pytestmark = pytest.mark.real_listeners
 

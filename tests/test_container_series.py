@@ -23,7 +23,7 @@ from noust.monitor.series import (
     container_series,
     parse_container_series,
 )
-from tests.test_app_traffic_io import Rig, values
+from tests.support.app_traffic_io import Rig, values
 
 DOMAIN = "stack.example.com"
 

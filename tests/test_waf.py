@@ -41,7 +41,7 @@ from noust.managers.waf import (
     parse_events,
 )
 from tests.conftest import OwnershipChange
-from tests.test_domains import (  # noqa: F401 - fixtures of the domains harness
+from tests.support.domains import (  # noqa: F401 - fixtures of the domains harness
     Machine,
     certs,
     machine,

@@ -39,8 +39,8 @@ from click.testing import CliRunner
 from noust.cli.app import Context, NoustCommand
 from noust.cli.app import cli as root_cli
 from noust.cli.commands import webapp
-from tests.support.cli_tree_support import walk
-from tests.test_cli_webapp import ServiceSpy, StoreSpy, console, make_app, services, store
+from tests.support.cli_json import LEAF_COMMANDS
+from tests.support.cli_webapp import ServiceSpy, StoreSpy, console, make_app, services, store
 
 # Re-exported so pytest discovers them as fixtures in this module too.
 __all__ = ["console", "services", "store"]
@@ -261,27 +261,6 @@ def test_logs_json_after_the_domain_argument(
 # ---------------------------------------------------------------------------
 # Every leaf command, not only the ones exercised above
 # ---------------------------------------------------------------------------
-
-
-def _leaf_commands() -> list[tuple[str, click.Command]]:
-    """
-    Walk the real command tree and collect every leaf (non-group) command.
-
-    Every module is imported through :class:`~noust.cli.app.LazyGroup`, exactly
-    as a real invocation would, so this sees the tree as it is actually built,
-    aliases resolved to one canonical entry each.
-
-    Returns:
-        ``(space-separated path, command)`` pairs, in a stable order.
-    """
-    return [
-        (" ".join(path), command)
-        for path, command in walk(root_cli)
-        if not isinstance(command, click.Group)
-    ]
-
-
-LEAF_COMMANDS = _leaf_commands()
 
 
 def _declares_json_option(command: click.Command) -> bool:

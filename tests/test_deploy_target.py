@@ -37,7 +37,7 @@ from noust.deployers.helpers.target import claim_deploy_target
 from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.managers.source_manager import SourceManager
-from tests.test_release_pipeline import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.release_pipeline import (  # noqa: F401  (pytest resolves fixtures by name)
     BROKEN_SERVER,
     DOMAIN,
     GIT_URL,

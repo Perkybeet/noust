@@ -29,7 +29,7 @@ from noust.web.api import mounts as mounts_api
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers, require_elevated
 from noust.web.permissions import Permission
-from tests.test_app_mounts import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.app_mounts import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     OwnerFs,
     add_app,

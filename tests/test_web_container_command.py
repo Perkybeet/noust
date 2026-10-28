@@ -14,7 +14,7 @@ of words each, an empty list clearing the image's own, ``clear`` giving it back.
 from __future__ import annotations
 
 from noust.core.container_store import ContainerSettings, ContainerStore
-from tests.test_web_app_container import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.web_app_container import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     app,
     client,

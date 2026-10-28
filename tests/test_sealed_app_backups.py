@@ -27,7 +27,7 @@ from noust.core.exceptions import BackupError
 from noust.core.runner import FakeRunner, SubprocessRunner
 from noust.core.secrets import SecretStore
 from noust.managers.backup_manager import BackupManager
-from tests.test_backup_restore_safety import (  # noqa: F401 - fixtures
+from tests.support.backup_restore_safety import (  # noqa: F401 - fixtures
     APP_NAME,
     DOMAIN,
     FakeApp,

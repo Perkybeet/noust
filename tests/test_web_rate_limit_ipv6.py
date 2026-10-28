@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient
 
 from noust.web.auth import BruteForceProtection, RateLimiter, limiter_key
 from noust.web.server import create_app
-from tests.test_web_auth import make_config
+from tests.support.web_auth import make_config
 
 
 class TestTheKey:

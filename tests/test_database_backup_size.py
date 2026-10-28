@@ -17,9 +17,9 @@ import pytest
 from noust.core.exceptions import ValidationError
 from noust.managers.database.backups import DatabaseBackups
 from noust.managers.retention import select_expired
-from tests.test_database_backups import (  # noqa: F401
+from tests.support.database_backup_support import RcloneRunner
+from tests.support.database_backups import (  # noqa: F401
     FakeScheduler,
-    RcloneRunner,
     _reset_store,
     add_destination,
     backups,

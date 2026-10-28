@@ -34,12 +34,12 @@ from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler, run
 from noust.managers.self_backup import SelfBackupManager
 from noust.managers.volume_backups import VolumeBackupManager
 from tests.support.database_backup_support import RcloneRunner
-from tests.test_notifier import config  # noqa: F401
-from tests.test_self_backup import PASSPHRASE, FakeTimers, old, server  # noqa: F401
-from tests.test_self_backup import Runner as SelfRunner
-from tests.test_self_backup import audited as self_audited  # noqa: F401
-from tests.test_self_backup import runner as self_runner  # noqa: F401
-from tests.test_volume_backups import (  # noqa: F401
+from tests.support.notifier import config  # noqa: F401
+from tests.support.self_backup import PASSPHRASE, FakeTimers, old, server  # noqa: F401
+from tests.support.self_backup import Runner as SelfRunner
+from tests.support.self_backup import audited as self_audited  # noqa: F401
+from tests.support.self_backup import runner as self_runner  # noqa: F401
+from tests.support.volume_backups import (  # noqa: F401
     DOMAIN,
     _reset_store,
     app,

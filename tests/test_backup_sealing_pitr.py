@@ -28,7 +28,7 @@ from noust.core.secrets import SecretStore
 from noust.managers.backup_destination_files import file_sha256
 from noust.managers.backup_sealing import SealExisting
 from noust.managers.database.pitr import PitrManager
-from tests.test_database_pitr import (  # noqa: F401 - fixtures
+from tests.support.database_pitr import (  # noqa: F401 - fixtures
     SYSTEM_ID,
     Clock,
     SimulatedPostgres,

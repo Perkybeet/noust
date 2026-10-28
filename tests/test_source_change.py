@@ -26,7 +26,7 @@ from noust.core.runner import FakeRunner, set_runner
 from noust.core.store import App, NoustStore
 from noust.deployers import source_change
 from noust.managers.source_manager import _GIT_SAFE_CONFIG
-from tests.test_applock import Holder
+from tests.support.applock import Holder
 
 DOMAIN = "shop.example.com"
 OLD = "https://github.com/example/shop.git"

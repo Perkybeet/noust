@@ -28,7 +28,7 @@ from noust.core.logger import Logger
 from noust.core.store import App, NoustStore
 from noust.deployers import bluegreen
 from noust.deployers.bluegreen import BlueGreen, adopt_for_new_app
-from tests.test_bluegreen import (  # noqa: F401  (the fixtures are imported by name)
+from tests.support.bluegreen import (  # noqa: F401  (the fixtures are imported by name)
     BASE,
     BROKEN,
     DOMAIN,

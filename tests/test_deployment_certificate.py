@@ -30,16 +30,16 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.appdir.layout import RELEASES
 from noust.core.exceptions import CertificateError, ValidationError
 from noust.core.store import DeploymentStatus, NoustStore
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.web.api import deployments as deployments_api
 from noust.web.api.auth import get_current_session
-from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
+from tests.support.release_pipeline import (  # noqa: F401 - fixtures used by name
     DOMAIN,
     GIT_URL,
     PORT,
-    RELEASES,
     git,
     machine,
     node_tree,

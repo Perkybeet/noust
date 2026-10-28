@@ -24,7 +24,7 @@ import pytest
 from noust.core.exceptions import DatabaseBackupError
 from noust.managers.backup_manager import BackupManager
 from noust.managers.database.registry import DatabaseRegistry
-from tests.test_backup_integrity import (  # noqa: F401
+from tests.support.backup_integrity import (  # noqa: F401
     FakeApp,
     FakeDatabase,
     FakeDatabaseManager,

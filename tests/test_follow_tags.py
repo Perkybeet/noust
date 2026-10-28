@@ -322,9 +322,9 @@ from types import SimpleNamespace  # noqa: E402
 from noust.core.exceptions import DeploymentError, ValidationError  # noqa: E402
 from noust.core.store import NoustStore  # noqa: E402
 from noust.deployers import lifecycle  # noqa: E402
-from tests.test_lifecycle import DOMAIN as INPLACE_DOMAIN  # noqa: E402
-from tests.test_lifecycle import FakeDeployer, Recorder, make_app  # noqa: E402
-from tests.test_lifecycle import store as inplace_store  # noqa: E402,F401
+from tests.support.lifecycle import DOMAIN as INPLACE_DOMAIN  # noqa: E402
+from tests.support.lifecycle import FakeDeployer, Recorder, make_app  # noqa: E402
+from tests.support.lifecycle import store as inplace_store  # noqa: E402,F401
 
 
 @pytest.fixture
@@ -556,9 +556,9 @@ def test_a_commit_update_of_an_application_that_follows_tags_is_a_commit_update(
 # ---------------------------------------------------------------------------
 
 from noust.core.appdir.releases import ReleaseManager  # noqa: E402
-from tests.test_rebuild_commit import HistoryGit  # noqa: E402
-from tests.test_release_activation import two_releases  # noqa: E402,F401
-from tests.test_release_pipeline import (  # noqa: E402,F401
+from tests.support.rebuild_commit import HistoryGit  # noqa: E402
+from tests.support.release_activation import two_releases  # noqa: E402,F401
+from tests.support.release_pipeline import (  # noqa: E402,F401
     DOMAIN,
     GOOD_SERVER,
     active_id,
@@ -840,7 +840,12 @@ class TestSettingWhatIsFollowed:
 
 from noust.cli.app import cli as root_cli  # noqa: E402
 from noust.cli.commands import webapp  # noqa: E402
-from tests.test_cli_webapp import UpdateCalls, cli_runner, deployer, update_calls  # noqa: E402,F401
+from tests.support.cli_webapp import (  # noqa: E402,F401
+    UpdateCalls,
+    cli_runner,
+    deployer,
+    update_calls,
+)
 
 
 class TestUpdateTag:

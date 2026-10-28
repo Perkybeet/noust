@@ -21,11 +21,7 @@ import pytest
 
 from noust.core.store import NoustStore
 from noust.deployers.importers import coolify, dokploy
-from tests.test_importers_remote import (
-    TOKEN,
-    coolify_server,
-    dokploy_server,
-)
+from tests.support.importers_remote import TOKEN, coolify_server, dokploy_server
 
 
 @pytest.fixture(autouse=True)

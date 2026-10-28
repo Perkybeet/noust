@@ -34,7 +34,7 @@ from noust.managers import app_files
 from noust.web.api import app_files as files_api
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers, require_elevated
-from tests.test_app_files import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.app_files import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     TreeRunner,
     app,

@@ -28,8 +28,8 @@ from noust.core.store import App, NoustStore, get_store
 from noust.managers.volume_backups import VolumeBackupManager
 from noust.web.api import volume_backups as api
 from tests.support.database_backup_support import RcloneRunner
-from tests.test_volume_backups import FakeScheduler, FakeServices
-from tests.test_web_databases_api import (  # noqa: F401
+from tests.support.volume_backups import FakeScheduler, FakeServices
+from tests.support.web_databases_api import (  # noqa: F401
     _capture_queued_jobs,
     anonymous,
     app,

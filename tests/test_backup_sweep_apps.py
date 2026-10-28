@@ -25,7 +25,7 @@ from noust.core.exceptions import BackupError
 from noust.core.store import BackupScheduleRecord, get_store
 from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager
 from noust.managers.backup_scheduler import run_schedule
-from tests.test_backup_safety_22 import (  # noqa: F401
+from tests.support.backup_safety_22 import (  # noqa: F401
     APP,
     DOMAIN,
     _remaining,

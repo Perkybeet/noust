@@ -29,7 +29,7 @@ from noust.core.store import App, NoustStore, Service
 from noust.deployers import lifecycle
 from noust.managers import unit_stop
 from noust.managers.service_manager import ServiceManager
-from tests.test_service_manager import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.service_manager import (  # noqa: F401  (pytest resolves fixtures by name)
     manager,
     store,
     unit_dirs,

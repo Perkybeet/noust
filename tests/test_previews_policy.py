@@ -28,7 +28,7 @@ from noust.core.preview_store import (
 )
 from noust.core.store import NoustStore
 from noust.managers import previews
-from tests.test_previews import (
+from tests.support.previews import (
     BASE,
     PARENT,
     FakeContext,

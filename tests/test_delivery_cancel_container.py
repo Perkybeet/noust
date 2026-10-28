@@ -24,8 +24,7 @@ from noust.core.applock import app_lock
 from noust.core.cancellation import operation_window, request_cancel
 from noust.core.exceptions import DeploymentCancelled
 from noust.core.runner import CommandCancelled
-from tests.support.container_support import APP, DOMAIN, Docker, root_of
-from tests.test_container_deployer import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.container_deployer import (  # noqa: F401  (pytest resolves fixtures by name)
     certs,
     docker,
     make,
@@ -36,6 +35,7 @@ from tests.test_container_deployer import (  # noqa: F401  (pytest resolves fixt
     update,
     web,
 )
+from tests.support.container_support import APP, DOMAIN, Docker, root_of
 
 WHO = "token:ci"
 
@@ -105,7 +105,7 @@ class TestAContainerBuildThatIsStopped:
         assert row.cancelled is True and row.cancelled_by == WHO
 
     def test_a_registry_pull_can_be_stopped_too(self, make, docker, store, tmp_path):
-        from tests.test_container_deployer import IMAGE
+        from tests.support.container_deployer import IMAGE
 
         make(IMAGE).deploy()
         serving_now(docker, tmp_path)

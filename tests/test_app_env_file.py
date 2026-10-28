@@ -39,7 +39,7 @@ from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.static import StaticDeployer
 from noust.validators.environment import EnvironmentValidationError
 from tests.conftest import OwnershipChange
-from tests.test_deployers import (  # noqa: F401 - store is a fixture
+from tests.support.deployers import (  # noqa: F401 - store is a fixture
     FakeServiceManager,
     build_deployer,
     store,

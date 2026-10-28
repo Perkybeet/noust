@@ -30,8 +30,8 @@ from noust.managers.site_policy import SitePolicy, SitePolicyManager, response_h
 from noust.web.api import site_policy as site_policy_api
 from noust.web.api.deps import install_error_handlers
 from noust.web.auth import require_auth
-from tests.test_domains import Machine, certs, machine, store, web
-from tests.test_site_policy import served
+from tests.support.domains import Machine, certs, machine, store, web
+from tests.support.site_policy import served
 
 FIXTURES = (certs, machine, served, store, web)
 

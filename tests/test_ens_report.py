@@ -13,7 +13,7 @@ import stat
 from pathlib import Path
 
 from noust.core.ens import checks, report
-from tests.test_ens_checks import NOW, good_facts
+from tests.support.ens_checks import NOW, good_facts
 
 
 def make() -> dict:

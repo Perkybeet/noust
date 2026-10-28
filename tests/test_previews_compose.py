@@ -22,7 +22,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.store import App, NoustStore
 from noust.deployers import docker_compose, lifecycle
 from noust.managers import previews
-from tests.test_previews import (
+from tests.support.previews import (
     BASE,
     PARENT,
     FakeContext,

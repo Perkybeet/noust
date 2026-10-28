@@ -34,7 +34,7 @@ from noust.core.store import NoustStore
 from noust.managers import self_backup
 from noust.managers.restore_server import AppOutcome, RestoreServer, ServerRestoreReport
 from noust.managers.self_backup import SelfBackupManager
-from tests.test_self_backup import PASSPHRASE, FakeTimers, Runner, Server, origin, server
+from tests.support.self_backup import PASSPHRASE, FakeTimers, Runner, Server, origin, server
 
 pytestmark = pytest.mark.allow_subprocess
 

@@ -24,7 +24,7 @@ from noust.core.exceptions import DatabaseBackupError
 from noust.core.store import Database, NoustStore
 from noust.managers.self_backup import SelfBackupManager
 from noust.managers.self_restore import SelfRestore
-from tests.test_self_backup import (  # noqa: F401
+from tests.support.self_backup import (  # noqa: F401
     PASSPHRASE,
     Runner,
     _reset_store,

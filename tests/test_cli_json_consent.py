@@ -34,7 +34,7 @@ from noust.core.audit import Actor, get_log
 from noust.core.compliance import resolve
 from noust.core.config import Config
 from noust.core.store import NoustStore, get_store
-from tests.test_cli_json import LEAF_COMMANDS
+from tests.support.cli_json import LEAF_COMMANDS
 
 OPERATOR = Actor(kind="cli", id="0", name="root", via="sudo", source=None)
 

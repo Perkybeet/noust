@@ -54,8 +54,8 @@ from noust.web.api.hooks import mint_webhook_secret
 from noust.web.auth import SecurityConfig
 from noust.web.server import ASSETS_DIR, run_server
 from noust.web.server import create_app as build_app
-from tests.test_database_managers import mysql, postgres  # noqa: F401  (fixtures)
-from tests.test_notifier import CapturingOpener, config, make_event  # noqa: F401  (fixtures)
+from tests.support.database_managers import mysql, postgres  # noqa: F401  (fixtures)
+from tests.support.notifier import CapturingOpener, config, make_event  # noqa: F401  (fixtures)
 
 PSQL_PREFIX = ("runuser", "-u", "postgres", "--", "psql")
 

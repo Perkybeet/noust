@@ -35,7 +35,7 @@ from noust.managers.backup_scheduler import BackupScheduler
 from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.uploads import MAX_CHUNK_BYTES, UploadStore
 from tests.support.database_backup_support import PG_LISTING, RcloneRunner, make_engine
-from tests.test_web_databases_api import (  # noqa: F401
+from tests.support.web_databases_api import (  # noqa: F401
     _capture_queued_jobs,
     anonymous,
     app,

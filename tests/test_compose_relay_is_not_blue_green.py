@@ -17,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from noust.core.store import App, runs_as_instances
-from tests.test_service_manager import manager, store, unit_dirs  # noqa: F401
+from tests.support.service_manager import manager, store, unit_dirs  # noqa: F401
 
 
 def _stack(**overrides: object) -> App:
