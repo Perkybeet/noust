@@ -38,7 +38,6 @@ from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.logger import Logger
 from noust.core.runner import DryRunRunner, FakeRunner, is_read_only
 from noust.core.store import App, NoustStore, ReleaseStatus
-from noust.deployers import base as base_module
 from noust.deployers import lifecycle
 from noust.deployers.auto import AutoDeployer
 from noust.deployers.helpers.health_gate import collapse_attempts as _collapse_attempts
@@ -53,6 +52,7 @@ from noust.deployers.static import StaticDeployer
 from noust.deployers.vite import ViteDeployer
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.source_manager import SourceManager
+from tests.deployer_patch_support import patch_deployer
 
 DOMAIN = "rel.example.com"
 #: Not any deployer's default, so a probe of the wrong port shows.
@@ -296,7 +296,7 @@ def machine(root: Path, git: FakeGit, monkeypatch: pytest.MonkeyPatch) -> Simple
             return False
         return True
 
-    monkeypatch.setattr(base_module, "wait_until_healthy", probe)
+    patch_deployer(monkeypatch, "wait_until_healthy", probe)
     return SimpleNamespace(services=services, web=web, runner=runner, git=git, probes=probes)
 
 

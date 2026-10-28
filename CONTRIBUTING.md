@@ -152,7 +152,8 @@ src/noust/
                     points, and the safety backup taken first)
     server/platforms.py  the one table of releases and processors Noust installs on; the
                     installer and docs/PLATFORMS.md carry generated copies of it
-  deployers/        strategies over a declarative pipeline (base.py), one per app type
+  deployers/        strategies over a declarative pipeline (base/: `BaseDeployer`, a chain of classes, one module
+                    per phase of the pipeline), one per app type
     lifecycle.py    the one "update an app"; release activation; resource limits
     migrate.py      in-place to releases, explicit only, undone exactly on failure
     domains.py      the one "names an app answers on": store, site, certificate, DNS check
@@ -279,7 +280,7 @@ under `TYPE_CHECKING` is not one at run time and does not count.
 | `deployers`, `fleet`, `managers`, `monitor`, `pushdeploy` | import `cli`, `web` | 11 |
 | `web` | import `cli` | 0 |
 | any module | import a module that imports it back when it loads | 0 |
-| any module | pass 3000 lines | 18 |
+| any module | pass 3000 lines | 17 |
 <!-- layers:end -->
 
 The table is written from the test's own lists. A new module past 3000 lines is split before it is

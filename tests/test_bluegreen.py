@@ -879,17 +879,22 @@ def test_a_redeploy_writes_the_template_and_activates_blue_green(
     deployer._webserver_manager = lambda: machine  # type: ignore[method-assign]
     third = write_release(root, "20260927-100000-ccccccc")
     deployer._staged = StagedRelease(path=third, commit=None, manager=ReleaseManager(root))
-    from noust.deployers import base as base_module
+    from noust.deployers.base import release as release_layer
+    from noust.deployers.base import site_service as site_service_layer
 
-    original = base_module.wait_until_healthy
-    base_module.wait_until_healthy = machine.probe  # type: ignore[assignment]
+    # Each layer of the base deployer looks the probe up in its own module.
+    layers = (release_layer, site_service_layer)
+    originals = [layer.wait_until_healthy for layer in layers]
+    for layer in layers:
+        layer.wait_until_healthy = machine.probe  # type: ignore[assignment]
     bluegreen_sleep = bluegreen.time.sleep
     bluegreen.time.sleep = machine.sleep  # type: ignore[assignment]
     try:
         deployer.create_service()
         deployer._activate_release()
     finally:
-        base_module.wait_until_healthy = original
+        for layer, original in zip(layers, originals, strict=True):
+            layer.wait_until_healthy = original
         bluegreen.time.sleep = bluegreen_sleep  # type: ignore[assignment]
 
     assert machine.events[0] == ("template", BASE)

@@ -20,8 +20,8 @@ import pytest
 
 from noust.core import delivery
 from noust.core.store import NoustStore
-from noust.deployers import base as base_module
 from noust.deployers.migrate import migrate, plan_migration
+from tests.deployer_patch_support import patch_deployer
 from tests.test_migrate import (
     DOMAIN,
     machine,
@@ -45,7 +45,7 @@ def test_a_migration_moves_an_application_onto_releases_without_converting_it(
     def converted(*_args: Any, **_kwargs: Any) -> None:
         raise AssertionError("a migration must not turn the mode on")
 
-    monkeypatch.setattr(base_module, "adopt_for_new_app", converted)
+    patch_deployer(monkeypatch, "adopt_for_new_app", converted)
 
     result = migrate(DOMAIN, plan_migration(DOMAIN), trigger="panel")
 

@@ -36,6 +36,7 @@ from noust.deployers.python import PythonDeployer
 from noust.deployers.registry import DeployerRegistry, detect_app_type, get_deployer
 from noust.deployers.static import StaticDeployer
 from noust.deployers.vite import ViteDeployer
+from tests.deployer_patch_support import patch_deployer
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -1107,9 +1108,7 @@ def test_the_release_environment_is_written_before_the_tree_is_handed_over(
     (tmp_path / "app").mkdir(parents=True)
     deployer._layout = layout
     monkeypatch.setattr(deployer, "_write_release_env", lambda: order.append("write"))
-    monkeypatch.setattr(
-        "noust.deployers.base.hand_over_tree", lambda *args, **kwargs: order.append("hand over")
-    )
+    patch_deployer(monkeypatch, "hand_over_tree", lambda *args, **kwargs: order.append("hand over"))
 
     deployer._set_permissions()
 

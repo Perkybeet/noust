@@ -23,11 +23,11 @@ from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import DeploymentError, SchemaChangedError, ValidationError
 from noust.core.store import App, NoustStore
 from noust.core.teams import TeamStore
-from noust.deployers import base as base_module
 from noust.deployers import promote as promote_module
 from noust.deployers.base import BaseDeployer
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.promote import plan_promotion, promote, promotion_targets
+from tests.deployer_patch_support import patch_deployer
 from tests.test_release_pipeline import (
     GIT_URL,
     TreeRunner,
@@ -134,7 +134,7 @@ def wired(machine: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:
         probes.append(url)
         return not getattr(machine, "unhealthy", False)
 
-    monkeypatch.setattr(base_module, "wait_until_healthy", probe)
+    patch_deployer(monkeypatch, "wait_until_healthy", probe)
     monkeypatch.setattr(
         promote_module,
         "get_deployer",

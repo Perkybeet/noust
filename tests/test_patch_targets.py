@@ -26,6 +26,7 @@ ROOT = Path(noust.__file__).resolve().parent.parent.parent
 #: why. A replacement belongs here when the code under test imports the name from the package
 #: when it runs (inside a function), which reads what the test put there.
 SPLIT_PACKAGES: dict[str, dict[tuple[str, str], str]] = {
+    "noust.deployers.base": {},
     "noust.web.auth": {
         ("tests/test_names_surfaces.py", "get_global_token_manager"): (
             "NameMigration imports it from noust.web.auth inside the function that uses it"
