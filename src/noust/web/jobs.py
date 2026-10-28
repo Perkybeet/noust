@@ -2913,7 +2913,7 @@ def rollback_app_job(
         RollbackError: When the rollback fails.
         SchemaChangedError: Going back past a schema change was not confirmed.
     """
-    from noust.managers.backup_manager import RollbackManager
+    from noust.managers.rollback_manager import RollbackManager
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)

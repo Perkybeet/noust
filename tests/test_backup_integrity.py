@@ -300,6 +300,7 @@ def _use_store(monkeypatch, app: FakeApp | None, databases: list[FakeDatabase]) 
     """
     store = FakeStore(app, databases)
     monkeypatch.setattr("noust.managers.backup_manager.get_store", lambda: store)
+    monkeypatch.setattr("noust.managers.rollback_manager.get_store", lambda: store)
 
 
 class TestSelfContainedBackup:

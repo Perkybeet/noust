@@ -44,8 +44,9 @@ from noust.cli.panel_links import open_in_panel
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
 from noust.core.teams import scoped_store
-from noust.managers.backup_manager import BackupManager, BackupMetadata, RollbackManager
+from noust.managers.backup_manager import BackupManager, BackupMetadata
 from noust.managers.retention import check_gigabytes, gigabytes_to_bytes
+from noust.managers.rollback_manager import RollbackManager
 from noust.managers.stack_databases import StackDatabase
 
 #: Alternative spellings for the actions under ``noust backup``. They are in

@@ -103,7 +103,9 @@ def _use_store(monkeypatch: pytest.MonkeyPatch, app: FakeApp | None) -> None:
         monkeypatch: Patching helper, scoped to the test.
         app: Application record the store should return.
     """
-    monkeypatch.setattr("noust.managers.backup_manager.get_store", lambda: FakeStore(app))
+    store = FakeStore(app)
+    monkeypatch.setattr("noust.managers.backup_manager.get_store", lambda: store)
+    monkeypatch.setattr("noust.managers.rollback_manager.get_store", lambda: store)
 
 
 @pytest.fixture
@@ -353,7 +355,7 @@ class TestRestoreIsLocked:
         self, manager: BackupManager, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """RollbackManager.rollback locks too, under the ``rollback`` operation."""
-        from noust.managers.backup_manager import RollbackManager
+        from noust.managers.rollback_manager import RollbackManager
 
         _use_store(monkeypatch, None)
         manager.create(DOMAIN)

@@ -42,7 +42,8 @@ from noust.core.store import App, DeploymentStatus, NoustStore
 from noust.deployers import base as base_module
 from noust.deployers import lifecycle
 from noust.deployers.interface import UpdateResult
-from noust.managers.backup_manager import BackupManager, BackupMetadata, RollbackManager
+from noust.managers.backup_manager import BackupManager, BackupMetadata
+from noust.managers.rollback_manager import RollbackManager
 from noust.managers.service_manager import UNIT_MARKER, ServiceManager
 
 DOMAIN = "shop.example.com"

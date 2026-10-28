@@ -439,6 +439,7 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
     # outside the sandbox, a restore would write to the machine's own /var.
     # The same path under the sandbox's root instead.
     import noust.managers.backup_manager as backup_module
+    import noust.managers.rollback_manager as rollback_module
 
     deployed_at = backup_module._deployed_at
 
@@ -446,7 +447,10 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
         path = deployed_at(domain, app_name, config)
         return path if sandbox.contains(path) else sandbox.root / path.relative_to(path.anchor)
 
+    # A rollback imports the function by name, so it needs the same replacement or it would restore
+    # outside the sandbox.
     backup_module._deployed_at = sandboxed_deployed_at
+    rollback_module._deployed_at = sandboxed_deployed_at
     # How long the journal keeps the logs is a drop-in under /etc; the sandbox's own, so the page
     # that sets it writes into the temporary machine and never into the developer's journald.
     import noust.managers.log_retention as retention_module

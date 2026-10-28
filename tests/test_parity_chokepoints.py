@@ -42,7 +42,8 @@ from fastapi.testclient import TestClient
 from noust.core.fs import RecordingFileSystem, set_fs
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore, Service
-from noust.managers.backup_manager import BackupManager, RollbackManager
+from noust.managers.backup_manager import BackupManager
+from noust.managers.rollback_manager import RollbackManager
 from noust.managers.service_manager import ServiceManager
 from noust.managers.webserver import (
     APACHE_BACKEND,

@@ -420,7 +420,7 @@ def test_rollback_job_hands_the_panel_trigger_to_the_rollback(
             captured.update(kwargs)
             return True
 
-    monkeypatch.setattr("noust.managers.backup_manager.RollbackManager", FakeRollbackManager)
+    monkeypatch.setattr("noust.managers.rollback_manager.RollbackManager", FakeRollbackManager)
 
     rollback_app_job("app.example.com", backup_id="backup-1", job_context=_job_context())
 

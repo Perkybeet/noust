@@ -34,12 +34,8 @@ import pytest
 from noust.core.exceptions import BackupError
 from noust.core.runner import CommandResult, FakeRunner
 from noust.core.store import App, NoustStore
-from noust.managers.backup_manager import (
-    DATABASES_DIR,
-    PAYLOAD_DIR,
-    BackupManager,
-    RollbackManager,
-)
+from noust.managers.backup_manager import DATABASES_DIR, PAYLOAD_DIR, BackupManager
+from noust.managers.rollback_manager import RollbackManager
 from noust.managers.stack_databases import StackBackupError, StackDatabase
 
 FIXTURES = Path(__file__).parent / "fixtures" / "stack"

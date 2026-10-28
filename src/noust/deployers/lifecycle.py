@@ -132,9 +132,10 @@ from noust.managers import app_disk, unit_stop
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.app_processes import Declaration, ProcessManager
 from noust.managers.app_replicas import ReplicaManager
-from noust.managers.backup_manager import BackupManager, RollbackManager
+from noust.managers.backup_manager import BackupManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
+from noust.managers.rollback_manager import RollbackManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.managers.source_manager import SourceManager, validate_commit_id, validate_tag_name
 from noust.managers.stack_databases import StackBackupError
@@ -3181,7 +3182,7 @@ def rollback_to_deployment(
     files, the ``.env``) stays as it is, the restart passes the health gate,
     and a monorepo or a stack goes back through its own deployer. In place
     without history, its snapshot backup is restored over the tree by
-    :meth:`~noust.managers.backup_manager.RollbackManager.rollback`, which
+    :meth:`~noust.managers.rollback_manager.RollbackManager.rollback`, which
     takes a safety backup first, keeps ``.git`` and, unless asked, the
     ``.env``, rebuilds strictly and passes the same health gate. Every way,
     the operation is a history row of its own and the deployment it

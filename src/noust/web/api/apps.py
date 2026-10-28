@@ -90,9 +90,9 @@ from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import DeployerRegistry, available_types
 from noust.managers.app_processes import ProcessManager
 from noust.managers.app_replicas import ReplicaManager
-from noust.managers.backup_manager import RollbackManager
 from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.port_claims import PortClaims
+from noust.managers.rollback_manager import RollbackManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import refuse_conflicts, with_database
@@ -2627,7 +2627,7 @@ def list_rollback_points(
 
     Returns:
         The points, newest first, from
-        :meth:`~noust.managers.backup_manager.RollbackManager.list_rollback_points`
+        :meth:`~noust.managers.rollback_manager.RollbackManager.list_rollback_points`
         - the one implementation, shared with ``noust backup rollback --list``.
     """
     validated = strict_domain(domain)

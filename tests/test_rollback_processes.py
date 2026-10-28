@@ -37,7 +37,7 @@ from noust.core.logger import Logger
 from noust.core.store import NoustStore
 from noust.deployers import lifecycle
 from noust.deployers.helpers.process_declaration import declare_restored_release
-from noust.managers.backup_manager import RollbackManager
+from noust.managers.rollback_manager import RollbackManager
 from tests.test_declared_processes import (  # noqa: F401  (pytest resolves fixtures by name)
     BASE,
     BROKEN_WORKER,
@@ -346,6 +346,7 @@ def backed_up(
     first = active_id(root)
 
     monkeypatch.setattr("noust.managers.backup_manager.get_store", lambda: store)
+    monkeypatch.setattr("noust.managers.rollback_manager.get_store", lambda: store)
     manager = RollbackManager(verbose=False, runner=machine.runner)
     manager.backup_manager.backup_dir = tmp_path / "backups"
     metadata = manager.backup_manager.create(DOMAIN)

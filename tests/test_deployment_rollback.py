@@ -40,7 +40,9 @@ from noust.core.store import App, DeploymentStatus, NoustStore
 from noust.core.teams import ScopedStore
 from noust.deployers import lifecycle
 from noust.managers import backup_manager as backup_module
-from noust.managers.backup_manager import BackupMetadata, RollbackManager
+from noust.managers import rollback_manager as rollback_module
+from noust.managers.backup_manager import BackupMetadata
+from noust.managers.rollback_manager import RollbackManager
 from noust.web import auth as web_auth
 from noust.web.api import deployments as deployments_api
 from noust.web.api import jobs as jobs_api
@@ -123,6 +125,7 @@ def rollback_manager(
     """A RollbackManager whose backups are faked and whose store is the test's."""
     inplace_app(store, tmp_path)
     monkeypatch.setattr(backup_module, "get_store", lambda: store)
+    monkeypatch.setattr(rollback_module, "get_store", lambda: store)
     manager = RollbackManager()
     manager.config = SimpleNamespace(apps_directory=tmp_path / "apps")  # type: ignore[assignment]
     made: list[Any] = [backup(commit="abc1234def56")]

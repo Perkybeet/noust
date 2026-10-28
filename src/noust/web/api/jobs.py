@@ -929,7 +929,7 @@ def _schema_changes_since_backup(domain: str, backup_id: str | None, confirmed: 
     Raises:
         SchemaChangedError: 409 ``schema_changed`` naming them, when not confirmed.
     """
-    from noust.managers.backup_manager import RollbackManager
+    from noust.managers.rollback_manager import RollbackManager
 
     try:
         target = RollbackManager(verbose=False).rollback_target(domain, backup_id)

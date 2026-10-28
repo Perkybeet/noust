@@ -31,7 +31,8 @@ from noust.core.store import DeploymentStatus, NoustStore, StoreError
 from noust.deployers.helpers.target import DeployTarget
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.recorder import CapturingLogger, DeploymentRecorder
-from noust.managers.backup_manager import BackupMetadata, RollbackManager
+from noust.managers.backup_manager import BackupMetadata
+from noust.managers.rollback_manager import RollbackManager
 from tests.test_deployers import build_deployer
 
 DOMAIN = "app.example.com"
