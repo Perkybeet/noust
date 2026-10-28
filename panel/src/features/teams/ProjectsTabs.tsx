@@ -23,13 +23,12 @@ export function ProjectsTabs() {
 
 /**
  * The header both views share, so switching between them moves nothing but what is under the strip:
- * the same title and sentence, the server named on a fleet, and the view's own primary action.
+ * the same title and sentence and the view's own primary action.
  */
-export function projectsHeader(t: T, node: string | null, primaryAction?: PageHeaderProps["primaryAction"]): PageHeaderProps {
+export function projectsHeader(t: T, primaryAction?: PageHeaderProps["primaryAction"]): PageHeaderProps {
   return {
     title: t("teams.projects.title"),
     description: t("teams.frame.description"),
-    server: node,
     ...(primaryAction !== undefined ? { primaryAction } : {}),
   };
 }

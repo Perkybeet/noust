@@ -16,7 +16,6 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
-import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { teamRoleLabel } from "./roles";
 import { useOrganization } from "./useOrganization";
@@ -52,16 +51,11 @@ function BodySkeleton({ slug }: { slug: string }) {
  */
 export function TeamLayout({ team: slug }: { team: string }) {
   const t = useT();
-  const { node } = useNode();
   const org = useOrganization();
   const query = useQuery({ ...teamQuery(slug), retry: false });
   const team = query.data;
 
-  const header = {
-    title: team?.name ?? slug,
-    server: node,
-    breadcrumbs: [{ label: t("teams.list.title"), to: "/projects/teams" }],
-  };
+  const header = { title: team?.name ?? slug };
 
   if (query.isError && isApiError(query.error) && query.error.status === 404) {
     return (

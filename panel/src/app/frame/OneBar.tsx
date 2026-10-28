@@ -72,7 +72,7 @@ export function OneBar({ layout }: { layout: NavLayout }) {
   const areas = useAreas();
   const home = areas.groups[0]?.[0];
   return (
-    <aside className="sticky top-0 flex h-dvh w-sidebar shrink-0 flex-col bg-bg-column px-3 py-3.5">
+    <div className="sticky top-0 flex h-dvh w-sidebar shrink-0 flex-col bg-bg-column px-3 py-3.5">
       <Link
         to={home === undefined ? "/" : areaTarget(home.entry, areas.scope)}
         aria-label={t("shell.sidebarOverview")}
@@ -88,6 +88,6 @@ export function OneBar({ layout }: { layout: NavLayout }) {
           <PresentationSwitch presentation="single" />
         </div>
       )}
-    </aside>
+    </div>
   );
 }

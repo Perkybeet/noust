@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
 import { Fragment } from "react";
 import type { ReactNode } from "react";
 
@@ -11,14 +10,7 @@ import { Menu } from "../components/ui/Menu";
 import { Mono } from "../components/ui/Mono";
 import { useT } from "../i18n";
 import { cx } from "../lib/cx";
-import { useNamedServer } from "../nodes/pageServer";
 import { useDocumentTitle } from "./documentTitle";
-
-export interface Breadcrumb {
-  label: string;
-  /** A path of the console, with params already filled in. */
-  to: string;
-}
 
 /** One step of where a resource lives: a team, a project, an environment. */
 export interface PlaceStep {
@@ -39,7 +31,6 @@ export interface PageHeaderProps {
    * `secondaryActions`, `primaryAction` and `overflow`, which put them in the system's order.
    */
   actions?: ReactNode;
-  breadcrumbs?: readonly Breadcrumb[];
   /** The resource's state, beside the title: a StatusPill (or AppStatePill). */
   status?: ReactNode;
   /**
@@ -52,8 +43,10 @@ export interface PageHeaderProps {
   /**
    * Where the resource lives, above the title, when the server has more than one place to tell
    * apart (a team, a project, an environment): `Acme / Web / production`, each step a link to the
-   * list filtered to it, after the server's name when the console manages several. Give none where
-   * there is nothing to tell apart: a server nobody organised draws no such line.
+   * list filtered to it. Give none where there is nothing to tell apart: a server nobody organised
+   * draws no such line. Where the page is in the console is not this: it is the breadcrumbs of the top
+   * bar, generated from the register, and the server is named there and in the second column, never
+   * above a title (docs/DESIGN.md, NV-8).
    */
   place?: readonly PlaceStep[];
   /** The title is a system identifier (a domain, a unit, a database, a site): it is not translated. It is set like any title, in the display voice, and no longer in mono. */
@@ -66,8 +59,6 @@ export interface PageHeaderProps {
   primaryAction?: ReactNode;
   /** MenuItems for everything else, behind a "More actions" button: the last control. */
   overflow?: ReactNode;
-  /** The server this page is about, said above the title when the console manages several. */
-  server?: string | null;
   /** No bottom margin: the page template spaces what follows the header. */
   flush?: boolean;
 }
@@ -80,7 +71,6 @@ export function PageHeader({
   title,
   description,
   actions,
-  breadcrumbs,
   status,
   statusExtras,
   place,
@@ -89,12 +79,9 @@ export function PageHeader({
   secondaryActions,
   primaryAction,
   overflow,
-  server,
   flush = false,
 }: PageHeaderProps) {
   const t = useT();
-  // On a fleet the shell names the server of every per-server page, this one's included.
-  const named = useNamedServer(server);
   // While a save bar holds changes the view's primary is Save: this one is drawn as a secondary.
   const yielded = usePrimaryYielded();
   useDocumentTitle(title);
@@ -103,44 +90,23 @@ export function PageHeader({
     <header className={cx("flex flex-wrap items-end justify-between gap-x-6 gap-y-4", !flush && "mb-8")}>
       {/* 240px before the actions wrap under: a phone keeps a lone menu button beside the title. */}
       <div className="min-w-0 flex-1 basis-60">
-        {named !== null || (place !== undefined && place.length > 0) ? (
+        {place !== undefined && place.length > 0 ? (
           <p className="mb-1 text-12 text-fg-muted">
-            {named !== null ? t.rich("common.pageHeader.server", { server: <Mono tone="default">{named}</Mono> }) : null}
-            {named !== null && place !== undefined && place.length > 0 ? <span aria-hidden="true"> · </span> : null}
-            {place !== undefined && place.length > 0 ? (
-              <span aria-label={t("common.pageHeader.place")} role="group" className="inline">
-                {place.map((step, index) => (
-                  <Fragment key={`${step.to}-${step.label}`}>
-                    {index > 0 ? <span aria-hidden="true"> / </span> : null}
-                    <Link
-                      to={step.to}
-                      {...(step.search !== undefined ? { search: step.search as never } : {})}
-                      className="rounded-chip hover:text-fg hover:underline hover:underline-offset-2"
-                    >
-                      <Mono tone="default">{step.label}</Mono>
-                    </Link>
-                  </Fragment>
-                ))}
-              </span>
-            ) : null}
-          </p>
-        ) : null}
-        {breadcrumbs && breadcrumbs.length > 0 ? (
-          <nav aria-label={t("shell.pageHeader.breadcrumb")} className="mb-2">
-            <ol className="flex flex-wrap items-center gap-1 text-13 text-fg-muted">
-              {breadcrumbs.map((crumb) => (
-                <li key={crumb.to} className="flex items-center gap-1">
+            <span aria-label={t("common.pageHeader.place")} role="group" className="inline">
+              {place.map((step, index) => (
+                <Fragment key={`${step.to}-${step.label}`}>
+                  {index > 0 ? <span aria-hidden="true"> / </span> : null}
                   <Link
-                    to={crumb.to}
-                    className="rounded-chip hover:text-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
+                    to={step.to}
+                    {...(step.search !== undefined ? { search: step.search as never } : {})}
+                    className="rounded-chip hover:text-fg hover:underline hover:underline-offset-2"
                   >
-                    {crumb.label}
+                    <Mono tone="default">{step.label}</Mono>
                   </Link>
-                  <ChevronRight aria-hidden="true" className="size-icon-sm text-fg-faint" />
-                </li>
+                </Fragment>
               ))}
-            </ol>
-          </nav>
+            </span>
+          </p>
         ) : null}
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <h1

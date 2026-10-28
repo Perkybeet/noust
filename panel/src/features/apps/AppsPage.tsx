@@ -14,12 +14,11 @@ import { ICONS } from "../../components/ui/icons";
 import { Select } from "../../components/ui/Select";
 import { STATUS } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
-import { useNode } from "../../nodes/useNode";
 import { useOwnerScope } from "../teams/ownership";
 import { useOrganization } from "../teams/useOrganization";
 import { AppRowActions } from "./AppRowActions";
 import { AppsTable } from "./AppsTable";
-import { AppsTabs, appsHeader } from "./AppsTabs";
+import { appsHeader, useAppsStrip } from "./AppsTabs";
 import { BulkAppsDialog } from "./BulkAppsDialog";
 import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics, useTypeName } from "./data";
 import { STATE_FILTERS, appTagNames, appTypes, filterApps, isFiltered } from "./filters";
@@ -65,7 +64,7 @@ function NewAppLink() {
  */
 export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   const t = useT();
-  const { node } = useNode();
+  const strip = useAppsStrip();
   const apps = useQuery(appsQuery());
   const deploys = useQuery(recentDeploysQuery());
   const metrics = useLatestMetrics();
@@ -116,7 +115,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
         ? t("apps.page.countFiltered", { shown: shown.length, total: owner.inTeam.length })
         : t("apps.page.count", { count: owner.inTeam.length });
 
-  const header = appsHeader(t, node, {
+  const header = appsHeader(t, {
     secondaryActions: (
       <>
         {/* A bulk update is offered where the list is narrowed to one tag, and not before. */}
@@ -130,7 +129,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
 
   if (apps.isError && apps.data === undefined) {
     return (
-      <ListPage header={header} tabs={<AppsTabs />}>
+      <ListPage header={header} tabs={strip}>
         <ErrorBlock error={apps.error} title={t("apps.page.couldNotLoad")} onRetry={() => void apps.refetch()} retrying={apps.isRefetching} />
       </ListPage>
     );
@@ -138,7 +137,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
 
   if (firstUse) {
     return (
-      <ListPage header={header} tabs={<AppsTabs />}>
+      <ListPage header={header} tabs={strip}>
         <EmptyState
           variant="firstUse"
           icon={<OBJECT_ICONS.app />}
@@ -162,7 +161,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   return (
     <ListPage
       header={header}
-      tabs={<AppsTabs />}
+      tabs={strip}
       filters={
         <FilterBar
           label={t("apps.page.filterLabel")}

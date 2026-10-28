@@ -23,10 +23,8 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
 import { changedLines } from "../../lib/lineDiff";
-import { useNode } from "../../nodes/useNode";
 import { ConfigEditor } from "../domains/ConfigEditor";
 import { serviceState } from "./data";
-import { serviceBreadcrumbs } from "./ServiceLayout";
 import { useServiceActions } from "./useServiceActions";
 import { useServiceRecord } from "./useServiceRecord";
 
@@ -34,7 +32,6 @@ type Outcome = { kind: "rejected"; output: string } | { kind: "passed"; output: 
 
 export function UnitFilePage({ name }: { name: string }) {
   const t = useT();
-  const { node } = useNode();
   const record = useServiceRecord(name);
   const config = useQuery(serviceConfigQuery(name));
   const { updateConfig, verifyUnit, restart } = useServiceActions(name);
@@ -117,8 +114,6 @@ export function UnitFilePage({ name }: { name: string }) {
       header={{
         title: name,
         mono: true,
-        server: node,
-        breadcrumbs: [...serviceBreadcrumbs(t), { label: name, to: `/server/services/${encodeURIComponent(name)}` }],
         status: view !== null ? <StatusPill state={view.state} label={t(view.label)} /> : undefined,
         secondaryActions: (
           <Link to="/server/services/$name" params={{ name }} className={buttonClassName("secondary")}>

@@ -244,7 +244,6 @@ export function FleetJobPage({ id }: { id: string }) {
     <DetailPage
       header={{
         title: actionLabel,
-        breadcrumbs: [{ label: t("fleet.page.title"), to: "/fleet" }],
         ...(status !== null ? { status: <StatusPill state={status.state} label={t(status.label)} /> } : {}),
         ...(data !== undefined
           ? {

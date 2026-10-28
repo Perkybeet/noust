@@ -823,7 +823,6 @@ function Place40() {
           title="shop.example.com"
           mono
           flush
-          server="fra-1"
           place={[
             { label: "Acme", to: "/apps", search: { team: "acme" } },
             {

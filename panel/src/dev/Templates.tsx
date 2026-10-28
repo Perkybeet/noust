@@ -106,7 +106,6 @@ function DetailDemo() {
       header={{
         title: "worker.example.dev",
         mono: true,
-        breadcrumbs: [{ label: "Applications", to: "/__design" }],
         status: <StatusPill state="failed" />,
         meta: (
           <>
@@ -333,7 +332,6 @@ function EditorDemo() {
       header={{
         title: "example.net",
         mono: true,
-        breadcrumbs: [{ label: "Domains", to: "/__design" }],
         status: <StatusPill state="running" label="Serving" />,
         secondaryActions: <Button>Disable</Button>,
         overflow: <MenuItem destructive>Delete site</MenuItem>,

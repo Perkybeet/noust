@@ -13,7 +13,6 @@ import { ICONS } from "../../components/ui/icons";
 import { MenuItem } from "../../components/ui/Menu";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
-import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { DATABASES_SCREENS } from "../nav/databases";
 import { CreateDatabaseDialog } from "./CreateDatabaseDialog";
@@ -26,7 +25,6 @@ import { ImportDumpDialog } from "./import/ImportDumpDialog";
  */
 export function useDatabasesHeader(): { header: PageHeaderProps; tabs: ReactNode; dialogs: ReactNode; openCreate: () => void } {
   const t = useT();
-  const { node } = useNode();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -47,7 +45,6 @@ export function useDatabasesHeader(): { header: PageHeaderProps; tabs: ReactNode
     header: {
       title: t("databases.page.title"),
       description: t("databases.page.description"),
-      server: node,
       // Where a database comes from another server or provider: a first-day action.
       secondaryActions: (
         <Button icon={<Upload aria-hidden="true" />} onClick={() => setImporting(true)}>

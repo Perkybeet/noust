@@ -24,9 +24,9 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { useNode } from "../../nodes/useNode";
 import { formatDate } from "../../lib/format";
 import { joinList } from "../new-app/wizard";
-import { useNode } from "../../nodes/useNode";
 import { ORIGIN_LABELS, dayOf, previewNote, versionLabel } from "./model";
 import { RecipeLogo } from "./RecipeLogo";
 import { RecipeRequirements } from "./RecipeRequirements";
@@ -145,8 +145,8 @@ function DetailSkeleton() {
  */
 export function RecipeDetailPage({ name }: { name: string }) {
   const t = useT();
-  const navigate = useNavigate();
   const { node } = useNode();
+  const navigate = useNavigate();
   const query = useQuery(recipeQuery(name));
   const queryClient = useQueryClient();
   const [removing, setRemoving] = useState(false);
@@ -157,8 +157,6 @@ export function RecipeDetailPage({ name }: { name: string }) {
   };
   const header = {
     title: recipe?.title ?? name,
-    breadcrumbs: [{ label: t("catalog.page.title"), to: "/catalog" }],
-    server: node,
     ...(recipe !== undefined
       ? {
           description: recipe.slogan !== "" ? recipe.slogan : recipe.description,

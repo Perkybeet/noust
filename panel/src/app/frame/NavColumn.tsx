@@ -228,8 +228,8 @@ function SettingsColumn() {
  */
 export function NavColumn({ kind }: { kind: ColumnKind }) {
   return (
-    <aside data-frame="column" data-column={kind} className="sticky top-0 flex h-dvh w-column shrink-0 flex-col bg-bg-column">
+    <div data-frame="column" data-column={kind} className="sticky top-0 flex h-dvh w-column shrink-0 flex-col bg-bg-column">
       {kind === "app" ? <AppColumn /> : kind === "server" ? <ServerColumn /> : <SettingsColumn />}
-    </aside>
+    </div>
   );
 }

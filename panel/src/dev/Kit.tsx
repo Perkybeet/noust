@@ -380,10 +380,8 @@ function Headers() {
       <Stage plain>
         <PageHeader
           flush
-          server="web-2"
           title="shop.example.com"
           mono
-          breadcrumbs={[{ label: "Applications", to: "/__design" }]}
           status={<StatusPill state="running" />}
           meta={
             <>

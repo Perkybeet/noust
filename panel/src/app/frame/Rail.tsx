@@ -90,7 +90,7 @@ export function Rail({ layout, open, onOpenChange }: { layout: NavLayout; open: 
         // The veil: the page is still there, under the bar, and pressing it is how the bar is dismissed (Escape is the keyboard's).
         <div aria-hidden="true" data-frame="veil" onClick={() => onOpenChange(false)} className="fixed inset-0 z-backdrop bg-backdrop" />
       ) : null}
-      <aside
+      <div
         className={cx(
           "flex h-dvh flex-col bg-bg-rail py-3.5",
           folded ? "items-center px-0" : "px-3",
@@ -134,7 +134,7 @@ export function Rail({ layout, open, onOpenChange }: { layout: NavLayout; open: 
           <PresentationSwitch presentation="double" compact={folded} />
           <FoldButton folded={layout.rail === "folded"} open={over} controls={navId} onPress={press} />
         </div>
-      </aside>
+      </div>
     </div>
   );
 }
