@@ -35,8 +35,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from noust.web import auth
-from noust.web.auth import RateLimiter, SecurityConfig
+from noust.web.auth import RateLimiter, SecurityConfig, credentials
 from noust.web.server import create_app, get_brute_force, get_token_manager
 
 
@@ -239,13 +238,13 @@ def spy_on_credential_checks(monkeypatch: pytest.MonkeyPatch) -> list[str]:
         The list the checked credentials are appended to.
     """
     checked: list[str] = []
-    real = auth.check_credential
+    real = credentials.check_credential
 
     def spy(credential: str, client_ip: str, connection: object = None) -> dict[str, object] | None:
         checked.append(credential)
         return real(credential, client_ip, connection)
 
-    monkeypatch.setattr(auth, "check_credential", spy)
+    monkeypatch.setattr(credentials, "check_credential", spy)
     return checked
 
 
@@ -345,7 +344,7 @@ def test_retry_after_is_when_the_oldest_request_leaves_the_window(
 ) -> None:
     """Not the whole window: the console should wait exactly as long as it must."""
     now = [1000.0]
-    monkeypatch.setattr("noust.web.auth.time.time", lambda: now[0])
+    monkeypatch.setattr("time.time", lambda: now[0])
     limiter = RateLimiter(max_requests=2, window=60)
 
     assert limiter.is_allowed("k")

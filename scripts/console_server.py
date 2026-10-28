@@ -8751,19 +8751,19 @@ def enable_totp(backup_codes: int | None = None) -> tuple[str, list[str]]:
         The secret, so a test can compute codes, and the backup codes.
     """
     from noust.core import totp
-    from noust.web import auth
+    from noust.web.auth import tokens
     from noust.web.server import get_token_manager
 
     manager = get_token_manager()
     secret = manager.begin_totp_enrollment()
-    usual = auth.BACKUP_CODE_COUNT
+    usual = tokens.BACKUP_CODE_COUNT
     # Only this enrolment: a later "new backup codes" gives the usual count, as in production.
     if backup_codes is not None:
-        auth.BACKUP_CODE_COUNT = backup_codes
+        tokens.BACKUP_CODE_COUNT = backup_codes
     try:
         codes = manager.confirm_totp_enrollment(totp.totp_now(secret))
     finally:
-        auth.BACKUP_CODE_COUNT = usual
+        tokens.BACKUP_CODE_COUNT = usual
     if codes is None:
         raise RuntimeError("two-factor enrolment did not accept its own code")
     return secret, codes

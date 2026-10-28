@@ -44,11 +44,12 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
 @pytest.fixture(autouse=True)
 def state_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     from noust.web import auth
+    from noust.web.auth import config as auth_config
 
     directory = tmp_path / "state"
     directory.mkdir()
     monkeypatch.setenv(auth.STATE_DIR_ENV, str(directory))
-    monkeypatch.setattr(auth, "_global_token_manager", None)
+    monkeypatch.setattr(auth_config, "_global_token_manager", None)
     return directory
 
 

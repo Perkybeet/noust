@@ -150,7 +150,7 @@ central that has been compromised, an application that has been compromised.
 
 **The guarantee.** Forwarding headers are believed only from a proxy the operator declared, and by default from nobody. A request is counted before its endpoint runs: per address when it carries no valid credential (an IPv6 client by its /64), per credential when it does; a wrong credential is counted as anonymous and toward the lockout. Failed sign-ins lock the address and the account, separately. A body is capped before authentication. A credential holds a bounded number of WebSockets and event streams, and each is closed after twelve hours. No `GET` changes state, so the CSRF protection of the other methods is enough. Every account must have a second factor, an authenticator app or a passkey.
 
-**How it is enforced.** `web/auth.py` (`get_client_ip`, `RateLimiter`, `BruteForceProtection`, `limiter_key`), `web/server.py` (`SecurityMiddleware`); the numbers are generated below.
+**How it is enforced.** `web/auth/` (`get_client_ip`, `RateLimiter`, `BruteForceProtection`, `limiter_key`), `web/server.py` (`SecurityMiddleware`); the numbers are generated below.
 
 **What fails if it stops holding.**
 

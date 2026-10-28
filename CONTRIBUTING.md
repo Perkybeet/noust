@@ -270,7 +270,7 @@ under `TYPE_CHECKING` is not one at run time and does not count.
 | `deployers`, `fleet`, `managers`, `monitor`, `pushdeploy` | import `cli`, `web` | 11 |
 | `web` | import `cli` | 1 |
 | any module | import a module that imports it back when it loads | 0 |
-| any module | pass 3000 lines | 20 |
+| any module | pass 3000 lines | 19 |
 <!-- layers:end -->
 
 The table is written from the test's own lists. A new module past 3000 lines is split before it is

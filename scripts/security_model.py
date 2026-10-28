@@ -267,7 +267,7 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "event streams, and each is closed after twelve hours. No `GET` changes state, so the "
         "CSRF protection of the other methods is enough. Every account must have a second factor, an authenticator "
         "app or a passkey.",
-        "`web/auth.py` (`get_client_ip`, `RateLimiter`, `BruteForceProtection`, `limiter_key`), "
+        "`web/auth/` (`get_client_ip`, `RateLimiter`, `BruteForceProtection`, `limiter_key`), "
         "`web/server.py` (`SecurityMiddleware`); the numbers are generated below.",
         (
             "tests/test_web_auth.py::test_rotating_x_forwarded_for_does_not_bypass_lockout",
