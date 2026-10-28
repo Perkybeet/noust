@@ -66,7 +66,7 @@ def main(names: list[str]) -> int:
             if pid == 0:
                 os.close(read_end)
                 os.dup2(write_end, 2)
-                sys.stdout = open(os.devnull, "w")  # noqa: SIM115 - the child exits right after
+                sys.stdout = open(os.devnull, "w")
                 os._exit(import_alone(name))
             os.close(write_end)
             running[pid] = (name, read_end)

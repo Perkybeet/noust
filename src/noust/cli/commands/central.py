@@ -119,7 +119,11 @@ def _run(ctx: Context, host: str, port: int) -> None:
             "The central needs the console's dependencies, which are not installed",
             details=f"pip install 'noust[web]'. Python said: {exc}",
         ) from exc
-    from noust.cli.commands.web import console_security_config, ensure_console_certificate, print_console_banner
+    from noust.cli.commands.web import (
+        console_security_config,
+        ensure_console_certificate,
+        print_console_banner,
+    )
     from noust.managers.console_service import StartOptions
 
     logger = ctx.logger
