@@ -120,6 +120,10 @@
   --container-drawer-md: var(--width-drawer-md);
   --container-drawer-lg: var(--width-drawer-lg);
   --container-search: var(--width-search);
+  --container-rail: var(--width-rail);
+  --container-rail-folded: var(--width-rail-folded);
+  --container-column: var(--width-column);
+  --container-sidebar: var(--width-sidebar);
 
   --animate-spin: spin 0.8s linear infinite;
   --animate-pulse-once: pulse-once 0.9s var(--ease-out) 1;
