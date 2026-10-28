@@ -1042,7 +1042,7 @@ class TestTheModulesLoadInAnyOrder:
                 "placement_copy",
                 "placement_rollout",
                 "database_transfer",
-            } <= set(jobs.ACTIONS)
+            } <= set(jobs.all_actions())
         finally:
             for name in [n for n in sys.modules if n.startswith("noust.web.fleet_")]:
                 del sys.modules[name]
