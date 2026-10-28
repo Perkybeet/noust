@@ -119,6 +119,7 @@ from noust.web.api.recipes import router as recipes_router
 from noust.web.api.registries import apps_router as app_registry_logins_router
 from noust.web.api.registries import router as registries_router
 from noust.web.api.restore_drills import router as restore_drills_router
+from noust.web.api.roles import router as roles_router
 from noust.web.api.saml import router as saml_router
 from noust.web.api.sandbox import router as sandbox_router
 from noust.web.api.scim import router as scim_router
@@ -387,6 +388,7 @@ router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
 router.include_router(teams_router, prefix="/teams", tags=["Teams"])
 router.include_router(access_team_router, prefix="/teams", tags=["Access"])
 router.include_router(access_router, prefix="/access", tags=["Access"])
+router.include_router(roles_router, prefix="/roles", tags=["Access"])
 router.include_router(mcp_router, prefix="/mcp", tags=["MCP"])
 router.include_router(manifest_router, prefix="/manifest", tags=["Manifest"])
 router.include_router(teams_flat_router, tags=["Teams"])

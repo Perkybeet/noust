@@ -485,8 +485,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "allow_private_hosts": [],
         # Compliance controls (noust.core.compliance.controls): friction chosen, never the
         # default. Each is off or permissive here; a framework above turns on what it names,
-        # and a value here can only tighten that, never loosen it. roles_split: an
-        # administrator does not govern accounts, security settings or the audit trail.
+        # and a value here can only tighten that, never loosen it. roles_split: no role
+        # joins governing the server (accounts, security settings, the audit trail) with running it.
         # separation_of_duties: one person may not hold the account that runs the server and
         # the one that governs it. change_reasons: every change from the command line (and
         # every approval request) says why. exception_reasons: so does a decision that lowers

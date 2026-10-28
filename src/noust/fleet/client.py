@@ -24,6 +24,7 @@ only fill the node's audit log.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from types import ModuleType
 from typing import TYPE_CHECKING, Any
 
@@ -86,6 +87,13 @@ ACTOR_ROLE_PATTERN = re.compile(r"[a-z][a-z_-]{0,31}")
 #: ``1`` when that operator is in sudo mode on the central (or is a credential
 #: sudo mode does not ask). Must match ``noust.web.auth.FLEET_ELEVATED_HEADER``.
 ELEVATED_HEADER = "X-Noust-Elevated"
+
+#: What that operator may do, as permissions (4.1): a role the operator edited does not mean the
+#: same on two servers, so a node that reads it grants these, cut by its ceiling. A node before 4.1
+#: ignores it and reads the role's name. Must match
+#: ``noust.web.auth.FLEET_ACTOR_PERMISSIONS_HEADER``.
+ACTOR_PERMISSIONS_HEADER = "X-Noust-Actor-Permissions"
+ACTOR_PERMISSION_PATTERN = re.compile(r"[a-z][a-z0-9_.]{0,63}")
 
 #: What an actor label may look like; the node refuses anything else with 400.
 #: Mirrors ``noust.web.auth.FLEET_ACTOR_PATTERN``.
@@ -249,6 +257,7 @@ class NodeClient:
         actor_scope: str | None = None,
         actor_role: str | None = None,
         elevated: bool = False,
+        actor_permissions: Iterable[str] | None = None,
     ) -> dict[str, str]:
         """
         Build the headers every request to the node carries.
@@ -266,6 +275,9 @@ class NodeClient:
                 issued before accounts), which the node then narrows by
                 ``actor_scope`` exactly as a 3.0 node does.
             elevated: Whether that operator is confirmed in sudo mode.
+            actor_permissions: What that operator may do on the central, for a node that reads
+                it (4.1); omitted when None. An empty collection is sent as such: a person who
+                may do nothing is not a credential with no person behind it.
 
         Returns:
             ``Authorization`` with the fleet token, and the actor headers.
@@ -292,6 +304,11 @@ class NodeClient:
             if not ACTOR_ROLE_PATTERN.fullmatch(actor_role):
                 raise NodeError(f"Invalid actor role: {actor_role!r}")
             headers[ACTOR_ROLE_HEADER] = actor_role
+        if actor_permissions is not None:
+            names = sorted(set(actor_permissions))
+            if not all(ACTOR_PERMISSION_PATTERN.fullmatch(name) for name in names):
+                raise NodeError("Invalid actor permissions: a permission name is malformed")
+            headers[ACTOR_PERMISSIONS_HEADER] = ",".join(names)
         if elevated:
             headers[ELEVATED_HEADER] = "1"
         return headers
@@ -308,6 +325,7 @@ class NodeClient:
         actor_scope: str | None = None,
         actor_role: str | None = None,
         elevated: bool = False,
+        actor_permissions: Iterable[str] | None = None,
     ) -> httpx.Response:
         """
         Send one request to the node's API and return its answer.
@@ -323,6 +341,8 @@ class NodeClient:
             actor_role: That operator's account role on the central; see
                 :meth:`auth_headers`.
             elevated: Whether that operator is in sudo mode on the central.
+            actor_permissions: What that operator may do on the central; see
+                :meth:`auth_headers`.
 
         Returns:
             The response, whatever its status, except 401 and 403.
@@ -337,7 +357,11 @@ class NodeClient:
         if not path.startswith("/") or path.startswith("//") or any(c in path for c in "\r\n"):
             raise NodeError(f"Not a path on the node: {path!r}")
         headers = self.auth_headers(
-            actor, actor_scope=actor_scope, actor_role=actor_role, elevated=elevated
+            actor,
+            actor_scope=actor_scope,
+            actor_role=actor_role,
+            elevated=elevated,
+            actor_permissions=actor_permissions,
         )
         url = self.base_url() + path
         http = load_httpx()

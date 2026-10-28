@@ -49,6 +49,7 @@ class TestTheReport:
         assert built["accounts"][0] == {
             "username": "sofia",
             "role": "security",
+            "roles": ["security"],
             "status": "active",
             "mfa": True,
             "passkeys": 1,

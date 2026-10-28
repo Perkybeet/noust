@@ -323,6 +323,7 @@ class SessionInfo(BaseModel):
         login_label: What the operator chose to show on the sign-in page.
         account: The account signed in, or None.
         role: Its role, or the role a central forwarded.
+        roles: Every role the account holds, in order; empty for a credential that is no account.
         grant: For the master token, how it holds the console.
         permissions: Everything the credential may do.
         mfa_required: The account must enrol an authenticator first.
@@ -358,6 +359,7 @@ class SessionInfo(BaseModel):
     login_label: str | None = None
     account: AccountInfo | None = None
     role: str | None = None
+    roles: list[str] = Field(default_factory=list)
     grant: str | None = None
     permissions: list[str] = Field(default_factory=list)
     mfa_required: bool = False
@@ -1234,6 +1236,7 @@ def get_session_info(request: Request) -> SessionInfo:
         login_label=policy.login_label or None,
         account=AccountInfo.of(account) if account is not None else None,
         role=session.get("role"),
+        roles=list(session.get("roles") or ()),
         grant=session.get("grant"),
         permissions=sorted(session.get("permissions") or ()),
         mfa_required=bool(session.get("mfa_pending")),

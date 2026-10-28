@@ -454,7 +454,7 @@ SUMMARIES: dict[str, tuple[bool, bool | str, str, str]] = {
         False,
         False,
         "",
-        "Manage the accounts that sign in to the console, each with one role.",
+        "Manage the accounts that sign in to the console, each with its roles.",
     ),
     "variables": (
         False,

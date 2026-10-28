@@ -25,12 +25,19 @@ import logging
 import secrets
 import sqlite3
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 from noust.core import totp
-from noust.core.accounts import passwords
+from noust.core.access.builtin import ROLE_OWNER
+from noust.core.access.combination import (
+    accounts_clash,
+    duties_apply,
+    refuse_conflicting_roles,
+)
+from noust.core.access.roles import RoleStore, mirror_of, replace_roles
+from noust.core.accounts import passwords, role_rules
 from noust.core.accounts.model import (
     ROLE_ADMIN,
     STATUS_ACTIVE,
@@ -46,13 +53,12 @@ from noust.core.accounts.model import (
     clean_display_name,
     clean_email,
     clean_person_ref,
-    incompatible_roles,
-    validate_role,
     validate_username,
 )
 from noust.core.accounts.policy import AuthPolicy, load_policy
 from noust.core.exceptions import ValidationError
 from noust.core.teams.enrol import enrol_in_default, follow_instance_role
+from noust.core.teams.model import INSTANCE_ONLY_ROLES
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +92,9 @@ _COLUMNS = (
     "last_login_at, last_login_ip, failures_since_login, last_failed_at, last_failed_ip, "
     "locked_until, locked_reason, notice_version, notice_accepted_at, created_at, "
     "created_by, updated_at, disabled_at, disabled_reason, email, "
+    # Every role the account holds, in order (noust.core.access.roles); NULL when none is listed.
+    "(SELECT group_concat(role, ',') FROM (SELECT role FROM account_roles "
+    "WHERE account_roles.account_id = accounts.id ORDER BY position, role)) AS role_list, "
     # Passkeys count as a second factor (noust.core.accounts.passkeys).
     "(SELECT COUNT(*) FROM account_passkeys WHERE account_passkeys.account_id = accounts.id) "
     "AS passkey_count, "
@@ -167,6 +176,7 @@ def _account(row: sqlite3.Row) -> Account:
         passkeys=int(row["passkey_count"] or 0),
         identities=int(row["identity_count"] or 0),
         email=row["email"],
+        listed_roles=tuple(str(row["role_list"]).split(",")) if row["role_list"] else (),
     )
 
 
@@ -342,6 +352,20 @@ class AccountManager:
             )
         return row
 
+    def _validated_roles(self, role: str | None, roles: Sequence[str] | None = None) -> list[str]:
+        """
+        Args:
+            role: One role, when the caller names one.
+            roles: Several, when it names them; they take the place of ``role``.
+
+        Returns:
+            The roles checked against the server's list.
+
+        Raises:
+            ValidationError: When there are none, or one is not in the list.
+        """
+        return role_rules.validated(RoleStore(self.store), role, roles)
+
     # ------------------------------------------------------------- queries
 
     def count(self) -> int:
@@ -421,22 +445,22 @@ class AccountManager:
     def first_admin(self) -> Account | None:
         """
         Returns:
-            The oldest ``admin`` account that is not disabled or merely
-            invited: the owner tokens issued before accounts existed are
+            The oldest account that holds the owner or the administrator role and is not
+            disabled or merely invited: the owner tokens issued before accounts existed are
             handed to.
         """
         row = self._row(
-            "role = ? AND status IN (?, ?) ORDER BY created_at, id LIMIT 1",
-            (ROLE_ADMIN, STATUS_ACTIVE, STATUS_LOCKED),
+            "status IN (?, ?) AND (role = ? OR EXISTS (SELECT 1 FROM account_roles r "
+            "WHERE r.account_id = accounts.id AND r.role IN (?, ?))) "
+            "ORDER BY created_at, id LIMIT 1",
+            (STATUS_ACTIVE, STATUS_LOCKED, ROLE_ADMIN, ROLE_ADMIN, ROLE_OWNER),
         )
         return _account(row) if row is not None else None
-
-    # ----------------------------------------------------------- lifecycle
 
     def create(
         self,
         username: str,
-        role: str,
+        role: str | None,
         *,
         password: str | None,
         display_name: str | None = None,
@@ -444,6 +468,8 @@ class AccountManager:
         created_by: str | None = None,
         join_default_team: bool = True,
         email: str | None = None,
+        roles: Sequence[str] | None = None,
+        first_account_is_owner: bool = False,
     ) -> Account:
         """
         Create an active account with a password.
@@ -453,7 +479,7 @@ class AccountManager:
 
         Args:
             username: Sign-in name.
-            role: One of :data:`noust.core.accounts.model.ROLES`.
+            role: One of the roles of the list.
             password: The password; checked against the policy.
             display_name: How the console greets them.
             person_ref: Who the account belongs to, for separation of duties.
@@ -462,13 +488,18 @@ class AccountManager:
                 (what every account was before teams existed). A caller that
                 puts the account in a team of its own passes False.
             email: Where its invitations and password resets are mailed.
+            roles: Several roles, instead of ``role``; the first is the one it is known by.
+            first_account_is_owner: Make the account the owner as well when it is the first the
+                server has and no framework keeps duties apart. The two ways a person arrives at
+                a server (the command line and the console) say so; code that makes accounts for
+                others (a provider, a test) leaves the roles it was given as they are.
 
         Returns:
             The account.
 
         Raises:
             ValidationError: When a field or the password is refused.
-            AccountError: When the name is taken or the role is incompatible
+            AccountError: When the name is taken or the roles are incompatible
                 with another account of the same person.
         """
         name = validate_username(username)
@@ -483,7 +514,7 @@ class AccountManager:
         )
         return self._insert(
             name,
-            validate_role(role),
+            self._validated_roles(role, roles),
             status=STATUS_ACTIVE,
             password_hash=passwords.hash_password(password),
             display_name=clean_display_name(display_name),
@@ -491,12 +522,13 @@ class AccountManager:
             created_by=created_by,
             join_default_team=join_default_team,
             email=clean_email(email),
+            first_account_is_owner=first_account_is_owner,
         )
 
     def _insert(
         self,
         username: str,
-        role: str,
+        roles: Sequence[str],
         *,
         status: str,
         password_hash: str | None,
@@ -506,13 +538,14 @@ class AccountManager:
         join_default_team: bool = True,
         membership: tuple[int, str] | None = None,
         email: str | None = None,
+        first_account_is_owner: bool = False,
     ) -> Account:
         """
         Write a new account row after the separation-of-duties check.
 
         Args:
             username: Validated name.
-            role: Validated role.
+            roles: Validated roles, the one it is known by first.
             status: Initial status.
             password_hash: Stored hash, or None for an invitation.
             display_name: Cleaned display name.
@@ -523,6 +556,7 @@ class AccountManager:
             membership: A team id and the team role to join it with, in the
                 same transaction; for an account made for one team only.
             email: Cleaned address, or None.
+            first_account_is_owner: Whether the first account of a server is made its owner too.
 
         Returns:
             The account.
@@ -530,7 +564,16 @@ class AccountManager:
         Raises:
             AccountError: When the name is taken or the roles clash.
         """
-        self._check_separation(person_ref, role, exclude_id=None)
+        names = list(roles)
+        listed = RoleStore(self.store)
+        requires = self.policy().requires
+        if first_account_is_owner and role_rules.first_account_gets_the_owner(
+            listed, names, self.any_exist(), duties_apply(requires)
+        ):
+            names.append(ROLE_OWNER)
+        role = mirror_of(names)
+        refuse_conflicting_roles(username, names, listed.permission_map(), requires)
+        self._check_separation(person_ref, names, exclude_id=None)
         now = self.now()
         try:
             with self._write() as cursor:
@@ -553,6 +596,7 @@ class AccountManager:
                     ),
                 )
                 account_id = int(cursor.lastrowid or 0)
+                replace_roles(cursor, account_id, names, now=now, actor=created_by)
                 if join_default_team:
                     enrol_in_default(cursor, account_id, role)
                 if membership is not None:
@@ -597,6 +641,7 @@ class AccountManager:
                 disabled_at=None,
                 disabled_reason=None,
                 email=email,
+                listed_roles=tuple(names),
             )
         return account
 
@@ -611,6 +656,8 @@ class AccountManager:
         expires_hours: float = DEFAULT_INVITATION_HOURS,
         join_default_team: bool = True,
         email: str | None = None,
+        roles: Sequence[str] | None = None,
+        first_account_is_owner: bool = False,
     ) -> tuple[Account, str]:
         """
         Issue a single-use invitation: the person sets their own password.
@@ -635,6 +682,8 @@ class AccountManager:
                 an invitation to a team passes False and adds the team itself.
             email: Where the invitation is mailed; kept on a new account, and on an
                 existing one that has none.
+            roles: Several roles for a new account, instead of ``role``.
+            first_account_is_owner: As in :meth:`create`.
 
         Returns:
             The account and the invitation code, in clear, exactly once.
@@ -652,7 +701,7 @@ class AccountManager:
         name = validate_username(username)
         existing = self.find(name)
         if existing is None:
-            if role is None:
+            if role is None and not roles:
                 raise ValidationError(
                     "A role is required to invite a new account",
                     details="Pass --role viewer, operator, admin, security or auditor.",
@@ -660,7 +709,7 @@ class AccountManager:
             address = clean_email(email)
             account = self._insert(
                 name,
-                validate_role(role),
+                self._validated_roles(role, roles),
                 status=STATUS_INVITED,
                 password_hash=None,
                 display_name=clean_display_name(display_name),
@@ -668,6 +717,7 @@ class AccountManager:
                 created_by=created_by,
                 join_default_team=join_default_team,
                 email=address,
+                first_account_is_owner=first_account_is_owner,
             )
         elif existing.status == STATUS_DISABLED:
             raise AccountError(
@@ -678,7 +728,7 @@ class AccountManager:
             # A recovery hands the account, role and all, to whoever holds the
             # code: the role is granted again, so it is held to the same
             # separation of duties as granting it (an exception may have ended).
-            self._check_separation(existing.person_ref, existing.role, exclude_id=existing.id)
+            self._check_separation(existing.person_ref, existing.roles, exclude_id=existing.id)
             account = existing
             address = clean_email(email)
             if address is not None and existing.email is None:
@@ -874,7 +924,7 @@ class AccountManager:
 
         Args:
             username: Sign-in name, validated here.
-            role: One of :data:`noust.core.accounts.model.ROLES`.
+            role: One of the roles of the list.
             display_name: How the console greets them.
             person_ref: Who the account belongs to, for separation of duties.
             created_by: Who or what creates it, for the record.
@@ -891,7 +941,7 @@ class AccountManager:
         """
         return self._insert(
             validate_username(username),
-            validate_role(role),
+            self._validated_roles(role),
             status=STATUS_ACTIVE,
             password_hash=None,
             display_name=clean_display_name(display_name),
@@ -923,7 +973,7 @@ class AccountManager:
 
         Args:
             username: Sign-in name, validated here.
-            role: One of :data:`noust.core.accounts.model.ROLES`.
+            role: One of the roles of the list.
             display_name: How the console greets them.
             person_ref: Who the account belongs to: the e-mail that ties it to their sign-in.
             created_by: Who or what creates it, for the record.
@@ -940,7 +990,7 @@ class AccountManager:
         """
         return self._insert(
             validate_username(username),
-            validate_role(role),
+            self._validated_roles(role),
             status=STATUS_INVITED,
             password_hash=None,
             display_name=clean_display_name(display_name),
@@ -987,13 +1037,14 @@ class AccountManager:
             )
         return self.require_id(int(account_id))
 
-    def set_role(self, username: str, role: str) -> Account:
+    def set_role(self, username: str, role: str, *, by: Account | None = None) -> Account:
         """
-        Change an account's role.
+        Change the role an account is known by, leaving the others it holds as they are.
 
         Args:
             username: The account's name.
-            role: The new role.
+            role: The new role, which takes the place of the first.
+            by: The account asking (a token's owner); None for root and the master token.
 
         Returns:
             The account after the change.
@@ -1001,19 +1052,67 @@ class AccountManager:
         Raises:
             AccountNotFoundError: When no account has that name.
             AccountError: When the role clashes with another account of the
-                same person.
+                same person, or the owner role would change hands wrongly.
         """
+        account = self.require(username)
+        first = self._validated_roles(role)[0]
+        return self.set_roles(
+            username, [first, *(name for name in account.roles[1:] if name != first)], by=by
+        )
+
+    def set_roles(
+        self,
+        username: str,
+        roles: Sequence[str],
+        *,
+        by: Account | None = None,
+        actor: str | None = None,
+    ) -> Account:
+        """
+        Set every role an account holds; what it may do is the union of what they hold.
+
+        Where a control keeps duties apart the roles must not join them, the owner role changes
+        hands only by an owner, and the last account that can sign in and holds it keeps it
+        (:mod:`noust.core.accounts.role_rules`). The change applies to the account's sessions and
+        tokens at their next request.
+
+        Args:
+            username: The account's name.
+            roles: The roles it is to hold, the one it is known by first.
+            by: The account asking (a token's owner); None for root and the master token.
+            actor: Who changes them, for the record.
+
+        Returns:
+            The account after the change.
+
+        Raises:
+            AccountNotFoundError: When no account has that name.
+            ValidationError: When there are none, or one is not in the list.
+            AccessError: When a rule above refuses it.
+            AccountError: When the roles clash with another account of the same person.
+        """
+        account = self.require(username)
         row = self._require(username)
-        new_role = validate_role(role)
-        self._check_separation(row["person_ref"], new_role, exclude_id=int(row["id"]))
+        names = self._validated_roles(None, roles)
+        listed = RoleStore(self.store)
+        role_rules.refuse_owner_hand_over(by, account.roles, names)
+        role_rules.refuse_last_owner(listed, account, names)
+        refuse_conflicting_roles(
+            account.username, names, listed.permission_map(), self.policy().requires
+        )
+        self._check_separation(row["person_ref"], names, exclude_id=account.id)
+        mirror = mirror_of(names)
         with self._write() as cursor:
             cursor.execute(
                 "UPDATE accounts SET role = ?, updated_at = ? WHERE id = ?",
-                (new_role, self.now(), int(row["id"])),
+                (mirror, self.now(), account.id),
             )
+            replace_roles(cursor, account.id, names, now=self.now(), actor=actor)
             # A security officer or an auditor belongs to no team; an account
             # that stops being one joins the default, as a new account does.
-            follow_instance_role(cursor, int(row["id"]), new_role)
+            follow_instance_role(
+                cursor, account.id, role_rules.team_basis(names, INSTANCE_ONLY_ROLES, mirror)
+            )
         return self.require(username)
 
     def update_profile(
@@ -1041,7 +1140,7 @@ class AccountManager:
             changes["display_name"] = clean_display_name(display_name)
         if person_ref is not None:
             ref = clean_person_ref(person_ref)
-            self._check_separation(ref, str(row["role"]), exclude_id=int(row["id"]))
+            self._check_separation(ref, _account(row).roles, exclude_id=int(row["id"]))
             changes["person_ref"] = ref
         if changes:
             self._update(int(row["id"]), **changes)
@@ -1109,6 +1208,7 @@ class AccountManager:
             AccountNotFoundError: When no account has that name.
         """
         row = self._require(username)
+        role_rules.refuse_last_owner(RoleStore(self.store), _account(row), None)
         self._update(
             int(row["id"]),
             status=STATUS_DISABLED,
@@ -1135,7 +1235,7 @@ class AccountManager:
         row = self._require(username)
         if row["status"] != STATUS_DISABLED:
             return _account(row)
-        self._check_separation(row["person_ref"], str(row["role"]), exclude_id=int(row["id"]))
+        self._check_separation(row["person_ref"], _account(row).roles, exclude_id=int(row["id"]))
         self._update(
             int(row["id"]),
             status=(
@@ -1294,6 +1394,7 @@ class AccountManager:
             AccountNotFoundError: When no account has that name.
         """
         row = self._require(username)
+        role_rules.refuse_last_owner(RoleStore(self.store), _account(row), None)
         with self._write() as cursor:
             cursor.execute(
                 "DELETE FROM account_invitations WHERE account_id = ?", (int(row["id"]),)
@@ -1941,48 +2042,55 @@ class AccountManager:
             self.policy().requires("separation_of_duties")
             and by.person_ref
             and by.person_ref == account.person_ref
-            and incompatible_roles(by.role, account.role)
+            and accounts_clash(by.roles, account.roles, RoleStore(self.store).permission_map())
             and not self._exception_in_force(by.person_ref)
         ):
+            mine, theirs = ", ".join(by.roles), ", ".join(account.roles)
             raise AccountError(
                 f"You cannot {action} {account.username!r}: it belongs to you ({by.person_ref}) "
-                f"and holds {account.role}, which is incompatible with your {by.role} role",
+                f"and holds {theirs}, which is incompatible with your {mine} role",
                 details="Another security officer can, or root with 'noust user'.",
             )
 
     def _check_separation(
-        self, person_ref: str | None, role: str, *, exclude_id: int | None
+        self, person_ref: str | None, roles: Sequence[str], *, exclude_id: int | None
     ) -> None:
         """
-        Refuse a role one person may not hold together with one they hold.
+        Refuse roles one person may not hold together with those of another of their accounts.
 
         Only where the separation of duties is asked for: the ENS profile, or
         ``security.separation_of_duties``. A person running their own servers
-        holds whatever accounts they like.
+        holds whatever accounts they like. It is judged on what the roles hold now
+        (:func:`noust.core.access.combination.accounts_clash`).
 
         Args:
             person_ref: The person the account belongs to; nothing is checked
                 without one.
-            role: The role being given.
+            roles: The roles being given.
             exclude_id: The account being changed, left out of the comparison.
 
         Raises:
             AccountError: When the separation of duties is on, another account of
-                the person holds an incompatible role and no exception is in
+                the person holds roles that clash with them and no exception is in
                 force for them.
         """
         if not person_ref or not self.policy().requires("separation_of_duties"):
             return
         rows = self._rows(
-            "SELECT username, role FROM accounts WHERE person_ref = ? AND status != ? AND id != ?",
+            f"SELECT {_COLUMNS} FROM accounts WHERE person_ref = ? AND status != ? AND id != ?",  # noqa: S608 - fixed columns
             (person_ref, STATUS_DISABLED, -1 if exclude_id is None else exclude_id),
         )
-        clashes = [row for row in rows if incompatible_roles(role, str(row["role"]))]
+        table = RoleStore(self.store).permission_map()
+        clashes = [
+            account
+            for account in (_account(row) for row in rows)
+            if accounts_clash(roles, account.roles, table)
+        ]
         if not clashes or self._exception_in_force(person_ref):
             return
-        names = ", ".join(f"{row['username']} ({row['role']})" for row in clashes)
+        names = ", ".join(f"{a.username} ({', '.join(a.roles)})" for a in clashes)
         raise AccountError(
-            f"{person_ref} already holds a role incompatible with {role}: {names}",
+            f"{person_ref} already holds a role incompatible with {', '.join(roles)}: {names}",
             details=(
                 "One person may not both run the infrastructure and govern its security, "
                 "and an auditor holds no other role. If this installation has a single "
@@ -2114,23 +2222,29 @@ class AccountManager:
         if not always and not self.policy().requires("separation_of_duties"):
             return []
         rows = self._rows(
-            "SELECT person_ref, username, role FROM accounts WHERE person_ref IS NOT NULL "
+            f"SELECT {_COLUMNS} FROM accounts WHERE person_ref IS NOT NULL "  # noqa: S608 - fixed columns
             "AND status != ? ORDER BY person_ref, username",
             (STATUS_DISABLED,),
         )
-        by_person: dict[str, list[tuple[str, str]]] = {}
+        table = RoleStore(self.store).permission_map()
+        by_person: dict[str, list[Account]] = {}
         for row in rows:
-            by_person.setdefault(str(row["person_ref"]), []).append(
-                (str(row["username"]), str(row["role"]))
-            )
+            account = _account(row)
+            by_person.setdefault(str(account.person_ref), []).append(account)
         conflicts = []
         for person, held in by_person.items():
-            roles = [role for _name, role in held]
-            if any(incompatible_roles(a, b) for i, a in enumerate(roles) for b in roles[i + 1 :]):
+            if any(
+                accounts_clash(a.roles, b.roles, table)
+                for i, a in enumerate(held)
+                for b in held[i + 1 :]
+            ):
                 conflicts.append(
                     {
                         "person_ref": person,
-                        "accounts": [{"username": name, "role": role} for name, role in held],
+                        "accounts": [
+                            {"username": a.username, "role": a.role, "roles": list(a.roles)}
+                            for a in held
+                        ],
                         "exception": self._exception_in_force(person),
                     }
                 )

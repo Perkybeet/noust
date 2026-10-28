@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from noust.core.exceptions import NoustError, ValidationError
+from noust.core.server_text import say
 
 #: Where a role is held. ``instance`` adds to the account's own role everywhere;
 #: the others narrow what the role reaches to a team, a project or an environment.
@@ -75,24 +76,13 @@ def validate_role_name(value: str) -> str:
         The name, trimmed and lower-cased.
 
     Raises:
-        ValidationError: When it is not a slug, or is the name of a built-in role.
+        ValidationError: When it is not a slug, or is the name of a role Noust ships.
     """
     name = (value or "").strip().lower()
     if not ROLE_NAME_PATTERN.fullmatch(name):
-        raise ValidationError(
-            f"Invalid role name: {value!r}",
-            details=(
-                "Use 2 to 40 lower-case letters, digits or '-', starting and ending with a "
-                "letter or digit, such as 'release-manager'."
-            ),
-            field="name",
-        )
+        raise ValidationError.from_text(say("roles.name_invalid", name=value), field="name")
     if name in BUILT_IN_ROLE_NAMES:
-        raise ValidationError(
-            f"{name!r} is the name of a built-in role",
-            details="Pick another name; the built-in roles cannot be redefined.",
-            field="name",
-        )
+        raise ValidationError.from_text(say("roles.name_system", name=name), field="name")
     return name
 
 

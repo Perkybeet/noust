@@ -73,13 +73,36 @@ where approvals apply). What an account holds on a resource is the union of what
 environment, the project and the team that contain it, and on the server, with the floor of its own
 role: the same person administers one project and only reads another.
 
-**Roles of your own.** The built-in team roles cannot change. A custom role is a set of permissions
-that exist (`noust access permissions` lists them, with what each means), defined once and given at any
-scope that can carry it:
+**One list of roles.** A server has one list of roles, and the operator edits it
+(`GET|POST|PATCH|DELETE /api/roles`, `noust access role`). The five roles of every release
+(`viewer`, `operator`, `admin`, `security`, `auditor`) and a protected `owner` are in it from the
+start. A role Noust ships can be **edited**, **duplicated** into a role of your own and **put back** to
+how it comes; the ones you define are yours.
+
+* **A role nobody edited follows the release.** When a version adds a permission to `operator`, an
+  `operator` nobody touched has it. One you edited receives nothing in silence: the API says what a newer
+  release offers it (`offers`, `noust access role offers NAME`), and you take or leave each permission.
+* **The owner holds every permission, always.** It is not edited, put back or deleted, it is given and
+  taken only by an owner (or by root on the server: `noust user roles NAME ...`), and at least one account
+  that can sign in always holds it, so a server is never locked out. The first account made through the
+  console or `noust user create` is the owner as well, unless a framework keeps duties apart. A server that
+  upgrades gives it to the oldest account that already held every permission, and to nobody else.
+* **An account holds one or several roles** (`noust user roles NAME ROLE...`,
+  `PUT /api/auth/accounts/{username}/roles`); what it may do is what they hold together. `role` in the
+  API is the first of the five roles of 3.1 among them, for clients written before 4.1.
+* A framework no longer cuts permissions behind your back. `roles_split` used to take the permissions of
+  governing from the administrator; now the review says which role joins governing with running
+  (`GET /api/roles/review`, `noust ens check`, the plan of `noust compliance enable`), and the command
+  that splits it. A server that ran `roles_split` before 4.1 has its administrator saved as it was,
+  marked as edited, so no account gained or lost a permission by upgrading.
+
+**Roles of your own.** A custom role is a set of permissions that exist (`noust access permissions`
+lists them, with what each means), defined once and given at any scope that can carry it:
 
 ```
 noust access role create release-manager --permission apps.read --permission apps.deploy \
     --label "Release manager"
+noust access role duplicate operator night-shift
 ```
 
 * A scope narrower than the server holds only what a team can own: a role with `apps.*`, `databases.*`
@@ -87,16 +110,17 @@ noust access role create release-manager --permission apps.read --permission app
   members (`teams.manage`) only on a team or the server; anything that reaches the machine, only on the
   server. The console says where a role will be usable while it is defined.
 * Where the separation of duties is asked for (ENS, ISO/IEC 27001 or `security.separation_of_duties`;
-  see [COMPLIANCE.md](COMPLIANCE.md)), a role never mixes **governing** (`accounts.manage`,
-  `security.manage`, `audit.manage`) with **running** the server: the rule that keeps one person from
-  holding a `security` and an `admin`
-  account keeps one role from being both. An account cannot be given a role that would make it do both
-  at once, and an `auditor` holds nothing more.
-* Where the `single_role_per_account` control is on (ENS), an account has one role: a role on the whole server is refused, and the
-  same account is given the role on a team, a project or an environment instead.
-* A role someone holds cannot be deleted: revoke it first. Redefining it re-checks its holders.
+  see [COMPLIANCE.md](COMPLIANCE.md)), a role is never *defined or edited* to mix **governing**
+  (`accounts.manage`, `security.manage`, `audit.manage`) with **running** the server, and an account is
+  never given roles that together do although none does alone. An `auditor` holds nothing more. A role
+  that already joins them (the administrator Noust ships) is reported, not refused to the accounts that
+  hold it, until you split it.
+* Where the `single_role_per_account` control is on (ENS), an account has one *function*: it may hold
+  several roles, as long as together they do not join governing with running.
+* A role someone holds cannot be deleted: take it from them first. Redefining it re-checks its holders.
 * Every change is an audit event (`access.role.create`, `access.role.update`, `access.role.delete`,
-  `access.bind`, `access.unbind`).
+  `access.role.duplicate`, `access.role.reset`, `access.role.offer`, `access.bind`, `access.unbind`,
+  `user.role_change`).
 
 **Roles given by a group.** An identity source can give a role at a scope to everyone in one of its
 groups, so that "contractors on the web project" is a group at the provider and not a list kept here

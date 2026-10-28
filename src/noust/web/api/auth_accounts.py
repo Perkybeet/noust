@@ -27,6 +27,8 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from noust.core.access.builtin import ROLE_OWNER
+from noust.core.access.roles import RoleStore
 from noust.core.accounts import Account, AuthenticationFailed, SodException
 from noust.core.accounts.local_login import load_policy as load_local_login
 from noust.core.accounts.mail import AccountMailer, mail_invitation
@@ -96,7 +98,12 @@ class AccountInfo(BaseModel):
         id: Store id.
         username: Sign-in name.
         display_name: How the console greets them.
-        role: ``viewer``, ``operator``, ``admin``, ``security`` or ``auditor``.
+        role: The first of the five roles of 3.1 among its roles (``viewer`` when none is): what
+            a client written before 4.1 reads. What the account may do is ``roles``.
+        roles: Every role it holds, in order (the list is ``GET /api/roles``).
+        permissions: What the roles hold together, sorted: the account's effective permissions
+            outside any team.
+        owner: Whether it holds the owner role.
         status: ``active``, ``disabled``, ``locked`` or ``invited``.
         person_ref: Who the account belongs to, for separation of duties.
         email: Where its invitations and password resets are mailed.
@@ -120,6 +127,9 @@ class AccountInfo(BaseModel):
     username: str
     display_name: str
     role: str
+    roles: list[str] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=list)
+    owner: bool = False
     status: str
     person_ref: str | None = None
     email: str | None = None
@@ -138,16 +148,41 @@ class AccountInfo(BaseModel):
     disabled_reason: str | None = None
 
     @classmethod
-    def of(cls, account: Account) -> AccountInfo:
+    def of(cls, account: Account, table: dict[str, frozenset[str]] | None = None) -> AccountInfo:
         """
         Args:
             account: The account.
+            table: What every role holds now, by name, when the caller describes several accounts
+                and has read it once.
 
         Returns:
             Its public description.
         """
         public = account.to_dict()
-        return cls(**{name: public[name] for name in _ACCOUNT_FIELDS})
+        held = (
+            RoleStore().permissions_for(account.roles)
+            if table is None
+            else _union(account.roles, table)
+        )
+        return cls(
+            **{name: public[name] for name in _ACCOUNT_FIELDS},
+            roles=list(account.roles),
+            permissions=sorted(held),
+            owner=ROLE_OWNER in account.roles,
+        )
+
+
+def _union(names: tuple[str, ...], table: dict[str, frozenset[str]]) -> frozenset[str]:
+    """
+    Args:
+        names: An account's roles.
+        table: What every role holds now, by name.
+
+    Returns:
+        What they hold together; a viewer's when none of them is a role any more.
+    """
+    known = [table[name] for name in names if name in table]
+    return frozenset().union(*known) if known else table.get("viewer", frozenset())
 
 
 #: The fields of :class:`AccountInfo`, read from ``Account.to_dict()``;
@@ -211,14 +246,17 @@ class AccountCreate(BaseModel):
 
     Attributes:
         username: Sign-in name.
-        role: Its role.
+        role: Its role; or ``roles``, when it holds several.
+        roles: Every role it is to hold, the one it is known by first. The first account a server
+            has is made its owner as well, unless a framework keeps duties apart.
         password: Its first password, checked against the policy.
         display_name: How the console greets them.
         person_ref: Who it belongs to, such as an e-mail address.
     """
 
     username: str = Field(min_length=2, max_length=64)
-    role: str
+    role: str | None = None
+    roles: list[str] | None = Field(default=None, max_length=32)
     password: str = Field(max_length=1024)
     display_name: str | None = Field(default=None, max_length=128)
     person_ref: str | None = Field(default=None, max_length=254)
@@ -229,13 +267,15 @@ class AccountUpdate(BaseModel):
     Changes to an account; a field left out is kept.
 
     Attributes:
-        role: A new role.
+        role: A new role, which takes the place of the first one the account holds.
+        roles: Every role it is to hold from now on; set instead of ``role`` to change several.
         display_name: A new display name.
         person_ref: A new person reference; empty clears it.
         email: A new address for invitations and password resets; empty clears it.
     """
 
     role: str | None = None
+    roles: list[str] | None = Field(default=None, max_length=32)
     display_name: str | None = Field(default=None, max_length=128)
     person_ref: str | None = Field(default=None, max_length=254)
     email: str | None = Field(default=None, max_length=254)
@@ -259,6 +299,7 @@ class InvitationCreate(BaseModel):
     Attributes:
         username: The account's name.
         role: The role of a new account; ignored for an existing one.
+        roles: Several roles for a new account, instead of ``role``.
         display_name: Display name of a new account.
         person_ref: Person reference of a new account. Optional: the e-mail address stands
             for it when it is not given, so the invitation needs one address, not two.
@@ -273,6 +314,7 @@ class InvitationCreate(BaseModel):
 
     username: str = Field(min_length=2, max_length=64)
     role: str | None = None
+    roles: list[str] | None = Field(default=None, max_length=32)
     display_name: str | None = Field(default=None, max_length=128)
     person_ref: str | None = Field(default=None, max_length=254)
     expires_hours: int = Field(default=24, ge=1, le=24 * 14)
@@ -518,9 +560,9 @@ def _after_role_granted(account: Account) -> None:
     Hand the tokens issued before accounts existed to the first admin account.
 
     Args:
-        account: An account that just became ``admin``.
+        account: An account that just became ``admin`` or an owner.
     """
-    if account.role != ROLE_ADMIN:
+    if ROLE_ADMIN not in account.roles and ROLE_OWNER not in account.roles:
         return
     token_manager = get_token_manager()
     first = token_manager.accounts.first_admin()
@@ -828,8 +870,9 @@ def list_accounts(session: dict[str, Any] = Depends(require_auth)) -> AccountsRe
         The accounts and the separation-of-duties conflicts.
     """
     accounts = get_token_manager().accounts
+    table = RoleStore(accounts.store).permission_map()
     return AccountsResponse(
-        accounts=[AccountInfo.of(account) for account in accounts.list_all()],
+        accounts=[AccountInfo.of(account, table) for account in accounts.list_all()],
         conflicts=[SeparationConflict(**conflict) for conflict in accounts.separation_conflicts()],
     )
 
@@ -864,6 +907,8 @@ def create_account(
         display_name=body.display_name,
         person_ref=body.person_ref,
         created_by=actor_label(session),
+        roles=body.roles,
+        first_account_is_owner=True,
     )
     _after_role_granted(account)
     audit_event(
@@ -937,6 +982,8 @@ def create_invitation(
             created_by=actor_label(session),
             expires_hours=body.expires_hours,
             email=address,
+            roles=body.roles,
+            first_account_is_owner=True,
         )
     # The invitation exists whether the mail goes or not: its code is shown to the caller to hand
     # over, so a server that cannot send mail does not take the invitation with it.
@@ -1045,10 +1092,12 @@ def update_account(
             target=f"account:{account.username}",
             detail="address set" if account.email else "address cleared",
         )
-    if body.role is not None and body.role != account.role:
+    if body.roles is not None:
+        account = _change_roles(session, request, username, body.roles)
+    elif body.role is not None and body.role != account.role:
         _refuse_self(session, username, "change the role of")
-        previous = account.role
-        account = accounts.set_role(username, body.role)
+        previous = ", ".join(account.roles)
+        account = accounts.set_role(username, body.role, by=_caller_account(session))
         _after_role_granted(account)
         audit_event(
             "user.role_change",
@@ -1056,9 +1105,101 @@ def update_account(
             client_ip=client_ip,
             session=session,
             target=f"account:{account.username}",
-            detail=f"role {previous} -> {account.role}",
+            detail=f"roles {previous} -> {', '.join(account.roles)}",
         )
     return AccountInfo.of(account)
+
+
+class AccountRolesRequest(BaseModel):
+    """
+    Every role an account is to hold.
+
+    Attributes:
+        roles: The roles, the one the account is known by first; at least one, each a role of the
+            list (``GET /api/roles``).
+    """
+
+    roles: list[str] = Field(min_length=1, max_length=32)
+
+
+def _change_roles(
+    session: dict[str, Any], request: Request, username: str, roles: list[str]
+) -> Account:
+    """
+    Set the roles of an account as the caller, and put it on the audit trail.
+
+    Args:
+        session: The authenticated payload, in sudo mode.
+        request: The incoming request.
+        username: The account's name.
+        roles: The roles it is to hold.
+
+    Returns:
+        The account after the change.
+
+    Raises:
+        AccountNotFoundError: When no account has that name.
+        ValidationError: 400 (``roles.no_roles``, ``roles.unknown``).
+        AccessError: 400 (``roles.owner_by_owner``, ``roles.last_owner``,
+            ``roles.separation_role``, ``roles.separation_account``, ``roles.auditor_exclusive``)
+            when a rule of the roles an account holds refuses it.
+        AccountError: When the roles clash with another account of the same person, or the
+            account is the caller's own.
+    """
+    accounts = get_token_manager().accounts
+    account = accounts.require(username)
+    if tuple(roles) == account.roles:
+        return account
+    _refuse_self(session, username, "change the role of")
+    previous = ", ".join(account.roles)
+    changed = accounts.set_roles(
+        username, roles, by=_caller_account(session), actor=actor_label(session)
+    )
+    _after_role_granted(changed)
+    audit_event(
+        "user.role_change",
+        "success",
+        client_ip=get_client_ip(request),
+        session=session,
+        target=f"account:{changed.username}",
+        detail=f"roles {previous} -> {', '.join(changed.roles)}",
+    )
+    return changed
+
+
+@router.put("/accounts/{username}/roles", response_model=AccountInfo)
+def set_account_roles(
+    username: str,
+    request: Request,
+    body: AccountRolesRequest,
+    session: dict[str, Any] = Depends(require_elevated),
+) -> AccountInfo:
+    """
+    Set every role an account holds; what it may do is what they hold together.
+
+    The change applies to the account's sessions and tokens at their next request. The owner role
+    is given and taken by an owner (or by root and the master token), and the last account that
+    can sign in and holds it keeps it.
+
+    Args:
+        username: The account's name.
+        request: The incoming request.
+        body: The roles, the one the account is known by first.
+        session: The authenticated payload, in sudo mode.
+
+    Returns:
+        The account after the change, with its roles and its effective permissions.
+
+    Raises:
+        AccountNotFoundError: 404 when no account has that name.
+        ValidationError: 400 (``roles.no_roles``, ``roles.unknown``).
+        AccessError: 400 (``roles.owner_by_owner``, ``roles.last_owner``,
+            ``roles.separation_role``, ``roles.separation_account``,
+            ``roles.auditor_exclusive``) when a rule of the roles an account holds refuses it.
+        AccountError: 400 for one's own account, or roles that clash with another account of the
+            same person.
+    """
+    return AccountInfo.of(_change_roles(session, request, username, body.roles))
 
 
 @router.delete("/accounts/{username}", response_model=AccountActionResponse)

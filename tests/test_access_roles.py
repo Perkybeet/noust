@@ -38,6 +38,7 @@ from noust.web.permissions.access import (
     separation_conflict,
 )
 from noust.web.permissions.principal import scope_of
+from noust.web.permissions.roles import permissions_of_account
 from noust.web.permissions.team_roles import permissions_at, team_fields
 from noust.web.server import get_token_manager
 from tests.support.teams_support import Person, World, build_world, make_app, make_person
@@ -230,7 +231,7 @@ class TestDefiningRoles:
     def test_a_server_keeps_a_catalogue_not_a_database(
         self, world: World, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr("noust.web.permissions.access.MAX_ROLES", 2)
+        monkeypatch.setattr("noust.core.access.role_manager.MAX_ROLES", 2)
         manager = AccessManager(world.store)
         manager.create_role("one", [P.APPS_READ])
         manager.create_role("two", [P.APPS_READ])
@@ -268,7 +269,7 @@ class TestDefiningRoles:
         manager.create_role("ci", [P.APPS_READ])
         manager.bind("pia", "ci", team="acme", project="mobile")
 
-        with pytest.raises(AccessConflictError, match="held by 1"):
+        with pytest.raises(AccessConflictError, match="still given to 1"):
             manager.delete_role("ci")
 
         manager.unbind(manager.list_bindings("pia")[0].id)
@@ -325,11 +326,14 @@ class TestBinding:
         with pytest.raises(ValidationError, match="governs a team's members"):
             AccessManager(world.store).bind("pia", "owner", team="acme", project="mobile")
 
-    def test_a_built_in_team_role_is_not_a_role_of_the_server(self, world: World) -> None:
+    def test_a_role_given_at_the_server_is_one_more_role_of_the_account(self, world: World) -> None:
+        # At the server the names are the server's roles (the list), not a team's built-in ones.
         add_person(world, "pia", "viewer")
 
-        with pytest.raises(ValidationError, match="not of the whole server"):
-            AccessManager(world.store).bind("pia", "admin", scope="instance")
+        binding = AccessManager(world.store).bind("pia", "operator", scope="instance")
+
+        assert binding.id == 0 and binding.scope_kind == "instance"
+        assert AccessManager(world.store).account("pia").roles == ("viewer", "operator")
 
     def test_a_security_officer_and_an_auditor_never_join_a_team(self, world: World) -> None:
         for name in ("sofia", "aurora"):
@@ -367,9 +371,8 @@ class TestBinding:
         manager.create_role("db-reader", [P.DATABASES_READ, P.BACKUPS_READ])
         manager.bind("pia", "db-reader", scope="instance")
 
-        fields = team_fields(
-            manager.account("pia").id, "viewer", frozenset({P.SELF, P.APPS_READ}), world.store
-        )
+        held = permissions_of_account(manager.account("pia"), world.store)
+        fields = team_fields(manager.account("pia").id, "viewer", held, world.store)
 
         assert P.DATABASES_READ in fields["instance_permissions"]
         assert P.APPS_READ in fields["instance_permissions"]
@@ -405,16 +408,21 @@ class TestBinding:
         with pytest.raises(AccessError, match="govern access and run"):
             manager.update_role("reviewer", permissions=[P.APPS_DEPLOY])
 
-    def test_the_ens_profile_gives_an_account_one_role(
+    def test_the_ens_profile_gives_an_account_several_roles_that_keep_duties_apart(
         self, world: World, real_config: Any
     ) -> None:
         manager = AccessManager(world.store)
         manager.create_role("db-reader", [P.DATABASES_READ])
         real_config.set("security.profile", "ens-medium")
-
-        with pytest.raises(AccessError, match="one role"):
-            manager.bind("root-admin", "db-reader", scope="instance")
         add_person(world, "pia", "viewer")
+
+        # What op.acc.1.2 asks is one function per account, not one role: a second reading role
+        # is fine, and the owner's own limit is that roles together do not join governing and
+        # running.
+        manager.bind("pia", "db-reader", scope="instance")
+        assert manager.account("pia").roles == ("viewer", "db-reader")
+        with pytest.raises(AccessError, match="govern access and run"):
+            manager.bind("pia", "admin", scope="instance")
         # Below the server it is a membership, not a second role.
         assert manager.bind("pia", "db-reader", team="acme", project="mobile").role == "db-reader"
 

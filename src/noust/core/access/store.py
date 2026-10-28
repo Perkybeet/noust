@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Where custom roles and role bindings are kept.
+Where role bindings are kept, and the roles of the operator's own as they were read.
 
-The one reader and writer of the ``custom_roles`` and ``access_bindings``
-tables, through the store's own connection and transaction (the way
+The one reader and writer of the ``access_bindings`` table, through the store's own connection
+and transaction (the way
 :class:`~noust.core.teams.TeamStore` reaches the teams) so ``--dry-run``
 rehearses a change as it rehearses any other write. Rules about *what a role
 may hold and who may be given it* are not here: this module stores and finds,
@@ -14,7 +14,6 @@ may hold and who may be given it* are not here: this module stores and finds,
 
 from __future__ import annotations
 
-import json
 import sqlite3
 from typing import TYPE_CHECKING, Any
 
@@ -23,13 +22,13 @@ from noust.core.access.model import (
     SCOPE_INSTANCE,
     SCOPE_PROJECT,
     SCOPE_TEAM,
-    AccessConflictError,
     AccessNotFoundError,
     Binding,
     CustomRole,
 )
 
 if TYPE_CHECKING:
+    from noust.core.access.roles import RoleRecord
     from noust.core.store import NoustStore
 
 _BINDING_SELECT = (
@@ -38,29 +37,23 @@ _BINDING_SELECT = (
 )
 
 
-def _role(row: sqlite3.Row) -> CustomRole:
+def custom_role_of(role: RoleRecord) -> CustomRole:
     """
     Args:
-        row: A row of ``custom_roles``.
+        role: A role of the list.
 
     Returns:
-        The role. A permission list that is not readable is an empty one: a
-        hand-edited row grants nothing rather than everything.
+        It in the shape the access commands and routes have always spoken.
     """
-    try:
-        raw = json.loads(row["permissions"] or "[]")
-    except (TypeError, ValueError):
-        raw = []
-    permissions = sorted({str(item) for item in raw}) if isinstance(raw, list) else []
     return CustomRole(
-        name=str(row["name"]),
-        label=str(row["label"]),
-        description=str(row["description"] or ""),
-        permissions=tuple(permissions),
-        created_at=float(row["created_at"]),
-        created_by=row["created_by"],
-        updated_at=float(row["updated_at"]),
-        updated_by=row["updated_by"],
+        name=role.name,
+        label=role.label,
+        description=role.description,
+        permissions=role.permissions,
+        created_at=role.created_at,
+        created_by=role.created_by,
+        updated_at=role.updated_at,
+        updated_by=role.updated_by,
     )
 
 
@@ -100,9 +93,17 @@ class AccessStore:
     def list_roles(self) -> list[CustomRole]:
         """
         Returns:
-            Every custom role, by name.
+            Every role of the operator's own, by name. The roles are one list
+            (:class:`~noust.core.access.roles.RoleStore`); these are the ones that can be given
+            at a team, a project or an environment.
         """
-        return [_role(row) for row in self._rows("SELECT * FROM custom_roles ORDER BY name")]
+        from noust.core.access.roles import KIND_CUSTOM, RoleStore
+
+        return [
+            custom_role_of(role)
+            for role in RoleStore(self._store).list_roles()
+            if role.kind == KIND_CUSTOM
+        ]
 
     def get_role(self, name: str) -> CustomRole | None:
         """
@@ -112,8 +113,8 @@ class AccessStore:
         Returns:
             The role, or None.
         """
-        rows = self._rows("SELECT * FROM custom_roles WHERE name = ?", ((name or "").lower(),))
-        return _role(rows[0]) if rows else None
+        wanted = (name or "").strip().lower()
+        return next((role for role in self.list_roles() if role.name == wanted), None)
 
     def require_role(self, name: str) -> CustomRole:
         """
@@ -138,121 +139,9 @@ class AccessStore:
     def count_roles(self) -> int:
         """
         Returns:
-            How many custom roles there are.
+            How many roles the operator has defined.
         """
-        return int(self._rows("SELECT COUNT(*) FROM custom_roles")[0][0])
-
-    def insert_role(
-        self,
-        name: str,
-        label: str,
-        description: str,
-        permissions: list[str],
-        *,
-        now: float,
-        actor: str | None,
-    ) -> CustomRole:
-        """
-        Write a new custom role.
-
-        Args:
-            name: Its validated slug.
-            label: What the console shows.
-            description: What it is for.
-            permissions: Its validated, sorted permissions.
-            now: The time, UNIX seconds.
-            actor: Who makes it.
-
-        Returns:
-            The role.
-
-        Raises:
-            AccessConflictError: When the name is taken.
-        """
-        try:
-            with self.store._transaction() as cursor:
-                cursor.execute(
-                    "INSERT INTO custom_roles (name, label, description, permissions, "
-                    "created_at, created_by, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (name, label, description, json.dumps(permissions), now, actor, now, actor),
-                )
-        except sqlite3.IntegrityError as exc:
-            raise AccessConflictError(
-                f"A role named {name!r} already exists",
-                details="Change it with 'noust access role set', or pick another name.",
-                field="name",
-            ) from exc
-        return self.require_role(name)
-
-    def update_role(
-        self,
-        name: str,
-        *,
-        label: str | None,
-        description: str | None,
-        permissions: list[str] | None,
-        now: float,
-        actor: str | None,
-    ) -> CustomRole:
-        """
-        Change a custom role; what is None stays.
-
-        Args:
-            name: The role.
-            label: The new label.
-            description: The new description.
-            permissions: The new validated, sorted permissions.
-            now: The time, UNIX seconds.
-            actor: Who changes it.
-
-        Returns:
-            The role as it is now.
-
-        Raises:
-            AccessNotFoundError: When there is no such role.
-        """
-        current = self.require_role(name)
-        with self.store._transaction() as cursor:
-            cursor.execute(
-                "UPDATE custom_roles SET label = ?, description = ?, permissions = ?, "
-                "updated_at = ?, updated_by = ? WHERE name = ?",
-                (
-                    current.label if label is None else label,
-                    current.description if description is None else description,
-                    json.dumps(list(current.permissions) if permissions is None else permissions),
-                    now,
-                    actor,
-                    current.name,
-                ),
-            )
-        return self.require_role(name)
-
-    def delete_role(self, name: str) -> CustomRole:
-        """
-        Delete a custom role that nobody holds.
-
-        Args:
-            name: The role.
-
-        Returns:
-            The role as it was.
-
-        Raises:
-            AccessNotFoundError: When there is no such role.
-            AccessConflictError: When an account still holds it.
-        """
-        current = self.require_role(name)
-        holders = self._rows(
-            "SELECT COUNT(*) FROM access_bindings WHERE role = ?", (current.name,)
-        )[0][0]
-        if holders:
-            raise AccessConflictError(
-                f"The role {current.name!r} is held by {holders} binding(s)",
-                details="Take it from the accounts that hold it first: 'noust access list'.",
-            )
-        with self.store._transaction() as cursor:
-            cursor.execute("DELETE FROM custom_roles WHERE name = ?", (current.name,))
-        return current
+        return len(self.list_roles())
 
     # ----------------------------------------------------------------- bindings
 

@@ -178,10 +178,14 @@ class WarningInfo(BaseModel):
     Attributes:
         id: What it is.
         count: How many it concerns, when it counts.
+        items: Which, when it names them: for ``roles_join_duties``, the roles that join governing
+            the server with running it which an account holds (``noust access role set`` splits
+            them; ``GET /api/roles/review`` says what to).
     """
 
     id: str
     count: int | None = None
+    items: list[str] = Field(default_factory=list)
 
 
 class PlanInfo(BaseModel):

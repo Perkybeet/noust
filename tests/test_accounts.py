@@ -18,6 +18,8 @@ from pathlib import Path
 import pytest
 
 from noust.core import totp
+from noust.core.access.builtin import ADMIN
+from noust.core.access.role_manager import RoleManager
 from noust.core.accounts import (
     AccountError,
     AccountManager,
@@ -64,7 +66,14 @@ def accounts(store: NoustStore, clock: Clock) -> AccountManager:
 
 @pytest.fixture
 def separated(store: NoustStore, clock: Clock) -> AccountManager:
-    """A server whose frameworks ask for the separation of duties (ISO 27001 A.5.3)."""
+    """
+    A server whose frameworks ask for the separation of duties (ISO 27001 A.5.3).
+
+    Its administrator is the one such a server runs with: without the permissions of governing,
+    since a framework judges the roles as they are defined and the administrator Noust ships holds
+    both halves.
+    """
+    RoleManager(store).update("admin", permissions=sorted(ADMIN))
     return AccountManager(store, policy=AuthPolicy(frameworks=("iso-27001",)), clock=clock)
 
 
@@ -681,7 +690,9 @@ class TestSeparationOfDuties:
         separated.revoke_exception(exception.id)
         assert separated.separation_conflicts()[0]["exception"] is False
 
-    def test_by_default_one_person_may_hold_the_accounts_they_like(self, accounts):
+    def test_by_default_one_person_may_hold_the_accounts_they_like(self, accounts, store):
+        # The administrator of a server that keeps governing and running apart holds one half.
+        RoleManager(store).update("admin", permissions=sorted(ADMIN))
         accounts.create("maria", "admin", password=PASSWORD, person_ref="maria@example.com")
         second = accounts.create(
             "maria.sec", "security", password=PASSWORD, person_ref="maria@example.com"
@@ -696,6 +707,7 @@ class TestSeparationOfDuties:
         Config.reset_instance()
         try:
             Config().set("security.separation_of_duties", True)
+            RoleManager(store).update("admin", permissions=sorted(ADMIN))
             manager = AccountManager(store, clock=clock)
             manager.create("maria", "admin", password=PASSWORD, person_ref="maria@example.com")
             with pytest.raises(AccountError, match="incompatible"):

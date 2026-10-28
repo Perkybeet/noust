@@ -97,6 +97,67 @@ CATALOG: dict[str, str] = {
     "mail.no_public_url.hint": "Set web.public_url to the address people open the console at.",
     "invitation.mail_failed": "The invitation could not be mailed: {reason}",
     "invitation.mail_failed.hint": "The invitation exists: hand its link over yourself.",
+    # -- Roles: one list, one protected owner, several roles per account (4.1) --------------
+    "roles.unknown": "There is no role named {name}",
+    "roles.unknown.hint": "List the roles with: {command}",
+    "roles.name_invalid": "Invalid role name: {name}",
+    "roles.name_invalid.hint": (
+        "Use 2 to 40 lower-case letters, digits or '-', starting and ending with a letter or "
+        "digit, such as 'release-manager'."
+    ),
+    "roles.name_system": "{name} is the name of a built-in role",
+    "roles.name_system.hint": (
+        "Pick another name. The built-in roles can be edited and put back, not redefined under "
+        "their own name."
+    ),
+    "roles.name_taken": "A role named {name} already exists",
+    "roles.name_taken.hint": "Pick another name, or look at that one with: {command}",
+    "roles.too_many": "A server keeps at most {max} roles of its own",
+    "roles.too_many.hint": "Remove one nobody holds. List them with: {command}",
+    "roles.owner_protected": "The owner role cannot be changed or deleted",
+    "roles.owner_protected.hint": (
+        "It holds every permission there is, so that the server always has somebody who can do "
+        "everything. To give a person all of it, give them the owner role."
+    ),
+    "roles.owner_by_owner": "Only an owner can give or take the owner role",
+    "roles.owner_by_owner.hint": (
+        "Ask an account that has it. On the server itself, root can: noust user roles."
+    ),
+    "roles.last_owner": "{username} is the last account that can use the owner role",
+    "roles.last_owner.hint": (
+        "A server always keeps somebody who can do everything. Give the owner role to another "
+        "account that can sign in first, then this change can go ahead."
+    ),
+    "roles.in_use": "The role {name} is still given to {count} account(s) or place(s)",
+    "roles.in_use.hint": "See who holds it with: {command}, take it from them, then delete it.",
+    "roles.seeded_kept": "{name} ships with Noust, so it cannot be deleted",
+    "roles.seeded_kept.hint": "Change what it holds, or put it back to how it comes with: {command}",
+    "roles.reset_custom": "{name} is a role of your own, so there is no shipped version to go back to",
+    "roles.reset_custom.hint": "Change it, or remove it with: {command}",
+    "roles.permissions_unknown": "Unknown permissions: {names}",
+    "roles.permissions_unknown.hint": "List every permission there is with: {command}",
+    "roles.permissions_none": "A role needs at least one permission",
+    "roles.permissions_none.hint": "Pick what it may do, such as apps.read and apps.deploy.",
+    "roles.permissions_many": "A role holds at most {max} permissions",
+    "roles.no_roles": "An account needs at least one role",
+    "roles.no_roles.hint": "Give it one, such as viewer.",
+    "roles.separation_role": "{subject} would govern access and run the server at once",
+    "roles.separation_role.hint": (
+        "It holds {governing} (who may run the server) together with {running} (running it). "
+        "Separation of duties keeps them in different hands: split it into two roles."
+    ),
+    "roles.separation_account": "{username} would govern access and run the server at once",
+    "roles.separation_account.hint": (
+        "Its roles together hold {governing} (who may run the server) with {running} (running "
+        "it). Separation of duties keeps them in different hands: give the person a second "
+        "account for the other duty."
+    ),
+    "roles.auditor_exclusive": (
+        "{username} is an auditor, who checks everybody and holds nothing more"
+    ),
+    "roles.auditor_exclusive.hint": "Use another account for what it should be able to do.",
+    "roles.offer_unknown": "{permission} is not on offer for the role {name}",
+    "roles.offer_unknown.hint": "See what is on offer with: {command}",
     # -- The installation check (Settings > About, noust setup doctor) ---------------------
     # Sections: the heading's text is its own key in the console; only the sentence that
     # explains one is here.

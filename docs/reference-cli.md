@@ -108,7 +108,7 @@ Arguments: `username`
 | `--team` | The team. |  |
 | `--project` | The project of that team. |  |
 | `--env` | The environment of that project. |  |
-| `--scope` | Where; the narrowest of --team, --project and --env by default. 'instance' is the whole server (a role you defined, added to the account's own). |  |
+| `--scope` | Where; the narrowest of --team, --project and --env by default. 'instance' is the whole server: one more role of the account, as 'noust user roles' sets them. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust access list
@@ -161,7 +161,7 @@ Define roles of your own, as sets of permissions.
 noust access role [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-access-role-create), [`list`](#noust-access-role-list), [`remove`](#noust-access-role-remove), [`set`](#noust-access-role-set), [`show`](#noust-access-role-show)
+Subcommands: [`create`](#noust-access-role-create), [`duplicate`](#noust-access-role-duplicate), [`list`](#noust-access-role-list), [`offers`](#noust-access-role-offers), [`remove`](#noust-access-role-remove), [`reset`](#noust-access-role-reset), [`set`](#noust-access-role-set), [`show`](#noust-access-role-show)
 
 ### noust access role create
 
@@ -180,9 +180,24 @@ Arguments: `name`
 | `--description` | What the role is for. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
+### noust access role duplicate
+
+Copy a role into a role of your own, which you then change as you like.
+
+```
+noust access role duplicate [OPTIONS] NAME NEW_NAME
+```
+
+Arguments: `name`, `new_name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--label` | Its label; the original's by default. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
 ### noust access role list
 
-List the roles that can be given: a team's built-in ones and yours.
+List the server's roles, and a team's built-in ones.
 
 ```
 noust access role list [OPTIONS]
@@ -193,9 +208,26 @@ noust access role list [OPTIONS]
 | `--json` | Print the roles as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
+### noust access role offers
+
+Take or leave what a newer release ships for a role you edited.
+
+```
+noust access role offers [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--accept` | An offered permission to add (repeat). |  |
+| `--dismiss` | An offered permission to leave out (repeat). |  |
+| `--json` | Print the role as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
 ### noust access role remove
 
-Remove a role nobody holds.
+Remove a role of your own that nobody holds.
 
 ```
 noust access role remove [OPTIONS] NAME
@@ -208,9 +240,23 @@ Arguments: `name`
 | `--yes`, `-y` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
+### noust access role reset
+
+Put a role Noust ships back to how it comes: it follows the release again.
+
+```
+noust access role reset [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
 ### noust access role set
 
-Change a role; everyone who holds it holds the change at their next request.
+Change a role, one Noust ships included; everyone who holds it holds the change.
 
 ```
 noust access role set [OPTIONS] NAME
@@ -227,7 +273,7 @@ Arguments: `name`
 
 ### noust access role show
 
-Show what a role holds, permission by permission.
+Show what a role holds, permission by permission, and who holds it.
 
 ```
 noust access role show [OPTIONS] NAME
@@ -15434,13 +15480,13 @@ Arguments: `upload_id`
 
 ### noust user
 
-Manage the accounts that sign in to the console, each with one role.
+Manage the accounts that sign in to the console, each with its roles.
 
 ```
 noust user [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-user-create), [`disable`](#noust-user-disable), [`enable`](#noust-user-enable), [`exception`](#noust-user-exception), [`invite`](#noust-user-invite), [`list`](#noust-user-list), [`remove`](#noust-user-remove), [`reset-mfa`](#noust-user-reset-mfa), [`set-email`](#noust-user-set-email), [`set-role`](#noust-user-set-role), [`unlock`](#noust-user-unlock)
+Subcommands: [`create`](#noust-user-create), [`disable`](#noust-user-disable), [`enable`](#noust-user-enable), [`exception`](#noust-user-exception), [`invite`](#noust-user-invite), [`list`](#noust-user-list), [`remove`](#noust-user-remove), [`reset-mfa`](#noust-user-reset-mfa), [`roles`](#noust-user-roles), [`set-email`](#noust-user-set-email), [`set-role`](#noust-user-set-role), [`unlock`](#noust-user-unlock)
 
 ### noust user create
 
@@ -15454,7 +15500,7 @@ Arguments: `username`
 
 | Option | What it does | Default |
 |---|---|---|
-| `--role` | The account's one role. |  |
+| `--role` | A role of the account (repeat for several; the first is the one it is known by). 'noust access role list' lists them. |  |
 | `--display-name` | How the console greets them. |  |
 | `--person-ref` | Who the account belongs to (an e-mail), for separation of duties. |  |
 | `--stdin` | Read the password from standard input. |  |
@@ -15554,7 +15600,7 @@ Arguments: `username`
 
 | Option | What it does | Default |
 |---|---|---|
-| `--role` | Role of a new account. |  |
+| `--role` | Role of a new account (repeat for several; the first is the one it is known by). |  |
 | `--display-name` | Display name of a new account. |  |
 | `--person-ref` | Person reference of a new account. |  |
 | `--expires-hours` | How long the invitation code is valid. | `24` |
@@ -15566,7 +15612,7 @@ Arguments: `username`
 
 ### noust user list
 
-List every account, its role, status and last sign-in.
+List every account, its roles, status and last sign-in.
 
 ```
 noust user list [OPTIONS]
@@ -15606,6 +15652,20 @@ Arguments: `username`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
+### noust user roles
+
+Set every role an account holds; what it may do is what they hold together.
+
+```
+noust user roles [OPTIONS] USERNAME ROLES...
+```
+
+Arguments: `username`, `roles`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
 ### noust user set-email
 
 Set the address an account's invitations and password resets are mailed to.
@@ -15623,11 +15683,10 @@ Arguments: `username`, `address`
 
 ### noust user set-role
 
-Change an account's role; its sessions and tokens follow at their next request.
+Change the role an account is known by, leaving the others it holds.
 
 ```
-noust user set-role [OPTIONS] USERNAME
-                           {viewer|operator|admin|security|auditor}
+noust user set-role [OPTIONS] USERNAME ROLE
 ```
 
 Arguments: `username`, `role`

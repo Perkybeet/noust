@@ -263,6 +263,88 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  roles: {
+    auditor_exclusive: {
+      text: "{username} es auditor: revisa a todos y no tiene nada más",
+      hint: "Usa otra cuenta para lo que deba poder hacer.",
+    },
+    in_use: {
+      text: "El rol {name} sigue dado a {count} cuenta(s) o lugar(es)",
+      hint: "Mira quién lo tiene con: {command}, quítaselo y después elimínalo.",
+    },
+    last_owner: {
+      text: "{username} es la última cuenta que puede usar el rol de propietario",
+      hint:
+        "Un servidor siempre conserva a alguien que pueda hacerlo todo. Da primero el rol de propietario a otra cuenta que pueda entrar y este cambio podrá seguir.",
+    },
+    name_invalid: {
+      text: "Nombre de rol no válido: {name}",
+      hint: "Usa de 2 a 40 letras minúsculas, cifras o '-', empezando y acabando por letra o cifra, como 'release-manager'.",
+    },
+    name_system: {
+      text: "{name} es el nombre de un rol integrado",
+      hint:
+        "Elige otro nombre. Los roles que trae Noust se pueden editar y devolver a como vienen, pero no redefinir con su nombre.",
+    },
+    name_taken: {
+      text: "Ya existe un rol llamado {name}",
+      hint: "Elige otro nombre, o mira ese con: {command}",
+    },
+    no_roles: {
+      text: "Una cuenta necesita al menos un rol",
+      hint: "Dale uno, como viewer.",
+    },
+    offer_unknown: {
+      text: "{permission} no se ofrece al rol {name}",
+      hint: "Mira lo que se ofrece con: {command}",
+    },
+    owner_by_owner: {
+      text: "Solo un propietario puede dar o quitar el rol de propietario",
+      hint: "Pídeselo a una cuenta que lo tenga. En el propio servidor puede hacerlo root: noust user roles.",
+    },
+    owner_protected: {
+      text: "El rol de propietario no se puede cambiar ni eliminar",
+      hint:
+        "Tiene todos los permisos que existen, para que el servidor siempre conserve a alguien que pueda hacerlo todo. Para dar todo eso a una persona, dale el rol de propietario.",
+    },
+    permissions_many: {
+      text: "Un rol tiene como máximo {max} permisos",
+    },
+    permissions_none: {
+      text: "Un rol necesita al menos un permiso",
+      hint: "Elige lo que puede hacer, como apps.read y apps.deploy.",
+    },
+    permissions_unknown: {
+      text: "Permisos desconocidos: {names}",
+      hint: "Lista todos los permisos que existen con: {command}",
+    },
+    reset_custom: {
+      text: "{name} es un rol tuyo, así que no hay una versión de Noust a la que volver",
+      hint: "Cámbialo, o elimínalo con: {command}",
+    },
+    seeded_kept: {
+      text: "{name} viene con Noust, así que no se puede eliminar",
+      hint: "Cambia lo que tiene, o devuélvelo a como viene con: {command}",
+    },
+    separation_account: {
+      text: "{username} gobernaría el acceso y ejecutaría el servidor a la vez",
+      hint:
+        "Sus roles juntos tienen {governing} (quién puede ejecutar el servidor) con {running} (ejecutarlo). La separación de funciones las mantiene en manos distintas: da a la persona una segunda cuenta para la otra función.",
+    },
+    separation_role: {
+      text: "{subject} gobernaría el acceso y ejecutaría el servidor a la vez",
+      hint:
+        "Tiene {governing} (quién puede ejecutar el servidor) junto con {running} (ejecutarlo). La separación de funciones las mantiene en manos distintas: divídelo en dos roles.",
+    },
+    too_many: {
+      text: "Un servidor guarda como máximo {max} roles propios",
+      hint: "Elimina uno que nadie tenga. Lístalos con: {command}",
+    },
+    unknown: {
+      text: "No existe ningún rol llamado {name}",
+      hint: "Lista los roles con: {command}",
+    },
+  },
   terminal: {
     disabled: {
       text: "Los terminales están desactivados en este servidor",

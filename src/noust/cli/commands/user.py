@@ -27,7 +27,8 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
-from noust.core.accounts import ROLES, Account, AccountManager
+from noust.core.access.builtin import ROLE_OWNER
+from noust.core.accounts import Account, AccountManager
 from noust.core.accounts.mail import AccountMailer, mail_invitation
 from noust.core.accounts.manager import DEFAULT_INVITATION_HOURS
 from noust.core.accounts.model import ROLE_ADMIN, clean_email
@@ -146,7 +147,7 @@ def _adopt_tokens(account: Account) -> str:
     Returns:
         A sentence saying how many were adopted, or empty.
     """
-    if account.role != ROLE_ADMIN:
+    if ROLE_ADMIN not in account.roles and ROLE_OWNER not in account.roles:
         return ""
     first = _manager().first_admin()
     manager = _console_tokens()
@@ -174,14 +175,14 @@ def _show(ctx: Context, account: Account, message: str) -> None:
 
 @click.group("user", cls=NoustGroup)
 def cli() -> None:
-    """Manage the accounts that sign in to the console, each with one role."""
+    """Manage the accounts that sign in to the console, each with its roles."""
 
 
 @cli.command("list", read_only=True)
 @json_option("Print the accounts as JSON.")
 @pass_context
 def list_command(ctx: Context) -> None:
-    """List every account, its role, status and last sign-in."""
+    """List every account, its roles, status and last sign-in."""
     manager = _manager()
     accounts = manager.list_all()
     conflicts = manager.separation_conflicts()
@@ -200,11 +201,11 @@ def list_command(ctx: Context) -> None:
         )
         return
     logger.table(
-        ["Username", "Role", "Status", "2FA", "Last sign-in", "Failures", "Person"],
+        ["Username", "Roles", "Status", "2FA", "Last sign-in", "Failures", "Person"],
         [
             [
                 account.username,
-                account.role,
+                ", ".join(account.roles),
                 account.effective_status(),
                 "yes" if account.has_mfa else "no",
                 _fmt(account.last_login_at),
@@ -222,7 +223,14 @@ def list_command(ctx: Context) -> None:
 
 @cli.command("create")
 @click.argument("username")
-@click.option("--role", type=click.Choice(ROLES), required=True, help="The account's one role.")
+@click.option(
+    "--role",
+    "roles",
+    multiple=True,
+    required=True,
+    help="A role of the account (repeat for several; the first is the one it is known by). "
+    "'noust access role list' lists them.",
+)
 @click.option("--display-name", default=None, help="How the console greets them.")
 @click.option(
     "--person-ref",
@@ -245,7 +253,7 @@ def list_command(ctx: Context) -> None:
 def create_command(
     ctx: Context,
     username: str,
-    role: str,
+    roles: tuple[str, ...],
     display_name: str | None,
     person_ref: str | None,
     from_stdin: bool,
@@ -261,10 +269,15 @@ def create_command(
     """
     password = _read_password(username, from_stdin)
     if team is not None:
+        if len(roles) > 1:
+            raise ValidationError(
+                "An account made for a team has one role",
+                details="Pass one --role, then give it more with 'noust user roles'.",
+            )
         account, membership = create_in_team(
             _manager(),
             username,
-            role,
+            roles[0],
             password=password,
             team=team,
             team_role=team_role,
@@ -280,20 +293,31 @@ def create_command(
     else:
         account = _manager().create(
             username,
-            role,
+            None,
+            roles=list(roles),
             password=password,
             display_name=display_name,
             person_ref=person_ref,
             created_by="cli",
+            first_account_is_owner=True,
         )
-    _record("user.create", f"account:{account.username}", {"role": account.role})
+    _record("user.create", f"account:{account.username}", {"roles": list(account.roles)})
     adopted = _adopt_tokens(account)
-    _show(ctx, account, f"Account created: {account.username} ({account.role}).{adopted}")
+    _show(
+        ctx,
+        account,
+        f"Account created: {account.username} ({', '.join(account.roles)}).{adopted}",
+    )
 
 
 @cli.command("invite")
 @click.argument("username")
-@click.option("--role", type=click.Choice(ROLES), default=None, help="Role of a new account.")
+@click.option(
+    "--role",
+    "roles",
+    multiple=True,
+    help="Role of a new account (repeat for several; the first is the one it is known by).",
+)
 @click.option("--display-name", default=None, help="Display name of a new account.")
 @click.option("--person-ref", default=None, help="Person reference of a new account.")
 @click.option(
@@ -328,7 +352,7 @@ def create_command(
 def invite_command(
     ctx: Context,
     username: str,
-    role: str | None,
+    roles: tuple[str, ...],
     display_name: str | None,
     person_ref: str | None,
     expires_hours: int,
@@ -347,15 +371,16 @@ def invite_command(
     """
     address = clean_email(email)
     if team is not None:
-        if role is None:
+        if len(roles) != 1:
             raise ValidationError(
-                "A role is required to invite a new account",
-                details="Pass --role viewer, operator or admin.",
+                "One role is required to invite a new account into a team",
+                details="Pass one --role viewer, operator or admin, then give more with "
+                "'noust user roles'.",
             )
         account, code, membership = invite_to_team(
             _manager(),
             username,
-            role,
+            roles[0],
             team=team,
             team_role=team_role,
             display_name=display_name,
@@ -372,12 +397,14 @@ def invite_command(
     else:
         account, code = _manager().invite(
             username,
-            role,
+            roles[0] if len(roles) == 1 else None,
+            roles=list(roles) if len(roles) > 1 else None,
             display_name=display_name,
             person_ref=person_ref,
             created_by="cli",
             expires_hours=expires_hours,
             email=address,
+            first_account_is_owner=True,
         )
     # Under --dry-run nothing is saved, so nothing is sent: the code would not work.
     sent = mail_invitation(
@@ -453,16 +480,57 @@ def set_email_command(ctx: Context, username: str, address: str) -> None:
 
 @cli.command("set-role")
 @click.argument("username")
-@click.argument("role", type=click.Choice(ROLES))
+@click.argument("role")
 @pass_context
 def set_role_command(ctx: Context, username: str, role: str) -> None:
-    """Change an account's role; its sessions and tokens follow at their next request."""
+    """
+    Change the role an account is known by, leaving the others it holds.
+
+    Its sessions and tokens follow at their next request. To set every role the account holds,
+    use 'noust user roles'.
+    """
     manager = _manager()
-    previous = manager.require(username).role
+    previous = ", ".join(manager.require(username).roles)
     account = manager.set_role(username, role)
-    _record("user.role_change", f"account:{account.username}", {"from": previous, "to": role})
+    _record(
+        "user.role_change",
+        f"account:{account.username}",
+        {"from": previous, "to": ", ".join(account.roles)},
+    )
     adopted = _adopt_tokens(account)
-    _show(ctx, account, f"{account.username} is now {account.role} (was {previous}).{adopted}")
+    _show(
+        ctx,
+        account,
+        f"{account.username} now holds {', '.join(account.roles)} (was {previous}).{adopted}",
+    )
+
+
+@cli.command("roles")
+@click.argument("username")
+@click.argument("roles", nargs=-1, required=True)
+@pass_context
+def roles_command(ctx: Context, username: str, roles: tuple[str, ...]) -> None:
+    """
+    Set every role an account holds; what it may do is what they hold together.
+
+    The first is the one it is known by. The owner role is handed on from here by root, which is
+    how a server that lost its owners gets one back; the last account that can sign in and holds
+    it keeps it. Its sessions and tokens follow at their next request.
+    """
+    manager = _manager()
+    previous = ", ".join(manager.require(username).roles)
+    account = manager.set_roles(username, list(roles), actor="cli")
+    _record(
+        "user.role_change",
+        f"account:{account.username}",
+        {"from": previous, "to": ", ".join(account.roles)},
+    )
+    adopted = _adopt_tokens(account)
+    _show(
+        ctx,
+        account,
+        f"{account.username} now holds {', '.join(account.roles)} (was {previous}).{adopted}",
+    )
 
 
 @cli.command("disable")

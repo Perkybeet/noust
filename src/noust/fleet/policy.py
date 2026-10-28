@@ -304,7 +304,7 @@ def _second_factor_of_its_own() -> bool:
     from noust.core.accounts.passkeys import PasskeyManager
     from noust.core.store import StoreError
     from noust.web.permissions import Permission
-    from noust.web.permissions.roles import permissions_for_role
+    from noust.web.permissions.roles import permissions_of_account
 
     try:
         if PasskeyManager().count(None) > 0:
@@ -312,7 +312,7 @@ def _second_factor_of_its_own() -> bool:
         return any(
             account.can_sign_in()
             and account.has_mfa
-            and Permission.FLEET_MANAGE in permissions_for_role(account.role)
+            and Permission.FLEET_MANAGE in permissions_of_account(account)
             for account in AccountManager().list_all()
         )
     except (StoreError, sqlite3.Error) as exc:

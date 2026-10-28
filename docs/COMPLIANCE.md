@@ -37,9 +37,9 @@ The console has the same under Settings > Compliance. Disabling a framework, or 
 
 | Control | What it does | Default | Setting | Stricter |
 |---|---|---|---|---|
-| `roles_split` | An administrator does not govern accounts, security settings or the audit trail: those belong to the security and auditor roles. | off | `security.roles_split` | on is stricter |
+| `roles_split` | No role holds both governing the server (accounts, security settings, the audit trail) and running it. Nothing is cut from a role for it: the roles are judged as they are defined, and the one that joins them is reported until the operator splits it. | off | `security.roles_split` | on is stricter |
 | `separation_of_duties` | One person cannot hold the account that runs the server and the one that governs it, and an auditor holds nothing else, unless a documented exception is recorded. | off | `security.separation_of_duties` | on is stricter |
-| `single_role_per_account` | An account has one role: roles on the whole server are not added to it, and a person with two duties holds two accounts. | off | `security.single_role_per_account` | on is stricter |
+| `single_role_per_account` | An account has one function: it may hold several roles as long as together they do not join governing the server with running it, and a person with two duties holds two accounts. | off | `security.single_role_per_account` | on is stricter |
 | `sso_no_admin` | An identity provider never hands out the admin role, by default or by group: a person grants it. | off | `security.sso_no_admin` | on is stricter |
 | `second_factor` | Every account enrols an authenticator or a passkey before it can do anything else. Where nothing asks for it, an account may set it up later, until the console is published on a public name. | off | `security.second_factor` | on is stricter |
 | `approvals` | Root-equivalent actions, servers and role changes wait for a second person to approve them. | off | `approval.enabled` | on is stricter |

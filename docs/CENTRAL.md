@@ -168,10 +168,13 @@ service there.
    the old one.
 
 The central's accounts are the ones that matter for the fleet: operators reach every server
-through the central, and each server receives the operator's name and role with every call
-(`X-Noust-Actor`, `X-Noust-Actor-Role`). The server grants what its own table gives that role,
-within its ceiling for the central (below). A server's own accounts, tokens and second factor are
-never the central's to change.
+through the central, and each server receives the operator's name with every call
+(`X-Noust-Actor`) and what that person may do (`X-Noust-Actor-Permissions`; roles are editable, so a
+role's name does not mean the same on two servers). The server grants those permissions within its
+ceiling for the central (below), and never what no central may have: its accounts, security settings
+and audit trail. A server before 4.1 reads the name of the widest role of 3.1 the person holds all of
+(`X-Noust-Actor-Role`) and decides by its own table. A server's own accounts, tokens and second
+factor are never the central's to change.
 
 `docker exec -it noust noust central status` shows the role, where the data is, the
 certificate's fingerprint, who may connect, whether the secrets are sealed, how many

@@ -507,16 +507,18 @@ def exists(control_id: str) -> bool:
 #: line. The console words them from its own catalogs.
 DESCRIPTIONS: dict[str, str] = {
     "roles_split": (
-        "An administrator does not govern accounts, security settings or the audit trail: "
-        "those belong to the security and auditor roles."
+        "No role holds both governing the server (accounts, security settings, the audit trail) "
+        "and running it. Nothing is cut from a role for it: the roles are judged as they are "
+        "defined, and the one that joins them is reported until the operator splits it."
     ),
     "separation_of_duties": (
         "One person cannot hold the account that runs the server and the one that governs "
         "it, and an auditor holds nothing else, unless a documented exception is recorded."
     ),
     "single_role_per_account": (
-        "An account has one role: roles on the whole server are not added to it, and a "
-        "person with two duties holds two accounts."
+        "An account has one function: it may hold several roles as long as together they do "
+        "not join governing the server with running it, and a person with two duties holds "
+        "two accounts."
     ),
     "sso_no_admin": (
         "An identity provider never hands out the admin role, by default or by group: "

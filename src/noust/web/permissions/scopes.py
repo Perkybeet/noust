@@ -324,6 +324,9 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/access/roles", OPEN, methods=("GET",)),
     _rule("/api/access/roles/{role}", OPEN, methods=("GET",)),
     _rule("/api/access/**", INSTANCE),
+    # The server's roles are the server's: a team's owner offers a role from the catalogue above,
+    # and never sees who holds what outside the team.
+    _rule("/api/roles/**", INSTANCE),
     # A client's endpoint answers whoever holds a token; each tool it calls is a request to the
     # API as that token and is held to its team and permissions there. Turning it on is the server's.
     _rule("/api/mcp/settings", INSTANCE),

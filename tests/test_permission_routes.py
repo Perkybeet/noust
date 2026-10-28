@@ -237,23 +237,29 @@ class TestTheRoles:
         assert permissions_for_role("admin") == ALL_PERMISSIONS == ADMIN_STANDARD
         assert permissions_for_role("security") == SECURITY
 
-    def test_where_the_roles_are_split_admin_is_the_ens_admin(self, real_config: Any) -> None:
+    def test_a_framework_does_not_cut_the_administrator_behind_the_roles_back(
+        self, real_config: Any
+    ) -> None:
+        # 4.1: roles_split is judged on the roles as they are defined, not applied to them.
         real_config.set("security.roles_split", True)
-
-        assert permissions_for_role("admin") == ADMIN
-
-    def test_a_framework_that_asks_for_it_splits_the_roles(self, real_config: Any) -> None:
-        real_config.set("security.frameworks", ["soc2-security"])
-        assert permissions_for_role("admin") == ADMIN
-
-        real_config.set("security.frameworks", ["nis2"])
         assert permissions_for_role("admin") == ADMIN_STANDARD
 
-    def test_the_old_profile_setting_splits_them_too(self, real_config: Any) -> None:
+        real_config.set("security.frameworks", ["soc2-security"])
+        assert permissions_for_role("admin") == ADMIN_STANDARD
+
         real_config.set("security.profile", "ens-medium")
+        assert permissions_for_role("admin") == ADMIN_STANDARD
+        assert permissions_for_role("operator") == OPERATOR
+
+    def test_the_administrator_an_operator_saves_is_the_one_in_force(self) -> None:
+        from noust.core.access.role_manager import RoleManager
+
+        RoleManager().update("admin", permissions=sorted(ADMIN))
 
         assert permissions_for_role("admin") == ADMIN
-        assert permissions_for_role("operator") == OPERATOR
+
+    def test_the_owner_holds_everything_and_the_table_names_it(self) -> None:
+        assert permissions_for_role("owner") == ALL_PERMISSIONS
 
     def test_security_changes_nothing_but_security(self) -> None:
         changes_infrastructure = {
@@ -284,7 +290,10 @@ class TestRefinements:
     def test_patching_a_security_section_needs_security(
         self, sandbox: Path, app: Any, section: str, real_config: Any
     ) -> None:
-        # Where the roles are split: by default an administrator governs these too.
+        # Where the administrator is split (the ENS review's): by default it governs these too.
+        from noust.core.access.role_manager import RoleManager
+
+        RoleManager().update("admin", permissions=sorted(ADMIN))
         real_config.set("security.profile", "ens-medium")
         client, csrf = signed_in(app, "admin")
 
