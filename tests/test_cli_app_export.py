@@ -24,12 +24,12 @@ from click.testing import CliRunner, Result
 
 from noust.cli.app import cli as root_cli
 from noust.cli.commands import app as app_module
+from noust.core.appdir.layout import env_file_for
 from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
 from noust.core.runner import set_runner
 from noust.core.store import App, NoustStore
 from noust.deployers import app_export
-from noust.deployers.helpers.layout import env_file_for
 
 DOMAIN = "shop.example.com"
 STRIPE = "sk_live_" + "51Habcdefghijklmn" + "opqrstuvwxyz"

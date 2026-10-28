@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 
+from noust.core.appdir.permissions import hand_over_tree
 from noust.core.exceptions import BuildError, DeploymentError
 from noust.core.fs import SECRET_MODE, DryRunFileSystem, RecordingFileSystem
 from noust.core.logger import Logger
@@ -27,7 +28,6 @@ from noust.core.store import App, AppStatus, MonorepoWorkspace, NoustStore
 from noust.deployers.auto import AutoDeployer
 from noust.deployers.container import ContainerDeployer
 from noust.deployers.docker_compose import DockerComposeDeployer, compose_project_name
-from noust.deployers.helpers.permissions import hand_over_tree
 from noust.deployers.interface import AppDeployer, UpdateResult
 from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.nextjs import NextJSDeployer

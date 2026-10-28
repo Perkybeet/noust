@@ -375,7 +375,7 @@ class ReplicaManager:
         Raises:
             NoustError: Nothing is deployed there.
         """
-        from noust.deployers.helpers.layout import app_root
+        from noust.core.appdir.layout import app_root
 
         app = self._app(domain)
         problem = eligibility_problem(app, store=self.store)
@@ -631,7 +631,7 @@ class ReplicaManager:
             DeploymentError: The application has no unit on record.
         """
         from noust.core import unit_tuning_store
-        from noust.deployers.helpers.layout import app_root, env_file_for
+        from noust.core.appdir.layout import app_root, env_file_for
         from noust.deployers.unit_environment import inline_variables
         from noust.managers import unit_hardening, unit_tuning
         from noust.managers.app_identity import service_account

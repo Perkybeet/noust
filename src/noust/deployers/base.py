@@ -42,6 +42,9 @@ from typing import Any, ClassVar, Literal
 
 from noust.central import require_server_role
 from noust.core import app_build_store, cancellation, delivery
+from noust.core.appdir.layout import RELEASES, choose_layout, env_file_in
+from noust.core.appdir.permissions import hand_over_file, hand_over_tree
+from noust.core.appdir.releases import CURRENT_LINK, ReleaseManager, persistent_path
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import (
@@ -100,9 +103,7 @@ from noust.deployers.helpers.hooks import (
     hooks_unsupported_reason,
     prisma_applied_any,
 )
-from noust.deployers.helpers.layout import RELEASES, choose_layout, env_file_in
 from noust.deployers.helpers.nginx_config import NginxAdvancedConfig
-from noust.deployers.helpers.permissions import hand_over_file, hand_over_tree
 from noust.deployers.helpers.process_declaration import declare_for_release, procfile_honoured
 from noust.deployers.helpers.processes import RELEASE, WEB, ProcessSet, resolve_processes
 from noust.deployers.helpers.project_file import parse_build_document
@@ -147,7 +148,6 @@ from noust.deployers.recorder import (
     recorder_for,
     recording,
 )
-from noust.deployers.releases import CURRENT_LINK, ReleaseManager, persistent_path
 from noust.managers import app_identity, unit_hardening
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.app_processes import Declaration, ProcessManager
@@ -501,7 +501,7 @@ class BaseDeployer(AppDeployer):
             layout: ``inplace`` or ``releases`` for a new application,
                 ``default`` for the server's configured layout, or None for
                 in place. An existing application always keeps its own; see
-                :func:`noust.deployers.helpers.layout.choose_layout`.
+                :func:`noust.core.appdir.layout.choose_layout`.
             persistent_paths: Paths, relative to the application, that live
                 in ``shared/`` and are linked into every release (uploads,
                 storage). None keeps what the application already has.

@@ -20,10 +20,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from noust.core import deploy_guard
+from noust.core.appdir.releases import is_release_id
 from noust.core.store import DeploymentTrigger
 from noust.deployers.lifecycle import list_releases
 from noust.deployers.recorder import CapturingLogger
-from noust.deployers.releases import is_release_id
 from noust.deployers.staged import promote_staged, stage_build
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, known_app

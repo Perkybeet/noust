@@ -22,6 +22,8 @@ from typing import Any
 
 from noust.central import require_server_role
 from noust.core import cancellation
+from noust.core.appdir.layout import INPLACE, RELEASES, choose_layout
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import DeploymentError, ValidationError
@@ -30,7 +32,6 @@ from noust.core.logger import Logger
 from noust.core.store import App, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.build_config import project_dir, resolve_build
-from noust.deployers.helpers.layout import INPLACE, RELEASES, choose_layout
 from noust.deployers.helpers.project_file import parse_build_document
 from noust.deployers.helpers.release_build import discard_release, stage_release
 from noust.deployers.helpers.target import (
@@ -40,7 +41,6 @@ from noust.deployers.helpers.target import (
 )
 from noust.deployers.interface import AppDeployer
 from noust.deployers.registry import DeployerRegistry
-from noust.deployers.releases import ReleaseManager
 from noust.managers.source_manager import SourceManager
 
 

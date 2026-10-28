@@ -576,7 +576,7 @@ def quiet_deploy_events() -> Iterator[None]:
     Yields:
         Nothing; the listeners are forgotten on the way out.
     """
-    from noust.deployers import deploy_events
+    from noust.core import deploy_events
 
     deploy_events.reset()
     deploy_events.suspend_defaults(True)

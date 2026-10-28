@@ -58,7 +58,7 @@ SURFACES = frozenset({"web", "cli"})
 
 # -- Where the rules are still broken -------------------------------------------------------------
 #
-# Each entry is "importer -> imported". All of them but one are imports inside a function, which is
+# Each entry is "importer -> imported". Nearly all are imports inside a function, which is
 # how a layer reaches for what it should have been given (a cycle avoided by hand). Taking one off
 # means moving what is imported down to where both can reach it, or passing it in.
 
@@ -79,8 +79,6 @@ BASE_IMPORTS_UPWARD = {
     "noust.core.dependencies -> noust.deployers.helpers.php_fpm",
     "noust.core.redact -> noust.deployers.helpers.app_env",
     "noust.core.app_health_store -> noust.terminal.targets",
-    # The only one that runs when the module loads and not inside a function.
-    "noust.core.deploy_notifications -> noust.deployers.deploy_events",
     # Retention sweeps what the layers above keep.
     "noust.core.audit.retention -> noust.managers.backup_manager",
     "noust.core.audit.retention -> noust.monitor.observation_store",
@@ -143,7 +141,7 @@ OVERSIZE_MODULES = {
     "noust.core.store": 5821,
     "noust.deployers.base": 5032,
     "noust.deployers.docker_compose": 4349,
-    "noust.deployers.lifecycle": 4908,
+    "noust.deployers.lifecycle": 4907,
     "noust.managers.backup_manager": 5249,
     "noust.managers.database.base": 3386,
     "noust.managers.database.postgres": 3296,

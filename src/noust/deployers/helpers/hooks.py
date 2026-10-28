@@ -961,8 +961,8 @@ def describe_hooks(domain: str, *, store: NoustStore | None = None) -> AppHooks:
     Raises:
         NoustError: The application is unknown.
     """
+    from noust.core.appdir.layout import code_path_for
     from noust.core.store import get_store
-    from noust.deployers.helpers.layout import code_path_for
     from noust.deployers.helpers.project_file import load_project_file, parse_hooks_document
 
     target = store or get_store()

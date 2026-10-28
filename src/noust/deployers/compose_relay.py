@@ -1601,8 +1601,8 @@ def relay_status(app: App) -> tuple[int | None, str | None, str | None]:
         The port nginx sends ``/`` to, and when a relay left by an update
         that did not finish still serves, what and how to resolve it.
     """
+    from noust.core.appdir.layout import app_root
     from noust.deployers.docker_compose import DockerComposeDeployer
-    from noust.deployers.helpers.layout import app_root
 
     deployer = DockerComposeDeployer()
     deployer.app_path = app_root(app)

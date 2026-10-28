@@ -306,7 +306,7 @@ def test_an_update_that_fails_the_gate_of_a_default_application_serves_from_the_
     assert row is not None
     serving = row.active_color
 
-    from noust.deployers.releases import ReleaseManager
+    from noust.core.appdir.releases import ReleaseManager
 
     with pytest.raises(RolledBackError):
         BlueGreen(

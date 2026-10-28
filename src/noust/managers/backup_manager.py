@@ -75,6 +75,15 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 
 from noust.central import require_server_role
 from noust.core import legacy_archive, legacy_names
+from noust.core.appdir.layout import INPLACE, RELEASES, env_file_in, layout_on_disk
+from noust.core.appdir.permissions import hand_over_tree
+from noust.core.appdir.releases import (
+    CURRENT_LINK,
+    RELEASES_DIR,
+    REPO_CACHE_DIR,
+    SHARED_DIR,
+    ReleaseManager,
+)
 from noust.core.applock import app_lock
 from noust.core.audit import record as audit_record
 from noust.core.backup_files import open_backup, seal_in_place, sealing_suspended
@@ -102,16 +111,7 @@ from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner, get
 from noust.core.sealing import SealError
 from noust.core.store import AppType, DeploymentStatus, DeploymentTrigger, get_store
 from noust.core.utils import domain_to_app_name
-from noust.deployers.helpers.layout import INPLACE, RELEASES, env_file_in, layout_on_disk
-from noust.deployers.helpers.permissions import hand_over_tree
 from noust.deployers.recorder import CapturingLogger, DeploymentRecorder
-from noust.deployers.releases import (
-    CURRENT_LINK,
-    RELEASES_DIR,
-    REPO_CACHE_DIR,
-    SHARED_DIR,
-    ReleaseManager,
-)
 from noust.managers.app_identity import ensure_service_account
 from noust.managers.docker_volumes import docker_archive_argv
 from noust.managers.retention import select_expired

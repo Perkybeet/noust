@@ -33,6 +33,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
+from noust.core.appdir.permissions import hand_over_file
 from noust.core.exceptions import (
     ConfigError,
     DatabaseBackupError,
@@ -43,7 +44,6 @@ from noust.core.exceptions import (
 )
 from noust.core.sealing import SealError
 from noust.core.secrets import SecretStore
-from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.database.base import (
     PROFILES,
     QUERY_TIMEOUT,

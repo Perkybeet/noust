@@ -33,12 +33,12 @@ from typing import Any
 from noust.central import require_server_role
 from noust.core import audit
 from noust.core.app_lookup import require_app
+from noust.core.appdir.layout import RELEASES
 from noust.core.applock import app_lock
 from noust.core.ens.origins import check_origin, origin_kind
 from noust.core.exceptions import ValidationError
 from noust.core.repositories import repository_key
 from noust.core.store import App, NoustStore, get_store, is_compose_backed
-from noust.deployers.helpers.layout import RELEASES
 from noust.managers.source_manager import SourceManager, split_url_credentials, validate_git_ref
 from noust.validators.domain import validate_domain
 from noust.validators.source import (

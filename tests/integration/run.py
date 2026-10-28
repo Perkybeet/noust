@@ -809,7 +809,7 @@ def scenario_ownership(sc: Scenario) -> None:
     This is the v1.6.2 regression check (EACCES at runtime because the tree
     was handed back to the service user only on deploy, not on update).
     node_modules is excluded per the task brief, though the current
-    implementation (helpers/permissions.py:hand_over_tree) chowns the whole
+    implementation (core/appdir/permissions.py:hand_over_tree) chowns the whole
     tree including it.
     """
     result = sc.run(

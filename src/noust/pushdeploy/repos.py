@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from noust.core import audit, push_store, webhook_deliveries
+from noust.core.appdir.layout import RELEASES
 from noust.core.applock import app_lock
 from noust.core.exceptions import (
     CommandError,
@@ -38,7 +39,6 @@ from noust.core.exceptions import (
 from noust.core.fs import FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, NoustStore, get_store, is_compose_backed
-from noust.deployers.helpers.layout import RELEASES
 from noust.fleet.authorize import TUNNEL_KEYS_DIR
 from noust.integrations import webhook as webhook_service
 from noust.managers.source_manager import validate_git_ref

@@ -130,8 +130,8 @@ def stack_identity(app: Any) -> StackIdentity:
     Returns:
         Its identity; reading it touches no file and runs nothing.
     """
+    from noust.core.appdir.layout import app_root
     from noust.deployers.docker_compose import compose_project_name
-    from noust.deployers.helpers.layout import app_root
 
     app_path = app_root(app)
     pinned = getattr(app, "compose_project", None) or None

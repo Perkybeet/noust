@@ -32,12 +32,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from noust.core import deploy_guard
+from noust.core.appdir.releases import is_release_id
 from noust.core.exceptions import ValidationError
 from noust.core.store import DeploymentTrigger
 from noust.deployers.bundle_spool import BUNDLE_UPLOADS, MAX_READ_BYTES, BundleSpool, SpooledBundle
 from noust.deployers.recorder import CapturingLogger
 from noust.deployers.release_bundles import build_and_pack, receive
-from noust.deployers.releases import is_release_id
 from noust.managers.database.uploads import Upload, UploadOffsetError, UploadStore
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, known_app

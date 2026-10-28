@@ -92,6 +92,11 @@ src/noust/
                     token in a CI secret, a file in a repository), each with why and until when;
                     code asks it for the name, it never spells one
     legacy_archive.py  the one reader of the backups and exports made before 4.0
+    appdir/         how an application's directory is laid out, below the managers and the
+                    deployers that both read it: releases.py (ReleaseManager: the only code that
+                    knows releases/, current, shared/), layout.py (which layout, where .env
+                    lives) and permissions.py (handing files to the app's account)
+    deploy_events.py  the deployment events every deployment publishes and its subscribers
     store.py        SQLite persistence (WAL) with versioned migrations
     config.py       layered config; secrets written 0600, redacted on the way out
     exceptions.py   NoustError hierarchy, used for real
@@ -143,7 +148,6 @@ src/noust/
     server/platforms.py  the one table of releases and processors Noust installs on; the
                     installer and docs/PLATFORMS.md carry generated copies of it
   deployers/        strategies over a declarative pipeline (base.py), one per app type
-    releases.py     ReleaseManager: the only code that knows releases/, current, shared/
     lifecycle.py    the one "update an app"; release activation; resource limits
     migrate.py      in-place to releases, explicit only, undone exactly on failure
     domains.py      the one "names an app answers on": store, site, certificate, DNS check
@@ -153,7 +157,7 @@ src/noust/
                     file Noust writes (helpers/container_compose.py), one image per release
                     (helpers/container_image.py builds, pulls and prunes them), settings in
                     core/container_store.py, changed through helpers/container_settings.py
-    helpers/        layout.py (which layout, where .env lives), health_gate.py, release_build.py,
+    helpers/        health_gate.py, release_build.py,
                     project_file.py (noust.yaml), hooks.py (which hooks run), site.py (the one
                     writer and deleter of an app's site), compose_ports.py (the one port reader)
   fleet/            node enrollment: authorize.py installs the restricted key and prints the
@@ -262,7 +266,7 @@ under `TYPE_CHECKING` is not one at run time and does not count.
 <!-- layers:start -->
 | Layer | Must not | Places that still do |
 |---|---|---:|
-| `core`, `validators` | import `central`, `cli`, `deployers`, `fleet`, `integrations`, `managers`, `monitor`, `terminal`, `web` | 29 |
+| `core`, `validators` | import `central`, `cli`, `deployers`, `fleet`, `integrations`, `managers`, `monitor`, `terminal`, `web` | 28 |
 | `deployers`, `fleet`, `managers`, `monitor`, `pushdeploy` | import `cli`, `web` | 11 |
 | `web` | import `cli` | 1 |
 | any module | import a module that imports it back when it loads | 0 |
@@ -311,7 +315,7 @@ An application is on one of two layouts, recorded in `apps.layout`:
   releases, `app_path` in place, so one unit and one site serve every release.
 
 In place the three are the same directory, which is what keeps that layout exactly as it was.
-Outside a deploy, ask `helpers/layout.py`: `env_file_for(app)` for the `.env`,
+Outside a deploy, ask `core/appdir/layout.py`: `env_file_for(app)` for the `.env`,
 `code_path_for(app)` for the running code. Never join `app_path` with `".env"`.
 
 Rules:

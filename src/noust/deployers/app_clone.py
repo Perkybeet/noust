@@ -41,6 +41,7 @@ from typing import Any
 
 from noust.core import app_build_store
 from noust.core.app_tags import AppTags
+from noust.core.appdir.layout import RELEASES
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.logger import Logger
 from noust.core.preview_store import PreviewStore
@@ -58,7 +59,6 @@ from noust.deployers.app_export import (
 )
 from noust.deployers.helpers.app_env import read_environment_of
 from noust.deployers.helpers.hooks import operator_hooks, set_operator_hooks
-from noust.deployers.helpers.layout import RELEASES
 from noust.managers.database.isolation import connection_variables, own_database
 from noust.validators.domain import validate_domain
 

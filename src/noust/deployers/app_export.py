@@ -53,6 +53,7 @@ from noust.core import (
     legacy_archive,
     update_schedule_store,
 )
+from noust.core.appdir.layout import LAYOUTS, RELEASES, code_path_for
 from noust.core.config import REDACTED, Config
 from noust.core.exceptions import DomainConflictError, NoustError, ValidationError
 from noust.core.logger import Logger
@@ -82,7 +83,6 @@ from noust.deployers.export_runtime import (
     reaches_first_start,
 )
 from noust.deployers.helpers.app_env import read_app_env
-from noust.deployers.helpers.layout import LAYOUTS, RELEASES, code_path_for
 from noust.deployers.importers import Proposal
 from noust.deployers.importers.base import MAX_NESTING, nesting_depth
 from noust.deployers.lifecycle import set_health_check, set_release_retention, set_stop_policy

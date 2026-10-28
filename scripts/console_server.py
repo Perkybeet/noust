@@ -6633,7 +6633,7 @@ def seed_detected_use(store: Any) -> None:
     Args:
         store: The seeded store.
     """
-    from noust.deployers.helpers.layout import env_file_for
+    from noust.core.appdir.layout import env_file_for
 
     app = store.get_app(DETECTED_APP)
     if app is None:

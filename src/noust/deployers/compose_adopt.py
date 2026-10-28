@@ -53,6 +53,7 @@ from noust.central import require_server_role
 from noust.core import audit, paths
 from noust.core.applock import app_lock
 from noust.core.config import Config
+from noust.core.deploy_events import operation
 from noust.core.exceptions import DeploymentError, NoustError, ServiceError
 from noust.core.fs import is_rehearsal
 from noust.core.logger import Logger
@@ -67,7 +68,6 @@ from noust.core.store import (
     get_store,
 )
 from noust.core.utils import domain_to_app_name
-from noust.deployers.deploy_events import operation
 from noust.deployers.docker_compose import DockerComposeDeployer, compose_project_name
 from noust.deployers.helpers.registration import StoreRegistrar
 from noust.deployers.helpers.target import claim_deploy_target

@@ -29,15 +29,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from noust.central import require_server_role
-from noust.core import cancellation, deploy_guard
+from noust.core import cancellation, deploy_events, deploy_guard
+from noust.core.appdir.layout import RELEASES, app_root
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.applock import app_lock
 from noust.core.exceptions import DeploymentError, NoustError, SourceError, ValidationError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
 from noust.core.store import App, DeploymentTrigger
-from noust.deployers import deploy_events
 from noust.deployers.base import BaseDeployer
-from noust.deployers.helpers.layout import RELEASES, app_root
 from noust.deployers.helpers.release_build import StagedRelease, stage_release
 from noust.deployers.lifecycle import (
     _confirm_release_schema,
@@ -48,7 +48,6 @@ from noust.deployers.lifecycle import (
     list_releases,
 )
 from noust.deployers.registry import get_deployer
-from noust.deployers.releases import ReleaseManager
 from noust.validators.domain import validate_domain
 from noust.validators.source import validate_source
 

@@ -2185,8 +2185,8 @@ def deploy_app_job(
     Raises:
         DeploymentError: When the deployer reports failure.
     """
+    from noust.core.appdir.layout import CONFIGURED as CONFIGURED_LAYOUT
     from noust.deployers import get_deployer
-    from noust.deployers.helpers.layout import CONFIGURED as CONFIGURED_LAYOUT
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)

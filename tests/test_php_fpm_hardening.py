@@ -29,10 +29,10 @@ from typing import Any
 
 import pytest
 
+from noust.core.appdir.layout import INPLACE
 from noust.core.exceptions import ValidationError
 from noust.core.runner import FakeRunner
 from noust.core.store import NoustStore
-from noust.deployers.helpers.layout import INPLACE
 from noust.deployers.helpers.php_fpm import pool_env_lines, pool_tmp_dir, render_pool
 from noust.deployers.php_fpm import PHP_SETTINGS_FILE, PhpSettings
 from noust.managers.nginx_manager import NGINX_BACKEND, NginxManager

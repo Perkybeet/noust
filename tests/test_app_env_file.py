@@ -9,7 +9,7 @@ The reported defect: ``wasm create --env-file`` and ``POST /api/apps`` with
 files are 0644 and ``systemctl show`` prints ``Environment=`` to any local
 user, so a DATABASE_URL given at create time was readable by every account on
 the machine. The variables now go to the application's env file (0600, the one
-:func:`~noust.deployers.helpers.layout.env_file_for` names) and the unit points
+:func:`~noust.core.appdir.layout.env_file_for` names) and the unit points
 at it with ``EnvironmentFile=``; only the non-secret values the unit decides
 itself (PORT, NODE_ENV) stay inline.
 
@@ -28,12 +28,12 @@ from typing import Any
 import pytest
 
 from noust.cli.commands.webapp import _read_env_file
+from noust.core.appdir.layout import RELEASES
 from noust.core.fs import SECRET_MODE, RecordingFileSystem
 from noust.core.logger import Logger
 from noust.core.runner import FakeRunner
 from noust.core.store import MonorepoWorkspace, NoustStore, Service
 from noust.deployers.helpers.env_manager import EnvManager
-from noust.deployers.helpers.layout import RELEASES
 from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.static import StaticDeployer

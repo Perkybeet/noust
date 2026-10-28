@@ -29,11 +29,11 @@ from typing import Any
 import pytest
 
 from noust.core import app_process_store as processes_store
+from noust.core.appdir.layout import INPLACE, RELEASES
 from noust.core.exceptions import DeploymentError, RolledBackError, ServiceError
 from noust.core.logger import Logger
 from noust.core.runner import CommandResult
 from noust.core.store import NoustStore
-from noust.deployers.helpers.layout import INPLACE, RELEASES
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.managers import app_processes
 from noust.managers.app_processes import ProcessManager

@@ -34,6 +34,7 @@ import yaml
 
 from noust.central import require_server_role
 from noust.core import app_compose_store, audit, cancellation, compose_release_store, delivery
+from noust.core.appdir.releases import ReleaseManager, persistent_path, release_order_key
 from noust.core.applock import app_lock
 from noust.core.compose_yaml import load_compose
 from noust.core.config import Config
@@ -112,7 +113,6 @@ from noust.deployers.recorder import (
     recording,
 )
 from noust.deployers.registry import DeployerRegistry
-from noust.deployers.releases import ReleaseManager, persistent_path, release_order_key
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.port_claims import PortClaims
@@ -3851,8 +3851,8 @@ def stack_deployer(
         ValidationError: The compose file the unit names is not a relative
             path inside the application.
     """
+    from noust.core.appdir.layout import app_root
     from noust.core.paths import LEGACY_UNIT_PREFIX
-    from noust.deployers.helpers.layout import app_root
 
     deployer_class: type[DockerComposeDeployer] = DockerComposeDeployer
     if app.app_type == AppType.CONTAINER.value:

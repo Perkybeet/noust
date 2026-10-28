@@ -20,6 +20,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from noust.core.appdir.layout import app_root
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.audit import record as audit_record
 from noust.core.teams import TeamStore, current_scope, scoped_store
 from noust.deployers.app_clone import (
@@ -29,10 +31,8 @@ from noust.deployers.app_clone import (
     plan_clone,
 )
 from noust.deployers.app_export import report_summary
-from noust.deployers.helpers.layout import app_root
 from noust.deployers.promote import plan_promotion, promotion_targets
 from noust.deployers.recorder import CapturingLogger
-from noust.deployers.releases import ReleaseManager
 from noust.managers.port_claims import PortClaims
 from noust.web.api.apps import DEFAULT_PORT, _require_local_source_privilege
 from noust.web.api.auth import get_current_session

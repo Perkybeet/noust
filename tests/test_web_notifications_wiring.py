@@ -8,7 +8,7 @@ The subscriber sits on the job manager's ``subscribe_all`` for the life of
 the server and turns terminal job transitions into notifications - but
 only for the ones that do not already announce themselves. A deploy, an
 update and a rollback are recorded by
-:mod:`noust.deployers.deploy_events`'s ``DeploymentRecorder`` in every
+:mod:`noust.core.deploy_events`'s ``DeploymentRecorder`` in every
 process, CLI included, and :mod:`noust.core.deploy_notifications` is a
 default subscriber of that publisher - so this subscriber must stay out of
 their way, or the console's own deploys would be announced twice. A backup

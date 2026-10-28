@@ -30,13 +30,13 @@ from typing import Any
 import pytest
 
 from noust.core import compose_release_store, legacy_names
+from noust.core.appdir.releases import release_order_key
 from noust.core.exceptions import DeploymentError, DockerError, RolledBackError
 from noust.core.runner import CommandResult, FakeRunner, set_runner
 from noust.core.store import App, NoustStore, ReleaseStatus
 from noust.deployers import docker_compose, lifecycle
 from noust.deployers.docker_compose import DockerComposeDeployer
 from noust.deployers.helpers import compose_retention
-from noust.deployers.releases import release_order_key
 
 DOMAIN = "stack.example.com"
 

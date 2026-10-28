@@ -48,6 +48,7 @@ from typing import TYPE_CHECKING, Any, Literal, NoReturn, TypeVar
 
 from noust.central import require_server_role
 from noust.core import legacy_names, paths
+from noust.core.appdir.permissions import hand_over_file
 from noust.core.backup_files import open_backup, seal_in_place
 from noust.core.exceptions import (
     DatabaseAccessError,
@@ -62,7 +63,6 @@ from noust.core.exceptions import (
 from noust.core.fs import SECRET_MODE, get_fs
 from noust.core.package_family import PackageFamily, detect_family
 from noust.core.runner import CommandResult, CommandRunner, DryRunRunner, get_runner
-from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.base_manager import BaseManager
 from noust.managers.database import flavours
 from noust.managers.database.eol import support_notice

@@ -23,6 +23,7 @@ from typing import Any
 from noust.central import require_server_role
 from noust.core import audit
 from noust.core.app_lookup import require_app
+from noust.core.appdir.layout import app_root
 from noust.core.applock import app_lock
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.logger import Logger
@@ -35,7 +36,6 @@ from noust.core.unit_hardening_store import (
     get_record,
     set_record,
 )
-from noust.deployers.helpers.layout import app_root
 from noust.deployers.lifecycle import health_gate_for, restart_blue_green
 from noust.managers import unit_hardening
 from noust.managers.service_manager import ServiceManager

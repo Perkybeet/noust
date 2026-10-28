@@ -16,10 +16,10 @@ from typing import Any
 
 import pytest
 
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import IntegrationError
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.integrations.github import statuses
 from noust.integrations.github.comments import upsert_pr_comment
 from tests.github.fakes import (
@@ -241,7 +241,7 @@ def test_the_subscriber_does_nothing_for_unlinked_apps(
 
 def test_it_is_a_default_subscriber() -> None:
     """The recorder loads it by name."""
-    from noust.deployers.deploy_events import DEFAULT_SUBSCRIBERS
+    from noust.core.deploy_events import DEFAULT_SUBSCRIBERS
 
     assert "noust.integrations.github.statuses" in DEFAULT_SUBSCRIBERS
     assert callable(statuses.on_deploy_event)

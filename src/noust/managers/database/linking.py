@@ -7,7 +7,7 @@ Write a database's connection settings into an application, behind its gate.
 Linking a database, unlinking it and rotating a password all end the same
 way: some variables of an application's ``.env`` change and the application
 restarts on them. This is that one path. The file is found by
-:func:`~noust.deployers.helpers.layout.env_file_for` and written by
+:func:`~noust.core.appdir.layout.env_file_for` and written by
 :func:`~noust.deployers.helpers.app_env.write_app_env` (never ``app_path``
 joined with ``.env``), the new variables are marked secret, and the restart
 goes through the same :class:`~noust.deployers.helpers.health_gate.HealthGate`
@@ -21,12 +21,12 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
+from noust.core.appdir.layout import app_root
 from noust.core.applock import app_lock
 from noust.core.exceptions import DeploymentError, NoustError
 from noust.core.logger import Logger
 from noust.core.store import App, NoustStore
 from noust.deployers.helpers.app_env import read_app_env, write_app_env
-from noust.deployers.helpers.layout import app_root
 from noust.managers.service_manager import ServiceManager
 
 #: The variables a link writes besides the connection string, when asked:

@@ -20,11 +20,11 @@ from typing import Any
 import pytest
 
 from noust.core import deploy_freeze
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import DeploymentError, DeploysFrozenError, ValidationError
 from noust.core.store import NoustStore
 from noust.deployers import lifecycle, staged
 from noust.deployers.nodejs import NodeJSDeployer
-from noust.deployers.releases import ReleaseManager
 from tests.test_release_pipeline import (
     BROKEN_SERVER,
     DOMAIN,

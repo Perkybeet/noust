@@ -4,9 +4,9 @@
 """
 Turns a deployment's own announcements into a notification, in every process.
 
-:mod:`noust.deployers.deploy_events` is the one place every deployment passes
+:mod:`noust.core.deploy_events` is the one place every deployment passes
 through - the CLI, the console's jobs and the webhook alike - and publishes a
-:class:`~noust.deployers.deploy_events.DeployEvent` for each of its four
+:class:`~noust.core.deploy_events.DeployEvent` for each of its four
 moments. This module is one of its default subscribers
 (``DEFAULT_SUBSCRIBERS``): imported lazily, by name, the first time a
 deployment publishes anything, so it can import the rest of Noust - config,
@@ -37,12 +37,12 @@ import logging
 import sqlite3
 from typing import Final
 
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import NoustError
 from noust.core.notifications.composers import PreviewOf, compose_deploy
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifier import NOTIFICATION_QUEUE, Notifier, fresh_config
 from noust.core.store import get_store
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ def on_deploy_event(event: DeployEvent) -> None:
     Announce one deployment moment to every configured channel.
 
     Registered as a default subscriber of
-    :mod:`noust.deployers.deploy_events`; called once per event, in the
+    :mod:`noust.core.deploy_events`; called once per event, in the
     deploying thread. Building the notification and sending it both happen
     on the notification worker, in publication order, so this returns
     immediately.

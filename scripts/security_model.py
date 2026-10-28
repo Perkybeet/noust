@@ -565,7 +565,7 @@ INPUT_CLASSES: tuple[InputClass, ...] = (
     InputClass(
         "Identifiers Noust made",
         "a release id, a backup id, a destination name in a path parameter",
-        "noust.deployers.releases:is_release_id",
+        "noust.core.appdir.releases:is_release_id",
         "a directory or an archive read or deleted as root",
         "exactly the shape Noust generates, matched against the whole string",
         ("tests/test_adversarial_inputs.py::TestIdentifiersOfThingsNoustWrote",),

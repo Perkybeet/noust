@@ -426,8 +426,8 @@ def predefined_for(app: App) -> dict[str, str]:
         container), or, for an application that has not been given a file yet (it was deployed before
         4.0 and not updated since), what its row says.
     """
+    from noust.core.appdir.layout import code_path_for, env_file_for
     from noust.deployers.helpers.env_manager import EnvManager
-    from noust.deployers.helpers.layout import code_path_for, env_file_for
 
     try:
         # A stack's containers read the project's own file; the other types have one beside

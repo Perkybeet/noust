@@ -15,7 +15,7 @@ nothing ties to a release; this ties them (Forge's daemons, Heroku's Procfile).
 rendered from the definition; its instances ``@1`` to ``@N`` are the copies, so scaling
 a process is starting and stopping instances, nothing more. They run from
 ``<app>/workers``, a link that follows the release that serves
-(:meth:`~noust.deployers.releases.ReleaseManager.point_workers`), moved by an
+(:meth:`~noust.core.appdir.releases.ReleaseManager.point_workers`), moved by an
 activation with ``current`` or, in zero-downtime mode, before the traffic is.
 
 **Atomic with the web process.** Every activation restarts the processes together with
@@ -895,8 +895,8 @@ class ProcessManager:
             The ``workers`` link on the release layout, pointed at the release that
             serves; the application's own tree in place.
         """
-        from noust.deployers.helpers.layout import RELEASES, app_root, code_path_for
-        from noust.deployers.releases import ReleaseManager
+        from noust.core.appdir.layout import RELEASES, app_root, code_path_for
+        from noust.core.appdir.releases import ReleaseManager
 
         if app.layout != RELEASES:
             return code_path_for(app)
@@ -922,7 +922,7 @@ class ProcessManager:
         Returns:
             The template's variables, validated.
         """
-        from noust.deployers.helpers.layout import app_root, env_file_for
+        from noust.core.appdir.layout import app_root, env_file_for
         from noust.deployers.helpers.path_resolver import PathResolver
         from noust.deployers.unit_environment import inline_variables
         from noust.managers import unit_hardening
@@ -1079,8 +1079,8 @@ class ProcessManager:
         """
         if store_module.list_processes(app.domain, store=self.store):
             return
-        from noust.deployers.helpers.layout import RELEASES, app_root
-        from noust.deployers.releases import ReleaseManager
+        from noust.core.appdir.layout import RELEASES, app_root
+        from noust.core.appdir.releases import ReleaseManager
 
         if app.layout == RELEASES:
             ReleaseManager(app_root(app)).remove_workers()

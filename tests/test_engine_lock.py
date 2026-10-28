@@ -25,10 +25,10 @@ from typing import Any
 
 import pytest
 
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.applock import AppBusyError, is_held_here
 from noust.core.store import NoustStore
 from noust.deployers import lifecycle
-from noust.deployers.releases import ReleaseManager
 from noust.managers.service_manager import ResourceLimits
 from tests.test_applock import Holder, attempt_elsewhere
 from tests.test_release_pipeline import (  # noqa: F401  (pytest resolves fixtures by name)

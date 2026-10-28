@@ -61,6 +61,7 @@ from jinja2 import TemplateError
 
 from noust.central import require_server_role
 from noust.core import paths
+from noust.core.appdir.layout import code_path_for
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
 from noust.core.config import Config
 from noust.core.exceptions import BackupError, NoustError, ServiceError, ValidationError
@@ -70,7 +71,6 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import get_store
 from noust.core.templates import text_environment
 from noust.deployers.helpers.compose_exec import ComposeExec, compose_exec
-from noust.deployers.helpers.layout import code_path_for
 from noust.managers import cron_ledger
 from noust.managers.app_identity import service_account_for
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES, validate_calendar
@@ -672,7 +672,7 @@ class CronManager:
                 f"No application is deployed at {app_domain}",
                 details="Associate the job with a deployed domain.",
             )
-        from noust.deployers.helpers.layout import app_root
+        from noust.core.appdir.layout import app_root
         from noust.managers.service_manager import ServiceManager
 
         try:

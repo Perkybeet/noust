@@ -9,7 +9,7 @@ file, so they share this module rather than each joining a directory with
 ``".env"``. That join is how the release layout broke both: its ``.env`` lives
 in ``shared/``, and ``<app>/.env`` read nothing and wrote a stray file the
 application never saw. Where the file is comes from
-:func:`~noust.deployers.helpers.layout.env_file_for`; what is done with it is
+:func:`~noust.core.appdir.layout.env_file_for`; what is done with it is
 here.
 """
 
@@ -18,6 +18,14 @@ from __future__ import annotations
 from collections.abc import Collection, Mapping
 from pathlib import Path
 
+from noust.core.appdir.layout import (
+    RELEASES,
+    app_root,
+    env_file_for,
+    layout_on_disk,
+)
+from noust.core.appdir.permissions import hand_over_file
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.config import Config
 from noust.core.exceptions import DeploymentError
 from noust.core.fs import SECRET_MODE, FileSystem, get_fs
@@ -44,15 +52,7 @@ from noust.deployers.helpers.env_variables import (
     rows_for,
     secret_marks_for,
 )
-from noust.deployers.helpers.layout import (
-    RELEASES,
-    app_root,
-    env_file_for,
-    layout_on_disk,
-)
-from noust.deployers.helpers.permissions import hand_over_file
 from noust.deployers.helpers.workspace_env import propagate
-from noust.deployers.releases import ReleaseManager
 from noust.managers.app_identity import service_account
 from noust.validators.environment import (
     EnvironmentValidationError,

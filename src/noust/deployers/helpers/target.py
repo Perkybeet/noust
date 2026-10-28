@@ -31,11 +31,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from noust.core.appdir.layout import RELEASES
 from noust.core.exceptions import DeploymentError
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
 from noust.core.store import App
-from noust.deployers.helpers.layout import RELEASES
 
 if TYPE_CHECKING:
     from noust.managers.source_manager import SourceManager

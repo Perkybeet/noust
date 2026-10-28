@@ -21,10 +21,10 @@ from pathlib import Path
 
 import pytest
 
+from noust.core.appdir.releases import Release, ReleaseManager
 from noust.core.exceptions import DeploymentError
 from noust.core.fs import DryRunFileSystem, RealFileSystem
 from noust.core.logger import Logger
-from noust.deployers.releases import Release, ReleaseManager
 
 SHA_A = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
 SHA_B = "b2c3d4e5f60718293a4b5c6d7e8f901234567890"

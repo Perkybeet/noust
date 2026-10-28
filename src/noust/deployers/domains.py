@@ -56,6 +56,7 @@ from typing import Any
 
 from noust.central import require_server_role
 from noust.core import audit, cdn_networks
+from noust.core.appdir.layout import app_root
 from noust.core.applock import app_lock
 from noust.core.audit.context import current_actor_name
 from noust.core.certificate_store import CertificateStore
@@ -73,7 +74,6 @@ from noust.core.exceptions import (
 )
 from noust.core.logger import Logger
 from noust.core.store import App, DomainKind, DomainRecord, get_store
-from noust.deployers.helpers.layout import app_root
 from noust.deployers.helpers.site import ServesDomains, is_operator_site
 from noust.deployers.registry import get_deployer
 from noust.managers import trusted_proxies

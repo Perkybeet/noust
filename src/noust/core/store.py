@@ -200,7 +200,7 @@ class AppLayout(str, Enum):
     ``inplace`` is the v1 layout: the tree the service runs is the tree every
     update rebuilds. ``releases`` builds each deploy in its own directory under
     ``releases/`` and points ``current`` at the active one (see
-    :mod:`noust.deployers.releases`).
+    :mod:`noust.core.appdir.releases`).
     """
 
     INPLACE = "inplace"
@@ -685,7 +685,7 @@ class ReleaseRecord:
     One release of an application, as the store remembers it.
 
     The directory is the truth about what exists;
-    :class:`noust.deployers.releases.ReleaseManager` reads it. This row is what
+    :class:`noust.core.appdir.releases.ReleaseManager` reads it. This row is what
     the directory cannot say: when a release was activated and how it ended,
     including the builds that failed and were removed.
 

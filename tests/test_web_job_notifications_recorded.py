@@ -27,8 +27,8 @@ from fastapi.testclient import TestClient
 
 import noust.web.server as server_module
 from noust.core.config import Config
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.notifications.model import Notification
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.web.jobs import Job, JobStatus, JobType
 from noust.web.server import DeploymentWitness, JobNotificationSubscriber
 from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)

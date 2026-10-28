@@ -481,10 +481,10 @@ class TestAsASource:
     def test_a_release_is_staged_from_the_tree(
         self, uploads: SourceUploads, tmp_path: Path
     ) -> None:
+        from noust.core.appdir.releases import ReleaseManager
         from noust.core.fs import RealFileSystem
         from noust.core.logger import Logger
         from noust.deployers.helpers.release_build import stage_release
-        from noust.deployers.releases import ReleaseManager
         from noust.managers.source_manager import SourceManager
 
         uploaded = uploads.finish(send(uploads, "a.zip", make_zip(PROJECT)).id, owner=OWNER)

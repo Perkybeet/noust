@@ -58,11 +58,25 @@ from pathlib import Path
 from typing import Any
 
 from noust.central import require_server_role
-from noust.core import app_rollout_store, audit, cancellation, deploy_guard
+from noust.core import app_rollout_store, audit, cancellation, deploy_events, deploy_guard
 from noust.core.app_health_store import HealthExtras
 from noust.core.app_health_store import set_extras as set_health_extras
 from noust.core.app_health_store import validated as validated_extras
 from noust.core.app_lookup import require_app
+from noust.core.appdir.layout import (
+    INPLACE,
+    RELEASES,
+    app_root,
+    env_file_in,
+    supports_release_layout,
+)
+from noust.core.appdir.releases import (
+    CURRENT_LINK,
+    REPO_CACHE_DIR,
+    Release,
+    ReleaseManager,
+    release_order_key,
+)
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.container_store import forget_secrets
@@ -96,7 +110,6 @@ from noust.core.update_policy_store import UpdateBackupPolicy
 from noust.core.update_policy_store import get_policy as get_update_policy
 from noust.core.update_policy_store import set_required as set_policy
 from noust.core.utils import domain_to_app_name
-from noust.deployers import deploy_events
 from noust.deployers.base import BaseDeployer
 from noust.deployers.bluegreen import BlueGreen, serving_port
 from noust.deployers.container import ContainerDeployer, pulls_image
@@ -105,13 +118,6 @@ from noust.deployers.helpers.compose_retention import ImageRelease
 from noust.deployers.helpers.container_compose import image_tag
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate, RestartingGate
-from noust.deployers.helpers.layout import (
-    INPLACE,
-    RELEASES,
-    app_root,
-    env_file_in,
-    supports_release_layout,
-)
 from noust.deployers.helpers.process_declaration import declare_restored_release
 from noust.deployers.helpers.release_build import stage_release
 from noust.deployers.helpers.workspace_gates import WorkspaceGates
@@ -122,13 +128,6 @@ from noust.deployers.php_fpm import PhpFpmDeployer, remove_pool_of, set_pool_lim
 from noust.deployers.php_fpm import health_gate_for_app as php_health_gate_for_app
 from noust.deployers.recorder import CapturingLogger, DeploymentRecorder, recording
 from noust.deployers.registry import detect_app_type, get_deployer
-from noust.deployers.releases import (
-    CURRENT_LINK,
-    REPO_CACHE_DIR,
-    Release,
-    ReleaseManager,
-    release_order_key,
-)
 from noust.managers import app_disk, unit_stop
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.app_processes import Declaration, ProcessManager

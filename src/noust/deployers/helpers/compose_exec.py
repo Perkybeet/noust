@@ -24,6 +24,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from noust.core.appdir.layout import app_root
 from noust.core.exceptions import ServiceError, ValidationError
 from noust.core.store import App, is_compose_backed
 from noust.deployers.docker_compose import (
@@ -32,7 +33,6 @@ from noust.deployers.docker_compose import (
     compose_project_name,
 )
 from noust.deployers.helpers.container_compose import COMPOSE_FILE as CONTAINER_FILE
-from noust.deployers.helpers.layout import app_root
 from noust.terminal.targets import validate_service
 
 

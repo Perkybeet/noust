@@ -31,13 +31,13 @@ from typing import Any
 
 import pytest
 
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import DeploymentError, NoustError, RolledBackError, ValidationError
 from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.logger import Logger
 from noust.core.store import App, NoustStore, Service, get_store
 from noust.deployers import bluegreen
 from noust.deployers.bluegreen import BlueGreen, instance_command
-from noust.deployers.releases import ReleaseManager
 
 DOMAIN = "bg.example.com"
 BASE = "bg-example-com"
@@ -568,8 +568,9 @@ def test_a_rollback_that_fails_its_gate_is_recorded_as_rolled_back(
     root: Path, store: NoustStore, app: App, machine: Machine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The history row fails, and says the previous version kept serving."""
-    from noust.deployers import deploy_events, lifecycle
-    from noust.deployers.deploy_events import DeployEventKind
+    from noust.core import deploy_events
+    from noust.core.deploy_events import DeployEventKind
+    from noust.deployers import lifecycle
 
     switched_on(machine, store, app)
     (root / "releases" / FIRST / "server.js").write_text(BROKEN)

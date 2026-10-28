@@ -18,10 +18,10 @@ from pathlib import Path
 import pytest
 
 from noust.core import push_store
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.logger import Logger
 from noust.deployers.app_export import _export_source, plan_import
 from noust.deployers.helpers.release_build import stage_release
-from noust.deployers.releases import ReleaseManager
 from noust.managers.source_manager import SourceManager
 from noust.validators.source import push_source
 from tests.push_support import DOMAIN, PushRig, build_rig, ed25519

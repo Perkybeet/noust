@@ -11,7 +11,7 @@ kinds of mount:
 
 - **A file** Noust keeps for the application. On the release layout it lives in
   ``shared/<target>`` and is linked into every release exactly like a persistent
-  path (:meth:`~noust.deployers.releases.ReleaseManager.link_shared`), so a new
+  path (:meth:`~noust.core.appdir.releases.ReleaseManager.link_shared`), so a new
   release has it before it starts; in place it is written at ``<app>/<target>``;
   for a container application it is a file under ``<app>/mounts/`` bound at
   ``target`` in the container. Its content is the file on disk, never a column:
@@ -39,14 +39,14 @@ from typing import Any
 
 from noust.core import app_mount_store, audit, paths, retired_names
 from noust.core.app_mount_store import DEFAULT_MODE, KIND_FILE, KIND_PATH, MountRecord
+from noust.core.appdir.layout import RELEASES, app_root
+from noust.core.appdir.permissions import hand_over_file
+from noust.core.appdir.releases import ReleaseManager, first_obstacle, persistent_path
 from noust.core.applock import app_lock
 from noust.core.exceptions import DeploymentError, NoustError, ServiceError, ValidationError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.store import App, NoustStore, get_store
-from noust.deployers.helpers.layout import RELEASES, app_root
-from noust.deployers.helpers.permissions import hand_over_file
-from noust.deployers.releases import ReleaseManager, first_obstacle, persistent_path
 from noust.managers.app_files import is_env_file
 from noust.managers.app_identity import service_account
 from noust.validators.domain import validate_domain

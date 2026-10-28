@@ -34,15 +34,15 @@ from collections.abc import Collection, Mapping
 from typing import TYPE_CHECKING
 
 from noust.core import cancellation
+from noust.core.appdir.layout import RELEASES
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import DeploymentError, RolledBackError
 from noust.core.fs import SECRET_MODE
 from noust.core.store import App, ReleaseStatus, Service
-from noust.deployers.helpers.layout import RELEASES
 from noust.deployers.helpers.release_book import ReleaseBook
 from noust.deployers.helpers.release_build import StagedRelease, discard_release, stage_release
 from noust.deployers.helpers.workspace_env import ENV_FILE_NAME, propagate, workspace_paths
 from noust.deployers.helpers.workspace_gates import WorkspaceRestart
-from noust.deployers.releases import ReleaseManager
 
 if TYPE_CHECKING:
     from noust.deployers.interface import StepReporter, UpdateResult

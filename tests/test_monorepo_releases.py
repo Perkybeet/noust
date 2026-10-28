@@ -31,6 +31,7 @@ from typing import Any
 
 import pytest
 
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import DeploymentError, RolledBackError
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore, ReleaseRecord, Service
@@ -41,7 +42,6 @@ from noust.deployers.helpers.release_build import StagedRelease
 from noust.deployers.helpers.workspace_gates import WorkspaceGates
 from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.monorepo_releases import workspace_paths
-from noust.deployers.releases import ReleaseManager
 from tests.test_build_sandbox import as_root  # noqa: F401 - fixture used by name
 
 DOMAIN = "mono.example.com"
@@ -528,7 +528,7 @@ def test_the_monorepo_is_offered_the_instant_rollback_once_it_is_on_releases(
 
 
 def test_a_monorepo_can_be_migrated_and_updated_on_releases_but_not_asked_for_new() -> None:
-    from noust.deployers.helpers.layout import supports_release_layout
+    from noust.core.appdir.layout import supports_release_layout
 
     assert supports_release_layout(MonorepoDeployer)
     # Not the BaseDeployer pipeline: previews, promotion and release bundles stay out of reach.

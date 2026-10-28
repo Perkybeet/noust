@@ -19,11 +19,11 @@ from typing import Any
 
 import pytest
 
+from noust.core.appdir.layout import env_file_for
 from noust.core.exceptions import ServiceError, ValidationError
 from noust.core.runner import FakeRunner  # noqa: F401 - the conftest blocks real processes
 from noust.core.store import App, NoustStore
 from noust.deployers import project_apply
-from noust.deployers.helpers.layout import env_file_for
 from noust.deployers.project_apply import (
     apply_declaration,
     export_declaration,

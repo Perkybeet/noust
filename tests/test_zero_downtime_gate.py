@@ -21,12 +21,12 @@ from typing import Any
 import pytest
 
 from noust.core import delivery
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import DeploymentError, RolledBackError
 from noust.core.logger import Logger
 from noust.core.store import App, NoustStore
 from noust.deployers import bluegreen, lifecycle
 from noust.deployers.bluegreen import BlueGreen, adopt_for_new_app
-from noust.deployers.releases import ReleaseManager
 from noust.managers.service_manager import ResourceLimits
 from tests.test_bluegreen import (
     BASE,

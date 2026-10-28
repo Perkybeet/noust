@@ -50,6 +50,8 @@ from typing import TYPE_CHECKING
 from noust.central import require_server_role
 from noust.core import delivery
 from noust.core.app_lookup import require_app
+from noust.core.appdir.layout import RELEASES, app_root, env_file_for
+from noust.core.appdir.releases import CURRENT_LINK, ReleaseManager
 from noust.core.applock import app_lock
 from noust.core.exceptions import (
     DeploymentError,
@@ -75,9 +77,7 @@ from noust.core.utils import domain_to_app_name
 from noust.core.variables.predefined import RELEASE_ENV_NAME
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate, Probe
-from noust.deployers.helpers.layout import RELEASES, app_root, env_file_for
 from noust.deployers.helpers.nginx_config import NginxConfigBuilder
-from noust.deployers.releases import CURRENT_LINK, ReleaseManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.validators.domain import validate_domain
 from noust.validators.names import MAX_SERVICE_NAME_LENGTH

@@ -39,6 +39,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from noust.central import require_server_role
+from noust.core.appdir.layout import RELEASES
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.applock import app_lock
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
@@ -46,9 +48,7 @@ from noust.core.logger import Logger
 from noust.core.runner import CommandRunner
 from noust.core.store import App, NoustStore, get_store
 from noust.deployers.helpers import sandbox as build_sandbox
-from noust.deployers.helpers.layout import RELEASES
 from noust.deployers.helpers.release_build import REPO_CACHE_DIR, StagedRelease
-from noust.deployers.releases import ReleaseManager
 from noust.managers.source_manager import SourceManager
 
 if TYPE_CHECKING:

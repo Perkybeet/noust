@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 
 from noust.core import audit, deploy_freeze
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import (
     DeploymentError,
     DeploysFrozenError,
@@ -39,7 +40,6 @@ from noust.deployers.base import BaseDeployer
 from noust.deployers.lifecycle import list_releases
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.release_bundles import build_and_pack, receive
-from noust.deployers.releases import ReleaseManager
 from tests.test_promote import SearchingRunner
 from tests.test_release_bundle import RELEASE, raw_bundle
 from tests.test_release_pipeline import (

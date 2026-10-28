@@ -305,8 +305,8 @@ def _host_app_plan(app: App, shell: str | None, *, interactive: bool) -> Session
     Returns:
         The plan, with no argv yet when ``interactive`` is False.
     """
+    from noust.core.appdir.layout import code_path_for, env_file_for
     from noust.deployers.helpers import sandbox as build_sandbox
-    from noust.deployers.helpers.layout import code_path_for, env_file_for
     from noust.managers.app_identity import service_account
 
     if app.is_static or app.app_type == "static":
@@ -366,9 +366,9 @@ def _compose_filters(app: App) -> list[str]:
         ``docker ps --filter`` values, most exact first: the project the store
         records or Compose would derive, then the directory the stack runs from.
     """
+    from noust.core.appdir.layout import app_root
     from noust.deployers.docker_compose import COMPOSE_FILE_PRIORITY, compose_project_name
     from noust.deployers.helpers.container_compose import COMPOSE_FILE as CONTAINER_FILE
-    from noust.deployers.helpers.layout import app_root
 
     root = app_root(app)
     filters: list[str] = []

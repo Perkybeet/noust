@@ -2590,8 +2590,8 @@ def preview_hooks(domain: str, phase: HookPhase) -> tuple[Hook, ...]:
     Returns:
         The hooks, in order; none when it declares none or its file cannot be read.
     """
+    from noust.core.appdir.layout import code_path_for
     from noust.deployers.helpers.hooks import resolve_hooks
-    from noust.deployers.helpers.layout import code_path_for
 
     store = get_store()
     app = store.get_app(domain)

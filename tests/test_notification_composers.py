@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 import pytest
 
 from noust.core.config import Config
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import DeploymentError, NoustError, RolledBackError
 from noust.core.notifications.composers import (
     PreviewOf,
@@ -52,7 +53,6 @@ from noust.core.notifications.composers import (
 from noust.core.notifications.context import NotificationContext, default_server_name, server_name
 from noust.core.notifications.excerpt import normalize
 from noust.core.notifications.model import Notification, State
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from tests.notifications_support import NODE_CRASH, NODE_ERROR
 
 JOURNAL = "\n".join(
