@@ -67,8 +67,8 @@ class Case:
 
     @property
     def export_format(self) -> str:
-        """The format name the node's export carries: its own release's."""
-        return "noust-app" if self.node_is_new else "wasm-app"
+        """The format name the node's export carries: its own release's (3.3.1 is the last of the old)."""
+        return "noust-app" if self.node_is_new or self.old_tag != OLD_TAG else "wasm-app"
 
 
 CASES = (

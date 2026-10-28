@@ -3054,6 +3054,25 @@ def edited_roles_reach_the_node(env: FleetEnv, *, node_reads_permissions: bool) 
         f"{sorted(owner_on_node ^ everything_a_central_may)} apart from what a central may",
     )
 
+    # -- what the node makes of its own roles is the node's to say (a framework is judged where it
+    #    runs): a 4.1 node answers its review through the central, a node before 4.1 has none
+    proxy = f"https://127.0.0.1:{CENTRAL_PORT}/api/nodes/{env.node_name}/api"
+    status, body, raw = api_call(CENTRAL_NAME, "GET", f"{proxy}/roles/review", token=owner_token)
+    log_api(central, "GET", f"{proxy}/roles/review (the owner)", status, raw[:200])
+    if node_reads_permissions:
+        central.check(
+            status == 200 and {"roles", "owners", "duties_apart"} <= set(body or {}),
+            f"a 4.1 node did not give its review of the roles: {status} {raw[:300]!r}",
+        )
+        central.check(
+            (body or {}).get("owners") == 0,
+            "the central's owner is not the node's: its own accounts are its own",
+        )
+    else:
+        central.check(
+            status == 404, f"a node before 4.1 answered a review it does not have: {status}"
+        )
+
     # -- the ceiling decides: held to read, only reading; with host access, the host too
     try:
         node.run("noust fleet access --level read --json", label="noust fleet access --level read")
