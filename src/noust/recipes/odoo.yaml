@@ -25,7 +25,7 @@ slogan: "A suite of open source business apps: CRM, sales, accounting, inventory
 description: "Odoo Community: a CRM, sales, invoicing, accounting, inventory, websites and hundreds of apps on one database. Runs with its own PostgreSQL, and creates its first database and its administrator at install. LGPL-3.0; the Enterprise apps are not included."
 category: business
 tags: [erp, crm, accounting, inventory]
-logo: logo.svg
+logo: simple-icons:odoo
 version: "20.0.20260926"
 revision: 1
 updated: 2026-10-06

@@ -144,7 +144,7 @@ def test_a_recipe_of_the_wave_is_a_pinned_docker_recipe_with_everything_a_card_s
 
     assert recipe.available and recipe.kind == "compose" and recipe.runs_in_docker
     assert recipe.digest_verified is True
-    assert recipe.logo == "logo.svg" and recipe.tags and recipe.category != "other"
+    assert recipe.logo is not None and recipe.tags and recipe.category != "other"
     assert recipe.version and recipe.license and recipe.docs and recipe.repository
     assert recipe.architectures and recipe.health is not None and recipe.notes
     assert all(image.digest and image.tag for image in recipe.images)

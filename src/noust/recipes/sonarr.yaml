@@ -16,7 +16,7 @@ slogan: "A PVR for TV series: it watches for new episodes and organises them."
 description: "Follow the series you want, and Sonarr looks for each new episode, hands it to your download client and files it into your library with the right names. Part of the *arr family, with the same interface as Radarr."
 category: media
 tags: [tv, media, automation, pvr]
-logo: logo.svg
+logo: simple-icons:sonarr
 version: "4.0.20.3014"
 revision: 1
 updated: 2026-10-20

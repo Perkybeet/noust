@@ -72,11 +72,24 @@ def monogram_letters(svg: str) -> str | None:
     return letters
 
 
+#: Projects whose own guidelines forbid a third party's use of their logo: whatever the
+#: collection holds, the recipe carries the monogram (scripts/recipe_logos.py, FORBIDDEN).
+NO_THIRD_PARTY_LOGO = {"plausible"}
+
+ICONS = Path(str(resources.files("noust.recipes").joinpath("assets").joinpath("_simple-icons")))
+
+
 @pytest.mark.parametrize("recipe", list_recipes(), ids=lambda recipe: recipe.name)
-def test_a_logo_is_noust_s_monogram_unless_a_notice_records_the_project_s_mark(
+def test_a_logo_is_a_mark_of_the_collection_noust_s_monogram_or_a_mark_with_its_notice(
     recipe: Recipe,
 ) -> None:
     """The mark of a project is its trademark: shipping it needs a record of why it may be."""
+    if recipe.logo_icon is not None:
+        assert recipe.name not in NO_THIRD_PARTY_LOGO, f"{recipe.name}'s guidelines forbid it"
+        assert recipe.logo_license == "CC0-1.0"
+        assert (ICONS / f"{recipe.logo_icon}.svg").is_file(), recipe.logo_icon
+        assert "CC0-1.0" in (ICONS / "NOTICE").read_text()
+        return
     letters = monogram_letters(logo_svg(recipe.name))
 
     if letters is None:
@@ -86,6 +99,22 @@ def test_a_logo_is_noust_s_monogram_unless_a_notice_records_the_project_s_mark(
         assert "http" in text and "licen" in text.lower(), "the source and the licence"
     else:
         assert letters.upper() == letters.upper().strip()
+
+
+def test_a_project_that_forbids_a_third_party_s_logo_is_given_the_monogram() -> None:
+    """Plausible's guidelines (plausible.io/trademark, read 2026-10-06) say so."""
+    for name in NO_THIRD_PARTY_LOGO:
+        recipe = get_recipe(name)
+        assert recipe.logo_icon is None
+        assert monogram_letters(logo_svg(name)) is not None
+
+
+def test_no_mark_is_kept_that_no_recipe_names() -> None:
+    """A file nobody asked for is a mark shown for no reason."""
+    named = {recipe.logo_icon for recipe in list_recipes()} - {None}
+    kept = {entry.stem for entry in ICONS.glob("*.svg")}
+
+    assert kept == named
 
 
 def test_the_monogram_check_refuses_a_real_mark() -> None:

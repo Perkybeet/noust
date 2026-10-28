@@ -15,7 +15,7 @@ slogan: A virtual whiteboard for sketching hand-drawn diagrams.
 description: "A collaborative whiteboard with a hand-drawn look: sketches, diagrams and wireframes, exportable to PNG and SVG. The image is a static site."
 category: utilities
 tags: [whiteboard, diagrams, drawing, collaboration]
-logo: logo.svg
+logo: simple-icons:excalidraw
 homepage: https://excalidraw.com
 docs: https://docs.excalidraw.com
 repository: https://github.com/excalidraw/excalidraw

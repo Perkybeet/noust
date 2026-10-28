@@ -6,7 +6,7 @@ slogan: "The Postgres development platform: database, auth, storage and realtime
 description: "A Postgres database with an API, authentication, file storage, realtime and edge functions, self-hosted. Listed because its stack cannot be written in what a recipe may say."
 category: backend
 tags: [postgres, backend, auth, realtime]
-logo: logo.svg
+logo: simple-icons:supabase
 updated: 2026-10-06
 homepage: https://supabase.com
 docs: https://supabase.com/docs/guides/self-hosting/docker

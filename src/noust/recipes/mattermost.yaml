@@ -21,7 +21,7 @@ slogan: Secure, self-hosted team messaging with channels, threads and playbooks.
 description: "Open source collaboration for teams: channels, direct messages, file sharing, calls and integrations, with web, desktop and mobile apps. Team Edition (MIT compiled build) with its own PostgreSQL. Sign-up is closed; the administrator is created from the command line."
 category: communication
 tags: [chat, team, messaging, collaboration]
-logo: logo.svg
+logo: simple-icons:mattermost
 version: "11.11.1"
 revision: 1
 updated: 2026-10-06

@@ -16,7 +16,7 @@ slogan: "Watch web pages for changes and get notified when they happen."
 description: "Track a price, a stock status, a release page or a regulation: it checks the pages you list on a schedule, shows what changed and notifies you through more than 80 services. Fetches with plain HTTP (no headless browser). It has no sign-in until you set a password in its settings."
 category: monitoring
 tags: [monitoring, web, notifications, scraping]
-logo: logo.svg
+logo: simple-icons:changedetection
 version: "0.60.9"
 revision: 1
 updated: 2026-10-20

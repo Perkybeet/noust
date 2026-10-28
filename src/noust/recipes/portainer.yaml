@@ -6,7 +6,7 @@ slogan: "Container management for Docker and Kubernetes."
 description: "A web interface to manage containers, images, volumes and stacks. Listed because it is root on the host by design, and Noust runs the containers it would manage."
 category: development
 tags: [docker, containers, management]
-logo: logo.svg
+logo: simple-icons:portainer
 updated: 2026-10-06
 homepage: https://www.portainer.io
 docs: https://docs.portainer.io/start/install-ce/server/docker/linux

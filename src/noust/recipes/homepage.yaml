@@ -16,7 +16,7 @@ slogan: A highly customisable dashboard for your services and bookmarks.
 description: A modern, fully static, fast and secure application dashboard with integrations for more than a hundred services, configured with YAML files you edit yourself.
 category: utilities
 tags: [dashboard, start-page, bookmarks, widgets]
-logo: logo.svg
+logo: simple-icons:homepage
 version: "2.4.0"
 revision: 1
 updated: 2026-10-06

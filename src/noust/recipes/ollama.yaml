@@ -16,7 +16,7 @@ slogan: Run large language models on your own server.
 description: Runs open language models locally and serves them over a simple HTTP API. CPU only in this recipe. The API has no authentication, so do not leave it open to the internet.
 category: ai
 tags: [llm, models, inference, api]
-logo: logo.svg
+logo: simple-icons:ollama
 version: "0.35.1"
 revision: 1
 updated: 2026-10-06

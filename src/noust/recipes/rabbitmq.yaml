@@ -18,7 +18,7 @@ slogan: "A message broker for queues and streams, with its management console."
 description: "The widely deployed open source message broker: AMQP queues, MQTT and STOMP plug-ins, streams and a management console to see them. AMQP is published on 127.0.0.1 only, for the applications of this server."
 category: backend
 tags: [message-broker, amqp, queue, streams]
-logo: logo.svg
+logo: simple-icons:rabbitmq
 version: "4.4.0"
 revision: 1
 updated: 2026-10-20

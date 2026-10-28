@@ -6,7 +6,7 @@ slogan: "The leading open-source headless CMS."
 description: "A customisable content API with an admin panel, roles and plugins. Listed because it is a framework you build into your own project, not an image."
 category: cms
 tags: [headless-cms, api, nodejs]
-logo: logo.svg
+logo: simple-icons:strapi
 updated: 2026-10-06
 homepage: https://strapi.io
 docs: https://docs.strapi.io

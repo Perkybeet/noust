@@ -15,7 +15,7 @@ slogan: The free software media system for your own movies, shows and music.
 description: Stream your own media library to any device, with no tracking and no licence fees. Transcoding runs in software; hardware acceleration is not set up by this recipe.
 category: media
 tags: [media, streaming, movies, music]
-logo: logo.svg
+logo: simple-icons:jellyfin
 version: "12.2"
 revision: 1
 updated: 2026-10-06

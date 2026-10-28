@@ -6,7 +6,7 @@ slogan: "A high-performance, S3 compatible object store."
 description: "Object storage with the S3 API for backups, media and application data. Listed because its upstream stopped maintaining it."
 category: files
 tags: [s3, object-storage, storage]
-logo: logo.svg
+logo: simple-icons:minio
 updated: 2026-10-06
 homepage: https://min.io
 docs: https://min.io/docs/minio/linux/index.html

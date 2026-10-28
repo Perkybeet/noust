@@ -16,7 +16,7 @@ slogan: "Collaborative Markdown notes in real time, with slides and diagrams."
 description: "Write Markdown together in the browser and see the preview as you type: meeting notes, documentation, slide decks and diagrams, shared by a link with the permissions you choose. People register with an e-mail address; anonymous editing is off."
 category: productivity
 tags: [markdown, notes, collaboration, slides]
-logo: logo.svg
+logo: simple-icons:hedgedoc
 version: "1.12.0"
 revision: 1
 updated: 2026-10-20

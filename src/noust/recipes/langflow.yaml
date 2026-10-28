@@ -19,7 +19,7 @@ slogan: A low-code builder for agentic and retrieval-augmented workflows.
 description: "Build and deploy AI workflows visually, with components for models, vector stores and tools, and an API for every flow. Runs with its own PostgreSQL. Every account can run Python on the server through custom components: sign-up is closed, give accounts only to people you trust."
 category: ai
 tags: [ai, workflows, llm, agents]
-logo: logo.svg
+logo: simple-icons:langflow
 version: "1.12.5"
 revision: 1
 updated: 2026-10-06

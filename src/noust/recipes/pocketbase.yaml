@@ -27,7 +27,7 @@ slogan: "An open-source backend in one file: database, auth, files and realtime.
 description: "A single-binary backend with an embedded SQLite database, authentication, file storage, realtime subscriptions and an admin dashboard, with a REST-ish API."
 category: backend
 tags: [backend, sqlite, auth, realtime]
-logo: logo.svg
+logo: simple-icons:pocketbase
 homepage: https://pocketbase.io
 docs: https://pocketbase.io/docs/
 repository: https://github.com/pocketbase/pocketbase

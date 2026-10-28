@@ -18,7 +18,7 @@ slogan: "A privacy-first personal knowledge system with block-level references."
 description: "Write notes in blocks that you can link, embed and query, with a Markdown WYSIWYG editor, a database view, spaced repetition and sync. A self-hosted web version of the desktop app, protected by an access code."
 category: productivity
 tags: [notes, knowledge-base, markdown, pkm]
-logo: logo.svg
+logo: simple-icons:siyuan
 version: "3.8.7"
 revision: 1
 updated: 2026-10-20

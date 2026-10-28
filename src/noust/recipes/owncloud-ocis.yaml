@@ -16,7 +16,7 @@ slogan: "A modern file sync and share platform in a single Go binary, from ownCl
 description: "Sync and share files with web, desktop and mobile clients, spaces for teams, shares by link and a WebDAV endpoint, in one process with an embedded identity provider. No database to run. Starts with the administrator account admin and a password Noust generates."
 category: files
 tags: [files, sync, share, webdav, owncloud]
-logo: logo.svg
+logo: simple-icons:owncloud
 version: "8.2.1"
 revision: 1
 updated: 2026-10-20

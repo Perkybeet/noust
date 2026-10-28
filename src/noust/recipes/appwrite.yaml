@@ -6,7 +6,7 @@ slogan: "Complete cloud infrastructure for web, mobile and AI apps."
 description: "Authentication, databases, storage, functions and messaging behind one API, self-hosted. Listed because its stack drives the Docker daemon."
 category: backend
 tags: [backend, baas, auth, functions]
-logo: logo.svg
+logo: simple-icons:appwrite
 updated: 2026-10-06
 homepage: https://appwrite.io
 docs: https://appwrite.io/docs/advanced/self-hosting

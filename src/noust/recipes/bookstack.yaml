@@ -6,7 +6,7 @@ slogan: "A simple, self-hosted wiki for documentation, organised in books."
 description: "Pages, chapters, books and shelves with a WYSIWYG editor, roles and an API. Listed because there is no official image and a new installation starts with a known account."
 category: productivity
 tags: [wiki, documentation, knowledge-base]
-logo: logo.svg
+logo: simple-icons:bookstack
 updated: 2026-10-06
 homepage: https://www.bookstackapp.com
 docs: https://www.bookstackapp.com/docs/

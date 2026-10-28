@@ -12,7 +12,7 @@ slogan: Self-hosted monitoring with status pages and notifications.
 description: Self-hosted monitoring of websites, APIs and servers, with status pages and notifications. Its SQLite database stays in shared/ across releases.
 category: monitoring
 tags: [uptime, monitoring, status-page, alerts]
-logo: logo.svg
+logo: simple-icons:uptimekuma
 version: "1.23.17"
 revision: 1
 updated: 2026-10-06

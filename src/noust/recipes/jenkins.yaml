@@ -18,7 +18,7 @@ slogan: "The automation server that builds, tests and deploys your projects."
 description: "Define pipelines in a file next to your code and let Jenkins run them on every push: build, test, package and deploy, on this server or on agents you connect. The long-term-support release, with thousands of plugins."
 category: development
 tags: [ci, cd, automation, pipelines, builds]
-logo: logo.svg
+logo: simple-icons:jenkins
 version: "2.580.1"
 revision: 1
 updated: 2026-10-20

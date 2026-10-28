@@ -20,7 +20,7 @@ slogan: "Open source home automation that puts local control and privacy first."
 description: "Control and automate lights, sensors and appliances from one place, with thousands of integrations. Runs in a container on a bridge network: devices are added by address or through the cloud and MQTT, and the automatic discovery of devices on the local network, Bluetooth and USB radios are not available. The first person to open it creates the owner."
 category: smart-home
 tags: [home-automation, iot, smart-home, mqtt]
-logo: logo.svg
+logo: simple-icons:homeassistant
 version: "2026.10.2"
 revision: 1
 updated: 2026-10-20

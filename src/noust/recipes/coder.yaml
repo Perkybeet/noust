@@ -6,7 +6,7 @@ slogan: "Secure, remote development environments, in your own cloud."
 description: "Provision workspaces from Terraform templates and connect to them from any editor. Listed because its Docker provider drives the host's daemon."
 category: development
 tags: [workspaces, remote-development, terraform]
-logo: logo.svg
+logo: simple-icons:coder
 updated: 2026-10-06
 homepage: https://coder.com
 docs: https://coder.com/docs/install/docker

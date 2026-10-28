@@ -741,6 +741,11 @@ class Recipe:
         return simple_icon_slug(self.logo)
 
     @property
+    def logo_license(self) -> str | None:
+        """The licence of the mark's file when the logo is the collection's, else None."""
+        return logo_license(self.logo)
+
+    @property
     def database_engine(self) -> str | None:
         """
         The SQL database it is given, in the helper's spelling, or None.

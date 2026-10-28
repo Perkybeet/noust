@@ -252,7 +252,7 @@ slogan: A lightweight Bitwarden-compatible password manager server.     # one li
 description: One or two sentences, 400 characters.
 category: security                # a closed list, below
 tags: [passwords, bitwarden]      # up to 8, lower case, [a-z0-9-]
-logo: logo.svg                    # recipes/assets/<name>/logo.svg
+logo: simple-icons:vaultwarden    # the collection's mark, or logo.svg: recipes/assets/<name>/logo.svg
 version: "1.37.4"                 # the upstream version this recipe pins; a quoted string
 revision: 1                       # 1 by default; raised when only the recipe changed
 updated: 2026-10-06               # when the recipe last changed
@@ -577,10 +577,23 @@ attribute or element, no `class`, no event handler, no `href`, no `url(...)`, no
 `foreignObject`, no doctype or entity, a `viewBox`, at most 8 KiB. It is never fetched from
 anywhere.
 
-The logos this release ships are plain monograms drawn for Noust (two letters on a dark tile), not
-the projects' own marks: a project's logo is its trademark, and shipping it needs a licence that
-allows redistribution and a record of it. The policy for a project's real mark, and for everything
-else a recipe says about someone else's software, is in the next section.
+`logo:` is one of two things:
+
+- `simple-icons:<slug>`, the mark the [simple-icons](https://github.com/simple-icons/simple-icons)
+  collection holds for the project (CC0-1.0, files of lower-case letters and digits such as
+  `nextdotjs`). The file is `recipes/assets/_simple-icons/<slug>.svg`, copied unchanged from the
+  collection and shared by every recipe that names the slug; its `NOTICE` says which release of the
+  collection and what the licence covers.
+- `logo.svg`, a file of the recipe: the monogram drawn for Noust (two letters on a dark tile, under
+  Noust's licence), for a project the collection has no mark for or whose guidelines forbid a third
+  party's use of its logo.
+
+The catalogue says which (`logo_source`, `logo_icon` and `logo_license` of `GET /api/recipes`), so
+that a screen can credit a mark as it draws it. `scripts/recipe_logos.py report` lists who has a mark
+and who has the monogram, `apply` writes the marks into the recipes and `check` fails on a slug the
+collection does not have or a file that is not the collection's. A project's logo is its trademark,
+and the collection's licence covers its files and not the brand: the policy for a project's mark, and
+for everything else a recipe says about someone else's software, is in the next section.
 
 ## Names, marks, licences and logos of the projects
 
@@ -598,12 +611,15 @@ compatibility, and forbid suggesting endorsement and using their marks for a hos
 modified offer. A guideline that matters is named in the recipe's header comment with the day it
 was read.
 
-**Logos.** Every recipe ships a Noust monogram: two letters on a dark tile, drawn for Noust and
-under Noust's licence. A project's real mark is added only when its licence or a written permission
-allows redistributing it, with a `LOGO-NOTICE` file beside it that names the project, the source
-URL, the licence or permission and the date. A project whose guidelines do not allow a third
-party's use of its logo (Plausible's) never gets its mark here. `tests/recipes/test_catalog_wave2.py`
-fails on a logo that is not the monogram and has no `LOGO-NOTICE`.
+**Logos.** A recipe's logo is the project's mark from the simple-icons collection (CC0-1.0; its
+`NOTICE`, beside the files, records the release and says the licence covers the files and not the
+brand), or the monogram drawn for Noust: two letters on a dark tile, under Noust's licence. A mark
+from anywhere else is added only when its licence or a written permission allows redistributing it,
+with a `LOGO-NOTICE` file beside it that names the project, the source URL, the licence or
+permission and the date. A project whose guidelines do not allow a third party's use of its logo
+(Plausible's, `plausible.io/trademark`, read 2026-10-06) never gets its mark here, whatever the
+collection holds: it is given the monogram. `tests/recipes/test_catalog_policy.py` fails on a
+logo that is none of these, and on a mark in the package that no recipe names.
 
 **Licences.** `license` is the SPDX expression of the project's code (`LicenseRef-...` where SPDX
 has no identifier). Noust redistributes none of that code: a recipe is configuration and a pointer

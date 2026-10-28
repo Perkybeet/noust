@@ -17,7 +17,7 @@ slogan: Simple, privacy-friendly web analytics.
 description: Simple, privacy-friendly web analytics, an alternative to Google Analytics, with a PostgreSQL database Noust provisions.
 category: analytics
 tags: [analytics, privacy, statistics]
-logo: logo.svg
+logo: simple-icons:umami
 version: "2.20.2"
 revision: 1
 updated: 2026-10-06

@@ -59,7 +59,7 @@ def test_list_json_carries_the_catalogue_fields_and_filters() -> None:
     assert {item["name"] for item in native["items"]} >= {"wordpress", "n8n"}
     item = found["items"][0]
     assert item["slogan"] and item["category"] == "security" and item["runs_in_docker"] is True
-    assert item["version"] and item["updated"] and item["logo"] == "logo.svg"
+    assert item["version"] and item["updated"] and item["logo"] == "simple-icons:vaultwarden"
 
 
 def test_list_says_when_nothing_matches_and_refuses_a_category_that_does_not_exist() -> None:

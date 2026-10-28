@@ -15,7 +15,7 @@ slogan: "A customizable dashboard for your self-hosted services, with integratio
 description: "A start page for your servers and apps with drag-and-drop boards, a search over your services and integrations that show live data from your media servers, downloaders and monitors. The first person to open it creates the administrator."
 category: productivity
 tags: [dashboard, start-page, homelab, integrations]
-logo: logo.svg
+logo: simple-icons:homarr
 version: "2.6.0"
 revision: 1
 updated: 2026-10-20

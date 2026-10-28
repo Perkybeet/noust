@@ -16,7 +16,7 @@ slogan: "A PVR for movies: it watches for the releases you want and organises th
 description: "Keep a list of the movies you want, and Radarr looks for each release, hands it to your download client and files it into your library with the right names. Part of the *arr family, with the same interface as Sonarr."
 category: media
 tags: [movies, media, automation, pvr]
-logo: logo.svg
+logo: simple-icons:radarr
 version: "6.4.4.10685"
 revision: 1
 updated: 2026-10-20

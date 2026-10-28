@@ -6,7 +6,7 @@ slogan: "Open scheduling infrastructure, a Calendly alternative."
 description: "Booking pages, round-robin and collective events, calendar and video integrations. Listed because the open source edition is no longer the product."
 category: business
 tags: [scheduling, calendar, booking]
-logo: logo.svg
+logo: simple-icons:caldotcom
 updated: 2026-10-06
 homepage: https://cal.com
 docs: https://cal.com/docs

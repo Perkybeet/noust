@@ -17,7 +17,7 @@ slogan: Secrets management, encryption as a service and privileged access.
 description: "A tool for securely accessing secrets: API keys, passwords and certificates, with leasing, revocation, audit logging and encryption as a service."
 category: security
 tags: [secrets, encryption, pki, hashicorp]
-logo: logo.svg
+logo: simple-icons:vault
 homepage: https://developer.hashicorp.com/vault
 docs: https://developer.hashicorp.com/vault/docs
 repository: https://github.com/hashicorp/vault

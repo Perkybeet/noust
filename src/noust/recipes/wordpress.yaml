@@ -23,7 +23,7 @@ slogan: The website and blogging platform, on PHP-FPM.
 description: The website and blogging platform, on PHP-FPM with a MariaDB or MySQL database. Plugins, themes and uploads survive every release.
 category: cms
 tags: [blog, website, php, cms]
-logo: logo.svg
+logo: simple-icons:wordpress
 version: "7.1.2"
 revision: 1
 updated: 2026-10-06

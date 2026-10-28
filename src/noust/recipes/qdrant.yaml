@@ -16,7 +16,7 @@ slogan: A vector database for similarity search, with a dashboard and an API key
 description: "A vector similarity search engine for AI applications: store embeddings with their payload and search them by meaning. Starts with an API key, which every request needs, and a web dashboard."
 category: ai
 tags: [vector-database, embeddings, search, llm]
-logo: logo.svg
+logo: simple-icons:qdrant
 version: "1.19.2"
 revision: 1
 updated: 2026-10-20

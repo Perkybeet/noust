@@ -23,7 +23,7 @@ slogan: "A fast, collaborative knowledge base for your team's documentation."
 description: "A team wiki with a Markdown editor, nested collections, real-time editing, search and an API. Source-available under the Business Source License: free to run for yourself, not to offer to others as a hosted service. People sign in through your OpenID Connect provider (authentik and Keycloak are in the catalogue), which the install needs."
 category: productivity
 tags: [wiki, knowledge-base, docs, collaboration]
-logo: logo.svg
+logo: simple-icons:outline
 version: "1.11.0"
 revision: 1
 updated: 2026-10-20

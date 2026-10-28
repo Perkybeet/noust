@@ -15,7 +15,7 @@ slogan: A lightweight Bitwarden-compatible password manager server.
 description: An unofficial Bitwarden-compatible server written in Rust, light enough for a small server. Works with the official Bitwarden apps and browser extensions.
 category: security
 tags: [passwords, bitwarden, vault, self-hosted]
-logo: logo.svg
+logo: simple-icons:vaultwarden
 version: "1.37.4"
 revision: 1
 updated: 2026-10-06
