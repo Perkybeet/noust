@@ -389,6 +389,8 @@ RULES: tuple[Rule, ...] = (
     # What the monitor asks from outside, and the public page of it: the server's.
     _rule("/api/probes/**", INSTANCE),
     _rule("/api/notifications/**", INSTANCE),
+    # What a central manages on this server: the server's, like the settings themselves.
+    _rule("/api/managed-settings/**", INSTANCE),
     _rule("/api/overview", INSTANCE),
     _rule("/api/timeline", INSTANCE),
     _rule("/api/integrations/**", INSTANCE),

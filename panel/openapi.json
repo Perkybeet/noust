@@ -22321,6 +22321,327 @@
         "title": "FleetSelfResponse",
         "type": "object"
       },
+      "FleetSettingIn": {
+        "description": "A setting to set.\n\nAttributes:\n    value: The body of the server's own route for it. A secret sent back as ``***`` keeps\n        the one stored.\n    scope: ``fleet`` for every server, or ``node:<server>`` for an exception.\n    apply: Apply it to the servers now (the default).",
+        "properties": {
+          "apply": {
+            "default": true,
+            "title": "Apply",
+            "type": "boolean"
+          },
+          "scope": {
+            "default": "fleet",
+            "title": "Scope",
+            "type": "string"
+          },
+          "value": {
+            "additionalProperties": true,
+            "title": "Value",
+            "type": "object"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "FleetSettingIn",
+        "type": "object"
+      },
+      "FleetSettingKindOut": {
+        "description": "One kind of setting.\n\nAttributes:\n    key: Its name (``channel``).\n    title: What it is called.\n    available: Whether this release manages it from the central.\n    permission: The permission a person needs to set one for the fleet.\n    operations: The routes a server must offer to take one.\n    reason: Why it is not available: a sentence with its code, when it is not.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "operations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Operations",
+            "type": "array"
+          },
+          "permission": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permission"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "available"
+        ],
+        "title": "FleetSettingKindOut",
+        "type": "object"
+      },
+      "FleetSettingOut": {
+        "description": "One setting of the fleet, in one scope.\n\nAttributes:\n    resource: The kind.\n    name: The setting.\n    scope: ``fleet``, or ``node:<server>`` for an exception.\n    node: The server of an exception.\n    version: The row's version: one counter for every setting, never reused.\n    value: The value, with ``***`` where a secret is stored.\n    secrets: The paths of the value that hold a secret.\n    change: The change that wrote it.\n    changed_by: The person who approved that change.\n    changed_at: When.",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "changed_at": {
+            "title": "Changed At",
+            "type": "string"
+          },
+          "changed_by": {
+            "title": "Changed By",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node"
+          },
+          "resource": {
+            "title": "Resource",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "secrets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Secrets",
+            "type": "array"
+          },
+          "value": {
+            "additionalProperties": true,
+            "title": "Value",
+            "type": "object"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "resource",
+          "name",
+          "scope",
+          "version",
+          "value",
+          "secrets",
+          "change",
+          "changed_by",
+          "changed_at"
+        ],
+        "title": "FleetSettingOut",
+        "type": "object"
+      },
+      "FleetSettingRemovedOut": {
+        "description": "A setting that was taken away.\n\nAttributes:\n    removed: Whether there was one.\n    apply: The job that lets the servers go of it; null when none was started.",
+        "properties": {
+          "apply": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FleetSettingsAppliedOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "removed": {
+            "title": "Removed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "removed"
+        ],
+        "title": "FleetSettingRemovedOut",
+        "type": "object"
+      },
+      "FleetSettingSavedOut": {
+        "description": "A setting that was set.\n\nAttributes:\n    setting: It, as stored.\n    apply: The job applying it; null when none was started.",
+        "properties": {
+          "apply": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FleetSettingsAppliedOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "setting": {
+            "$ref": "#/components/schemas/FleetSettingOut"
+          }
+        },
+        "required": [
+          "setting"
+        ],
+        "title": "FleetSettingSavedOut",
+        "type": "object"
+      },
+      "FleetSettingsAppliedOut": {
+        "description": "The job that applies a change.\n\nAttributes:\n    job_id: The job: ``GET /api/fleet/jobs/{id}`` says how each server is doing.\n    nodes: The servers it runs on.",
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "job_id",
+          "nodes"
+        ],
+        "title": "FleetSettingsAppliedOut",
+        "type": "object"
+      },
+      "FleetSettingsApplyIn": {
+        "description": "Apply the fleet's settings to the servers.\n\nAttributes:\n    nodes: The servers; every one when empty.\n    adopt: Take over a setting a server already has that is not the fleet's.\n    restore: ``kind/name`` to put back where a server's operator changed it.\n    restore_all: Put back every one of them.\n    plan: Only say what would run.",
+        "properties": {
+          "adopt": {
+            "default": false,
+            "title": "Adopt",
+            "type": "boolean"
+          },
+          "nodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "plan": {
+            "default": false,
+            "title": "Plan",
+            "type": "boolean"
+          },
+          "restore": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Restore",
+            "type": "array"
+          },
+          "restore_all": {
+            "default": false,
+            "title": "Restore All",
+            "type": "boolean"
+          }
+        },
+        "title": "FleetSettingsApplyIn",
+        "type": "object"
+      },
+      "FleetSettingsModeIn": {
+        "description": "How a server follows the fleet's settings.\n\nAttributes:\n    mode: ``managed`` (it follows them) or ``independent`` (it is left out).",
+        "properties": {
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "FleetSettingsModeIn",
+        "type": "object"
+      },
+      "FleetSettingsModeOut": {
+        "description": "A server's mode.\n\nAttributes:\n    node: The server.\n    mode: Its mode.\n    apply: The job that settles it, when one was started.",
+        "properties": {
+          "apply": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FleetSettingsAppliedOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "mode"
+        ],
+        "title": "FleetSettingsModeOut",
+        "type": "object"
+      },
+      "FleetSettingsOut": {
+        "description": "Everything the fleet's settings hold.\n\nAttributes:\n    kinds: Every kind there is, and whether it can be set.\n    items: Every setting in every scope.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FleetSettingOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/FleetSettingKindOut"
+            },
+            "title": "Kinds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kinds",
+          "items"
+        ],
+        "title": "FleetSettingsOut",
+        "type": "object"
+      },
       "FleetViewOut": {
         "description": "One fleet view.\n\nAttributes:\n    resource: Which view.\n    generated_at: When it was put together.\n    partial: Some server's answer is not fresh and complete.\n    nodes: Every server's outcome.\n    items: The rows, each with ``node``, ``local``, ``page`` (its page on\n        that server's console) and ``href`` (the same page here).",
         "properties": {
@@ -28885,6 +29206,136 @@
           "proxied"
         ],
         "title": "ManagedRecordModel",
+        "type": "object"
+      },
+      "ManagedSettingAppliedIn": {
+        "description": "What the central says it applied.\n\nAttributes:\n    version: The version of its row that it pushed.",
+        "properties": {
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "ManagedSettingAppliedIn",
+        "type": "object"
+      },
+      "ManagedSettingOut": {
+        "description": "One setting a central manages here.\n\nAttributes:\n    resource: The kind (``channel``, ``alert_rule``, ``backup_destination``, ``registry``,\n        ``variable``).\n    name: The setting.\n    central: The central that pushed it.\n    version: The version of the central's row that was applied.\n    fingerprint: A handle of what this server held right after (a prefix of a keyed hash).\n    state: ``managed``, or ``overridden`` when this server's own operator changed it.\n    change: The change the central pushed it for.\n    applied_by: The person who approved that change.\n    applied_at: When it was applied.\n    overridden_at: When this server found it changed.\n    restore_requested_at: When this server's operator asked the central to put it back.",
+        "properties": {
+          "applied_at": {
+            "title": "Applied At",
+            "type": "string"
+          },
+          "applied_by": {
+            "title": "Applied By",
+            "type": "string"
+          },
+          "central": {
+            "title": "Central",
+            "type": "string"
+          },
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "overridden_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overridden At"
+          },
+          "resource": {
+            "title": "Resource",
+            "type": "string"
+          },
+          "restore_requested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restore Requested At"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "resource",
+          "name",
+          "central",
+          "version",
+          "fingerprint",
+          "state",
+          "change",
+          "applied_by",
+          "applied_at"
+        ],
+        "title": "ManagedSettingOut",
+        "type": "object"
+      },
+      "ManagedSettingReleasedOut": {
+        "description": "The answer to letting a setting go.\n\nAttributes:\n    released: Whether this server managed it.",
+        "properties": {
+          "released": {
+            "title": "Released",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "released"
+        ],
+        "title": "ManagedSettingReleasedOut",
+        "type": "object"
+      },
+      "ManagedSettingsOut": {
+        "description": "Every setting a central manages here.\n\nAttributes:\n    items: Them, by kind and name, after looking at what this server holds.\n    kinds: The kinds of setting this server can be managed for.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ManagedSettingOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Kinds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "kinds"
+        ],
+        "title": "ManagedSettingsOut",
         "type": "object"
       },
       "ManifestApplyRequest": {
@@ -74330,7 +74781,7 @@
     },
     "/api/apps/{domain}/rollback-points": {
       "get": {
-        "description": "List the backups an application can be rolled back to.\n\nDeliberately not gated on the application still being deployed: a backup\nfor a domain Noust no longer serves is still a rollback point until it is\npruned, the same reasoning that keeps deployment history around after an\napplication is deleted (see :mod:`noust.web.views.deployments`).\n\nArgs:\n    domain: Domain whose rollback points are asked for.\n    session: The authenticated session.\n\nReturns:\n    The points, newest first, from\n    :meth:`~noust.managers.backup_manager.RollbackManager.list_rollback_points`\n    - the one implementation, shared with ``noust backup rollback --list``.",
+        "description": "List the backups an application can be rolled back to.\n\nDeliberately not gated on the application still being deployed: a backup\nfor a domain Noust no longer serves is still a rollback point until it is\npruned, the same reasoning that keeps deployment history around after an\napplication is deleted (see :mod:`noust.web.views.deployments`).\n\nArgs:\n    domain: Domain whose rollback points are asked for.\n    session: The authenticated session.\n\nReturns:\n    The points, newest first, from\n    :meth:`~noust.managers.rollback_manager.RollbackManager.list_rollback_points`\n    - the one implementation, shared with ``noust backup rollback --list``.",
         "operationId": "list_rollback_points_api_apps__domain__rollback_points_get",
         "parameters": [
           {
@@ -95695,6 +96146,476 @@
         "x-noust-permission": "fleet.manage"
       }
     },
+    "/api/fleet/servers/{node}/settings-mode": {
+      "put": {
+        "description": "Make a server follow the fleet's settings, or leave it out of them.\n\nAn independent server is pushed nothing and is let go of what it had (it keeps it, as its own);\nit still appears in every fleet view. A server that follows them again is applied everything.\n\nArgs:\n    node: The server.\n    body: The mode.\n    session: The elevated session.\n\nReturns:\n    The mode and the job that settles it.\n\nRaises:\n    ValidationError: 400 for a mode that is not one, or a server that is not in the fleet.",
+        "operationId": "set_mode_api_fleet_servers__node__settings_mode_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetSettingsModeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetSettingsModeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Mode",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/servers/{node}/settings/{resource}/{name}/restore": {
+      "post": {
+        "description": "Put a setting back as the fleet's on a server whose operator changed it: \"back to the fleet's\".\n\nArgs:\n    node: The server.\n    resource: The kind.\n    name: The setting.\n    session: The elevated session.\n\nReturns:\n    The job that does it.\n\nRaises:\n    ResourceNotFoundError: 404 when the server is not given that setting by the fleet.",
+        "operationId": "restore_setting_api_fleet_servers__node__settings__resource___name__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "resource",
+            "required": true,
+            "schema": {
+              "title": "Resource",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetSettingsAppliedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Setting",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/settings": {
+      "get": {
+        "description": "List what the fleet's settings hold, in every scope, and the kinds there are.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The kinds, and every setting with its secrets shown as ``***``.",
+        "operationId": "list_settings_api_fleet_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Settings",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/fleet/settings/apply": {
+      "post": {
+        "description": "Apply the fleet's settings to the servers: \"Apply to the fleet\".\n\nA bulk action like the others: a plan first (which servers run, which are skipped and why),\nbatches, and a record per server with each setting's result - ``created``, ``updated``,\n``in_sync``, ``overridden`` (its operator changed it; left unless asked), ``restored``,\n``released``, ``conflict`` (it exists there and is not the fleet's; left unless asked to adopt\nit), ``unsupported`` or ``failed`` with the server's own words. Poll it with\n``GET /api/fleet/jobs/{id}``.\n\nArgs:\n    body: The servers, and what to do about conflicts and changed settings.\n    request: The request.\n    session: The authenticated session.\n\nReturns:\n    ``plan`` and, unless only planning, ``job``.\n\nRaises:\n    ValidationError: An unknown server or option, or no server to apply to.",
+        "operationId": "apply_settings_api_fleet_settings_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetSettingsApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Apply Settings Api Fleet Settings Apply Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply Settings",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/settings/status": {
+      "get": {
+        "description": "Say, for each setting, where each server stands.\n\nEvery server is asked what it manages (it looks at what it holds first, so a setting its own\noperator changed shows as such). A server that cannot be read is said so with the reason, not\nguessed at. Nothing secret is read.\n\nArgs:\n    session: The authenticated session.\n    refresh: Ask even a server whose answer is a few seconds old.\n\nReturns:\n    ``servers`` (how each answered, its mode, whether a look is waiting), ``settings`` (each\n    with its fleet row, its exceptions and a cell per server: ``origin`` and ``sync``),\n    ``released`` (what a server still manages that the fleet no longer wants), and\n    ``partial``.",
+        "operationId": "settings_status_api_fleet_settings_status_get",
+        "parameters": [
+          {
+            "description": "Ask the servers even if they were just asked",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Ask the servers even if they were just asked",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Settings Status Api Fleet Settings Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Settings Status",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/fleet/settings/{resource}": {
+      "get": {
+        "description": "List the settings of one kind, in every scope.\n\nArgs:\n    resource: The kind.\n    session: The authenticated session.\n\nReturns:\n    The kind, and its settings.\n\nRaises:\n    ValidationError: 400 for a kind that is unknown, or not managed from the central yet.",
+        "operationId": "list_kind_api_fleet_settings__resource__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource",
+            "required": true,
+            "schema": {
+              "title": "Resource",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Kind",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/fleet/settings/{resource}/{name}": {
+      "delete": {
+        "description": "Take a setting away from the fleet. The servers keep what they applied, as their own.\n\nArgs:\n    resource: The kind.\n    name: The setting.\n    session: The elevated session.\n    scope: ``fleet`` or ``node:<server>``.\n    apply: Let the servers go of it now.\n\nReturns:\n    Whether there was one, and the job that lets the servers go of it.\n\nRaises:\n    NoustPermissionError: 403 without the permission of that kind.",
+        "operationId": "remove_setting_api_fleet_settings__resource___name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource",
+            "required": true,
+            "schema": {
+              "title": "Resource",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "fleet, or node:<server> for an exception",
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "fleet",
+              "description": "fleet, or node:<server> for an exception",
+              "title": "Scope",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Let the servers go of it now",
+            "in": "query",
+            "name": "apply",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Let the servers go of it now",
+              "title": "Apply",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetSettingRemovedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Setting",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Show one setting: the fleet's value and every exception.\n\nArgs:\n    resource: The kind.\n    name: The setting.\n    session: The authenticated session.\n\nReturns:\n    Its rows, one per scope, with secrets shown as ``***``.\n\nRaises:\n    ResourceNotFoundError: 404 when there is no such setting.",
+        "operationId": "get_setting_api_fleet_settings__resource___name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource",
+            "required": true,
+            "schema": {
+              "title": "Resource",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Setting",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "fleet.read"
+      },
+      "put": {
+        "description": "Set a setting of the fleet, and apply it to the servers.\n\nNeeds sudo mode and the permission the server's own route for it asks. It is recorded as a\nchange with an id; the pushes that apply it carry the person who approves it and that change.\n\nArgs:\n    resource: The kind.\n    name: The setting.\n    body: Its value, the scope it is set in and whether to apply it now.\n    session: The elevated session.\n\nReturns:\n    The setting as stored, and the job applying it.\n\nRaises:\n    ValidationError: 400 for a name, scope or value that is not acceptable, naming the field.\n    NoustPermissionError: 403 without the permission of that kind.",
+        "operationId": "set_setting_api_fleet_settings__resource___name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource",
+            "required": true,
+            "schema": {
+              "title": "Resource",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetSettingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetSettingSavedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Setting",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/fleet/summary": {
       "get": {
         "description": "Every server at a glance: reachability, version, its overview and its machine.\n\nEach row carries the server's own ``overview`` (``GET /api/overview``),\n``server`` summary (``GET /api/server/summary``) and ``machine`` snapshot,\nverbatim, plus the counts ``noust fleet status`` prints. A node too old to\noffer the overview is ``unsupported`` and still shows what it has.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per server.",
@@ -97725,6 +98646,196 @@
           "Logs"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/managed-settings": {
+      "get": {
+        "description": "List the settings a central manages here, after looking at what this server holds.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Each with its state: ``managed``, or ``overridden`` where this server's own operator\n    changed it.",
+        "operationId": "list_managed_api_managed_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Managed",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "settings.read"
+      }
+    },
+    "/api/managed-settings/{resource}/{name}": {
+      "delete": {
+        "description": "Stop treating a setting as the fleet's. This server keeps it as its own.\n\nArgs:\n    resource: The kind.\n    name: The setting.\n    session: The authenticated session.\n\nReturns:\n    Whether this server managed it.\n\nRaises:\n    HTTPException: 403 ``fleet_sync_required`` for anyone but the central.",
+        "operationId": "release_api_managed_settings__resource___name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource",
+            "required": true,
+            "schema": {
+              "title": "Resource",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedSettingReleasedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "settings.manage"
+      },
+      "put": {
+        "description": "Record that the central wrote a setting here, and fingerprint what this server holds of it.\n\nOnly the central's push can do this (it is signed with the person and the change).\n\nArgs:\n    resource: The kind.\n    name: The setting.\n    body: The version the central pushed.\n    session: The authenticated session.\n\nReturns:\n    The setting, ``managed`` again also if it had been ``overridden``.\n\nRaises:\n    HTTPException: 403 ``fleet_sync_required`` for anyone else.\n    ValidationError: 400 for a kind this server cannot be managed for.\n    ResourceNotFoundError: 404 when this server holds no such setting.",
+        "operationId": "record_applied_api_managed_settings__resource___name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource",
+            "required": true,
+            "schema": {
+              "title": "Resource",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagedSettingAppliedIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedSettingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Applied",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "settings.manage"
+      }
+    },
+    "/api/managed-settings/{resource}/{name}/restore": {
+      "post": {
+        "description": "Ask the central to put a setting back as the fleet's.\n\nThis server cannot call its central: the request waits until the central next applies the\nfleet's settings here, and shows as ``restore_requested_at``.\n\nArgs:\n    resource: The kind.\n    name: The setting.\n    session: The authenticated session.\n\nReturns:\n    The setting, still ``overridden`` until then.\n\nRaises:\n    ResourceNotFoundError: 404 when no central manages it here.",
+        "operationId": "ask_restore_api_managed_settings__resource___name__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource",
+            "required": true,
+            "schema": {
+              "title": "Resource",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedSettingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ask Restore",
+        "tags": [
+          "Fleet settings"
+        ],
+        "x-noust-permission": "settings.manage"
       }
     },
     "/api/manifest/apply": {

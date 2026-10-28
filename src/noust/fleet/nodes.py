@@ -60,6 +60,7 @@ from noust.fleet.models import (
 )
 from noust.fleet.placements import Placements
 from noust.fleet.policy import FleetAccess, node_registration_blockers
+from noust.fleet.settings.desired import FleetSettings
 from noust.fleet.ssh_options import UNSET, Bastion, NodeSSHOptions, SSHOptions
 from noust.fleet.tunnels import LOOPBACK, TunnelManager, get_tunnels
 
@@ -132,6 +133,11 @@ class NodeManager:
     def store(self) -> NoustStore:
         """The store."""
         return self._store or get_store()
+
+    @property
+    def secrets(self) -> SecretStore:
+        """The central's secret store: its tokens, its keys and the fleet's settings' secrets."""
+        return self._secrets
 
     @property
     def keys(self) -> NodeKeys:
@@ -387,6 +393,7 @@ class NodeManager:
             if not registered:
                 self._undo_add(name)
         self.refresh_access(name, actor=actor)
+        self._joined(name)
         return self.get(name)
 
     def add_linked(
@@ -468,7 +475,17 @@ class NodeManager:
             details={"port": invitation.port, "key": parse_public_key(code.link_key).fingerprint},
         )
         self.refresh_access(name, actor=actor)
+        self._joined(name)
         return self.get(name)
+
+    def _joined(self, name: str) -> None:
+        """
+        Note that a server joined, so the settings of the fleet are applied on it.
+
+        Args:
+            name: The new server.
+        """
+        FleetSettings(self.store).request_resync(name)
 
     def _wait_for_link(self, name: str, wait: float) -> None:
         """
@@ -564,6 +581,7 @@ class NodeManager:
         self.store.delete_node(name)
         Liveness(self.store).forget(name)
         Placements(self.store).forget_node(name)
+        FleetSettings(self.store).forget_node(name)
         return warnings
 
     def _revoke(self, name: str, actor: str) -> builtins.list[str]:

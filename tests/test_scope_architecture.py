@@ -35,7 +35,7 @@ from typing import Any
 import pytest
 
 import noust
-from noust.core import schema_v14
+from noust.core import schema_v14, schema_v16
 from noust.core.accounts import AuthPolicy
 from noust.core.store import NoustStore
 from noust.core.teams import ScopedStore
@@ -812,6 +812,16 @@ NOT_OWNED: dict[str, str] = {
     "fleet_placements": "where a central runs an application across its servers: the central's own, "
     "reached only through /api/fleet, which is the instance's. Each server keeps the application and "
     "applies its own teams' scope to it",
+    "fleet_desired": "the settings a central wants every server to have (channels, alert rules, "
+    "backup destinations, registry logins, shared variables): the fleet's own, reached only through "
+    "/api/fleet/settings, which is the instance's. A setting is the server's, never a team's, "
+    "wherever it is applied",
+    "fleet_managed": "which of its settings a central manages on this node and the fingerprint of "
+    "what the node applied, never a value: the node's own, reached only through "
+    "/api/managed-settings, which is the instance's",
+    "fleet_node_settings": "whether a central pushes the fleet's settings to a server or leaves it "
+    "independent, and whether it should look at it again: the central's own, reached only through "
+    "/api/fleet/settings, which is the instance's",
 }
 
 #: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route
@@ -848,17 +858,18 @@ def fragment_tables() -> dict[str, set[str]]:
         than the teams' own.
     """
     found: dict[str, set[str]] = {}
-    for name in vars(schema_v14):
-        if not name.endswith("_SQL") or name.removesuffix("_SQL") == TEAMS_FRAGMENT:
-            continue
-        for table, body in re.findall(
-            r"CREATE TABLE IF NOT EXISTS (\w+) \((.*?)\n\);", getattr(schema_v14, name), re.S
-        ):
-            found[table] = {
-                line.split()[0]
-                for line in body.splitlines()
-                if line.startswith("    ") and not line.startswith("     ")
-            }
+    for module in (schema_v14, schema_v16):
+        for name in vars(module):
+            if not name.endswith("_SQL") or name.removesuffix("_SQL") == TEAMS_FRAGMENT:
+                continue
+            for table, body in re.findall(
+                r"CREATE TABLE IF NOT EXISTS (\w+) \((.*?)\n\);", getattr(module, name), re.S
+            ):
+                found[table] = {
+                    line.split()[0]
+                    for line in body.splitlines()
+                    if line.startswith("    ") and not line.startswith("     ")
+                }
     return found
 
 
@@ -869,9 +880,10 @@ def fragment_altered_tables() -> set[str]:
     """
     return {
         table
-        for name in vars(schema_v14)
+        for module in (schema_v14, schema_v16)
+        for name in vars(module)
         if name.endswith("_COLUMNS") and name.removesuffix("_COLUMNS") != TEAMS_FRAGMENT
-        for table, _column, _definition in getattr(schema_v14, name)
+        for table, _column, _definition in getattr(module, name)
     }
 
 

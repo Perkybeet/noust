@@ -84,12 +84,23 @@ ACTOR_ROLE_HEADER = "X-Noust-Actor-Role"
 ACTOR_ROLE_PATTERN = re.compile(r"[a-z][a-z_-]{0,31}")
 
 #: ``1`` when that operator is in sudo mode on the central (or is a credential
-#: sudo mode does not ask). Must match ``noust.web.auth.FLEET_ELEVATED_HEADER``.
+#: sudo mode does not ask); for a push of the fleet's settings, ``change:<id>``, the
+#: reference of the change a person approved. Must match
+#: ``noust.web.auth.FLEET_ELEVATED_HEADER``.
 ELEVATED_HEADER = "X-Noust-Elevated"
 
 #: What an actor label may look like; the node refuses anything else with 400.
 #: Mirrors ``noust.web.auth.FLEET_ACTOR_PATTERN``.
 ACTOR_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:@+-]{0,63}")
+
+#: What the actor of a push of the fleet's settings looks like
+#: (:class:`noust.fleet.settings.signature.SyncSignature`); a node that reads it is 4.1 or later.
+SYNC_ACTOR_PATTERN = re.compile(
+    r"fleet-sync on behalf of [A-Za-z0-9][A-Za-z0-9._:@+-]{0,63} \(change c[0-9a-f]{12}\)"
+)
+
+#: The confirmation that goes with it: the reference of the approved change.
+SYNC_ELEVATION_PATTERN = re.compile(r"change:c[0-9a-f]{12}")
 
 #: Scopes an operator on the central can hold.
 ACTOR_SCOPES = ("read", "deploy", "admin")
@@ -248,13 +259,14 @@ class NodeClient:
         *,
         actor_scope: str | None = None,
         actor_role: str | None = None,
-        elevated: bool = False,
+        elevated: bool | str = False,
     ) -> dict[str, str]:
         """
         Build the headers every request to the node carries.
 
         Args:
-            actor: Who on the central acts, such as ``cli:root``; omitted when None.
+            actor: Who on the central acts, such as ``cli:root``; omitted when None. Or the
+                signature of a push of the fleet's settings.
             actor_scope: That operator's scope on the central; omitted when
                 None, which the node reads as ``read`` (fails closed), never
                 ``admin``. A caller with no human actor to narrow to (a
@@ -265,20 +277,21 @@ class NodeClient:
                 for a credential with no role (the master token, a token
                 issued before accounts), which the node then narrows by
                 ``actor_scope`` exactly as a 3.0 node does.
-            elevated: Whether that operator is confirmed in sudo mode.
+            elevated: Whether that operator is confirmed in sudo mode; or, for a push of the
+                fleet's settings, the reference of the change that was approved.
 
         Returns:
             ``Authorization`` with the fleet token, and the actor headers.
 
         Raises:
-            NodeError: When no token is stored, or the actor or scope is malformed.
+            NodeError: When no token is stored, or the actor, scope or reference is malformed.
             NodeRefusedError: When the node already refused the token
                 (:meth:`mark_refused`) and this client does not retry.
         """
         self._refuse_if_refused()
         headers = {"Authorization": f"Bearer {self._token()}"}
         if actor is not None:
-            if not ACTOR_PATTERN.fullmatch(actor):
+            if not (ACTOR_PATTERN.fullmatch(actor) or SYNC_ACTOR_PATTERN.fullmatch(actor)):
                 raise NodeError(
                     f"Invalid actor label: {actor!r}",
                     details="Build it with noust.fleet.client.actor_label().",
@@ -292,7 +305,14 @@ class NodeClient:
             if not ACTOR_ROLE_PATTERN.fullmatch(actor_role):
                 raise NodeError(f"Invalid actor role: {actor_role!r}")
             headers[ACTOR_ROLE_HEADER] = actor_role
-        if elevated:
+        if isinstance(elevated, str):
+            if not SYNC_ELEVATION_PATTERN.fullmatch(elevated):
+                raise NodeError(
+                    f"Invalid reference of a change: {elevated!r}",
+                    details="Build it with SyncSignature.elevation.",
+                )
+            headers[ELEVATED_HEADER] = elevated
+        elif elevated:
             headers[ELEVATED_HEADER] = "1"
         return headers
 
@@ -307,7 +327,7 @@ class NodeClient:
         actor: str | None = None,
         actor_scope: str | None = None,
         actor_role: str | None = None,
-        elevated: bool = False,
+        elevated: bool | str = False,
     ) -> httpx.Response:
         """
         Send one request to the node's API and return its answer.
@@ -322,7 +342,8 @@ class NodeClient:
             actor_scope: That operator's scope on the central.
             actor_role: That operator's account role on the central; see
                 :meth:`auth_headers`.
-            elevated: Whether that operator is in sudo mode on the central.
+            elevated: Whether that operator is in sudo mode on the central, or the reference of
+                the change a push of the fleet's settings carries (see :meth:`auth_headers`).
 
         Returns:
             The response, whatever its status, except 401 and 403.

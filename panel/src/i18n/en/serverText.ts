@@ -240,6 +240,87 @@ export const serverText = {
       },
     },
   },
+  fleet_settings: {
+    backend_changed: {
+      text: "The backup destination {name} is {have} on this server and the fleet wants it {want}",
+      hint: "No route changes the backend of a destination: remove it on that server, or name the fleet's one differently.",
+    },
+    bad_mode: {
+      text: "{mode} is not a way a server can follow the fleet's settings",
+      hint: "Use 'managed' to follow them, or 'independent' to be left out.",
+    },
+    bad_scope: {
+      text: "{scope} is not a place a setting of the fleet can be set",
+      hint: "Use 'fleet' for every server, or 'node:<server>' for one.",
+    },
+    item_conflict: {
+      text: "The {kind} {name} already exists on this server and is not the fleet's",
+      hint: "Apply again letting the fleet take it over, or give the fleet's setting another name.",
+    },
+    item_unsupported: {
+      text: "This server cannot take a {kind} from the fleet: it does not offer {operation}",
+      hint: "It runs an older Noust: update it first.",
+    },
+    kind_not_yet: {
+      text: "The central cannot manage {kind} for the fleet yet",
+      hint: "For now, set it on each server, in its own settings.",
+    },
+    managed_missing: {
+      text: "This server holds no {kind} called {name}",
+      hint: "A setting is recorded as the fleet's after the central has written it: write it first.",
+    },
+    missing_field: {
+      text: "A {kind} needs {field}",
+      hint: "A server cannot make one without it.",
+    },
+    no_such_setting: {
+      text: "The fleet has no {kind} called {name}",
+      hint: "List what it has with: GET /api/fleet/settings",
+    },
+    not_managed: {
+      text: "No central manages the {kind} {name} on this server",
+      hint: "Only a setting a central pushed can be asked back.",
+    },
+    permission_missing: {
+      text: "Setting a {kind} for the fleet needs the permission {permission}",
+      hint: "It is the permission that setting one on a single server asks: ask an administrator for a role that has it.",
+    },
+    secret_missing: {
+      text: "{field} is hidden and nothing is stored for it yet",
+      hint: "Type the secret again: it is only shown as {redacted} when one is stored.",
+    },
+    sync_ceiling: {
+      text: "This server lets its central do at most '{level}', and applying the fleet's settings needs 'admin'",
+      hint: "Raise it on this server, as root:\n  {command}",
+    },
+    sync_required: {
+      text: "Only the central that manages this server can record a setting as the fleet's",
+      hint: "The central does it when it applies a setting; nobody records one by hand.",
+    },
+    sync_route: {
+      text: "A push of the fleet's settings cannot {method} {path}",
+      hint: "It may only write the settings the fleet manages: channels, alert rules, backup destinations, registry logins and shared variables.",
+    },
+    unknown_field: {
+      text: "A {kind} has no field called {field}",
+      hint: "A {kind} takes: {fields}.",
+    },
+    unknown_kind: {
+      text: "{kind} is not something the fleet manages",
+      hint: "The fleet manages: {kinds}.",
+    },
+    unknown_node: {
+      text: "There is no server called {node} in this fleet",
+      hint: "List the servers with: {command}",
+    },
+    value_not_object: {
+      text: "The value of a {kind} must be an object of fields",
+      hint: "Send the fields that a server's own settings take for a {kind}.",
+    },
+    value_too_large: {
+      text: "This {kind} is larger than the {limit} bytes a setting may be",
+    },
+  },
   invitation: {
     mail_failed: {
       text: "The invitation could not be mailed: {reason}",

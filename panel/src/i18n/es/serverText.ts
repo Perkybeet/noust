@@ -234,6 +234,87 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  fleet_settings: {
+    backend_changed: {
+      text: "El destino de copias {name} es {have} en este servidor y la flota lo quiere {want}",
+      hint: "Ninguna ruta cambia el tipo de un destino: bórralo en ese servidor o dale otro nombre al de la flota.",
+    },
+    bad_mode: {
+      text: "{mode} no es una forma en que un servidor pueda seguir los ajustes de la flota",
+      hint: "Usa 'managed' para seguirlos o 'independent' para quedar fuera.",
+    },
+    bad_scope: {
+      text: "{scope} no es un lugar donde se pueda fijar un ajuste de la flota",
+      hint: "Usa 'fleet' para todos los servidores o 'node:<servidor>' para uno.",
+    },
+    item_conflict: {
+      text: "El {kind} {name} ya existe en este servidor y no es de la flota",
+      hint: "Aplica de nuevo dejando que la flota lo asuma, o ponle otro nombre al ajuste de la flota.",
+    },
+    item_unsupported: {
+      text: "Este servidor no puede recibir un {kind} de la flota: no ofrece {operation}",
+      hint: "Tiene un Noust más antiguo: actualízalo primero.",
+    },
+    kind_not_yet: {
+      text: "La central todavía no puede gestionar {kind} para la flota",
+      hint: "Por ahora, fíjalo en cada servidor, en sus propios ajustes.",
+    },
+    managed_missing: {
+      text: "Este servidor no tiene ningún {kind} llamado {name}",
+      hint: "Un ajuste se anota como de la flota cuando la central lo ha escrito: escríbelo primero.",
+    },
+    missing_field: {
+      text: "Un {kind} necesita {field}",
+      hint: "Un servidor no puede crearlo sin eso.",
+    },
+    no_such_setting: {
+      text: "La flota no tiene ningún {kind} llamado {name}",
+      hint: "Mira lo que tiene con: GET /api/fleet/settings",
+    },
+    not_managed: {
+      text: "Ninguna central gestiona el {kind} {name} en este servidor",
+      hint: "Solo se puede pedir que vuelva un ajuste que una central haya empujado.",
+    },
+    permission_missing: {
+      text: "Fijar un {kind} para la flota necesita el permiso {permission}",
+      hint: "Es el permiso que pide fijarlo en un solo servidor: pide a un administrador un rol que lo tenga.",
+    },
+    secret_missing: {
+      text: "{field} está oculto y todavía no hay nada guardado",
+      hint: "Escribe el secreto otra vez: solo se muestra como {redacted} cuando hay uno guardado.",
+    },
+    sync_ceiling: {
+      text: "Este servidor deja a su central hacer como mucho '{level}', y aplicar los ajustes de la flota necesita 'admin'",
+      hint: "Súbelo en este servidor, como root:\n  {command}",
+    },
+    sync_required: {
+      text: "Solo la central que gestiona este servidor puede anotar un ajuste como de la flota",
+      hint: "La central lo hace cuando aplica un ajuste; nadie lo anota a mano.",
+    },
+    sync_route: {
+      text: "Un empuje de los ajustes de la flota no puede hacer {method} {path}",
+      hint: "Solo puede escribir los ajustes que gestiona la flota: canales, reglas de alerta, destinos de copia, accesos a registros y variables compartidas.",
+    },
+    unknown_field: {
+      text: "Un {kind} no tiene ningún campo llamado {field}",
+      hint: "Un {kind} admite: {fields}.",
+    },
+    unknown_kind: {
+      text: "{kind} no es algo que gestione la flota",
+      hint: "La flota gestiona: {kinds}.",
+    },
+    unknown_node: {
+      text: "No hay ningún servidor llamado {node} en esta flota",
+      hint: "Lista los servidores con: {command}",
+    },
+    value_not_object: {
+      text: "El valor de un {kind} debe ser un objeto de campos",
+      hint: "Envía los campos que los ajustes de un servidor admiten para un {kind}.",
+    },
+    value_too_large: {
+      text: "Este {kind} es mayor que los {limit} bytes que puede ocupar un ajuste",
+    },
+  },
   invitation: {
     mail_failed: {
       text: "No se pudo enviar la invitación por correo: {reason}",

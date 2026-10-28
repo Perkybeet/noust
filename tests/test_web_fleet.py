@@ -148,6 +148,7 @@ class TestActions:
             "placement_copy",
             "placement_ship",
             "database_transfer",
+            "settings_apply",
         }
 
     def test_a_plan_runs_nothing(self, client, central):
