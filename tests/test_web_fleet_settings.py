@@ -333,7 +333,9 @@ class TestWhereEachServerStands:
         wait(operator, set_channel(operator).json()["apply"]["job_id"])
         nodes["web-2"].edit_by_hand("channel", "ops", enabled=False)
 
-        body = operator.get(f"{URL}/status").json()
+        response = operator.get(f"{URL}/status")
+        assert response.status_code == 200, response.text
+        body = response.json()
 
         cells = {c["node"]: c for c in body["settings"][0]["servers"]}
         assert (cells["web-2"]["origin"], cells["web-2"]["sync"]) == (

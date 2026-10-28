@@ -24,7 +24,7 @@ Nothing secret is read from a server: the state is the version it applied and wh
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from noust.fleet.aggregate import (
     RESOURCES,
@@ -35,9 +35,11 @@ from noust.fleet.aggregate import (
     Resource,
     gather,
 )
-from noust.fleet.nodes import NodeManager
 from noust.fleet.settings.desired import DesiredSetting, FleetSettings
 from noust.fleet.settings.routes import MANAGED_PREFIX
+
+if TYPE_CHECKING:
+    from noust.fleet.nodes import NodeManager
 
 __all__ = ["ORIGINS", "SYNC_STATES", "compose", "read"]
 
@@ -279,6 +281,8 @@ def read(
     Raises:
         SealError: This central is locked; no server can be reached.
     """
+    from noust.fleet.nodes import NodeManager
+
     _register()
     manager = manager or NodeManager()
     result = gather(MANAGED_VIEW.name, asker=asker, manager=manager, nodes=nodes, refresh=refresh)
