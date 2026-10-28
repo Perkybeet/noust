@@ -1497,7 +1497,7 @@ class TestTestSeams:
             if path.name != "tunnels.py"
             and "set_loopback_for_testing" in path.read_text(encoding="utf-8")
         ]
-        assert set(callers) <= {"scripts/console_server.py"}, callers
+        assert set(callers) <= {"scripts/console_server/fleet.py"}, callers
 
 
 class TestBrandCopies:

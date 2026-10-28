@@ -22,11 +22,9 @@ meet an error no real server would give. What is defended:
 
 from __future__ import annotations
 
-import importlib.util
-import sys
 from collections.abc import Iterator
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -47,36 +45,22 @@ from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.settings import MySQLSettings, PostgresSettings, Resources
 from noust.managers.server.host import HostPaths
-
-SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "console_server.py"
+from scripts.console_server import databases as databases_model
+from scripts.console_server import engine_settings as settings_model
+from scripts.console_server import machine as machine_model
+from scripts.console_server import runner as runner_model
+from scripts.console_server import server_host as host_model
 
 #: The modelled server's memory and processors, as the recommendations see them.
 SERVER = Resources(memory_bytes=2 * 1024**3, cpus=2)
 
 
-@pytest.fixture(scope="module")
-def console() -> ModuleType:
-    """
-    Load the script as a module: its heavy imports are lazy, so this starts nothing.
-
-    Returns:
-        The module.
-    """
-    spec = importlib.util.spec_from_file_location("console_server_under_test", SCRIPT)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 @pytest.fixture
-def machine(console: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
+def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
     """
     The modelled machine: its runner over a host tree below ``tmp_path``.
 
     Args:
-        console: The script.
         tmp_path: The test's directory, which stands in for ``/``.
         monkeypatch: Patching helper, scoped to the test.
 
@@ -88,13 +72,13 @@ def machine(console: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     (cluster / "conf.d").mkdir(parents=True)
     (cluster / "postgresql.conf").write_text("include_dir = 'conf.d'\n", encoding="utf-8")
     (host.root / "etc" / "mysql" / "mysql.conf.d").mkdir(parents=True)
-    monkeypatch.setattr(console, "_SERVER_HOST", host)
+    monkeypatch.setattr(host_model, "_SERVER_HOST", host)
     monkeypatch.setattr(flavours, "HOST", HostPaths(root=host.root))
     units = {
-        "postgresql": console.Unit(active="active", managed=False),
-        "mysql": console.Unit(active="active", managed=False),
+        "postgresql": machine_model.Unit(active="active", managed=False),
+        "mysql": machine_model.Unit(active="active", managed=False),
     }
-    runner = console.make_runner(units, {}, {}, [], tmp_path / "systemd")
+    runner = runner_model.make_runner(units, {}, {}, [], tmp_path / "systemd")
     set_runner(runner)
     try:
         yield runner
@@ -158,9 +142,9 @@ class TestDatabaseContainer:
     """One Compose service of a seeded application runs PostgreSQL."""
 
     def test_discovery_finds_it_and_the_application_its_project_names(
-        self, console: ModuleType, machine: FakeRunner
+        self, machine: FakeRunner
     ) -> None:
-        found = discover(console._DockerInstalled(machine))
+        found = discover(databases_model._DockerInstalled(machine))
         owned = assign_apps(
             found, [SimpleNamespace(domain="catalogo.example.org", compose_project=None)]
         )
@@ -170,7 +154,7 @@ class TestDatabaseContainer:
         assert instance.container == "catalogo-example-org-postgres-1"
         assert instance.image == "postgres:16-alpine"
         assert instance.running
-        assert instance.port == console.DB_CONTAINER_HOST_PORT
+        assert instance.port == settings_model.DB_CONTAINER_HOST_PORT
         assert instance.app == "catalogo.example.org"
 
     def test_docker_stays_absent_for_everything_that_does_not_ask_discovery(
@@ -179,27 +163,25 @@ class TestDatabaseContainer:
         assert not machine.exists("docker")
         assert discover(machine) == []
 
-    def test_its_client_runs_inside_it_over_its_own_databases(
-        self, console: ModuleType, machine: FakeRunner
-    ) -> None:
-        (instance,) = discover(console._DockerInstalled(machine))
+    def test_its_client_runs_inside_it_over_its_own_databases(self, machine: FakeRunner) -> None:
+        (instance,) = discover(databases_model._DockerInstalled(machine))
         manager = PostgresManager().bind(instance)
 
         names = [entry.name for entry in manager.list_databases()]
 
-        assert names == [console.DB_CONTAINER_DATABASE]
+        assert names == [settings_model.DB_CONTAINER_DATABASE]
         assert (manager.get_version() or "").startswith("16")
         executed = [call for call in machine.calls if call[:2] == ("docker", "exec")]
         assert executed, "the client ran through docker exec, never on the host"
         assert not any(call[0] == "psql" for call in machine.calls)
 
     def test_stopping_it_is_what_the_next_discovery_reports_and_its_client_refuses(
-        self, console: ModuleType, machine: FakeRunner
+        self, machine: FakeRunner
     ) -> None:
-        (instance,) = discover(console._DockerInstalled(machine))
+        (instance,) = discover(databases_model._DockerInstalled(machine))
         PostgresManager().bind(instance).stop()
 
-        (stopped,) = discover(console._DockerInstalled(machine))
+        (stopped,) = discover(databases_model._DockerInstalled(machine))
 
         assert stopped.state == "exited"
         with pytest.raises(DatabaseError):
@@ -209,17 +191,15 @@ class TestDatabaseContainer:
 class TestDetectedUse:
     """An application's .env names a database Noust did not link."""
 
-    def test_the_seeded_env_resolves_to_the_hosts_postgresql(
-        self, console: ModuleType, tmp_path: Path
-    ) -> None:
+    def test_the_seeded_env_resolves_to_the_hosts_postgresql(self, tmp_path: Path) -> None:
         root = tmp_path / "docs"
         root.mkdir()
         (root / ".env").write_text(
             "NODE_ENV=production\nDATABASE_URL=postgres://docs:old@127.0.0.1:5432/docs\n",
             encoding="utf-8",
         )
-        app = App(domain=console.DETECTED_APP, app_path=str(root), layout="inplace")
-        console.seed_detected_use(SimpleNamespace(get_app=lambda domain: app))
+        app = App(domain=databases_model.DETECTED_APP, app_path=str(root), layout="inplace")
+        databases_model.seed_detected_use(SimpleNamespace(get_app=lambda domain: app))
 
         references = references_in(read_environment(app))
         (found,) = detect(
@@ -227,7 +207,7 @@ class TestDetectedUse:
             [Endpoint("postgresql", "postgresql", frozenset({5432}))],
         )
 
-        assert found.reference.database == console.DETECTED_DATABASE
+        assert found.reference.database == databases_model.DETECTED_DATABASE
         assert found.engine == "postgresql"
         assert (root / ".env").read_text(encoding="utf-8").startswith("NODE_ENV=production\n")
         assert (root / ".env").stat().st_mode & 0o777 == 0o600

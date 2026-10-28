@@ -24,6 +24,7 @@ paths-ignore:
   # seeded store in a temporary directory with a fake runner, started on a
   # developer's machine or a CI runner and never installed.
   - scripts/console_server.py
+  - scripts/console_server
   # Catalogue entries, not code. A recipe says `password: ""` for a value Noust
   # generates when the stack is installed (or leaves unset), which the rule for an
   # empty password in a configuration file reads as a credential left blank; so

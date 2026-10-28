@@ -212,7 +212,9 @@ src/noust/
 panel/              Noust console source: React 19, TypeScript, Vite, TanStack Router/Query,
                     Base UI, Tailwind v4; src/api/schema.gen.ts is generated from openapi.json
   e2e/              Playwright + axe + CSP gate against the real backend
-scripts/console_server.py   the real API on a seeded, sandboxed store (development and E2E)
+scripts/console_server.py   the real API on a seeded, sandboxed store (development and E2E): the launcher of the
+                            package `scripts/console_server/`, which holds the sandbox, the machine the runner
+                            answers for, the seed of each page, the fleet and the Server area, one module each
 scripts/generate_sdk.py     sdk/python from panel/openapi.json; sdk/terraform is the map the provider is
                             written from (docs/sdk.md, docs/terraform.md); CI fails on a stale file
 terraform-provider-noust/   the Terraform and OpenTofu provider (Go, Plugin Framework): a client of the API
