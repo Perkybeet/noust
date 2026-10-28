@@ -81,61 +81,69 @@ Or add manually in project config (`osc meta prj -e home:your_username`):
 
 ### Automatic (Recommended)
 
-Use the provided script:
+A release uploads itself: once the release is verified, `release.yml` calls the **Publish to OBS**
+workflow (`.github/workflows/obs.yml`). To upload a tag that is already published elsewhere, when only
+this step failed, run it by hand from **Actions > Publish to OBS > Run workflow** with the tag
+(`vX.Y.Z`). It needs the `OBS_USER` and `OBS_PASS` secrets of the repository.
+
+The same two scripts run on a machine with a configured `osc`:
 
 ```bash
-# Make executable
-chmod +x build-and-upload-obs.sh
+# Lay out exactly the files OBS receives
+packaging/obs/stage.sh noust /tmp/obs/noust
 
-# Upload with defaults (home:Perkybeet/noust)
-./build-and-upload-obs.sh
-
-# Or specify custom project/package
-./build-and-upload-obs.sh home:myuser noust
+# Replace the package's sources with that set (home:Perkybeet/noust)
+packaging/obs/publish.sh home:Perkybeet noust /tmp/obs/noust "Release vX.Y.Z"
 ```
 
-The script will:
-1. Create source tarball from Git
-2. Checkout OBS package
-3. Copy `.spec` file and tarball
-4. Update version
-5. Commit to OBS
-6. OBS automatically starts building for all configured distributions
+To build the staged set on the host, the way OBS does, before uploading it:
+
+```bash
+packaging/obs/build.sh deb /tmp/obs/noust /tmp/debs   # or rpm
+```
+
+What they do:
+1. `stage.sh` creates the source tarball from the repository and copies `noust.spec`, `noust.dsc` and
+   every `obs/debian.*` file. It refuses a tree that is not a release (the top entry of
+   `obs/debian.changelog` must be the version of `pyproject.toml`); `--snapshot` stages a pre-release
+   for builds that are tested and never published.
+2. `publish.sh` needs the package to exist (it is created on build.opensuse.org), shows what it holds,
+   removes every file that is not in the staged set, so a stale file uploaded by hand cannot reach a
+   build, and commits the rest.
+3. OBS automatically starts building for all configured distributions.
 
 ### Manual Process
 
 ```bash
-# 1. Create tarball
-VERSION=$(head -n 1 debian/changelog | sed 's/.*(\(.*\)).*/\1/' | cut -d'~' -f1)
-git archive --format=tar.gz --prefix=noust-${VERSION}/ HEAD > noust-${VERSION}.tar.gz
+# 1. Lay out the files OBS receives (the tarball, the spec, the dsc and the debian.* files)
+packaging/obs/stage.sh noust /tmp/obs/noust
 
 # 2. Checkout package
 osc checkout home:Perkybeet/noust
 cd home:Perkybeet/noust
 
-# 3. Copy files
-cp /path/to/noust-${VERSION}.tar.gz .
-cp /path/to/rpm/noust.spec .
-cp /path/to/obs/_service .
+# 3. Copy the staged set over it, and `osc rm` any file it does not have
+#    (OBS turns every debian.* file into debian/, so a stale one reaches every build)
+cp /tmp/obs/noust/* .
+osc addremove
 
-# 4. Add and commit
-osc add noust-${VERSION}.tar.gz noust.spec _service
-osc commit -m "Update to version ${VERSION}"
+# 4. Commit
+osc commit -m "Release vX.Y.Z"
 ```
 
-### Using Makefile
+### Looking at the builds from the Makefile
 
-Add to your workflow:
+The Makefile does not upload (the workflow above does); it only looks at what OBS built:
 
 ```bash
-# Build and upload to OBS
-make obs-upload
-
-# Just build locally (test)
-make obs-build
-
 # Check build status
 make obs-status
+
+# Watch it until it settles
+make obs-status-watch
+
+# Read the log of one repository
+make obs-logs DISTRO=Fedora_40 ARCH=x86_64
 ```
 
 ## Monitoring Builds
@@ -265,7 +273,10 @@ noust/
 │   └── source/
 │       ├── format              # Source format
 │       └── options             # Build options
-└── build-and-upload-obs.sh     # Upload to OBS
+└── packaging/obs/
+    ├── stage.sh                # Lay out the files OBS receives
+    ├── build.sh                # Build a staged set on the host (deb or rpm)
+    └── publish.sh              # Replace the package's sources on OBS
 ```
 
 ## Differences: .deb vs .rpm Packaging
@@ -328,7 +339,8 @@ For Python packages not in distribution repos, you may need to:
 
 | Task | Command |
 |------|---------|
-| Upload to OBS | `./build-and-upload-obs.sh` or `make obs-upload` |
+| Upload to OBS | the **Publish to OBS** workflow, or `packaging/obs/stage.sh` then `packaging/obs/publish.sh` |
+| Build the staged set locally | `packaging/obs/build.sh deb` or `rpm`, with the staged and output directories |
 | Check status | `make obs-status` or `osc results home:Perkybeet noust` |
 | View logs | `make obs-logs DISTRO=Fedora_40 ARCH=x86_64` |
 | Watch builds | `make obs-status-watch` |
@@ -339,7 +351,7 @@ For Python packages not in distribution repos, you may need to:
 2. Install and configure `osc`
 3. Create package in OBS web UI
 4. Add target distributions
-5. Run `./build-and-upload-obs.sh`
+5. Run the **Publish to OBS** workflow (or `packaging/obs/stage.sh` and `packaging/obs/publish.sh`)
 6. Monitor builds
 7. Update README with install instructions
 
