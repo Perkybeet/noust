@@ -288,6 +288,8 @@ export interface PaletteEntry {
   path: string;
   /** Search words, the old names included. */
   keywords: string;
+  /** The names it had before, each of them whole (the palette ranks one typed whole just under the current name). */
+  aliases: readonly string[];
   shortcut?: readonly string[];
   /** What it is, drawn: the same in every list (features/nav/icons.ts). */
   icon: LucideIcon;
@@ -316,6 +318,7 @@ export function paletteEntries(ctx: PaletteContext): PaletteEntry[] {
       text: bare ? t(entry.label) : entry.command !== undefined ? t(entry.command) : place.join(" › "),
       path: place.join(" › "),
       keywords: [entry.keywords !== undefined ? t(entry.keywords) : "", ...old].join(" ").trim(),
+      aliases: old,
       ...(entry.shortcut !== undefined ? { shortcut: entry.shortcut } : {}),
       // A tab has no icon of its own: the area's it is under.
       icon: sectionIcon(entry) ?? areaIcon(entry),

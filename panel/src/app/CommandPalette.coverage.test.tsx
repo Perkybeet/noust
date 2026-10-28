@@ -62,6 +62,14 @@ describe("the palette over the register", () => {
     }
   });
 
+  it("ranks the name a screen had, typed whole, above a screen that only has the word in its name", () => {
+    // Recipes became the Catalog (4.1) and has a screen called "Installed recipes": the old name still opens the old place first.
+    expect(found(commands, "Recipes")[0]).toBe(ids.get("catalog"));
+    expect(found(commands, "Cron")[0]).toBe(ids.get("cron"));
+    // A screen that is called so now still comes first: the alias is just under the name, not over it.
+    expect(found(commands, "Installed recipes")[0]).toBe(ids.get("catalog.installed"));
+  });
+
   it("finds what the operator named in the task list: the terminal, the schedules, DNS, the metrics export", () => {
     const first = (query: string): string => {
       const id = found(commands, query)[0];

@@ -18,6 +18,7 @@ export function pageCommands(entries: readonly PaletteEntry[], go: (to: string) 
       kind: "navigate",
       run: go(entry.to),
       keywords: entry.keywords,
+      ...(entry.aliases.length > 0 ? { aliases: entry.aliases } : {}),
       ...(entry.path !== entry.text ? { detail: entry.path } : {}),
       ...(entry.shortcut !== undefined ? { shortcut: entry.shortcut } : {}),
     };
