@@ -421,8 +421,10 @@ class TestBinding:
         # running.
         manager.bind("pia", "db-reader", scope="instance")
         assert manager.account("pia").roles == ("viewer", "db-reader")
+        manager.create_role("deployer", [P.APPS_DEPLOY])
+        manager.bind("pia", "deployer", scope="instance")
         with pytest.raises(AccessError, match="govern access and run"):
-            manager.bind("pia", "admin", scope="instance")
+            manager.bind("pia", "security", scope="instance")
         # Below the server it is a membership, not a second role.
         assert manager.bind("pia", "db-reader", team="acme", project="mobile").role == "db-reader"
 

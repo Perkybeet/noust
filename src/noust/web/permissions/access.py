@@ -526,7 +526,8 @@ class AccessManager:
                 field="role",
             )
         if kind != SCOPE_INSTANCE:
-            refuse_instance_only_member(account.username, account.role)
+            for held in account.roles:
+                refuse_instance_only_member(account.username, held)
             granted = role_permissions(role_name, kind, custom)
             if not granted - {P.SELF}:
                 raise ValidationError(

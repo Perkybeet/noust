@@ -28,6 +28,7 @@ from noust.core.accounts.role_review import review
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.permission_catalog import ALL_PERMISSIONS
 from noust.core.store import NoustStore
+from noust.core.teams import TeamStore
 
 PASSWORD = "correct horse battery staple"
 
@@ -163,6 +164,18 @@ def test_an_account_that_becomes_a_security_officer_leaves_its_teams(
     assert not conn.execute(
         "SELECT COUNT(*) FROM team_members WHERE account_id = ?", (ana.id,)
     ).fetchone()[0]
+
+
+def test_a_role_that_never_joins_a_team_keeps_the_account_out_of_one(
+    accounts: AccountManager, store: NoustStore
+) -> None:
+    accounts.create("ana", "operator", password=PASSWORD)
+    accounts.set_roles("ana", ["operator", "security"])
+    TeamStore(store).create_team("Acme", slug="acme")
+
+    # The role it is known by is an operator's; the one it holds beside it is the security officer's.
+    with pytest.raises(ValidationError, match="never join a team"):
+        TeamStore(store).add_member("acme", "ana", "viewer")
 
 
 # ----------------------------------------------------------------- the first owner
