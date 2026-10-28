@@ -13,11 +13,14 @@ the suite and not another. A word has an area once ten files begin with it
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Protocol
 
 import pytest
+
+_TESTS_DIRECTORY = Path(__file__).resolve().parent.parent
 
 #: The first word of a test file's name, and what the files that begin with it test.
 AREAS: dict[str, str] = {
@@ -66,10 +69,27 @@ def area_of(path: Path) -> str | None:
     Returns:
         The name of the area, or None when the first word of the file's name is not one.
     """
-    if path.parent != Path(__file__).resolve().parent.parent or not path.name.startswith("test_"):
+    if not path.name.startswith("test_") or not _is_the_tests_directory(path.parent):
         return None
     word = path.stem.removeprefix("test_").split("_")[0]
     return word if word in AREAS else None
+
+
+@functools.cache
+def _is_the_tests_directory(directory: Path) -> bool:
+    """
+    Whether a directory is ``tests/``, however a checkout reached it.
+
+    A checkout opened through a link names its files by the link, and a test would then be in no
+    area without anyone being told. The answer is kept: every test of a file asks.
+
+    Args:
+        directory: The directory a test file is in.
+
+    Returns:
+        True when it is the directory that holds this package.
+    """
+    return directory.resolve() == _TESTS_DIRECTORY
 
 
 def mark_by_area(items: Iterable[Markable]) -> None:

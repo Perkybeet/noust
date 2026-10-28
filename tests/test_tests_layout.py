@@ -158,6 +158,14 @@ class TestAreas:
         assert area_of(TESTS / "test_applock.py") is None
         assert area_of(TESTS / "test_webserver_managers.py") is None
 
+    def test_a_file_reached_through_a_link_to_the_directory_is_in_its_area(
+        self, tmp_path: Path
+    ) -> None:
+        link = tmp_path / "checkout"
+        link.symlink_to(TESTS)
+
+        assert area_of(link / "test_web_auth.py") == "web"
+
     def test_a_file_in_a_directory_below_is_in_no_area(self) -> None:
         assert area_of(TESTS / "recipes" / "test_web_things.py") is None
 
