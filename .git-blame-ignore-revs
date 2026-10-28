@@ -8,3 +8,11 @@ c48de3a2d43b0f55c7f0a3741503856008fdcb78
 ecfa28b7b614429f8927cc507818c0dcc8785267
 3c025b55c7f3572c3a88d62c95f601386dacf2d6
 5be1f4d1f183348b91d3d221eca5ebbf37052bed
+
+# 4.1 structure review (item 88), E10 and E8: the support modules of the tests moved into tests/support,
+# what test modules shared moved out of them, and the console's sandbox server split into a package.
+# The text of each definition is the same; the lines they touch are imports, headers and the paths
+# that say where a directory is.
+f9bc921c0163fbdacac75d7e594440d0d50d8395
+d15f6b8a043a7f3dcb81d1b87083ccc871dd0828
+8478ce0c3f872c06e6f557ff68384932ee26a120
