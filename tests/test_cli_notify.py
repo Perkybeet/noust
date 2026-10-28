@@ -25,12 +25,6 @@ from noust.core.notifier import Notifier, TelegramChat
 
 
 @pytest.fixture
-def cli_runner() -> CliRunner:
-    """Returns: A runner that captures stdout and stderr together."""
-    return CliRunner()
-
-
-@pytest.fixture
 def fake_notifier(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """
     Stand in for :class:`Notifier`, so no real socket is ever opened.

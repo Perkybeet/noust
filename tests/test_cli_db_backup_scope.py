@@ -23,7 +23,6 @@ from noust.cli import app as cli_app
 from noust.cli.commands import db as db_cli
 from noust.core.runner import set_runner
 from noust.core.store import NoustStore
-from noust.managers.backup_scheduler import BackupScheduler
 from noust.managers.database.base import BaseDatabaseManager
 from tests.support.database_backup_support import PG_LISTING, RcloneRunner, make_engine
 
@@ -47,14 +46,6 @@ def runner(tmp_path: Path) -> Iterator[RcloneRunner]:
         yield fake
     finally:
         set_runner(None)
-
-
-@pytest.fixture
-def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "systemd"
-    path.mkdir()
-    monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", path)
-    return path
 
 
 @pytest.fixture

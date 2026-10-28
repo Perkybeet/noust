@@ -738,15 +738,6 @@ def shop(store: NoustStore, *, source: str = SHOP_SOURCE, branch: str | None = "
     )
 
 
-@pytest.fixture
-def audited(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
-    events: list[dict[str, Any]] = []
-    monkeypatch.setattr(
-        "noust.core.audit.record", lambda event, **kw: events.append({"event": event, **kw})
-    )
-    return events
-
-
 class TestSettingWhatIsFollowed:
     def test_a_pattern_is_stored_and_audited_with_the_one_before(
         self, settings_store: NoustStore, audited: list[dict[str, Any]]

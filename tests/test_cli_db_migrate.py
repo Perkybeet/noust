@@ -22,7 +22,6 @@ from click.testing import CliRunner
 from noust.cli.app import cli as root_cli
 from noust.cli.commands import db as db_cli
 from noust.core.config import Config
-from noust.core.logger import Logger
 from noust.core.runner import SubprocessRunner
 from tests.support.database_migration_support import Lab, build_lab
 from tests.support.database_move_support import DOMAIN, HOST
@@ -41,13 +40,6 @@ def lab(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Lab]:
             yield built
     finally:
         Config.reset_instance()
-
-
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
 
 
 def run(*args: str, input: str | None = None):

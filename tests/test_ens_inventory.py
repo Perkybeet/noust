@@ -15,8 +15,6 @@ from __future__ import annotations
 import csv
 import io
 import json
-from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -24,14 +22,6 @@ import pytest
 from noust.core.ens import inventory as inventory_module
 from noust.core.ens.inventory import Inventory, InventoryError, export_csv, export_json
 from noust.core.store import App, NoustStore
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 @pytest.fixture

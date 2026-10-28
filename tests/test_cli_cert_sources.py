@@ -27,7 +27,6 @@ from noust.cli.app import main
 from noust.cli.commands import cert_sources
 from noust.core.certificate_store import CustomCertificate
 from noust.core.exceptions import ValidationError
-from noust.core.logger import Logger
 from noust.core.secrets import SecretStore
 from noust.deployers.certificates import CertificateChange, CertificateView
 from noust.managers.acme import EAB_KEY_SECRET, AcmeSettings
@@ -51,13 +50,6 @@ class MemoryConfig:
 
     def write(self) -> None:
         self.written += 1
-
-
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
 
 
 def invoke(args: list[str], input_text: str | None = None) -> Result:

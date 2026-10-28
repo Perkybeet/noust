@@ -42,12 +42,6 @@ def state_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture
-def cli_runner() -> CliRunner:
-    """Returns: A runner that captures stdout and stderr together."""
-    return CliRunner()
-
-
-@pytest.fixture
 def two_sessions(state_dir: Path) -> TokenManager:
     """
     Create two live sessions directly through the manager.

@@ -290,14 +290,6 @@ def _metadata(backup_id: str, domain: str = "shop.example.com") -> BackupMetadat
     )
 
 
-@pytest.fixture
-def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "systemd"
-    path.mkdir()
-    monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", path)
-    return path
-
-
 class TestApplicationSchedule:
     def schedule(self, **fields: Any) -> BackupScheduleRecord:
         return get_store().save_backup_schedule(

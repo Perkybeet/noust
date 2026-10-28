@@ -46,7 +46,6 @@ from tests.support.cli_webapp import (  # noqa: F401
     store,
     update_calls,
 )
-from tests.support.console_patch_support import patch_console
 
 # A fixture imported from the support module is found by pytest in this module's namespace, and a
 # test that asks for it by name looks like a redefinition of an import that is never used.
@@ -97,36 +96,6 @@ def shown(result: Result, console: io.StringIO) -> str:
         The Click output followed by the logger output.
     """
     return result.output + console.getvalue()
-
-
-@pytest.fixture
-def isolated_panel_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """
-    Point the layered configuration at a per-test file.
-
-    ``panel_url`` reads ``web.*`` through the Config singleton, which would
-    otherwise read the developer's real ``/etc/wasm/config.yaml`` and make
-    these tests depend on the machine they run on. The self-signed TLS pair
-    path is pinned the same way, so a machine that has actually run
-    ``wasm web start --self-signed`` does not turn "http" into "https" under
-    a test.
-
-    Args:
-        tmp_path: Per-test temporary directory.
-        monkeypatch: Patching helper, scoped to the test.
-
-    Yields:
-        The configuration file the test may write.
-    """
-    from noust.core import config as config_module
-
-    path = tmp_path / "config.yaml"
-    monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", path)
-    patch_console(monkeypatch, "PANEL_TLS_CERT", tmp_path / "panel-tls" / "panel.crt")
-    patch_console(monkeypatch, "PANEL_TLS_KEY", tmp_path / "panel-tls" / "panel.key")
-    config_module.Config.reset_instance()
-    yield path
-    config_module.Config.reset_instance()
 
 
 def _configure_panel(path: Path, **settings: Any) -> None:

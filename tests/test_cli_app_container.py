@@ -31,7 +31,6 @@ from noust.core.container_store import (
     registry_secret_name,
 )
 from noust.core.exceptions import DeploymentError
-from noust.core.logger import Logger
 from noust.core.runner import set_runner
 from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore
@@ -54,13 +53,6 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
     instance = NoustStore(tmp_path / "store" / "noust.db")
     yield instance
     NoustStore.reset_instance()
-
-
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
 
 
 @pytest.fixture

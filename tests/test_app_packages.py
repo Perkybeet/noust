@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from noust.core import app_packages_store, audit
+from noust.core import app_packages_store
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.runner import CommandResult
 from noust.core.store import App, NoustStore
@@ -46,13 +46,6 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
     )
     yield instance
     NoustStore.reset_instance()
-
-
-@pytest.fixture
-def events(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, Any]]]:
-    recorded: list[tuple[str, dict[str, Any]]] = []
-    monkeypatch.setattr(audit, "record", lambda event, **kwargs: recorded.append((event, kwargs)))
-    return recorded
 
 
 def packages(

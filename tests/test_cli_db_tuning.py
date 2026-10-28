@@ -22,7 +22,6 @@ from click.testing import CliRunner
 from noust.cli.app import cli as root_cli
 from noust.cli.commands import db as db_cli
 from noust.core.config import Config
-from noust.core.logger import Logger
 from noust.managers.database.service import DatabaseService
 from tests.support.database_instance_support import World, build_world, close_world
 
@@ -48,13 +47,6 @@ def cli_world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World
     finally:
         Config.reset_instance()
         close_world()
-
-
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
 
 
 def run(*args: str, input: str | None = None):

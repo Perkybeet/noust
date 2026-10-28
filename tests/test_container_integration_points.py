@@ -16,7 +16,6 @@ as a stack.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -41,14 +40,6 @@ from tests.support.sampling_plan import (  # noqa: F401 - fixtures used by name
 )
 
 DOMAIN = "shop.example.com"
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 def container_app(**row: object) -> App:

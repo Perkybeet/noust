@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import os
 import time
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -52,14 +51,6 @@ def state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root.mkdir()
     monkeypatch.setattr(paths, "state_dir", lambda: root)
     return root
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 @pytest.fixture

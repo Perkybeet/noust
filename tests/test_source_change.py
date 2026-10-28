@@ -75,15 +75,6 @@ def deployed(store: NoustStore, **fields: Any) -> App:
     return store.create_app(App(**values))
 
 
-@pytest.fixture
-def audited(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
-    events: list[dict[str, Any]] = []
-    monkeypatch.setattr(
-        "noust.core.audit.record", lambda event, **kw: events.append({"event": event, **kw})
-    )
-    return events
-
-
 def asked(runner: FakeRunner) -> list[tuple[str, ...]]:
     return [call for call in runner.calls if "ls-remote" in call]
 

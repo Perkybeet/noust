@@ -39,14 +39,6 @@ def state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return root
 
 
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
-
-
 def client_for(name: str = "alice") -> Any:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient

@@ -42,11 +42,6 @@ def host(tmp_path: Path):
     return make_host(tmp_path)
 
 
-@pytest.fixture
-def fs() -> RecordingFileSystem:
-    return RecordingFileSystem()
-
-
 class TestDnfListing:
     def test_dnf4_rows_are_read_and_a_wrapped_line_is_joined(self) -> None:
         rows = parse_check_update(fixture("dnf4", "check-update.txt"))

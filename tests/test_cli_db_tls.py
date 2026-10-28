@@ -24,7 +24,6 @@ from noust.cli.commands import db as db_cli
 from noust.core.config import Config
 from noust.core.db_instance_store import READY, DbInstanceStore
 from noust.core.fs import RealFileSystem
-from noust.core.logger import Logger
 from noust.core.runner import set_runner
 from noust.managers.database import tls_authority
 from tests.support.database_migration_support import Lab, build_lab
@@ -59,13 +58,6 @@ def lab(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Lab]:
             yield built
     finally:
         Config.reset_instance()
-
-
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
 
 
 def run(*args: str, input: str | None = None):

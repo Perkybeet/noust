@@ -70,14 +70,6 @@ FAILED = _entry(
 )
 
 
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
-
-
 def _job(
     store: NoustStore,
     tmp_path: Path,

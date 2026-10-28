@@ -26,7 +26,6 @@ from noust.cli.app import cli as root_cli
 from noust.cli.app import main
 from noust.cli.commands import dns as dns_cli
 from noust.core.dns_store import DnsAccount, DnsStore
-from noust.core.logger import Logger
 from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore
 from noust.deployers.domains import DnsCheck
@@ -47,11 +46,6 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
     instance.create_app(App(domain=APP, app_path=f"/var/www/apps/{APP}"))
     yield instance
     NoustStore.reset_instance()
-
-
-@pytest.fixture
-def secrets(tmp_path: Path) -> SecretStore:
-    return SecretStore(root=tmp_path / "state" / "secrets")
 
 
 @pytest.fixture
@@ -85,13 +79,6 @@ def wired(
     monkeypatch.setattr(DnsAccounts, "provider", lambda self, name: provider)
     monkeypatch.setattr(dns_cli, "server_addresses", lambda: [PUBLIC])
     DnsStore(store).save_account(DnsAccount(name="cf", kind="cloudflare", automatic=True))
-
-
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
 
 
 def invoke(args: list[str], input_text: str | None = None) -> Result:

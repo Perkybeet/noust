@@ -13,7 +13,6 @@ nothing but a state the code knows is stored.
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -27,14 +26,6 @@ from noust.core.console_exposure_store import (
 )
 from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 def run_script(cursor: sqlite3.Cursor, script: str) -> None:

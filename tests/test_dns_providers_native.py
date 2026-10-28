@@ -658,11 +658,6 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
     NoustStore.reset_instance()
 
 
-@pytest.fixture
-def secrets(tmp_path: Path) -> SecretStore:
-    return SecretStore(root=tmp_path / "state" / "secrets")
-
-
 CREDENTIALS = {
     "digitalocean": {"token": TOKEN},
     "hetzner": {"token": TOKEN},

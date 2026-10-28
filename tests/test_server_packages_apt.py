@@ -39,11 +39,6 @@ def host(tmp_path: Path):
 
 
 @pytest.fixture
-def fs() -> RecordingFileSystem:
-    return RecordingFileSystem()
-
-
-@pytest.fixture
 def backend(runner: FakeRunner, host, fs) -> AptBackend:
     return AptBackend(platform_for("apt"), runner=runner, fs=fs, host=host)
 

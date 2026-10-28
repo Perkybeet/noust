@@ -127,19 +127,6 @@ class TestTheBlock:
         assert with_priority(timer, BackupPriority(10, "best-effort", 7, None)) == timer
 
 
-@pytest.fixture
-def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "systemd"
-    path.mkdir()
-    monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", path)
-    return path
-
-
-@pytest.fixture
-def scheduler(runner: FakeRunner, systemd_dir: Path) -> BackupScheduler:
-    return BackupScheduler(verbose=False, runner=runner)
-
-
 class TestEveryUnitABackupRunsIn:
     def test_a_database_policys_service_carries_it(
         self, scheduler: BackupScheduler, systemd_dir: Path

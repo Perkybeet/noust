@@ -24,16 +24,6 @@ from tests.support.web_backup_schedules import app, client, elevate, systemd_dir
 UNIT = "noust-backup-shop-example-com"
 
 
-@pytest.fixture
-def zoneinfo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    root = tmp_path / "zoneinfo"
-    for name in ("UTC", "Europe/Madrid"):
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b"TZif2")
-    monkeypatch.setattr("noust.managers.backup_timer_options.ZONEINFO_DIRS", (root,))
-
-
 class TestAnApplicationsSchedule:
     def test_the_limit_and_the_zone_are_written_and_said_back(
         self, client: TestClient, systemd_dir: Path, zoneinfo: None

@@ -61,14 +61,6 @@ class Clock:
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
-
-
-@pytest.fixture
 def probes(store: NoustStore) -> ProbeStore:
     return ProbeStore(store, clock=Clock())
 

@@ -12,12 +12,8 @@ area failing, which must leave the rest of the report whole.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import timedelta
-from pathlib import Path
 from typing import Any
-
-import pytest
 
 from noust.core.ens import checks
 from noust.core.ens.checks import ConsoleExposure, Facts, Sources, evaluate, gather, run_check
@@ -357,14 +353,6 @@ class FakeTokens:
 
     def current_master_generation(self) -> str | None:
         return "g1"
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 class TestGathering:

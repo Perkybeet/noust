@@ -25,7 +25,6 @@ from noust.cli.app import cli as root_cli
 from noust.cli.app import main
 from noust.cli.commands import site_unknown_hosts as command
 from noust.core.exceptions import ValidationError
-from noust.core.logger import Logger
 from noust.core.runner import FakeRunner
 from noust.managers import unknown_hosts as module
 from noust.managers.nginx_manager import NginxManager
@@ -132,13 +131,6 @@ def test_changing_it_asks_for_sudo_mode_and_looking_does_not(web: NginxManager) 
 
 
 # -- the command line ---------------------------------------------------------------
-
-
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
 
 
 def invoke(*args: str) -> Any:

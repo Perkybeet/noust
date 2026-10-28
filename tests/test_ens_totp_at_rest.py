@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import sqlite3
 import stat
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -39,14 +38,6 @@ class Clock:
 def cheap_hashes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(passwords, "COST", (2**4, 8, 1))
     monkeypatch.setattr(passwords, "_dummy_hash", None)
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 @pytest.fixture

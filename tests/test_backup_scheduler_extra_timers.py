@@ -34,19 +34,6 @@ def _reset_store() -> Iterator[None]:
     NoustStore.reset_instance()
 
 
-@pytest.fixture
-def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "systemd"
-    path.mkdir()
-    monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", path)
-    return path
-
-
-@pytest.fixture
-def scheduler(runner: FakeRunner, systemd_dir: Path) -> BackupScheduler:
-    return BackupScheduler(verbose=False, runner=runner)
-
-
 class TestVolumeTimer:
     def test_it_writes_a_timer_and_a_service_and_enables_the_timer(
         self, scheduler: BackupScheduler, runner: FakeRunner, systemd_dir: Path

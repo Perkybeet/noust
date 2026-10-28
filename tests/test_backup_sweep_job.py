@@ -72,19 +72,6 @@ class TestTheReport:
         assert "secret-name" not in json.dumps(event["details"])
 
 
-@pytest.fixture
-def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "systemd"
-    path.mkdir()
-    monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", path)
-    return path
-
-
-@pytest.fixture
-def scheduler(runner: FakeRunner, systemd_dir: Path) -> BackupScheduler:
-    return BackupScheduler(verbose=False, runner=runner)
-
-
 class TestTheTimer:
     def test_a_database_policy_brings_the_sweeps_timer_along(
         self, scheduler: BackupScheduler, systemd_dir: Path, runner: FakeRunner

@@ -50,13 +50,6 @@ def quiet_audit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(audit, "record", lambda *args, **kwargs: None)
 
 
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
-
-
 def wire(
     monkeypatch: pytest.MonkeyPatch,
     store: NoustStore,

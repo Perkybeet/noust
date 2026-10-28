@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from noust.core import audit, push_store
+from noust.core import push_store
 from noust.core.exceptions import NoustError, SourceError, ValidationError
 from noust.integrations import webhook
 from noust.pushdeploy import hook
@@ -33,13 +33,6 @@ from tests.support.push_support import DOMAIN, OTHER, PushRig, build_rig, ecdsa,
 @pytest.fixture
 def rig(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[PushRig]:
     yield from build_rig(tmp_path, monkeypatch)
-
-
-@pytest.fixture
-def events(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, Any]]]:
-    recorded: list[tuple[str, dict[str, Any]]] = []
-    monkeypatch.setattr(audit, "record", lambda event, **kwargs: recorded.append((event, kwargs)))
-    return recorded
 
 
 @pytest.fixture

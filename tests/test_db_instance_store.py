@@ -14,7 +14,6 @@ digest an upgrade replaces is the one it keeps.
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -34,14 +33,6 @@ from noust.core.store import NoustStore
 
 DIGEST = "sha256:" + "a" * 64
 NEWER = "sha256:" + "b" * 64
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 @pytest.fixture

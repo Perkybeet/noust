@@ -19,7 +19,6 @@ from typing import Any
 
 import pytest
 
-from noust.core import audit
 from noust.core.exceptions import ConfigError, NodeError
 from noust.pushdeploy.host import (
     PUSH_POLICY_BEGIN,
@@ -34,13 +33,6 @@ from tests.support.push_support import GIT_SHELL, PushRig, PushWorld, build_rig
 @pytest.fixture
 def rig(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[PushRig]:
     yield from build_rig(tmp_path, monkeypatch)
-
-
-@pytest.fixture
-def events(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, Any]]]:
-    recorded: list[tuple[str, dict[str, Any]]] = []
-    monkeypatch.setattr(audit, "record", lambda event, **kwargs: recorded.append((event, kwargs)))
-    return recorded
 
 
 class TestTheBlock:

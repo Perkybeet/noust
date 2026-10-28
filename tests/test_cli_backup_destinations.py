@@ -21,21 +21,11 @@ import pytest
 
 from noust.core.runner import FakeRunner
 from noust.core.store import BackupScheduleRecord, get_store
-from noust.managers.backup_scheduler import BackupScheduler
 from tests.support.cli_backup_destinations import (  # noqa: F401
     _rclone,
     _reset_store,
     invoke,
 )
-
-
-@pytest.fixture
-def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "systemd"
-    path.mkdir()
-    monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", path)
-    return path
-
 
 # ---------------------------------------------------------------------------
 # destination add / update

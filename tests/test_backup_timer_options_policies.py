@@ -34,24 +34,6 @@ from tests.support.volume_backups import manager as volume_manager  # noqa: F401
 from tests.support.volume_backups import runner as volume_runner  # noqa: F401
 
 
-@pytest.fixture
-def zoneinfo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    root = tmp_path / "zoneinfo"
-    for name in ("UTC", "Europe/Madrid"):
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b"TZif2")
-    monkeypatch.setattr("noust.managers.backup_timer_options.ZONEINFO_DIRS", (root,))
-
-
-@pytest.fixture
-def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "systemd"
-    path.mkdir()
-    monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", path)
-    return path
-
-
 class TestDatabasePolicies:
     def backups(self, service: DatabaseService, runner: RcloneRunner) -> DatabaseBackups:
         return DatabaseBackups(

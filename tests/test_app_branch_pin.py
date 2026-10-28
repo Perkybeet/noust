@@ -62,16 +62,6 @@ def app(store: NoustStore, *, source: str = SOURCE, branch: str | None = "main")
     )
 
 
-@pytest.fixture
-def audited(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
-    events: list[dict[str, Any]] = []
-    monkeypatch.setattr(
-        "noust.core.audit.record",
-        lambda event, **kw: events.append({"event": event, **kw}),
-    )
-    return events
-
-
 class TestPinning:
     def test_a_branch_that_exists_is_pinned_and_audited(
         self, store: NoustStore, git: FakeRunner, audited: list[dict[str, Any]]

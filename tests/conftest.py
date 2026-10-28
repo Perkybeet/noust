@@ -32,6 +32,23 @@ import pytest
 from noust.core.fs import set_fs
 from noust.core.runner import FakeRunner, set_runner
 from tests.support.console_patch_support import patch_console
+
+# Fixtures that many modules asked for and defined the same way, needing nothing a lean environment
+# lacks (this file is loaded by every run): a module that defines its own still wins, so the import
+# only gives the rest of them the common one.
+from tests.support.fixtures import (  # noqa: F401 - pytest finds the fixtures in this module
+    audited,
+    cli_runner,
+    events,
+    fs,
+    isolated_panel_config,
+    log,
+    scheduler,
+    secrets,
+    store,
+    systemd_dir,
+    zoneinfo,
+)
 from tests.support.sharding import parse_shard, select
 
 

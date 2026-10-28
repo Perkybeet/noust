@@ -23,7 +23,6 @@ from noust.cli.app import cli as root_cli
 from noust.cli.app import main
 from noust.cli.commands import stream as stream_cli
 from noust.core.exceptions import PrerequisiteError, ValidationError
-from noust.core.logger import Logger
 from noust.core.stream_store import StreamExposure
 from noust.managers.stream_exposure import StreamPlan, StreamResult, StreamSupport
 
@@ -91,13 +90,6 @@ def manager(monkeypatch: pytest.MonkeyPatch) -> Fake:
     fake.rehearsal = False
     monkeypatch.setattr(stream_cli, "StreamExposures", lambda: fake)
     return fake
-
-
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
 
 
 def invoke(args: list[str], input_text: str | None = None) -> Result:

@@ -66,11 +66,6 @@ def host(tmp_path: Path):
 
 
 @pytest.fixture
-def fs() -> RecordingFileSystem:
-    return RecordingFileSystem()
-
-
-@pytest.fixture
 def records(tmp_path: Path, fs: RecordingFileSystem) -> RecordStore:
     return RecordStore(tmp_path / "os-updates", fs=fs)
 
