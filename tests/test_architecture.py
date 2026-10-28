@@ -274,6 +274,11 @@ if scoped_store().get_app(validated) is None:
 return validated
 """
 
+    #: The same lookup with the validator that cuts a port, a scheme and a path off instead of
+    #: refusing them, which is how one router answered for an application the client had not
+    #: named. It is as much a copy as the other, and the worse one.
+    KNOWN_APP_LAX_BODY = KNOWN_APP_BODY.replace("strict_domain", "validate_domain")
+
     @staticmethod
     def _without_docstring(function: ast.FunctionDef) -> list[ast.stmt]:
         body = function.body
@@ -311,14 +316,17 @@ return validated
         Whatever the copy is called. A router that writes its own forgets, one day, the scope
         that makes another team's application read as absent.
         """
-        wanted = ast.dump(ast.Module(ast.parse(self.KNOWN_APP_BODY).body, []))
+        wanted = {
+            ast.dump(ast.Module(ast.parse(body).body, []))
+            for body in (self.KNOWN_APP_BODY, self.KNOWN_APP_LAX_BODY)
+        }
         offenders = set()
         for path in python_files():
             if path.name == "deps.py" or "web/api" not in path.as_posix():
                 continue
             for node in ast.parse(path.read_text(encoding="utf-8")).body:
                 if isinstance(node, ast.FunctionDef):
-                    if ast.dump(ast.Module(self._without_docstring(node), [])) == wanted:
+                    if ast.dump(ast.Module(self._without_docstring(node), [])) in wanted:
                         offenders.add(f"{relative(path)}: {node.name}")
 
         assert not offenders, "Use noust.web.api.deps.known_app:\n  " + "\n  ".join(
