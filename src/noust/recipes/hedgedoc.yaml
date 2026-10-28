@@ -18,8 +18,8 @@ category: productivity
 tags: [markdown, notes, collaboration, slides]
 logo: simple-icons:hedgedoc
 version: "1.12.0"
-revision: 1
-updated: 2026-10-20
+revision: 2
+updated: 2026-10-28
 homepage: https://hedgedoc.org
 docs: https://docs.hedgedoc.org
 repository: https://github.com/hedgedoc/hedgedoc
@@ -52,7 +52,7 @@ files: {noust.nginx.yaml: noust.nginx.yaml}
 compose: |
   services:
     hedgedoc:
-      image: quay.io/hedgedoc/hedgedoc:1.12.0@sha256:cd66986a2a49b57c9bd3677ec76409adf84f412263e8c0f96e6854863f1dd689
+      image: quay.io/hedgedoc/hedgedoc:1.12.0@sha256:202460cadb220ca568328045827f49a6e5575cb33de337b7ee59e6a5f9b79509
       restart: unless-stopped
       depends_on:
         db:

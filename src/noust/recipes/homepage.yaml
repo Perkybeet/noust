@@ -2,7 +2,9 @@
 # image's configuration (ghcr.io/gethomepage/homepage:v2.4.0): it listens on
 # 3000 (PORT), reads its settings from /app/config, runs as root unless PUID and
 # PGID are given, and answers /api/healthcheck. HOMEPAGE_ALLOWED_HOSTS is
-# required behind a reverse proxy: it must name the host the browser uses. The
+# required behind a reverse proxy: it must name the host the browser uses, and the
+# loopback address and port the health gate asks (it answers 400 to any other host;
+# found by starting it). The
 # Docker socket the guide mounts for Docker integrations is not mounted: it is
 # root on the host, and a recipe may not ask for it.
 #
@@ -18,8 +20,8 @@ category: utilities
 tags: [dashboard, start-page, bookmarks, widgets]
 logo: simple-icons:homepage
 version: "2.4.0"
-revision: 1
-updated: 2026-10-06
+revision: 2
+updated: 2026-10-28
 homepage: https://gethomepage.dev
 docs: https://gethomepage.dev/configs/
 repository: https://github.com/gethomepage/homepage
@@ -44,7 +46,7 @@ compose: |
       image: ghcr.io/gethomepage/homepage:v2.4.0@sha256:643bd0be730d40f69d58028a55d1a896739333e8815786df42bc97f109ecbe61
       restart: unless-stopped
       environment:
-        HOMEPAGE_ALLOWED_HOSTS: "${HOMEPAGE_ALLOWED_HOSTS}"
+        HOMEPAGE_ALLOWED_HOSTS: "${HOMEPAGE_ALLOWED_HOSTS},127.0.0.1:${PORT}"
       volumes:
         - "${CONFIG_PATH}:/app/config"
       ports:
