@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, CircleHelp, CircleMinus, CircleX, RotateCw, Stethoscope } from "lucide-react";
+import { ChevronDown, CircleHelp, CircleMinus, CircleX, RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { appQuery, diagnosisQuery } from "../../../api/queries/apps";
@@ -420,7 +420,7 @@ function Checks({
   return (
     <Section
       title={t("appPages.diagnose.checksTitle")}
-      icon={Stethoscope}
+      icon={OBJECT_ICONS.diagnose}
       description={t("appPages.diagnose.checksDescription")}
     >
       <Card padding="none">

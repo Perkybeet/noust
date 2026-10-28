@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, LibraryBig, Play, Stethoscope } from "lucide-react";
+import { ArrowRight, LibraryBig, Play } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
@@ -124,7 +124,7 @@ export function FirstSteps({ overview }: { overview: Overview }) {
           tone="warning"
           trailing={
             <TextLink to="/settings/about" size="inline" className="inline-flex items-center gap-1">
-              <Stethoscope aria-hidden="true" className="size-icon-xs" />
+              <OBJECT_ICONS.diagnose aria-hidden="true" className="size-icon-xs" />
               {t("overview.firstSteps.check.action")}
             </TextLink>
           }

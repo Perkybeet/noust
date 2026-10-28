@@ -57,7 +57,7 @@ export type AppRouter = ReturnType<typeof buildRouter>;
 /** The namespaces the breadcrumbs of a path draw: the first segment of the key of each step that is named by a text. */
 function trailNamespaces(router: Pick<AppRouter, "getMatchedRoutes">, pathname: string): Namespace[] {
   const [matched] = router.getMatchedRoutes(pathname);
-  const leaf = matched.at(-1)?.fullPath;
+  const leaf = matched.at(-1)?.fullPath as string | undefined;
   if (leaf === undefined) return [];
   const found = crumbsFor(leaf, "server").flatMap((step) => ("key" in step.name ? [step.name.key.split(".")[0] ?? ""] : []));
   return [...new Set(found)].filter((name): name is Namespace => isNamespace(name));
