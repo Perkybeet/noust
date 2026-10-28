@@ -492,6 +492,14 @@ Servers, Applications, Certificates, Backups, Updates, Activity), and each row l
 server. On a hub, the fleet's Overview is the home page. The selector switches every other
 page to one server, and each page shows that server's name above its title.
 
+Over the API, the same resources (applications, databases, sites, certificates, backups, scheduled
+jobs, logs, alert rules and activity) are one route each under `/api/views`, for the central and
+every server at once, with the server as a column and a filter (`node`, and `@central` for the
+central itself) and a search that finds a thing on whichever server it is. A Noust with no servers
+to manage answers its own rows and says it has no fleet. Servers that refuse the same permission
+come once, with how many they are, which, what is missing and how to give it, instead of one
+paragraph each. See [api.md](api.md#a-resource-across-the-servers).
+
 ## Acting on several servers
 
 ```bash

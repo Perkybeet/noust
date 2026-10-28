@@ -240,6 +240,15 @@ export const serverText = {
       },
     },
   },
+  fleet: {
+    refused: {
+      permission: {
+        text: "Your role {role} does not hold the permission {permission} on these servers",
+        hint:
+          "Ask a security officer of each of them for an account with a role that holds it, or have that permission added to your role there.",
+      },
+    },
+  },
   invitation: {
     mail_failed: {
       text: "The invitation could not be mailed: {reason}",

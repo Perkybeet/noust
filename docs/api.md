@@ -810,6 +810,61 @@ region, city, offset now (`UTC+02:00`, with `offset_minutes`) and abbreviation, 
 `UTC` first and the rest by offset and name; the server computes it, so on a central the node
 answers.
 
+### A resource across the servers
+
+A page that lists applications, databases, sites, certificates, backups, scheduled jobs, logs, alert
+rules or activity asks one route and gets the rows of every server the caller may see, whether the
+Noust has a fleet or not (since 4.1):
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "https://panel.example.com/api/views/databases"
+curl -s -H "Authorization: Bearer $TOKEN" "https://panel.example.com/api/views/apps?node=web-2&node=@central"
+# {"resource", "generated_at", "partial", "fleet", "servers": [{"name", "selector", "local"}],
+#  "nodes": [{"name", "local", "status", "code", "message", "hint", "error_verbatim", "path",
+#             "permission", "refusal", ...}],
+#  "refusals": [{"reason", "code", "permission", "resource", "servers", "count", "message", "hint",
+#                "coded"}],
+#  "items": [{...the row as that server lists it..., "node", "local", "page", "href"}]}
+```
+
+The routes are `/api/views/apps`, `databases`, `sites`, `certificates`, `backups`, `cron`, `logs`,
+`alerts` and `activity`, each asking for the permission of the page it stands for (`apps.read`,
+`databases.read`, `audit.read`...). A row is the one the server's own list route gives, plus the
+server it is on (`node`, and `local` for this central), its page there (`page`) and the same page
+through this central's console (`href`).
+
+- **The server is a filter, not a place.** `node` (repeatable) asks only those servers; `@central` is
+  this central itself, whatever it is called. Leave it out for every server. Naming one never changes
+  `servers`, which always lists the ones to choose from, with the `selector` to send.
+- **No fleet, nothing different.** A Noust with no servers to manage answers the rows of its own
+  and says `fleet: false` with an empty `servers`: a page draws a server column and a filter only
+  when `fleet` is true. A caller that does not hold `fleet.read`, or that sees some teams only, is
+  answered the same way: this central's rows (its own API narrows them to the caller's teams) and no
+  other server is asked.
+- **A server never fails a view.** Each one has an outcome in `nodes` (`ok`, `stale`, `unreachable`,
+  `unsupported`, `forbidden`, `error`), and `partial` says some was not a fresh, complete answer. A
+  database engine a server could not read is one of its `warnings`, not a missing row. `path` is the
+  server's endpoint whose answer is the reason.
+- **Servers that refuse are one group.** Servers that refuse the caller the same thing (a role that
+  does not hold `audit.read` on three of them) come once in `refusals`: how many (`count`), which
+  (`servers`), what is missing (`permission`) and how to give it (`hint`), as a sentence with a code
+  in `coded` for a client to translate ([Sentences with a code](#sentences-with-a-code)). The answer
+  a server refused with is never repeated in `error_verbatim`: that field keeps the output of a
+  program that failed, such as nginx's, and is `null` for a refusal. A refusal that is not about a
+  permission (`reason: "other"`) keeps the server's own words.
+- **Search.** `GET /api/views/search?q=shop` finds a server, application, database, site,
+  certificate or scheduled job on any server (`kind`, repeatable, narrows it; `limit` caps it at
+  200). Every word of `q` has to be found in the name, in what else the record says (its owner, its
+  source, the names a site answers on, a server's labels) or in the name of the server it is on; a
+  name that is the query comes first. A server that is down is still found by its name. The answer is
+  the same envelope with `query`, `total` and `truncated`, and each hit has `kind`, `name`, `detail`,
+  `node`, `local`, `page` and `href`.
+
+These routes are the central's own, like everything under `/api/fleet`. The five routes of
+`/api/fleet` that read the same things (`apps`, `certificates`, `backups`, `activity` and `logs`)
+are announced as going away, with `/api/views/...` as their successor, and keep answering as they did
+until their `Sunset` ([Deprecation](#deprecation)).
+
 ## Deploy webhooks
 
 `POST /api/apps/{domain}/webhook-secret` (`apps.manage`, sudo mode) creates or replaces an application's webhook
@@ -1341,10 +1396,10 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 |---|---|---|
 | `/api/central/unlock` | POST `security.manage`, sudo | Give a sealed central its passphrase |
 | `/api/fleet/actions` | GET `fleet.read`; POST `fleet.manage` | Actions a bulk job can run; start one (`plan: true` only shows the plan) |
-| `/api/fleet/activity` | GET `fleet.read` |  |
-| `/api/fleet/apps` | GET `fleet.read` |  |
-| `/api/fleet/backups` | GET `fleet.read` |  |
-| `/api/fleet/certificates` | GET `fleet.read` |  |
+| `/api/fleet/activity` | GET `fleet.read` | Deprecated: use `/api/views/activity` |
+| `/api/fleet/apps` | GET `fleet.read` | Deprecated: use `/api/views/apps` |
+| `/api/fleet/backups` | GET `fleet.read` | Deprecated: use `/api/views/backups` |
+| `/api/fleet/certificates` | GET `fleet.read` | Deprecated: use `/api/views/certificates` |
 | `/api/fleet/cloud/accounts` | GET `fleet.manage`; POST `fleet.manage`, sudo, four-eyes | The provider accounts (Hetzner, DigitalOcean, Vultr) this central creates servers with; adding one checks its token with the provider and keeps it as a secret. The token is left out of the approval's fingerprint and of every response (only its last four characters are shown) |
 | `/api/fleet/cloud/accounts/{name}` | DELETE `fleet.manage`, sudo | Remove an account and its token (`force` when servers made with it are still on record) |
 | `/api/fleet/cloud/accounts/{name}/catalog` | GET `fleet.manage` | What the account can create now, asked of the provider: locations, sizes (with processor and monthly price), images, SSH keys, firewalls, networks |
@@ -1384,6 +1439,16 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/nodes/{node}/ssh` | GET `fleet.read`; PUT `fleet.manage`, sudo | How the central connects to a server: the wait for the connection (1 to 300 seconds) and a bastion with its pinned host key; setting it is tried first and put back when the server does not answer. A bastion's host key is given (`fingerprint` or `host_key`), never learnt on first use |
 | `/api/nodes/{node}/ssh/authorization` | POST `fleet.manage` | The line the bastion's operator adds, asked for with the bastion that is about to be set (its address and key or fingerprint); changes nothing, so the bastion can let the central in before the change is tried |
 | `/api/nodes/{node}/test` | POST `fleet.read` |  |
+| `/api/views/activity` | GET `audit.read` | What happened lately on every server, newest first; the servers that refuse come grouped in `refusals` |
+| `/api/views/alerts` | GET `server.read` | The alert rules of every server, the ones firing first |
+| `/api/views/apps` | GET `apps.read` | The applications of every server |
+| `/api/views/backups` | GET `backups.read` | Every application's backups, the gaps first |
+| `/api/views/certificates` | GET `apps.read` | The certificates of every server, the soonest to expire first |
+| `/api/views/cron` | GET `apps.read` | The scheduled jobs of every server |
+| `/api/views/databases` | GET `databases.read` | The databases of every server; an engine a server could not read is one of its warnings |
+| `/api/views/logs` | GET `apps.read` | Search the logs of every server at once |
+| `/api/views/search` | GET `apps.read` | Find a server, application, database, site, certificate or scheduled job on any server |
+| `/api/views/sites` | GET `apps.read` | The sites of every server's web server |
 
 ### Configuration, integrations and recipes
 

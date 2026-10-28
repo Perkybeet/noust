@@ -88,6 +88,16 @@ CATALOG: dict[str, str] = {
         "Use lower-case letters, digits and single underscores, starting with a letter, "
         "at most {max} characters."
     ),
+    # -- A fleet view: why some servers did not show their part of it --------------------------
+    # One sentence for all the servers that refused the same permission; the console counts and
+    # names them from the group, so no number or list of names is glued into it.
+    "fleet.refused.permission": (
+        "Your role {role} does not hold the permission {permission} on these servers"
+    ),
+    "fleet.refused.permission.hint": (
+        "Ask a security officer of each of them for an account with a role that holds it, "
+        "or have that permission added to your role there."
+    ),
     # -- Mail an account is sent (an invitation, a password reset) -------------------------
     "mail.no_transport": "There is no way to send mail from this server",
     "mail.no_transport.hint": (

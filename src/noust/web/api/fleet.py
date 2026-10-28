@@ -32,9 +32,22 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from noust.core.exceptions import ValidationError
-from noust.fleet.aggregate import Asker, Failure, decode_answer, gather
+from noust.core.teams import current_scope
+from noust.fleet import aggregate
+from noust.fleet.aggregate import (
+    LOCAL_SELECTOR,
+    Asker,
+    Failure,
+    FleetResult,
+    decode_answer,
+    gather,
+)
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, ensure_elevated
 from noust.web.auth import actor_label, require_auth
+from noust.web.fleet_refusals import annotate
+from noust.web.permissions import Permission
+from noust.web.permissions.enforce import has_permission
+from noust.web.versioning import deprecated
 
 if TYPE_CHECKING:
     from starlette.types import ASGIApp
@@ -58,6 +71,11 @@ REPLAYED_HEADERS = (
 
 #: Seconds the central's own API may take for one of its rows.
 LOCAL_TIMEOUT = 8.0
+
+#: The day the views of ``/api/views`` replaced the five of this router that read what a page of the
+#: console lists, and the earliest day those may stop answering (the policy is 180 days).
+VIEWS_SINCE = "2026-10-28"
+VIEWS_SUNSET = "2027-05-01"
 
 
 class CentralSource:
@@ -191,6 +209,8 @@ class NodeOutcomeOut(BaseModel):
         version: The Noust it runs.
         missing: Its endpoints the view needed and it does not offer.
         warnings: Parts of the view it could not give.
+        path: Its endpoint whose answer is the reason, when the outcome is a refusal or a
+            failure.
     """
 
     name: str
@@ -206,6 +226,7 @@ class NodeOutcomeOut(BaseModel):
     version: str | None = None
     missing: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    path: str | None = None
 
 
 class FleetViewOut(BaseModel):
@@ -226,6 +247,102 @@ class FleetViewOut(BaseModel):
     partial: bool
     nodes: list[NodeOutcomeOut]
     items: list[dict[str, Any]]
+
+
+def may_ask_nodes(session: Mapping[str, Any]) -> bool:
+    """
+    Decide whether a credential may have the other servers asked for it.
+
+    The servers are the instance's: asking them takes the fleet permission and a credential that
+    sees every team. One that sees some teams only reads this central's own rows, which its own
+    API narrows to its teams.
+
+    Args:
+        session: The authenticated payload.
+
+    Returns:
+        True when the nodes may be asked.
+    """
+    return has_permission(session, Permission.FLEET_READ) and not current_scope().restricted
+
+
+def _servers(central: str, nodes: list[str]) -> list[dict[str, Any]]:
+    """
+    List the servers a page may filter by.
+
+    Args:
+        central: This central's name.
+        nodes: Its servers' names.
+
+    Returns:
+        Nothing without servers; else this central first (unless it is a hub, which runs nothing
+        of its own) and every node.
+    """
+    if not nodes:
+        return []
+    own = (
+        [{"name": central, "selector": LOCAL_SELECTOR, "local": True}]
+        if aggregate.includes_central()
+        else []
+    )
+    return [*own, *({"name": n, "selector": n, "local": False} for n in nodes)]
+
+
+async def ask_view(
+    resource: str,
+    request: Request,
+    session: Mapping[str, Any],
+    node: list[str] | None,
+    refresh: bool,
+    params: Mapping[str, Any] | None = None,
+) -> tuple[FleetResult, dict[str, Any]]:
+    """
+    Ask the servers for one view and describe the fleet around it.
+
+    The one place a request becomes a view of the fleet: ``/api/fleet`` and ``/api/views`` both
+    answer from here, so they cannot disagree about who is asked or how a refusal is told.
+
+    Args:
+        resource: The aggregator's view.
+        request: The request, whose credential reads this central's own rows.
+        session: The authenticated payload.
+        node: Only these servers (``@central`` names this one).
+        refresh: Ask every server again, whatever the cache holds.
+        params: The view's parameters.
+
+    Returns:
+        The aggregator's result, and the view as JSON with ``fleet`` (there are other servers to
+        tell apart), ``servers`` (the ones to choose from) and ``refusals`` (the servers that
+        refused the operator, grouped).
+    """
+    from noust.fleet.models import central_name
+    from noust.fleet.nodes import NodeManager
+
+    asker = asker_for(session)
+    name = await run_in_threadpool(central_name)
+    local = CentralSource(request.app, asyncio.get_running_loop(), request, asker, name)
+    asks_nodes = may_ask_nodes(session)
+
+    def work() -> tuple[FleetResult, list[str]]:
+        manager = NodeManager()
+        names = [record.name for record in manager.list()] if asks_nodes else []
+        result = gather(
+            resource,
+            params,
+            asker=asker,
+            nodes=node if asks_nodes else [LOCAL_SELECTOR],
+            local=local,
+            manager=manager,
+            refresh=refresh,
+        )
+        return result, names
+
+    result, node_names = await run_in_threadpool(work)
+    body = result.to_dict()
+    body["refusals"] = annotate(body, result.nodes, resource, asker)
+    body["fleet"] = bool(node_names)
+    body["servers"] = _servers(name, node_names)
+    return result, body
 
 
 async def _view(
@@ -250,20 +367,8 @@ async def _view(
     Returns:
         The view.
     """
-    from noust.fleet.models import central_name
-
-    asker = asker_for(session)
-    local = CentralSource(
-        request.app,
-        asyncio.get_running_loop(),
-        request,
-        asker,
-        await run_in_threadpool(central_name),
-    )
-    result = await run_in_threadpool(
-        lambda: gather(resource, params, asker=asker, nodes=node, local=local, refresh=refresh)
-    )
-    return result.to_dict()
+    _, body = await ask_view(resource, request, session, node, refresh, params)
+    return body
 
 
 NodeFilter = Annotated[
@@ -316,7 +421,11 @@ async def fleet_servers(
     return await _view("servers", request, session, node, refresh)
 
 
-@router.get("/apps", response_model=FleetViewOut)
+@router.get(
+    "/apps",
+    response_model=FleetViewOut,
+    **deprecated(since=VIEWS_SINCE, sunset=VIEWS_SUNSET, successor="/api/views/apps"),
+)
 async def fleet_apps(
     request: Request, session: Session, node: NodeFilter = None, refresh: Refresh = False
 ) -> dict[str, Any]:
@@ -335,7 +444,11 @@ async def fleet_apps(
     return await _view("apps", request, session, node, refresh)
 
 
-@router.get("/certificates", response_model=FleetViewOut)
+@router.get(
+    "/certificates",
+    response_model=FleetViewOut,
+    **deprecated(since=VIEWS_SINCE, sunset=VIEWS_SUNSET, successor="/api/views/certificates"),
+)
 async def fleet_certificates(
     request: Request, session: Session, node: NodeFilter = None, refresh: Refresh = False
 ) -> dict[str, Any]:
@@ -354,7 +467,11 @@ async def fleet_certificates(
     return await _view("certificates", request, session, node, refresh)
 
 
-@router.get("/backups", response_model=FleetViewOut)
+@router.get(
+    "/backups",
+    response_model=FleetViewOut,
+    **deprecated(since=VIEWS_SINCE, sunset=VIEWS_SUNSET, successor="/api/views/backups"),
+)
 async def fleet_backups(
     request: Request, session: Session, node: NodeFilter = None, refresh: Refresh = False
 ) -> dict[str, Any]:
@@ -393,7 +510,11 @@ async def fleet_updates(
     return await _view("updates", request, session, node, refresh)
 
 
-@router.get("/activity", response_model=FleetViewOut)
+@router.get(
+    "/activity",
+    response_model=FleetViewOut,
+    **deprecated(since=VIEWS_SINCE, sunset=VIEWS_SUNSET, successor="/api/views/activity"),
+)
 async def fleet_activity(
     request: Request,
     session: Session,
@@ -459,7 +580,11 @@ async def fleet_metrics(
     )
 
 
-@router.get("/logs", response_model=FleetViewOut)
+@router.get(
+    "/logs",
+    response_model=FleetViewOut,
+    **deprecated(since=VIEWS_SINCE, sunset=VIEWS_SUNSET, successor="/api/views/logs"),
+)
 async def fleet_logs(
     request: Request,
     session: Session,

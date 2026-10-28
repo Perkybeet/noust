@@ -5877,7 +5877,7 @@ export interface paths {
          *
          *     Returns:
          *         The points, newest first, from
-         *         :meth:`~noust.managers.backup_manager.RollbackManager.list_rollback_points`
+         *         :meth:`~noust.managers.rollback_manager.RollbackManager.list_rollback_points`
          *         - the one implementation, shared with ``noust backup rollback --list``.
          */
         get: operations["list_rollback_points_api_apps__domain__rollback_points_get"];
@@ -17392,6 +17392,7 @@ export interface paths {
         };
         /**
          * Fleet Activity
+         * @deprecated
          * @description What happened lately on every server, newest first.
          *
          *     Each server's audit log decides what this operator may read of it: a
@@ -17426,6 +17427,7 @@ export interface paths {
         };
         /**
          * Fleet Apps
+         * @deprecated
          * @description Every application of every server, as each server lists it.
          *
          *     Args:
@@ -17455,6 +17457,7 @@ export interface paths {
         };
         /**
          * Fleet Backups
+         * @deprecated
          * @description Every application's backups, the gaps first: none, old, unverified, unscheduled.
          *
          *     Args:
@@ -17572,6 +17575,7 @@ export interface paths {
         };
         /**
          * Fleet Certificates
+         * @deprecated
          * @description Every certificate of every server, the soonest to expire first.
          *
          *     Args:
@@ -18326,6 +18330,7 @@ export interface paths {
         };
         /**
          * Fleet Logs
+         * @deprecated
          * @description Search the logs of the applications of every server at once, newest first.
          *
          *     Each server decides what this operator may read of its logs (a team's own
@@ -28546,6 +28551,322 @@ export interface paths {
          *         The applications.
          */
         get: operations["server_variable_usage_api_variables_server__name__usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Activity
+         * @description What happened lately on every server, newest first.
+         *
+         *     Each server's audit log decides what this operator may read of it. The servers that do not
+         *     let the operator's role read it come grouped in ``refusals`` (how many, which, what is
+         *     missing, how to give it) and are ``forbidden`` in ``nodes``.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         limit: Events per server.
+         *
+         *     Returns:
+         *         One row per event.
+         */
+        get: operations["view_activity_api_views_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Alerts
+         * @description The alert rules of every server, the ones firing first.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per rule, with ``firing`` and where each of its subjects stands.
+         */
+        get: operations["view_alerts_api_views_alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Apps
+         * @description The applications of every server, as each server lists them.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per application, with its server and its page there.
+         */
+        get: operations["view_apps_api_views_apps_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Backups
+         * @description Every application's backups, the gaps first: none, old, unverified, unscheduled.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per application: its newest backup, whether it verified, its schedule.
+         */
+        get: operations["view_backups_api_views_backups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Certificates
+         * @description The certificates of every server, the soonest to expire first.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per certificate.
+         */
+        get: operations["view_certificates_api_views_certificates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/cron": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Cron
+         * @description The scheduled jobs of every server, with their next run and last result.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per job.
+         */
+        get: operations["view_cron_api_views_cron_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/databases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Databases
+         * @description The databases of every server, as each server lists them.
+         *
+         *     An engine a server could not read is a warning of that server in ``nodes``, not a missing
+         *     row: a database that is not listed and an engine nobody could ask are not the same thing.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per database, with its server and its page there.
+         */
+        get: operations["view_databases_api_views_databases_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Logs
+         * @description Search the logs of the applications of every server at once, newest first.
+         *
+         *     Each server decides what this operator may read of its logs and judges the query and the
+         *     window itself; a server that cannot search is a note on the view, not an error.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         q: The search.
+         *         since: Start of the window.
+         *         until: End of the window.
+         *         level: The worst level kept.
+         *         limit: Lines per server.
+         *
+         *     Returns:
+         *         One row per line (``type: line``) and one per note (``type: note``).
+         */
+        get: operations["view_logs_api_views_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Search
+         * @description Find a server, application, database, site, certificate or scheduled job on any server.
+         *
+         *     Every word has to be found in the name, in what else the record says (its owner, its source,
+         *     its labels, the names a site answers on) or in the name of the server it is on; a name that is
+         *     the query comes first. A server that is down is still found by its name.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         q: The words to find.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         kind: Only these kinds of thing.
+         *         limit: The most things to return.
+         *
+         *     Returns:
+         *         The hits, best first, and how many things matched.
+         *
+         *     Raises:
+         *         ValidationError: 400 when ``q`` is only spaces.
+         */
+        get: operations["view_search_api_views_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Sites
+         * @description The sites of every server's web server: the names each answers on.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per site, with its server and its page there.
+         */
+        get: operations["view_sites_api_views_sites_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -46036,6 +46357,8 @@ export interface components {
          *         version: The Noust it runs.
          *         missing: Its endpoints the view needed and it does not offer.
          *         warnings: Parts of the view it could not give.
+         *         path: Its endpoint whose answer is the reason, when the outcome is a refusal or a
+         *             failure.
          */
         NodeOutcomeOut: {
             /** Age Seconds */
@@ -46061,6 +46384,8 @@ export interface components {
             missing?: string[];
             /** Name */
             name: string;
+            /** Path */
+            path?: string | null;
             /** Status */
             status: string;
             /** Version */
@@ -50932,6 +51257,48 @@ export interface components {
             recordings: components["schemas"]["RecordingModel"][];
         };
         /**
+         * RefusalGroupOut
+         * @description The servers that refused the operator the same thing.
+         *
+         *     Attributes:
+         *         reason: ``permission`` (the operator's role does not hold one) or ``other`` (anything a
+         *             server refuses for: its own words say what).
+         *         code: The code the servers answered with, such as ``permission_denied``.
+         *         permission: What is missing, for a refusal about a permission.
+         *         resource: The view that was asked.
+         *         servers: Their names, in the order they were asked.
+         *         count: How many they are.
+         *         includes_central: This central is one of them.
+         *         message: What is missing, in English.
+         *         hint: How to give it, in English.
+         *         coded: The same sentence as a code and its values, for the console to translate; None
+         *             when the words are the server's own.
+         */
+        RefusalGroupOut: {
+            /** Code */
+            code: string;
+            coded?: components["schemas"]["CodedText"] | null;
+            /** Count */
+            count: number;
+            /** Hint */
+            hint?: string | null;
+            /**
+             * Includes Central
+             * @default false
+             */
+            includes_central: boolean;
+            /** Message */
+            message: string;
+            /** Permission */
+            permission?: string | null;
+            /** Reason */
+            reason: string;
+            /** Resource */
+            resource: string;
+            /** Servers */
+            servers: string[];
+        };
+        /**
          * RefusedRestartOut
          * @description A service on replaced libraries that is not restarted from Noust, and why.
          */
@@ -54175,6 +54542,78 @@ export interface components {
             sealing: boolean;
             /** Total */
             total: number;
+        };
+        /**
+         * SearchHitOut
+         * @description One thing a search found, on one server.
+         *
+         *     Attributes:
+         *         kind: ``server``, ``app``, ``database``, ``site``, ``certificate`` or ``cron``.
+         *         name: What it is called.
+         *         detail: A second identifier worth showing beside the name (an engine, a web server, a
+         *             version); a value, never a sentence.
+         *         node: The server it is on.
+         *         local: That server is this central.
+         *         page: Its page on that server's console.
+         *         href: The same page through this central's console.
+         *         labels: A server's labels, for a hit that is a server.
+         */
+        SearchHitOut: {
+            /** Detail */
+            detail?: string | null;
+            /** Href */
+            href: string;
+            /** Kind */
+            kind: string;
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Local
+             * @default false
+             */
+            local: boolean;
+            /** Name */
+            name: string;
+            /** Node */
+            node: string;
+            /** Page */
+            page: string;
+        };
+        /**
+         * SearchOut
+         * @description What a search found across the fleet, best first.
+         *
+         *     Attributes:
+         *         query: What was asked.
+         *         total: How many things matched.
+         *         truncated: There are more matches than ``items`` carries.
+         *         items: The hits.
+         */
+        SearchOut: {
+            /** Fleet */
+            fleet: boolean;
+            /** Generated At */
+            generated_at: string;
+            /** Items */
+            items?: components["schemas"]["SearchHitOut"][];
+            /** Nodes */
+            nodes: components["schemas"]["ViewNodeOut"][];
+            /** Partial */
+            partial: boolean;
+            /** Query */
+            query: string;
+            /** Refusals */
+            refusals: components["schemas"]["RefusalGroupOut"][];
+            /** Resource */
+            resource: string;
+            /** Servers */
+            servers: components["schemas"]["ViewServerOut"][];
+            /** Total */
+            total: number;
+            /** Truncated */
+            truncated: boolean;
         };
         /**
          * SecondFactorRequest
@@ -60425,6 +60864,102 @@ export interface components {
             versions?: components["schemas"]["VersionModel"][];
             /** Webserver */
             webserver: string;
+        };
+        /**
+         * ViewNodeOut
+         * @description How one server answered a view.
+         *
+         *     Attributes:
+         *         permission: The permission the server refused, when it refused one and the central's own
+         *             map of routes names it.
+         *         refusal: Why it refused, when it did: ``permission`` or ``other``.
+         */
+        ViewNodeOut: {
+            /** Age Seconds */
+            age_seconds?: number | null;
+            /** Code */
+            code?: string | null;
+            /** Elapsed Ms */
+            elapsed_ms?: number | null;
+            /** Error Verbatim */
+            error_verbatim?: string | null;
+            /** Fetched At */
+            fetched_at?: string | null;
+            /** Hint */
+            hint?: string | null;
+            /**
+             * Local
+             * @default false
+             */
+            local: boolean;
+            /** Message */
+            message?: string | null;
+            /** Missing */
+            missing?: string[];
+            /** Name */
+            name: string;
+            /** Path */
+            path?: string | null;
+            /** Permission */
+            permission?: string | null;
+            /** Refusal */
+            refusal?: string | null;
+            /** Status */
+            status: string;
+            /** Version */
+            version?: string | null;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * ViewOut
+         * @description One view: the rows of every server asked.
+         *
+         *     Attributes:
+         *         items: The rows, as each server lists the resource, each with ``node`` (the server),
+         *             ``local`` (it is this central), ``page`` (its page on that server's console) and
+         *             ``href`` (the same page through this central's console).
+         */
+        ViewOut: {
+            /** Fleet */
+            fleet: boolean;
+            /** Generated At */
+            generated_at: string;
+            /** Items */
+            items: {
+                [key: string]: unknown;
+            }[];
+            /** Nodes */
+            nodes: components["schemas"]["ViewNodeOut"][];
+            /** Partial */
+            partial: boolean;
+            /** Refusals */
+            refusals: components["schemas"]["RefusalGroupOut"][];
+            /** Resource */
+            resource: string;
+            /** Servers */
+            servers: components["schemas"]["ViewServerOut"][];
+        };
+        /**
+         * ViewServerOut
+         * @description One server the operator may filter by.
+         *
+         *     Attributes:
+         *         name: What the server is called (this central's own name for itself).
+         *         selector: What to send as ``node`` to ask for it alone: ``@central`` for the central
+         *             itself, the server's name for a node.
+         *         local: It is this central.
+         */
+        ViewServerOut: {
+            /**
+             * Local
+             * @default false
+             */
+            local: boolean;
+            /** Name */
+            name: string;
+            /** Selector */
+            selector: string;
         };
         /**
          * VolumeBackupListResponse
@@ -94517,6 +95052,364 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_activity_api_views_activity_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description Events per server */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_alerts_api_views_alerts_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_apps_api_views_apps_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_backups_api_views_backups_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_certificates_api_views_certificates_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_cron_api_views_cron_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_databases_api_views_databases_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_logs_api_views_logs_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description The search: words, fields, -excluded, a OR b */
+                q?: string;
+                /** @description Start: 15m, 2h, 7d, a date, epoch seconds */
+                since?: string | null;
+                /** @description End, in the same forms */
+                until?: string | null;
+                /** @description The worst level kept */
+                level?: string | null;
+                /** @description Lines per server */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_search_api_views_search_get: {
+        parameters: {
+            query: {
+                /** @description Words to find, all of them */
+                q: string;
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description Only these kinds of thing, repeated */
+                kind?: ("server" | "app" | "database" | "site" | "certificate" | "cron")[] | null;
+                /** @description The most things to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_sites_api_views_sites_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
                 };
             };
             /** @description Validation Error */
