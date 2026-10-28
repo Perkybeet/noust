@@ -55,6 +55,28 @@ describe("SegmentedControl", () => {
     expect(group).toHaveClass("max-w-full", "flex-wrap");
   });
 
+  it("draws a picture before each option's name when it has one, as decoration, and fills its container on request", async () => {
+    render(
+      <SegmentedControl
+        label="Navigation"
+        value="double"
+        onValueChange={() => undefined}
+        fill
+        options={[
+          { value: "double", label: "Double bar", icon: <svg data-testid="two" /> },
+          { value: "single", label: "One bar", icon: <svg data-testid="one" /> },
+        ]}
+      />,
+    );
+    const group = screen.getByRole("radiogroup", { name: "Navigation" });
+    expect(group).toHaveClass("w-full", "flex-nowrap");
+    // The name is the option's: the picture beside it is decoration and adds nothing to it.
+    expect(screen.getByRole("radio", { name: "Double bar" })).toContainElement(screen.getByTestId("two"));
+    expect(screen.getByTestId("two").parentElement).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("radio", { name: "One bar" })).toContainElement(screen.getByTestId("one"));
+    await expectNoAxeViolations(group);
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = render(<Picker />);
     await expectNoAxeViolations(container);

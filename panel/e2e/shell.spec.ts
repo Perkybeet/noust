@@ -152,8 +152,10 @@ test("the command palette opens with Ctrl+K, filters, navigates on Enter and clo
   await settle(page);
   await expectNoA11yViolations(page, "the command palette");
 
+  // Scheduled tasks was called Cron in 4.0: the old name still finds it, after what is named by it (a service).
   await search.fill("cron");
-  // Scheduled tasks was called Cron in 4.0, and the old name still finds it.
+  await expect(page.getByRole("option", { name: /^Scheduled tasks/ })).toBeVisible();
+  await search.fill("scheduled tasks");
   await expect(page.getByRole("option").first()).toContainText("Scheduled tasks");
   await page.keyboard.press("Enter");
   await expect(palette).toBeHidden();
