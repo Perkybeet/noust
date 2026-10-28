@@ -249,7 +249,8 @@ class TestPartial:
         refused = result.outcome("web-3")
         assert refused.status == "forbidden"
         assert refused.message == "Your role cannot read applications here"
-        assert "permission_denied" in (refused.error_verbatim or "")
+        assert refused.code == "permission_denied"
+        assert refused.error_verbatim is None, "the envelope it answered with is not shown"
         assert not [row for row in result.items if row["node"] == "web-3"]
 
     def test_a_node_too_old_for_a_view_is_unsupported_not_an_error(self, central):
@@ -472,6 +473,7 @@ def test_the_envelope(central):
         "version",
         "missing",
         "warnings",
+        "path",
     }
 
 

@@ -45,7 +45,7 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import wait as wait_futures
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import quote
@@ -89,6 +89,7 @@ MAX_VERBATIM = 4000
 VERSION_PATH = "/api/system/version"
 MACHINE_PATH = "/api/system/machine"
 CERTS_PATH = "/api/certs"
+DATABASES_PATH = "/api/databases/databases"
 
 #: A certificate this close to expiry is counted as expiring: the threshold of
 #: ``noust health``'s warning, so both say the same thing.
@@ -129,6 +130,8 @@ class NodeOutcome:
         local: This row is the central itself.
         missing: The node's endpoints this view needed and it does not offer.
         warnings: Parts of the view that could not be read, one sentence each.
+        path: The node's endpoint whose answer is the reason (the one it refused or
+            failed), when the outcome is one; None for an answer that was complete.
     """
 
     name: str
@@ -144,6 +147,7 @@ class NodeOutcome:
     local: bool = False
     missing: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
+    path: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -166,6 +170,7 @@ class NodeOutcome:
             "version": self.version,
             "missing": list(self.missing),
             "warnings": list(self.warnings),
+            "path": self.path,
         }
 
 
@@ -235,6 +240,7 @@ class Failure(Exception):
         hint: What to do about it.
         output: The other side's words, verbatim.
         code: The node's own error code, when its answer carried one.
+        path: The endpoint it was asked, when the failure is the node's answer to one.
     """
 
     def __init__(
@@ -245,6 +251,7 @@ class Failure(Exception):
         hint: str | None = None,
         output: str | None = None,
         code: str | None = None,
+        path: str | None = None,
     ) -> None:
         super().__init__(message)
         self.kind = kind
@@ -252,6 +259,7 @@ class Failure(Exception):
         self.hint = hint or None
         self.output = (output or None) and output[:MAX_VERBATIM]
         self.code = code
+        self.path = path
 
 
 @dataclass(frozen=True)
@@ -342,6 +350,29 @@ def _body_text(response: httpx.Response) -> str:
         return ""
 
 
+def _envelope(text: str | None) -> dict[str, Any] | None:
+    """
+    Read the object a node's error answer keeps its fields in.
+
+    Args:
+        text: The body.
+
+    Returns:
+        The body, or the ``detail`` FastAPI wraps an error object in; None when it is not JSON
+        or not an object.
+    """
+    if not text:
+        return None
+    try:
+        body = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(body, dict):
+        return None
+    wrapped = body.get("detail")
+    return wrapped if isinstance(wrapped, dict) else body
+
+
 def _error_fields(text: str | None) -> tuple[str | None, str | None, str | None]:
     """
     Read the API error contract out of a node's answer, when it follows it.
@@ -352,25 +383,39 @@ def _error_fields(text: str | None) -> tuple[str | None, str | None, str | None]
     Returns:
         ``error``, ``detail`` and ``hint``, each None when absent.
     """
-    if not text:
+    body = _envelope(text)
+    if body is None:
         return None, None, None
-    try:
-        body = json.loads(text)
-    except ValueError:
-        return None, None, None
-    if not isinstance(body, dict):
-        return None, None, None
-    detail = body.get("detail")
-    if isinstance(detail, dict):
-        body = detail
-        detail = body.get("detail")
-    error = body.get("error")
-    hint = body.get("hint")
+    error, detail, hint = body.get("error"), body.get("detail"), body.get("hint")
     return (
         error if isinstance(error, str) else None,
         detail if isinstance(detail, str) else None,
         hint if isinstance(hint, str) else None,
     )
+
+
+def verbatim_of(text: str | None) -> str | None:
+    """
+    Pick the words of a node's answer that are another program's, to show as they are.
+
+    A node that follows the API error contract has already had its sentence read (``detail``
+    and ``hint``); the body that carried it is an envelope, and an envelope shown to a person
+    is the JSON of the defect this was written for. What stays verbatim is the ``output`` the
+    contract keeps for a failing program's own words (nginx's, certbot's). An answer that is
+    not the contract is shown whole: it is all there is to show.
+
+    Args:
+        text: The body of the node's answer.
+
+    Returns:
+        The program's own output, the body itself when it is not the contract, or None when
+        the contract has no output.
+    """
+    body = _envelope(text)
+    if body is None or not isinstance(body.get("error"), str):
+        return text or None
+    output = body.get("output")
+    return output if isinstance(output, str) and output else None
 
 
 def decode_answer(name: str, method: str, path: str, response: httpx.Response) -> Any:
@@ -400,6 +445,7 @@ def decode_answer(name: str, method: str, path: str, response: httpx.Response) -
             hint="It runs an older Noust. Update it to see this here.",
             output=_body_text(response),
             code="not_offered",
+            path=path,
         )
     if status == 403:
         text = _body_text(response)
@@ -408,8 +454,9 @@ def decode_answer(name: str, method: str, path: str, response: httpx.Response) -
             "forbidden",
             detail or f"{name} refused {method} {path} to this operator",
             hint=hint,
-            output=text,
+            output=verbatim_of(text),
             code=code or "permission_denied",
+            path=path,
         )
     if status >= 400:
         text = _body_text(response)
@@ -418,8 +465,9 @@ def decode_answer(name: str, method: str, path: str, response: httpx.Response) -
             "error",
             f"{name} answered {status} to {method} {path}" + (f": {detail}" if detail else ""),
             hint=hint,
-            output=text,
+            output=verbatim_of(text),
             code=code or "node_error",
+            path=path,
         )
     try:
         return response.json()
@@ -511,8 +559,9 @@ class NodeSource:
                     "forbidden",
                     detail or f"{self.name} refused {method} {path} to this operator",
                     hint=hint,
-                    output=exc.output,
+                    output=verbatim_of(exc.output),
                     code=code or "permission_denied",
+                    path=path,
                 ) from exc
             raise Failure(
                 "refused",
@@ -598,6 +647,8 @@ class NodeView:
         monitoring: How long it has been silent and whether its monitoring is
             paused (:meth:`~noust.fleet.liveness.LivenessState.to_dict`); None when
             it answers and is watched as usual.
+        notes: What a builder found out about the server that is not a row (an engine
+            it could not read): one sentence each, added to the outcome's warnings.
     """
 
     name: str
@@ -609,6 +660,7 @@ class NodeView:
     latency_ms: float | None = None
     expected: dict[str, Any] | None = None
     monitoring: dict[str, Any] | None = None
+    notes: builtins.list[str] = field(default_factory=builtins.list)
 
 
 @dataclass(frozen=True)
@@ -1130,6 +1182,231 @@ def _logs_params(params: Mapping[str, Any]) -> dict[str, Any]:
     return checked
 
 
+def _build_databases(view: NodeView) -> builtins.list[dict[str, Any]]:
+    """
+    One row per database, as its server lists it.
+
+    An engine the server could not read is not a row but a note of the server: a missing
+    database and an engine nobody could ask are not the same thing, and the list says so.
+
+    Args:
+        view: The server.
+
+    Returns:
+        The rows, with the database's page on its server.
+    """
+    answer = view.parts.get("databases")
+    rows = []
+    for database in _list(answer, "databases"):
+        engine = str(database.get("engine") or "")
+        name = str(database.get("name") or "")
+        page = (
+            f"/databases/{quote(engine, safe='')}/{quote(name, safe='')}"
+            if engine and name
+            else "/databases"
+        )
+        rows.append(_row(view, page, database))
+    for problem in _list(answer, "problems"):
+        engine_name = problem.get("display_name") or problem.get("engine")
+        if problem.get("message"):
+            view.notes.append(f"{engine_name}: {problem['message']}")
+    return rows
+
+
+def _build_sites(view: NodeView) -> builtins.list[dict[str, Any]]:
+    """
+    One row per site, as its server's web server has it configured.
+
+    Args:
+        view: The server.
+
+    Returns:
+        The rows, with the site's page on its server.
+    """
+    rows = []
+    for site in _list(view.parts.get("sites"), "sites"):
+        name = str(site.get("name") or "")
+        page = f"/domains/sites/{quote(name, safe='')}" if name else "/domains"
+        rows.append(_row(view, page, site))
+    return rows
+
+
+def _build_cron(view: NodeView) -> builtins.list[dict[str, Any]]:
+    """
+    One row per scheduled job, as its server's systemd timers report it.
+
+    Args:
+        view: The server.
+
+    Returns:
+        The rows.
+    """
+    return [_row(view, "/cron", job) for job in _list(view.parts.get("cron"), "jobs")]
+
+
+def _build_alerts(view: NodeView) -> builtins.list[dict[str, Any]]:
+    """
+    One row per alert rule, with whether any of its subjects is firing.
+
+    Args:
+        view: The server.
+
+    Returns:
+        The rows: the rule as its server gives it, and ``firing``.
+    """
+    rows = []
+    for rule in _list(view.parts.get("rules"), "items"):
+        states = rule.get("states")
+        firing = isinstance(states, list) and any(
+            isinstance(state, dict) and state.get("state") == "firing" for state in states
+        )
+        rows.append(_row(view, "/alerts", {**rule, "firing": firing}))
+    return rows
+
+
+def _sort_alerts(rows: builtins.list[dict[str, Any]]) -> builtins.list[dict[str, Any]]:
+    """Returns: The rules firing first, then by server and name."""
+    return sorted(
+        rows, key=lambda row: (not row.get("firing"), str(row.get("node")), str(row.get("name")))
+    )
+
+
+def _words(*parts: Any) -> builtins.list[str]:
+    """
+    Flatten what a record says about itself into the words a search may match.
+
+    Args:
+        *parts: Strings, lists of them, or anything else (ignored).
+
+    Returns:
+        The non-empty strings, in order.
+    """
+    found: builtins.list[str] = []
+    for part in parts:
+        if isinstance(part, str) and part:
+            found.append(part)
+        elif isinstance(part, builtins.list):
+            found.extend(item for item in part if isinstance(item, str) and item)
+    return found
+
+
+def _hit(
+    view: NodeView, kind: str, name: str, page: str, detail: Any, words: builtins.list[str]
+) -> dict[str, Any]:
+    """
+    One thing a search can find, on one server.
+
+    Args:
+        view: The server.
+        kind: What it is: ``server``, ``app``, ``database``, ``site``, ``certificate`` or ``cron``.
+        name: What it is called.
+        page: Its page on that server.
+        detail: A second identifier worth showing beside the name, such as an engine.
+        words: Everything else the record says that a person may type to find it.
+
+    Returns:
+        The row.
+    """
+    return _row(
+        view,
+        page,
+        {
+            "kind": kind,
+            "name": name,
+            "detail": detail if isinstance(detail, str) and detail else None,
+            "words": words,
+        },
+    )
+
+
+def _build_index(view: NodeView) -> builtins.list[dict[str, Any]]:
+    """
+    One row per thing a search can find on the server, and one for the server.
+
+    The server's row is made even when it did not answer: a server that is down is still
+    the one somebody types the name of.
+
+    Args:
+        view: The server.
+
+    Returns:
+        The rows: ``kind``, ``name``, ``detail`` and ``words``.
+    """
+    version = _dict(view.parts.get("version"))
+    shown = (version or {}).get("current_version") or view.outcome.version
+    label_words = [
+        word for key, value in view.labels.items() for word in (key, value, f"{key}={value}")
+    ]
+    rows = [
+        {
+            **_hit(view, "server", view.name, "/", shown, _words(label_words)),
+            "labels": dict(view.labels),
+        }
+    ]
+    for app in _list(view.parts.get("apps"), "apps"):
+        domain = str(app.get("domain") or app.get("name") or "")
+        if not domain:
+            continue
+        words = _words(
+            app.get("source"),
+            app.get("team"),
+            app.get("project"),
+            app.get("environment"),
+            app.get("tags"),
+        )
+        page = f"/apps/{quote(domain, safe='')}"
+        rows.append(_hit(view, "app", domain, page, app.get("app_type"), words))
+    for database in _list(view.parts.get("databases"), "databases"):
+        engine, name = str(database.get("engine") or ""), str(database.get("name") or "")
+        if not name:
+            continue
+        page = (
+            f"/databases/{quote(engine, safe='')}/{quote(name, safe='')}"
+            if engine
+            else "/databases"
+        )
+        words = _words(
+            engine,
+            database.get("owner"),
+            database.get("username"),
+            database.get("app"),
+            database.get("apps"),
+            database.get("team"),
+            database.get("project"),
+            database.get("environment"),
+            database.get("tags"),
+        )
+        rows.append(_hit(view, "database", name, page, engine, words))
+    for site in _list(view.parts.get("sites"), "sites"):
+        name = str(site.get("name") or "")
+        if not name:
+            continue
+        words = _words(
+            site.get("server_names"),
+            site.get("app"),
+            site.get("site_name"),
+            site.get("team"),
+            site.get("project"),
+            site.get("environment"),
+        )
+        page = f"/domains/sites/{quote(name, safe='')}"
+        rows.append(_hit(view, "site", name, page, site.get("webserver"), words))
+    for cert in _list(view.parts.get("certs"), "certificates"):
+        name = str(cert.get("domain") or "")
+        if not name:
+            continue
+        words = _words(cert.get("domains"), cert.get("serves"), cert.get("issuer"))
+        page = f"/domains?q={quote(name, safe='')}"
+        rows.append(_hit(view, "certificate", name, page, cert.get("issuer"), words))
+    for job in _list(view.parts.get("cron"), "jobs"):
+        name = str(job.get("name") or "")
+        if not name:
+            continue
+        words = _words(job.get("command"), job.get("app_domain"), job.get("user"))
+        rows.append(_hit(view, "cron", name, "/cron", job.get("schedule"), words))
+    return rows
+
+
 #: What the metrics view can put side by side: the id, the series each server
 #: records it as, and the unit. Memory and disk are charted as the share of what
 #: the server has, so a small server and a large one are comparable.
@@ -1332,6 +1609,52 @@ RESOURCES: dict[str, Resource] = {
             max_stale=3600.0,
             build=_build_backups,
             sort=_sort_backups,
+        ),
+        Resource(
+            "databases",
+            (Part("databases", DATABASES_PATH),),
+            ttl=30.0,
+            max_stale=3600.0,
+            build=_build_databases,
+            sort=_by_node_then("name"),
+        ),
+        Resource(
+            "sites",
+            (Part("sites", "/api/sites"),),
+            ttl=30.0,
+            max_stale=3600.0,
+            build=_build_sites,
+            sort=_by_node_then("name"),
+        ),
+        Resource(
+            "cron",
+            (Part("cron", "/api/cron"),),
+            ttl=30.0,
+            max_stale=3600.0,
+            build=_build_cron,
+            sort=_by_node_then("name"),
+        ),
+        Resource(
+            "alerts",
+            (Part("rules", "/api/alerts/rules"),),
+            ttl=15.0,
+            max_stale=300.0,
+            build=_build_alerts,
+            sort=_sort_alerts,
+        ),
+        Resource(
+            "index",
+            (
+                Part("apps", "/api/apps"),
+                Part("databases", DATABASES_PATH, required=False, title="Databases"),
+                Part("sites", "/api/sites", required=False, title="Sites"),
+                Part("certs", CERTS_PATH, required=False, title="Certificates"),
+                Part("cron", "/api/cron", required=False, title="Scheduled jobs"),
+            ),
+            ttl=30.0,
+            max_stale=3600.0,
+            build=_build_index,
+            per_node=True,
         ),
         Resource(
             "updates",
@@ -1794,6 +2117,10 @@ class Aggregator:
                 continue
             try:
                 items.extend(resource.build(view))
+                if view.notes:
+                    outcomes[-1] = replace(
+                        outcomes[-1], warnings=(*outcomes[-1].warnings, *view.notes)
+                    )
             except (TypeError, ValueError, KeyError, AttributeError) as exc:
                 # A node's answer of a shape this central does not expect: one
                 # server's rows are missing, never the whole view.
@@ -1844,15 +2171,18 @@ class Aggregator:
         failure = fetched.failure
         if failure is None:
             status = "ok"
-            code = message = hint = verbatim = None
+            code = message = hint = verbatim = path = None
             # A part that failed says more than a part that is not offered: the
             # first is something to look at, the second only a version.
             if fetched.optional_failure is not None:
-                status = "error"
+                # A part the node refused this operator is a refusal, however many parts were
+                # asked: the rows of the others are shown, and the refusal is told like any.
+                status = "forbidden" if fetched.optional_failure.kind == "forbidden" else "error"
                 code = fetched.optional_failure.code
                 message = fetched.optional_failure.message
                 hint = fetched.optional_failure.hint
                 verbatim = fetched.optional_failure.output
+                path = fetched.optional_failure.path
             elif fetched.missing:
                 status = "unsupported"
                 code = "not_offered"
@@ -1873,6 +2203,7 @@ class Aggregator:
                     fetched_at=fetched.fetched_at,
                     missing=missing,
                     warnings=tuple(fetched.warnings),
+                    path=path,
                 ),
                 fetched,
             )
@@ -1904,6 +2235,7 @@ class Aggregator:
                 elapsed_ms=fetched.latency_ms,
                 fetched_at=shown.fetched_at if shown else None,
                 missing=tuple(e.partition(" ")[2] for e in shown.missing) if shown else missing,
+                path=failure.path,
             ),
             shown,
         )
