@@ -385,3 +385,31 @@ def test_the_survey_s_json_round_trips_what_the_plan_reads(
     rows = json.loads(survey.read_text())
 
     assert tool.plan_queue(rows, set()) == ["a"]
+
+
+def test_a_cut_description_never_goes_past_its_limit_with_the_ellipsis_included(
+    tool: ModuleType,
+) -> None:
+    """A slogan of 100 characters and three dots was a recipe the schema refused."""
+    words = " ".join(["wordy"] * 120)
+
+    for limit in (40, 100, 400):
+        cut = tool.sentence(words, limit)
+        assert len(cut) <= limit and cut.endswith("...")
+
+
+def test_docker_hub_is_read_through_a_mirror_only_when_asked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The check that a pin is what Hub serves leaves the mirror unset; a survey of hundreds sets it."""
+    pins = load("recipe_pins")
+    monkeypatch.setattr(pins, "_token", lambda registry, repository: "token")
+
+    monkeypatch.delenv("NOUST_PINS_MIRROR", raising=False)
+    assert pins._endpoint("docker.io", "library/redis") == ("registry-1.docker.io", "token")
+    assert pins._endpoint("ghcr.io", "o/app") == ("ghcr.io", "token")
+
+    monkeypatch.setenv("NOUST_PINS_MIRROR", "mirror.example.test")
+    assert pins._endpoint("docker.io", "library/redis") == ("mirror.example.test", None)
+    # Only Hub's images go through it.
+    assert pins._endpoint("ghcr.io", "o/app") == ("ghcr.io", "token")

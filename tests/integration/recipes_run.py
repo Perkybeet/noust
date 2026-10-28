@@ -92,6 +92,9 @@ SHARED_REPOSITORIES = (
 #: What a registry that counts pulls says when it has had enough.
 RATE_LIMITED = re.compile(r"toomanyrequests|rate limit", re.IGNORECASE)
 
+#: Pull-through mirrors of Docker Hub's public images the container's Docker asks first.
+REGISTRY_MIRRORS = ("mirror.gcr.io",)
+
 #: Resolvers the container's Docker falls back on when the machine's times out under load.
 FALLBACK_RESOLVERS = ("1.1.1.1", "8.8.8.8")
 
@@ -201,17 +204,22 @@ def up() -> None:
         raise SystemExit("the Docker inside the container did not answer")
     # The daemon looks a registry up through the container's resolv.conf, and the containers it
     # runs get their resolvers from daemon.json: both fall back on public ones when the machine's
-    # times out under load (as scenarios_real.ensure_inner_dns does).
+    # times out under load (as scenarios_real.ensure_inner_dns does). Docker Hub counts anonymous
+    # pulls per address (100 an hour) and a catalogue pulls hundreds: the daemon reads Hub's public
+    # images through a pull-through mirror first, which serves the same digests, and falls back on
+    # Hub for what the mirror does not hold.
     resolvers = ", ".join(f'"{address}"' for address in FALLBACK_RESOLVERS)
+    mirrors = ", ".join(f'"https://{host_name}"' for host_name in REGISTRY_MIRRORS)
     inside(
         "grep -q 1.1.1.1 /etc/resolv.conf || "
         "printf 'nameserver 1.1.1.1\\nnameserver 8.8.8.8\\n' >> /etc/resolv.conf\n"
-        "grep -q '\"dns\"' /etc/docker/daemon.json || {\n"
+        "grep -q 'registry-mirrors' /etc/docker/daemon.json || {\n"
         "cat > /etc/docker/daemon.json <<'EOF'\n"
         "{\n"
         '  "storage-driver": "overlay2",\n'
         '  "features": {"containerd-snapshotter": false},\n'
-        f'  "dns": [{resolvers}]\n'
+        f'  "dns": [{resolvers}],\n'
+        f'  "registry-mirrors": [{mirrors}]\n'
         "}\n"
         "EOF\n"
         "systemctl restart docker\n"
@@ -525,7 +533,12 @@ def pending() -> list[str]:
     sys.path.insert(0, str(REPO_ROOT / "src"))
     from noust.recipes import list_recipes
 
-    done = {entry["recipe"] for entry in read_results().get("results", [])}
+    # A recipe a registry refused to serve is not a result about the recipe: it runs again.
+    done = {
+        entry["recipe"]
+        for entry in read_results().get("results", [])
+        if not entry.get("rate_limited")
+    }
     tracked = committed()
     return sorted(
         r.name

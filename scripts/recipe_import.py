@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -58,6 +59,10 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+# Hub's public images are read through a pull-through mirror: the survey of a catalogue reads
+# hundreds of manifests in an hour, and Hub allows an anonymous address a hundred.
+os.environ.setdefault("NOUST_PINS_MIRROR", "mirror.gcr.io")
 
 import recipe_draft  # noqa: E402
 import recipe_pins  # noqa: E402
@@ -943,7 +948,9 @@ def sentence(text: str, limit: int) -> str:
     stop = max(cut.rfind(". "), cut.rfind("; "))
     if stop > limit // 3:
         return cut[: stop + 1].rstrip(";")
-    return cut[: cut.rfind(" ")].rstrip(" ,;:") + "..."
+    # The ellipsis is part of the limit, not beyond it.
+    room = text[: limit - 3]
+    return room[: room.rfind(" ")].rstrip(" ,;:") + "..."
 
 
 def category_of(*texts: str) -> str:
