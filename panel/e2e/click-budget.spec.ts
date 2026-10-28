@@ -205,11 +205,14 @@ test.describe("starting a first application", () => {
       await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
     });
     await walked(page, "T03a", async () => {
-      // Where the recipes are: a tab of the list, or a link beside it, or (3.3.1) the wizard's own choice.
+      // Where the recipes are: the Catalog of the bar (4.1), or a tab of the list, or a link beside it, or (3.3.1) the wizard's own choice.
       // The tab carries the count of recipes after its name ("Recipes 143").
+      const catalog = page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Catalog", exact: true });
       const tab = page.locator("main").getByRole("link", { name: /^Recipes\b/ });
       const link = page.getByRole("link", { name: "From a recipe" });
-      if ((await tab.count()) > 0) {
+      if ((await catalog.count()) > 0) {
+        await catalog.click();
+      } else if ((await tab.count()) > 0) {
         await tab.first().click();
       } else if ((await link.count()) > 0) {
         await link.click();

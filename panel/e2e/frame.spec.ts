@@ -332,6 +332,21 @@ test.describe("the raised piece of the current item", () => {
     expectSameBox(await boxOf(piece), await boxOf(target));
   });
 
+  test("a long trail gives way before the machine's name does", async ({ page, consoleServer }) => {
+    await openAt(page, consoleServer, 1280, "/apps/tienda.example.org/settings/access");
+    const name = page.getByRole("banner").locator('a[href="/server"]').first();
+    await expect(name).toBeVisible();
+    // The strip clips what does not fit from its right edge: the link must end inside it, and be wide enough to read.
+    const { link, strip } = await name.evaluate((anchor) => {
+      const clip = anchor.closest("div.overflow-hidden") ?? anchor.parentElement ?? anchor;
+      const own = anchor.getBoundingClientRect();
+      const around = clip.getBoundingClientRect();
+      return { link: { right: own.right, width: own.width }, strip: { right: around.right } };
+    });
+    expect(link.width).toBeGreaterThanOrEqual(72);
+    expect(link.right).toBeLessThanOrEqual(strip.right + 0.5);
+  });
+
   test("the frame in both presentations and three frames of the slide, for the report", async ({ page, consoleServer }) => {
     test.skip(FRAMES === undefined, "NOUST_FRAME_FRAMES names the directory the pictures are written to.");
     const theme = test.info().project.name;

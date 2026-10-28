@@ -216,7 +216,10 @@ const budgetOf = (entry: Dest): number => (entry.to.includes("$") ? 4 : 3);
 test.describe("a server on its own", () => {
   test.setTimeout(900_000);
 
-  test("every screen of the register is at most three clicks from the Overview, four through a resource", async ({ page, consoleServer }, testInfo) => {
+  test("every screen of the register is at most three clicks from the Overview, four through a resource", async ({ page, consoleServer, problems }, testInfo) => {
+    // The second column lists Files for every application, and the walk opens it: an application of the seeded machine has no
+    // directory to list, which the API says with a 400 that the browser logs. What the page does with it is files.spec's.
+    problems.expect(/status of 400 .*\/api\/apps\/[^/]+\/files/);
     // The same links in both themes: the walk is run once.
     test.skip(testInfo.project.name !== "light", "the links are the same in both themes");
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -291,11 +294,14 @@ test.describe("from the page of its own area", () => {
       await visit(page, from, pace);
       await page.keyboard.press("Control+k");
       await search.fill(name);
+      // What it offers is read before the key is pressed, so a miss says what stood first and not only where it went.
+      await expect(page.getByRole("option").first()).toBeVisible();
+      const offeredFirst = (await page.getByRole("option").allTextContents()).slice(0, 4).map((text) => text.replace(/\s+/g, " ").trim());
       await page.keyboard.press("Enter");
       try {
         await expect(page).toHaveURL(new RegExp(`${to.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}(\\?.*)?$`), { timeout: 5_000 });
       } catch {
-        missed.push(`"${name}" typed on ${from} went to ${new URL(page.url()).pathname}, not ${to}`);
+        missed.push(`"${name}" typed on ${from} went to ${new URL(page.url()).pathname}, not ${to}; it offered: ${offeredFirst.join(" | ")}`);
         await page.keyboard.press("Escape");
       }
     }
