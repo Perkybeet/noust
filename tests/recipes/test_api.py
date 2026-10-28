@@ -535,3 +535,20 @@ def test_a_recipe_says_where_its_logo_comes_from(client: TestClient) -> None:
             assert item["logo_icon"] and item["logo_license"] == "CC0-1.0"
         else:
             assert item["logo_icon"] is None and item["logo_license"] is None
+
+
+def test_a_recipe_that_is_root_on_the_server_carries_the_warning_the_console_shows(
+    client: TestClient,
+) -> None:
+    """The kind, the warning as a code with its values, the English text and the fix."""
+    items = {i["name"]: i for i in client.get("/api/recipes").json()["items"]}
+
+    portainer = items["portainer"]
+    assert portainer["root_equivalent"] == "docker_socket"
+    assert portainer["root_equivalent_warning"] == {
+        "code": "recipes.root_equivalent.docker_socket",
+        "params": {"title": "Portainer"},
+    }
+    assert "root" in portainer["root_equivalent_text"] and portainer["root_equivalent_hint"]
+    assert items["vaultwarden"]["root_equivalent"] is None
+    assert items["vaultwarden"]["root_equivalent_warning"] is None

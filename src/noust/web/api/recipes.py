@@ -102,6 +102,15 @@ class RecipeSummaryOut(BaseModel):
         unavailable_text: That sentence in English.
         unavailable_hint: What to do about it, in English.
         replaced_by: The recipe that stands in for it, when there is one.
+        tested: Whether the recipe was started for real in the harness: the ``version`` that
+            was started, the ``date``, the ``seconds`` it took and whether that is the version
+            pinned now (``current``); None when no run is recorded.
+        root_equivalent: What makes it root on the server by design (``docker_socket``), or None.
+            Installing it needs ``accept_root_equivalent``, the server's permission and sudo mode.
+        root_equivalent_warning: The warning as a sentence of the server's, a ``code`` and its
+            ``params``, for the console to translate; None when it is not root on the server.
+        root_equivalent_text: That warning in English.
+        root_equivalent_hint: What to weigh before accepting it, in English.
         app_type: The deployer that builds it; None when unavailable.
         database: The SQL engine it is given, if any.
         database_choices: The SQL engines it can run on when the operator chooses at install
@@ -143,6 +152,11 @@ class RecipeSummaryOut(BaseModel):
     unavailable_text: str | None = None
     unavailable_hint: str | None = None
     replaced_by: str | None = None
+    tested: dict[str, Any] | None = None
+    root_equivalent: str | None = None
+    root_equivalent_warning: dict[str, Any] | None = None
+    root_equivalent_text: str | None = None
+    root_equivalent_hint: str | None = None
     app_type: str | None = None
     database: str | None = None
     database_choices: list[str] = Field(default_factory=list)
@@ -428,6 +442,9 @@ class RecipeInstallRequest(BaseModel):
         install_requirements: Install the language runtime and the database
             engines the recipe needs and the server lacks, instead of refusing.
             Packages installed as root: the server's permission and sudo mode.
+        accept_root_equivalent: Confirm a recipe that is root on the server by design (one that
+            controls Docker). Refused without it; with it the server's permission and sudo mode
+            are needed, and the stack's exception for the compose guard is recorded in your name.
     """
 
     domain: str
@@ -437,6 +454,7 @@ class RecipeInstallRequest(BaseModel):
     include_www: bool = False
     default_backups: bool = True
     install_requirements: bool = False
+    accept_root_equivalent: bool = False
     database: str | None = None
     health_path: str | None = None
     health_expect: str | None = None
@@ -559,6 +577,10 @@ def get_recipes(
     unavailable_code: Annotated[
         str | None, Query(description="Only the listed recipes left out for this reason")
     ] = None,
+    tested: Annotated[
+        bool | None,
+        Query(description="true: only the recipes started for real; false: only the others"),
+    ] = None,
 ) -> RecipeListOut:
     """
     List the recipes, the ones this release can deploy first, and search them.
@@ -575,6 +597,7 @@ def get_recipes(
         origin: Only the recipes from this source.
         available: Whether the recipe installs.
         unavailable_code: Only the listed recipes left out for this reason.
+        tested: Whether the recipe was started for real.
 
     Returns:
         The matching recipes, with whether each is available and why not, and
@@ -597,6 +620,7 @@ def get_recipes(
             kind=kind,
             available=available,
             unavailable_code=unavailable_code,
+            tested=tested,
         )
         if origin is None or recipe.origin == origin
     ]
@@ -1115,6 +1139,7 @@ def install_recipe(
             env_vars=body.variables,
             default_backups=body.default_backups,
             install_requirements=body.install_requirements,
+            accept_root_equivalent=body.accept_root_equivalent,
             recipe_database=body.database,
             include_www=body.include_www,
             health_path=body.health_path,

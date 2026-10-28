@@ -22,18 +22,23 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 MARK = "Derived in part from Coolify's template"
+DOKPLOY_MARK = "Derived in part from Dokploy's template"
 
 
-def derived_recipes() -> set[str]:
+def derived_recipes(mark: str = MARK) -> set[str]:
     """
+    Args:
+        mark: The sentence a derived recipe's header starts its credit with.
+
     Returns:
-        The recipes whose header says they are derived from a Coolify template, as repository paths.
+        The recipes whose header says they are derived from a template of that catalogue, as
+        repository paths.
     """
     recipes = REPO / "src" / "noust" / "recipes"
     return {
         f"src/noust/recipes/{path.name}"
         for path in recipes.glob("*.yaml")
-        if MARK in path.read_text(encoding="utf-8")
+        if mark in path.read_text(encoding="utf-8")
     }
 
 
@@ -48,7 +53,7 @@ def test_notice_lists_exactly_the_derived_recipes() -> None:
     notice = (REPO / "NOTICE").read_text(encoding="utf-8")
     listed = set(re.findall(r"^\s+(src/noust/recipes/\S+\.yaml)$", notice, re.MULTILINE))
 
-    assert listed == derived_recipes()
+    assert listed == derived_recipes() | derived_recipes(DOKPLOY_MARK)
     assert "Andras Bacsai" in notice
     assert "LICENSE-APACHE-2.0" in notice
 
@@ -65,6 +70,47 @@ def test_the_debian_copyright_names_them_under_their_licence() -> None:
     assert re.search(
         r"^License: Apache-2\.0\n", copyright_text.split(paragraph, 1)[1], re.MULTILINE
     )
+
+
+def test_the_recipes_derived_from_dokploy_templates_are_credited_under_the_mit_licence() -> None:
+    """Their header, NOTICE and the Debian copyright file say the same, and the licence ships."""
+    notice = (REPO / "NOTICE").read_text(encoding="utf-8")
+    copyright_text = (REPO / "obs" / "debian.copyright").read_text(encoding="utf-8")
+    paragraph = next(
+        p
+        for p in copyright_text.split("\n\n")
+        if p.startswith("Files:") and "Dokploy" in p and "Derived" in p
+    )
+    listed = set(re.findall(r"^\s+(src/noust/recipes/\S+\.yaml)$", paragraph, re.MULTILINE))
+
+    assert "Carlos Ortiz" in notice and "Dokploy" in paragraph
+    assert re.search(r"^License: Expat$", paragraph, re.MULTILINE)
+    assert listed == (derived_recipes(DOKPLOY_MARK) or {"src/noust/recipes/none-yet.yaml"})
+
+
+def test_the_marks_of_the_simple_icons_collection_are_declared_with_their_licence() -> None:
+    """CC0-1.0 asks for nothing to travel, and says where the files come from all the same."""
+    notice = (REPO / "NOTICE").read_text(encoding="utf-8")
+    copyright_text = (REPO / "obs" / "debian.copyright").read_text(encoding="utf-8")
+
+    assert "src/noust/recipes/assets/_simple-icons/" in notice and "CC0" in notice
+    assert "Files: src/noust/recipes/assets/_simple-icons/*.svg" in copyright_text
+    assert re.search(r"^License: CC0-1\.0\n ", copyright_text, re.MULTILINE)
+
+
+def test_the_lists_are_the_ones_the_notice_tool_writes() -> None:
+    """scripts/recipe_notice.py writes them from the recipes' headers: a hand edit is undone."""
+    import importlib.util
+    import sys
+
+    path = REPO / "scripts" / "recipe_notice.py"
+    spec = importlib.util.spec_from_file_location("recipe_notice", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["recipe_notice"] = module
+    spec.loader.exec_module(module)
+
+    assert module.main(["--check"]) == 0
 
 
 def test_the_packages_and_the_sdist_carry_the_notice() -> None:

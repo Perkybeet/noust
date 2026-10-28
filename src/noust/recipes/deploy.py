@@ -302,6 +302,75 @@ def with_database(recipe: Recipe, choice: str | None) -> Recipe:
     )
 
 
+def require_root_equivalent_confirmed(
+    recipe: Recipe, domain: str, accepted_by: str | None, store: NoustStore | None = None
+) -> None:
+    """
+    Refuse a recipe that is root on the server unless somebody has said they accept it.
+
+    This is the one place every way of installing meets: the command line, the API and the job
+    the API queues all plan the recipe here. The confirmation is the stack's exception for the
+    compose guard: the API records it when it queues the install (in the name of the account that
+    confirmed, in sudo mode), and the job that plans the recipe finds it there.
+
+    Args:
+        recipe: The recipe.
+        domain: Where it would be installed.
+        accepted_by: Who confirmed it now (an account, or the command line's user); None when
+            nobody did in this call.
+        store: The store, to look for an exception already recorded for the domain.
+
+    Raises:
+        RecipeError: The recipe is root on the server and nobody confirmed; the error carries the
+            sentence for the console and the command that confirms.
+    """
+    if recipe.root_equivalent is None or accepted_by is not None:
+        return
+    from noust.deployers.helpers import sandbox
+
+    if sandbox.get_compose_exception(domain, store=store) is not None:
+        return
+    raise RecipeError.from_text(
+        say(
+            "recipes.root_equivalent.confirm_required",
+            title=recipe.title,
+            command=f"noust recipe install {recipe.name} -d {domain} --accept-root-equivalent",
+        )
+    )
+
+
+def record_root_equivalent(
+    recipe: Recipe, domain: str, accepted_by: str | None, store: NoustStore
+) -> None:
+    """
+    Record, for the stack the recipe makes, why it may mount the Docker socket and who said so.
+
+    It is the record the compose guard reads (``noust app sandbox compose-exception``), audited
+    like any other, so the deployment that follows is not refused and the exception shows where
+    every other one does.
+
+    Args:
+        recipe: The recipe.
+        domain: The new application.
+        accepted_by: Who confirmed it.
+        store: The store.
+    """
+    if recipe.root_equivalent is None or accepted_by is None:
+        return
+    from noust.deployers.helpers import sandbox
+
+    sandbox.set_compose_exception(
+        domain,
+        allowed=True,
+        actor=accepted_by,
+        reason=(
+            f"Installed from the recipe {recipe.name}, which controls the server's Docker "
+            f"daemon (root on the server), confirmed by {accepted_by}"
+        ),
+        store=store,
+    )
+
+
 def plan_recipe(
     name: str,
     domain: str,
@@ -313,6 +382,7 @@ def plan_recipe(
     store: NoustStore | None = None,
     install_requirements: bool = False,
     database: str | None = None,
+    accept_root_equivalent: str | None = None,
 ) -> RecipePlan:
     """
     Resolve a recipe for a new application: requirements, variables, source.
@@ -331,6 +401,8 @@ def plan_recipe(
             action: the callers gate it.
         database: The SQL engine to run it on, among those the recipe offers
             (:func:`with_database`).
+        accept_root_equivalent: Who confirmed that the recipe is root on the server, for a recipe
+            that says so (:func:`require_root_equivalent_confirmed`); None when nobody did.
 
     Returns:
         The plan.
@@ -349,6 +421,7 @@ def plan_recipe(
     recipe = with_database(get_recipe(name), database)
     require_available(recipe)
     domain = validate_domain(domain)
+    require_root_equivalent_confirmed(recipe, domain, accept_root_equivalent, store)
     if store.get_app(domain) is not None:
         raise DeploymentError(
             f"{domain} is already deployed",
@@ -404,6 +477,9 @@ def plan_recipe(
     source, branch = prepare_source(recipe, app_name, store, env)
     options, persistent = _deployer_options(recipe, env)
     notes = render_notes(recipe, context, resolved.values, resolved.secrets)
+    # Last, once everything that can refuse has not: the record names a domain and outlives a plan
+    # that fails, so it is made when the plan is certain.
+    record_root_equivalent(recipe, domain, accept_root_equivalent, store)
     return RecipePlan(
         recipe=recipe,
         domain=domain,

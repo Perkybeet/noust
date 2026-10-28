@@ -451,6 +451,97 @@ def shared_clean() -> None:
     inside("docker image ls -q --filter dangling=true | xargs -r docker image rm -f", check=False)
 
 
+def check_bookstack(project: str, directory: str) -> list[str]:
+    """
+    Prove what BookStack's recipe says it does: the factory account is gone and the generated one
+    signs in.
+
+    A new BookStack can be signed into as admin@admin.com with the password ``password``. The
+    recipe's second service replaces that account; this reads the database of the running stack and
+    asks PHP, in the container that holds the generated password, whether it matches the hash.
+
+    Args:
+        project: The Compose project of the stack kept running.
+        directory: Where its ``.env`` is, inside the harness container.
+
+    Returns:
+        What is wrong; empty when the account was replaced and the new password verifies.
+    """
+    values = dict(
+        line.partition("=")[::2]
+        for line in inside(f"cat {directory}/.env").stdout.splitlines()
+        if "=" in line
+    )
+    database = f"{project}-db-1"
+    query = (
+        f"docker exec {database} mariadb -ubookstack -p{shlex.quote(values['DB_PASSWORD'])} "  # noqa: S608 - a shell command that runs a fixed query
+        "bookstack -N -e 'SELECT email FROM users'"
+    )
+    emails = inside(query, check=False).stdout.split()
+    problems = []
+    if "admin@admin.com" in emails:
+        problems.append("the factory account admin@admin.com is still there")
+    if values.get("ADMIN_EMAIL") not in emails:
+        problems.append(f"the generated administrator {values.get('ADMIN_EMAIL')} is not there")
+    verify = (
+        "$p = new PDO('mysql:host=db;dbname=bookstack', 'bookstack', getenv('DB_PASSWORD'));"
+        "$s = $p->prepare('SELECT password FROM users WHERE email = ?');"
+        "$s->execute([getenv('ADMIN_EMAIL')]); $h = (string) $s->fetchColumn();"
+        "echo (password_verify(getenv('ADMIN_PASSWORD'), $h) ? 'generated-ok ' : 'generated-bad ')"
+        ".(password_verify('password', $h) ? 'factory-still-works' : 'factory-refused');"
+    )
+    answer = inside(
+        f"docker exec {project}-bookstack-admin-1 php -r {shlex.quote(verify)}", check=False
+    ).stdout
+    if "generated-ok" not in answer or "factory-refused" not in answer:
+        problems.append(f"the administrator's password does not verify as it should: {answer!r}")
+    return problems
+
+
+def check_openbao(project: str, directory: str) -> list[str]:
+    """
+    Walk the opening ceremony the recipe's first notes describe, on the running stack.
+
+    A new OpenBao is uninitialised and sealed and the gate accepts that. The notes tell the operator
+    to initialise it and unseal it with the commands ``bao operator init`` and ``bao operator
+    unseal KEY`` (run through ``noust app exec``, which runs them in the service's container with
+    its environment): this runs the same commands in the same container and asks whether the server
+    ends up unsealed.
+
+    Args:
+        project: The Compose project of the stack kept running.
+        directory: Where its ``.env`` is, inside the harness container (unused).
+
+    Returns:
+        What is wrong; empty when the server initialises, unseals with the key it printed and
+        answers as unsealed.
+    """
+    container = f"{project}-openbao-1"
+    started = inside(
+        f"docker exec {container} bao operator init -key-shares=1 -key-threshold=1 -format=json",
+        check=False,
+    )
+    try:
+        key = json.loads(started.stdout)["unseal_keys_b64"][0]
+    except (ValueError, KeyError, IndexError):
+        return [f"bao operator init, as the notes say, printed no key: {started.stdout[-300:]!r}"]
+    inside(f"docker exec {container} bao operator unseal {shlex.quote(key)}", check=False)
+    status = inside(f"docker exec {container} bao status -format=json", check=False).stdout
+    try:
+        sealed = json.loads(status)["sealed"]
+    except (ValueError, KeyError):
+        return [f"bao status answered {status[-300:]!r}"]
+    return [] if sealed is False else ["the server is still sealed after the key the notes use"]
+
+
+#: Checks beyond the gate, for a recipe that promises something the gate cannot see: they run on
+#: the stack while it is still up (``recipe_smoke.py --keep``) and the stack is removed after.
+CHECKS = {"bookstack": check_bookstack, "openbao": check_openbao}
+
+#: What ``recipe_smoke.py --keep`` prints when it leaves a stack up.
+KEPT = re.compile(r"kept: (?P<directory>\S+) \(project (?P<project>\S+)\)")
+
+
 def smoke(name: str, *, extra: list[str]) -> dict[str, Any]:
     """
     Start one recipe in the container and say what happened.
@@ -468,12 +559,15 @@ def smoke(name: str, *, extra: list[str]) -> dict[str, Any]:
         f"cd {WORK} && rm -f evidence/{shlex.quote(name)}.json && "
         f"PYTHONPATH={WORK}/src python3 scripts/recipe_smoke.py {shlex.quote(name)} "
         f"--project-prefix {PREFIX}- --evidence {WORK}/evidence "
+        + ("--keep " if name in CHECKS else "")
         + " ".join(shlex.quote(item) for item in extra)
     )
     entry: dict[str, Any] = {"recipe": name, "version": version, "date": now()}
     if is_draft(name):
         header = (DRAFTS / f"{name}.yaml").read_text(encoding="utf-8").splitlines()[0]
-        entry["source"] = "dokploy" if "Dokploy" in header else "coolify"
+        entry["source"] = (
+            "dokploy" if "Dokploy" in header else "coolify" if "Coolify" in header else "own"
+        )
     else:
         entry["source"] = "catalogue"
     try:
@@ -484,6 +578,25 @@ def smoke(name: str, *, extra: list[str]) -> dict[str, Any]:
         finished = None
         inside("docker ps -aq | xargs -r docker rm -f >/dev/null 2>&1", check=False)
         inside("docker volume ls -q | xargs -r docker volume rm -f >/dev/null 2>&1", check=False)
+    kept = KEPT.search(output)
+    if kept is not None:
+        entry_checks: list[str] = []
+        try:
+            report_up = inside(f"cat {WORK}/evidence/{shlex.quote(name)}.json", check=False)
+            if report_up.stdout.strip() and not json.loads(report_up.stdout)["problems"]:
+                entry_checks = CHECKS[name](kept["project"], kept["directory"])
+        finally:
+            inside(
+                f"cd {kept['directory']} && docker compose -p {kept['project']} "
+                f"-f docker-compose.yml -f noust-test.override.yml --env-file .env "
+                "down -v --remove-orphans --timeout 10; "
+                f"rm -rf {kept['directory']}",
+                check=False,
+                timeout=300,
+            )
+        checked = entry_checks
+    else:
+        checked = []
     entry["seconds"] = int(time.monotonic() - started)
     report = inside(f"cat {WORK}/evidence/{shlex.quote(name)}.json", check=False)
     if report.returncode == 0 and report.stdout.strip():
@@ -509,6 +622,13 @@ def smoke(name: str, *, extra: list[str]) -> dict[str, Any]:
     else:
         entry["result"] = "fail"
         entry["problems"] = [output.strip()[-600:] or "no report was written"]
+    if checked:
+        entry["result"] = "fail"
+        entry["problems"] = [*entry.get("problems", []), *checked]
+    elif kept is not None and entry["result"] == "pass":
+        entry["verified"] = (
+            "what the recipe promises beyond the gate was checked on the running stack"
+        )
     entry["rate_limited"] = bool(RATE_LIMITED.search(output + " ".join(entry.get("problems", []))))
     entry["images_removed"] = len(remove_images(name))
     return entry
@@ -571,6 +691,31 @@ def pending_drafts() -> list[str]:
         order = {name: place for place, name in enumerate(queue.read_text().split())}
         return sorted(waiting, key=lambda name: (order.get(name, len(order)), name))
     return sorted(waiting)
+
+
+def next_names(count: int) -> list[str]:
+    """
+    Choose what the next batch runs: the recipes waiting on a person's say-so first, then the
+    catalogue's own that have no result, then the drafts, most wanted first.
+
+    Args:
+        count: How many.
+
+    Returns:
+        Up to ``count`` recipe names, none repeated.
+    """
+    done = {
+        entry["recipe"]
+        for entry in read_results().get("results", [])
+        if not entry.get("rate_limited")
+    }
+    priority = DRAFTS.parent / "priority.txt"
+    first = priority.read_text().split() if priority.is_file() else []
+    chosen: list[str] = []
+    for name in [*first, *pending(), *pending_drafts()]:
+        if name not in done and name not in chosen:
+            chosen.append(name)
+    return chosen[:count]
 
 
 #: The exit status of ``run`` when it stopped before the end of its list (a registry that
@@ -652,6 +797,22 @@ def retry_draft(name: str, first: dict[str, Any], extra: list[str]) -> dict[str,
     return second
 
 
+def importer() -> Any:
+    """
+    Load scripts/recipe_import.py, which knows how a draft is written.
+
+    Returns:
+        The module.
+    """
+    scripts = str(REPO_ROOT / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    sys.path.insert(0, str(REPO_ROOT / "src"))
+    import recipe_import
+
+    return recipe_import
+
+
 def accept(names: list[str]) -> list[str]:
     """
     Move drafts that passed into the catalogue's folder of this tree.
@@ -669,7 +830,13 @@ def accept(names: list[str]) -> list[str]:
     for name in names or sorted(p.stem for p in DRAFTS.glob("*.yaml")):
         if name not in passed or not is_draft(name):
             continue
-        shutil.copy2(DRAFTS / f"{name}.yaml", REPO_ROOT / "src/noust/recipes" / f"{name}.yaml")
+        if importer().FORBIDDEN_WORDS.search((DRAFTS / f"{name}.yaml").read_text(encoding="utf-8")):
+            print(f"{name}: not accepted, it names a word the history may not carry")
+            continue
+        draft = (DRAFTS / f"{name}.yaml").read_text(encoding="utf-8")
+        (REPO_ROOT / "src/noust/recipes" / f"{name}.yaml").write_text(
+            importer().credit_header(draft), encoding="utf-8"
+        )
         if (DRAFTS / "assets" / name).is_dir():
             target = REPO_ROOT / "src/noust/recipes/assets" / name
             shutil.rmtree(target, ignore_errors=True)
@@ -678,13 +845,16 @@ def accept(names: list[str]) -> list[str]:
     return moved
 
 
-def run_batch(names: list[str], extra: list[str]) -> int:
+def run_batch(names: list[str], extra: list[str], budget_minutes: int = 0) -> int:
     """
     Run recipes one after another, recording each before the next starts.
 
     Args:
         names: The recipes.
         extra: Arguments passed to ``recipe_smoke.py`` for each.
+        budget_minutes: Start no recipe after the batch has run this long (0 for no limit), so
+            that the machine's one Docker place is given back on a schedule and not when a run
+            of failures ends.
 
     Returns:
         0 when the list was run to the end (a recipe that fails is a result, not an error), or
@@ -693,7 +863,11 @@ def run_batch(names: list[str], extra: list[str]) -> int:
     up()
     sync()
     sync_drafts(names)
+    began = time.monotonic()
     for position, name in enumerate(names, start=1):
+        if budget_minutes and time.monotonic() - began > budget_minutes * 60:
+            print(f"[recipes] {budget_minutes} minutes used: leaving the place, {name} next time")
+            return 0
         space = free_space_gib()
         if space is not None and space < 30:
             print(f"[recipes] {space} GiB free on C:, stopping before {name}")
@@ -758,9 +932,20 @@ def main(argv: list[str] | None = None) -> int:
     runner.add_argument(
         "--drafts", action="store_true", help="the drafts with no result yet, most wanted first"
     )
+    runner.add_argument(
+        "--next",
+        type=int,
+        default=0,
+        metavar="N",
+        help="the next N recipes to try, whichever kind (priority.txt, then the catalogue's "
+        "recipes with no result, then the drafts)",
+    )
     runner.add_argument("--limit", type=int, default=0, help="stop after this many recipes")
     runner.add_argument("--var", action="append", default=[])
     runner.add_argument("--wait", type=int, default=None)
+    runner.add_argument(
+        "--budget", type=int, default=0, metavar="MINUTES", help="start no recipe after this long"
+    )
     args = parser.parse_args(argv)
 
     if args.command == "up":
@@ -777,7 +962,13 @@ def main(argv: list[str] | None = None) -> int:
         print(" ".join(accept(list(args.names))))
     else:
         names = list(args.names) or (
-            pending() if args.pending else pending_drafts() if args.drafts else []
+            next_names(args.next)
+            if args.next
+            else pending()
+            if args.pending
+            else pending_drafts()
+            if args.drafts
+            else []
         )
         if args.limit:
             names = names[: args.limit]
@@ -787,7 +978,7 @@ def main(argv: list[str] | None = None) -> int:
         extra = [item for var in args.var for item in ("--var", var)]
         if args.wait:
             extra += ["--wait", str(args.wait)]
-        return run_batch(names, extra)
+        return run_batch(names, extra, args.budget)
     return 0
 
 

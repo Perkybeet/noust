@@ -200,6 +200,12 @@ def cli() -> None:
     help="Only the recipes that are listed and cannot be installed, with the reason of each.",
 )
 @click.option(
+    "--tested/--untested",
+    "tested",
+    default=None,
+    help="Only the recipes that were started for real in the harness, or only the others.",
+)
+@click.option(
     "--reason",
     "unavailable_code",
     type=click.Choice(UNAVAILABLE_CODES),
@@ -219,6 +225,7 @@ def list_command(
     tag: str | None,
     kind: str | None,
     only_unavailable: bool,
+    tested: bool | None,
     unavailable_code: str | None,
     origin: str | None,
 ) -> None:
@@ -238,6 +245,7 @@ def list_command(
             kind=kind,
             available=False if only_unavailable or unavailable_code else None,
             unavailable_code=unavailable_code,
+            tested=tested,
         )
         if origin is None or recipe.origin == origin
     ]
@@ -335,6 +343,13 @@ def show_command(ctx: Context, name: str) -> None:
     type=click.Choice(["mysql", "mariadb"]),
     help="The SQL engine to run it on, for a recipe that offers a choice (WordPress runs on either).",
 )
+@click.option(
+    "--accept-root-equivalent",
+    "accept_root_equivalent",
+    is_flag=True,
+    help="Confirm that you accept a recipe that is root on this server (one that controls "
+    "Docker): it is refused without it.",
+)
 @global_flags
 @pass_context
 def install_command(
@@ -350,6 +365,7 @@ def install_command(
     no_backups: bool,
     install_requirements: bool,
     database: str | None,
+    accept_root_equivalent: bool,
 ) -> None:
     """
     Install a recipe on a domain.
@@ -369,6 +385,10 @@ def install_command(
     engine) is checked first, before anything is created; ``noust recipe
     requirements NAME`` shows it, and ``--install-requirements`` installs what
     Noust can install.
+
+    A recipe that is root on this server by design (Portainer controls Docker) is
+    refused until you confirm it with ``--accept-root-equivalent``. That records, as
+    any other exception to the compose guard, who accepted it and why.
     """
     # Imported here: the deploy commands load every deployer, which browsing
     # the catalogue has no use for.
@@ -395,6 +415,7 @@ def install_command(
             default_backups=not no_backups,
             install_requirements=install_requirements,
             database=database,
+            accept_root_equivalent=accept_root_equivalent,
         )
     )
 

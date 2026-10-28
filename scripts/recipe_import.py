@@ -188,6 +188,12 @@ KEPT_KEYS = frozenset(
     }
 )
 
+#: Words the repository's history must not carry (CONTRIBUTING: nothing that names the tools a
+#: change was made with). An application's optional setting that is named after a provider with
+#: one of them (ANTHROPIC_API_KEY) is left out of its recipe, which the operator can still set in
+#: the application's environment; a template that is about one is not converted.
+FORBIDDEN_WORDS = re.compile(r"claude|anthropic", re.IGNORECASE)
+
 #: What a variable's name says it holds a credential in.
 SECRET_NAME = re.compile(r"(PASSWORD|PASSWD|SECRET|TOKEN|_KEY|_PASS$|_PWD$|SALT)", re.IGNORECASE)
 
@@ -613,6 +619,12 @@ def clean_services(draft: Draft) -> None:
             device) or the template needs a published port the schema has no place for.
     """
     routed_service, routed_port = draft.routed or ("", 0)
+    from noust.managers.database.instances import image_engine
+
+    # The catalogue publishes no database engine (tests/recipes/test_catalog_wave2.py): one that is
+    # the application itself would be on a public name.
+    if image_engine(str(draft.services.get(routed_service, {}).get("image", ""))) is not None:
+        raise Skip("database-as-app", f"service {routed_service} is a database engine")
     for key, spec in draft.services.items():
         for banned in ("privileged", "cap_add", "devices", "network_mode", "pid", "ipc", "build"):
             if spec.get(banned):
@@ -626,7 +638,11 @@ def clean_services(draft: Draft) -> None:
             raise Skip("service-name", key)
         spec["restart"] = "unless-stopped"
         if "environment" in spec:
-            spec["environment"] = as_environment(spec["environment"])
+            spec["environment"] = {
+                name: value
+                for name, value in as_environment(spec["environment"]).items()
+                if not FORBIDDEN_WORDS.search(name)
+            }
         ports = []
         for entry in spec.get("ports") or ():
             text = str(entry)
@@ -1268,11 +1284,16 @@ def build_text(
             f"{', '.join(volumes)} of this application: back "
             f"{'them' if len(volumes) > 1 else 'it'} up before updating."
         )
+    mark = "Derived in part from Coolify's template"
+    licence_of_origin = "Apache-2.0, Copyright 2025 Andras Bacsai"
+    if draft.origin == "Dokploy":
+        mark = "Derived in part from Dokploy's template"
+        licence_of_origin = "MIT, Copyright 2024 Dokploy and Carlos Ortiz"
     lines = [
-        f"# {title} from a {draft.origin} service template ({draft.template}), made into a recipe:",
-        "# every image pinned to a release and the digest its registry serves, loopback port,",
-        "# generated secrets. The template's authors keep their rights in it "
-        f"({'Apache-2.0' if draft.origin == 'Coolify' else 'MIT'}).",
+        f"# {title}: {mark} {draft.template}",
+        f"# ({licence_of_origin}), changed into a recipe: every image pinned to a release and the",
+        "# digest its registry serves, the web port on the loopback address, credentials generated,",
+        "# and nothing the closed schema refuses. The template's authors keep their rights in it.",
         "schema: 2",
         f"name: {source.name}",
         "kind: compose",
@@ -1398,6 +1419,8 @@ def draft_recipe(
     assets.update(draft.shipped)
     chosen = dict(health or {"path": "/", "expect": "200-399", "timeout": 180})
     text = build_text(draft, source, facts, archs, logo=logo, health=chosen)
+    if FORBIDDEN_WORDS.search(text):
+        raise Skip("forbidden-word", "the recipe would name a provider the history may not")
     try:
         data = yaml.safe_load(text)
         validate(source.name, data, assets)
@@ -1445,6 +1468,42 @@ def validate(name: str, data: Mapping[str, Any], assets: Mapping[str, str]) -> N
         parse_recipe(name, dict(data))
     finally:
         assets_module.set_asset_root(name, None)
+
+
+#: The header the first versions of the importer wrote, before the credit carried the sentence
+#: NOTICE and the Debian copyright file are held to.
+OLD_CREDIT = re.compile(
+    r"\A# (?P<title>.+?) from a (?P<origin>Coolify|Dokploy) service template "
+    r"\((?P<template>[^)]+)\), made into a recipe:\n"
+    r"# every image pinned to a release and the digest its registry serves, loopback port,\n"
+    r"# generated secrets\. The template's authors keep their rights in it \([^)]+\)\.\n"
+)
+
+
+def credit_header(text: str) -> str:
+    """
+    Put the credit a derived recipe carries into the form the notices list recipes by.
+
+    Args:
+        text: A draft's text.
+
+    Returns:
+        The text with its first comment lines saying "Derived in part from <catalogue>'s template".
+    """
+    found = OLD_CREDIT.match(text)
+    if found is None:
+        return text
+    if found["origin"] == "Coolify":
+        mark, licence = "Coolify's", "Apache-2.0, Copyright 2025 Andras Bacsai"
+    else:
+        mark, licence = "Dokploy's", "MIT, Copyright 2024 Dokploy and Carlos Ortiz"
+    header = (
+        f"# {found['title']}: Derived in part from {mark} template {found['template']}\n"
+        f"# ({licence}), changed into a recipe: every image pinned to a release and the\n"
+        "# digest its registry serves, the web port on the loopback address, credentials generated,\n"
+        "# and nothing the closed schema refuses. The template's authors keep their rights in it.\n"
+    )
+    return header + text[found.end() :]
 
 
 # -- the command line --------------------------------------------------------------------------

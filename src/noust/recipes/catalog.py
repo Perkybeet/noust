@@ -198,6 +198,7 @@ def search_recipes(
     kind: str | None = None,
     available: bool | None = None,
     unavailable_code: str | None = None,
+    tested: bool | None = None,
 ) -> list[Recipe]:
     """
     Search the catalogue.
@@ -214,6 +215,7 @@ def search_recipes(
         available: True for the recipes that install, False for the ones that are only listed.
         unavailable_code: Only the listed recipes whose reason is this one
             (:data:`~noust.recipes.model.UNAVAILABLE_CODES`).
+        tested: True for the recipes that were started for real, False for the ones that were not.
 
     Returns:
         The matching recipes, in the order :func:`list_recipes` gives.
@@ -238,6 +240,8 @@ def search_recipes(
         if available is not None and recipe.available != available:
             continue
         if unavailable_code is not None and recipe.unavailable_code != unavailable_code:
+            continue
+        if tested is not None and (recipe.summary()["tested"] is not None) != tested:
             continue
         if wanted_tag is not None and wanted_tag not in recipe.tags:
             continue

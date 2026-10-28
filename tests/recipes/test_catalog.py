@@ -33,16 +33,12 @@ MIGRATED = {"wordpress", "uptime-kuma", "umami", "n8n"}
 #: Listed, not deployable, with the reason.
 UNAVAILABLE = {
     "appwrite",
-    "bookstack",
     "cal-com",
-    "coder",
     "excalidraw",
     "hermes-agent",
     "joplin-server",
     "minio",
-    "openclaw",
     "pocketbase",
-    "portainer",
     "stalwart",
     "strapi",
     "supabase",

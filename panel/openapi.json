@@ -12305,6 +12305,12 @@
       "CreateAppRequest": {
         "description": "Request to deploy a new application.\n\nThe deployer-specific fields carry exactly what the deployers'\n``configure`` methods already accept, no more: ``subdomain_overrides``,\n``workspace_filter`` and ``skip_database`` are read by the monorepo\ndeployer, ``compose_file`` and ``compose_profiles`` by the docker-compose\none, and every deployer ignores the options that do not concern it, which\nis the interface's own contract.",
         "properties": {
+          "accept_root_equivalent": {
+            "default": false,
+            "description": "With a recipe that is root on the server by design (it controls Docker): confirm that you accept that. Refused without it, and with it the server's permission and sudo mode are needed; the stack's exception for the compose guard is recorded in the name of whoever confirmed",
+            "title": "Accept Root Equivalent",
+            "type": "boolean"
+          },
           "app_type": {
             "default": "auto",
             "description": "Application type. Left on auto with a recipe",
@@ -39479,8 +39485,13 @@
         "type": "object"
       },
       "RecipeInstallRequest": {
-        "description": "Request to install a recipe on a domain.\n\nAttributes:\n    domain: The domain it is served on.\n    variables: Values for the recipe's variables: the ``required`` ones\n        must be among them, and any other overrides what the recipe sets.\n    port: The port to listen on; a free one near the recipe's when omitted.\n    ssl: Whether to obtain a certificate.\n    include_www: Also answer on ``www.<domain>``, as a redirect.\n    health_path: Path the first health gate probes, over the recipe's.\n    health_expect: Statuses the first health gate accepts, over the recipe's.\n    health_timeout: Seconds the first health gate waits.\n    default_backups: Schedule the daily backups an installed application\n        starts with: its databases dumped and test-restored, its data\n        archived. They stay on this server until a destination is chosen.\n    database: The SQL engine to run it on, among those the recipe offers (``mysql`` or\n        ``mariadb``); the recipe's own by default. Refused for a recipe that offers none.\n    install_requirements: Install the language runtime and the database\n        engines the recipe needs and the server lacks, instead of refusing.\n        Packages installed as root: the server's permission and sudo mode.",
+        "description": "Request to install a recipe on a domain.\n\nAttributes:\n    domain: The domain it is served on.\n    variables: Values for the recipe's variables: the ``required`` ones\n        must be among them, and any other overrides what the recipe sets.\n    port: The port to listen on; a free one near the recipe's when omitted.\n    ssl: Whether to obtain a certificate.\n    include_www: Also answer on ``www.<domain>``, as a redirect.\n    health_path: Path the first health gate probes, over the recipe's.\n    health_expect: Statuses the first health gate accepts, over the recipe's.\n    health_timeout: Seconds the first health gate waits.\n    default_backups: Schedule the daily backups an installed application\n        starts with: its databases dumped and test-restored, its data\n        archived. They stay on this server until a destination is chosen.\n    database: The SQL engine to run it on, among those the recipe offers (``mysql`` or\n        ``mariadb``); the recipe's own by default. Refused for a recipe that offers none.\n    install_requirements: Install the language runtime and the database\n        engines the recipe needs and the server lacks, instead of refusing.\n        Packages installed as root: the server's permission and sudo mode.\n    accept_root_equivalent: Confirm a recipe that is root on the server by design (one that\n        controls Docker). Refused without it; with it the server's permission and sudo mode\n        are needed, and the stack's exception for the compose guard is recorded in your name.",
         "properties": {
+          "accept_root_equivalent": {
+            "default": false,
+            "title": "Accept Root Equivalent",
+            "type": "boolean"
+          },
           "database": {
             "anyOf": [
               {
@@ -39895,6 +39906,51 @@
             "title": "Revision",
             "type": "integer"
           },
+          "root_equivalent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent"
+          },
+          "root_equivalent_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent Hint"
+          },
+          "root_equivalent_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent Text"
+          },
+          "root_equivalent_warning": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent Warning"
+          },
           "runs_in_docker": {
             "default": false,
             "title": "Runs In Docker",
@@ -39927,6 +39983,18 @@
             },
             "title": "Tags",
             "type": "array"
+          },
+          "tested": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tested"
           },
           "title": {
             "title": "Title",
@@ -40160,7 +40228,7 @@
         "type": "object"
       },
       "RecipeSummaryOut": {
-        "description": "One recipe in the catalogue.\n\nAttributes:\n    name: What ``recipe`` takes in ``POST /api/apps``.\n    title: What it is called.\n    slogan: One line for the catalogue card.\n    description: One or two sentences.\n    homepage: The project's site.\n    docs: The project's documentation.\n    repository: The project's source code.\n    license: The project's licence.\n    min_noust: The oldest Noust that can install it, when it asks for one.\n    architectures: What it runs on; empty for any. Checked at install.\n    category: One of the closed list (``GET /api/recipes/categories``).\n    tags: Lower-case labels.\n    logo: Where the logo is served, or None.\n    logo_source: ``simple-icons`` (the collection's mark, CC0) or ``asset`` (a file of the\n        recipe); None without a logo.\n    logo_icon: The simple-icons slug, when the logo is the collection's.\n    logo_license: The licence of the mark's file when it is the collection's.\n    version: The version of the application the recipe pins.\n    revision: The recipe's own revision of that version.\n    updated: When the recipe last changed (ISO date).\n    kind: ``native`` or ``compose``.\n    runs_in_docker: Whether it runs in containers.\n    available: Whether this release can deploy it.\n    unavailable_reason: Why not, when it cannot: the evidence the recipe holds, in English.\n    unavailable_code: The reason as a code to filter by (``licence``, ``archived``...).\n    unavailable: The reason as a sentence of the server's, a ``code`` and its ``params``,\n        for the console to translate; None when it installs.\n    unavailable_text: That sentence in English.\n    unavailable_hint: What to do about it, in English.\n    replaced_by: The recipe that stands in for it, when there is one.\n    app_type: The deployer that builds it; None when unavailable.\n    database: The SQL engine it is given, if any.\n    database_choices: The SQL engines it can run on when the operator chooses at install\n        (``mysql``, ``mariadb``), its own first; empty when it offers no choice.\n    dependencies: The services it asks Noust to provide.\n    requires: What the server needs, in words.\n    digest_verified: Compose: every image carries a digest read from its\n        registry. None for a native recipe.\n    schema_version: The format version the file is written in.\n    origin: ``shipped`` (the package), ``catalog`` (a signed catalogue\n        package) or ``operator`` (the server's own recipes).",
+        "description": "One recipe in the catalogue.\n\nAttributes:\n    name: What ``recipe`` takes in ``POST /api/apps``.\n    title: What it is called.\n    slogan: One line for the catalogue card.\n    description: One or two sentences.\n    homepage: The project's site.\n    docs: The project's documentation.\n    repository: The project's source code.\n    license: The project's licence.\n    min_noust: The oldest Noust that can install it, when it asks for one.\n    architectures: What it runs on; empty for any. Checked at install.\n    category: One of the closed list (``GET /api/recipes/categories``).\n    tags: Lower-case labels.\n    logo: Where the logo is served, or None.\n    logo_source: ``simple-icons`` (the collection's mark, CC0) or ``asset`` (a file of the\n        recipe); None without a logo.\n    logo_icon: The simple-icons slug, when the logo is the collection's.\n    logo_license: The licence of the mark's file when it is the collection's.\n    version: The version of the application the recipe pins.\n    revision: The recipe's own revision of that version.\n    updated: When the recipe last changed (ISO date).\n    kind: ``native`` or ``compose``.\n    runs_in_docker: Whether it runs in containers.\n    available: Whether this release can deploy it.\n    unavailable_reason: Why not, when it cannot: the evidence the recipe holds, in English.\n    unavailable_code: The reason as a code to filter by (``licence``, ``archived``...).\n    unavailable: The reason as a sentence of the server's, a ``code`` and its ``params``,\n        for the console to translate; None when it installs.\n    unavailable_text: That sentence in English.\n    unavailable_hint: What to do about it, in English.\n    replaced_by: The recipe that stands in for it, when there is one.\n    tested: Whether the recipe was started for real in the harness: the ``version`` that\n        was started, the ``date``, the ``seconds`` it took and whether that is the version\n        pinned now (``current``); None when no run is recorded.\n    root_equivalent: What makes it root on the server by design (``docker_socket``), or None.\n        Installing it needs ``accept_root_equivalent``, the server's permission and sudo mode.\n    root_equivalent_warning: The warning as a sentence of the server's, a ``code`` and its\n        ``params``, for the console to translate; None when it is not root on the server.\n    root_equivalent_text: That warning in English.\n    root_equivalent_hint: What to weigh before accepting it, in English.\n    app_type: The deployer that builds it; None when unavailable.\n    database: The SQL engine it is given, if any.\n    database_choices: The SQL engines it can run on when the operator chooses at install\n        (``mysql``, ``mariadb``), its own first; empty when it offers no choice.\n    dependencies: The services it asks Noust to provide.\n    requires: What the server needs, in words.\n    digest_verified: Compose: every image carries a digest read from its\n        registry. None for a native recipe.\n    schema_version: The format version the file is written in.\n    origin: ``shipped`` (the package), ``catalog`` (a signed catalogue\n        package) or ``operator`` (the server's own recipes).",
         "properties": {
           "app_type": {
             "anyOf": [
@@ -40361,6 +40429,51 @@
             "title": "Revision",
             "type": "integer"
           },
+          "root_equivalent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent"
+          },
+          "root_equivalent_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent Hint"
+          },
+          "root_equivalent_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent Text"
+          },
+          "root_equivalent_warning": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent Warning"
+          },
           "runs_in_docker": {
             "default": false,
             "title": "Runs In Docker",
@@ -40383,6 +40496,18 @@
             },
             "title": "Tags",
             "type": "array"
+          },
+          "tested": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tested"
           },
           "title": {
             "title": "Title",
@@ -100526,7 +100651,7 @@
     },
     "/api/recipes": {
       "get": {
-        "description": "List the recipes, the ones this release can deploy first, and search them.\n\nEvery filter given must hold. ``q`` matches the name, title, slogan,\ndescription, category and tags, and each of its words must be found.\n\nArgs:\n    session: The authenticated session.\n    q: Words to look for.\n    category: One category of the closed list.\n    tag: One tag.\n    kind: ``native`` or ``compose``.\n    origin: Only the recipes from this source.\n    available: Whether the recipe installs.\n    unavailable_code: Only the listed recipes left out for this reason.\n\nReturns:\n    The matching recipes, with whether each is available and why not, and\n    the files of the server's own recipes that could not be read.\n\nRaises:\n    RecipeError: ``category``, ``kind``, ``origin`` or ``unavailable_code`` is not one\n        of the closed lists (400).",
+        "description": "List the recipes, the ones this release can deploy first, and search them.\n\nEvery filter given must hold. ``q`` matches the name, title, slogan,\ndescription, category and tags, and each of its words must be found.\n\nArgs:\n    session: The authenticated session.\n    q: Words to look for.\n    category: One category of the closed list.\n    tag: One tag.\n    kind: ``native`` or ``compose``.\n    origin: Only the recipes from this source.\n    available: Whether the recipe installs.\n    unavailable_code: Only the listed recipes left out for this reason.\n    tested: Whether the recipe was started for real.\n\nReturns:\n    The matching recipes, with whether each is available and why not, and\n    the files of the server's own recipes that could not be read.\n\nRaises:\n    RecipeError: ``category``, ``kind``, ``origin`` or ``unavailable_code`` is not one\n        of the closed lists (400).",
         "operationId": "get_recipes_api_recipes_get",
         "parameters": [
           {
@@ -100655,6 +100780,24 @@
               ],
               "description": "Only the listed recipes left out for this reason",
               "title": "Unavailable Code"
+            }
+          },
+          {
+            "description": "true: only the recipes started for real; false: only the others",
+            "in": "query",
+            "name": "tested",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only the recipes started for real; false: only the others",
+              "title": "Tested"
             }
           }
         ],

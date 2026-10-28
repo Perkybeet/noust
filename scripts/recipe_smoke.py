@@ -268,6 +268,41 @@ def suggest_health(base: str, gate_path: str, gate_status: int) -> dict[str, str
     return None
 
 
+#: How often, in seconds, the gate's wait looks at the containers for one that has failed for good.
+EARLY_LOOK_SECONDS = 30
+
+#: Restarts after which a container is in a crash loop, not an application applying its first
+#: configuration (one clean restart is a note, see :func:`smoke`).
+CRASH_LOOP_RESTARTS = 3
+
+
+def early_failure(containers: Sequence[Mapping[str, Any]]) -> str | None:
+    """
+    Find a container that has failed for good while the gate is still being waited for.
+
+    A migration that failed, a crash loop and a process the kernel killed for memory do not get
+    better with ten more minutes of the same 503, and a catalogue of hundreds pays for each.
+
+    Args:
+        containers: What :meth:`Project.inspect` returned.
+
+    Returns:
+        A sentence naming the container and what happened, or None when every one may still come up
+        (running, starting, restarted once, or a one-shot that left with status 0).
+    """
+    for container in containers:
+        name = container.get("name", "?")
+        if container.get("oom_killed"):
+            return f"{name} was killed for memory"
+        if container.get("state") == "dead":
+            return f"{name} is dead"
+        if container.get("state") == "exited" and container.get("exit_code"):
+            return f"{name} exited with status {container['exit_code']}"
+        if container.get("restarts", 0) >= CRASH_LOOP_RESTARTS:
+            return f"{name} restarted {container['restarts']} times"
+    return None
+
+
 def gate_accepts(expect: str | None, status: int) -> bool:
     """
     Tell whether an answer is what the health gate would call healthy.
@@ -505,10 +540,17 @@ def smoke(
         begin = time.monotonic()
         status: int | str = ""
         limit = wait if wait is not None else (health.timeout if health and health.timeout else 300)
+        looked = begin
         while time.monotonic() - begin < limit:
             status, _ = ask(url, follow=report.gate_expected is None)
             if isinstance(status, int) and gate_accepts(report.gate_expected, status):
                 break
+            if time.monotonic() - looked >= EARLY_LOOK_SECONDS:
+                looked = time.monotonic()
+                failed = early_failure(project.inspect())
+                if failed is not None:
+                    report.problems.append(failed)
+                    break
             time.sleep(5)
         report.gate_status = str(status)
         report.gate_seconds = int(time.monotonic() - begin)

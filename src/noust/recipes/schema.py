@@ -39,6 +39,7 @@ from noust.recipes.model import (
     REQUIREMENT_ATTRIBUTES,
     REQUIREMENTS,
     RESERVED_VARIABLES,
+    ROOT_EQUIVALENT_KINDS,
     SCHEMA_VERSION,
     SECRET_GENERATORS,
     SOURCE_KINDS,
@@ -147,7 +148,16 @@ _V2_NATIVE = frozenset(
         "database_choices",
     }
 )
-_V2_COMPOSE = frozenset({"compose", "files", "digest_verified", "public_ports", "entrypoints"})
+_V2_COMPOSE = frozenset(
+    {
+        "compose",
+        "files",
+        "digest_verified",
+        "public_ports",
+        "entrypoints",
+        "root_equivalent",
+    }
+)
 _ENTRYPOINT_KEYS = frozenset({"title", "description", "domain_variable", "port_variable"})
 #: The extra public addresses a recipe may have: each needs a DNS record and a place in the
 #: certificate, so a recipe that wants more is a different shape of application.
@@ -1495,6 +1505,11 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
         if not isinstance(digest_verified, bool):
             raise recipe_error(name, "digest_verified must be true or false")
         public_ports = _parse_public_ports(name, data.get("public_ports"))
+        root_equivalent = data.get("root_equivalent")
+        if root_equivalent is not None and root_equivalent not in ROOT_EQUIVALENT_KINDS:
+            raise recipe_error(
+                name, f"root_equivalent must be one of {', '.join(ROOT_EQUIVALENT_KINDS)}"
+            )
         declared_names = _declared_names(name, data.get("variables"))
         files, rendered_files, file_modes, file_uses = _parse_files(
             name, data.get("files"), declared_names, kind="compose"
@@ -1506,6 +1521,7 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
             public_ports=public_ports,
             files=files,
             declared=declared_names,
+            root_equivalent=root_equivalent,
         )
         variables = _parse_variables(name, data.get("variables"), requires, info, file_uses)
         _check_host_variables(name, variables, info)
@@ -1528,6 +1544,7 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
             digest_verified=digest_verified,
             public_ports=public_ports,
             entrypoints=entrypoints,
+            root_equivalent=root_equivalent,
             **metadata,
         )
 

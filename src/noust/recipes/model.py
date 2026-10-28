@@ -46,6 +46,7 @@ UNAVAILABLE_CODES = (
     "archived",
     "platform_stack",
     "root_equivalent",
+    "no_sign_in",
 )
 
 #: The sentence each code is said with. Written out, so that a search for a sentence of the
@@ -59,6 +60,21 @@ UNAVAILABLE_SENTENCES = {
     "archived": "recipes.unavailable.archived",
     "platform_stack": "recipes.unavailable.platform_stack",
     "root_equivalent": "recipes.unavailable.root_equivalent",
+    "no_sign_in": "recipes.unavailable.no_sign_in",
+}
+
+#: What an installable recipe can be that is root on the server by design, and says so
+#: (``root_equivalent:``): the console warns before it is installed and the install asks for the
+#: operator's confirmation. ``docker_socket``: the stack mounts the Docker daemon's socket.
+#: ``agent``: an AI agent that runs commands, whose own security policy says that whoever can
+#: operate it can make it do anything its account can; it mounts nothing of the host, and what
+#: it can reach is whatever it is given.
+ROOT_EQUIVALENT_KINDS = ("docker_socket", "agent")
+
+#: The sentence each kind is said with (written out so a search for a sentence finds who says it).
+ROOT_EQUIVALENT_SENTENCES = {
+    "docker_socket": "recipes.root_equivalent.docker_socket",
+    "agent": "recipes.root_equivalent.agent",
 }
 
 #: Where a native recipe's code comes from.
@@ -631,6 +647,9 @@ class Recipe:
         unavailable_reason: Why not, when it cannot: the evidence (the page or file read, and when).
         unavailable_code: The reason as one of :data:`UNAVAILABLE_CODES`.
         replaced_by: The recipe that stands in for it, when the catalogue has one.
+        root_equivalent: What makes it root on the server by design, one of
+            :data:`ROOT_EQUIVALENT_KINDS`, or None. An installable recipe that says so is
+            installed only with the operator's confirmation.
         app_type: The deployer that builds it.
         source: Where a native recipe's code comes from.
         layout: ``releases`` or ``inplace``.
@@ -685,6 +704,7 @@ class Recipe:
     unavailable_reason: str | None = None
     unavailable_code: str | None = None
     replaced_by: str | None = None
+    root_equivalent: str | None = None
     app_type: str = ""
     source: RecipeSource | None = None
     layout: str = "releases"
@@ -733,6 +753,40 @@ class Recipe:
             "unavailable_text": said.text if said else None,
             "unavailable_hint": said.hint if said else None,
             "replaced_by": self.replaced_by,
+        }
+
+    def _tested_view(self) -> dict[str, Any] | None:
+        """
+        Say whether the recipe was started for real (``noust.recipes.tested``).
+
+        Returns:
+            The version that was started, the day, the seconds it took and whether that is the
+            version pinned now; None when no run is recorded.
+        """
+        from noust.recipes.tested import tested_view
+
+        return tested_view(self.name, self.version, self.origin)
+
+    def _root_equivalent_view(self) -> dict[str, Any]:
+        """
+        Warn, in the server's coded words, that installing the recipe gives it root.
+
+        Returns:
+            The kind, the warning as a code and values for the console to translate, its English
+            text and its fix; every one None for a recipe that is not root on the server.
+        """
+        from noust.core.server_text import say
+
+        said = (
+            say(ROOT_EQUIVALENT_SENTENCES[self.root_equivalent], title=self.title)
+            if self.root_equivalent
+            else None
+        )
+        return {
+            "root_equivalent": self.root_equivalent,
+            "root_equivalent_warning": said.to_dict() if said else None,
+            "root_equivalent_text": said.text if said else None,
+            "root_equivalent_hint": said.hint if said else None,
         }
 
     @property
@@ -826,6 +880,8 @@ class Recipe:
             "available": self.available,
             "unavailable_reason": self.unavailable_reason,
             **self._unavailable_view(),
+            **self._root_equivalent_view(),
+            "tested": self._tested_view(),
             "app_type": self.app_type or None,
             "database": self.database_engine,
             "database_choices": [ENGINE_OF[choice] for choice in self.database_choices],

@@ -582,3 +582,72 @@ def test_two_defaults_for_one_variable_become_one_declared_default(tool: ModuleT
     assert draft.services["web"]["environment"] == {"TZ": "${TZ}", "A": "${A:-1}"}
     assert draft.services["worker"]["environment"]["TZ"] == "${TZ}"
     assert draft.variables["TZ"]["value"] == "UTC" and "A" not in draft.variables
+
+
+def test_the_credit_of_a_first_draft_is_put_in_the_form_the_notices_list_recipes_by(
+    tool: ModuleType,
+) -> None:
+    """NOTICE and the Debian copyright file are held to recipes whose header says it this way."""
+    old = (
+        "# Dozzle from a Coolify service template (templates/compose/dozzle.yaml), made into a recipe:\n"
+        "# every image pinned to a release and the digest its registry serves, loopback port,\n"
+        "# generated secrets. The template's authors keep their rights in it (Apache-2.0).\n"
+        "schema: 2\n"
+    )
+
+    fixed = tool.credit_header(old)
+
+    assert fixed.startswith(
+        "# Dozzle: Derived in part from Coolify's template templates/compose/dozzle.yaml\n"
+    )
+    assert "Apache-2.0, Copyright 2025 Andras Bacsai" in fixed and fixed.endswith("schema: 2\n")
+    dokploy = old.replace(
+        "Coolify service template (templates/compose/dozzle.yaml)",
+        "Dokploy service template (blueprints/dozzle)",
+    )
+    assert "Derived in part from Dokploy's template blueprints/dozzle" in tool.credit_header(
+        dokploy
+    )
+    assert "MIT, Copyright 2024 Dokploy and Carlos Ortiz" in tool.credit_header(dokploy)
+    # A header that already carries the credit is left as it is.
+    assert tool.credit_header(fixed) == fixed
+
+
+def test_a_database_engine_is_never_the_web_service_of_a_recipe(tool: ModuleType) -> None:
+    """The catalogue publishes no database: ClickHouse as the application would be one on a public name."""
+    draft = draft_of(
+        tool,
+        {
+            "db": {
+                "image": "clickhouse/clickhouse-server:25.8",
+                "ports": ["127.0.0.1:${PORT:-3000}:8123"],
+            }
+        },
+        ("db", 8123),
+    )
+
+    with pytest.raises(tool.Skip) as skipped:
+        tool.clean_services(draft)
+
+    assert skipped.value.code == "database-as-app"
+
+
+def test_an_optional_setting_named_after_a_provider_the_history_may_not_name_is_left_out(
+    tool: ModuleType,
+) -> None:
+    """The operator can still set it in the application's environment; the recipe does not carry it."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0",
+                "environment": {"ANTHROPIC_API_KEY": "", "OPENAI_API_KEY": "", "PORT": "3000"},
+            }
+        },
+        ("web", 3000),
+    )
+
+    tool.clean_services(draft)
+
+    assert set(draft.services["web"]["environment"]) == {"OPENAI_API_KEY", "PORT"}
+    assert tool.FORBIDDEN_WORDS.search("a CLAUDE client") and not tool.FORBIDDEN_WORDS.search("x")

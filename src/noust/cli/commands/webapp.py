@@ -38,6 +38,7 @@ from noust.cli.panel_links import open_in_panel
 from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_states
 from noust.core.app_tags import AppTags, validate_tag
 from noust.core.appdir.layout import CONFIGURED, LAYOUTS, choose_layout
+from noust.core.audit.actor import cli_actor
 from noust.core.config import Config
 from noust.core.container_store import forget_secrets
 from noust.core.dependencies import NODE_APP_TYPES, check_deployment_ready
@@ -706,6 +707,7 @@ def _create_from_recipe(
     default_backups: bool = True,
     install_requirements: bool = False,
     database: str | None = None,
+    accept_root_equivalent: bool = False,
 ) -> int:
     """
     Deploy an application from a recipe.
@@ -799,6 +801,7 @@ def _create_from_recipe(
         logger=logger,
         install_requirements=install_requirements,
         database=database,
+        accept_root_equivalent=cli_actor().label if accept_root_equivalent else None,
     )
     logger.key_value("Source", plan.source)
     deployer = get_deployer(plan.app_type, verbose=logger.verbose)

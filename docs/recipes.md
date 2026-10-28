@@ -43,7 +43,7 @@ The same catalogue is the API's:
 
 | Route | What it does |
 |---|---|
-| `GET /api/recipes?q=&category=&tag=&kind=` | The catalogue, with search and filters |
+| `GET /api/recipes?q=&category=&tag=&kind=&available=&unavailable_code=&tested=` | The catalogue, with search and filters |
 | `GET /api/recipes/categories` | The categories that hold a recipe, with how many |
 | `GET /api/recipes/{name}` | One recipe in full: variables (never their values), images, ports it opens, health check, notes |
 | `GET /api/recipes/{name}/logo` | Its logo, an SVG that needs nothing the console's CSP forbids |
@@ -72,7 +72,8 @@ recipe that needs any of these is not a recipe:
 
 - an image without a tag, with a tag that moves (`latest`, `stable`, `edge`, `main`...), or
   without the `sha256` digest the registry served for it;
-- `privileged`, the Docker socket, the host's namespaces, devices, added capabilities, disabled
+- `privileged`, the Docker socket (one recipe may say it is root on the server, below), the host's
+  namespaces, devices, added capabilities, disabled
   confinement, `build:`, `env_file:`, `extends:`, `container_name:` and every other key outside the
   closed list (`composefile.py`, `_SERVICE_KEYS`);
 - a published port other than `127.0.0.1:${PORT}:<port>` (nginx is the only way in), a loopback
@@ -295,11 +296,20 @@ A recipe that cannot be deployed with this release is listed, not hidden:
 
 ```yaml
 available: false
-unavailable_reason: Why, in a sentence that says what it waits for.
+unavailable_code: licence          # why, as a code: licence, not_for_production, no_image,
+                                   # not_an_application, host_ports, archived, platform_stack,
+                                   # root_equivalent or no_sign_in
+replaced_by: openbao               # optional: the recipe that stands in for it
+unavailable_reason: The evidence: the file or page read, the day, and what it said.
 ```
 
-It carries only the catalogue fields above, and `noust recipe show` and the console print the
-reason. Excalidraw, PocketBase, Vault and others are listed this way (see the end of this page).
+It carries only the catalogue fields above. The code is what a screen translates and filters by: the
+API answers it as a sentence of the server's words (`unavailable`, with its `code` and `params`, and
+`unavailable_text` and `unavailable_hint` in English), `GET /api/recipes?available=false` lists what
+is left out and `?unavailable_code=licence` narrows it, and `noust recipe list --unavailable
+[--reason CODE]` does the same. `unavailable_reason` stays the evidence, to be folded under the
+sentence. Installing a listed recipe is refused with that sentence. Vault, Excalidraw, PocketBase and
+others are listed this way (see the end of this page).
 
 ### `kind: compose`
 
@@ -406,6 +416,33 @@ An update that brings an entrypoint the installed version lacked asks for its ad
 install does (nothing is touched until it is given), writes the address and the port to the
 `.env`, and adds the name once the update has passed its health gate; one the application already
 answers on is left as it is.
+
+#### A recipe that is root on the server
+
+Some applications are root on the host by design: Portainer and Coder manage the containers of the
+server through the Docker daemon's socket, so whoever signs in can start a container with any part
+of the server mounted, Noust's applications and their data included. A recipe that is one says so,
+and is offered with a warning and a confirmation instead of being left out:
+
+```yaml
+root_equivalent: docker_socket     # the only kind: the stack mounts /var/run/docker.sock
+```
+
+It allows exactly one thing the closed schema refuses, the mount `/var/run/docker.sock:/var/run/docker.sock`
+(`:ro` or not) and nothing else of the host: `privileged`, another path of the daemon and every other
+refusal stand. The catalogue carries the warning in the server's coded words (`root_equivalent`,
+`root_equivalent_warning`, `root_equivalent_text` and `root_equivalent_hint` of `GET /api/recipes`),
+so a screen can say it in its own language before anyone presses install.
+
+Installing one is refused until somebody confirms it, in the one place every way in meets
+(`plan_recipe`): `noust recipe install portainer -d tools.example.com --accept-root-equivalent` on the
+command line, `accept_root_equivalent: true` in `POST /api/recipes/{name}/install` and in
+`POST /api/apps`. Through the API the confirmation also needs the server's permission
+(`server:manage`) and sudo mode, as a package installed as root does. The confirmation records the
+stack's exception for the compose guard in the name of whoever gave it, with the recipe in the
+reason, exactly as `noust app sandbox compose-exception` does (and audited the same way), so the
+deployment that follows is not refused and the exception is listed where every other one is. Without
+the record a stack of another application that mounts the socket is still refused.
 
 ### `kind: native`
 
@@ -649,6 +686,37 @@ repository is archived (MinIO) or it stops publishing images that can be pinned,
 what a recipe may not have (the Docker socket, the host's network). Nothing is deleted without a
 reason a person can read.
 
+## Which recipes have been started for real
+
+A recipe that loads has been read by a closed schema and a lint; whether it starts is only known
+when it runs. `tests/integration/recipes_run.py` starts the catalogue's Compose recipes one at a
+time inside the harness container (its own Docker, never the machine's), with
+`scripts/recipe_smoke.py`: the variables resolved as a deployment resolves them, the stack up as a
+throwaway project, the health gate asked exactly as the gate asks it, the same path asked as nginx
+asks it, every container inspected for a restart loop, an out-of-memory kill and a failed exit. It
+writes what happened to `tests/integration/results/recipes.json` (recipe, version, result, seconds,
+date, and for a failure the problem and the end of the log) before the next recipe starts, and
+removes the images the recipe pulled by name. A recipe counts as tested when its latest result is
+`pass`; a failure is fixed or the recipe is listed with the reason. The harness reads Docker Hub's
+public images through a pull-through mirror (`mirror.gcr.io`, the same digests) because Hub counts
+anonymous pulls per address.
+
+Which recipes the catalogue carries as tested is `recipes/tested.json`, written from that file by
+`scripts/recipe_tested.py` (a test fails while the two disagree): `GET /api/recipes` answers `tested`
+with the version that was started, the day, the seconds it took and whether that is the version the
+recipe pins now, and takes `?tested=true|false`; `noust recipe list --tested|--untested` does the same.
+
+```bash
+tests/integration/recipes_run.py run --next 10 --budget 35   # the next ten, none started after 35 minutes
+tests/integration/recipes_run.py run NAME...                 # these, now
+tests/integration/recipes_run.py status                      # the totals and every recipe that did not pass
+tests/integration/recipes_run.py accept                      # drafts that passed, into the catalogue
+```
+
+It is the machine's one Docker place: it runs through `noust-docker`, one batch at a time, and a
+batch gives the place back after its budget so that the other harnesses get their turn. Look at the
+free space of the drive Docker lives on before a batch; the runner stops under 30 GB.
+
 ## Contributing a recipe
 
 [Contributing a recipe](contributing-recipes.md) is the walk through: asking for one, writing it,
@@ -692,9 +760,9 @@ test results.
 
 <!-- recipes:start (generated by scripts/recipe_docs.py; do not edit) -->
 
-The catalogue has 128 recipes you can install and 15 that are listed with the reason.
+The catalogue has 136 recipes you can install and 11 that are listed with the reason.
 
-Of the 128 you can install, 123 run in Docker and 5 are native (a pinned source built by one of Noust's deployers). 105 were written from the project's own documentation, and 23 took part of their wiring from Coolify's service templates (Apache-2.0), credited in the header of their file. Every image is pinned by tag and by digest and every recipe starts closed. `scripts/recipe_smoke.py` starts a recipe in Docker and asks its health check: run it for a recipe you add or change.
+Of the 136 you can install, 131 run in Docker and 5 are native (a pinned source built by one of Noust's deployers). 113 were written from the project's own documentation, and 23 took part of their wiring from Coolify's service templates (Apache-2.0), credited in the header of their file. Every image is pinned by tag and by digest and every recipe starts closed. `scripts/recipe_smoke.py` starts a recipe in Docker and asks its health check: run it for a recipe you add or change.
 
 | Recipe | Version | Kind | Runs |
 |---|---|---|---|
@@ -709,16 +777,19 @@ Of the 128 you can install, 123 run in Docker and 5 are native (a pinned source 
 | Baserow | 2.4.0 | compose | Docker; PostgreSQL with pgvector |
 | Bazarr | 1.6.2 | compose | Docker |
 | Beszel | 0.21.0 | compose | Docker |
+| BookStack | 26.09.2 | compose | Docker; MariaDB |
 | Bugsink | 2.6.1 | compose | Docker; MySQL |
 | changedetection.io | 0.60.9 | compose | Docker |
 | Chatwoot | 4.18.0 | compose | Docker; PostgreSQL with pgvector, Valkey |
 | CloudBeaver | 26.2.3 | compose | Docker |
 | code-server | 4.140.0 | compose | Docker |
+| Coder | 2.38.4 | compose | Docker; PostgreSQL |
 | ConvertX | 0.19.0 | compose | Docker |
 | CouchDB | 3.5.3 | compose | Docker |
 | CyberChef | 11.5.0 | compose | Docker |
 | Dashy | 4.8.7 | compose | Docker |
 | Directus | 12.4.1 | compose | Docker; PostgreSQL |
+| Discourse | 2026.1.4 | compose | Docker; PostgreSQL with pgvector, Redis |
 | Docmost | 0.96.0 | compose | Docker; PostgreSQL, Valkey |
 | DocuSeal | 3.3.3 | compose | Docker |
 | Dolibarr | 24.0.2 | compose | Docker; MariaDB |
@@ -782,7 +853,11 @@ Of the 128 you can install, 123 run in Docker and 5 are native (a pinned source 
 | ntfy | 2.28.0 | compose | Docker |
 | Odoo | 20.0.20260926 | compose | Docker; PostgreSQL |
 | Ollama | 0.35.1 | compose | Docker; no authentication of its own |
+| Open Design | 0.16.1 | compose | Docker |
 | Open WebUI | 0.11.4 | compose | Docker |
+| OpenBao | 2.7.2 | compose | Docker |
+| OpenClaw | 2026.10.8 | compose | Docker |
+| OpenCode | 1.18.32 | compose | Docker |
 | OpenObserve | 1.1.1 | compose | Docker |
 | Outline | 1.11.0 | compose | Docker; PostgreSQL, Valkey |
 | ownCloud Infinite Scale | 8.2.1 | compose | Docker |
@@ -794,6 +869,7 @@ Of the 128 you can install, 123 run in Docker and 5 are native (a pinned source 
 | PLANKA | 2.2.1 | compose | Docker; PostgreSQL |
 | Plausible Analytics Community Edition | 3.2.1 | compose | Docker; PostgreSQL, ClickHouse |
 | Pocket ID | 2.18.0 | compose | Docker |
+| Portainer | 2.45.3 | compose | Docker |
 | PrivateBin | 2.1.0 | compose | Docker |
 | Prowlarr | 2.6.5.5623 | compose | Docker |
 | qBittorrent | 5.2.4 | compose | Docker; opens 6881 tcp and udp |
@@ -835,16 +911,12 @@ from and the day, and `noust recipe show` and the console print it:
 | Recipe | Why |
 |---|---|
 | Appwrite | 40 services, three of which mount the Docker socket |
-| BookStack | no official image, and a new installation has a known administrator account |
 | Cal.com | the open source edition is now Cal.diy, "for personal, non-production use" |
-| Coder | drives the Docker daemon through its socket |
 | Excalidraw | no release tag to pin: only `latest` and per-build `sha-` tags, none of them `latest` itself |
 | Hermes Agent | a single-tenant agent whose own policy says the operating system is its only boundary |
 | Joplin Server | its licence is personal, non-commercial use only |
 | MinIO | the repository is archived and says it is no longer maintained |
-| OpenClaw | its policy says anyone who can operate the agent can make it do anything it can do |
 | PocketBase | a binary with no image, and no deployer in this release that runs one |
-| Portainer | mounts the Docker socket: root on the host by design |
 | Stalwart | publishes 25, 110, 143, 443, 465, 587, 993, 995 and 4190, and needs mail DNS and certificates |
 | Strapi | publishes no image: a project is built from your own code |
 | Supabase | 11 services, a `container_name` Realtime depends on, and nested variable references |

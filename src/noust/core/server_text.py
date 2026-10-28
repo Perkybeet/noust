@@ -124,11 +124,42 @@ CATALOG: dict[str, str] = {
     "recipes.unavailable.platform_stack.hint": (
         "Run it on a server of its own with the project's installer."
     ),
+    "recipes.unavailable.no_sign_in": (
+        "Its web interface has no sign-in of its own and holds the keys it works with"
+    ),
+    "recipes.unavailable.no_sign_in.hint": (
+        "Reach it through an SSH tunnel to the server, as its project documents, never through a "
+        "public address."
+    ),
     "recipes.unavailable.root_equivalent": (
         "It controls the server's Docker daemon, which is the same as root on the server"
     ),
     "recipes.unavailable.root_equivalent.hint": (
         "Deploy it yourself with 'noust create' if you accept that, on a server that is yours."
+    ),
+    # -- The recipe catalogue: what is root on the server by design ---------------------------
+    "recipes.root_equivalent.docker_socket": (
+        "{title} controls the Docker daemon of this server, which is the same as having root on it"
+    ),
+    "recipes.root_equivalent.docker_socket.hint": (
+        "It can start any container with any part of the server mounted, Noust's applications "
+        "and their data included. Install it only if you would give this application root on the "
+        "server."
+    ),
+    "recipes.root_equivalent.agent": (
+        "{title} is an AI agent that runs commands, and whoever can operate it can make it do "
+        "anything it can do: access to it is the same as access to a shell"
+    ),
+    "recipes.root_equivalent.agent.hint": (
+        "Its own security policy says it is not a boundary between users. Give its sign-in only "
+        "to people you would give a shell on this server, and give it no model key or account "
+        "you would not hand to them."
+    ),
+    "recipes.root_equivalent.confirm_required": (
+        "{title} is root on this server, and installing it needs your confirmation"
+    ),
+    "recipes.root_equivalent.confirm_required.hint": (
+        "If you accept that, confirm it and install again: {command}"
     ),
     # -- Mail an account is sent (an invitation, a password reset) -------------------------
     "mail.no_transport": "There is no way to send mail from this server",

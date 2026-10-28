@@ -37,6 +37,22 @@ Comment: Derived in part from the Docker Compose templates of Coolify
  (https://github.com/coollabsio/coolify); each file names its template and what was changed.
 License: Apache-2.0
 
+Files:
+ src/noust/recipes/discourse.yaml
+ src/noust/recipes/open-design.yaml
+ src/noust/recipes/opencode.yaml
+Copyright: 2024 Dokploy and Carlos Ortiz
+           2026 Yago López Prado
+Comment: Derived in part from the service templates of Dokploy
+ (https://github.com/Dokploy/templates); each file names its template and what was changed.
+License: Expat
+
+Files: src/noust/recipes/assets/_simple-icons/*.svg
+Copyright: simple-icons contributors
+Comment: Marks copied unchanged from the simple-icons collection
+ (https://github.com/simple-icons/simple-icons). The licence covers the files and not the brands.
+License: CC0-1.0
+
 Files: src/noust/recipes/assets/plausible/clickhouse/*
 Copyright: 2024 Plausible Analytics
 Comment: Copied unchanged from https://github.com/plausible/community-edition (v3.2.1).
@@ -47,6 +63,11 @@ Copyright: 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains
            2020-2024 The Atkinson Hyperlegible Next Project Authors (https://github.com/googlefonts/atkinson-hyperlegible-next)
            2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)
 License: OFL-1.1
+
+License: CC0-1.0
+ To the extent possible under law, the contributors have waived all copyright and related or
+ neighboring rights to these marks. On Debian systems, the full text of the CC0 1.0 Universal
+ licence is in /usr/share/common-licenses/CC0-1.0.
 
 License: Expat
  Permission is hereby granted, free of charge, to any person obtaining a copy

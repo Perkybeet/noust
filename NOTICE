@@ -44,6 +44,15 @@ src/noust/recipes/assets/plausible/NOTICE:
 
   src/noust/recipes/assets/plausible/clickhouse/*.xml
 
+Marks of the recipes
+--------------------
+The marks in src/noust/recipes/assets/_simple-icons/ are copied unchanged from the simple-icons
+collection (https://github.com/simple-icons/simple-icons), published under CC0 1.0 Universal
+(https://creativecommons.org/publicdomain/zero/1.0/). The licence covers the files and not the brands:
+each mark is the trademark of its owner, shown to say which project a recipe installs and not to
+suggest that the project made, endorses or supports the recipe or Noust. The folder's NOTICE says which
+release of the collection the files come from.
+
 Fonts of the console
 --------------------
 The console ships JetBrains Mono (Copyright 2020 The JetBrains Mono Project Authors), Atkinson
@@ -65,9 +74,16 @@ console in every package:
 
 Dokploy templates
 -----------------
-The tests of the Dokploy template converter quote parts of templates from
-https://github.com/Dokploy/templates, Copyright (c) 2024 Dokploy and Carlos Ortiz, licensed under the
-MIT License. Noust ships none of them. The licence:
+Some recipes of Noust's catalog are derived in part from the service templates of Dokploy
+(https://github.com/Dokploy/templates, blueprints/), Copyright (c) 2024 Dokploy and Carlos Ortiz,
+licensed under the MIT License. Each of these files says in its header which template it comes from
+and what was changed:
+
+  src/noust/recipes/discourse.yaml
+  src/noust/recipes/open-design.yaml
+  src/noust/recipes/opencode.yaml
+
+The tests of the Dokploy template converter also quote parts of templates. The licence:
 
   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
   associated documentation files (the "Software"), to deal in the Software without restriction,

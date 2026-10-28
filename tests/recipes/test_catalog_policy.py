@@ -28,14 +28,10 @@ DOCS = Path(__file__).resolve().parents[2] / "docs" / "recipes.md"
 #: The recipes this release lists with the reason a person can check, written in the 4.0 wave.
 LISTED_IN_40 = {
     "appwrite",
-    "bookstack",
     "cal-com",
-    "coder",
     "hermes-agent",
     "joplin-server",
     "minio",
-    "openclaw",
-    "portainer",
     "stalwart",
     "strapi",
     "supabase",

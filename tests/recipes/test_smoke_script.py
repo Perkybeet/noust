@@ -636,3 +636,87 @@ def test_a_stack_that_passes_suggests_nothing(
     monkeypatch.setattr(smoke, "ask", lambda url, *, follow, headers=None: (200, ""))
 
     assert run_smoke(smoke).suggested_health is None
+
+
+# ---------------------------------------------------------------------------
+# A stack that is plainly failing is not waited for until the gate's timeout
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("container", "said"),
+    [
+        ({"state": "exited", "exit_code": 1, "restarts": 0}, "exited with status 1"),
+        ({"state": "restarting", "exit_code": 0, "restarts": 4}, "restarted 4 times"),
+        ({"state": "running", "exit_code": 0, "restarts": 3}, "restarted 3 times"),
+        ({"state": "dead", "exit_code": 0, "restarts": 0}, "is dead"),
+    ],
+)
+def test_a_container_that_has_failed_for_good_is_found_without_waiting_for_the_timeout(
+    smoke: ModuleType, container: dict[str, Any], said: str
+) -> None:
+    """A crash loop and a failed migration say so within seconds; waiting ten minutes adds nothing."""
+    found = smoke.early_failure([{"name": "app-1", "oom_killed": False, **container}])
+
+    assert found is not None and "app-1" in found and said in found
+
+
+@pytest.mark.parametrize(
+    "container",
+    [
+        {"state": "running", "exit_code": 0, "restarts": 0},
+        {"state": "running", "exit_code": 0, "restarts": 1},
+        {"state": "exited", "exit_code": 0, "restarts": 0},
+        {"state": "created", "exit_code": 0, "restarts": 0},
+    ],
+)
+def test_a_stack_that_is_only_slow_or_has_finished_its_job_is_waited_for(
+    smoke: ModuleType, container: dict[str, Any]
+) -> None:
+    """One restart (an application that applies its first configuration) and a one-shot service that
+    left with status 0 are not failures."""
+    assert smoke.early_failure([{"name": "app-1", "oom_killed": False, **container}]) is None
+
+
+def test_the_gate_stops_waiting_when_a_container_keeps_restarting(
+    smoke: ModuleType, fake_docker: type[FakeProject], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The report says why at once, with the log, instead of the same 503 for the whole timeout."""
+    clock = [0.0]
+    monkeypatch.setattr(smoke.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(
+        smoke.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds)
+    )
+    monkeypatch.setattr(smoke, "PROBE_PATHS", ())
+    fake_docker.containers = [
+        {
+            "name": "app-1",
+            "state": "restarting",
+            "restarts": 5,
+            "oom_killed": False,
+            "exit_code": 1,
+            "health": None,
+        }
+    ]
+    asked: list[float] = []
+
+    def refuse(url: str, *, follow: bool, headers: Any = None) -> tuple[int, str]:
+        asked.append(clock[0])
+        return 503, ""
+
+    monkeypatch.setattr(smoke, "ask", refuse)
+
+    report = smoke.smoke(
+        get_recipe("vaultwarden"),
+        port=18080,
+        wait=600,
+        given={},
+        extra=[],
+        domain="vault.example.com",
+        ssl=True,
+        keep=False,
+    )
+
+    assert any("restarted 5 times" in problem for problem in report.problems)
+    assert asked[-1] < 60, "it waited on for the recipe's whole timeout"
+    assert "ERROR: one expected line" in report.log_tail
