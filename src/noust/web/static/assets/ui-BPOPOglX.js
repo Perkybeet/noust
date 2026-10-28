@@ -1,0 +1,1 @@
+import{n as e}from"./TextLink-Bd-ZX37P.js";var t=e(`inline`);export{t};

@@ -1,1 +1,0 @@
-import{rn as e}from"./useNode-BDJR0RM8.js";import{a as t}from"./nodeErrors-BYOBNXj2.js";var n=e();function r({label:e,text:r,icon:i,onClick:a,loading:o=!1}){return(0,n.jsx)(t,{size:`sm`,variant:`ghost`,"aria-label":e,icon:i,loading:o,onClick:a,children:(0,n.jsx)(`span`,{className:`max-sm:sr-only`,children:r})})}export{r as t};
