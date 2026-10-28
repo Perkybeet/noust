@@ -46,7 +46,7 @@ export interface PageHeaderProps {
    * list filtered to it. Give none where there is nothing to tell apart: a server nobody organised
    * draws no such line. Where the page is in the console is not this: it is the breadcrumbs of the top
    * bar, generated from the register, and the server is named there and in the second column, never
-   * above a title (docs/DESIGN.md, NV-8).
+   * above a title (docs/DESIGN.md, NV-15 and 6.11).
    */
   place?: readonly PlaceStep[];
   /** The title is a system identifier (a domain, a unit, a database, a site): it is not translated. It is set like any title, in the display voice, and no longer in mono. */

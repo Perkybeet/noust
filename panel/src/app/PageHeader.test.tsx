@@ -71,7 +71,7 @@ describe("PageHeader", () => {
     expect(await screen.findByRole("menuitem", { name: "Stop" })).toBeInTheDocument();
   });
 
-  it("does not name the server above its title, nor draw the breadcrumbs: the top bar and the second column say them (NV-8)", async () => {
+  it("does not name the server above its title, nor draw the breadcrumbs: the top bar and the second column say them (NV-15)", async () => {
     const { container } = await renderRouted(<PageHeader title="Applications" />);
     expect(container.querySelector("header")?.querySelector("nav")).toBeNull();
     expect(screen.queryByText(/^Server /)).not.toBeInTheDocument();

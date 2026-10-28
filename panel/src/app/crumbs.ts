@@ -1,6 +1,6 @@
 /**
  * The breadcrumbs of a page, generated from the register and never written by the page (docs/DESIGN.md,
- * NV-8): the entries above the page in the tree (`crumbsOf`), the page's own last, and the name of a
+ * NV-15): the entries above the page in the tree (`crumbsOf`), the page's own last, and the name of a
  * resource where the step is one (an application's domain, a database's name). A page of two levels or
  * more has them; an area's own first page does not, because it is where the bar says you are.
  *

@@ -900,7 +900,7 @@ withFleet.describe("a fleet", () => {
     });
     if (!MEASURE_ONLY) {
       const destinations = await page.getByRole("navigation", { name: "Main" }).getByRole("link").count();
-      expect(destinations, "the fleet's sidebar").toBeLessThanOrEqual(7);
+      expect(destinations, "the main bar").toBeLessThanOrEqual(12);
       expect(destinations).toBeGreaterThan(0);
     }
   });

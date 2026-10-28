@@ -134,7 +134,7 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
   await settle(page);
   await expectNoA11yViolations(page, "the Fleet's summary");
 
-  // The sidebar of the fleet is the way between its views; the page draws no strip of them.
+  // The main bar is the way between the fleet's views, each the face of an area; the page draws no strip of them.
   await expect(page.getByRole("navigation", { name: "Fleet views" })).toHaveCount(0);
   const views = page.getByRole("navigation", { name: "Main" });
   await views.getByRole("link", { name: "Applications" }).click();
@@ -145,9 +145,8 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
 
   for (const [tab, caption] of [
     ["Servers", "Servers of this fleet"],
-    ["Certificates", "Certificates on every server"],
+    ["Domains", "Certificates on every server"],
     ["Backups", "Backups of every application"],
-    ["Updates", "Noust and system updates of every server"],
     ["Activity", "What happened lately on every server"],
   ] as const) {
     await views.getByRole("link", { name: tab, exact: true }).click();
@@ -164,11 +163,14 @@ withFleet("the selector says which of the three contexts the console is in, and 
   await expect(page).toHaveURL(/\/fleet$/);
   await expect(page.getByRole("button", { name: "Server: all servers" })).toBeVisible();
 
-  // Never a silent jump, and no back link: the bar is the fleet's own seven destinations, and the
-  // selector is the way to a server (docs/DESIGN.md NV-10).
+  // Never a silent jump, and no back link: the bar is the same twelve areas, each at its fleet face where it has one,
+  // and the selector is the way to a server (docs/DESIGN.md NV-10).
   const main = page.getByRole("navigation", { name: "Main" });
-  await expect(main.getByRole("link")).toHaveText(["Overview", "Servers", "Applications", "Certificates", "Backups", "Updates", "Activity"]);
-  await expect(main.getByRole("link", { name: "Databases" })).toHaveCount(0);
+  await expect(main.getByRole("link")).toHaveCount(12);
+  await expect(main.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/fleet");
+  await expect(main.getByRole("link", { name: "Domains" })).toHaveAttribute("href", "/fleet/certificates");
+  // An area with no fleet face leads back to the server the operator came from.
+  await expect(main.getByRole("link", { name: "Databases" })).toHaveAttribute("href", `/n/${NODE_NAME}/databases`);
   await expect(page.getByRole("link", { name: /^Back to / })).toHaveCount(0);
   // Settings still lead to the server the operator came from.
   await expect(page.getByRole("link", { name: "Settings", exact: true })).toHaveAttribute("href", `/n/${NODE_NAME}/settings`);
@@ -647,7 +649,7 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
   await page.getByRole("searchbox", { name: "Search applications" }).fill(NODE_APP);
   await expect(page.getByRole("region", { name: "Applications on every server" }).getByRole("link", { name: NODE_APP, exact: true })).toBeVisible();
 
-  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Updates" }).click();
+  await page.goto("/fleet/updates");
   const updates = page.getByRole("region", { name: "Noust and system updates of every server" });
   await expect(updates.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
   await settle(page);
