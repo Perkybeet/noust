@@ -123,7 +123,7 @@ def local_console_url() -> str:
         ``http://127.0.0.1:<port>`` (``https`` when the console serves TLS), read the way
         ``noust web expose-hooks`` reads it from the service.
     """
-    from noust.cli.commands.web import _console_upstream
+    from noust.managers.console_service import _console_upstream
 
     port, scheme = _console_upstream(None)
     return f"{scheme}://127.0.0.1:{port}"

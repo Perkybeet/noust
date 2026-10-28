@@ -24,8 +24,8 @@ from noust.core.exceptions import NodeError, NoustError
 from noust.core.utils import check_root
 
 if TYPE_CHECKING:
-    from noust.cli.commands.web import DaemonConsole
     from noust.fleet.policy import FleetAccess
+    from noust.managers.console_service import DaemonConsole
 
 
 def _require_root(action: str) -> None:
@@ -260,12 +260,12 @@ def ensure_console_on_loopback(
             the operator declines to adopt the background console, or it could
             not be started.
     """
-    from noust.cli.commands import web
     from noust.core.config import Config
     from noust.core.net import is_loopback_host
+    from noust.managers import console_service
     from noust.managers.cron_manager import decode_exec_start
 
-    unit = web._service_unit_path()
+    unit = console_service._service_unit_path()
     host: str | None = None
     port: int | None = None
     tls = False
@@ -278,8 +278,8 @@ def ensure_console_on_loopback(
             port_text = _flag_value(argv, "--port")
             port = int(port_text) if port_text and port_text.isdigit() else port
             tls = tls or any(a in ("--self-signed", "--tls-cert", "--require-https") for a in argv)
-        status = web._service_status(verbose)
-        port = port or web.StartOptions().port
+        status = console_service._service_status(verbose)
+        port = port or console_service.StartOptions().port
         fix = f"noust web enable --host 127.0.0.1 --port {port}"
         if host is not None and not is_loopback_host(host):
             raise NodeError(
@@ -301,7 +301,7 @@ def ensure_console_on_loopback(
         if status is not None and status["active"]:
             return ConsoleOutcome(port=port)
 
-    daemon = web.running_daemon()
+    daemon = console_service.running_daemon()
     if daemon is not None:
         return _adopt(
             daemon,
@@ -313,10 +313,10 @@ def ensure_console_on_loopback(
         )
 
     configured = Config().get("web.port")
-    port = port or (int(configured) if configured else web.StartOptions().port)
-    note(f"Starting {web.WEB_UNIT_FILE} on 127.0.0.1:{port}")
+    port = port or (int(configured) if configured else console_service.StartOptions().port)
+    note(f"Starting {console_service.WEB_UNIT_FILE} on 127.0.0.1:{port}")
     try:
-        service = web.enable_loopback_service(port, verbose, dry_run=dry_run)
+        service = console_service.enable_loopback_service(port, verbose, dry_run=dry_run)
     except NoustError as exc:
         raise NodeError(
             "The console could not be started on loopback",
@@ -355,6 +355,7 @@ def _adopt(
             background console is started again first).
     """
     from noust.cli.commands import web
+    from noust.managers import console_service
 
     port = daemon.options.port
     if not confirm_adopt(daemon, daemon.exposure_changes()):
@@ -371,18 +372,18 @@ def _adopt(
         return ConsoleOutcome(port=port, adopted=daemon.pid)
     note(f"Stopping the background console (PID {daemon.pid})")
     try:
-        web.stop_daemon(daemon.pid)
+        console_service.stop_daemon(daemon.pid)
     except NoustError as exc:
         raise NodeError(exc.message, details=exc.details) from exc
-    note(f"Starting {web.WEB_UNIT_FILE} on 127.0.0.1:{port}")
+    note(f"Starting {console_service.WEB_UNIT_FILE} on 127.0.0.1:{port}")
     try:
-        service = web.enable_loopback_service(port, verbose, port_just_freed=True)
+        service = console_service.enable_loopback_service(port, verbose, port_just_freed=True)
     except NoustError as exc:
         problem = f"{exc.message}. {exc.details}".strip()
         try:
             if not had_unit:
                 web._disable(verbose)
-            web.restart_daemon(daemon.options)
+            console_service.restart_daemon(daemon.options)
         except NoustError as restore:
             raise NodeError(
                 "The console could not be moved to a service, nor put back in the background",

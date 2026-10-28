@@ -51,7 +51,7 @@ def _panel_serves_tls() -> bool:
     # so this stays the one place that knows where that pair lives. The
     # import is cheap: noust.cli.commands.web does not touch fastapi or
     # uvicorn until a function that actually starts the server runs.
-    from noust.cli.commands.web import PANEL_TLS_CERT, PANEL_TLS_KEY
+    from noust.managers.console_service import PANEL_TLS_CERT, PANEL_TLS_KEY
 
     return PANEL_TLS_CERT.exists() and PANEL_TLS_KEY.exists()
 

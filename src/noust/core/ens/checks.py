@@ -429,7 +429,7 @@ def exposure_from_installation() -> ConsoleExposure | None:
     import shlex
 
     from noust.central import setup
-    from noust.cli.commands.web import PANEL_TLS_CERT, options_from_argv, running_daemon
+    from noust.managers.console_service import PANEL_TLS_CERT, options_from_argv, running_daemon
     from noust.core import paths
     from noust.core.net import ALL_INTERFACES
     from noust.managers.service_manager import ServiceManager

@@ -19,10 +19,11 @@ from pathlib import Path
 
 import pytest
 
-from noust.cli.commands import web
 from noust.core.exceptions import ServiceError
 from noust.core.runner import FakeRunner
+from noust.managers import console_service
 from noust.managers.service_manager import ServiceManager
+from tests.console_patch_support import patch_console
 
 NOUST_BIN = "/usr/bin/noust"
 
@@ -40,24 +41,26 @@ def unit_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, runner: FakeRunne
     return managed
 
 
-def enable(options: web.StartOptions) -> Path:
+def enable(options: console_service.StartOptions) -> Path:
     """Write the console's unit the way ``noust web enable`` does."""
-    web._service_manager(False).install_unit(
-        web.WEB_UNIT, web.WEB_UNIT_TEMPLATE, {"exec_start": web._service_exec_start(options)}
+    console_service._service_manager(False).install_unit(
+        console_service.WEB_UNIT,
+        console_service.WEB_UNIT_TEMPLATE,
+        {"exec_start": console_service._service_exec_start(options)},
     )
-    return Path(ServiceManager.SYSTEMD_DIR) / web.WEB_UNIT_FILE
+    return Path(ServiceManager.SYSTEMD_DIR) / console_service.WEB_UNIT_FILE
 
 
 def exec_argv(unit: Path) -> list[str]:
-    start = web._unit_exec_start(unit.read_text(encoding="utf-8"))
+    start = console_service._unit_exec_start(unit.read_text(encoding="utf-8"))
     assert start is not None
     return shlex.split(start)
 
 
 def test_the_peer_is_added_and_every_other_option_stays() -> None:
-    unit = enable(web.StartOptions(host="127.0.0.1", port=8443, self_signed=True))
+    unit = enable(console_service.StartOptions(host="127.0.0.1", port=8443, self_signed=True))
 
-    changed = web.change_trusted_proxies(add=["127.0.0.1"])
+    changed = console_service.change_trusted_proxies(add=["127.0.0.1"])
 
     argv = exec_argv(unit)
     assert changed is True
@@ -68,19 +71,19 @@ def test_the_peer_is_added_and_every_other_option_stays() -> None:
 
 
 def test_asking_again_changes_nothing() -> None:
-    unit = enable(web.StartOptions(trusted_proxy=("127.0.0.1",)))
+    unit = enable(console_service.StartOptions(trusted_proxy=("127.0.0.1",)))
     before = unit.read_text(encoding="utf-8")
 
-    assert web.change_trusted_proxies(add=["127.0.0.1"]) is False
+    assert console_service.change_trusted_proxies(add=["127.0.0.1"]) is False
     assert unit.read_text(encoding="utf-8") == before
 
 
 def test_removing_the_peer_puts_the_unit_back() -> None:
-    unit = enable(web.StartOptions(port=8080))
+    unit = enable(console_service.StartOptions(port=8080))
     original = unit.read_text(encoding="utf-8")
-    web.change_trusted_proxies(add=["127.0.0.1"])
+    console_service.change_trusted_proxies(add=["127.0.0.1"])
 
-    changed = web.change_trusted_proxies(remove=["127.0.0.1"])
+    changed = console_service.change_trusted_proxies(remove=["127.0.0.1"])
 
     assert changed is True
     assert "--trusted-proxy" not in exec_argv(unit)
@@ -88,10 +91,10 @@ def test_removing_the_peer_puts_the_unit_back() -> None:
 
 
 def test_another_proxy_the_operator_trusts_is_kept() -> None:
-    unit = enable(web.StartOptions(trusted_proxy=("10.0.0.2",)))
+    unit = enable(console_service.StartOptions(trusted_proxy=("10.0.0.2",)))
 
-    web.change_trusted_proxies(add=["127.0.0.1"])
-    web.change_trusted_proxies(remove=["127.0.0.1"])
+    console_service.change_trusted_proxies(add=["127.0.0.1"])
+    console_service.change_trusted_proxies(remove=["127.0.0.1"])
 
     argv = exec_argv(unit)
     assert argv.count("--trusted-proxy") == 1
@@ -100,7 +103,7 @@ def test_another_proxy_the_operator_trusts_is_kept() -> None:
 
 def test_without_a_service_it_says_how_to_make_one() -> None:
     with pytest.raises(ServiceError) as raised:
-        web.change_trusted_proxies(add=["127.0.0.1"])
+        console_service.change_trusted_proxies(add=["127.0.0.1"])
 
     assert "noust web enable" in (raised.value.details or "")
 
@@ -108,23 +111,23 @@ def test_without_a_service_it_says_how_to_make_one() -> None:
 def test_the_restart_waits_on_the_port_the_unit_binds(
     monkeypatch: pytest.MonkeyPatch, runner: FakeRunner
 ) -> None:
-    enable(web.StartOptions(port=9191))
+    enable(console_service.StartOptions(port=9191))
     waited: list[tuple[str, int]] = []
-    monkeypatch.setattr(
-        web, "_wait_until_serving", lambda manager, host, port: waited.append((host, port))
+    patch_console(
+        monkeypatch, "_wait_until_serving", lambda manager, host, port: waited.append((host, port))
     )
     runner.script(["systemctl", "show"], stdout="ActiveState=active\nSubState=running\n")
 
-    web.restart_console_service()
+    console_service.restart_console_service()
 
     assert runner.ran("systemctl", "restart")
     assert waited == [("127.0.0.1", 9191)]
 
 
 def test_the_port_and_scheme_come_from_the_unit() -> None:
-    enable(web.StartOptions(port=8443, self_signed=True))
+    enable(console_service.StartOptions(port=8443, self_signed=True))
 
-    assert web.console_service_port() == (8443, "https")
+    assert console_service.console_service_port() == (8443, "https")
 
 
 # ---------------------------------------------------------------------------
@@ -151,17 +154,17 @@ def test_enabling_the_console_again_keeps_the_proxy_a_published_console_needs(st
         )
     )
 
-    options = web._keeping_published_console(web.StartOptions(port=8443))
+    options = console_service._keeping_published_console(console_service.StartOptions(port=8443))
 
     assert options.trusted_proxy == ("127.0.0.1",)
     assert options.port == 8443, "nothing else about the options changes"
-    assert "--trusted-proxy" in web._service_exec_start(options)
+    assert "--trusted-proxy" in console_service._service_exec_start(options)
 
 
 def test_a_console_that_is_not_published_is_written_as_asked(store) -> None:
-    options = web.StartOptions(port=8443)
+    options = console_service.StartOptions(port=8443)
 
-    assert web._keeping_published_console(options) is options
+    assert console_service._keeping_published_console(options) is options
 
 
 def test_a_proxy_the_operator_already_trusted_is_not_listed_twice(store) -> None:
@@ -170,9 +173,9 @@ def test_a_proxy_the_operator_already_trusted_is_not_listed_twice(store) -> None
     ConsoleExposureStore(store).save(
         ExposureState(domain="console.example.com", port=8080, proxy_added=None, state="active")
     )
-    options = web.StartOptions(trusted_proxy=("127.0.0.1",))
+    options = console_service.StartOptions(trusted_proxy=("127.0.0.1",))
 
-    assert web._keeping_published_console(options) is options
+    assert console_service._keeping_published_console(options) is options
 
 
 def test_the_loopback_service_a_new_node_gets_does_not_drop_the_proxy(
@@ -186,14 +189,14 @@ def test_the_loopback_service_a_new_node_gets_does_not_drop_the_proxy(
             domain="console.example.com", port=8080, proxy_added="127.0.0.1", state="active"
         )
     )
-    monkeypatch.setattr(web, "_wait_until_serving", lambda manager, host, port: None)
-    monkeypatch.setattr(web, "remember_exposure", lambda host, port, logger=None: None)
-    options = web.StartOptions(host="127.0.0.1", port=8080)
+    patch_console(monkeypatch, "_wait_until_serving", lambda manager, host, port: None)
+    patch_console(monkeypatch, "remember_exposure", lambda host, port, logger=None: None)
+    options = console_service.StartOptions(host="127.0.0.1", port=8080)
 
-    web._install_and_start(
-        options, web._build_security_config(options), False, Logger(), issue_token=False
+    console_service._install_and_start(
+        options, console_service._build_security_config(options), False, Logger(), issue_token=False
     )
 
-    assert "--trusted-proxy" in exec_argv(unit_dirs / web.WEB_UNIT_FILE), (
+    assert "--trusted-proxy" in exec_argv(unit_dirs / console_service.WEB_UNIT_FILE), (
         "the one place the unit is written keeps it"
     )

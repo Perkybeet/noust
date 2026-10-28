@@ -41,7 +41,7 @@ from noust.cli.commands.fleet_group import cli
 from noust.core.exceptions import NodeError
 
 if TYPE_CHECKING:
-    from noust.cli.commands.web import DaemonConsole
+    from noust.managers.console_service import DaemonConsole
 
 
 @cli.command("authorize", gates_json=True)

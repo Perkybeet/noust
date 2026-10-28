@@ -145,6 +145,11 @@ src/noust/
     console_exposure.py  the console on a public name over TLS (`noust console expose`): nginx
                     site, certificate, trusted proxy, and a record of exactly what it made so
                     `unexpose` removes that and no more
+    console_service.py  the console as a process Noust starts and stops: the daemon, the unit
+                    `noust web enable` writes, the port it holds, the trusted proxies; the commands
+                    of `cli/commands/web.py` and the layers that look at the running console ask it
+    backup_manager.py, rollback_manager.py   a backup, and going back to one (the rollback
+                    points, and the safety backup taken first)
     server/platforms.py  the one table of releases and processors Noust installs on; the
                     installer and docs/PLATFORMS.md carry generated copies of it
   deployers/        strategies over a declarative pipeline (base.py), one per app type
@@ -187,6 +192,10 @@ src/noust/
     api/            thin layer over the managers; one error contract for every router;
                     node_proxy.py forwards every node call, event and WebSocket over its
                     tunnel (rule 3: a central re-implements nothing a node does)
+    auth/           the console's sign-in, a package of the pieces `web/auth.py` was made of
+                    (`tokens.py` the token manager, `sessions.py` the SQLite store, `ratelimit.py`,
+                    `fleet.py` what a node admits from its central, `dependencies.py` what every
+                    route resolves); `__init__.py` imports each public name it had
     server.py       security middleware, CSP, serves the console
     versioning.py   /api/v1 as /api, X-Noust-API-Version, deprecated(); the compatibility
                     promise is docs/api.md and scripts/api_compat.py (panel/openapi.baseline.json)
@@ -268,9 +277,9 @@ under `TYPE_CHECKING` is not one at run time and does not count.
 |---|---|---:|
 | `core`, `validators` | import `central`, `cli`, `deployers`, `fleet`, `integrations`, `managers`, `monitor`, `terminal`, `web` | 28 |
 | `deployers`, `fleet`, `managers`, `monitor`, `pushdeploy` | import `cli`, `web` | 11 |
-| `web` | import `cli` | 1 |
+| `web` | import `cli` | 0 |
 | any module | import a module that imports it back when it loads | 0 |
-| any module | pass 3000 lines | 19 |
+| any module | pass 3000 lines | 18 |
 <!-- layers:end -->
 
 The table is written from the test's own lists. A new module past 3000 lines is split before it is

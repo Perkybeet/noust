@@ -28,6 +28,8 @@ from noust.cli import audit_policy
 from noust.cli.app import DEPLOY_VERBS, Context, NoustGroup, cli
 from noust.cli.commands.deploy import cli as deploy_group
 from noust.core.audit import Actor, get_log
+from noust.managers import console_service
+from tests.console_patch_support import patch_console
 
 ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = ROOT / "src" / "noust" / "templates" / "systemd"
@@ -126,16 +128,15 @@ def _template_calls() -> list[tuple[str, str, bool]]:
 
 def _rendered_unit_calls() -> list[tuple[str, str, bool]]:
     """The units Noust renders in code rather than from a template."""
-    from noust.cli.commands import web as web_commands
     from noust.monitor.process_monitor import ProcessMonitor
 
     calls: list[tuple[str, str, bool]] = []
     monitor = ProcessMonitor.__new__(ProcessMonitor)
     monitor._noust_executable = lambda: "/usr/bin/noust"  # type: ignore[method-assign]
     monkey = pytest.MonkeyPatch()
-    monkey.setattr(web_commands, "_noust_executable", lambda: "/usr/bin/noust")
+    patch_console(monkey, "_noust_executable", lambda: "/usr/bin/noust")
     try:
-        web_exec = web_commands._service_exec_start(web_commands.StartOptions())
+        web_exec = console_service._service_exec_start(console_service.StartOptions())
     finally:
         monkey.undo()
     for name, unit in (
