@@ -90,7 +90,7 @@ test("how long the journal keeps the logs is set from the page, in its own drawe
 test("a probe is added, its page is kept up to date, and it goes when it is removed", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .* \/api\/probes\/status-page$/);
   problems.expect(/status of (400|422) .* \/api\/probes\/shop$/);
-  await signIn(page, consoleServer, "/settings/probes");
+  await signIn(page, consoleServer, "/alerts/probes");
   await expect(page.getByText("No probes yet")).toBeVisible();
   await expect(page.getByRole("button", { name: "New probe" })).toHaveCount(1);
 

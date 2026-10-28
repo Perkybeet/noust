@@ -81,8 +81,6 @@ const SERVER_SETTINGS: readonly Route[] = [
   { id: "settings-integrations", path: "/settings/integrations" },
   { id: "settings-about", path: "/settings/about" },
   { id: "settings-notifications", path: "/settings/notifications" },
-  { id: "settings-alerts", path: "/settings/alerts" },
-  { id: "settings-probes", path: "/settings/probes" },
   { id: "settings-log-shipping", path: "/settings/log-shipping" },
   { id: "settings-tokens", path: "/settings/tokens" },
   { id: "settings-api", path: "/settings/api" },

@@ -275,7 +275,7 @@ test.describe("from the page of its own area", () => {
     { from: "/server", name: "Terminal", to: "/server/terminal" },
     { from: "/backups", name: "Schedules", to: "/backups/schedules" },
     { from: "/domains", name: "DNS", to: "/domains/dns" },
-    { from: "/settings", name: "Alert rules", to: "/settings/alerts" },
+    { from: "/settings", name: "Alert rules", to: "/alerts" },
     { from: "/databases", name: "Engines", to: "/databases/engines" },
     { from: "/apps/shop.example.net", name: "Applications", to: "/apps" },
   ] as const;

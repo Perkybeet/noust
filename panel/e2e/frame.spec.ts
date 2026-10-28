@@ -141,7 +141,8 @@ test.describe("the double bar", () => {
     await mainBar(page).getByRole("link", { name: "Home" }).focus();
     await page.keyboard.press("Tab");
     await expect(mainBar(page).getByRole("link", { name: /^Applications/ })).toBeFocused();
-    await expect(page.getByRole("tooltip")).toHaveText("Applications");
+    // The tooltip is the popup of the overlay layer, apart from the link whose name it says.
+    await expect(page.locator(".z-overlay", { hasText: "Applications" })).toBeVisible();
     await settle(page);
     await expectNoA11yViolations(page, "the bar folded to icons");
     await page.reload();
@@ -205,7 +206,7 @@ test.describe("one bar", () => {
     for (const title of ["What runs", "How it is reached", "What is happening", "Kept safe", "Where it runs", "How it is managed"]) await expect(bar.getByText(title, { exact: true })).toBeVisible();
     await expect(page.locator('[data-frame="column"]')).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Application sections" })).toBeVisible();
-    expect(Math.round((await boxOf(bar.locator("xpath=ancestor::div[contains(@class,'w-sidebar')]"))).width)).toBe(264);
+    expect(Math.round((await boxOf(page.getByRole("complementary", { name: "Navigation" }))).width)).toBe(264);
     expect(await overflowsSideways(page)).toBe(false);
     await settle(page);
     await expectNoA11yViolations(page, "an application, one bar at 1440");

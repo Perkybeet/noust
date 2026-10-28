@@ -204,7 +204,8 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, searchTriggerRef }: Top
     <header className="sticky top-0 z-sticky flex h-14 shrink-0 items-center gap-3 bg-bg px-4 sm:px-6 lg:px-8">
       {phone ? (
         <Link to="/" aria-label={t("nav.overview.label")} className="-ml-1 flex shrink-0 items-center rounded-control p-1">
-          <Logo variant="wordmark" height={18} decorative />
+          {/* The mark alone: the machine's name beside it is what a phone has no room to lose. */}
+          <Logo variant="icon" height={26} decorative />
         </Link>
       ) : null}
 

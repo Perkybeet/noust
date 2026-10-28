@@ -28,12 +28,6 @@
       "height": 2000,
       "reason": "The switch, thirteen channels, more channels, the events, their language, private hosts and the delivery log on one page. The channels and the events are different subjects, and the delivery log is a list of its own."
     },
-    "settings-alerts": {
-      "path": "/settings/alerts",
-      "height": 1482,
-      "reason": "The rules and the monitor's ten built-in checks on one page, each a row with its own threshold; the checks are a list of their own and can leave for a subsection."
-    },
-    "settings-probes": { "path": "/settings/probes", "height": 643 },
     "settings-log-shipping": { "path": "/settings/log-shipping", "height": 1089 },
     "settings-tokens": { "path": "/settings/tokens", "height": 427 },
     "settings-api": { "path": "/settings/api", "height": 1163 },
