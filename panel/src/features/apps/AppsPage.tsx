@@ -122,10 +122,17 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     secondaryActions: (
       <>
         {organised ? (
-          <Link to="/projects" className={buttonClassName("secondary")}>
-            <OBJECT_ICONS.project aria-hidden="true" />
-            {t("nav.projects.label")}
-          </Link>
+          <>
+            <Link to="/projects" className={buttonClassName("secondary")}>
+              <OBJECT_ICONS.project aria-hidden="true" />
+              {t("nav.projects.label")}
+            </Link>
+            {/* A team's pages are the deepest of the console: through Projects they would be a fifth click from the Overview (NV-2). */}
+            <Link to="/projects/teams" className={buttonClassName("secondary")}>
+              <OBJECT_ICONS.team aria-hidden="true" />
+              {t("teams.list.title")}
+            </Link>
+          </>
         ) : null}
         {/* A bulk update is offered where the list is narrowed to one tag, and not before. */}
         {search.tag !== undefined && shown.length > 0 && canDeploy ? <UpdateTaggedApps tag={search.tag} count={shown.length} /> : null}

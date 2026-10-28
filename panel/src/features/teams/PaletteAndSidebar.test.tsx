@@ -80,6 +80,8 @@ describe("Projects, the other view of Applications", () => {
   it("is offered where there is something to organise", async () => {
     await shellAt({}, viewerSession(), {}, "/apps");
     expect(await screen.findByRole("link", { name: "Projects" })).toHaveAttribute("href", "/projects");
+    // Teams beside it: a team's pages stay four clicks from the Overview (NV-2).
+    expect(screen.getByRole("link", { name: "Teams" })).toHaveAttribute("href", "/projects/teams");
     expect(within(screen.getByRole("navigation", { name: "Main" })).queryByRole("link", { name: "Projects" })).not.toBeInTheDocument();
   });
 
@@ -94,5 +96,6 @@ describe("Projects, the other view of Applications", () => {
     await within(nav).findByRole("link", { name: /^Applications/ });
     await screen.findByRole("heading", { level: 1, name: "Applications" });
     expect(screen.queryByRole("link", { name: "Projects" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Teams" })).not.toBeInTheDocument();
   });
 });
