@@ -150,6 +150,7 @@ from noust.web.api.tunnels import router as tunnels_router
 from noust.web.api.unknown_hosts import router as unknown_hosts_router
 from noust.web.api.variables import router as variables_router
 from noust.web.api.variables import server_router as server_variables_router
+from noust.web.api.views import router as views_router
 from noust.web.api.volume_backups import router as volume_backups_router
 from noust.web.api.waf import router as waf_router
 from noust.web.api.waf import server_router as waf_server_router
@@ -417,6 +418,8 @@ router.include_router(scim_admin_router, prefix="/auth/scim", tags=["Single sign
 router.include_router(scim_router, prefix="/scim/v2", tags=["SCIM provisioning"])
 router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
+# The page of a resource across the servers, whether there is a fleet or not.
+router.include_router(views_router, prefix="/views", tags=["Fleet"])
 router.include_router(fleet_placements_router, prefix="/fleet/placements", tags=["Fleet"])
 router.include_router(fleet_builders_router, prefix="/fleet/builders", tags=["Fleet"])
 # A database moved to another server: the fleet engine's action, with a typed body.

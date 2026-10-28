@@ -5455,6 +5455,7 @@ NodeOutcomeOut = TypedDict("NodeOutcomeOut", {
     "message": NotRequired[Union[str, None]],
     "missing": NotRequired[list[str]],
     "name": Required[str],
+    "path": NotRequired[Union[str, None]],
     "status": Required[str],
     "version": NotRequired[Union[str, None]],
     "warnings": NotRequired[list[str]],
@@ -6990,6 +6991,19 @@ RecordingsResponse = TypedDict("RecordingsResponse", {
     "recordings": Required[list["RecordingModel"]],
 })
 
+RefusalGroupOut = TypedDict("RefusalGroupOut", {
+    "code": Required[str],
+    "coded": NotRequired[Union["CodedText", None]],
+    "count": Required[int],
+    "hint": NotRequired[Union[str, None]],
+    "includes_central": NotRequired[bool],
+    "message": Required[str],
+    "permission": NotRequired[Union[str, None]],
+    "reason": Required[str],
+    "resource": Required[str],
+    "servers": Required[list[str]],
+})
+
 RefusedRestartOut = TypedDict("RefusedRestartOut", {
     "reason": Required[str],
     "unit": Required[str],
@@ -8028,6 +8042,31 @@ SealPlan = TypedDict("SealPlan", {
     "pitr": Required[int],
     "sealing": Required[bool],
     "total": Required[int],
+})
+
+SearchHitOut = TypedDict("SearchHitOut", {
+    "detail": NotRequired[Union[str, None]],
+    "href": Required[str],
+    "kind": Required[str],
+    "labels": NotRequired[Union[dict[str, str], None]],
+    "local": NotRequired[bool],
+    "name": Required[str],
+    "node": Required[str],
+    "page": Required[str],
+})
+
+SearchOut = TypedDict("SearchOut", {
+    "fleet": Required[bool],
+    "generated_at": Required[str],
+    "items": NotRequired[list["SearchHitOut"]],
+    "nodes": Required[list["ViewNodeOut"]],
+    "partial": Required[bool],
+    "query": Required[str],
+    "refusals": Required[list["RefusalGroupOut"]],
+    "resource": Required[str],
+    "servers": Required[list["ViewServerOut"]],
+    "total": Required[int],
+    "truncated": Required[bool],
 })
 
 SecondFactorRequest = TypedDict("SecondFactorRequest", {
@@ -10083,6 +10122,42 @@ VersionsResponse = TypedDict("VersionsResponse", {
     "site": Required[str],
     "versions": NotRequired[list["VersionModel"]],
     "webserver": Required[str],
+})
+
+ViewNodeOut = TypedDict("ViewNodeOut", {
+    "age_seconds": NotRequired[Union[float, None]],
+    "code": NotRequired[Union[str, None]],
+    "elapsed_ms": NotRequired[Union[float, None]],
+    "error_verbatim": NotRequired[Union[str, None]],
+    "fetched_at": NotRequired[Union[str, None]],
+    "hint": NotRequired[Union[str, None]],
+    "local": NotRequired[bool],
+    "message": NotRequired[Union[str, None]],
+    "missing": NotRequired[list[str]],
+    "name": Required[str],
+    "path": NotRequired[Union[str, None]],
+    "permission": NotRequired[Union[str, None]],
+    "refusal": NotRequired[Union[str, None]],
+    "status": Required[str],
+    "version": NotRequired[Union[str, None]],
+    "warnings": NotRequired[list[str]],
+})
+
+ViewOut = TypedDict("ViewOut", {
+    "fleet": Required[bool],
+    "generated_at": Required[str],
+    "items": Required[list[dict[str, Any]]],
+    "nodes": Required[list["ViewNodeOut"]],
+    "partial": Required[bool],
+    "refusals": Required[list["RefusalGroupOut"]],
+    "resource": Required[str],
+    "servers": Required[list["ViewServerOut"]],
+})
+
+ViewServerOut = TypedDict("ViewServerOut", {
+    "local": NotRequired[bool],
+    "name": Required[str],
+    "selector": Required[str],
 })
 
 VolumeBackupListResponse = TypedDict("VolumeBackupListResponse", {

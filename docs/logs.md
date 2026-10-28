@@ -14,7 +14,8 @@ noust fleet logs error --since 1h            # every server of a central at once
 
 In the console it is **Logs**, in the sidebar: the words, where from (the applications or the System),
 the application, the level and how far back are in the address, so a search can be sent to somebody, and
-on a central **Every server** searches all of them. The API is `GET /api/logs/search` and `GET /api/fleet/logs` ([api.md](api.md)).
+on a central **Every server** searches all of them. The API is `GET /api/logs/search` and, across the servers, `GET /api/views/logs`
+([api.md](api.md#a-resource-across-the-servers)).
 
 ## The query
 
@@ -57,7 +58,7 @@ way (the last 5 000 lines of each); they have no levels, so a search that names 
 
 ## A central
 
-`noust fleet logs` (and `/api/fleet/logs`) asks every server's own search with the same words, labels each line with
+`noust fleet logs` (and `/api/views/logs`, which replaces `/api/fleet/logs`) asks every server's own search with the same words, labels each line with
 its server and the page of the application there, and orders them newest first. A server that cannot search, or
 stopped at its limit, is a row of its own after the lines; one that is down or too old to offer the search is said so
 with its own words and the rest still answer. A central searches nothing itself.

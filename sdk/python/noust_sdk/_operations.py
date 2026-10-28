@@ -641,6 +641,16 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "set_labels"): ("PUT", "/api/fleet/servers/{node}/labels", "fleet.manage", False),
     ("fleet", "fleet_summary"): ("GET", "/api/fleet/summary", "fleet.read", False),
     ("fleet", "fleet_updates"): ("GET", "/api/fleet/updates", "fleet.read", False),
+    ("fleet", "view_activity"): ("GET", "/api/views/activity", "audit.read", False),
+    ("fleet", "view_alerts"): ("GET", "/api/views/alerts", "server.read", False),
+    ("fleet", "view_apps"): ("GET", "/api/views/apps", "apps.read", False),
+    ("fleet", "view_backups"): ("GET", "/api/views/backups", "backups.read", False),
+    ("fleet", "view_certificates"): ("GET", "/api/views/certificates", "apps.read", False),
+    ("fleet", "view_cron"): ("GET", "/api/views/cron", "apps.read", False),
+    ("fleet", "view_databases"): ("GET", "/api/views/databases", "databases.read", False),
+    ("fleet", "view_logs"): ("GET", "/api/views/logs", "apps.read", False),
+    ("fleet", "view_search"): ("GET", "/api/views/search", "apps.read", False),
+    ("fleet", "view_sites"): ("GET", "/api/views/sites", "apps.read", False),
     ("git_push", "get_push"): ("GET", "/api/push", "server.read", False),
     ("git_push", "setup_push"): ("POST", "/api/push/setup", "server.host_access", True),
     ("integrations", "github_status"): ("GET", "/api/integrations/github", "apps.read", False),
@@ -5694,7 +5704,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 54 operations."""
+    """Fleet: 64 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5728,7 +5738,9 @@ class Fleet:
 
         Fleet Activity
 
-        Needs: permission `fleet.read`."""
+        Needs: permission `fleet.read`.
+
+        Deprecated: see the API changelog."""
         return self._call("GET", "/api/fleet/activity", query={"node": node, "refresh": refresh, "limit": limit}, body=None)
 
     def fleet_apps(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "FleetViewOut":
@@ -5736,7 +5748,9 @@ class Fleet:
 
         Fleet Apps
 
-        Needs: permission `fleet.read`."""
+        Needs: permission `fleet.read`.
+
+        Deprecated: see the API changelog."""
         return self._call("GET", "/api/fleet/apps", query={"node": node, "refresh": refresh}, body=None)
 
     def fleet_backups(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "FleetViewOut":
@@ -5744,7 +5758,9 @@ class Fleet:
 
         Fleet Backups
 
-        Needs: permission `fleet.read`."""
+        Needs: permission `fleet.read`.
+
+        Deprecated: see the API changelog."""
         return self._call("GET", "/api/fleet/backups", query={"node": node, "refresh": refresh}, body=None)
 
     def list_builders(self) -> "BuilderListOut":
@@ -5784,7 +5800,9 @@ class Fleet:
 
         Fleet Certificates
 
-        Needs: permission `fleet.read`."""
+        Needs: permission `fleet.read`.
+
+        Deprecated: see the API changelog."""
         return self._call("GET", "/api/fleet/certificates", query={"node": node, "refresh": refresh}, body=None)
 
     def list_accounts(self) -> list["AccountOut"]:
@@ -6024,7 +6042,9 @@ class Fleet:
 
         Fleet Logs
 
-        Needs: permission `fleet.read`."""
+        Needs: permission `fleet.read`.
+
+        Deprecated: see the API changelog."""
         return self._call("GET", "/api/fleet/logs", query={"node": node, "refresh": refresh, "q": q, "since": since, "until": until, "level": level, "limit": limit}, body=None)
 
     def fleet_metrics(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, metric: Union[Literal["cpu", "memory", "swap", "disk", "load", "net_rx", "net_tx"], None] = None, window: Union[Literal["1h", "6h", "24h", "7d", "30d"], None] = None) -> "FleetViewOut":
@@ -6130,6 +6150,86 @@ class Fleet:
 
         Needs: permission `fleet.read`."""
         return self._call("GET", "/api/fleet/updates", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_activity(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, limit: Union[int, None] = None) -> "ViewOut":
+        """GET /api/views/activity
+
+        View Activity
+
+        Needs: permission `audit.read`."""
+        return self._call("GET", "/api/views/activity", query={"node": node, "refresh": refresh, "limit": limit}, body=None)
+
+    def view_alerts(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "ViewOut":
+        """GET /api/views/alerts
+
+        View Alerts
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/views/alerts", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_apps(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "ViewOut":
+        """GET /api/views/apps
+
+        View Apps
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/views/apps", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_backups(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "ViewOut":
+        """GET /api/views/backups
+
+        View Backups
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", "/api/views/backups", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_certificates(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "ViewOut":
+        """GET /api/views/certificates
+
+        View Certificates
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/views/certificates", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_cron(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "ViewOut":
+        """GET /api/views/cron
+
+        View Cron
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/views/cron", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_databases(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "ViewOut":
+        """GET /api/views/databases
+
+        View Databases
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", "/api/views/databases", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_logs(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, q: Union[str, None] = None, since: Union[str, None] = None, until: Union[str, None] = None, level: Union[str, None] = None, limit: Union[int, None] = None) -> "ViewOut":
+        """GET /api/views/logs
+
+        View Logs
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/views/logs", query={"node": node, "refresh": refresh, "q": q, "since": since, "until": until, "level": level, "limit": limit}, body=None)
+
+    def view_search(self, *, q: str, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, kind: Union[list[Literal["server", "app", "database", "site", "certificate", "cron"]], None] = None, limit: Union[int, None] = None) -> "SearchOut":
+        """GET /api/views/search
+
+        View Search
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/views/search", query={"q": q, "node": node, "refresh": refresh, "kind": kind, "limit": limit}, body=None)
+
+    def view_sites(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "ViewOut":
+        """GET /api/views/sites
+
+        View Sites
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/views/sites", query={"node": node, "refresh": refresh}, body=None)
 
 
 

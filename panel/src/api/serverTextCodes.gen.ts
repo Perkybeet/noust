@@ -73,6 +73,7 @@ export const SERVER_TEXT = {
   "doctor.web.none": { text: [], hint: null, commands: [] },
   "doctor.web.running": { text: ["unit"], hint: null, commands: [] },
   "doctor.web.stopped": { text: ["unit"], hint: null, commands: [] },
+  "fleet.refused.permission": { text: ["permission", "role"], hint: [], commands: [] },
   "invitation.mail_failed": { text: ["reason"], hint: [], commands: [] },
   "mail.no_public_url": { text: [], hint: [], commands: [] },
   "mail.no_transport": { text: [], hint: [], commands: [] },

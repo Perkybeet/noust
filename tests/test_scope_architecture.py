@@ -464,6 +464,24 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/map",
             # The servers a team was given: the handler keeps to them.
             "GET /api/nodes",
+            # The page of a resource across the servers: this central's rows come through its own
+            # API as the caller, which narrows them to its teams, and the other servers are asked
+            # only for a caller that sees every team.
+            *(
+                f"GET /api/views/{view}"
+                for view in (
+                    "apps",
+                    "databases",
+                    "sites",
+                    "certificates",
+                    "backups",
+                    "cron",
+                    "logs",
+                    "alerts",
+                    "activity",
+                    "search",
+                )
+            ),
             "GET /events",
         }
 

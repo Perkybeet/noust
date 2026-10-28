@@ -31540,7 +31540,7 @@
         "type": "object"
       },
       "NodeOutcomeOut": {
-        "description": "How one server answered a fleet view.\n\nAttributes:\n    name: The server's name (this central's own name for its own row).\n    local: The row is this central.\n    status: ``ok``, ``stale``, ``unreachable``, ``unsupported``,\n        ``forbidden`` or ``error``.\n    code: Why, for a machine (``node_unreachable``, ``node_refused``,\n        ``timeout``, ``not_offered``, ``permission_denied``...).\n    message: Why, in a sentence.\n    hint: What to do about it.\n    error_verbatim: The node's or ssh's own words.\n    age_seconds: How old the rows shown for it are.\n    fetched_at: When they were read.\n    elapsed_ms: How long its first answer took.\n    version: The Noust it runs.\n    missing: Its endpoints the view needed and it does not offer.\n    warnings: Parts of the view it could not give.",
+        "description": "How one server answered a fleet view.\n\nAttributes:\n    name: The server's name (this central's own name for its own row).\n    local: The row is this central.\n    status: ``ok``, ``stale``, ``unreachable``, ``unsupported``,\n        ``forbidden`` or ``error``.\n    code: Why, for a machine (``node_unreachable``, ``node_refused``,\n        ``timeout``, ``not_offered``, ``permission_denied``...).\n    message: Why, in a sentence.\n    hint: What to do about it.\n    error_verbatim: The node's or ssh's own words.\n    age_seconds: How old the rows shown for it are.\n    fetched_at: When they were read.\n    elapsed_ms: How long its first answer took.\n    version: The Noust it runs.\n    missing: Its endpoints the view needed and it does not offer.\n    warnings: Parts of the view it could not give.\n    path: Its endpoint whose answer is the reason, when the outcome is a refusal or a\n        failure.",
         "properties": {
           "age_seconds": {
             "anyOf": [
@@ -31634,6 +31634,17 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
           },
           "status": {
             "title": "Status",
@@ -40760,6 +40771,85 @@
         "title": "RecordingsResponse",
         "type": "object"
       },
+      "RefusalGroupOut": {
+        "description": "The servers that refused the operator the same thing.\n\nAttributes:\n    reason: ``permission`` (the operator's role does not hold one) or ``other`` (anything a\n        server refuses for: its own words say what).\n    code: The code the servers answered with, such as ``permission_denied``.\n    permission: What is missing, for a refusal about a permission.\n    resource: The view that was asked.\n    servers: Their names, in the order they were asked.\n    count: How many they are.\n    includes_central: This central is one of them.\n    message: What is missing, in English.\n    hint: How to give it, in English.\n    coded: The same sentence as a code and its values, for the console to translate; None\n        when the words are the server's own.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "includes_central": {
+            "default": false,
+            "title": "Includes Central",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "permission": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permission"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "resource": {
+            "title": "Resource",
+            "type": "string"
+          },
+          "servers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Servers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reason",
+          "code",
+          "resource",
+          "servers",
+          "count",
+          "message"
+        ],
+        "title": "RefusalGroupOut",
+        "type": "object"
+      },
       "RefusedRestartOut": {
         "description": "A service on replaced libraries that is not restarted from Noust, and why.",
         "properties": {
@@ -46657,6 +46747,145 @@
           "sealing"
         ],
         "title": "SealPlan",
+        "type": "object"
+      },
+      "SearchHitOut": {
+        "description": "One thing a search found, on one server.\n\nAttributes:\n    kind: ``server``, ``app``, ``database``, ``site``, ``certificate`` or ``cron``.\n    name: What it is called.\n    detail: A second identifier worth showing beside the name (an engine, a web server, a\n        version); a value, never a sentence.\n    node: The server it is on.\n    local: That server is this central.\n    page: Its page on that server's console.\n    href: The same page through this central's console.\n    labels: A server's labels, for a hit that is a server.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "local": {
+            "default": false,
+            "title": "Local",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "page": {
+            "title": "Page",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "node",
+          "page",
+          "href"
+        ],
+        "title": "SearchHitOut",
+        "type": "object"
+      },
+      "SearchOut": {
+        "description": "What a search found across the fleet, best first.\n\nAttributes:\n    query: What was asked.\n    total: How many things matched.\n    truncated: There are more matches than ``items`` carries.\n    items: The hits.",
+        "properties": {
+          "fleet": {
+            "title": "Fleet",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHitOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/ViewNodeOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "refusals": {
+            "items": {
+              "$ref": "#/components/schemas/RefusalGroupOut"
+            },
+            "title": "Refusals",
+            "type": "array"
+          },
+          "resource": {
+            "title": "Resource",
+            "type": "string"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/ViewServerOut"
+            },
+            "title": "Servers",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "resource",
+          "generated_at",
+          "partial",
+          "fleet",
+          "servers",
+          "nodes",
+          "refusals",
+          "query",
+          "total",
+          "truncated"
+        ],
+        "title": "SearchOut",
         "type": "object"
       },
       "SecondFactorRequest": {
@@ -58686,6 +58915,251 @@
           "webserver"
         ],
         "title": "VersionsResponse",
+        "type": "object"
+      },
+      "ViewNodeOut": {
+        "description": "How one server answered a view.\n\nAttributes:\n    permission: The permission the server refused, when it refused one and the central's own\n        map of routes names it.\n    refusal: Why it refused, when it did: ``permission`` or ``other``.",
+        "properties": {
+          "age_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Seconds"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "elapsed_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elapsed Ms"
+          },
+          "error_verbatim": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Verbatim"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "local": {
+            "default": false,
+            "title": "Local",
+            "type": "boolean"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "permission": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permission"
+          },
+          "refusal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refusal"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "status"
+        ],
+        "title": "ViewNodeOut",
+        "type": "object"
+      },
+      "ViewOut": {
+        "description": "One view: the rows of every server asked.\n\nAttributes:\n    items: The rows, as each server lists the resource, each with ``node`` (the server),\n        ``local`` (it is this central), ``page`` (its page on that server's console) and\n        ``href`` (the same page through this central's console).",
+        "properties": {
+          "fleet": {
+            "title": "Fleet",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/ViewNodeOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "refusals": {
+            "items": {
+              "$ref": "#/components/schemas/RefusalGroupOut"
+            },
+            "title": "Refusals",
+            "type": "array"
+          },
+          "resource": {
+            "title": "Resource",
+            "type": "string"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/ViewServerOut"
+            },
+            "title": "Servers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "resource",
+          "generated_at",
+          "partial",
+          "fleet",
+          "servers",
+          "nodes",
+          "refusals",
+          "items"
+        ],
+        "title": "ViewOut",
+        "type": "object"
+      },
+      "ViewServerOut": {
+        "description": "One server the operator may filter by.\n\nAttributes:\n    name: What the server is called (this central's own name for itself).\n    selector: What to send as ``node`` to ask for it alone: ``@central`` for the central\n        itself, the server's name for a node.\n    local: It is this central.",
+        "properties": {
+          "local": {
+            "default": false,
+            "title": "Local",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "selector": {
+            "title": "Selector",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "selector"
+        ],
+        "title": "ViewServerOut",
         "type": "object"
       },
       "VolumeBackupListResponse": {
@@ -74330,7 +74804,7 @@
     },
     "/api/apps/{domain}/rollback-points": {
       "get": {
-        "description": "List the backups an application can be rolled back to.\n\nDeliberately not gated on the application still being deployed: a backup\nfor a domain Noust no longer serves is still a rollback point until it is\npruned, the same reasoning that keeps deployment history around after an\napplication is deleted (see :mod:`noust.web.views.deployments`).\n\nArgs:\n    domain: Domain whose rollback points are asked for.\n    session: The authenticated session.\n\nReturns:\n    The points, newest first, from\n    :meth:`~noust.managers.backup_manager.RollbackManager.list_rollback_points`\n    - the one implementation, shared with ``noust backup rollback --list``.",
+        "description": "List the backups an application can be rolled back to.\n\nDeliberately not gated on the application still being deployed: a backup\nfor a domain Noust no longer serves is still a rollback point until it is\npruned, the same reasoning that keeps deployment history around after an\napplication is deleted (see :mod:`noust.web.views.deployments`).\n\nArgs:\n    domain: Domain whose rollback points are asked for.\n    session: The authenticated session.\n\nReturns:\n    The points, newest first, from\n    :meth:`~noust.managers.rollback_manager.RollbackManager.list_rollback_points`\n    - the one implementation, shared with ``noust backup rollback --list``.",
         "operationId": "list_rollback_points_api_apps__domain__rollback_points_get",
         "parameters": [
           {
@@ -93191,6 +93665,7 @@
     },
     "/api/fleet/activity": {
       "get": {
+        "deprecated": true,
         "description": "What happened lately on every server, newest first.\n\nEach server's audit log decides what this operator may read of it: a\nserver that does not let the operator's role read its audit log is\n``forbidden``, not an error.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    limit: Events per server.\n\nReturns:\n    One row per event.",
         "operationId": "fleet_activity_api_fleet_activity_get",
         "parameters": [
@@ -93268,11 +93743,17 @@
         "tags": [
           "Fleet"
         ],
+        "x-noust-deprecation": {
+          "since": "2026-10-28",
+          "successor": "/api/views/activity",
+          "sunset": "2027-05-01"
+        },
         "x-noust-permission": "fleet.read"
       }
     },
     "/api/fleet/apps": {
       "get": {
+        "deprecated": true,
         "description": "Every application of every server, as each server lists it.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per application, with its server and its page there.",
         "operationId": "fleet_apps_api_fleet_apps_get",
         "parameters": [
@@ -93336,11 +93817,17 @@
         "tags": [
           "Fleet"
         ],
+        "x-noust-deprecation": {
+          "since": "2026-10-28",
+          "successor": "/api/views/apps",
+          "sunset": "2027-05-01"
+        },
         "x-noust-permission": "fleet.read"
       }
     },
     "/api/fleet/backups": {
       "get": {
+        "deprecated": true,
         "description": "Every application's backups, the gaps first: none, old, unverified, unscheduled.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per application: its newest backup, whether it verified, its schedule.",
         "operationId": "fleet_backups_api_fleet_backups_get",
         "parameters": [
@@ -93404,6 +93891,11 @@
         "tags": [
           "Fleet"
         ],
+        "x-noust-deprecation": {
+          "since": "2026-10-28",
+          "successor": "/api/views/backups",
+          "sunset": "2027-05-01"
+        },
         "x-noust-permission": "fleet.read"
       }
     },
@@ -93570,6 +94062,7 @@
     },
     "/api/fleet/certificates": {
       "get": {
+        "deprecated": true,
         "description": "Every certificate of every server, the soonest to expire first.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per certificate.",
         "operationId": "fleet_certificates_api_fleet_certificates_get",
         "parameters": [
@@ -93633,6 +94126,11 @@
         "tags": [
           "Fleet"
         ],
+        "x-noust-deprecation": {
+          "since": "2026-10-28",
+          "successor": "/api/views/certificates",
+          "sunset": "2027-05-01"
+        },
         "x-noust-permission": "fleet.read"
       }
     },
@@ -94913,6 +95411,7 @@
     },
     "/api/fleet/logs": {
       "get": {
+        "deprecated": true,
         "description": "Search the logs of the applications of every server at once, newest first.\n\nEach server decides what this operator may read of its logs (a team's own\napplications, never another's) and judges the query and the window itself;\na server that cannot search is a note on the view, not an error.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    q: The search.\n    since: Start of the window.\n    until: End of the window.\n    level: The worst level kept.\n    limit: Lines per server.\n\nReturns:\n    One row per line (``type: line``) and one per note (``type: note``).",
         "operationId": "fleet_logs_api_fleet_logs_get",
         "parameters": [
@@ -95057,6 +95556,11 @@
         "tags": [
           "Fleet"
         ],
+        "x-noust-deprecation": {
+          "since": "2026-10-28",
+          "successor": "/api/views/logs",
+          "sunset": "2027-05-01"
+        },
         "x-noust-permission": "fleet.read"
       }
     },
@@ -111923,6 +112427,837 @@
           "Variables"
         ],
         "x-noust-permission": "settings.read"
+      }
+    },
+    "/api/views/activity": {
+      "get": {
+        "description": "What happened lately on every server, newest first.\n\nEach server's audit log decides what this operator may read of it. The servers that do not\nlet the operator's role read it come grouped in ``refusals`` (how many, which, what is\nmissing, how to give it) and are ``forbidden`` in ``nodes``.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    limit: Events per server.\n\nReturns:\n    One row per event.",
+        "operationId": "view_activity_api_views_activity_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Events per server",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Events per server",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Activity",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "audit.read"
+      }
+    },
+    "/api/views/alerts": {
+      "get": {
+        "description": "The alert rules of every server, the ones firing first.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per rule, with ``firing`` and where each of its subjects stands.",
+        "operationId": "view_alerts_api_views_alerts_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Alerts",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/views/apps": {
+      "get": {
+        "description": "The applications of every server, as each server lists them.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per application, with its server and its page there.",
+        "operationId": "view_apps_api_views_apps_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Apps",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/views/backups": {
+      "get": {
+        "description": "Every application's backups, the gaps first: none, old, unverified, unscheduled.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per application: its newest backup, whether it verified, its schedule.",
+        "operationId": "view_backups_api_views_backups_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Backups",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "backups.read"
+      }
+    },
+    "/api/views/certificates": {
+      "get": {
+        "description": "The certificates of every server, the soonest to expire first.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per certificate.",
+        "operationId": "view_certificates_api_views_certificates_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Certificates",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/views/cron": {
+      "get": {
+        "description": "The scheduled jobs of every server, with their next run and last result.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per job.",
+        "operationId": "view_cron_api_views_cron_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Cron",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/views/databases": {
+      "get": {
+        "description": "The databases of every server, as each server lists them.\n\nAn engine a server could not read is a warning of that server in ``nodes``, not a missing\nrow: a database that is not listed and an engine nobody could ask are not the same thing.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per database, with its server and its page there.",
+        "operationId": "view_databases_api_views_databases_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Databases",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/views/logs": {
+      "get": {
+        "description": "Search the logs of the applications of every server at once, newest first.\n\nEach server decides what this operator may read of its logs and judges the query and the\nwindow itself; a server that cannot search is a note on the view, not an error.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    q: The search.\n    since: Start of the window.\n    until: End of the window.\n    level: The worst level kept.\n    limit: Lines per server.\n\nReturns:\n    One row per line (``type: line``) and one per note (``type: note``).",
+        "operationId": "view_logs_api_views_logs_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "The search: words, fields, -excluded, a OR b",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "The search: words, fields, -excluded, a OR b",
+              "maxLength": 1000,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Start: 15m, 2h, 7d, a date, epoch seconds",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start: 15m, 2h, 7d, a date, epoch seconds",
+              "title": "Since"
+            }
+          },
+          {
+            "description": "End, in the same forms",
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End, in the same forms",
+              "title": "Until"
+            }
+          },
+          {
+            "description": "The worst level kept",
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The worst level kept",
+              "title": "Level"
+            }
+          },
+          {
+            "description": "Lines per server",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Lines per server",
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Logs",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/views/search": {
+      "get": {
+        "description": "Find a server, application, database, site, certificate or scheduled job on any server.\n\nEvery word has to be found in the name, in what else the record says (its owner, its source,\nits labels, the names a site answers on) or in the name of the server it is on; a name that is\nthe query comes first. A server that is down is still found by its name.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    q: The words to find.\n    node: Only these servers.\n    refresh: Ask again.\n    kind: Only these kinds of thing.\n    limit: The most things to return.\n\nReturns:\n    The hits, best first, and how many things matched.\n\nRaises:\n    ValidationError: 400 when ``q`` is only spaces.",
+        "operationId": "view_search_api_views_search_get",
+        "parameters": [
+          {
+            "description": "Words to find, all of them",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "Words to find, all of them",
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only these kinds of thing, repeated",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "server",
+                      "app",
+                      "database",
+                      "site",
+                      "certificate",
+                      "cron"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these kinds of thing, repeated",
+              "title": "Kind"
+            }
+          },
+          {
+            "description": "The most things to return",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "The most things to return",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Search",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/views/sites": {
+      "get": {
+        "description": "The sites of every server's web server: the names each answers on.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per site, with its server and its page there.",
+        "operationId": "view_sites_api_views_sites_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Sites",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/volume-backups": {

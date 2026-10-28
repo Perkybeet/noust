@@ -234,6 +234,15 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  fleet: {
+    refused: {
+      permission: {
+        text: "Tu rol {role} no tiene el permiso {permission} en estos servidores",
+        hint:
+          "Pide a un responsable de seguridad de cada uno una cuenta con un rol que lo tenga, o que añadan ese permiso a tu rol allí.",
+      },
+    },
+  },
   invitation: {
     mail_failed: {
       text: "No se pudo enviar la invitación por correo: {reason}",

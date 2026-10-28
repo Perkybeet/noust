@@ -395,6 +395,10 @@ RULES: tuple[Rule, ...] = (
     # How the console itself is exposed: the server's.
     _rule("/api/console/**", INSTANCE),
     _rule("/api/fleet/**", INSTANCE),
+    # The page of a resource across the servers: this central's rows come through its own API as
+    # the caller, which narrows them to the caller's teams, and the other servers are asked only
+    # for a caller that sees every team (noust.web.api.views).
+    _rule("/api/views/**", SCOPED),
     # A server assigned to a team is that team's: it sees it, tests it and works on it through the
     # central, held at each call to the permission its role holds in that team and to what a team
     # may reach (never a route that is the server's own: noust.web.api.scope). How the central

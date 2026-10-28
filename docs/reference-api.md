@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1051 operations.
+1061 operations.
 
 ## Access
 
@@ -724,6 +724,16 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/fleet/servers/{node}/labels` | Set Labels | `fleet.manage` |  |  |
 | GET | `/api/fleet/summary` | Fleet Summary | `fleet.read` |  |  |
 | GET | `/api/fleet/updates` | Fleet Updates | `fleet.read` |  |  |
+| GET | `/api/views/activity` | View Activity | `audit.read` |  |  |
+| GET | `/api/views/alerts` | View Alerts | `server.read` |  |  |
+| GET | `/api/views/apps` | View Apps | `apps.read` |  |  |
+| GET | `/api/views/backups` | View Backups | `backups.read` |  |  |
+| GET | `/api/views/certificates` | View Certificates | `apps.read` |  |  |
+| GET | `/api/views/cron` | View Cron | `apps.read` |  |  |
+| GET | `/api/views/databases` | View Databases | `databases.read` |  |  |
+| GET | `/api/views/logs` | View Logs | `apps.read` |  |  |
+| GET | `/api/views/search` | View Search | `apps.read` |  |  |
+| GET | `/api/views/sites` | View Sites | `apps.read` |  |  |
 
 ## Git push
 
