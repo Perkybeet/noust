@@ -3090,16 +3090,19 @@ def scenario_views(env: FleetEnv) -> None:
         # The node's console stops: it is an outcome of the views, and still found by name.
         node.run("systemctl stop noust-web", timeout=60, label="systemctl stop noust-web")
         try:
-            down = views_get(env, "search", params={"q": env.node_name, "refresh": "true"})
+            down = views_get(
+                env, "search", params={"q": env.node_name, "kind": "server", "refresh": "true"}
+            )
             central.check(
                 [(hit["kind"], hit["name"]) for hit in down["items"]]
                 == [("server", env.node_name)],
                 f"a server that is down is not found by its name: {down['items']!r}",
             )
             outcome = next(o for o in down["nodes"] if o["name"] == env.node_name)
+            # Its last good answer is shown, with its age, until it has been silent for an hour.
             central.check(
-                outcome["status"] == "unreachable" and down["partial"] is True,
-                f"the node that is down is not an unreachable outcome: {outcome!r}",
+                outcome["status"] in ("unreachable", "stale") and down["partial"] is True,
+                f"the node that is down is not an outcome of the view: {outcome!r}",
             )
             central.check(down["refusals"] == [], "a server that is down was told as a refusal")
         finally:
