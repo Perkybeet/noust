@@ -116,14 +116,6 @@ def runner(proggest_config: dict[str, Any]) -> Iterator[StackRunner]:
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
-
-
-@pytest.fixture
 def app_path(tmp_path: Path, store: NoustStore) -> Path:
     """A deployed Compose application whose directory is not under ``apps_directory``."""
     path = tmp_path / "srv" / "legacy-proggest"

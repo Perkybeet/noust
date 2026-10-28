@@ -20,7 +20,6 @@ from click.testing import CliRunner, Result
 from noust.cli.app import cli as root_cli
 from noust.cli.app import main
 from noust.core.exceptions import ValidationError
-from noust.core.logger import Logger
 from noust.deployers import access
 from noust.managers.site_policy import SitePolicy, validated
 
@@ -34,13 +33,6 @@ def view(*routes: dict[str, Any]) -> access.AccessView:
         users=("ana",),
         webserver="nginx",
     )
-
-
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
 
 
 @pytest.fixture

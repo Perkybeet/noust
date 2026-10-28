@@ -34,8 +34,8 @@ from noust.core.config import Config
 from noust.core.exceptions import ConfigError, ValidationError
 from noust.core.store import NoustStore
 from noust.web.auth import CSRF_HEADER_NAME
-from tests.oidc_support import FakeIdP
-from tests.test_web_oidc import (  # noqa: F401 - the fixtures of the sign-in tests
+from tests.support.oidc_support import FakeIdP
+from tests.support.web_oidc import (  # noqa: F401 - the fixtures of the sign-in tests
     PASSWORD,
     accounts,
     app,
@@ -420,7 +420,7 @@ class TestTheApi:
             "survivors": ["root-admin"],
             "providers": 0,
         }
-        from tests.test_web_oidc import logged
+        from tests.support.web_oidc import logged
 
         assert logged(sandbox, "auth.local_login.change")
 

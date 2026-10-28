@@ -30,13 +30,13 @@ from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.sandbox import BuildPhase
 from noust.deployers.monorepo import MonorepoDeployer
 from noust.validators.environment import EnvironmentValidationError
-from tests.test_monorepo_releases import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.build_sandbox import as_root  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.monorepo_releases import (  # noqa: F401  (pytest resolves fixtures by name)
     APP,
     COMMIT,
     DOMAIN,
     Probe,
     Units,
-    as_root,
     deployer,
     no_waiting,
     probe,

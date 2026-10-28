@@ -7,7 +7,7 @@ the provider makes it post, the cookie, the ticket, the second factor an account
 lockout, the audit trail and the administrator's side.
 
 The whole console is served by ``create_app``; the identity provider is
-``tests/saml_support.FakeIdp`` (a real key, a real signature), so what runs is what a browser
+``tests/support/saml_support.FakeIdp`` (a real key, a real signature), so what runs is what a browser
 would meet. What the XML must be to be believed is held by ``tests/test_saml.py``; what these tests
 say is that a response which is not right never becomes a session, however it arrives.
 """
@@ -29,9 +29,9 @@ from noust.core.accounts import AuthPolicy
 from noust.core.accounts.saml import SamlManager
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_brute_force, get_token_manager
-from tests.mfa_support import require_second_factor
-from tests.saml_support import FakeIdp, make_identity
-from tests.test_web_oidc import (  # noqa: F401 - the fixtures and helpers of the sign-in tests
+from tests.support.mfa_support import require_second_factor
+from tests.support.saml_support import FakeIdp, make_identity
+from tests.support.web_oidc import (  # noqa: F401 - the fixtures and helpers of the sign-in tests
     BASE,
     PASSWORD,
     accounts,
@@ -482,7 +482,7 @@ class TestAdministration:
         assert "certificates" in recorded[-1]["detail"]
 
     def test_the_providers_metadata_fills_what_the_provider_needs(self, app: Any) -> None:
-        from tests.test_saml import metadata_xml
+        from tests.support.saml import metadata_xml
 
         client = self.sign_in_as_security(app)
         self.elevate(client)

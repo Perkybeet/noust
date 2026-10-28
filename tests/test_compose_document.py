@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from noust.core.exceptions import DeploymentError, NoustError, ValidationError
+from noust.core.exceptions import DeploymentError, ValidationError
 from noust.core.store import App, NoustStore
 from noust.deployers import compose_document, pending_changes
 from noust.deployers.compose_document import (
@@ -32,21 +32,7 @@ from noust.deployers.compose_document import (
 from noust.recipes import get_recipe
 from noust.recipes.deploy import COMPOSE_FILE, recipe_source_dir
 from noust.recipes.installed import record_install
-
-DOMAIN = "stack.example.com"
-APP_NAME = "stack-example-com"
-
-DOCUMENT = """\
-services:
-  web:
-    image: nginx:1.27
-    ports:
-      - "127.0.0.1:8080:80"
-    environment:
-      - DB_PASSWORD=${DB_PASSWORD:?give the database a password}
-"""
-
-NEWER = DOCUMENT.replace("nginx:1.27", "nginx:1.28")
+from tests.support.compose_document import APP_NAME, DOCUMENT, DOMAIN, NEWER, Updates, make_stack
 
 
 @pytest.fixture
@@ -58,29 +44,6 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
     NoustStore.reset_instance()
 
 
-def make_stack(store: NoustStore, tmp_path: Path, **fields: Any) -> App:
-    """A Docker Compose stack deployed from a pasted document, with its .env."""
-    directory = recipe_source_dir(APP_NAME, store)
-    directory.mkdir(parents=True)
-    (directory / COMPOSE_FILE).write_text(DOCUMENT)
-    root = tmp_path / "apps" / APP_NAME
-    root.mkdir(parents=True)
-    (root / ".env").write_text("DB_PASSWORD=hunter2\n")
-    values: dict[str, Any] = {
-        "domain": DOMAIN,
-        "app_type": "docker-compose",
-        "source": str(directory),
-        "app_path": str(root),
-        "port": 8080,
-        "layout": "inplace",
-    }
-    values.update(fields)
-    store.create_app(App(**values))
-    row = store.get_app(DOMAIN)
-    assert row is not None
-    return row
-
-
 @pytest.fixture
 def stack(store: NoustStore, tmp_path: Path) -> App:
     return make_stack(store, tmp_path)
@@ -88,24 +51,6 @@ def stack(store: NoustStore, tmp_path: Path) -> App:
 
 def kept(store: NoustStore) -> str:
     return (recipe_source_dir(APP_NAME, store) / COMPOSE_FILE).read_text()
-
-
-class Updates:
-    """Stands in for the update, recording what it was asked and failing on demand."""
-
-    def __init__(self) -> None:
-        self.calls: list[dict[str, Any]] = []
-        self.fail: NoustError | None = None
-        self.put_back: list[dict[str, Any]] = []
-
-    def update_app(self, domain: str, **kwargs: Any) -> Any:
-        self.calls.append({"domain": domain, **kwargs})
-        if self.fail is not None:
-            raise self.fail
-        return type("Outcome", (), {"deployment_id": 41, "warnings": None})()
-
-    def put_stack_back(self, domain: str, app_name: str, snapshot: Any, failure: Any, **kw: Any):
-        self.put_back.append({"domain": domain, "snapshot": dict(snapshot), "failure": failure})
 
 
 @pytest.fixture

@@ -34,7 +34,7 @@ from click.testing import CliRunner, Result
 from noust.cli.commands import monitor as cli_monitor
 from noust.core.exceptions import MonitorError
 from noust.core.logger import Logger
-from tests.console_patch_support import patch_console
+from tests.support.console_patch_support import patch_console
 
 #: Flags that belong to the root command and to no other. A subcommand that
 #: declares one of them is the shadowing defect the migration exists to remove.

@@ -28,6 +28,7 @@ import pytest
 from jinja2 import Environment, PackageLoader
 
 from noust.core import app_build_store
+from noust.core.appdir.layout import RELEASES
 from noust.core.exceptions import DeploymentError, ValidationError
 from noust.core.store import NoustStore
 from noust.deployers.helpers.build_config import set_operator_build
@@ -36,8 +37,8 @@ from noust.deployers.python import PythonDeployer
 from noust.deployers.static import StaticDeployer
 from noust.deployers.vite import ViteDeployer
 from noust.managers.runtimes import RuntimeManager
-from tests.deployer_patch_support import patch_deployer
-from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
+from tests.support.deployer_patch_support import patch_deployer
+from tests.support.release_pipeline import (  # noqa: F401 - fixtures used by name
     BROKEN_SERVER,
     DOMAIN,
     GIT_URL,
@@ -45,7 +46,6 @@ from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
     LOCKFILE,
     PACKAGE_JSON,
     PORT,
-    RELEASES,
     FakeServices,
     active_id,
     deploy_new,

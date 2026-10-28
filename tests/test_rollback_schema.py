@@ -35,7 +35,7 @@ from noust.deployers.lifecycle import (
     rollback_to_deployment,
     schema_changed_between,
 )
-from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
+from tests.support.release_pipeline import (  # noqa: F401 - fixtures used by name
     BROKEN_SERVER,
     DOMAIN,
     active_id,

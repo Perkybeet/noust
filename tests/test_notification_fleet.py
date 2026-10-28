@@ -27,7 +27,7 @@ from noust.core.notifications.fleet import (
     notify_node_unreachable,
 )
 from noust.core.notifier import NOTIFICATION_QUEUE, Notifier
-from tests.test_notifier import CapturingOpener, config, public_dns  # noqa: F401
+from tests.support.notifier import CapturingOpener, config, public_dns  # noqa: F401
 
 WEBHOOK_URL = "https://hooks.example.test/fleet"
 

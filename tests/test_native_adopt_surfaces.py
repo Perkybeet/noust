@@ -29,7 +29,7 @@ from noust.managers.site_topology import TopologyProbe
 from noust.web.api import app_native_adopt
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers, require_elevated
-from tests.test_native_adopt import (  # noqa: F401 - the fixtures of a server with three sites
+from tests.support.native_adopt import (  # noqa: F401 - the fixtures of a server with three sites
     UNIT,
     Machine,
     Server,

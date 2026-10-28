@@ -24,7 +24,7 @@ from noust.deployers import bluegreen
 from noust.deployers.bluegreen import BlueGreen, adopt_for_new_app
 from noust.managers.diagnose import diagnose
 from noust.managers.health import _check_updates
-from tests.test_bluegreen import (
+from tests.support.bluegreen import (
     DOMAIN,
     Machine,
     app,

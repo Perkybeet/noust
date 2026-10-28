@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import stat
 from collections.abc import Iterator
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -36,84 +35,21 @@ from noust.core.exceptions import (
     ValidationError,
 )
 from noust.core.runner import set_runner
-from noust.core.secrets import SecretStore
 from noust.core.store import NoustStore
 from noust.core.stream_store import StreamExposure, StreamStore
 from noust.managers.database import public_access
-from noust.managers.database.base import BaseDatabaseManager
-from noust.managers.database.public_access import PublicAccess, remote_user_name
-from noust.managers.database.service import DatabaseService
-from tests.database_public_support import (
-    PUBLIC_IP,
-    PublicHostRunner,
-    fresh_state,
-    public_engine,
-)
+from noust.managers.database.public_access import remote_user_name
+from tests.support.database_public import ENGINE, PASSWORD, World, build_world
+from tests.support.database_public_support import PUBLIC_IP
 
 pytestmark = pytest.mark.real_listeners
 
-ENGINE = "postgresql"
 DATABASE = "appdb"
-PASSWORD = "Once-0nly-Generated-9!"
-
-
-@dataclass
-class World:
-    """Everything a test touches."""
-
-    access: PublicAccess
-    service: DatabaseService
-    runner: PublicHostRunner
-    state: dict[str, Any]
-    engine: type[BaseDatabaseManager]
-    units: Path
-    store: NoustStore
 
 
 def events(name: str) -> list[dict[str, Any]]:
     """The audit entries of one event."""
     return [entry for entry in audit.get_log().read(limit=300) if entry["action"] == name]
-
-
-def build_world(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    *,
-    ufw: str = "active",
-    tls_blocker: str | None = None,
-) -> World:
-    """
-    Build a server with a PostgreSQL, a firewall and systemd, in a temporary root.
-
-    Args:
-        tmp_path: Per-test temporary directory.
-        monkeypatch: Patching helper.
-        ufw: ``active``, ``inactive`` or ``absent``.
-        tls_blocker: Why the engine cannot require TLS; None when it can.
-
-    Returns:
-        The world.
-    """
-    NoustStore.reset_instance()
-    store = NoustStore(tmp_path / "state" / "noust.db")
-    units = tmp_path / "systemd"
-    units.mkdir()
-    proxy = tmp_path / "systemd-socket-proxyd"
-    proxy.write_text("#!/bin/sh\n")
-    monkeypatch.setattr(public_access, "SYSTEMD_DIR", units)
-    monkeypatch.setattr(public_access, "PROXY_CANDIDATES", (proxy,))
-    state = fresh_state()
-    engine = public_engine(tmp_path, state, tls_blocker=tls_blocker)
-    runner = PublicHostRunner(ufw=ufw)
-    set_runner(runner)
-    service = DatabaseService(
-        resolve=lambda name: engine() if name.lower() in ("postgresql", "pg") else None,
-        engines=lambda: [ENGINE],
-        store=store,
-        secrets=SecretStore(root=tmp_path / "state" / "secrets"),
-    )
-    access = PublicAccess(service, runner=runner)
-    return World(access, service, runner, state, engine, units, store)
 
 
 @pytest.fixture

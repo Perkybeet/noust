@@ -25,7 +25,7 @@ from noust.monitor.collector import MetricsCollector
 from noust.monitor.plan import PlanBuilder, unit_cgroup_path
 from noust.monitor.timeseries import MetricsStore
 from noust.web.machine import AppTally, read_machine
-from tests.test_bluegreen_units import (
+from tests.support.bluegreen_units import (
     BASE,
     DOMAIN,
     PORT,

@@ -19,7 +19,7 @@ import pytest
 
 from noust.manifest import Applier, ManifestError, RefusingResolver, parse, plan, restart_changed
 from noust.manifest.export import export
-from tests.manifest_support import FakeServer
+from tests.support.manifest_support import FakeServer
 
 SHOP = "shop.acme.test"
 API = "api.acme.test"

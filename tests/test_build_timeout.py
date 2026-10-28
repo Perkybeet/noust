@@ -32,7 +32,7 @@ from noust.deployers.helpers.build_config import (
 )
 from noust.deployers.helpers.project_file import parse_build_document
 from noust.deployers.nodejs import NodeJSDeployer
-from tests.test_delivery_config import config  # noqa: F401
+from tests.support.delivery_config import config  # noqa: F401
 
 DOMAIN = "app.example.com"
 
@@ -332,7 +332,7 @@ class TestTheCommand:
 
 class TestTheApi:
     def client(self) -> Any:
-        from tests.test_build_surfaces import build_client
+        from tests.support.build_surfaces import build_client
 
         return build_client(elevated=True)
 

@@ -28,7 +28,7 @@ from noust.core.store import App, NoustStore
 from noust.managers import sqlite_files
 from noust.managers.sqlite_snapshot import open_readonly
 from noust.web.auth import STATE_DIR_ENV
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 ACME = "shop.acme.example"
 GLOBEX = "blog.globex.example"

@@ -24,7 +24,7 @@ from noust.core.store import NoustStore
 from noust.fleet.aggregate import set_aggregator
 from noust.web import fleet_jobs
 from noust.web.auth import STATE_DIR_ENV
-from tests.fleet_views_support import Central, build_central
+from tests.support.fleet_views_support import Central, build_central
 
 
 @pytest.fixture

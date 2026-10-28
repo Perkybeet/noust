@@ -24,8 +24,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi import FastAPI, HTTPException
-from fastapi.testclient import TestClient
 
 from noust.core.runner import FakeRunner, set_runner
 from noust.core.store import App, NoustStore, get_store
@@ -33,10 +31,9 @@ from noust.deployers import docker_compose
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.webserver import NGINX_BACKEND
 from noust.web.api import app_stack as app_stack_api
-from noust.web.api.auth import get_current_session
-from noust.web.api.deps import install_error_handlers, require_elevated
 from noust.web.permissions import Permission
 from noust.web.permissions.routes_app_stack import ROUTES
+from tests.support.web_app_stack import make_client
 
 DOMAIN = "notices.example.com"
 WEB = "shop.example.com"
@@ -85,23 +82,6 @@ def audited(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         "noust.core.audit.record", lambda event, **kwargs: events.append({"event": event, **kwargs})
     )
     return events
-
-
-def make_client(*, elevated: bool = True) -> TestClient:
-    """A client for the router alone, authenticated, elevated or not."""
-    app = FastAPI()
-    install_error_handlers(app)
-    app.include_router(app_stack_api.router, prefix="/api/apps")
-    session = {"type": "session", "session_id": "s", "scope": "admin", "name": "alice"}
-    app.dependency_overrides[get_current_session] = lambda: session
-
-    def elevation() -> dict[str, Any]:
-        if not elevated:
-            raise HTTPException(status_code=403, detail={"error": "elevation_required"})
-        return session
-
-    app.dependency_overrides[require_elevated] = elevation
-    return TestClient(app)
 
 
 class TestBackupBeforeUpdate:

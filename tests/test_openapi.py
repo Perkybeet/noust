@@ -33,7 +33,7 @@ from fastapi import FastAPI
 
 from noust.core.runner import FakeRunner
 from noust.web.server import create_app, get_token_manager
-from tests.test_web_auth import build_client, login, make_config
+from tests.support.web_auth import build_client, login, make_config
 
 
 @pytest.fixture

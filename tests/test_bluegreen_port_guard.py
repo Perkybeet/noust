@@ -37,7 +37,7 @@ from noust.core.store import App, NoustStore
 from noust.deployers import bluegreen, lifecycle
 from noust.deployers.bluegreen import Listener
 from noust.deployers.helpers import preflight
-from tests.test_bluegreen import (
+from tests.support.bluegreen import (
     BASE,
     DOMAIN,
     FIRST,

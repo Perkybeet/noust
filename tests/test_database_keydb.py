@@ -24,8 +24,8 @@ from noust.managers.database.instance_catalog import offered, resolve_pin, spec_
 from noust.managers.database.instance_records import stub_instance
 from noust.managers.database.instances import image_engine
 from noust.managers.database.redis import RedisManager
-from tests.database_instance_support import World, build_world, close_world
-from tests.test_database_instance_compose import PASSWORD, record
+from tests.support.database_instance_compose import PASSWORD, record
+from tests.support.database_instance_support import World, build_world, close_world
 
 
 class TestTheCatalog:

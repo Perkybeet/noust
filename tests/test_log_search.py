@@ -15,9 +15,7 @@ does not see the whole server cannot name a system unit.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -543,14 +541,6 @@ class TestTheLimits:
         argv = list(runner.calls[0])
         assert "sshd.service" not in argv
         assert result.lines == []
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 class TestTheProcessNames:

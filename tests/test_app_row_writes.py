@@ -25,7 +25,7 @@ import pytest
 from noust.core.applock import AppBusyError
 from noust.core.store import App, NoustStore
 from noust.deployers import lifecycle
-from tests.test_applock import Holder
+from tests.support.applock import Holder
 
 DOMAIN = "rows.example.com"
 

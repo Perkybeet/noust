@@ -15,13 +15,13 @@ guess it.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from noust.core.store import NoustStore
-from tests.test_web_apps_env_secrets import (  # noqa: F401
+from tests.support.env_merge import env_file, merge
+from tests.support.web_apps_env_secrets import (  # noqa: F401
     app,
     client,
     deployed_env,
@@ -29,32 +29,6 @@ from tests.test_web_apps_env_secrets import (  # noqa: F401
     read_audit,
     store,
 )
-
-
-def merge(client: TestClient, body: dict[str, Any]) -> Any:
-    """
-    Args:
-        client: A signed-in client.
-        body: The merge request.
-
-    Returns:
-        The response.
-    """
-    return client.patch("/api/apps/example.com/env", json=body)
-
-
-def env_file(directory: Path) -> dict[str, str]:
-    """
-    Args:
-        directory: The application's directory.
-
-    Returns:
-        The variables its ``.env`` holds.
-    """
-    pairs = (
-        line.split("=", 1) for line in (directory / ".env").read_text().splitlines() if "=" in line
-    )
-    return {name: value.strip("'\"") for name, value in pairs}
 
 
 class TestMerging:
@@ -214,7 +188,7 @@ def test_a_read_only_token_may_neither_replace_nor_merge(
     client: TestClient, store: NoustStore, tmp_path: Path, verb: str
 ) -> None:
     from noust.web.server import get_token_manager
-    from tests.test_web_auth import bearer
+    from tests.support.web_auth import bearer
 
     deployed_env(store, tmp_path, env_text="A=1\n")
     token = get_token_manager().create_api_token("reader", "read", None)["token"]

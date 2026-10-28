@@ -33,7 +33,7 @@ from noust.deployers.docker_compose import DockerComposeDeployer
 from noust.deployers.helpers.app_env import read_app_env, read_environment_of
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.validators.environment import EnvironmentValidationError
-from tests.test_docker_compose_sites import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.docker_compose_sites import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     certs,
     root,

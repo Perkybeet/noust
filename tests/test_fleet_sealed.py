@@ -24,7 +24,7 @@ from noust.core.sealing import SecretsLockedError
 from noust.core.secrets import SecretStore
 from noust.fleet.keys import KNOWN_HOSTS, PRIVATE_KEY, PUBLIC_KEY, secret_name
 from noust.fleet.nodes import VERSION_PATH
-from tests.fleet_support import build_fleet
+from tests.support.fleet_support import build_fleet
 
 PASSPHRASE = "correct horse battery staple"
 

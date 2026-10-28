@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from noust.core.config import Config
@@ -33,10 +32,8 @@ from noust.web.auth import (
     scope_satisfies,
 )
 from noust.web.server import create_app, get_token_manager
-from tests.test_web_auth import make_config, read_audit
-
-#: The tunnel's end: sshd connects to the console from loopback.
-TUNNEL = ("127.0.0.1", 50000)
+from tests.support.fleet_node_security import TUNNEL, client_from, fleet_headers
+from tests.support.web_auth import make_config, read_audit
 
 
 @pytest.fixture
@@ -73,30 +70,6 @@ def fleet_token(app: Any) -> str:
         A fleet token named ``fleet-nas``, as ``noust fleet authorize`` mints it.
     """
     return str(get_token_manager().create_fleet_token("fleet-nas")["token"])
-
-
-def client_from(app: Any, peer: tuple[str, int] = TUNNEL) -> TestClient:
-    """
-    Args:
-        app: The application.
-        peer: The TCP peer the requests come from.
-
-    Returns:
-        A client connecting from that peer.
-    """
-    return TestClient(app, client=peer)
-
-
-def fleet_headers(token: str, **extra: str) -> dict[str, str]:
-    """
-    Args:
-        token: The fleet token.
-        **extra: More headers.
-
-    Returns:
-        What a central sends.
-    """
-    return {"Authorization": f"Bearer {token}", **extra}
 
 
 def audit_of(sandbox: Path, action: str) -> list[dict[str, Any]]:

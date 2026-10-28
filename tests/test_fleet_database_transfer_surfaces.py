@@ -32,8 +32,7 @@ from noust.web.auth import STATE_DIR_ENV
 from noust.web.jobs import JobManager
 from noust.web.permissions.registry import route_map
 from noust.web.server import create_app, get_token_manager
-from tests.fleet_views_support import Central, build_central
-from tests.test_fleet_database_transfer import (
+from tests.support.fleet_database_transfer import (
     DATABASE,
     DUMP_NAME,
     PAYLOAD,
@@ -42,8 +41,9 @@ from tests.test_fleet_database_transfer import (
     Target,
     access_row,
 )
-from tests.test_web_auth import make_config
-from tests.test_web_central import elevate, sign_in
+from tests.support.fleet_views_support import Central, build_central
+from tests.support.web_auth import make_config
+from tests.support.web_central import elevate, sign_in
 
 NAMES = ("db-1", "db-2", "db-3")
 BODY = {"database": DATABASE, "engine": "postgresql", "from_node": "db-1", "to": "db-2"}

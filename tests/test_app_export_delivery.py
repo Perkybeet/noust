@@ -30,8 +30,8 @@ from noust.deployers.app_export import (
     plan_import,
     validate_document,
 )
-from tests.test_app_clone import app as clone_app
-from tests.test_app_export import (
+from tests.support.app_clone import app as clone_app
+from tests.support.app_export import (
     DOMAIN,
     NEW,
     FakeCron,

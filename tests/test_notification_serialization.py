@@ -24,7 +24,7 @@ from noust.core.notifications.model import (
     Section,
     State,
 )
-from tests.notifications_support import catalog
+from tests.support.notifications_support import catalog
 
 
 def _full() -> Notification:

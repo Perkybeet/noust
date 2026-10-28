@@ -38,7 +38,7 @@ from noust.core.runner import FakeRunner
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.webserver import APACHE_BACKEND, NGINX_BACKEND
-from tests.network_tables import NetworkTables
+from tests.support.network_tables import NetworkTables
 
 CONTRACT = json.loads(
     (Path(__file__).parent / "contracts/cli_surface.json").read_text(encoding="utf-8")

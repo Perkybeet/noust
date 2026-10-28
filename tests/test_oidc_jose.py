@@ -24,7 +24,7 @@ from noust.core.accounts.oidc_jose import (
     split_token,
     verify_jws,
 )
-from tests.oidc_support import SigningKey, b64, compact
+from tests.support.oidc_support import SigningKey, b64, compact
 
 CLAIMS = {"iss": "https://idp.example.test", "sub": "u1", "aud": "console"}
 

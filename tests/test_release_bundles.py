@@ -39,10 +39,10 @@ from noust.deployers.base import BaseDeployer
 from noust.deployers.lifecycle import list_releases
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.release_bundles import build_and_pack, receive
-from tests.deployer_patch_support import patch_deployer
-from tests.test_promote import SearchingRunner
-from tests.test_release_bundle import RELEASE, raw_bundle
-from tests.test_release_pipeline import (
+from tests.support.deployer_patch_support import patch_deployer
+from tests.support.promote import SearchingRunner
+from tests.support.release_bundle import RELEASE, raw_bundle
+from tests.support.release_pipeline import (
     DOMAIN,
     GIT_URL,
     PORT,

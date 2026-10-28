@@ -20,7 +20,7 @@ from noust.core import legacy_names
 from noust.core.runner import FakeRunner
 from noust.managers import health, name_migration, setup_doctor
 from noust.managers.name_migration import Finding, NameMigration, StepOutcome
-from tests.test_cli_setup import Wasm, prepared, wasm  # noqa: F401 - fixtures
+from tests.support.cli_setup import Wasm, prepared, wasm  # noqa: F401 - fixtures
 
 WAITING = Finding(
     "upstream",

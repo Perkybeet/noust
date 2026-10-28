@@ -23,7 +23,7 @@ import pytest
 
 from noust.core.runner import FakeRunner
 from noust.managers.apache_manager import APACHE_BACKEND, ApacheManager
-from tests.test_webserver_managers import FakeStore
+from tests.support.webserver_managers import FakeStore
 
 CONTEXT: dict[str, Any] = {
     "document_root": "/var/www/apps/example-com/current",

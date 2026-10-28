@@ -20,8 +20,11 @@ from noust.managers.backup_scheduler import BackupScheduler
 from noust.managers.server.storage_policy import CleanupRun
 from noust.web.jobs import JobType
 from noust.web.permissions.registry import route_map
-from tests.server_support import no_package_manager_running  # noqa: F401 - registers itself
-from tests.test_server_api import api, store  # noqa: F401 - the fixtures the server API tests share
+from tests.support.server_api import (  # noqa: F401 - the fixtures the server API tests share
+    api,
+    store,
+)
+from tests.support.server_support import no_package_manager_running  # noqa: F401 - registers itself
 
 pytestmark = pytest.mark.usefixtures("no_package_manager_running")
 

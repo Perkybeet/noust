@@ -34,7 +34,7 @@ from noust.managers.cloudflared_install import (
 )
 from noust.managers.database import flavours
 from noust.managers.server.host import HostPaths, OsRelease, Platform
-from tests.test_database_flavours import colons
+from tests.support.database_flavours import colons
 
 PINNED = "CC94B39C77AE7342A68B89628A682D308D4E5E73"
 PATH = "/usr/bin/cloudflared"

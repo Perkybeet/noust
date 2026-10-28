@@ -5,7 +5,7 @@
 Signing in through a SAML 2.0 identity provider (checklist I-20): configuring it, and what a
 sign-in does with a response that is right and with every response that is not.
 
-The identity provider is ``tests/saml_support.FakeIdp``: it answers the AuthnRequest it was sent,
+The identity provider is ``tests/support/saml_support.FakeIdp``: it answers the AuthnRequest it was sent,
 signs with a real key, and can be told to sign wrongly, address the wrong server or say the wrong
 time. The XML security itself is held to the standard in ``tests/test_saml_xml.py``; what these
 tests say is that a response which fails any condition never becomes a ticket.
@@ -39,15 +39,7 @@ from noust.core.accounts.saml import (
 )
 from noust.core.exceptions import ValidationError
 from noust.core.teams import TeamStore
-from tests.oidc_support import Clock
-from tests.saml_support import (
-    NS_SAML,
-    FakeIdp,
-    Scenario,
-    make_identity,
-    read_redirect,
-)
-from tests.test_oidc_manager import (  # noqa: F401 - the fixtures of the manager tests
+from tests.support.oidc_manager import (  # noqa: F401 - the fixtures of the manager tests
     accounts,
     admin,
     cheap_hashes,
@@ -55,10 +47,17 @@ from tests.test_oidc_manager import (  # noqa: F401 - the fixtures of the manage
     secure,
     store,
 )
+from tests.support.oidc_support import Clock
+from tests.support.saml import ISSUER, SSO, metadata_xml
+from tests.support.saml_support import (
+    NS_SAML,
+    FakeIdp,
+    Scenario,
+    make_identity,
+    read_redirect,
+)
 
 ORIGIN = "https://noust.acme.test"
-ISSUER = "https://idp.acme.test/metadata"
-SSO = "https://idp.acme.test/sso"
 IP = "203.0.113.5"
 ENTITY = f"{ORIGIN}{METADATA_PATH}/corp"
 ACS = f"{ORIGIN}{ACS_PATH}"
@@ -113,30 +112,6 @@ def refused(saml: SamlManager, idp: FakeIdp, **answer: Any) -> OidcError:
     with pytest.raises(OidcError) as caught:
         run(saml, idp, **answer)
     return caught.value
-
-
-METADATA = """<?xml version="1.0"?>
-<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
-    xmlns:ds="http://www.w3.org/2000/09/xmldsig#" entityID="https://idp.acme.test/metadata">
-  <md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
-    <md:KeyDescriptor use="signing"><ds:KeyInfo><ds:X509Data>
-      <ds:X509Certificate>{cert}</ds:X509Certificate>
-    </ds:X509Data></ds:KeyInfo></md:KeyDescriptor>
-    <md:KeyDescriptor use="encryption"><ds:KeyInfo><ds:X509Data>
-      <ds:X509Certificate>ZW5jcnlwdGlvbg==</ds:X509Certificate>
-    </ds:X509Data></ds:KeyInfo></md:KeyDescriptor>
-    <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
-        Location="https://idp.acme.test/post"/>
-    <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
-        Location="https://idp.acme.test/sso"/>
-  </md:IDPSSODescriptor>
-</md:EntityDescriptor>"""
-
-
-def metadata_xml() -> str:
-    _key, pem = make_identity()
-    body = "".join(pem.strip().splitlines()[1:-1])
-    return METADATA.format(cert=body)
 
 
 class TestInstants:
@@ -728,7 +703,7 @@ class TestResponsesThatAreNotRight:
             "<saml:EncryptedAssertion><xenc:EncryptedData "
             'xmlns:xenc="http://www.w3.org/2001/04/xmlenc#"/></saml:EncryptedAssertion>'
         )
-        from tests.saml_support import encode_response
+        from tests.support.saml_support import encode_response
 
         with pytest.raises(OidcError) as caught:
             finish(self.saml, begun, encode_response(scenario.response_xml(encrypted)), relay)
@@ -812,7 +787,7 @@ class TestResponsesThatAreNotRight:
         begun = begin(self.saml)
         request, relay = read_redirect(begun.url)
         scenario = idp.scenario(request)
-        from tests.saml_support import encode_response, sign
+        from tests.support.saml_support import encode_response, sign
 
         assertion = scenario.assertion_xml()
         start = assertion.index("<saml:Conditions")

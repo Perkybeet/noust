@@ -53,14 +53,6 @@ def cheap_hashes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
-
-
-@pytest.fixture
 def clock() -> Clock:
     return Clock()
 

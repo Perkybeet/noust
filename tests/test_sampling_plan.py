@@ -23,78 +23,31 @@ pin the one place that decides. What is defended:
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from noust.core.runner import FakeRunner
-from noust.core.store import App
 from noust.monitor import plan as plan_module
 from noust.monitor.plan import (
     PLAN_PROPERTIES,
-    PlanBuilder,
     find_access_log,
     is_cgroup_v2,
     target_status,
     unit_cgroup_path,
 )
+from tests.support.sampling_plan import (  # noqa: F401
+    CONTAINER,
+    FakeManager,
+    app,
+    builder,
+    lay_unit,
+    mount,
+)
 
-CONTAINER = "0123456789abcdef" * 4
-
-
-class FakeManager:
-    """Names units and answers ``systemctl show`` without systemd."""
-
-    def __init__(
-        self,
-        units: dict[str, list[str]],
-        described: dict[str, dict[str, str]] | None = None,
-    ) -> None:
-        self.units = units
-        self.described = described or {}
-        self.asked: list[tuple[list[str], tuple[str, ...]]] = []
-        self.store = SimpleNamespace(list_services=lambda: [])
-
-    def app_units(self, app: Any, **kwargs: Any) -> list[str]:
-        return self.units.get(app.domain, [])
-
-    def describe_units(
-        self, names: list[str], properties: tuple[str, ...] = ()
-    ) -> dict[str, dict[str, str]]:
-        self.asked.append((list(names), tuple(properties)))
-        return {name: self.described[name] for name in names if name in self.described}
-
-
-@pytest.fixture
-def mount(tmp_path: Path) -> Path:
-    """A fake cgroup v2 mount."""
-    root = tmp_path / "cgroup"
-    root.mkdir()
-    (root / "cgroup.controllers").write_text("cpu memory\n")
-    return root
-
-
-def app(domain: str, **fields: Any) -> App:
-    """An application row that was never stored."""
-    values: dict[str, Any] = {
-        "domain": domain,
-        "app_type": "nextjs",
-        "app_path": f"/var/www/apps/{domain.replace('.', '-')}",
-        "webserver": "nginx",
-    }
-    values.update(fields)
-    return App(**values)
-
-
-def lay_unit(mount: Path, control_group: str, *, memory: int | None = 4096) -> Path:
-    """Create a unit's cgroup directory with the files systemd gives it."""
-    directory = mount / control_group.lstrip("/")
-    directory.mkdir(parents=True, exist_ok=True)
-    if memory is not None:
-        (directory / "memory.current").write_text(f"{memory}\n")
-    (directory / "cpu.stat").write_text("usage_usec 1\n")
-    return directory
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
 
 
 def running(unit: str, control_group: str, **extra: str) -> dict[str, str]:
@@ -109,15 +62,6 @@ def running(unit: str, control_group: str, **extra: str) -> dict[str, str]:
         "CPUAccounting": "yes",
         **extra,
     }
-
-
-def builder(
-    mount: Path,
-    manager: FakeManager,
-    runner: FakeRunner | None = None,
-) -> PlanBuilder:
-    """A plan builder over the fake tree and the fake manager."""
-    return PlanBuilder(runner=runner or FakeRunner(), cgroup_mount=mount, service_manager=manager)
 
 
 # --------------------------------------------------------------------- units

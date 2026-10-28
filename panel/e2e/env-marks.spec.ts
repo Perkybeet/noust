@@ -1,6 +1,6 @@
 /**
  * Why each environment variable is hidden or shown, and the operator's own call about it,
- * against the real backend (2.2). The seed (tests/panel_factory.seed_env_marks) marks two
+ * against the real backend (2.2). The seed (tests/support/panel_factory.seed_env_marks) marks two
  * variables of blog.example.org: ANALYTICS_TOKEN, hidden by its name, as not secret, and
  * SMTP_HOST, which nothing about looks secret, as secret. Every other line is the
  * classifier's own verdict, said in words.

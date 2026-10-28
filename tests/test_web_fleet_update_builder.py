@@ -28,21 +28,21 @@ from noust.fleet.builders import Builders
 from noust.fleet.placements import Placements
 from noust.web.jobs import JobManager
 from noust.web.server import create_app
-from tests.fleet_views_support import Central
-from tests.test_fleet_ship import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.fleet_ship import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     Builder,
     Target,
     builder,
     targets,
 )
-from tests.test_web_auth import make_config
-from tests.test_web_central import sign_in
+from tests.support.fleet_views_support import Central
+from tests.support.web_auth import make_config
+from tests.support.web_central import sign_in
 
 
 @pytest.fixture
 def central(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Central]:
-    from tests.fleet_views_support import build_central
+    from tests.support.fleet_views_support import build_central
 
     monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", tmp_path / "config.yaml")
     monkeypatch.setattr("noust.fleet.nodes.central_name", lambda: "nas")

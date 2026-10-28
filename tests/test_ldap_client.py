@@ -16,7 +16,7 @@ import pytest
 
 from noust.core.accounts import ldap_client as ldap
 from noust.core.accounts.ldap_client import LdapConnection, LdapError
-from tests.ldap_support import FakeDirectory, entry, make_certificate
+from tests.support.ldap_support import FakeDirectory, entry, make_certificate
 
 LOCAL = ("127.0.0.1",)
 

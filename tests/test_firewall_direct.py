@@ -22,7 +22,7 @@ from noust.core.exceptions import SecurityError
 from noust.core.runner import FakeRunner, set_runner
 from noust.managers.server.security_firewall import Firewall, RuleRequest
 from noust.managers.server.security_probe import SecurityProbe
-from tests.database_public_support import PublicHostRunner
+from tests.support.database_public_support import PublicHostRunner
 
 ALLOW = RuleRequest("allow", 5433, "tcp", "203.0.113.7", "db test")
 

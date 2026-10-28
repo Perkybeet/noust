@@ -21,7 +21,7 @@ from noust.core.audit import get_log
 from noust.core.store import NoustStore
 from noust.core.teams import TeamStore
 from noust.web.auth import STATE_DIR_ENV
-from tests.ldap_support import FakeDirectory, entry
+from tests.support.ldap_support import FakeDirectory, entry
 
 PASSWORD = "correct horse battery staple"
 SERVICE = "cn=svc,ou=system,dc=acme,dc=test"

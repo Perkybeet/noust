@@ -19,8 +19,8 @@ import pytest
 
 from noust.core.notifications.model import State
 from noust.core.notifications.render import lark, matrix, mattermost, pagerduty
-from tests.notifications_support import catalog, dump, hostile
-from tests.snapshot_files import assert_snapshot
+from tests.support.notifications_support import catalog, dump, hostile
+from tests.support.snapshot_files import assert_snapshot
 
 LOCALES = ("en", "es")
 ROOT = "notifications-chat"
@@ -179,7 +179,7 @@ class TestAnIncidentOpensAndCloses:
 
     def test_two_rules_on_one_application_are_two_incidents(self) -> None:
         from noust.core.notifications.composers_ops import compose_alert_firing
-        from tests.notifications_support import context
+        from tests.support.notifications_support import context
 
         def firing(rule: str):
             return compose_alert_firing(

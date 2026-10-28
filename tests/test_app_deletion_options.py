@@ -31,7 +31,7 @@ from noust.core.store import App, Database, NoustStore
 from noust.deployers import lifecycle
 from noust.managers.database.records import DatabaseLink, DatabaseRecords
 from noust.web.jobs import delete_app_job
-from tests.test_app_deletion import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.app_deletion import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     apps_directory,
     compose_app,

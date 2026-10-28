@@ -26,7 +26,7 @@ from noust.fleet.labels import NodeLabels
 from noust.fleet.liveness import Liveness
 from noust.fleet.placements import Placements
 from noust.fleet.ssh_options import Bastion, NodeSSHOptions
-from tests.fleet_support import TOKEN, build_fleet, ed25519_line
+from tests.support.fleet_support import TOKEN, build_fleet, ed25519_line
 
 BASTION_KEY = ed25519_line(7)
 

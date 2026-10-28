@@ -33,13 +33,13 @@ from noust.managers.backup_manager import BackupManager, BackupMetadata
 from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler, run_schedule
 from noust.managers.self_backup import SelfBackupManager
 from noust.managers.volume_backups import VolumeBackupManager
-from tests.database_backup_support import RcloneRunner
-from tests.test_notifier import config  # noqa: F401
-from tests.test_self_backup import PASSPHRASE, FakeTimers, old, server  # noqa: F401
-from tests.test_self_backup import Runner as SelfRunner
-from tests.test_self_backup import audited as self_audited  # noqa: F401
-from tests.test_self_backup import runner as self_runner  # noqa: F401
-from tests.test_volume_backups import (  # noqa: F401
+from tests.support.database_backup_support import RcloneRunner
+from tests.support.notifier import config  # noqa: F401
+from tests.support.self_backup import PASSPHRASE, FakeTimers, old, server  # noqa: F401
+from tests.support.self_backup import Runner as SelfRunner
+from tests.support.self_backup import audited as self_audited  # noqa: F401
+from tests.support.self_backup import runner as self_runner  # noqa: F401
+from tests.support.volume_backups import (  # noqa: F401
     DOMAIN,
     _reset_store,
     app,
@@ -288,14 +288,6 @@ def _metadata(backup_id: str, domain: str = "shop.example.com") -> BackupMetadat
         includes_env=True,
         includes_node_modules=False,
     )
-
-
-@pytest.fixture
-def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "systemd"
-    path.mkdir()
-    monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", path)
-    return path
 
 
 class TestApplicationSchedule:

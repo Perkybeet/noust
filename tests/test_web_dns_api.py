@@ -30,7 +30,7 @@ from noust.managers.dns.cloudflare import CloudflareClient
 from noust.web.api import dns as dns_api
 from noust.web.api.deps import install_error_handlers
 from noust.web.auth import require_auth
-from tests.dns_support import FakeProvider
+from tests.support.dns_support import FakeProvider
 
 TOKEN = "cf-token-" + "x" * 31
 PUBLIC = "8.8.4.4"
@@ -295,7 +295,7 @@ def test_a_route53_account_is_added_through_the_api_and_neither_half_of_the_key_
     client: TestClient, store: NoustStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from noust.core.secrets import SecretStore
-    from tests.dns_wires import ACCESS_KEY, SECRET_KEY, Route53Wire
+    from tests.support.dns_wires import ACCESS_KEY, SECRET_KEY, Route53Wire
 
     wire = Route53Wire("example.com")
     secrets = SecretStore(root=tmp_path / "secrets")

@@ -23,7 +23,7 @@ from noust.core.exceptions import ServiceError
 from noust.core.runner import FakeRunner
 from noust.managers import console_service
 from noust.managers.service_manager import ServiceManager
-from tests.console_patch_support import patch_console
+from tests.support.console_patch_support import patch_console
 
 NOUST_BIN = "/usr/bin/noust"
 

@@ -32,7 +32,7 @@ from noust.recipes.catalog_package import (
     trusted_keys,
 )
 from tests.recipes.factory import compose_recipe
-from tests.recipes.test_operator_recipes import LOGO
+from tests.support.recipes_operator_recipes import LOGO
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "recipe_catalog.py"
 
@@ -506,7 +506,7 @@ class TestTheApi:
         from fastapi.testclient import TestClient
 
         from noust.web.api.deps import require_elevated
-        from tests.recipes.test_api import small_app
+        from tests.support.recipes_api import small_app
 
         api = small_app()
         api.dependency_overrides[require_elevated] = lambda: {

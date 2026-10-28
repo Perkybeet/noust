@@ -26,7 +26,6 @@ from fastapi.testclient import TestClient
 
 from noust.core.exceptions import DatabaseEngineError, ValidationError
 from noust.core.store import App, NoustStore
-from noust.managers.database import flavours
 from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.choice import (
     choices,
@@ -35,51 +34,14 @@ from noust.managers.database.choice import (
     version_matches,
 )
 from noust.managers.database.service import DatabaseService
-from noust.managers.server.host import HostPaths
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.test_web_databases_api import elevate, make_engine, wire
-
-DOMAIN = "shop.example.com"
-
-
-@pytest.fixture(autouse=True)
-def noble(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A server on Ubuntu 24.04, whose catalog the versions are checked against."""
-    root = tmp_path / "root"
-    (root / "etc").mkdir(parents=True)
-    (root / "etc" / "os-release").write_text(
-        'ID=ubuntu\nVERSION_CODENAME=noble\nPRETTY_NAME="Ubuntu 24.04.3 LTS"\n'
-    )
-    monkeypatch.setattr(flavours, "HOST", HostPaths(root))
-
-
-def engine_classes(
-    tmp_path: Path, *, postgres: bool = True, mysql: str | None = None
-) -> dict[str, type[BaseDatabaseManager]]:
-    """
-    Build the fake engines of a server.
-
-    Args:
-        tmp_path: Where dumps would go.
-        postgres: PostgreSQL 16.3 is installed.
-        mysql: ``mysql`` or ``mariadb`` when that flavour is installed.
-
-    Returns:
-        The classes by engine name.
-    """
-    pg = make_engine(tmp_path / "pg", installed=postgres)
-    my = make_engine(
-        tmp_path / "my",
-        engine="mysql",
-        display="MySQL/MariaDB",
-        installed=mysql is not None,
-        running=mysql is not None,
-        seeded=False,
-    )
-    my.get_version = lambda self: "10.11.6" if mysql == "mariadb" else "8.0.36"  # type: ignore[method-assign]
-    my.installed_flavour = lambda self: mysql  # type: ignore[method-assign]
-    return {"postgresql": pg, "mysql": my}
+from tests.support.database_choice import (  # noqa: F401
+    DOMAIN,
+    engine_classes,
+    noble,
+)
+from tests.support.web_databases_api import elevate, wire
 
 
 def service_for(classes: dict[str, type[BaseDatabaseManager]]) -> DatabaseService:

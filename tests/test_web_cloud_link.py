@@ -23,7 +23,7 @@ from noust.core.exceptions import NodeError
 from noust.core.runner import set_runner
 from noust.web.api import cloud as api
 from noust.web.permissions.registry import permission_for_route
-from tests.test_web_cloud import (  # noqa: F401
+from tests.support.web_cloud import (  # noqa: F401
     FakeProvisioner,
     admin,
     client,

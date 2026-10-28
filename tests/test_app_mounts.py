@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import os
 import stat
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -33,65 +32,25 @@ from noust.core import app_mount_store, audit
 from noust.core.appdir.releases import ReleaseManager
 from noust.core.container_store import ContainerSettings
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
-from noust.core.fs import RealFileSystem
 from noust.core.store import App, NoustStore
 from noust.deployers import pending_changes
 from noust.deployers.helpers.container_compose import ContainerPlan, build_document
 from noust.managers import app_mounts
 from noust.managers.app_mounts import MountManager, clean_source, clean_target
 from noust.managers.service_manager import ResourceLimits
+from tests.support.app_mounts import (  # noqa: F401
+    DOMAIN,
+    RELEASE,
+    OwnerFs,
+    add_app,
+    app,
+    root,
+    store,
+)
 
-DOMAIN = "shop.example.com"
-RELEASE = "20260925-120000-aaaaaaa"
-
-
-class OwnerFs(RealFileSystem):
-    """The real filesystem, except that handing a file to an account is recorded."""
-
-    def __init__(self) -> None:
-        self.owned: list[tuple[Path, str, str, int]] = []
-
-    def set_owner(self, path: Path, *, user: str, group: str, mode: int) -> None:
-        self.owned.append((path, user, group, mode))
-        path.chmod(mode)
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    instance.close()
-    NoustStore.reset_instance()
-
-
-@pytest.fixture
-def root(tmp_path: Path) -> Path:
-    base = tmp_path / "apps" / "shop-example-com"
-    (base / "releases" / RELEASE).mkdir(parents=True)
-    (base / "current").symlink_to(f"releases/{RELEASE}")
-    (base / "shared").mkdir()
-    return base
-
-
-def add_app(store: NoustStore, root: Path, **fields: Any) -> App:
-    values: dict[str, Any] = {
-        "domain": DOMAIN,
-        "app_type": "nodejs",
-        "app_path": str(root),
-        "layout": "releases",
-        "identity": "noust-app-shop",
-    }
-    values.update(fields)
-    store.create_app(App(**values))
-    row = store.get_app(DOMAIN)
-    assert row is not None
-    return row
-
-
-@pytest.fixture
-def app(store: NoustStore, root: Path) -> App:
-    return add_app(store, root)
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
 
 
 @pytest.fixture

@@ -21,7 +21,7 @@ import pytest
 from noust.core.audit import record  # noqa: F401 - the catalog must know the events used here
 from noust.core.audit.catalog import EVENTS
 from noust.core.store import NoustStore
-from tests.teams_support import World, build_world, make_person
+from tests.support.teams_support import World, build_world, make_person
 
 ACME = "shop.acme.example"
 GLOBEX = "blog.globex.example"

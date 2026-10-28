@@ -20,7 +20,7 @@ from noust.core.exceptions import DeploymentError
 from noust.core.runner import FakeRunner, set_runner
 from noust.core.store import NoustStore
 from noust.deployers.inspect import inspect_source
-from tests.test_native_stacks_inspect import GO, project, store  # noqa: F401
+from tests.support.native_stacks_inspect import GO, project, store  # noqa: F401
 
 JAVA = {
     "pom.xml": "<project><parent>spring-boot-starter-parent</parent></project>\n",

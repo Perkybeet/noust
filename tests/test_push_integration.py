@@ -24,7 +24,7 @@ from noust.deployers.app_export import _export_source, plan_import
 from noust.deployers.helpers.release_build import stage_release
 from noust.managers.source_manager import SourceManager
 from noust.validators.source import push_source
-from tests.push_support import DOMAIN, PushRig, build_rig, ed25519
+from tests.support.push_support import DOMAIN, PushRig, build_rig, ed25519
 
 
 @pytest.fixture

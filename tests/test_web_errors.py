@@ -38,7 +38,7 @@ from fastapi.testclient import TestClient
 from noust.core.exceptions import ConfigError
 from noust.web.auth import CSRF_COOKIE_NAME, CSRF_HEADER_NAME
 from noust.web.server import create_app, get_token_manager
-from tests.test_web_auth import build_client, enable_totp, login, make_config
+from tests.support.web_auth import build_client, enable_totp, login, make_config
 
 #: Every module under this package that declares an ``APIRouter``. Walked by
 #: :func:`test_every_api_router_uses_the_error_route` rather than imported,

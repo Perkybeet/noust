@@ -26,15 +26,7 @@ from noust.managers import preview_env, previews
 from noust.managers.database import seeding
 from noust.managers.database.base import BackupInfo
 from noust.managers.database.isolation import DatabaseWish
-from tests.test_previews import (
-    PARENT,
-    FakeContext,
-    clock,
-    jobs,
-    posted,
-    store,
-    timer,
-)
+from tests.support.previews import PARENT, FakeContext, clock, jobs, posted, store, timer
 
 FIXTURES = (clock, jobs, posted, store, timer)
 

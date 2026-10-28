@@ -27,16 +27,9 @@ from noust.deployers import promote as promote_module
 from noust.deployers.base import BaseDeployer
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.promote import plan_promotion, promote, promotion_targets
-from tests.deployer_patch_support import patch_deployer
-from tests.test_release_pipeline import (
-    GIT_URL,
-    TreeRunner,
-    git,
-    machine,
-    root,
-    store,
-    wire,
-)
+from tests.support.deployer_patch_support import patch_deployer
+from tests.support.promote import SearchingRunner
+from tests.support.release_pipeline import GIT_URL, git, machine, root, store, wire
 
 FIXTURES = (git, machine, root, store)
 
@@ -44,31 +37,6 @@ PRODUCTION = "rel.example.com"
 STAGING = "staging.example.com"
 RELEASE = "20261013-100000-abc1234"
 OLD = "20261012-090000-1111111"
-
-
-class SearchingRunner(TreeRunner):
-    """A runner whose ``grep -rIlZ -F`` really searches the tree it is given."""
-
-    def run(self, argv: Any, **kwargs: Any) -> Any:
-        if list(argv[:4]) == ["grep", "-rIlZ", "-F", "--"]:
-            needle, base = argv[4], Path(argv[5])
-            found = []
-            for path in sorted(base.rglob("*")):
-                if path.is_file() and not path.is_symlink():
-                    data = path.read_bytes()
-                    if b"\x00" not in data and needle.encode() in data:
-                        found.append(str(path))
-            self.calls.append(tuple(argv))
-            self.envs.append(kwargs.get("env"))
-            from noust.core.runner import CommandResult
-
-            return CommandResult(
-                argv=tuple(argv),
-                exit_code=0 if found else 1,
-                stdout="".join(name + "\0" for name in found),
-                stderr="",
-            )
-        return super().run(argv, **kwargs)
 
 
 def make_tree(app_root: Path, release: str, *, server: str = "ok") -> Path:

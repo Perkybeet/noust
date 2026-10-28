@@ -304,7 +304,7 @@ class TestTheCommand:
 class TestTheApi:
     @pytest.fixture
     def client(self, recipe_store: Any) -> TestClient:
-        from tests.recipes.test_api import small_app
+        from tests.support.recipes_api import small_app
 
         return TestClient(small_app())
 

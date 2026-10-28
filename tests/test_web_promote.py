@@ -24,7 +24,7 @@ from noust.core.appdir.releases import Release
 from noust.core.store import NoustStore
 from noust.web.api import app_promote
 from noust.web.auth import STATE_DIR_ENV
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 ACME = "shop.acme.example"
 GLOBEX = "blog.globex.example"

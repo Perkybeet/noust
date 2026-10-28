@@ -26,7 +26,7 @@ from noust.validators.source import upload_tree
 from noust.web.api.source_uploads import CHUNK_BYTES
 from noust.web.permissions import Permission
 from noust.web.permissions.routes_uploads import ROUTES
-from tests.test_source_uploads import PROJECT, make_tgz, make_zip
+from tests.support.source_uploads import PROJECT, make_tgz, make_zip
 
 DOMAIN = "shop.example.com"
 
@@ -37,14 +37,6 @@ def state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root.mkdir()
     monkeypatch.setattr(paths, "state_dir", lambda: root)
     return root
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 def client_for(name: str = "alice") -> Any:

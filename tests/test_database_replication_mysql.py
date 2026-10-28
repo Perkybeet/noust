@@ -33,7 +33,7 @@ from noust.managers.database.replication_mysql import MySqlReplication, derive_s
 from noust.managers.database.replication_records import PRIMARY, REPLICA, ReplicationRecords
 from noust.managers.database.replication_token import parse
 from noust.managers.server.host import HostPaths
-from tests.test_database_replication import CA, HOST, REPLICA_ADDRESS, Clock, FakeFirewall
+from tests.support.database_replication import CA, HOST, REPLICA_ADDRESS, Clock, FakeFirewall
 
 START_DUMP = "-- the primary's databases\nCREATE DATABASE `shop`;\n"
 
@@ -885,7 +885,7 @@ def test_a_postgresql_code_is_refused_by_this_engine(
     replication: MySqlReplication,
 ) -> None:
     from noust.managers.database.replication_token import ReplicaToken, encode
-    from tests.test_database_replication_token import token as pg_token
+    from tests.support.database_replication_token import token as pg_token
 
     postgres = encode(pg_token())
     assert isinstance(pg_token(), ReplicaToken)

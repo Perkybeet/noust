@@ -38,7 +38,7 @@ from noust.deployers.app_export import (
     strip_url_secrets,
     validate_document,
 )
-from tests.test_app_export import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.app_export import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     NEW,
     STRIPE,

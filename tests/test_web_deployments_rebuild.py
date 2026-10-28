@@ -29,7 +29,7 @@ from fastapi.testclient import TestClient
 from noust.core.store import NoustStore
 from noust.deployers import lifecycle
 from noust.web.api import deployments as deployments_api
-from tests.test_deployment_rollback import (  # noqa: F401
+from tests.support.deployment_rollback import (  # noqa: F401
     INPLACE,
     Jobs,
     client,
@@ -37,9 +37,9 @@ from tests.test_deployment_rollback import (  # noqa: F401
     inplace_app,
     jobs,
 )
-from tests.test_rebuild_commit import commit_of, git  # noqa: F401
-from tests.test_release_activation import two_releases  # noqa: F401
-from tests.test_release_pipeline import DOMAIN, active_id, machine, root, store  # noqa: F401
+from tests.support.rebuild_commit import commit_of, git  # noqa: F401
+from tests.support.release_activation import two_releases  # noqa: F401
+from tests.support.release_pipeline import DOMAIN, active_id, machine, root, store  # noqa: F401
 
 
 class TestTheRequest:

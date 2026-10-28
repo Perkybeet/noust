@@ -26,7 +26,7 @@ from noust.fleet.nodes import NodeManager
 from noust.fleet.tunnels import TunnelManager
 from noust.web.api import nodes as nodes_api
 from noust.web.permissions import Permission
-from tests.fleet_support import (
+from tests.support.fleet_support import (
     OTHER_TOKEN,
     Clock,
     Fleet,
@@ -34,8 +34,8 @@ from tests.fleet_support import (
     ed25519_line,
     join_code,
 )
-from tests.fleet_support import FakeNode as FleetNode
-from tests.teams_support import World, build_world
+from tests.support.fleet_support import FakeNode as FleetNode
+from tests.support.teams_support import World, build_world
 
 
 @dataclass

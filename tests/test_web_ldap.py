@@ -22,8 +22,8 @@ import pytest
 from noust.core.accounts.directory import DirectoryManager
 from noust.web.auth import CSRF_HEADER_NAME
 from noust.web.server import get_token_manager
-from tests.ldap_support import FakeDirectory, entry
-from tests.test_web_accounts import (  # noqa: F401 - the fixtures of the account tests
+from tests.support.ldap_support import FakeDirectory, entry
+from tests.support.web_accounts import (  # noqa: F401 - the fixtures of the account tests
     accounts,
     build,
     cheap_hashes,

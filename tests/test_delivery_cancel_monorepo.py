@@ -25,12 +25,12 @@ from noust.core.cancellation import operation_window, request_cancel
 from noust.core.exceptions import DeploymentCancelled
 from noust.core.runner import CommandCancelled, FakeRunner
 from noust.core.store import NoustStore
-from tests.test_monorepo_releases import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.build_sandbox import as_root  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.monorepo_releases import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     FIRST,
     Probe,
     Units,
-    as_root,
     deployer,
     no_waiting,
     probe,

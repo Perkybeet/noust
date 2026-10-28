@@ -20,7 +20,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from noust.core.store import NoustStore
-from tests.test_web_apps_env_secrets import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.web_apps_env_secrets import (  # noqa: F401  (pytest resolves fixtures by name)
     app,
     client,
     deployed_env,

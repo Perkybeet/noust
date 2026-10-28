@@ -47,8 +47,8 @@ from noust.monitor.timeseries import (
     MINUTE,
     MetricsStore,
 )
-from tests.test_monitor_units import make_monitor, scan, show_block
-from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.monitor_units import make_monitor, scan, show_block
+from tests.support.notifier import config  # noqa: F401  (pytest resolves fixtures by name)
 
 # ruff: noqa: F811
 

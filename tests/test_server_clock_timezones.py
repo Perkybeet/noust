@@ -30,7 +30,7 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers
 from noust.web.api.server.common import set_server_context
 from noust.web.permissions.registry import route_map
-from tests.server_support import make_host, make_machine, platform_for
+from tests.support.server_support import make_host, make_machine, platform_for
 
 #: Midwinter and midsummer in the northern hemisphere, both clear of any change.
 JANUARY = datetime(2026, 1, 15, 12, 0, tzinfo=timezone.utc)

@@ -33,7 +33,7 @@ from noust.deployers import access
 from noust.managers.client_certs import IssuedClientCertificate
 from noust.managers.site_policy import SitePolicy, validated
 from noust.web.api.deps import require_elevated
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 APP = "shop.acme.example"
 SERIAL = "1A" + "0" * 30

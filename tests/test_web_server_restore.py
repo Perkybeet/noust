@@ -31,7 +31,7 @@ from noust.managers.restore_databases import DatabaseOutcome
 from noust.managers.restore_server import RestoreServer, ServerRestoreReport
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.test_restore_server import Machine
+from tests.support.restore_server import Machine
 
 pytestmark = pytest.mark.allow_subprocess
 

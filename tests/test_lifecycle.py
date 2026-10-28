@@ -26,18 +26,17 @@ from noust.core.logger import Logger
 from noust.core.store import App, NoustStore, Service
 from noust.deployers import lifecycle
 from noust.deployers.interface import UpdateResult
+from tests.support.lifecycle import (  # noqa: F401
+    DOMAIN,
+    FakeDeployer,
+    Recorder,
+    make_app,
+    store,
+)
 
-DOMAIN = "example.com"
-
-
-@pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> NoustStore:
-    """A store in the test's directory, installed where the module looks for it."""
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "wasm.db")
-    monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
-    yield instance
-    NoustStore.reset_instance()
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
 
 
 @pytest.fixture
@@ -46,44 +45,6 @@ def real_fs() -> Any:
     set_fs(RealFileSystem())
     yield
     set_fs(None)
-
-
-class Recorder:
-    """Everything the update asked of its collaborators, in order."""
-
-    def __init__(self) -> None:
-        self.calls: list[tuple[Any, ...]] = []
-        self.configured: dict[str, Any] = {}
-        self.service_exists = True
-        self.service_active = True
-        # The branch the checkout is on, as git would answer it.
-        self.checkout_branch: str | None = None
-
-
-class FakeDeployer:
-    """A deployer that records instead of building."""
-
-    def __init__(self, recorder: Recorder, *, is_static: bool = False) -> None:
-        self.recorder = recorder
-        self.is_static = is_static
-
-    def configure(self, **kwargs: Any) -> None:
-        self.recorder.configured = kwargs
-
-    def update(self, on_step: Any = None) -> UpdateResult:
-        self.recorder.calls.append(("update",))
-        if on_step:
-            on_step("Building")
-        return UpdateResult(
-            package_manager="npm",
-            prisma_updated=False,
-            is_static=self.is_static,
-            start_command="" if self.is_static else "/usr/bin/npm run start",
-        )
-
-    def deploy(self) -> bool:
-        self.recorder.calls.append(("deploy",))
-        return True
 
 
 @pytest.fixture
@@ -128,21 +89,6 @@ def recorder(monkeypatch: pytest.MonkeyPatch) -> Recorder:
         lifecycle, "get_deployer", lambda app_type, verbose=False: FakeDeployer(rec)
     )
     return rec
-
-
-def make_app(store: NoustStore, app_path: Path, app_type: str = "nextjs") -> App:
-    """Register an application whose tree lives at ``app_path``."""
-    (app_path / ".git").mkdir(parents=True, exist_ok=True)
-    return store.create_app(
-        App(
-            domain=DOMAIN,
-            app_type=app_type,
-            source="https://github.com/example/app.git",
-            branch="main",
-            port=3000,
-            app_path=str(app_path),
-        )
-    )
 
 
 def test_update_never_deletes_what_is_not_in_the_repository(

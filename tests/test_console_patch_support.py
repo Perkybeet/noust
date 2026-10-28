@@ -6,7 +6,7 @@ A test replaces a name of the console's start and stop through ``patch_console``
 
 The commands (``noust.cli.commands.web``) import a good part of the service
 (``noust.managers.console_service``) and each module looks a name up in its own namespace, so a
-replacement on one of them leaves the other running the real thing. ``tests/console_patch_support.py``
+replacement on one of them leaves the other running the real thing. ``tests/support/console_patch_support.py``
 replaces the name in every module that has it, and this holds that it does and that tests use it.
 """
 
@@ -17,8 +17,8 @@ from pathlib import Path
 import pytest
 
 import noust
-from tests.console_patch_support import patch_console
-from tests.patch_scan_support import patches_in_tree
+from tests.support.console_patch_support import patch_console
+from tests.support.patch_scan_support import patches_in_tree
 
 ROOT = Path(noust.__file__).resolve().parent.parent.parent
 CONSOLE_MODULES = ("noust.cli.commands.web", "noust.managers.console_service")
@@ -86,9 +86,9 @@ def test_no_test_replaces_a_name_of_either_module_by_itself() -> None:
         f"{site.path}:{site.line}  {module}.{site.name}"
         for module in CONSOLE_MODULES
         for site in patches_in_tree(ROOT, ("tests",), module)
-        if site.path != "tests/console_patch_support.py"
+        if site.path != "tests/support/console_patch_support.py"
     ]
 
-    assert not offenders, "Use patch_console (tests/console_patch_support.py):\n  " + "\n  ".join(
-        offenders
+    assert not offenders, (
+        "Use patch_console (tests/support/console_patch_support.py):\n  " + "\n  ".join(offenders)
     )

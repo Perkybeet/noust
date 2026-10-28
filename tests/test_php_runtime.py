@@ -30,7 +30,7 @@ from noust.deployers.helpers import php_fpm as fpm_module
 from noust.deployers.helpers.php_fpm import find_fpm, find_fpm_for, fpm_versions
 from noust.deployers.php_fpm import PhpFpmDeployer, control_pool, pool_serving, remove_pool_of
 from noust.managers.runtimes import RuntimeManager
-from tests.test_php_fpm import (  # noqa: F401 - fixtures used by name
+from tests.support.php_fpm import (  # noqa: F401 - fixtures used by name
     APP,
     DOMAIN,
     GIT_URL,
@@ -40,7 +40,7 @@ from tests.test_php_fpm import (  # noqa: F401 - fixtures used by name
     store,
     wire,
 )
-from tests.test_release_pipeline import write_tree
+from tests.support.release_pipeline import write_tree
 
 LARAVEL = {
     "composer.json": json.dumps({"require": {"php": "^8.1"}}),

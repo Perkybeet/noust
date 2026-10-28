@@ -53,7 +53,7 @@ from noust.core.notifications.composers import (
 from noust.core.notifications.context import NotificationContext, default_server_name, server_name
 from noust.core.notifications.excerpt import normalize
 from noust.core.notifications.model import Notification, State
-from tests.notifications_support import NODE_CRASH, NODE_ERROR
+from tests.support.notifications_support import NODE_CRASH, NODE_ERROR
 
 JOURNAL = "\n".join(
     [f"Sep 29 10:45:{i:02d} web-1 npm[48455]: line number {i}" for i in range(10, 30)]

@@ -27,7 +27,7 @@ from noust.core.store import App, NoustStore
 from noust.deployers import monorepo as monorepo_module
 from noust.deployers.helpers import databases as db_helpers
 from noust.deployers.monorepo import DatabaseConfig, MonorepoDeployer
-from tests.test_database_ownership import FakeManager, FakeRegistry
+from tests.support.database_ownership import FakeManager, FakeRegistry
 
 
 @pytest.fixture

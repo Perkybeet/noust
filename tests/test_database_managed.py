@@ -4,7 +4,7 @@
 """
 Database instances Noust runs: making one, using it, upgrading it, removing it.
 
-The machine is :class:`~tests.database_instance_support.DockerHost`: starting the
+The machine is :class:`~tests.support.database_instance_support.DockerHost`: starting the
 unit makes the container the Compose file *on disk* says, so what is pinned is
 what the files and the commands do together. Four things are defended:
 
@@ -39,8 +39,8 @@ from noust.core.exceptions import (
 )
 from noust.managers.database import instance_layout as layout
 from noust.managers.database.instance_compose import render_compose
-from tests.database_instance_support import World, build_world, close_world
-from tests.test_database_instances import container
+from tests.support.database_instance_support import World, build_world, close_world
+from tests.support.database_instances import container
 
 pytestmark = pytest.mark.real_listeners
 

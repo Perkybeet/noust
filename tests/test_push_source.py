@@ -30,7 +30,7 @@ from noust.validators.source import (
     push_source_domain,
     validate_source,
 )
-from tests.push_support import DOMAIN, OTHER, PushRig, build_rig
+from tests.support.push_support import DOMAIN, OTHER, PushRig, build_rig
 
 
 @pytest.fixture

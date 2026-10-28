@@ -37,8 +37,8 @@ from noust.managers.database.instances import CLIENT_SCRIPT, DatabaseInstance, d
 from noust.managers.database.mongodb import MongoDBManager
 from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.postgres import PostgresManager
-from tests.test_database_instances import FLEET, PS_LINES, container
-from tests.test_mongo_container_restore import archive as mongodump_archive
+from tests.support.database_instances import FLEET, PS_LINES, container
+from tests.support.mongo_container_restore import archive as mongodump_archive
 
 PG_KEY = "postgresql@jobs-example-net.db"
 MYSQL_KEY = "mysql@shop-example-net.mysql"

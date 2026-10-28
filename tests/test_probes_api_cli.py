@@ -47,14 +47,6 @@ def config_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pat
     Config.reset_instance()
 
 
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
-
-
 @pytest.fixture(autouse=True)
 def public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(notifier_module, "_resolve_host", lambda host: ("93.184.216.34",))

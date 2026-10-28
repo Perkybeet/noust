@@ -32,11 +32,18 @@ from fastapi.testclient import TestClient
 
 from noust.core.config import DEFAULT_CONFIG, REDACTED, Config
 from noust.web.api import config as config_api
-from noust.web.api.auth import get_current_session
-from noust.web.api.deps import install_error_handlers
 from noust.web.auth import CSRF_HEADER_NAME, AuditLogger, SecurityConfig, set_audit_logger
 from noust.web.server import create_app, get_token_manager
-from tests.config_files import planted, stored_config
+from tests.support.config_files import planted
+from tests.support.web_config_api import (  # noqa: F401
+    client,
+    config_path,
+    stored_value,
+)
+
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
 
 #: Secrets planted in the stored configuration; none may reach a response.
 PLANTED_SECRETS = {
@@ -47,47 +54,6 @@ PLANTED_SECRETS = {
     "monitor.smtp.password": "smtp-hunter2",
     "notifications.channels.telegram.bot_token": "123456:telegram-live",
 }
-
-
-@pytest.fixture
-def config_path(sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    """
-    Point the global config file at the sandbox and reset the singleton.
-
-    Args:
-        sandbox: Isolated filesystem root.
-        monkeypatch: Patching helper, scoped to the test.
-
-    Yields:
-        Path the API reads from and writes to.
-    """
-    path = sandbox / "etc" / "wasm" / "config.yaml"
-    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", path)
-    Config.reset_instance()
-    try:
-        yield path
-    finally:
-        Config.reset_instance()
-
-
-@pytest.fixture
-def client(config_path: Path) -> TestClient:
-    """
-    Build a test client for the config router with authentication stubbed out.
-
-    Args:
-        config_path: Fixture redirecting configuration writes into the sandbox.
-
-    Returns:
-        A client whose requests are already authenticated.
-    """
-    app = FastAPI()
-    app.include_router(config_api.router, prefix="/api/config")
-    # The same error contract the real application answers in, so a 422 is
-    # asserted field by field rather than in FastAPI's own shape.
-    install_error_handlers(app)
-    app.dependency_overrides[get_current_session] = lambda: {"session_id": "test", "type": "master"}
-    return TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture
@@ -141,25 +107,6 @@ def stored_secrets(config_path: Path) -> dict[str, str]:
     assert config.save() is True
     Config.reset_instance()
     return dict(PLANTED_SECRETS)
-
-
-def stored_value(config_path: Path, dotted_key: str) -> Any:
-    """
-    Read a value straight from the configuration file on disk.
-
-    Args:
-        config_path: Path of the configuration file.
-        dotted_key: Dotted path of the setting.
-
-    Returns:
-        The stored value, or None when absent.
-    """
-    node: Any = stored_config(config_path)
-    for part in dotted_key.split("."):
-        if not isinstance(node, dict) or part not in node:
-            return None
-        node = node[part]
-    return node
 
 
 class TestSecretsNeverLeave:

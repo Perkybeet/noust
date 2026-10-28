@@ -26,8 +26,8 @@ import noust.web.api.databases.jobs as jobs_module
 import noust.web.api.databases.migrations as migrations_module
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.database_migration_support import Lab, build_lab
-from tests.database_move_support import APP_PASSWORD, DOMAIN, HOST
+from tests.support.database_migration_support import Lab, build_lab
+from tests.support.database_move_support import APP_PASSWORD, DOMAIN, HOST
 
 MIGRATE = {"source": "postgresql", "to_version": "17", "memory_mb": 1024}
 

@@ -8,8 +8,6 @@ it is, that nothing in it is a position, and that the API and the permission map
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -20,14 +18,6 @@ from noust.core.store import App, Database, NoustStore
 from noust.core.teams import Scope, ScopedStore, TeamStore
 from noust.managers import machine_map
 from noust.managers.machine_map import MAX_NODES, MachineMapBuilder
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 def make_app(

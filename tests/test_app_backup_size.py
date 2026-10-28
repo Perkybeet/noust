@@ -30,11 +30,11 @@ from noust.core.store import BackupScheduleRecord, get_store
 from noust.managers.backup_destinations import BackupDestinationManager
 from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager
 from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler
-from tests.test_backup_safety_22 import (  # noqa: F401
+from tests.support.backup_safety_22 import (  # noqa: F401
     APP,
     DOMAIN,
     TARGET,
-    TestRemoteRetentionOnASharedFolder,
+    RemoteRetentionOnASharedFolderTests,
     _listing,
     _push_setup,
     _remaining,
@@ -322,3 +322,7 @@ class TestTheCommandLine:
         assert changed.exit_code == 0, changed.output
         record = get_store().get_backup_schedule(DOMAIN)
         assert record is not None and record.retention_bytes is None
+
+
+class TestRemoteRetentionOnASharedFolder(RemoteRetentionOnASharedFolderTests):
+    """The shared-folder retention tests again, on the fixtures this module imports."""

@@ -54,8 +54,8 @@ from noust.web.api import services as services_api
 from noust.web.api.auth import get_current_session
 from noust.web.machine import AppTally, UnitTally, read_machine
 from noust.web.server import get_token_manager
-from tests.test_web_auth import build_client
-from tests.test_web_websockets import token_subprotocols
+from tests.support.web_auth import build_client
+from tests.support.web_websockets import token_subprotocols
 
 LIST_UNITS = list(LIST_UNITS_ARGV)
 

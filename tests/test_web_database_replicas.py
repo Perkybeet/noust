@@ -27,7 +27,7 @@ from noust.managers.database.replication_base import PreparePlan
 from noust.web.api.deps import JobAcceptedResponse
 from noust.web.permissions import Permission
 from noust.web.permissions.routes_database_replicas import ROUTES
-from tests.test_web_databases_api import (  # noqa: F401 - fixtures
+from tests.support.web_databases_api import (  # noqa: F401 - fixtures
     anonymous,
     app,
     client,

@@ -21,9 +21,9 @@ from noust.core.exceptions import DatabaseNotFoundError, ServiceError
 from noust.core.resource_tags import KIND_SERVICE, ResourceTags
 from noust.web.api import app_tags
 from noust.web.api import services as services_api
-from tests.teams_support import World, build_world
-from tests.test_web_databases_api import make_engine, wire
-from tests.test_web_services_api import FakeServiceManager
+from tests.support.teams_support import World, build_world
+from tests.support.web_databases_api import make_engine, wire
+from tests.support.web_services_api import FakeServiceManager
 
 ACME_APP = "shop.acme.example"
 ACME_DB = "shop_db"

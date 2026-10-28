@@ -29,7 +29,7 @@ from noust.managers.server.swap import (
     parse_swapon,
     suggested_swap_bytes,
 )
-from tests.server_support import fixture, make_host, platform_for
+from tests.support.server_support import fixture, make_host, platform_for
 
 GIB = 1024**3
 
@@ -211,7 +211,7 @@ class TestMaking:
         ) in runner.calls
 
     def test_a_file_swapon_calls_sparse_is_rewritten_with_dd_and_tried_again(self, host) -> None:
-        from tests.server_support import SequencedRunner
+        from tests.support.server_support import SequencedRunner
 
         runner = SequencedRunner()
         runner.script(["findmnt", "-no", "FSTYPE"], stdout="xfs\n")

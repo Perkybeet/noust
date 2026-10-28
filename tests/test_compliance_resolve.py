@@ -19,7 +19,7 @@ import pytest
 
 from noust.core.accounts.policy import build_policy
 from noust.core.compliance import controls, frameworks, resolve
-from tests.compliance_support import FakeConfig, frameworks_on
+from tests.support.compliance_support import FakeConfig, frameworks_on
 
 
 class TestNothingChosen:

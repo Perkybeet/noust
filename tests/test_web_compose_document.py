@@ -22,7 +22,7 @@ from noust.core.store import NoustStore
 from noust.recipes.deploy import COMPOSE_FILE, recipe_source_dir
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.test_compose_document import APP_NAME, DOCUMENT, DOMAIN, NEWER, make_stack
+from tests.support.compose_document import APP_NAME, DOCUMENT, DOMAIN, NEWER, make_stack
 
 URL = f"/api/apps/{DOMAIN}/compose/document"
 

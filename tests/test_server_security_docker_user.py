@@ -42,7 +42,7 @@ from noust.managers.server.security_docker_user import (
 )
 from noust.managers.server.security_firewall import Firewall
 from noust.managers.server.security_probe import SecurityProbe
-from tests.server_security_support import NOW, FakeHost, FakeSshd
+from tests.support.server_security_support import NOW, FakeHost, FakeSshd
 
 #: The owner's central, verbatim: the rule a systemd unit puts back at boot.
 CENTRAL_DOCKER_USER = """-N DOCKER-USER

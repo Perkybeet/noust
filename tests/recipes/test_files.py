@@ -16,7 +16,7 @@ from noust.core.store import NoustStore
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import _deployer_options, prepare_source
 from tests.recipes.factory import compose_recipe, native_recipe
-from tests.recipes.test_operator_recipes import LOGO
+from tests.support.recipes_operator_recipes import LOGO
 
 
 @pytest.fixture

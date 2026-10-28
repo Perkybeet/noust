@@ -42,9 +42,9 @@ from noust.core.notifications.model import CRITICAL_STATES, Excerpt, Fact, State
 from noust.core.notifications.render import discord
 from noust.core.notifications.render.discord import CONTENT_LIMIT, Mention
 from noust.core.notifier import Notifier
-from tests.notifications_support import catalog, hostile
-from tests.test_notification_renderers import notification
-from tests.test_notifier import (  # noqa: F401
+from tests.support.notification_renderers import notification
+from tests.support.notifications_support import catalog, hostile
+from tests.support.notifier import (  # noqa: F401
     DISCORD_URL,
     CapturingOpener,
     config,

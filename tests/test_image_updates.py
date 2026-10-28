@@ -24,7 +24,7 @@ from noust.core.exceptions import DockerError, ValidationError
 from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore
 from noust.managers import image_updates, update_scheduler
-from tests.container_support import DIGEST, Docker
+from tests.support.container_support import DIGEST, Docker
 
 DOMAIN = "img.example.com"
 IMAGE = "ghcr.io/owner/app:1.4"

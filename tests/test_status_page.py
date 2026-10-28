@@ -44,7 +44,7 @@ from noust.managers.status_page import (
     take_snapshot,
 )
 from noust.managers.webserver import NGINX_BACKEND, WebServerManager
-from tests.test_console_exposure import FakeCerts
+from tests.support.console_exposure import FakeCerts
 
 DAY = 86_400
 NOW = 1_800_000_000.0
@@ -58,14 +58,6 @@ class Clock:
 
     def __call__(self) -> float:
         return self.now
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 @pytest.fixture

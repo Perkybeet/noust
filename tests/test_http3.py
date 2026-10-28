@@ -26,7 +26,7 @@ from noust.managers.http3 import ANCHOR_NAME, Http3, parse_nginx_v
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.server.security_firewall import FirewallRule, FirewallState
 from noust.managers.site_policy import SitePolicy, SitePolicyManager, validated
-from tests.test_domains import (  # noqa: F401 - fixtures of the domains harness
+from tests.support.domains import (  # noqa: F401 - fixtures of the domains harness
     Machine,
     certs,
     machine,

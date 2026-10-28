@@ -26,7 +26,7 @@ from noust.cli.app import cli as root_cli
 from noust.core.store import NoustStore
 from noust.deployers.helpers import app_env
 from noust.deployers.helpers.env_manager import EnvManager
-from tests.test_web_apps_env_secrets import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.web_apps_env_secrets import (  # noqa: F401  (pytest resolves fixtures by name)
     app,
     client,
     deployed_env,

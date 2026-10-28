@@ -20,7 +20,6 @@ import re
 import pytest
 import yaml
 
-from noust.core.db_instance_store import READY, InstanceRecord
 from noust.core.exceptions import ValidationError
 from noust.managers.database.flavours import FLAVOURS
 from noust.managers.database.instance_catalog import (
@@ -40,30 +39,7 @@ from noust.managers.database.instance_compose import (
 )
 from noust.managers.database.instances import ENGINE_PORTS, image_engine
 from noust.managers.database.registry import DatabaseRegistry
-
-PASSWORD = "Zq8TnW3kLm0PxV7cYb2RdF5hGj9A"
-
-
-def record(flavour: str = "postgresql", version: str | None = None, **kwargs) -> InstanceRecord:
-    spec = spec_for(flavour)
-    pin = resolve_pin(spec, version)
-    values = {
-        "id": 1,
-        "name": "inst",
-        "flavour": flavour,
-        "version": pin.version,
-        "image": spec.repository,
-        "digest": pin.digest,
-        "previous_digest": None,
-        "host_port": 55432,
-        "memory_limit_mb": 1024,
-        "state": READY,
-        "created_at": "2026-10-06T10:00:00+00:00",
-        "created_by": "admin",
-        "updated_at": "2026-10-06T10:00:00+00:00",
-    }
-    values.update(kwargs)
-    return InstanceRecord(**values)
+from tests.support.database_instance_compose import PASSWORD, record
 
 
 class TestTheCatalog:

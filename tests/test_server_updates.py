@@ -49,7 +49,7 @@ from noust.managers.server.updates_unit import (
     parse_show,
     start_and_follow,
 )
-from tests.server_support import (  # noqa: F401 - the fixture registers itself
+from tests.support.server_support import (  # noqa: F401 - the fixture registers itself
     SequencedRunner,
     fixture,
     make_host,
@@ -63,11 +63,6 @@ pytestmark = pytest.mark.usefixtures("no_package_manager_running")
 @pytest.fixture
 def host(tmp_path: Path):
     return make_host(tmp_path / "root")
-
-
-@pytest.fixture
-def fs() -> RecordingFileSystem:
-    return RecordingFileSystem()
 
 
 @pytest.fixture

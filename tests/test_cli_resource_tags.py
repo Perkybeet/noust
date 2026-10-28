@@ -29,7 +29,7 @@ from noust.core.resource_tags import ResourceTags
 from noust.core.store import App, NoustStore
 from noust.managers.service_manager import ServiceManager
 from noust.web.auth import STATE_DIR_ENV
-from tests.test_web_databases_api import make_engine, wire
+from tests.support.web_databases_api import make_engine, wire
 
 
 @pytest.fixture

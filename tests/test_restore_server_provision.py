@@ -34,7 +34,7 @@ from noust.core.exceptions import DatabaseEngineError, DependencyError
 from noust.core.store import NoustStore
 from noust.managers.restore_databases import DatabaseOutcome
 from noust.managers.server_provision import ProvisionStep
-from tests.test_restore_server import (  # noqa: F401
+from tests.support.restore_server import (  # noqa: F401
     Flow,
     _reset_store,
     add_state,

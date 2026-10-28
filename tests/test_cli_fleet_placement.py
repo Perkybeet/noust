@@ -25,8 +25,8 @@ from noust.fleet.aggregate import set_aggregator
 from noust.fleet.placements import Placements
 from noust.web import fleet_jobs
 from noust.web.auth import STATE_DIR_ENV
-from tests.fleet_views_support import Central, build_central
-from tests.placement_support import DOMAIN, Shop, Upstream
+from tests.support.fleet_views_support import Central, build_central
+from tests.support.placement_support import DOMAIN, Shop, Upstream
 
 NAMES = ("web-1", "web-2", "web-3")
 

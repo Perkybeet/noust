@@ -19,7 +19,7 @@ import pytest
 
 from noust.core.delivery_queue import ORCHESTRATION_JOB_TYPES
 from noust.web.jobs import Job, JobContext, JobManager, JobStatus, JobType
-from tests.test_delivery_queue import (  # noqa: F401 - the fixtures register themselves
+from tests.support.delivery_queue import (  # noqa: F401 - the fixtures register themselves
     A,
     B,
     Work,

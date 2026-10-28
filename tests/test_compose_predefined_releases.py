@@ -22,7 +22,7 @@ import pytest
 from noust.core.exceptions import DeploymentError
 from noust.core.store import NoustStore
 from noust.deployers.helpers.env_manager import EnvManager
-from tests.test_compose_release_retention import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.compose_release_retention import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     NEW,
     Docker,

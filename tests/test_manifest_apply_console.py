@@ -25,7 +25,7 @@ from noust.web.auth import CSRF_HEADER_NAME
 from noust.web.gateway_client import ForwardedCaller
 from noust.web.jobs import Job, JobContext, JobStatus, JobType
 from noust.web.manifest_jobs import apply_manifest_job
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 SHOP = "shop.acme.example"
 

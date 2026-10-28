@@ -33,7 +33,7 @@ from noust.core.logger import Logger
 from noust.core.store import App, Service
 from noust.managers import app_identity
 from noust.managers import health as health_module
-from tests.test_app_identity import (  # noqa: F401 - fixtures used by name
+from tests.support.app_identity import (  # noqa: F401 - fixtures used by name
     UNIT,
     Gate,
     Units,

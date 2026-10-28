@@ -6,7 +6,7 @@ A name taking a certificate of its own, and giving it back, without the service 
 
 Every test runs the real store, the real nginx manager writing into a temporary tree, the real
 certificate manager and the real deployers; only the processes are faked, and certbot is a
-:class:`~tests.certbot_sim.CertbotSim` that remembers what it ordered, so a test can follow a
+:class:`~tests.support.certbot_sim.CertbotSim` that remembers what it ordered, so a test can follow a
 certificate from the order to the site that is written with it. Pinned:
 
 - the certificate is ordered before the site changes, and a refusal changes nothing;
@@ -47,7 +47,7 @@ from noust.deployers.registry import get_deployer
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.webserver import NGINX_BACKEND
-from tests.certbot_sim import CertbotSim
+from tests.support.certbot_sim import CertbotSim
 
 PRIMARY = "example.com"
 SHOP = "shop.example.com"

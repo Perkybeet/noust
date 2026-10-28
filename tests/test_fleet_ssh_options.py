@@ -35,7 +35,7 @@ from noust.fleet.ssh_options import (
     validate_connect_timeout,
 )
 from noust.fleet.tunnels import explain_ssh_failure, key_was_revoked, ssh_argv
-from tests.fleet_support import HOST_KEY, build_fleet, ed25519_line, fingerprint
+from tests.support.fleet_support import HOST_KEY, build_fleet, ed25519_line, fingerprint
 
 BASTION_KEY = ed25519_line(7)
 
@@ -558,7 +558,7 @@ class TestFingerprint:
 class TestManager:
     def test_adding_a_server_through_a_bastion_opens_the_first_tunnel_through_it(self, fleet):
         key = fleet.manager.central_public_key("web-2")
-        from tests.fleet_support import join_code
+        from tests.support.fleet_support import join_code
 
         fleet.manager.add(
             "web-2",
@@ -575,7 +575,7 @@ class TestManager:
 
     def test_a_failed_add_leaves_no_options_behind(self, fleet):
         key = fleet.manager.central_public_key("web-2")
-        from tests.fleet_support import join_code
+        from tests.support.fleet_support import join_code
 
         fleet.runner.script(
             ["ssh"], exit_code=255, stderr="hop@bastion.example.com: Permission denied (publickey)."

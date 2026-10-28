@@ -161,7 +161,7 @@ from noust.deployers import lifecycle
 from noust.web.api import hooks as hooks_module
 from noust.web.api.hooks import webhook_update_job
 from noust.web.jobs import JobType
-from tests.test_web_hooks import (  # noqa: F401
+from tests.support.web_hooks import (  # noqa: F401
     DOMAIN,
     app,
     audit_entries,

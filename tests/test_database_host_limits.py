@@ -43,7 +43,7 @@ from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.settings import Resources
 from noust.managers.server.host import HostPaths
-from tests.test_database_settings import ScriptedRunner, StubConfig, failed, ok, pg_answers
+from tests.support.database_settings import ScriptedRunner, StubConfig, failed, ok, pg_answers
 
 MB = 1024**2
 GB = 1024**3

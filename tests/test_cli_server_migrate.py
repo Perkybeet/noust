@@ -28,13 +28,7 @@ from noust.core.exceptions import BackupError
 from noust.core.logger import Logger
 from noust.core.store import NoustStore
 from noust.managers.server_migration import ServerMigration
-from tests.test_server_migration import (
-    HOST,
-    FakeSelf,
-    Recorder,
-    add_app,
-    checker,
-)
+from tests.support.server_migration import HOST, FakeSelf, Recorder, add_app, checker
 
 
 @pytest.fixture
@@ -54,13 +48,6 @@ def recorder() -> Recorder:
 @pytest.fixture(autouse=True)
 def quiet_audit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(audit, "record", lambda *args, **kwargs: None)
-
-
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
 
 
 def wire(

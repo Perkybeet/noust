@@ -41,8 +41,8 @@ from noust.managers.database.instance_catalog import (
     spec_of_record,
 )
 from noust.managers.database.instances import discover
-from tests.database_instance_support import World, build_world, close_world
-from tests.test_database_instances import container
+from tests.support.database_instance_support import World, build_world, close_world
+from tests.support.database_instances import container
 
 DIGEST = "sha256:" + "ab" * 32
 OTHER = "sha256:" + "cd" * 32

@@ -29,8 +29,8 @@ from noust.managers.backup_destinations import BackupDestinationManager
 from noust.managers.backup_failures import BackupFailureLog
 from noust.managers.backup_manager import BackupManager, BackupMetadata
 from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler, run_schedule
-from tests.notifications_support import failure_id_of
-from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.notifications_support import failure_id_of
+from tests.support.notifier import config  # noqa: F401  (pytest resolves fixtures by name)
 
 # The notifier's config fixture is imported rather than replicated, so there
 # stays one definition of "a sandboxed configuration".
@@ -356,7 +356,7 @@ class TestRunSchedule:
     ) -> None:
         """Through the real notifier: backup_success ships off, so nothing is sent."""
         from noust.core.notifier import Notifier
-        from tests.test_notifier import CapturingOpener
+        from tests.support.notifier import CapturingOpener
 
         config.set("notifications.enabled", True)
         config.set("notifications.channels.webhook.webhook_url", "https://hooks.example.test/x")

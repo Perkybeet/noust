@@ -26,7 +26,7 @@ from noust.web.api import site_history as history_api
 from noust.web.api import sites as sites_api
 from noust.web.api.deps import install_error_handlers
 from noust.web.auth import require_auth
-from tests.test_domains import (  # noqa: F401 - fixtures of the domains harness
+from tests.support.domains import (  # noqa: F401 - fixtures of the domains harness
     Machine,
     certs,
     machine,

@@ -25,7 +25,7 @@ from noust.managers.site_policy import SitePolicy, validated
 from noust.web.api import site_policy as policy_api
 from noust.web.api.deps import install_error_handlers
 from noust.web.auth import require_auth
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 ROUTES = [
     {"path": "/admin", "auth": "password"},

@@ -28,8 +28,8 @@ from noust.core.runner import SubprocessRunner
 from noust.core.secrets import SecretStore
 from noust.managers.backup_destination_files import file_sha256
 from noust.managers.volume_backups import VolumeBackupManager
-from tests.database_backup_support import RcloneRunner
-from tests.test_volume_backups import (  # noqa: F401 - fixtures
+from tests.support.database_backup_support import RcloneRunner
+from tests.support.volume_backups import (  # noqa: F401 - fixtures
     DOMAIN,
     _reset_store,
     app,

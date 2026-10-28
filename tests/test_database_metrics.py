@@ -28,7 +28,12 @@ from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.redis import RedisManager
 from noust.monitor.timeseries import MetricsStore
-from tests.database_data_support import SqlRunner, StubConfig, installed_sql_runner, make_service
+from tests.support.database_data_support import (
+    SqlRunner,
+    StubConfig,
+    installed_sql_runner,
+    make_service,
+)
 
 
 @pytest.fixture

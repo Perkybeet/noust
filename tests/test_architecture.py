@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 
 import noust
-from tests.ratchet_support import check_ratchet
+from tests.support.ratchet_support import check_ratchet
 
 SRC = Path(noust.__file__).resolve().parent
 REPO = SRC.parent.parent
@@ -1497,7 +1497,7 @@ class TestTestSeams:
             if path.name != "tunnels.py"
             and "set_loopback_for_testing" in path.read_text(encoding="utf-8")
         ]
-        assert set(callers) <= {"scripts/console_server.py"}, callers
+        assert set(callers) <= {"scripts/console_server/fleet.py"}, callers
 
 
 class TestBrandCopies:

@@ -68,7 +68,7 @@ def audit_actions() -> list[dict[str, Any]]:
 def enrol(account_id: int | None, username: str) -> int:
     pytest.importorskip("cryptography")
     from noust.core.accounts.passkeys import PasskeyManager, PasskeyOwner, RelyingParty
-    from tests.webauthn_authenticator import SoftwareAuthenticator
+    from tests.support.webauthn_authenticator import SoftwareAuthenticator
 
     rp = RelyingParty(id="localhost", origins=("http://localhost:8080",))
     manager = PasskeyManager(hostname="web1")

@@ -25,7 +25,7 @@ from noust.core.exceptions import DeploymentError, DeploysFrozenError, Validatio
 from noust.core.store import NoustStore
 from noust.deployers import lifecycle, staged
 from noust.deployers.nodejs import NodeJSDeployer
-from tests.test_release_pipeline import (
+from tests.support.release_pipeline import (
     BROKEN_SERVER,
     DOMAIN,
     GOOD_SERVER,

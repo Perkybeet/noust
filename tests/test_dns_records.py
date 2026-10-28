@@ -9,7 +9,7 @@ tests are the rules: only a record created here, still carrying its marker and i
 content, is deleted; one that was there is adopted and left alone; a different record
 in the way is a conflict until the operator confirms exactly it; a record shared by two
 applications goes with the last; and an address that cannot be public is never
-published. The provider is an in-memory account (``tests/dns_support.py``).
+published. The provider is an in-memory account (``tests/support/dns_support.py``).
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ from noust.managers.dns.records import (
     Release,
     ownership_comment,
 )
-from tests.dns_support import FakeProvider
+from tests.support.dns_support import FakeProvider
 
 PUBLIC = "8.8.4.4"
 OTHER = "9.9.9.9"

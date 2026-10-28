@@ -26,7 +26,7 @@ from noust.core.config import Config
 from noust.core.logger import Logger
 from noust.core.runner import SubprocessRunner, set_runner
 from noust.core.store import NoustStore
-from tests.test_database_public import PASSWORD, World, build_world
+from tests.support.database_public import PASSWORD, World, build_world
 
 ARGS = ["db", "public"]
 

@@ -34,7 +34,7 @@ from noust.deployers.app_export import (
     validate_document,
 )
 from noust.managers.app_mounts import MountManager
-from tests.test_app_mounts import OwnerFs
+from tests.support.app_mounts import OwnerFs
 
 DOMAIN = "shop.example.com"
 NEW = "store.example.org"

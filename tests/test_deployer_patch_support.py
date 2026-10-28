@@ -9,7 +9,7 @@ The base deployer was one class of 4800 lines and is now ``noust/deployers/base/
 class that builds on the one before, so a layer calls what it defines or inherits and mypy checks
 it. What has to hold of that is the chain itself, that a member is defined in one layer only
 (otherwise a lower one is hidden by a higher), and that the tests replace names through
-``tests/deployer_patch_support.py``.
+``tests/support/deployer_patch_support.py``.
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ import pytest
 
 import noust
 from noust.deployers.base import BaseDeployer
-from tests.deployer_patch_support import layers, patch_deployer
-from tests.patch_scan_support import patches_in_tree
+from tests.support.deployer_patch_support import layers, patch_deployer
+from tests.support.patch_scan_support import patches_in_tree
 
 ROOT = Path(noust.__file__).resolve().parent.parent.parent
 PACKAGE = "noust.deployers.base"
@@ -114,6 +114,6 @@ def test_no_test_replaces_a_name_on_the_package_by_hand() -> None:
         if not site.name.startswith("BaseDeployer.")
     ]
 
-    assert not offenders, "Use patch_deployer (tests/deployer_patch_support.py):\n  " + "\n  ".join(
-        offenders
+    assert not offenders, (
+        "Use patch_deployer (tests/support/deployer_patch_support.py):\n  " + "\n  ".join(offenders)
     )

@@ -26,14 +26,16 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
 
 import pytest
 
 from noust.core.exceptions import DeploymentError, NoustError
 from noust.core.store import App, NoustStore
 from noust.deployers import lifecycle
-from tests.test_release_pipeline import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.release_activation import (  # noqa: F401
+    two_releases,
+)
+from tests.support.release_pipeline import (  # noqa: F401  (pytest resolves fixtures by name)
     BROKEN_SERVER,
     DOMAIN,
     GOOD_SERVER,
@@ -47,43 +49,6 @@ from tests.test_release_pipeline import (  # noqa: F401  (pytest resolves fixtur
     store,
     update,
 )
-
-
-@pytest.fixture
-def two_releases(
-    tmp_path: Path,
-    root: Path,
-    store: NoustStore,
-    machine: SimpleNamespace,
-    monkeypatch: pytest.MonkeyPatch,
-) -> tuple[str, str]:
-    """
-    Deploy v1, update to v2, and point the activation at the fake machine.
-
-    Returns:
-        The ids of the first and the second release; the second is active.
-    """
-    machine.git.publish(node_tree(tmp_path / "v1"))
-    deploy_new(root, machine)
-    first = active_id(root)
-    machine.git.publish(node_tree(tmp_path / "v2", server=GOOD_SERVER + "// v2\n"))
-    update(machine, monkeypatch)
-    second = active_id(root)
-
-    def probe(url: str, **kwargs: Any) -> bool:
-        machine.probes.append(url)
-        server = root / "current" / "server.js"
-        if "throw" in server.read_text():
-            kwargs["on_attempt"]("Health check attempt 1 failed: [Errno 111] Connection refused")
-            return False
-        return True
-
-    monkeypatch.setattr(lifecycle, "ServiceManager", lambda **kwargs: machine.services)
-    monkeypatch.setattr(lifecycle, "SourceManager", lambda **kwargs: machine.git)
-    monkeypatch.setattr(lifecycle, "wait_until_healthy", probe)
-    machine.services.restarts.clear()
-    machine.probes.clear()
-    return first, second
 
 
 def statuses(store: NoustStore) -> dict[str, str]:

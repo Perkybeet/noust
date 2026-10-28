@@ -174,14 +174,6 @@ class TestTheStore:
 
 
 @pytest.fixture
-def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "systemd"
-    path.mkdir()
-    monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", path)
-    return path
-
-
-@pytest.fixture
 def scheduler(runner: FakeRunner, systemd_dir: Path, store: NoustStore) -> BackupScheduler:
     return BackupScheduler(verbose=False, runner=runner)
 

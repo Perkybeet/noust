@@ -26,7 +26,7 @@ from noust.core.exceptions import NodeError
 from noust.core.store import NoustStore
 from noust.fleet.keys import TOKEN, secret_name
 from noust.fleet.policy import FleetAccess
-from tests.fleet_support import OTHER_TOKEN, build_fleet, ed25519_line, join_code
+from tests.support.fleet_support import OTHER_TOKEN, build_fleet, ed25519_line, join_code
 
 
 @pytest.fixture(autouse=True)

@@ -44,9 +44,9 @@ from noust.managers.database.imports import (
 )
 from noust.managers.database.psql_script import strip_owners
 from noust.managers.database.uploads import check_file_name
+from tests.support.database_import_formats import DUMP_WITH_OWNERS, PG_CUSTOM
 
 SQL = b"-- PostgreSQL database dump\nSET statement_timeout = 0;\nCREATE TABLE t (i int);\n"
-PG_CUSTOM = b"PGDMP\x01\x0e\x00" + b"\x00" * 64
 MONGO_ARCHIVE = struct.pack("<I", 0x8199E26D) + b"\x05\x00\x00\x00\x00" + b"\xff\xff\xff\xff"
 
 
@@ -279,34 +279,6 @@ class TestPrepare:
 
 
 # ============================================================ owners, in SQL
-
-
-DUMP_WITH_OWNERS = """\
---
--- PostgreSQL database dump
---
-
-SET statement_timeout = 0;
-CREATE TABLE public.users (id integer, note text);
-ALTER TABLE public.users OWNER TO app_prod;
-CREATE FUNCTION public.f() RETURNS text
-    LANGUAGE plpgsql AS $$
-BEGIN
-GRANT ALL ON TABLE public.users TO nobody;
-ALTER TABLE public.users OWNER TO inside_a_function;
-RETURN 'x';
-END;
-$$;
-ALTER FUNCTION public.f() OWNER TO app_prod;
-COPY public.users (id, note) FROM stdin;
-1	ALTER TABLE public.users OWNER TO data_not_a_statement;
-2	GRANT ALL ON TABLE public.users TO data_not_a_grant;
-\\.
-GRANT SELECT ON TABLE public.users TO reader;
-REVOKE ALL ON SCHEMA public FROM PUBLIC;
-ALTER DEFAULT PRIVILEGES FOR ROLE app_prod IN SCHEMA public GRANT SELECT ON TABLES TO reader;
-INSERT INTO public.users VALUES (3, 'GRANT ALL ON TABLE t TO x;');
-"""
 
 
 class TestStripOwners:

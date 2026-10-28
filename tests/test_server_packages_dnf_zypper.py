@@ -34,17 +34,12 @@ from noust.managers.server.pkg.zypper import (
     read_shell_var,
     set_shell_var,
 )
-from tests.server_support import fixture, make_host, platform_for
+from tests.support.server_support import fixture, make_host, platform_for
 
 
 @pytest.fixture
 def host(tmp_path: Path):
     return make_host(tmp_path)
-
-
-@pytest.fixture
-def fs() -> RecordingFileSystem:
-    return RecordingFileSystem()
 
 
 class TestDnfListing:

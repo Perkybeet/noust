@@ -40,7 +40,14 @@ from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ResourceLimits
 from noust.managers.webserver import NGINX_BACKEND, SiteDeletion
-from tests.container_support import APP, DOMAIN, Docker, FakeServices, install_fakes, root_of
+from tests.support.container_support import (
+    APP,
+    DOMAIN,
+    Docker,
+    FakeServices,
+    install_fakes,
+    root_of,
+)
 
 IMAGE = ContainerSettings(method="image", image="ghcr.io/owner/app:1.4", container_port=8080)
 

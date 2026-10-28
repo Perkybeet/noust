@@ -27,7 +27,7 @@ from noust.managers.backup_scheduler import BackupScheduler
 from noust.managers.database.service import DatabaseListing, DatabaseService, DatabaseView
 from noust.web.auth import FLEET_ACTOR_HEADER, FLEET_ACTOR_SCOPE_HEADER
 from noust.web.server import get_token_manager
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 ACME = "shop.acme.example"
 GLOBEX = "blog.globex.example"

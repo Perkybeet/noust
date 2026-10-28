@@ -24,7 +24,7 @@ from noust.core.runner import FakeRunner
 from noust.managers.database.instances import DatabaseInstance, PublishedPort, discover
 from noust.managers.database.mongodb import MongoDBManager
 from noust.managers.database.redis import RedisManager
-from tests.test_database_instances import container
+from tests.support.database_instances import container
 
 ANYWHERE = "0.0.0.0"  # noqa: S104 - what Docker reports for "every address"
 

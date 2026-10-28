@@ -47,7 +47,7 @@ from noust.web.api import config as config_api
 from noust.web.api import deployments as deployments_api
 from noust.web.api import hooks as hooks_module
 from noust.web.api.auth import get_current_session
-from tests.test_notifier import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.notifier import (  # noqa: F401  (pytest resolves fixtures by name)
     CapturingOpener,
     config,
     public_dns,

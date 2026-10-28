@@ -28,50 +28,16 @@ from noust.recipes import deploy as deploy_module
 from noust.recipes.deploy import finish_recipe, plan_recipe
 from noust.recipes.model import Entrypoint
 from tests.recipes.factory import DIGEST, compose_recipe, use_demo_assets
+from tests.support.recipes_entrypoints import (
+    ENTRYPOINTS,
+    TWO_SERVICES,
+    VARIABLES,
+    two_address_recipe,
+)
 
 DOMAIN = "bots.example.com"
 VIEWER = "view.example.com"
 LOG = Logger(verbose=False)
-
-TWO_SERVICES = f"""
-services:
-  builder:
-    image: ghcr.io/o/builder:1.2.3@{DIGEST}
-    restart: unless-stopped
-    environment:
-      VIEWER_URL: "${{VIEWER_URL}}"
-    ports:
-      - "127.0.0.1:${{PORT}}:3000"
-  viewer:
-    image: ghcr.io/o/viewer:1.2.3@{DIGEST}
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:${{VIEWER_PORT}}:3001"
-"""
-
-VARIABLES = {
-    "SCHEME": {"from": "scheme"},
-    "VIEWER_DOMAIN": {"required": True, "description": "Where visitors open the bots."},
-    "VIEWER_PORT": {"default": "3101", "description": "The viewer's port on 127.0.0.1."},
-    "VIEWER_URL": {"value": "${SCHEME}://${VIEWER_DOMAIN}"},
-}
-ENTRYPOINTS = {
-    "viewer": {
-        "title": "Viewer",
-        "description": "Where visitors open and answer the bots you publish.",
-        "domain_variable": "VIEWER_DOMAIN",
-        "port_variable": "VIEWER_PORT",
-    }
-}
-
-
-def two_address_recipe(**overrides: Any) -> dict[str, Any]:
-    """A Compose recipe with a builder on the application's address and a viewer on another."""
-    data = compose_recipe(
-        compose=TWO_SERVICES, variables=dict(VARIABLES), entrypoints=dict(ENTRYPOINTS)
-    )
-    data.update(overrides)
-    return data
 
 
 @pytest.fixture(autouse=True)

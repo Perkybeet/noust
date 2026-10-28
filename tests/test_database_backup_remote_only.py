@@ -24,9 +24,9 @@ from noust.cli.app import Context
 from noust.cli.commands import db_backups
 from noust.core.exceptions import BackupError, ValidationError
 from noust.managers.database.backups import DatabaseBackups
-from tests.test_database_backups import (  # noqa: F401
+from tests.support.database_backup_support import RcloneRunner
+from tests.support.database_backups import (  # noqa: F401
     FakeScheduler,
-    RcloneRunner,
     _reset_store,
     add_destination,
     backups,

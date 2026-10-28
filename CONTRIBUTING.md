@@ -212,7 +212,9 @@ src/noust/
 panel/              Noust console source: React 19, TypeScript, Vite, TanStack Router/Query,
                     Base UI, Tailwind v4; src/api/schema.gen.ts is generated from openapi.json
   e2e/              Playwright + axe + CSP gate against the real backend
-scripts/console_server.py   the real API on a seeded, sandboxed store (development and E2E)
+scripts/console_server.py   the real API on a seeded, sandboxed store (development and E2E): the launcher of the
+                            package `scripts/console_server/`, which holds the sandbox, the machine the runner
+                            answers for, the seed of each page, the fleet and the Server area, one module each
 scripts/generate_sdk.py     sdk/python from panel/openapi.json; sdk/terraform is the map the provider is
                             written from (docs/sdk.md, docs/terraform.md); CI fails on a stale file
 terraform-provider-noust/   the Terraform and OpenTofu provider (Go, Plugin Framework): a client of the API
@@ -221,6 +223,10 @@ terraform-provider-noust/   the Terraform and OpenTofu provider (Go, Plugin Fram
                             (docs/terraform-registry.md, scripts/prepare_terraform_registry.py)
 scripts/reproducible_build.py   the wheel and the sdist of a commit, byte for byte
                             (docs/reproducible-builds.md); CI and the release workflow build with it
+tests/support/              what the tests share and is not a test: simulated machines, factories, builders
+                            and the helpers of test modules (a test module is never imported by another,
+                            and nothing but `test_*.py`, `conftest.py` and `__init__.py` sits loose in
+                            `tests/`; `tests/test_tests_layout.py` holds both)
 tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest. The 4.0
                             features' scenarios (how an application arrives: Procfile, scheduled updates,
                             push, uploads, previews; and what protects its data: S3 backups, database
@@ -270,7 +276,7 @@ under them imports them. `tests/test_layering.py` holds the rules, each with the
 still break it: the test fails when a new place appears and when a listed one is fixed and not taken
 off, so the lists can only get shorter. A command attaches itself to its group by importing the group
 (a module of its own), never the other way round, so no module imports another that imports it back
-when it loads. The graph is read from the syntax tree (`tests/import_graph_support.py`); an import
+when it loads. The graph is read from the syntax tree (`tests/support/import_graph_support.py`); an import
 under `TYPE_CHECKING` is not one at run time and does not count.
 
 <!-- layers:start -->
@@ -581,6 +587,7 @@ pip install -e ".[all,dev]"     # development install
 pytest                          # tests
 pytest --cov=noust              # with coverage
 pytest --shard 2/6              # one slice of the suite, by whole files (CI runs each slice on its own machine)
+pytest -m web                    # one area of the suite: the first word of a test file's name (tests/support/areas.py)
 ruff check src/noust tests      # lint (blocking in CI)
 ruff format src/noust tests     # format (blocking in CI)
 mypy                            # types (blocking in CI)
@@ -629,7 +636,7 @@ cd panel && npm run dev                          # http://localhost:5173
 ```
 
 `console_server.py` runs the real FastAPI app under uvicorn over a store seeded by
-`tests/panel_factory.seed_console_state`, with every system path redirected into a temporary
+`tests/support/panel_factory.seed_console_state`, with every system path redirected into a temporary
 directory and a fake runner answering systemctl, journalctl, nginx and certbot, so nothing on
 the development machine is touched. `--totp` turns on the second sign-in factor; the E2E suite
 starts one per Playwright worker.

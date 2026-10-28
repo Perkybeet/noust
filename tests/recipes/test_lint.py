@@ -15,7 +15,7 @@ import yaml
 
 from noust.recipes.lint import ERROR, WARNING, lint_catalogue
 from tests.recipes.factory import DIGEST, compose_document, compose_recipe
-from tests.recipes.test_operator_recipes import LOGO
+from tests.support.recipes_operator_recipes import LOGO
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "recipe_lint.py"
 

@@ -28,7 +28,7 @@ from noust.core.teams import ScopedStore
 from noust.web.api import app_disk as disk_api
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers, require_elevated
-from tests.test_app_disk import (  # noqa: F401 - the fixtures of a tree with releases, uploads and a cache
+from tests.support.app_disk import (  # noqa: F401 - the fixtures of a tree with releases, uploads and a cache
     DOMAIN,
     MB,
     Disk,

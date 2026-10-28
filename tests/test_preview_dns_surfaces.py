@@ -26,7 +26,7 @@ from noust.managers import preview_dns, previews
 from noust.web.api import previews as previews_api
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers
-from tests.test_previews import (
+from tests.support.previews import (
     BASE,
     PARENT,
     FakeContext,

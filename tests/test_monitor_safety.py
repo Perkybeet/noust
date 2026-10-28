@@ -33,7 +33,7 @@ import psutil
 import pytest
 
 from noust.core.config import Config
-from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.notifier import config  # noqa: F401  (pytest resolves fixtures by name)
 
 # The notifier's config fixture is imported rather than replicated, so there
 # stays one definition of "a sandboxed configuration".

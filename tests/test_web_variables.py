@@ -23,7 +23,7 @@ import pytest
 from noust.core.store import NoustStore
 from noust.deployers.helpers import app_env as app_env_module
 from noust.web.permissions import Permission
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 ACME = "shop.acme.example"
 GLOBEX = "blog.globex.example"

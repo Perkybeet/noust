@@ -4,7 +4,7 @@
 """
 Signing in against a directory (checklist I-22): configuring it, and what a sign-in does.
 
-The directory is a real LDAP server in-process (``tests/ldap_support.py``): what these tests say
+The directory is a real LDAP server in-process (``tests/support/ldap_support.py``): what these tests say
 about the passwords and the filters it was sent is what a real one would have seen.
 """
 
@@ -26,8 +26,8 @@ from noust.core.accounts.oidc_model import OidcError, OidcRefused
 from noust.core.exceptions import ValidationError
 from noust.core.teams import TeamStore
 from noust.web.permissions.access import AccessManager
-from tests.ldap_support import FakeDirectory, entry
-from tests.test_oidc_manager import (  # noqa: F401 - the fixtures of the manager tests
+from tests.support.ldap_support import FakeDirectory, entry
+from tests.support.oidc_manager import (  # noqa: F401 - the fixtures of the manager tests
     accounts,
     admin,
     cheap_hashes,

@@ -428,7 +428,7 @@ def test_storage_lists_only_backup_directories_and_points_at_misplaced_ones(
     """
     from noust.core.config import Config
     from noust.managers.backup_manager import BackupManager
-    from tests.test_backup_placement import plant_backup, plant_home_clutter
+    from tests.support.backup_placement import plant_backup, plant_home_clutter
 
     configured = tmp_path / "backups"
     plant_backup(configured, "example.com")

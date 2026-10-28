@@ -20,7 +20,7 @@ from noust.core import notifier as notifier_module
 from noust.core.config import ConfigError, is_secret_key, redact_secrets
 from noust.core.notifications import instances
 from noust.core.notifications.render import webhook
-from tests.notifications_support import hostile
+from tests.support.notifications_support import hostile
 
 
 class TestTheParser:

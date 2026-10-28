@@ -36,8 +36,8 @@ from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.monorepo import MonorepoDeployer
 from noust.managers import app_identity
 from noust.managers.service_manager import with_account
-from tests.test_build_sandbox import as_root  # noqa: F401 - fixture used by name
-from tests.test_monorepo_sandbox import DOMAIN, deployer, registered, workspace_tree
+from tests.support.build_sandbox import as_root  # noqa: F401 - fixture used by name
+from tests.support.monorepo_sandbox import DOMAIN, deployer, registered, workspace_tree
 
 ACCOUNT = "noust-app-mono-example-com"
 

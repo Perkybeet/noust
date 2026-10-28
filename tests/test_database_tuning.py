@@ -4,7 +4,7 @@
 """
 What an instance may use, and how it is probed (4.0, C-30 and C-31).
 
-The machine is :class:`~tests.database_instance_support.DockerHost`, so a change is really
+The machine is :class:`~tests.support.database_instance_support.DockerHost`, so a change is really
 written to the Compose file *on disk*, the unit restarts and the container is made from that
 file. What is defended:
 
@@ -29,7 +29,7 @@ from noust.core.db_instance_store import READY
 from noust.core.exceptions import DatabaseEngineError, ValidationError
 from noust.managers.database import instance_layout as layout
 from noust.managers.database.instance_tuning import InstanceTuning
-from tests.database_instance_support import World, build_world, close_world
+from tests.support.database_instance_support import World, build_world, close_world
 
 UNIT = "noust-db-pg16"
 

@@ -26,7 +26,7 @@ from typing import Any
 import pytest
 
 from noust.core.store import NoustStore
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 ROOT = Path(__file__).parent.parent
 SDK = ROOT / "sdk" / "python"

@@ -15,7 +15,7 @@ past three thousand lines.
 Each rule carries the list of places that still break it, as ``test_architecture.py`` does: the
 test fails when a new one appears and when a listed one is fixed and not taken off, so the lists
 can only get shorter. The import graph is read from the syntax tree
-(``tests/import_graph_support.py``); a name used only for annotations (``if TYPE_CHECKING``) is
+(``tests/support/import_graph_support.py``); a name used only for annotations (``if TYPE_CHECKING``) is
 not an import at run time and does not count.
 """
 
@@ -26,8 +26,8 @@ from pathlib import Path
 import pytest
 
 import noust
-from tests import import_graph_support as graph
-from tests.ratchet_support import check_ratchet
+from tests.support import import_graph_support as graph
+from tests.support.ratchet_support import check_ratchet
 
 ROOT = Path(noust.__file__).resolve().parent
 WHERE = "tests/test_layering.py"

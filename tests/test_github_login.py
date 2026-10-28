@@ -14,8 +14,6 @@ believed, and the token is used once and never kept.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -30,8 +28,8 @@ from noust.core.accounts.oidc_client import OidcClient, OidcHttp
 from noust.core.accounts.oidc_model import OidcError, OidcRefused
 from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
-from tests.github_login_support import FakeGitHub
-from tests.oidc_support import Clock
+from tests.support.github_login_support import FakeGitHub
+from tests.support.oidc_support import Clock
 
 PASSWORD = "correct horse battery staple"
 REDIRECT = "https://noust.example.test/api/auth/oidc/callback"
@@ -42,14 +40,6 @@ IP = "203.0.113.5"
 def cheap_hashes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(passwords, "COST", (2**4, 8, 1))
     monkeypatch.setattr(passwords, "_dummy_hash", None)
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 @pytest.fixture

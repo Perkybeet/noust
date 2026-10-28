@@ -9,28 +9,16 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from noust.core.store import App, NoustStore
 from noust.recipes import get_recipe
 from noust.recipes.installed import record_install
 from noust.web.api import recipes as recipes_api
-from noust.web.api.auth import get_current_session
-from noust.web.api.deps import install_error_handlers
 from noust.web.permissions.routes_recipes import ROUTES
+from tests.support.recipes_api import small_app
 
 DOMAIN = "site.example.com"
-
-
-def small_app() -> FastAPI:
-    """The recipes router alone, behind a session the test supplies."""
-    api = FastAPI()
-    install_error_handlers(api)
-    api.include_router(recipes_api.router, prefix="/api/recipes")
-    session = {"type": "session", "session_id": "s", "scope": "admin", "name": "alice"}
-    api.dependency_overrides[get_current_session] = lambda: session
-    return api
 
 
 @pytest.fixture

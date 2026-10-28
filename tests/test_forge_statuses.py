@@ -25,7 +25,7 @@ from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore
 from noust.integrations.forges import api, statuses
 from noust.managers.source_credentials import GitCredentialManager
-from tests.forge_support import FakeForges
+from tests.support.forge_support import FakeForges
 
 SECRET = "tok-1234567890"
 

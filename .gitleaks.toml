@@ -18,7 +18,7 @@ paths = [
   '''^panel/e2e/''',
   '''^panel/src/.*\.test\.tsx?$''',
   '''^src/noust/web/static/''',
-  '''^scripts/console_server\.py$''',
+  '''^scripts/console_server(\.py$|/)''',
   '''(^|/)package-lock\.json$''',
   '''^uv\.lock$''',
 ]

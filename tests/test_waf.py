@@ -41,7 +41,7 @@ from noust.managers.waf import (
     parse_events,
 )
 from tests.conftest import OwnershipChange
-from tests.test_domains import (  # noqa: F401 - fixtures of the domains harness
+from tests.support.domains import (  # noqa: F401 - fixtures of the domains harness
     Machine,
     certs,
     machine,
@@ -393,7 +393,7 @@ def test_a_server_with_empty_package_lists_updates_them_before_installing_the_wa
 ) -> None:
     from noust.core.fs import RecordingFileSystem
     from noust.managers.server.pkg.apt import AptBackend
-    from tests.server_support import EmptyAptLists, make_host, platform_for
+    from tests.support.server_support import EmptyAptLists, make_host, platform_for
 
     fresh_image = EmptyAptLists()
     monkeypatch.setattr(Waf, "_installable", lambda self: True)

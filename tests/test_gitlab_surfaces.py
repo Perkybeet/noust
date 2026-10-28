@@ -25,7 +25,7 @@ from noust.core.secrets import SecretStore
 from noust.core.store import NoustStore
 from noust.integrations.gitlab import service as gitlab_service
 from noust.integrations.gitlab.service import GitLabService
-from tests.test_gitlab_connections import (  # noqa: F401 - fixtures
+from tests.support.gitlab_connections import (  # noqa: F401 - fixtures
     CLIENT_SECRET,
     HOST,
     TOKEN,

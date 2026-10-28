@@ -46,7 +46,8 @@ from noust.core.notifications.model import (
 )
 from noust.core.notifications.render import discord, email, slack, telegram, webhook
 from noust.core.notifications.render.common import http_url, render_text
-from tests.notifications_support import (
+from tests.support.notification_renderers import notification
+from tests.support.notifications_support import (
     FIXED_TS,
     catalog,
     context,
@@ -75,25 +76,6 @@ EVERYTHING = ALL + HOSTILE
 def get(locale: str, name: str) -> Notification:
     source = hostile(locale) if name.startswith("hostile.") else catalog(locale)  # type: ignore[arg-type]
     return source[name]
-
-
-def notification(**overrides: object) -> Notification:
-    fields: dict = {
-        "kind": "deploy_failed",
-        "code": "deploy.failed",
-        "state": State.FAILED,
-        "locale": "en",
-        "title": "Deploy failed",
-        "subject": "shop.example.com",
-        "summary": "It stopped at an error.",
-        "server": "web-1",
-        "facts": (Fact("server", "Server", "web-1"),),
-        "links": (Link("console", "Open in the console", "https://c.example.com/apps/x"),),
-        "ts": FIXED_TS,
-        "id": "00000000-0000-4000-8000-000000000001",
-    }
-    fields.update(overrides)
-    return Notification(**fields)
 
 
 # ---------------------------------------------------------------------------

@@ -18,7 +18,6 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections import namedtuple
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -29,8 +28,7 @@ from noust.core.exceptions import BackupError, ConfigError
 from noust.core.notifications.model import Notification
 from noust.core.runner import FakeRunner
 from noust.core.secrets import SecretStore
-from noust.core.store import BackupScheduleRecord, DeploymentStatus, NoustStore, get_store
-from noust.managers import backup_manager as backup_manager_module
+from noust.core.store import BackupScheduleRecord, DeploymentStatus, get_store
 from noust.managers import backup_scheduler as scheduler_module
 from noust.managers.backup_destinations import (
     STAGING_DIR_NAME,
@@ -41,64 +39,25 @@ from noust.managers.backup_destinations import (
 from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager, BackupMetadata, server_id
 from noust.managers.backup_scheduler import BackupScheduler, run_schedule
 from noust.managers.rollback_manager import RollbackManager
+from tests.support.backup_safety_22 import (  # noqa: F401
+    APP,
+    DOMAIN,
+    TARGET,
+    RemoteRetentionOnASharedFolderTests,
+    _listing,
+    _push_setup,
+    _remaining,
+    _reset_store,
+    _sftp_fields,
+    _write_backup,
+    destinations,
+    manager,
+    systemd_dir,
+)
 
-APP = "shop-example-com"
-DOMAIN = "shop.example.com"
-
-
-@pytest.fixture(autouse=True)
-def _reset_store() -> Iterator[None]:
-    NoustStore.reset_instance()
-    yield
-    NoustStore.reset_instance()
-
-
-@pytest.fixture
-def manager(runner: FakeRunner, tmp_path: Path) -> BackupManager:
-    backup_manager = BackupManager(verbose=False, runner=runner)
-    backup_manager.backup_dir = tmp_path / "backups"
-    backup_manager.max_backups = 2
-    return backup_manager
-
-
-@pytest.fixture
-def destinations(runner: FakeRunner) -> BackupDestinationManager:
-    runner.only_knows("rclone")
-    runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
-    return BackupDestinationManager(runner=runner)
-
-
-def _sftp_fields() -> dict[str, str]:
-    return {"host": "nas.example.com", "user": "wasm", "pass": "s3cr3t-password-value"}
-
-
-def _write_backup(
-    manager: BackupManager, day: int, tags: list[str], *, origin: str | None = None
-) -> BackupMetadata:
-    backup_id = f"{APP}_202601{day:02d}_000000"
-    metadata = BackupMetadata(
-        id=backup_id,
-        domain=DOMAIN,
-        app_name=APP,
-        created_at=f"2026-01-{day:02d}T00:00:00",
-        size_bytes=7,
-        app_type="static",
-        version="2.0.0",
-        description="",
-        includes_env=True,
-        includes_node_modules=False,
-        tags=tags,
-        origin=origin,
-    )
-    app_dir = manager.backup_dir / APP
-    app_dir.mkdir(parents=True, exist_ok=True)
-    (app_dir / f"{backup_id}.tar.gz").write_bytes(b"content")
-    (app_dir / f"{backup_id}.json").write_text(json.dumps(metadata.to_dict()))
-    return metadata
-
-
-def _remaining(manager: BackupManager) -> set[str]:
-    return {backup.id for backup in manager.list_backups(app_name=APP)}
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
 
 
 # ---------------------------------------------------------------------------
@@ -285,14 +244,6 @@ LEGACY_SERVICE = (
     "[Service]\nExecStart=/usr/bin/noust backup create example.com "
     "--include-databases --tags scheduled,auto\n"
 )
-
-
-@pytest.fixture
-def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "systemd"
-    path.mkdir()
-    monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", path)
-    return path
 
 
 class TestAdoption:
@@ -527,24 +478,6 @@ class TestNames:
 # 5/6. Pushing: verification failures, and retention on a shared folder
 # ---------------------------------------------------------------------------
 
-TARGET = f"nas:noust-backups/{APP}"
-
-
-def _push_setup(
-    destinations: BackupDestinationManager, manager: BackupManager, day: int = 2
-) -> BackupMetadata:
-    destinations.add("nas", "sftp", _sftp_fields())
-    return _write_backup(manager, day, [SCHEDULED_TAG], origin=server_id())
-
-
-def _listing(manager: BackupManager, metadata: BackupMetadata, **archive: Any) -> str:
-    sidecar = manager.backup_dir / APP / f"{metadata.id}.json"
-    entries = [
-        {"Name": f"{metadata.id}.tar.gz", "Size": 7, "ModTime": "2026-01-02T00:00:00Z", **archive},
-        {"Name": f"{metadata.id}.json", "Size": sidecar.stat().st_size},
-    ]
-    return json.dumps(entries)
-
 
 class TestPushVerification:
     def test_a_failed_verification_removes_the_bad_copy(
@@ -623,87 +556,6 @@ class TestPushVerification:
         summary = destinations.push(metadata, "nas", backup_manager=manager)
 
         assert summary["verified_by"] == "md5"
-
-
-class TestRemoteRetentionOnASharedFolder:
-    def _entries(self, ids: list[str]) -> list[dict[str, Any]]:
-        return [
-            {
-                "Name": f"{backup_id}.tar.gz",
-                "Size": 7,
-                "ModTime": f"2026-01-{index + 1:02d}T00:00:00Z",
-            }
-            for index, backup_id in enumerate(ids)
-        ]
-
-    def test_only_this_servers_backups_are_counted_and_deleted(
-        self, destinations: BackupDestinationManager, runner: FakeRunner
-    ) -> None:
-        destinations.add("nas", "sftp", _sftp_fields())
-        own = server_id()
-        mine_old, foreign, legacy, mine_new = (
-            f"{APP}_20260101_000000",
-            f"{APP}_20260102_000000",
-            f"{APP}_20260103_000000",
-            f"{APP}_20260104_000000",
-        )
-        sidecars = (
-            json.dumps({"id": mine_old, "origin": own})
-            + "\n"
-            + json.dumps({"id": foreign, "origin": "0123456789abcdef"})
-            + json.dumps({"id": legacy})
-            + json.dumps({"id": mine_new, "origin": own})
-        )
-        runner.script(("rclone", "cat", TARGET), stdout=sidecars)
-
-        deleted = destinations._apply_remote_retention(
-            destinations.remote_env("nas"),
-            TARGET,
-            self._entries([mine_old, foreign, legacy, mine_new]),
-            1,
-            None,
-            [],
-        )
-
-        assert deleted == [mine_old]
-
-    def test_an_unreadable_sidecar_is_kept(
-        self, destinations: BackupDestinationManager, runner: FakeRunner
-    ) -> None:
-        destinations.add("nas", "sftp", _sftp_fields())
-        old, new = f"{APP}_20260101_000000", f"{APP}_20260102_000000"
-        runner.script(
-            ("rclone", "cat", TARGET),
-            stdout=json.dumps({"id": new, "origin": server_id()})
-            + "{not json"
-            + json.dumps({"id": old, "origin": server_id()}),
-        )
-
-        deleted = destinations._apply_remote_retention(
-            destinations.remote_env("nas"), TARGET, self._entries([old, new]), 1, None, []
-        )
-
-        assert deleted == []
-
-    def test_a_new_backup_records_this_server(self) -> None:
-        metadata = BackupMetadata.from_dict(
-            {
-                "id": "x_20260101_000000",
-                "domain": DOMAIN,
-                "app_name": APP,
-                "created_at": "2026-01-01T00:00:00",
-                "origin": server_id(),
-            }
-        )
-        assert metadata.to_dict()["origin"] == server_id()
-
-    def test_server_id_without_a_machine_id(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        monkeypatch.setattr(backup_manager_module, "MACHINE_ID_PATH", tmp_path / "missing")
-        first = server_id()
-        assert len(first) == 16
-        assert first == server_id()
 
 
 # ---------------------------------------------------------------------------
@@ -809,3 +661,7 @@ class TestDownload:
         assert not seen["archive"].parent.exists()
         # A download in progress is never listed as a local backup.
         assert manager.list_backups() == []
+
+
+class TestRemoteRetentionOnASharedFolder(RemoteRetentionOnASharedFolderTests):
+    """Retention of the backups on a folder several servers share, which the size limit's tests share."""

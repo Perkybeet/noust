@@ -29,7 +29,7 @@ from noust.core.forge_events import (
     parse_push_change,
     parse_tag_event,
 )
-from tests import test_web_hooks as hooks_tests
+from tests.support import web_hooks as hooks_tests
 
 DOMAIN = hooks_tests.DOMAIN
 PUSH_MAIN = hooks_tests.PUSH_MAIN

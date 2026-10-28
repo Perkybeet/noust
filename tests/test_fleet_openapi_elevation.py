@@ -28,7 +28,7 @@ from noust.web.api.openapi import (
     route_requires_elevation,
 )
 from noust.web.server import create_app
-from tests.test_web_auth import make_config
+from tests.support.web_auth import make_config
 
 
 @pytest.fixture

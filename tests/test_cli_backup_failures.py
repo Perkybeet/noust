@@ -22,7 +22,7 @@ from click.testing import CliRunner
 from noust.cli.app import Context, cli
 from noust.core.store import get_store
 from noust.managers.backup_failures import BackupFailureLog
-from tests.test_backup_safety_22 import _reset_store  # noqa: F401
+from tests.support.backup_safety_22 import _reset_store  # noqa: F401
 
 
 def invoke(*argv: str) -> Any:

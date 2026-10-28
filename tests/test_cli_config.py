@@ -32,7 +32,7 @@ from noust.cli.commands import config as config_cmd
 from noust.core.config import Config
 from noust.core.logger import Logger
 from noust.core.runner import DryRunRunner, FakeRunner, get_runner
-from tests.config_files import stored_config
+from tests.support.config_files import stored_config
 
 CONTRACT = json.loads(
     (Path(__file__).parent / "contracts/cli_surface.json").read_text(encoding="utf-8")

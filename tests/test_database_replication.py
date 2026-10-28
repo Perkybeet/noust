@@ -19,8 +19,7 @@ import os
 import re
 import threading
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -43,15 +42,9 @@ from noust.managers.database.replication import ReplicationManager
 from noust.managers.database.replication_records import PRIMARY, REPLICA, ReplicationRecords
 from noust.managers.database.replication_token import REQUIRED_SETTINGS, parse
 from noust.managers.server.host import HostPaths
+from tests.support.database_replication import CA, HOST, REPLICA_ADDRESS, Clock, FakeFirewall
 
 START = datetime(2026, 10, 17, 12, 0, 0, tzinfo=timezone.utc)
-REPLICA_ADDRESS = "203.0.113.7"
-HOST = "db.example.com"
-CA = (
-    "-----BEGIN CERTIFICATE-----\n"
-    + "MIIBszCCAVmgAwIBAgIUQ2xhdWRlVGVzdENlcnRpZmljYXRlMDAwMDEwCgYIKoZI\n" * 2
-    + "-----END CERTIFICATE-----\n"
-)
 DEBIAN_HBA = (
     "# PostgreSQL Client Authentication Configuration File\n"
     "# TYPE  DATABASE        USER            ADDRESS                 METHOD\n"
@@ -59,44 +52,6 @@ DEBIAN_HBA = (
     "host    all             all             127.0.0.1/32            scram-sha-256\n"
     "host    replication     all             127.0.0.1/32            scram-sha-256\n"
 )
-
-
-class Clock:
-    """A clock a test moves."""
-
-    def __init__(self, now: datetime) -> None:
-        self.now = now
-
-    def __call__(self) -> datetime:
-        return self.now
-
-    def sleep(self, seconds: float) -> None:
-        self.now += timedelta(seconds=seconds)
-
-
-@dataclass
-class FakeChange:
-    """What the firewall answers to a rule."""
-
-    backend: str = "ufw"
-    active: bool = True
-    changed: bool = True
-
-
-class FakeFirewall:
-    """Records the rules Noust asked for."""
-
-    def __init__(self) -> None:
-        self.allowed: list[Any] = []
-        self.removed: list[Any] = []
-
-    def allow_direct(self, rule: Any) -> FakeChange:
-        self.allowed.append(rule)
-        return FakeChange()
-
-    def remove_direct(self, rule: Any) -> FakeChange:
-        self.removed.append(rule)
-        return FakeChange()
 
 
 class Server(FakeRunner):

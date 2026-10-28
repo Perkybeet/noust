@@ -29,7 +29,7 @@ from noust.core.exceptions import DatabaseNotFoundError, DeploymentError, Valida
 from noust.core.store import App
 from noust.managers.database.moves import DatabaseMover
 from noust.managers.database.records import DatabaseLink, DatabaseRecords
-from tests.database_move_support import (
+from tests.support.database_move_support import (
     APP_PASSWORD,
     DOMAIN,
     HOST,

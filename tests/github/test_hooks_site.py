@@ -26,7 +26,7 @@ from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
 from noust.integrations import hooks_site
 from noust.managers.webserver import NGINX_BACKEND, WebServerManager
-from tests.console_patch_support import patch_console
+from tests.support.console_patch_support import patch_console
 
 DOMAIN = "hooks.example.com"
 

@@ -28,7 +28,7 @@ from noust.web.auth import (
 )
 from noust.web.server import create_app, get_token_manager
 from noust.web.websockets.router import WS_SUBPROTOCOL, WS_TOKEN_PREFIX
-from tests.test_web_auth import build_client
+from tests.support.web_auth import build_client
 
 
 @pytest.fixture

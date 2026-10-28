@@ -32,7 +32,12 @@ from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.cluster_import import ClusterImporter
 from noust.managers.database.imports import DatabaseImports
 from noust.managers.database.uploads import UploadStore
-from tests.database_backup_support import PG_LISTING, RcloneRunner, make_engine, make_service
+from tests.support.database_backup_support import (
+    PG_LISTING,
+    RcloneRunner,
+    make_engine,
+    make_service,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "pg_dumpall" / "all17.sql"
 SQL = b"-- PostgreSQL database dump\nSELECT 1;\n-- PostgreSQL database dump complete\n"

@@ -48,7 +48,7 @@ from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification
 from noust.core.notifier import NOTIFICATION_QUEUE, Notifier
 from noust.core.store import App, NoustStore, PreviewRecord
-from tests.test_notifier import CapturingOpener, config, public_dns  # noqa: F401
+from tests.support.notifier import CapturingOpener, config, public_dns  # noqa: F401
 
 WEBHOOK_URL = "https://hooks.example.test/wasm"
 

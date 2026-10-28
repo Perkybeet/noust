@@ -47,7 +47,7 @@ from noust.core.notifications.model import Notification, State
 from noust.core.notifier import Notifier
 from noust.web.jobs import Job, JobStatus, JobType
 from noust.web.server import DEPLOY_JOB_TYPES, JobNotificationSubscriber, deployment_notification
-from tests.test_notifier import (  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.notifier import (  # noqa: F401  (pytest resolves fixtures by name)
     CapturingOpener,
     config,
     public_dns,

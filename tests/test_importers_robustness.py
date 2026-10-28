@@ -24,7 +24,7 @@ import pytest
 from noust.core.exceptions import ValidationError
 from noust.deployers.importers import propose, read_platform
 from noust.deployers.importers.toml_fallback import load_toml_fallback
-from tests.test_importers import joined, tree
+from tests.support.importers import joined, tree
 
 # Nesting --------------------------------------------------------------------------
 

@@ -24,14 +24,7 @@ from noust.cli.app import cli as root_cli
 from noust.core.store import NoustStore
 from noust.recipes.deploy import COMPOSE_FILE, recipe_source_dir
 from noust.web.auth import STATE_DIR_ENV
-from tests.test_compose_document import (
-    APP_NAME,
-    DOCUMENT,
-    DOMAIN,
-    NEWER,
-    Updates,
-    make_stack,
-)
+from tests.support.compose_document import APP_NAME, DOCUMENT, DOMAIN, NEWER, Updates, make_stack
 
 
 @pytest.fixture

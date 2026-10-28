@@ -18,7 +18,7 @@ import pytest
 
 from noust.core.store import NoustStore
 from noust.managers.stack_networks import Member, StackNetwork, StackNetworks
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 APP = "shop.acme.example"
 

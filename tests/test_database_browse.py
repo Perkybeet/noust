@@ -36,7 +36,12 @@ from noust.managers.database.browse import DataBrowser
 from noust.managers.database.dialects import Filter, Order, decode_cursor
 from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.postgres import PostgresManager
-from tests.database_data_support import SqlRunner, StubConfig, installed_sql_runner, make_service
+from tests.support.database_data_support import (
+    SqlRunner,
+    StubConfig,
+    installed_sql_runner,
+    make_service,
+)
 
 
 @pytest.fixture

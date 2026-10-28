@@ -25,7 +25,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.runner import FakeRunner
 from noust.deployers import access
 from noust.managers.client_certs import ClientCertificates
-from tests.test_domains import (  # noqa: F401 - fixtures of the domains harness
+from tests.support.domains import (  # noqa: F401 - fixtures of the domains harness
     Machine,
     certs,
     machine,

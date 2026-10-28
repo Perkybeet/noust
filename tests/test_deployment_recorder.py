@@ -33,7 +33,7 @@ from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.recorder import CapturingLogger, DeploymentRecorder
 from noust.managers.backup_manager import BackupMetadata
 from noust.managers.rollback_manager import RollbackManager
-from tests.test_deployers import build_deployer
+from tests.support.deployers import build_deployer
 
 DOMAIN = "app.example.com"
 

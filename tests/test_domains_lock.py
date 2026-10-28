@@ -20,8 +20,8 @@ import pytest
 from noust.core.applock import AppBusyError, app_lock, is_held_here
 from noust.deployers import domains
 from noust.deployers.base import BaseDeployer
-from tests.test_applock import Holder
-from tests.test_domains import Machine, certs, machine, store, web
+from tests.support.applock import Holder
+from tests.support.domains import Machine, certs, machine, store, web
 
 __all__ = ["certs", "machine", "store", "web"]  # fixtures, imported for pytest
 

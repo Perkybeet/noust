@@ -35,8 +35,8 @@ from noust.core.store import App, NoustStore
 from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers import sandbox_trial
 from noust.deployers.nodejs import NodeJSDeployer
-from tests.test_build_sandbox import as_root, forget_regime  # noqa: F401
-from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
+from tests.support.build_sandbox import as_root, forget_regime  # noqa: F401
+from tests.support.release_pipeline import (  # noqa: F401 - fixtures used by name
     DOMAIN,
     deploy_new,
     git,

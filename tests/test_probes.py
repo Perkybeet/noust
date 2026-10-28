@@ -19,7 +19,6 @@ import socket
 import ssl
 from collections.abc import Iterator
 from concurrent.futures import Future
-from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
@@ -64,14 +63,6 @@ class Clock:
 
     def __call__(self) -> float:
         return self.now
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 @pytest.fixture

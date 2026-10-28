@@ -21,8 +21,8 @@ from noust.core.preview_store import PreviewStore
 from noust.core.store import Database, NoustStore
 from noust.integrations.github import pulls
 from noust.managers import previews
-from tests.test_previews_variables_data import open_pull
-from tests.test_web_previews import (
+from tests.support.previews_variables_data import open_pull
+from tests.support.web_previews import (
     BASE,
     PARENT,
     app,

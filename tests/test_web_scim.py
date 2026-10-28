@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 from noust.core.accounts.scim import SCHEMA_GROUP, SCHEMA_PATCH, SCHEMA_USER, ScimManager
 from noust.web.auth import CSRF_HEADER_NAME
 from noust.web.server import get_token_manager
-from tests.test_web_accounts import (  # noqa: F401 - the fixtures of the account tests
+from tests.support.web_accounts import (  # noqa: F401 - the fixtures of the account tests
     accounts,
     build,
     cheap_hashes,

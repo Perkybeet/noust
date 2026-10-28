@@ -41,12 +41,6 @@ def state_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return directory
 
 
-@pytest.fixture
-def cli_runner() -> CliRunner:
-    """Returns: A runner that captures stdout and stderr together."""
-    return CliRunner()
-
-
 def _enroll(cli_runner: CliRunner) -> str:
     """
     Args:

@@ -26,7 +26,7 @@ from noust.core.runner import FakeRunner, set_runner
 from noust.core.store import App, NoustStore
 from noust.deployers import source_change
 from noust.managers.source_manager import _GIT_SAFE_CONFIG
-from tests.test_applock import Holder
+from tests.support.applock import Holder
 
 DOMAIN = "shop.example.com"
 OLD = "https://github.com/example/shop.git"
@@ -73,15 +73,6 @@ def deployed(store: NoustStore, **fields: Any) -> App:
     }
     values.update(fields)
     return store.create_app(App(**values))
-
-
-@pytest.fixture
-def audited(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
-    events: list[dict[str, Any]] = []
-    monkeypatch.setattr(
-        "noust.core.audit.record", lambda event, **kw: events.append({"event": event, **kw})
-    )
-    return events
 
 
 def asked(runner: FakeRunner) -> list[tuple[str, ...]]:

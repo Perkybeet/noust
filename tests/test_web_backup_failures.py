@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 
 from noust.core.store import get_store
 from noust.managers.backup_failures import BackupFailureLog
-from tests.test_web_backup_schedules import anonymous, app, client  # noqa: F401
+from tests.support.web_backup_schedules import anonymous, app, client  # noqa: F401
 
 
 def record(kind: str = "backup", subject: str = "shop.example.com", text: str = "boom") -> int:

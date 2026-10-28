@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -27,23 +26,29 @@ from noust.core.app_tags import AppTags
 from noust.core.exceptions import DomainConflictError, ValidationError
 from noust.core.logger import Logger
 from noust.core.runner import FakeRunner, set_runner
-from noust.core.store import App, Database, DomainKind, NoustStore
+from noust.core.store import App, Database, NoustStore
 from noust.core.teams import TeamStore
 from noust.core.variables.model import SERVER
 from noust.core.variables.store import VariableStore
 from noust.deployers import app_clone, app_export
 from noust.deployers.app_clone import apply_clone, plan_clone
 from noust.deployers.app_export import CreateSpec
-from noust.deployers.helpers import app_env as app_env_module
 from noust.deployers.helpers.app_env import write_app_env
 from noust.deployers.helpers.hooks import operator_hooks, set_operator_hooks
 from noust.managers.app_mounts import MountManager
 from noust.web.auth import STATE_DIR_ENV
-from tests.test_app_mounts import OwnerFs
+from tests.support.app_clone import (  # noqa: F401
+    GIT,
+    SOURCE,
+    app,
+)
+from tests.support.app_mounts import OwnerFs
 
-SOURCE = "shop.example.com"
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
+
 CLONE = "shop-copy.example.com"
-GIT = "https://github.com/acme/shop.git"
 
 
 @pytest.fixture
@@ -53,39 +58,6 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
     yield instance
     instance.close()
     NoustStore.reset_instance()
-
-
-@pytest.fixture
-def app(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store: NoustStore, runner: FakeRunner
-) -> App:
-    root = tmp_path / "apps" / "shop-example-com"
-    root.mkdir(parents=True)
-    monkeypatch.setattr(
-        app_env_module,
-        "Config",
-        lambda: SimpleNamespace(
-            apps_directory=tmp_path / "apps", service_user="www-data", service_group="www-data"
-        ),
-    )
-    store.create_app(
-        App(
-            domain=SOURCE,
-            app_type="nodejs",
-            source=GIT,
-            branch="main",
-            port=3001,
-            app_path=str(root),
-            layout="releases",
-        )
-    )
-    store.add_domain(SOURCE, f"alias.{SOURCE}", DomainKind.ALIAS.value) if hasattr(
-        store, "add_domain"
-    ) else None
-    found = store.get_app(SOURCE)
-    assert found is not None
-    write_app_env(found, {"API_URL": "https://shop.example.com", "FLAG": "1"})
-    return found
 
 
 def deployed(store: NoustStore, specs: list[CreateSpec]):

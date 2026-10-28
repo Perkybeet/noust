@@ -38,7 +38,7 @@ from noust.managers.dns.challenge import (
 from noust.managers.dns.cloudflare import CloudflareClient, CloudflareProvider
 from noust.managers.dns.provider import DnsProviderError, is_public_address, same_value, zone_for
 from noust.managers.dns.resolver import parse_addresses, resolve
-from tests.dns_support import Cloudflare, FakeProvider, dns_answer, zones
+from tests.support.dns_support import Cloudflare, FakeProvider, dns_answer, zones
 
 TOKEN = "cf-token-" + "x" * 31
 VALIDATION = "A" * 43
@@ -50,11 +50,6 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
     instance = NoustStore(tmp_path / "state" / "noust.db")
     yield instance
     NoustStore.reset_instance()
-
-
-@pytest.fixture
-def secrets(tmp_path: Path) -> SecretStore:
-    return SecretStore(root=tmp_path / "state" / "secrets")
 
 
 # -- Cloudflare's client -----------------------------------------------------------

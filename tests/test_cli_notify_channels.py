@@ -25,7 +25,7 @@ from noust.core.config import Config
 from noust.core.notification_ledger import DeliveryLedger
 from noust.core.notifications.model import Notification, State
 from noust.core.store import NoustStore
-from tests.config_files import stored_config
+from tests.support.config_files import stored_config
 
 SLACK = "https://hooks.slack.test/services/T0/B0/prod-secret"
 

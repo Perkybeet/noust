@@ -25,8 +25,8 @@ from noust.managers.backup_destination_files import DestinationFileManager
 from noust.managers.database.backups import DatabaseBackups
 from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.scope import ALL_DATABASES
-from tests.database_instance_support import DockerHost, World, build_world, close_world
-from tests.test_database_backups import FakeScheduler
+from tests.support.database_backups import FakeScheduler
+from tests.support.database_instance_support import DockerHost, World, build_world, close_world
 
 KEY = "postgresql@pg16"
 ARCHIVE = "PGDMP\x01\x0e\x00 a custom archive\n"

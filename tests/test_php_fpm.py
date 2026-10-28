@@ -37,7 +37,6 @@ from noust.deployers.helpers.health_gate import HealthCheck
 from noust.deployers.helpers.php_fpm import (
     FastCgiResponse,
     FpmService,
-    PoolSpec,
     fastcgi_params,
     fastcgi_probe,
     fastcgi_request,
@@ -55,36 +54,29 @@ from noust.deployers.php_fpm import (
 )
 from noust.deployers.registry import detect_app_type
 from noust.managers.nginx_manager import NGINX_BACKEND, NginxManager
-from tests.test_release_pipeline import FakeGit, FakeServices, FakeWeb, TreeRunner, write_tree
-from tests.test_webserver_managers import FakeStore
+from tests.support.php_fpm import (  # noqa: F401
+    APP,
+    DOMAIN,
+    WORDPRESS,
+    WORDPRESS_OPTIONS,
+    debian_fpm,
+    deploy,
+    machine,
+    spec,
+    store,
+    wire,
+)
+from tests.support.release_pipeline import write_tree
+from tests.support.webserver_managers import FakeStore
 
-DOMAIN = "blog.example.com"
-APP = "blog-example-com"
-GIT_URL = "https://github.com/example/blog.git"
-POOL_DIR = "etc/php/8.2/fpm/pool.d"
-
-WORDPRESS = {
-    "index.php": "<?php require __DIR__ . '/wp-blog-header.php';\n",
-    "wp-config-sample.php": "<?php\n",
-    "wp-content/plugins/akismet/akismet.php": "<?php\n",
-    "wp-content/themes/twentyfour/style.css": "/* theme */\n",
-}
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
 
 
 # ---------------------------------------------------------------------------
 # A PHP-FPM installation on disk
 # ---------------------------------------------------------------------------
-
-
-def debian_fpm(root: Path, *versions: str, binaries: tuple[str, ...] | None = None) -> Path:
-    """Lay out Debian's per-version FPM directories under a fake root."""
-    for version in versions:
-        (root / "etc" / "php" / version / "fpm" / "pool.d").mkdir(parents=True, exist_ok=True)
-    sbin = root / "usr" / "sbin"
-    sbin.mkdir(parents=True, exist_ok=True)
-    for version in versions if binaries is None else binaries:
-        (sbin / f"php-fpm{version}").write_text("")
-    return root
 
 
 def test_debian_picks_the_newest_version_that_has_a_binary(tmp_path: Path) -> None:
@@ -219,23 +211,6 @@ def test_the_socket_group_is_the_one_nginx_workers_run_as(
 # ---------------------------------------------------------------------------
 # Pool files
 # ---------------------------------------------------------------------------
-
-
-def spec(**overrides: Any) -> PoolSpec:
-    """A pool for the test application."""
-    values: dict[str, Any] = {
-        "app_name": APP,
-        "domain": DOMAIN,
-        "user": "www-data",
-        "group": "www-data",
-        "listen_group": "www-data",
-        "socket": Path(f"/run/php/wasm-{APP}.sock"),
-        "root": Path(f"/var/www/apps/{APP}"),
-        "tmp_dir": Path(f"/var/www/apps/.noust-php-tmp/{APP}"),
-        "env": {"DB_NAME": "blog", "SALT": 'a$b;c"d'},
-    }
-    values.update(overrides)
-    return PoolSpec(**values)
 
 
 def test_a_pool_runs_as_the_service_user_on_its_own_socket() -> None:
@@ -587,96 +562,6 @@ def test_settings_that_would_escape_or_inject_are_refused(settings: dict[str, An
 # ---------------------------------------------------------------------------
 # The pipeline
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStore]:
-    """A store in the test's directory."""
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "wasm.db")
-    monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
-    yield instance
-    NoustStore.reset_instance()
-
-
-@pytest.fixture
-def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
-    """
-    Git, nginx, systemd, PHP-FPM and the FastCGI probe, faked.
-
-    The probe answers 302 unless the active release's index.php says ``fatal``.
-    """
-    root = tmp_path / "apps" / APP
-    fpm_root = debian_fpm(tmp_path / "fpm-root", "8.2")
-    monkeypatch.setattr(php_module, "FPM_ROOT", fpm_root)
-    probes: list[dict[str, str]] = []
-
-    def fake_probe(socket_path: Path, params: Any, **_kwargs: Any) -> Any:
-        def probe(_url: str, **kwargs: Any) -> bool:
-            sent = dict(params())
-            probes.append({"socket": str(socket_path), **sent})
-            script = Path(sent["SCRIPT_FILENAME"])
-            if script.is_file() and "fatal" in script.read_text():
-                if kwargs.get("on_attempt"):
-                    kwargs["on_attempt"](
-                        "Health check attempt 1 failed: HTTP 500 is not an expected status\n"
-                        "PHP Fatal error: Uncaught Error"
-                    )
-                return False
-            return True
-
-        return probe
-
-    monkeypatch.setattr(php_module, "fastcgi_probe", fake_probe)
-    runner = TreeRunner()
-    return SimpleNamespace(
-        root=root,
-        fpm_root=fpm_root,
-        pool=fpm_root / POOL_DIR / f"noust-{APP}.conf",
-        runner=runner,
-        git=FakeGit(),
-        web=FakeWeb(),
-        services=FakeServices(root),
-        probes=probes,
-    )
-
-
-def wire(deployer: PhpFpmDeployer, machine: SimpleNamespace) -> PhpFpmDeployer:
-    """Point a deployer at the fakes."""
-    deployer.source_manager = machine.git  # type: ignore[assignment]
-    deployer.service_manager = machine.services  # type: ignore[assignment]
-    deployer.cert_manager = SimpleNamespace(obtain=lambda *a, **k: True)  # type: ignore[assignment]
-    deployer._webserver_manager = lambda: machine.web  # type: ignore[method-assign]
-    deployer.pre_flight_check = lambda: True  # type: ignore[method-assign]
-    return deployer
-
-
-def deploy(machine: SimpleNamespace, layout: str = RELEASES, **options: Any) -> PhpFpmDeployer:
-    """Deploy the application with the WordPress recipe's PHP settings."""
-    deployer = wire(PhpFpmDeployer(verbose=False, runner=machine.runner), machine)
-    deployer.configure(
-        DOMAIN,
-        GIT_URL,
-        port=3100,
-        ssl=False,
-        app_path=machine.root,
-        layout=layout,
-        env_vars={"WORDPRESS_DB_NAME": "blog", "WORDPRESS_AUTH_KEY": "k" + "ey"},
-        **options,
-    )
-    deployer.deploy()
-    return deployer
-
-
-WORDPRESS_OPTIONS: dict[str, Any] = {
-    "php_webroot": ".",
-    "php_deny": ["wp-config.php", "readme.html"],
-    "php_max_upload": "128m",
-    "php_shared_from_release": ["wp-content"],
-    "php_files": {"wp-config.php": "<?php /* reads getenv() */\n"},
-    "persistent_paths": ["wp-content", "wp-config.php"],
-    "initial_health": ("/", "200-399", None),
-}
 
 
 def test_a_wordpress_release_gets_a_pool_a_fastcgi_site_and_shared_content(

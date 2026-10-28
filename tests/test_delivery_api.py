@@ -27,8 +27,8 @@ from noust.core.store import App, NoustStore
 from noust.web import jobs as jobs_module
 from noust.web.api import hooks as hooks_module
 from noust.web.jobs import JobContext, JobManager, JobStatus, JobType
-from tests.test_delivery_queue import Work, queue_work, wait_until
-from tests.test_web_hooks import (
+from tests.support.delivery_queue import Work, queue_work, wait_until
+from tests.support.web_hooks import (
     DOMAIN,
     PUSH_MAIN,
     admin,

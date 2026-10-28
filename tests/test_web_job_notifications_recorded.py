@@ -31,7 +31,7 @@ from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.notifications.model import Notification
 from noust.web.jobs import Job, JobStatus, JobType
 from noust.web.server import DeploymentWitness, JobNotificationSubscriber
-from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
+from tests.support.notifier import config  # noqa: F401  (pytest resolves fixtures by name)
 
 # The notifier's config fixture is imported rather than replicated, so there
 # stays one definition of "a sandboxed configuration".

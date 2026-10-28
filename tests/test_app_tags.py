@@ -26,7 +26,7 @@ from noust.core.logger import Logger
 from noust.core.store import App, NoustStore
 from noust.managers import tag_deploys
 from noust.web.auth import STATE_DIR_ENV
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 ACME = "shop.acme.example"
 GLOBEX = "blog.globex.example"

@@ -27,7 +27,8 @@ from noust.web.permissions.access import AccessManager
 from noust.web.permissions.roles import ADMIN
 from noust.web.permissions.team_roles import bound_fields, bound_reach, team_fields
 from noust.web.server import get_token_manager
-from tests.teams_support import World, build_world, make_app, make_person
+from tests.support.bound_tokens import issue
+from tests.support.teams_support import World, build_world, make_app, make_person
 
 P = Permission
 
@@ -53,45 +54,6 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, runner: Any) -> Itera
         yield built
     finally:
         NoustStore.reset_instance()
-
-
-def issue(
-    username: str,
-    *,
-    team: str | None = None,
-    project: str | None = None,
-    environment: str | None = None,
-    scope: str = "admin",
-    permissions: list[str] | None = None,
-) -> dict[str, str]:
-    """
-    Issue a token for an account, bound to a scope, and return its header.
-
-    Args:
-        username: The owner.
-        team: The team to bind it to.
-        project: The project.
-        environment: The environment.
-        scope: The token's scope.
-        permissions: What to narrow it to.
-
-    Returns:
-        The Authorization header.
-    """
-    manager = get_token_manager()
-    account = manager.accounts.find(username)
-    assert account is not None
-    bound = AccessManager().bound_scope(team=team, project=project, environment=environment)
-    issued = manager.create_api_token(
-        f"{username}-{team}-{project}-{environment}-{scope}",
-        scope,
-        None,
-        owner=account,
-        permissions=permissions,
-        allow_elevated=True,
-        bound=bound,
-    )
-    return {"Authorization": f"Bearer {issued['token']}"}
 
 
 def listed(world: World, headers: dict[str, str]) -> set[str]:

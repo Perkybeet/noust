@@ -23,7 +23,7 @@ from noust.core.store import NoustStore
 from noust.deployers import access
 from noust.managers.site_forward_auth import PRESETS
 from noust.managers.site_policy import SitePolicy, validated
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 APP = "shop.acme.example"
 FORWARD = {

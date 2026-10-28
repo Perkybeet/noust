@@ -16,7 +16,6 @@ as a stack.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -31,7 +30,7 @@ from noust.deployers.helpers.sandbox import sandbox_warning
 from noust.deployers.unit_environment import _unit_of
 from noust.managers import app_identity
 from noust.managers.database.service import OWN_DATABASE_TYPES
-from tests.test_sampling_plan import (  # noqa: F401 - fixtures used by name
+from tests.support.sampling_plan import (  # noqa: F401 - fixtures used by name
     CONTAINER,
     FakeManager,
     app,
@@ -41,14 +40,6 @@ from tests.test_sampling_plan import (  # noqa: F401 - fixtures used by name
 )
 
 DOMAIN = "shop.example.com"
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 def container_app(**row: object) -> App:

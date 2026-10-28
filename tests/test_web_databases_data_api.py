@@ -28,7 +28,7 @@ from noust.managers.database.postgres import NULL_MARKER, PostgresManager
 from noust.managers.database.redis import RedisManager
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.database_data_support import SqlRunner, StubConfig, installed_sql_runner
+from tests.support.database_data_support import SqlRunner, StubConfig, installed_sql_runner
 
 
 @pytest.fixture

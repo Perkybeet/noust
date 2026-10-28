@@ -26,7 +26,7 @@ from noust.core import store as store_module
 from noust.core.fs import RecordingFileSystem
 from noust.core.store import SCHEMA_VERSION, NoustStore
 from noust.core.teams import Scope, TeamStore, backfill
-from tests.test_store_migrations import _create_v3_database
+from tests.support.store_migrations import _create_v3_database
 
 
 def create_v13_store(path: Path) -> None:

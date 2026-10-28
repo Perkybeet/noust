@@ -21,7 +21,7 @@ import pytest
 from noust.core.store import NoustStore
 from noust.deployers import workspaces as workspaces_module
 from noust.deployers.workspaces import WorkspaceReport, detect_workspaces
-from tests.test_workspaces import turbo  # noqa: F401 - the fixture
+from tests.support.workspaces import turbo  # noqa: F401 - the fixture
 
 SOURCE = "https://github.com/acme/mono.git"
 

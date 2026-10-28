@@ -22,7 +22,7 @@ from click.testing import CliRunner
 from noust.cli import app as cli_app
 from noust.cli.commands import db as db_cli
 from noust.managers.database.postgres import NULL_MARKER, PostgresManager
-from tests.database_data_support import SqlRunner, StubConfig, installed_sql_runner
+from tests.support.database_data_support import SqlRunner, StubConfig, installed_sql_runner
 
 
 @pytest.fixture

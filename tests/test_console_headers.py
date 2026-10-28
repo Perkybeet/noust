@@ -26,7 +26,7 @@ from noust.web.server import (
     PERMISSIONS_POLICY,
     create_app,
 )
-from tests.test_web_auth import make_config
+from tests.support.web_auth import make_config
 
 
 def client_for(sandbox: Path, peer: str = "203.0.113.9", **config: object) -> TestClient:

@@ -23,7 +23,7 @@ from noust.core.sealing import SecretsLockedError
 from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore
 from noust.managers.source_keys import DeployKeyManager, secret_name
-from tests.deploy_key_support import DeployKeyRunner, private_key_text
+from tests.support.deploy_key_support import DeployKeyRunner, private_key_text
 
 PASSPHRASE = "correct horse battery staple"
 DOMAIN = "shop.example.com"

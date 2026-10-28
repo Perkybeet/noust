@@ -52,8 +52,7 @@ from noust.managers.database.rpm_flavours import (
     rpm_release,
 )
 from noust.managers.server.host import HostPaths, OsRelease, Platform
-
-from .test_database_flavours import colons
+from tests.support.database_flavours import colons
 
 
 def release(identity: str, version: str, pretty: str, *like: str) -> OsRelease:

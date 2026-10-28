@@ -52,17 +52,15 @@ from noust.managers.source_manager import (
     RemoteHead,
     SourceManager,
 )
-from tests.test_lifecycle import (
-    DOMAIN as INPLACE_DOMAIN,
+from tests.support.lifecycle import DOMAIN as INPLACE_DOMAIN
+from tests.support.lifecycle import FakeDeployer, Recorder, make_app
+from tests.support.lifecycle import store as inplace_store  # noqa: F401
+from tests.support.rebuild_commit import (  # noqa: F401
+    commit_of,
+    git,
 )
-from tests.test_lifecycle import (
-    FakeDeployer,
-    Recorder,
-    make_app,
-)
-from tests.test_lifecycle import store as inplace_store  # noqa: F401
-from tests.test_release_activation import two_releases  # noqa: F401
-from tests.test_release_pipeline import (  # noqa: F401
+from tests.support.release_activation import two_releases  # noqa: F401
+from tests.support.release_pipeline import (  # noqa: F401
     DOMAIN,
     GIT_URL,
     GOOD_SERVER,
@@ -556,41 +554,6 @@ def test_a_commit_with_a_source_or_a_branch_is_refused(inplace: Any, extra: dict
 # ---------------------------------------------------------------------------
 # Releases: update_app with a commit
 # ---------------------------------------------------------------------------
-
-
-class HistoryGit(FakeGit):
-    """FakeGit that resolves any commit it published and answers ls-remote."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.timeouts: list[int | None] = []
-
-    def resolve_commit(self, repository: Path, commit: str) -> str:
-        self.calls.append(("resolve", commit))
-        matches = [c for c in self.commits if c.startswith(commit.lower())]
-        if len(matches) != 1:
-            raise SourceError(f"Commit {commit} does not exist in the repository")
-        return matches[0]
-
-    def remote_head(
-        self, source: str, branch: str | None = None, *, timeout: int | None = None
-    ) -> RemoteHead:
-        self.calls.append(("ls-remote", source, branch))
-        self.timeouts.append(timeout)
-        assert self.head is not None
-        return RemoteHead(branch=branch or "main", commit=self.head)
-
-
-@pytest.fixture
-def git() -> HistoryGit:
-    """The fake repository, with history."""
-    return HistoryGit()
-
-
-def commit_of(machine: SimpleNamespace, release_id: str) -> str:
-    """The full commit a release was built from."""
-    short = release_id.split("-")[2]
-    return next(c for c in machine.git.commits if c.startswith(short))
 
 
 def test_a_commit_whose_release_is_on_disk_is_activated_not_built(

@@ -14,8 +14,6 @@ from __future__ import annotations
 
 import os
 import stat
-from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -23,107 +21,35 @@ import pytest
 
 pytest.importorskip("cryptography")
 
-from noust.core import totp
-from noust.core.accounts import AccountManager, AuthPolicy, passwords
+from noust.core.accounts import AccountManager, AuthPolicy
 from noust.core.accounts.oidc import Answer, OidcManager, safe_next
 from noust.core.accounts.oidc_client import OidcClient, OidcHttp
 from noust.core.accounts.oidc_model import OidcError, OidcRefused
 from noust.core.exceptions import ConfigError, ValidationError
 from noust.core.store import NoustStore
 from noust.core.teams import TeamStore
-from tests.oidc_support import DROP, Clock, FakeIdP, SigningKey
+from tests.support.oidc_manager import (  # noqa: F401
+    BINDINGS,
+    IP,
+    PASSWORD,
+    REDIRECT,
+    accounts,
+    admin,
+    cheap_hashes,
+    clock,
+    configure,
+    idp,
+    manager,
+    refused,
+    run,
+    secure,
+    store,
+)
+from tests.support.oidc_support import DROP, Clock, FakeIdP, SigningKey
 
-PASSWORD = "correct horse battery staple"
-REDIRECT = "https://noust.example.test/api/auth/oidc/callback"
-IP = "203.0.113.5"
-
-
-@pytest.fixture(autouse=True)
-def cheap_hashes(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(passwords, "COST", (2**4, 8, 1))
-    monkeypatch.setattr(passwords, "_dummy_hash", None)
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
-
-
-@pytest.fixture
-def clock() -> Clock:
-    return Clock()
-
-
-@pytest.fixture
-def idp(clock: Clock) -> FakeIdP:
-    provider = FakeIdP(clock=clock)
-    provider.add_user("sub-maria", email="maria@acme.test", email_verified=True, name="Maria Lopez")
-    return provider
-
-
-@pytest.fixture
-def accounts(store: NoustStore, clock: Clock) -> AccountManager:
-    return AccountManager(store, policy=AuthPolicy(), clock=clock)
-
-
-@pytest.fixture
-def manager(store: NoustStore, idp: FakeIdP, clock: Clock, accounts: AccountManager) -> OidcManager:
-    client = OidcClient(OidcHttp(opener=idp.opener), clock=clock)
-    return OidcManager(store, client=client, accounts=accounts, clock=clock)
-
-
-def secure(accounts: AccountManager, username: str, role: str = "viewer", **kwargs: Any) -> Any:
-    """An account with a password and an authenticator."""
-    account = accounts.create(username, role, password=PASSWORD, **kwargs)
-    secret = accounts.begin_totp(account.id)
-    assert accounts.confirm_totp(account.id, totp.totp_now(secret, t=accounts.now())) is not None
-    return accounts.require(username)
-
-
-@pytest.fixture
-def admin(accounts: AccountManager) -> Any:
-    """Some account must exist: single sign-in never makes the first one."""
-    return secure(accounts, "root-admin", "admin")
-
-
-def configure(manager: OidcManager, idp: FakeIdP, **changes: Any) -> Any:
-    settings = {"issuer": idp.issuer, "client_id": idp.client_id, "label": "Acme SSO", **changes}
-    return manager.configure("corp", settings, client_secret=idp.client_secret)
-
-
-def run(
-    manager: OidcManager,
-    idp: FakeIdP,
-    sub: str = "sub-maria",
-    *,
-    binding: str | None = None,
-    **claims: Any,
-) -> Answer:
-    """One whole sign-in, from the click to the ticket."""
-    begun = manager.begin("corp", redirect_uri=REDIRECT, client_ip=IP, next_path="/apps")
-    callback = idp.authorize(begun.url, sub, **claims)
-    query = parse_qs(urlparse(callback).query)
-    answer = manager.finish(
-        state=query["state"][0],
-        code=query["code"][0],
-        binding=begun.binding if binding is None else binding,
-        client_ip=IP,
-    )
-    BINDINGS[answer.ticket] = begun.binding
-    return answer
-
-
-#: The cookie secret each ticket's sign-in began with, for collecting it.
-BINDINGS: dict[str, str] = {}
-
-
-def refused(manager: OidcManager, idp: FakeIdP, **kwargs: Any) -> OidcError:
-    with pytest.raises(OidcError) as caught:
-        run(manager, idp, **kwargs)
-    return caught.value
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
 
 
 class TestConfiguration:
@@ -371,7 +297,7 @@ class TestTokensAreJudged:
         def tamper(token: str) -> str:
             import json
 
-            from tests.oidc_support import b64
+            from tests.support.oidc_support import b64
 
             header, payload, signature = token.split(".")
             claims = {"iss": idp.issuer, "sub": "sub-admin", "aud": idp.client_id, "exp": 9e9}
@@ -389,7 +315,7 @@ class TestTokensAreJudged:
     def test_an_unsigned_token_is_refused(self, manager: OidcManager, idp: FakeIdP) -> None:
         import json
 
-        from tests.oidc_support import b64
+        from tests.support.oidc_support import b64
 
         def strip(token: str) -> str:
             _header, payload, _signature = token.split(".")

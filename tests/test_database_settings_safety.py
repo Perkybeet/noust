@@ -42,7 +42,7 @@ from noust.core.runner import CommandResult, DryRunRunner, set_runner
 from noust.managers.database import settings as settings_module
 from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.settings import PostgresSettings, RedisSettings
-from tests.test_database_settings import (  # noqa: F401 - fixtures
+from tests.support.database_settings import (  # noqa: F401 - fixtures
     EIGHT_GB,
     GB,
     PG_SETTINGS,

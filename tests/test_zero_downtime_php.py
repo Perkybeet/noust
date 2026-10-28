@@ -26,16 +26,8 @@ from noust.core import delivery
 from noust.core.store import NoustStore
 from noust.deployers import lifecycle
 from noust.deployers.php_fpm import PhpFpmDeployer
-from tests.test_php_fpm import (
-    DOMAIN,
-    WORDPRESS,
-    WORDPRESS_OPTIONS,
-    deploy,
-    machine,
-    store,
-    wire,
-)
-from tests.test_release_pipeline import write_tree
+from tests.support.php_fpm import DOMAIN, WORDPRESS, WORDPRESS_OPTIONS, deploy, machine, store, wire
+from tests.support.release_pipeline import write_tree
 
 #: pytest resolves these by name; naming them here is what keeps the linter from
 #: reading the tests' parameters as redefinitions of unused imports.

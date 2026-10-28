@@ -36,7 +36,7 @@ from noust.core import paths
 from noust.core.exceptions import SecurityError
 from noust.core.runner import FakeRunner
 from noust.managers import console_service
-from tests.console_patch_support import patch_console
+from tests.support.console_patch_support import patch_console
 
 CONTRACT = json.loads(
     (Path(__file__).parent / "contracts" / "cli_surface.json").read_text(encoding="utf-8")

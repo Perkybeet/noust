@@ -13,9 +13,7 @@ by exactly ``admin``, ``security`` and ``auditor``.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -23,7 +21,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from noust.core.ens import checks, incident
-from noust.core.store import App, NoustStore
+from noust.core.store import App
 from noust.web.api import ens as ens_api
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers
@@ -32,14 +30,6 @@ from noust.web.permissions.registry import route_map
 from noust.web.permissions.roles import ROLE_PERMISSIONS
 
 PREFIX = "/api/ens"
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 @pytest.fixture

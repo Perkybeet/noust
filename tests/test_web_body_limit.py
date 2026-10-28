@@ -21,7 +21,7 @@ import pytest
 
 from noust.web.auth import MAX_BODY_BYTES, MAX_HOOK_BODY_BYTES
 from noust.web.server import get_token_manager
-from tests.test_web_auth import build_client
+from tests.support.web_auth import build_client
 
 MIB = 1024 * 1024
 

@@ -24,19 +24,9 @@ from click.testing import CliRunner
 from noust.cli.app import Context, cli
 from noust.cli.commands.timer_options import describe_timer_options
 from noust.core.runner import FakeRunner
-from tests.test_backup_safety_22 import DOMAIN, _reset_store, systemd_dir  # noqa: F401
+from tests.support.backup_safety_22 import DOMAIN, _reset_store, systemd_dir  # noqa: F401
 
 UNIT = "noust-backup-shop-example-com"
-
-
-@pytest.fixture
-def zoneinfo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    root = tmp_path / "zoneinfo"
-    for name in ("UTC", "Europe/Madrid"):
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b"TZif2")
-    monkeypatch.setattr("noust.managers.backup_timer_options.ZONEINFO_DIRS", (root,))
 
 
 def invoke(*argv: str) -> Any:

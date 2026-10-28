@@ -233,7 +233,7 @@ class TestSealExisting:
 
         from noust.core.runner import SubprocessRunner
         from noust.managers.backup_sealing import SealExisting
-        from tests.test_backup_sealing import Apps, Meta
+        from tests.support.backup_sealing import Apps, Meta
 
         monkeypatch.setattr(envelope, "SCRYPT_N", 2**10)
         entries = []

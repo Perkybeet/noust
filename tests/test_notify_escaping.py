@@ -29,7 +29,7 @@ import pytest
 from noust.core import notifier as notifier_module
 from noust.core.config import Config
 from noust.core.notifier import NotificationEvent, Notifier, notify_in_background
-from tests.test_notifier import CapturingOpener, config, public_dns  # noqa: F401
+from tests.support.notifier import CapturingOpener, config, public_dns  # noqa: F401
 
 SLACK_URL = "https://hooks.slack.com/services/T000/B000/XXXX"
 DISCORD_URL = "https://discord.com/api/webhooks/1/abc"

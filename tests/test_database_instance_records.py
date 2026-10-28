@@ -35,7 +35,7 @@ from noust.managers.database.instance_records import assign_managed, key_of, stu
 from noust.managers.database.instances import DatabaseInstance, discover
 from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.settings import settings_for
-from tests.test_database_instances import container
+from tests.support.database_instances import container
 
 
 def row(

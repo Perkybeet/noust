@@ -32,7 +32,7 @@ from noust.managers.server.security import ServerSecurity
 from noust.managers.server.security_checks import REPORT_PERIOD, CheckReport, run_checks
 from noust.managers.server.security_probe import SecurityProbe
 from noust.managers.server.security_risks import AcceptedRisks
-from tests.server_security_support import NOW, FakeHost, FakeSshd
+from tests.support.server_security_support import NOW, FakeHost, FakeSshd
 
 NOW_DT = datetime.fromtimestamp(NOW, tz=timezone.utc)
 

@@ -4,7 +4,7 @@
  * in docs/console.md, docs/CENTRAL.md and README.md (which also renders on PyPI), and the
  * owner does not want a real project, company, domain, GitHub account or person recognisable
  * in them, nor example.com itself, which reads as a fixture rather than a real server. The
- * dataset is tests.showcase, seeded by `scripts/console_server.py --showcase` (see its module
+ * dataset is tests.support.showcase, seeded by `scripts/console_server.py --showcase` (see its module
  * docstring for how every invented name was checked against the real thing before use).
  *
  * Tagged @docs and left out of the default run, the same way @screens is in
@@ -35,7 +35,7 @@ const HERO_APP = "wrenfield.io";
 /** Down since this morning, with a realistic journal: the Diagnose and failed-deploy shots. */
 const FAILED_APP = "shop.brumaria.es";
 
-/** The fleet's own node names (see tests.showcase's module docstring: infrastructure labels,
+/** The fleet's own node names (see tests.support.showcase's module docstring: infrastructure labels,
  * not domains, so they need no NXDOMAIN check), picked the way a real fleet's would be. */
 const NODE_LON = "lon-2";
 const NODE_AMS = "ams-3";

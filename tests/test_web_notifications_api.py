@@ -35,7 +35,7 @@ from noust.core.notifier import Notifier
 from noust.core.store import NoustStore
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.config_files import stored_config
+from tests.support.config_files import stored_config
 
 SLACK = "https://hooks.slack.test/services/T0/B0/prod-secret"
 STAGING = "https://hooks.slack.test/services/T0/B1/staging-secret"

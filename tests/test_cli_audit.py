@@ -25,7 +25,7 @@ from noust.cli.app import Context, NoustCommand, NoustGroup, cli, pass_context
 from noust.core.audit import Actor, get_log
 from noust.core.exceptions import NoustError
 from noust.core.fs import get_fs
-from tests.cli_tree_support import walk
+from tests.support.cli_tree_support import walk
 
 OPERATOR = Actor(kind="cli", id="1000", name="ana", via="sudo", source="10.9.8.7")
 

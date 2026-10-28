@@ -17,7 +17,7 @@ import pytest
 
 from noust.core.config import Config
 from noust.web.api import team_notifications
-from tests.teams_support import World, build_world, make_person
+from tests.support.teams_support import World, build_world, make_person
 
 SLACK = {"type": "slack", "settings": {"webhook_url": "https://hooks.slack.test/services/a"}}
 

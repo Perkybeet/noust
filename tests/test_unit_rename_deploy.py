@@ -21,7 +21,7 @@ import pytest
 from noust.core.exceptions import DeploymentError
 from noust.core.store import NoustStore
 from noust.managers.service_manager import UnitRename
-from tests.test_release_pipeline import (  # noqa: F401 - fixtures
+from tests.support.release_pipeline import (  # noqa: F401 - fixtures
     BROKEN_SERVER,
     FakeServices,
     active_id,

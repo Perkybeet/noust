@@ -20,7 +20,7 @@ from noust.core.runner import FakeRunner
 from noust.core.store import NodeRecord
 from noust.fleet.keys import host_key_alias, known_hosts_line
 from noust.fleet.tunnels import BACKOFF_MAX, explain_ssh_failure, ssh_algorithms, ssh_argv
-from tests.fleet_support import HOST_KEY, build_fleet
+from tests.support.fleet_support import HOST_KEY, build_fleet
 
 
 @pytest.fixture(autouse=True)

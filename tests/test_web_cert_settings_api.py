@@ -34,7 +34,7 @@ from noust.web.api import cert_settings as api
 from noust.web.api import certs as certs_api
 from noust.web.api.deps import install_error_handlers
 from noust.web.auth import require_auth
-from tests.test_custom_certificates import KEY, LEAF, RSA_TEXT
+from tests.support.custom_certificates import KEY, LEAF, RSA_TEXT
 
 BEARER = {"sid": "token", "scope": "admin", "source": "bearer", "type": "api_token"}
 COOKIE = {"sid": "s1", "scope": "admin", "source": "cookie", "type": "session"}

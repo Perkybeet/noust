@@ -68,7 +68,7 @@ from noust.web.jobs import (
     delete_app_job,
     restore_backup_job,
 )
-from tests.network_tables import NetworkTables
+from tests.support.network_tables import NetworkTables
 
 
 @pytest.fixture

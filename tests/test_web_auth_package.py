@@ -20,7 +20,7 @@ from types import ModuleType
 import pytest
 
 from noust.web import auth
-from tests.auth_clock_support import CLOCK_READERS
+from tests.support.auth_clock_support import CLOCK_READERS
 
 PACKAGE_DIR = Path(auth.__file__).parent
 
@@ -86,7 +86,7 @@ class TestTheClock:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         from noust.web.auth import payload
-        from tests.auth_clock_support import set_clock
+        from tests.support.auth_clock_support import set_clock
 
         set_clock(monkeypatch, lambda: 1_000.0)
 

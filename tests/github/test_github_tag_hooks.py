@@ -27,7 +27,7 @@ from noust.core.store import App, NoustStore
 from noust.deployers import lifecycle
 from noust.web.api import hooks as hooks_module
 from tests.github.conftest import github_configured, store  # noqa: F401
-from tests.github.test_github_hooks import (  # noqa: F401
+from tests.support.github_hooks import (  # noqa: F401
     app,
     client,
     deliver,

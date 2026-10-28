@@ -30,67 +30,18 @@ from noust.core.store import App, NoustStore
 from noust.core.stream_store import CLOSING, OPEN, OPENING, StreamExposure, StreamStore
 from noust.core.teams.model import ResourceNotFoundError
 from noust.managers import port_claims as port_claims_module
-from noust.managers.server.security_firewall import DirectChange, RuleRequest
 from noust.managers.stream_exposure import (
     LOADER_NAME,
     StreamExposures,
 )
+from tests.support.stream_exposure import DEBIAN_V, NGINX_CONF, NO_STREAM_V, FakeFirewall, dump
 
-DEBIAN_V = (
-    "nginx version: nginx/1.24.0 (Ubuntu)\n"
-    "configure arguments: --with-cc-opt='-g -O2' --with-http_ssl_module "
-    "--with-stream=dynamic --with-stream_ssl_module --with-threads\n"
-)
 STATIC_V = (
     "nginx version: nginx/1.26.2\nconfigure arguments: --with-http_ssl_module --with-stream\n"
 )
-NO_STREAM_V = "nginx version: nginx/1.24.0\nconfigure arguments: --with-http_ssl_module\n"
 
-NGINX_CONF = """\
-# configuration file /etc/nginx/nginx.conf:
-user www-data;
-pid /run/nginx.pid;
-include /etc/nginx/modules-enabled/*.conf;
-events { worker_connections 768; }
-http {
-    include /etc/nginx/sites-enabled/*;
-}
-"""
-STREAM_MODULE = """
-# configuration file /etc/nginx/modules-enabled/50-mod-stream.conf:
-load_module modules/ngx_stream_module.so;
-"""
 
 pytestmark = pytest.mark.real_listeners
-
-
-def dump(*, module: bool = True, extra: str = "", conf: str = NGINX_CONF) -> str:
-    return conf + (STREAM_MODULE if module else "") + extra
-
-
-class FakeFirewall:
-    """A firewall manager that records what it was asked and answers as told."""
-
-    def __init__(self) -> None:
-        self.allowed: list[RuleRequest] = []
-        self.removed: list[RuleRequest] = []
-        self.already: set[str] = set()
-        self.refuse_source: str | None = None
-        self.refuse_removal = False
-
-    def allow_direct(self, request: RuleRequest) -> DirectChange:
-        if request.source == self.refuse_source:
-            raise SecurityError("The firewall refused 'ufw allow'")
-        self.allowed.append(request)
-        if request.source in self.already:
-            return DirectChange("ufw", True, False, "it is already allowed")
-        return DirectChange("ufw", True, True)
-
-    def remove_direct(self, request: RuleRequest) -> DirectChange:
-        if self.refuse_removal:
-            raise SecurityError("The firewall refused 'ufw delete'")
-        self.removed.append(request)
-        return DirectChange("ufw", True, True)
 
 
 @pytest.fixture(autouse=True)

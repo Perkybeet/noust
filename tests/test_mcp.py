@@ -34,7 +34,7 @@ from noust.web.mcp.tools import (
     input_schema,
 )
 from noust.web.permissions.registry import permission_for_route
-from tests.teams_support import World, build_world, make_person
+from tests.support.teams_support import World, build_world, make_person
 
 ACME = "shop.acme.example"
 GLOBEX = "blog.globex.example"
@@ -316,7 +316,7 @@ class TestInspecting:
         assert {a["domain"] for a in body["applications"]} == {ACME, GLOBEX}
 
     def test_a_token_bound_to_a_team_sees_that_team_only(self, world: World) -> None:
-        from tests.test_bound_tokens import issue
+        from tests.support.bound_tokens import issue
 
         bound = {"Authorization": issue("root-admin", team="globex")["Authorization"]}
         response = world.client.post(

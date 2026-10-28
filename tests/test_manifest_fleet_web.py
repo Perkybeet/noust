@@ -17,8 +17,8 @@ from typing import Any
 
 import pytest
 
-from tests import test_node_teams_api as fleet_tests
-from tests.teams_support import World, build_world
+from tests.support import node_teams_api as fleet_tests
+from tests.support.teams_support import World, build_world
 
 # The fixtures of the fleet tests, under their own names.
 served = fleet_tests.served

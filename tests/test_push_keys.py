@@ -28,7 +28,7 @@ from noust.pushdeploy.keys import (
     parse_key,
     validate_label,
 )
-from tests.push_support import DOMAIN, OTHER, PushWorld, ecdsa, ed25519, rsa
+from tests.support.push_support import DOMAIN, OTHER, PushWorld, ecdsa, ed25519, rsa
 
 REPOSITORY = Path("/var/lib/noust-git/shop.example.com.git")
 

@@ -33,7 +33,7 @@ from noust.terminal.settings import TerminalSettings
 from noust.terminal.tickets import reset_tickets
 from noust.web.auth import WS_CLOSE_FORBIDDEN
 from noust.web.websockets.router import WS_SUBPROTOCOL, WS_TOKEN_PREFIX
-from tests.teams_support import World, build_world, make_person
+from tests.support.teams_support import World, build_world, make_person
 
 ACME = "shop.acme.example"
 GLOBEX = "blog.globex.example"

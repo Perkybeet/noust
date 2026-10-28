@@ -34,9 +34,8 @@ from noust.core.variables.model import PREVIEW
 from noust.core.variables.store import VariableStore
 from noust.deployers.helpers.env_variables import AppEnvironment
 from noust.integrations.github import pulls
-from noust.integrations.github.pulls import OpenPullRequest
 from noust.managers import preview_env, previews
-from tests.test_previews import (
+from tests.support.previews import (
     BASE,
     PARENT,
     REPO,
@@ -50,6 +49,7 @@ from tests.test_previews import (
     stored_preview,
     timer,
 )
+from tests.support.previews_variables_data import open_pull
 
 FIXTURES = (clock, jobs, posted, store, timer)
 
@@ -355,23 +355,6 @@ class TestAnExistingPreviewFollowsTheSettings:
         previews._sync_from_parent(child_domain(), app, settings)
 
         assert written == [{"API_URL": "https://new"}]
-
-
-def open_pull(**changes: Any) -> OpenPullRequest:
-    fields: dict[str, Any] = {
-        "number": 42,
-        "title": "Add search",
-        "branch": "feature/search",
-        "base_branch": "main",
-        "head_sha": "c" * 40,
-        "author": "alice",
-        "author_association": "MEMBER",
-        "draft": False,
-        "from_fork": False,
-        "url": "https://github.com/acme/shop/pull/42",
-    }
-    fields.update(changes)
-    return OpenPullRequest(**fields)
 
 
 class TestMakingOneByHand:

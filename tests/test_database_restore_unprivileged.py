@@ -39,8 +39,8 @@ from noust.managers.database.pg_loader import (
     release_statements,
 )
 from noust.managers.database.postgres import PostgresManager
-from tests.test_database_import_formats import PG_CUSTOM
-from tests.test_database_managers import StubConfig
+from tests.support.database_import_formats import PG_CUSTOM
+from tests.support.database_managers import StubConfig
 
 PLAIN = (
     "-- PostgreSQL database dump\nSET standard_conforming_strings = on;\nCREATE TABLE t (i int);\n"

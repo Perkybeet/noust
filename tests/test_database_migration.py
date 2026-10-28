@@ -4,9 +4,9 @@
 """
 Moving an engine to a newer major version (4.0, C-13).
 
-The machine is :class:`~tests.database_instance_support.DockerHost`, so the new
+The machine is :class:`~tests.support.database_instance_support.DockerHost`, so the new
 instance is really made: its Compose file, its unit, its container. The engines
-are :class:`~tests.database_move_support.TwinEngine`, so a database really leaves
+are :class:`~tests.support.database_move_support.TwinEngine`, so a database really leaves
 one server and arrives in the other. What is pinned:
 
 - the plan names everything that will happen and refuses what cannot;
@@ -33,8 +33,8 @@ from noust.core.exceptions import (
 )
 from noust.managers.database import instance_layout as layout
 from noust.managers.database.records import DatabaseRecords
-from tests.database_migration_support import Lab, build_lab
-from tests.database_move_support import APP_PASSWORD, DOMAIN, HOST
+from tests.support.database_migration_support import Lab, build_lab
+from tests.support.database_move_support import APP_PASSWORD, DOMAIN, HOST
 
 
 @pytest.fixture

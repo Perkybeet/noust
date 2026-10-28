@@ -28,8 +28,8 @@ from noust.web.auth import CSRF_HEADER_NAME
 from noust.web.permissions import Permission
 from noust.web.permissions.registry import permission_for_route
 from noust.web.server import create_app, get_token_manager
-from tests.link_support import LINK_UID, LinkRig, build_link_rig
-from tests.test_web_auth import make_config
+from tests.support.link_support import LINK_UID, LinkRig, build_link_rig
+from tests.support.web_auth import make_config
 
 
 @pytest.fixture(autouse=True)

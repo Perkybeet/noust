@@ -26,7 +26,7 @@ from noust.cli.commands import webapp
 from noust.core.store import App, NoustStore
 from noust.deployers import temporary_domain
 from noust.deployers.temporary_domain import prefix_of_image, prefix_of_source
-from tests.test_cli_webapp import cli_runner, deployer  # noqa: F401
+from tests.support.cli_webapp import cli_runner, deployer  # noqa: F401
 
 
 @pytest.mark.parametrize(

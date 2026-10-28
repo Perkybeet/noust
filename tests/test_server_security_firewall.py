@@ -33,7 +33,7 @@ from noust.managers.server.security_firewall import (
 from noust.managers.server.security_pending import ChangeLedger
 from noust.managers.server.security_probe import SecurityProbe
 from noust.managers.server.security_ssh import SshSecurity
-from tests.server_security_support import CENTRAL_FP, NOW, FakeHost, FakeSshd, accepted
+from tests.support.server_security_support import CENTRAL_FP, NOW, FakeHost, FakeSshd, accepted
 
 UFW_ACTIVE = """Status: active
 Logging: on (low)

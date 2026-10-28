@@ -27,42 +27,27 @@ from click.testing import CliRunner, Result
 from noust.cli.app import cli as root_cli
 from noust.cli.app import main
 from noust.cli.commands import server as server_cli
-from noust.core.fs import DryRunFileSystem, RecordingFileSystem
+from noust.core.fs import DryRunFileSystem
 from noust.core.runner import DryRunRunner
-from noust.core.store import NoustStore
 from noust.managers.server.context import ServerContext
 from noust.managers.server.facts import FactCache
 from noust.managers.server.updates import UpdateRecord
-from tests.server_support import (  # noqa: F401 - the fixture registers itself
+from tests.support.cli_server import (  # noqa: F401
+    machine,
+    store,
+)
+from tests.support.server_support import (  # noqa: F401 - the fixture registers itself
     fixture,
     make_machine,
     no_package_manager_running,
     platform_for,
 )
 
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
+
 pytestmark = pytest.mark.usefixtures("no_package_manager_running")
-
-
-@pytest.fixture
-def store(tmp_path: Path):
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "cli.db", fs=RecordingFileSystem())
-    try:
-        yield instance
-    finally:
-        instance.close()
-        NoustStore.reset_instance()
-
-
-@pytest.fixture
-def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store):
-    """The server made of fixtures, root, and the CLI pointed at it."""
-    made = make_machine(tmp_path, monkeypatch, store)
-    made.ctx.power._apps_check = lambda runner: []
-    monkeypatch.setattr(server_cli, "build_context", lambda: made.ctx)
-    monkeypatch.setattr(server_cli, "check_root", lambda: True)
-    monkeypatch.setattr(server_cli, "RecordStore", lambda: made.ctx.records)
-    return made
 
 
 def run(args: list[str], *, input: str | None = None) -> Result:

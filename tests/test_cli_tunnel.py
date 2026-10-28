@@ -22,7 +22,6 @@ from noust.cli.app import cli as root_cli
 from noust.cli.app import main
 from noust.cli.commands import tunnel as tunnel_cli
 from noust.core.exceptions import PrerequisiteError
-from noust.core.logger import Logger
 from noust.core.tunnel_store import Tunnel, TunnelRoute
 from noust.managers.tunnels import RouteResult, TunnelResult, TunnelSupport
 
@@ -82,13 +81,6 @@ def manager(monkeypatch: pytest.MonkeyPatch) -> Fake:
     fake = Fake()
     monkeypatch.setattr(tunnel_cli, "TunnelManager", lambda: fake)
     return fake
-
-
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
 
 
 def invoke(args: list[str], input_text: str | None = None) -> Result:

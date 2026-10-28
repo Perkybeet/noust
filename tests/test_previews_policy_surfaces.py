@@ -22,7 +22,7 @@ from noust.cli.app import cli as root_cli
 from noust.core.preview_store import PreviewStore
 from noust.core.store import NoustStore, PreviewRecord
 from noust.managers import previews
-from tests.test_web_previews import (
+from tests.support.web_previews import (
     BASE,
     PARENT,
     app,

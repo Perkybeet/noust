@@ -95,7 +95,7 @@ jobs:
       # before it finished, again and again, with no test failing: memory. A sixth of the suite on
       # three workers holds 3.8 to 5.2 GiB on Python 3.14 and up to 12.2 GiB with coverage's default
       # core (see the step below), and the whole suite would ask for several times the 16 GiB of a
-      # runner. So it is cut into six slices by whole test files (tests/sharding.py), one machine
+      # runner. So it is cut into six slices by whole test files (tests/support/sharding.py), one machine
       # each; tests/test_ci_shards.py holds the 6 here to the matrix below.
       NOUST_TEST_SHARD: ${{ matrix.shard }}/6
     strategy:

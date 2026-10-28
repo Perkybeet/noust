@@ -72,11 +72,6 @@ def config() -> MemoryConfig:
 
 
 @pytest.fixture
-def secrets(tmp_path: Path) -> SecretStore:
-    return SecretStore(root=tmp_path / "state" / "secrets")
-
-
-@pytest.fixture
 def certs(
     tmp_path: Path,
     runner: FakeRunner,

@@ -35,7 +35,7 @@ from noust.managers.server.storage_policy import (
     CleanupRun,
     CleanupSchedule,
 )
-from tests.server_support import make_host, platform_for
+from tests.support.server_support import make_host, platform_for
 
 
 class FakeScheduler:
@@ -347,7 +347,7 @@ class TestTellingTheOperator:
 
     @staticmethod
     def message(build: Any) -> Any:
-        from tests.notifications_support import context
+        from tests.support.notifications_support import context
 
         return build(context("en"))
 

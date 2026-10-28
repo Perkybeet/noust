@@ -24,8 +24,8 @@ from noust.core.store import NoustStore
 from noust.fleet.aggregate import Asker, set_aggregator
 from noust.web import fleet_jobs
 from noust.web.fleet_jobs import FleetJobs, FleetRequest, Runner, plan, retry_request
-from tests.fleet_views_support import SCHEMA_30, Central, build_central
-from tests.placement_support import DOMAIN, Shop, Upstream
+from tests.support.fleet_views_support import SCHEMA_30, Central, build_central
+from tests.support.placement_support import DOMAIN, Shop, Upstream
 
 ADMIN = Asker(actor="ana", scope="admin", role="admin", elevated=True)
 NAMES = ("web-1", "web-2", "web-3")

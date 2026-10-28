@@ -22,8 +22,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from noust.core.store import NoustStore
-from tests.test_env_merge import env_file, merge
-from tests.test_web_apps_env_secrets import (  # noqa: F401
+from tests.support.env_merge import env_file, merge
+from tests.support.web_apps_env_secrets import (  # noqa: F401
     app,
     client,
     deployed_env,
@@ -31,7 +31,7 @@ from tests.test_web_apps_env_secrets import (  # noqa: F401
     read_audit,
     store,
 )
-from tests.test_web_auth import bearer
+from tests.support.web_auth import bearer
 
 
 def audience_of(client: TestClient) -> dict[str, str]:

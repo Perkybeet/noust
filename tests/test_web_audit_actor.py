@@ -34,7 +34,7 @@ from noust.managers.backup_scheduler import BackupScheduler
 from noust.managers.cron_manager import CronManager
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.test_web_databases_api import make_engine, wire
+from tests.support.web_databases_api import make_engine, wire
 
 #: Root every "no offending pattern remains" guard test scans.
 WEB_PACKAGE_ROOT = Path(__file__).resolve().parent.parent / "src" / "noust" / "web"

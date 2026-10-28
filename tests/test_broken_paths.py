@@ -28,7 +28,7 @@ from typing import Any
 import pytest
 
 from noust.core.runner import FakeRunner
-from tests.network_tables import NetworkTables
+from tests.support.network_tables import NetworkTables
 
 SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "noust"
 

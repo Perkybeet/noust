@@ -20,9 +20,8 @@ from noust.core.exceptions import BackupError
 from noust.core.store import NoustStore
 from noust.core.update_policy_store import set_required
 from noust.deployers import lifecycle
-from tests.test_lifecycle import DOMAIN, make_app
-from tests.test_lifecycle import store as store
-from tests.test_update_backup_required import backups, with_database
+from tests.support.lifecycle import DOMAIN, make_app, store
+from tests.support.update_backup_required import backups, with_database
 
 FIXTURES = (backups, store)
 

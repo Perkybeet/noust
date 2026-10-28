@@ -22,8 +22,8 @@ from click.testing import CliRunner
 
 from noust.cli.app import cli as root_cli
 from noust.core.store import NoustStore
-from tests.manifest_support import FakeServer
-from tests.teams_support import World, build_world
+from tests.support.manifest_support import FakeServer
+from tests.support.teams_support import World, build_world
 
 SHOP = "shop.acme.test"
 

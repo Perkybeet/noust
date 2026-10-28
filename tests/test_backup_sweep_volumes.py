@@ -20,9 +20,9 @@ import pytest
 
 from noust.core.exceptions import BackupError
 from noust.managers.volume_backups import VolumeBackupManager
-from tests.test_volume_backups import (  # noqa: F401
+from tests.support.volume_backups import (  # noqa: F401
     DOMAIN,
-    TestRetention,
+    RetentionTests,
     _reset_store,
     app,
     app_dir,
@@ -44,7 +44,7 @@ def mark_bad(manager: VolumeBackupManager, backup_id: str) -> None:
 
 
 class TestTheNewestGoodOne:
-    make = TestRetention.make
+    make = RetentionTests.make
 
     def test_a_newest_archive_that_failed_its_check_does_not_push_the_good_ones_out(
         self, manager: VolumeBackupManager
@@ -60,7 +60,7 @@ class TestTheNewestGoodOne:
 
 
 class TestTheSweep:
-    make = TestRetention.make
+    make = RetentionTests.make
 
     def test_it_applies_every_policy_without_a_run(self, manager: VolumeBackupManager) -> None:
         ids = [self.make(manager, "scheduled", days) for days in (5, 4, 3, 2, 1)]
@@ -82,7 +82,7 @@ class TestTheSweep:
 
 
 class TestAFailedRun:
-    make = TestRetention.make
+    make = RetentionTests.make
 
     def test_a_backup_that_cannot_be_taken_prunes_by_the_policy_all_the_same(
         self, manager: VolumeBackupManager, monkeypatch: pytest.MonkeyPatch
@@ -117,3 +117,7 @@ class TestAFailedRun:
             manager.run_policy(DOMAIN)
 
         assert set(ids) <= {e.id for e in manager.list_backups(DOMAIN)}
+
+
+class TestRetention(RetentionTests):
+    """The retention tests again, on the fixtures this module imports."""

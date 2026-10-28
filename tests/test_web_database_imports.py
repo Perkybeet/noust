@@ -31,11 +31,10 @@ from fastapi.testclient import TestClient
 from noust.core.config import Config
 from noust.core.runner import set_runner
 from noust.core.store import NoustStore
-from noust.managers.backup_scheduler import BackupScheduler
 from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.uploads import MAX_CHUNK_BYTES, UploadStore
-from tests.database_backup_support import PG_LISTING, RcloneRunner, make_engine
-from tests.test_web_databases_api import (  # noqa: F401
+from tests.support.database_backup_support import PG_LISTING, RcloneRunner, make_engine
+from tests.support.web_databases_api import (  # noqa: F401
     _capture_queued_jobs,
     anonymous,
     app,
@@ -77,14 +76,6 @@ def folders(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (backups / "imports").mkdir(parents=True)
     monkeypatch.setattr(Config, "backup_directory", property(lambda self: backups), raising=False)
     return backups
-
-
-@pytest.fixture
-def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "systemd"
-    path.mkdir()
-    monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", path)
-    return path
 
 
 @pytest.fixture

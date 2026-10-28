@@ -9,7 +9,7 @@ module that works only after another has been imported passes it. ``web.fleet_pl
 was one: its group of modules imported each other at the end of their files and only worked in the
 order they were first loaded in. ``tests/test_layering.py`` now holds that no module imports one
 that imports it back, which is the cause; this holds the symptom, in an interpreter where nothing
-else is loaded (``tests/isolated_import_child.py``).
+else is loaded (``tests/support/isolated_import_child.py``).
 
 Every module below ``noust/web`` takes more than ten minutes of processor time (about three
 hundred modules, each with the closure it imports), which a suite that runs on every push should
@@ -30,7 +30,7 @@ import pytest
 import noust
 
 SRC = Path(noust.__file__).resolve().parent.parent
-CHILD = Path(__file__).resolve().parent / "isolated_import_child.py"
+CHILD = Path(__file__).resolve().parent / "support" / "isolated_import_child.py"
 WEB = Path(noust.__file__).resolve().parent / "web"
 
 

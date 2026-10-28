@@ -20,8 +20,11 @@ from click.testing import CliRunner, Result
 
 from noust.cli.app import cli as root_cli
 from noust.managers.backup_scheduler import BackupScheduler
-from tests.server_support import no_package_manager_running  # noqa: F401 - registers itself
-from tests.test_cli_server import machine, store  # noqa: F401 - the fixtures the server tests share
+from tests.support.cli_server import (  # noqa: F401 - the fixtures the server tests share
+    machine,
+    store,
+)
+from tests.support.server_support import no_package_manager_running  # noqa: F401 - registers itself
 
 pytestmark = pytest.mark.usefixtures("no_package_manager_running")
 

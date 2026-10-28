@@ -27,7 +27,7 @@ from noust.core.resource_tags import (
 )
 from noust.core.store import NoustStore, Service
 from noust.managers.database.service import DatabaseService
-from tests.test_web_databases_api import make_engine, wire
+from tests.support.web_databases_api import make_engine, wire
 
 
 @pytest.fixture

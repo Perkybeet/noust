@@ -28,8 +28,8 @@ from noust.fleet.aggregate import gather, set_aggregator
 from noust.fleet.keys import known_hosts_line
 from noust.fleet.models import parse_public_key
 from noust.fleet.probe import ReachabilityProbe
-from tests.fleet_support import HOST_KEY, build_fleet
-from tests.fleet_views_support import build_central
+from tests.support.fleet_support import HOST_KEY, build_fleet
+from tests.support.fleet_views_support import build_central
 
 PRESENTED = "SHA256:7vA1xXhSvS4wNfAhXk3mZqk4cN0YyHq3y4w4vJmP2cQ"
 

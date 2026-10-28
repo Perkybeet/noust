@@ -14,56 +14,24 @@ before it deletes it.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
-from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
 from noust.cli.app import cli as root_cli
-from noust.cli.commands import db as db_cli
-from noust.core.config import Config
 from noust.core.db_instance_store import DbInstanceStore
-from noust.core.logger import Logger
 from noust.core.runner import SubprocessRunner
 from noust.managers.database.managed import ManagedInstances
-from noust.managers.database.service import DatabaseService
-from tests.database_instance_support import World, build_world, close_world
+from tests.support.cli_db_instances import (  # noqa: F401
+    cli_world,
+    log,
+    world,
+)
+from tests.support.database_instance_support import World
 
-
-@pytest.fixture
-def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
-    yield build_world(tmp_path, monkeypatch)
-    close_world()
-
-
-@pytest.fixture
-def cli_world(world: World, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
-    """The server of the managed-instances tests, with the CLI pointed at it."""
-    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", tmp_path / "etc" / "config.yaml")
-    Config.reset_instance()
-    monkeypatch.setattr(
-        db_cli,
-        "_service",
-        lambda logger: DatabaseService(
-            store=world.store, secrets=world.service.secrets, logger=logger
-        ),
-    )
-    monkeypatch.setattr(
-        "noust.managers.database.managed.server_resources",
-        world.managed._resources,
-    )
-    try:
-        yield world
-    finally:
-        Config.reset_instance()
-
-
-@pytest.fixture
-def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    lines: list[str] = []
-    monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
-    return lines
+# A fixture imported from the support module is found by pytest in this module's namespace, and a
+# test that asks for it by name looks like a redefinition of an import that is never used.
+# ruff: noqa: F811
 
 
 def run(*args: str, input: str | None = None):

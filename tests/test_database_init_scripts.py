@@ -37,7 +37,7 @@ from noust.validators.db_instance import (
     check_init_script_name,
     check_init_scripts,
 )
-from tests.database_instance_support import World, build_world, close_world
+from tests.support.database_instance_support import World, build_world, close_world
 
 SCHEMA = b"CREATE TABLE notes (id serial PRIMARY KEY, body text);\n"
 

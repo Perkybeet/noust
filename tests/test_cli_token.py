@@ -41,12 +41,6 @@ def state_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return directory
 
 
-@pytest.fixture
-def cli_runner() -> CliRunner:
-    """Returns: A runner that captures stdout and stderr together."""
-    return CliRunner()
-
-
 def test_list_reports_no_tokens_on_a_fresh_install(cli_runner: CliRunner, state_dir: Path) -> None:
     result = cli_runner.invoke(root_cli, ["token", "list"])
 

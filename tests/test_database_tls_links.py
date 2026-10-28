@@ -40,8 +40,8 @@ from noust.managers.database.tls_links import (
     client_options,
     extra_variables,
 )
-from tests.database_migration_support import Lab, build_lab
-from tests.database_move_support import (
+from tests.support.database_migration_support import Lab, build_lab
+from tests.support.database_move_support import (
     APP_PASSWORD,
     DOMAIN,
     HOST,
@@ -51,7 +51,7 @@ from tests.database_move_support import (
     Rig,
     build_rig,
 )
-from tests.test_database_tls import TlsHost, UnprivilegedFs
+from tests.support.database_tls import TlsHost, UnprivilegedFs
 
 CA = Path("/etc/noust/tls/ca.crt")
 

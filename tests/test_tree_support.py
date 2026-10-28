@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.tree_support import ignore_patterns, is_ignored, tree_files
+from tests.support.tree_support import ignore_patterns, is_ignored, tree_files
 
 RULES = [
     "*.swp",

@@ -46,7 +46,7 @@ from noust.managers.tunnels import (
     secret_name,
     unit_name,
 )
-from tests.dns_support import FakeTunnelProvider
+from tests.support.dns_support import FakeTunnelProvider
 
 CLOUDFLARED = "/usr/bin/cloudflared"
 APP = "shop.example.com"
@@ -60,11 +60,6 @@ def store(tmp_path: Path) -> Iterator[NoustStore]:
     instance.add_domain(APP, "www.shop.example.com", "alias")
     yield instance
     NoustStore.reset_instance()
-
-
-@pytest.fixture
-def secrets(tmp_path: Path) -> SecretStore:
-    return SecretStore(root=tmp_path / "state" / "secrets")
 
 
 @pytest.fixture

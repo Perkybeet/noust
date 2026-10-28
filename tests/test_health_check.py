@@ -383,7 +383,7 @@ def test_the_diagnosis_probes_the_configured_path_with_the_configured_expectatio
     monkeypatch: pytest.MonkeyPatch, runner: FakeRunner
 ) -> None:
     """A 200 from an application that promised 204 is what the gate would refuse too."""
-    from tests import test_diagnose as d
+    from tests.support import diagnose as d
 
     d._fragment(runner)
     d._unit_state(runner)
@@ -413,7 +413,7 @@ def test_the_diagnosis_lets_nginx_redirect_to_https(
     monkeypatch: pytest.MonkeyPatch, runner: FakeRunner
 ) -> None:
     """Port 80 answering 301 to HTTPS is the site working, whatever the app promised."""
-    from tests import test_diagnose as d
+    from tests.support import diagnose as d
 
     d._fragment(runner)
     d._unit_state(runner)

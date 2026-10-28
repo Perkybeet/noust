@@ -14,9 +14,6 @@ sets a limit expects, and a number nobody chose (the default) still limits nothi
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from pathlib import Path
-
 import pytest
 
 from noust.core.accounts import passwords
@@ -31,14 +28,6 @@ from noust.core.store import NoustStore
 def cheap_hashes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(passwords, "COST", (2**4, 8, 1))
     monkeypatch.setattr(passwords, "_dummy_hash", None)
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[NoustStore]:
-    NoustStore.reset_instance()
-    instance = NoustStore(tmp_path / "noust.db")
-    yield instance
-    NoustStore.reset_instance()
 
 
 @pytest.fixture

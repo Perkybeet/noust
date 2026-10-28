@@ -31,7 +31,7 @@ import pytest
 
 from noust.core.config import Config
 from noust.core.store import NoustStore
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 SHOP = "shop.acme.example"
 

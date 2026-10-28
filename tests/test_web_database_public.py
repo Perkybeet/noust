@@ -23,8 +23,8 @@ from noust.core.runner import set_runner
 from noust.core.store import NoustStore
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.test_database_public import PASSWORD, World, build_world
-from tests.test_web_databases_api import wire
+from tests.support.database_public import PASSWORD, World, build_world
+from tests.support.web_databases_api import wire
 
 BODY = {"engine": "postgresql", "database": "appdb"}
 

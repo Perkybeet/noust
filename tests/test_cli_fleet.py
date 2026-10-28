@@ -33,9 +33,9 @@ from noust.fleet.authorize import TUNNEL_USER
 from noust.fleet.policy import FleetAccess, current_access
 from noust.managers import console_service
 from noust.web.auth import STATE_DIR_ENV
-from tests.console_patch_support import patch_console
-from tests.fleet_support import TOKEN, build_fleet, join_code
-from tests.test_fleet_authorize import CENTRAL_KEY, Node
+from tests.support.console_patch_support import patch_console
+from tests.support.fleet_authorize import CENTRAL_KEY, Node
+from tests.support.fleet_support import TOKEN, build_fleet, join_code
 
 
 @pytest.fixture

@@ -36,7 +36,7 @@ from noust.core.exceptions import SecurityError, ServiceError
 from noust.core.runner import FakeRunner
 from noust.managers import console_service
 from noust.managers.service_manager import UNIT_MARKER, ServiceManager
-from tests.console_patch_support import patch_console
+from tests.support.console_patch_support import patch_console
 
 ALL_INTERFACES = "0.0.0.0"  # noqa: S104 - the address under test, never bound
 
