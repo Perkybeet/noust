@@ -26,6 +26,7 @@ from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 from typing import Any
 
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import DeploymentError, NoustError, RolledBackError
 from noust.core.messages import Locale
 from noust.core.notifications.composers import (
@@ -76,7 +77,6 @@ from noust.core.notifications.composers_watch import (
 )
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Fact, Notification, Section, State
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.deployers.helpers.hooks import compose_deploy_hook_failed
 from noust.deployers.helpers.sandbox_trial import compose_sandbox_trial_failed
 from tests.notifications_netobs import netobs_events

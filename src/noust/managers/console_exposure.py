@@ -146,9 +146,9 @@ class SystemConsole:
         Returns:
             True when ``noust-web.service`` is installed and active.
         """
-        from noust.cli.commands import web
+        from noust.managers import console_service
 
-        status = web._service_status(self._verbose)
+        status = console_service._service_status(self._verbose)
         return status is not None and bool(status["active"])
 
     def upstream(self) -> tuple[int, str]:
@@ -158,9 +158,9 @@ class SystemConsole:
         Returns:
             The port and the scheme.
         """
-        from noust.cli.commands import web
+        from noust.managers import console_service
 
-        return web.console_service_port()
+        return console_service.console_service_port()
 
     def trust_proxy(self, address: str) -> bool:
         """
@@ -172,9 +172,9 @@ class SystemConsole:
         Returns:
             True when the unit was rewritten.
         """
-        from noust.cli.commands import web
+        from noust.managers import console_service
 
-        return web.change_trusted_proxies(add=[address], verbose=self._verbose)
+        return console_service.change_trusted_proxies(add=[address], verbose=self._verbose)
 
     def forget_proxy(self, address: str) -> bool:
         """
@@ -186,9 +186,9 @@ class SystemConsole:
         Returns:
             True when the unit was rewritten.
         """
-        from noust.cli.commands import web
+        from noust.managers import console_service
 
-        return web.change_trusted_proxies(remove=[address], verbose=self._verbose)
+        return console_service.change_trusted_proxies(remove=[address], verbose=self._verbose)
 
     def restart(self, mode: RestartMode) -> None:
         """
@@ -220,9 +220,9 @@ class SystemConsole:
                 check=True,
             )
             return
-        from noust.cli.commands import web
+        from noust.managers import console_service
 
-        web.restart_console_service(self._verbose)
+        console_service.restart_console_service(self._verbose)
 
 
 @dataclass

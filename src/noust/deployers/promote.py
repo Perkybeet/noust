@@ -33,6 +33,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from noust.central import require_server_role
+from noust.core.appdir.layout import RELEASES, app_root
+from noust.core.appdir.releases import RELEASES_DIR, Release, ReleaseManager
 from noust.core.applock import app_lock
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.fs import get_fs
@@ -42,7 +44,6 @@ from noust.core.runner import get_runner
 from noust.core.store import App, DeploymentTrigger, get_store
 from noust.deployers.base import BaseDeployer
 from noust.deployers.helpers.app_env import read_app_env
-from noust.deployers.helpers.layout import RELEASES, app_root
 from noust.deployers.helpers.release_build import StagedRelease, discard_release
 from noust.deployers.lifecycle import (
     _newest_deployment_of_commit,
@@ -50,7 +51,6 @@ from noust.deployers.lifecycle import (
     require_schema_change_confirmed,
 )
 from noust.deployers.registry import get_deployer
-from noust.deployers.releases import RELEASES_DIR, Release, ReleaseManager
 from noust.deployers.unit_environment import BUILD_TIME_PREFIXES
 from noust.validators.domain import validate_domain
 

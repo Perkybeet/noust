@@ -64,7 +64,7 @@ from noust.core.notifications.model import (
 )
 
 if TYPE_CHECKING:
-    from noust.deployers.deploy_events import DeployEvent
+    from noust.core.deploy_events import DeployEvent
 
 #: What a deployment can be, from the recorder's point of view.
 OPERATIONS: tuple[str, ...] = ("deploy", "update", "rollback", "activate", "migrate")

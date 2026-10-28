@@ -27,15 +27,15 @@ from types import SimpleNamespace
 
 import pytest
 
+from noust.core.appdir.layout import INPLACE, RELEASES
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import DeploymentError
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
 from noust.deployers.auto import AutoDeployer
-from noust.deployers.helpers.layout import INPLACE, RELEASES
 from noust.deployers.helpers.target import claim_deploy_target
 from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.nodejs import NodeJSDeployer
-from noust.deployers.releases import ReleaseManager
 from noust.managers.source_manager import SourceManager
 from tests.test_release_pipeline import (  # noqa: F401  (pytest resolves fixtures by name)
     BROKEN_SERVER,

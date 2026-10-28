@@ -33,7 +33,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from noust.central import require_server_role
-from noust.core import deploy_guard, update_schedule_store
+from noust.core import deploy_events, deploy_guard, update_schedule_store
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import (
     BackupError,
     DeploysFrozenError,
@@ -46,8 +47,6 @@ from noust.core.store import DeploymentTrigger, get_store
 from noust.core.tags import newest_tag
 from noust.core.update_schedule_store import UpdateSchedule
 from noust.core.utils import domain_to_app_name
-from noust.deployers import deploy_events
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar
 from noust.managers.source_manager import SourceManager
 from noust.validators.domain import validate_domain

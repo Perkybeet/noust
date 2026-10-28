@@ -354,7 +354,7 @@ def test_an_in_place_app_tries_its_tree_and_then_builds_in_the_sandbox(
     as_root: Any,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from noust.deployers.helpers.layout import INPLACE
+    from noust.core.appdir.layout import INPLACE
 
     node_tree(root)
     (root / ".git").mkdir()

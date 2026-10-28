@@ -1392,7 +1392,7 @@ def other_env_files(app: App, apps_dir: Path, store: NoustStore | None = None) -
     Returns:
         Their paths.
     """
-    from noust.deployers.helpers.layout import env_file_for
+    from noust.core.appdir.layout import env_file_for
 
     found = []
     for other in (store or get_store()).list_apps():

@@ -43,9 +43,9 @@ from pathlib import Path
 from typing import Any
 
 from noust import __version__
+from noust.core.appdir.releases import _match_release_id
 from noust.core.exceptions import ValidationError
 from noust.core.fs import FileSystem, get_fs
-from noust.deployers.releases import _match_release_id
 from noust.managers.source_manager import extract_archive
 
 __all__ = [

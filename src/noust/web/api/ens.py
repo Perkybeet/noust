@@ -231,7 +231,7 @@ def _exposure() -> checks.ConsoleExposure:
     Returns:
         How this very console is reached.
     """
-    from noust.cli.commands.web import PANEL_TLS_CERT
+    from noust.managers.console_service import PANEL_TLS_CERT
     from noust.web.auth import get_security_config
 
     config = get_security_config()

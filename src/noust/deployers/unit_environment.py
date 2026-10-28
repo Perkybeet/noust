@@ -10,7 +10,7 @@ prints its environment to any local user, so every ``DATABASE_URL`` and secret
 of those applications was readable without privileges. Since 2.x a unit
 carries inline only what is Noust's to decide (:data:`INLINE`) and loads the
 rest with ``EnvironmentFile=-`` from the application's ``.env``
-(:func:`~noust.deployers.helpers.layout.env_file_for`, 0600, owned by the
+(:func:`~noust.core.appdir.layout.env_file_for`, 0600, owned by the
 service account). An update does not rewrite the unit, so an application
 created before that kept its secrets inline, and its builds ran without them:
 an update reads the variables from the ``.env``, which those applications did
@@ -32,14 +32,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from noust.core.appdir.layout import app_root, env_file_for
+from noust.core.appdir.permissions import hand_over_file
 from noust.core.exceptions import DeploymentError, ValidationError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
 from noust.core.secret_detection import classify
 from noust.core.store import App, NoustStore, get_store, is_compose_backed
 from noust.deployers.helpers.env_manager import EnvManager
-from noust.deployers.helpers.layout import app_root, env_file_for
-from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.service_manager import ServiceManager
 
 #: What a unit keeps inline: not secret, and Noust's to decide (the port, the

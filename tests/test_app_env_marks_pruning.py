@@ -137,7 +137,7 @@ def test_an_undeployed_stand_in_application_is_not_an_error(
     tmp_path: Path, store: NoustStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A directory-only application (no store row) has no marks to prune."""
-    from noust.deployers.helpers.layout import layout_on_disk
+    from noust.core.appdir.layout import layout_on_disk
 
     app_path = tmp_path / "apps" / "unregistered-com"
     app_path.mkdir(parents=True)

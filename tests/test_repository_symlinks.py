@@ -20,13 +20,13 @@ from pathlib import Path
 
 import pytest
 
+from noust.core.appdir.permissions import hand_over_file, hand_over_tree
 from noust.core.exceptions import SecurityError
 from noust.core.fs import SECRET_MODE, RealFileSystem, RecordingFileSystem
 from noust.core.logger import Logger
 from noust.core.runner import FakeRunner
 from noust.core.store import MonorepoWorkspace, NoustStore
 from noust.deployers.helpers.env_manager import EnvConfig, EnvManager
-from noust.deployers.helpers.permissions import hand_over_file, hand_over_tree
 from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.nextjs import NextJSDeployer
 

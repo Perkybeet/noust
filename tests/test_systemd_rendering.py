@@ -29,6 +29,7 @@ from noust.validators.environment import (
     validate_environment,
     validate_unit_value,
 )
+from tests.deployer_patch_support import patch_deployer
 
 #: The payload that used to escape the quoted Environment= value and inject a
 #: second User= plus an ExecStartPre= running arbitrary shell.
@@ -429,7 +430,7 @@ def test_rollback_uses_the_service_status_method_that_exists(
 ) -> None:
     """Rollback must call get_status; ``status`` does not exist on the manager."""
     deployer = _bare_deployer()
-    monkeypatch.setattr("noust.deployers.base.NginxManager", MagicMock())
+    patch_deployer(monkeypatch, "NginxManager", MagicMock())
     deployer.service_manager.get_status.return_value = {"exists": True}
     deployer.store.get_service.return_value = None
     deployer.store.get_site.return_value = None
@@ -446,7 +447,7 @@ def test_rollback_deletes_store_records_by_natural_key(
 ) -> None:
     """The store deletes by name/domain, so passing row ids removes nothing."""
     deployer = _bare_deployer()
-    monkeypatch.setattr("noust.deployers.base.NginxManager", MagicMock())
+    patch_deployer(monkeypatch, "NginxManager", MagicMock())
     deployer.service_manager.get_status.return_value = {"exists": False}
     deployer.store.get_service.return_value = Service(id=3, name="app-com")
     deployer.store.get_site.return_value = Site(id=7, domain="app.com")

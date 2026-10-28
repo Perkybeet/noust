@@ -68,6 +68,7 @@ def manager(
         The manager.
     """
     monkeypatch.setattr("noust.managers.backup_manager.get_store", lambda: _NoStore())
+    monkeypatch.setattr("noust.managers.rollback_manager.get_store", lambda: _NoStore())
     backup_manager = BackupManager(verbose=False, runner=runner)
     backup_manager.backup_dir = tmp_path / "backups"
     previous = backup_manager.config.get("apps_directory")
@@ -182,12 +183,13 @@ def test_a_rollback_by_backup_does_not_rebuild_a_release_app_in_place(
 ) -> None:
     """Building in the application directory is building where no release is."""
     from noust.core.store import NoustStore
-    from noust.managers.backup_manager import RollbackManager
+    from noust.managers.rollback_manager import RollbackManager
 
     metadata = manager.create(DOMAIN)
     NoustStore.reset_instance()
     store = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr("noust.managers.backup_manager.get_store", lambda: store)
+    monkeypatch.setattr("noust.managers.rollback_manager.get_store", lambda: store)
     detected: list[Path] = []
     monkeypatch.setattr(
         "noust.deployers.detect_app_type", lambda path, verbose=False: detected.append(path)

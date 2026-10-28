@@ -32,17 +32,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from noust.central import require_server_role
-from noust.core import audit, deploy_guard
+from noust.core import audit, deploy_events, deploy_guard
+from noust.core.appdir.layout import RELEASES, app_root
+from noust.core.appdir.releases import RELEASES_DIR, ReleaseManager
 from noust.core.applock import app_lock
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
 from noust.core.store import App, DeploymentTrigger, get_store, is_compose_backed
 from noust.deployers import bundle as bundles
-from noust.deployers import deploy_events
 from noust.deployers.base import BaseDeployer
 from noust.deployers.bundle import Bundle, Manifest
-from noust.deployers.helpers.layout import RELEASES, app_root
 from noust.deployers.helpers.release_build import StagedRelease, discard_release
 from noust.deployers.lifecycle import (
     _forget_upstream,
@@ -52,7 +52,6 @@ from noust.deployers.lifecycle import (
 )
 from noust.deployers.promote import _rewrite_root
 from noust.deployers.registry import get_deployer
-from noust.deployers.releases import RELEASES_DIR, ReleaseManager
 from noust.deployers.staged import stage_build
 from noust.validators.domain import validate_domain
 

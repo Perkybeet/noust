@@ -317,9 +317,9 @@ def measure(app: App, *, runner: CommandRunner | None = None) -> DiskUsage:
         The measurement. A place that does not exist is not there; one that could not be measured
         in time is named in ``errors``.
     """
+    from noust.core.appdir.layout import app_root
+    from noust.core.appdir.releases import REPO_CACHE_DIR, SHARED_DIR, ReleaseManager
     from noust.core.fs import DryRunFileSystem
-    from noust.deployers.helpers.layout import app_root
-    from noust.deployers.releases import REPO_CACHE_DIR, SHARED_DIR, ReleaseManager
     from noust.managers.backup_manager import BackupManager
     from noust.managers.server.storage import StorageManager
 
@@ -418,7 +418,7 @@ def status(app: App, *, runner: CommandRunner | None = None) -> DiskStatus:
     Returns:
         The limit, the last measurement, how it stands and what the filesystem could hold.
     """
-    from noust.deployers.helpers.layout import app_root
+    from noust.core.appdir.layout import app_root
     from noust.managers import kernel_quota
 
     record: DiskRecord | None = get_record(app.domain)

@@ -433,7 +433,7 @@ def owned_paths(app: App) -> list[Path]:
     Returns:
         The paths that exist.
     """
-    from noust.deployers.helpers.layout import app_root
+    from noust.core.appdir.layout import app_root
     from noust.deployers.helpers.php_fpm import pool_tmp_dir
     from noust.deployers.helpers.sandbox import cache_dir_for
 
@@ -678,8 +678,8 @@ def outside_paths(
     Returns:
         The paths, in the order they are named.
     """
+    from noust.core.appdir.layout import app_root, env_file_for
     from noust.deployers.helpers.env_manager import EnvManager
-    from noust.deployers.helpers.layout import app_root, env_file_for
     from noust.deployers.helpers.sandbox import cache_dir_for
 
     shared = _ids(service_account(app)[0])

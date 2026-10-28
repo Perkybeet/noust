@@ -780,8 +780,8 @@ def test_a_failing_trial_is_recorded_with_the_builds_own_words(
 
 def _in_place_app(tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace) -> str:
     """An application deployed in place before 3.1: a git checkout with no regime row."""
+    from noust.core.appdir.layout import INPLACE
     from noust.core.store import App
-    from noust.deployers.helpers.layout import INPLACE
 
     node_tree(root)
     (root / ".git").mkdir()

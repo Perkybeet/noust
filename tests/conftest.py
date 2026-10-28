@@ -31,6 +31,7 @@ import pytest
 
 from noust.core.fs import set_fs
 from noust.core.runner import FakeRunner, set_runner
+from tests.console_patch_support import patch_console
 from tests.sharding import parse_shard, select
 
 
@@ -439,7 +440,7 @@ def ports(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Po
 
     probe = PortProbe()
     monkeypatch.setattr("noust.core.app_state.port_answers", probe)
-    monkeypatch.setattr("noust.cli.commands.web._port_in_use", probe.in_use)
+    patch_console(monkeypatch, "_port_in_use", probe.in_use)
     return probe
 
 
@@ -576,7 +577,7 @@ def quiet_deploy_events() -> Iterator[None]:
     Yields:
         Nothing; the listeners are forgotten on the way out.
     """
-    from noust.deployers import deploy_events
+    from noust.core import deploy_events
 
     deploy_events.reset()
     deploy_events.suspend_defaults(True)

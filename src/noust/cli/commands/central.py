@@ -120,11 +120,11 @@ def _run(ctx: Context, host: str, port: int) -> None:
             details=f"pip install 'noust[web]'. Python said: {exc}",
         ) from exc
     from noust.cli.commands.web import (
-        StartOptions,
         console_security_config,
         ensure_console_certificate,
         print_console_banner,
     )
+    from noust.managers.console_service import StartOptions
 
     logger = ctx.logger
     setup.ensure_data_dir()
@@ -270,7 +270,7 @@ def _certificate() -> Path:
     Returns:
         The operator's (``NOUST_TLS_CERT``) or the minted one.
     """
-    from noust.cli.commands.web import PANEL_TLS_CERT
+    from noust.managers.console_service import PANEL_TLS_CERT
 
     pair = setup.operator_tls_pair()
     return Path(pair[0]) if pair else PANEL_TLS_CERT

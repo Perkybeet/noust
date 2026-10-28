@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, cast
 import click
 
 from noust.cli.app import Context, NoustCommand, global_flags, json_option, pass_context
+from noust.core.appdir.layout import app_root
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.audit import record as audit_record
 from noust.core.logger import Logger
 from noust.core.teams import Scope, TeamStore, ownership_target
@@ -34,9 +36,7 @@ from noust.deployers.app_clone import (
     plan_clone,
 )
 from noust.deployers.app_export import report_summary
-from noust.deployers.helpers.layout import app_root
 from noust.deployers.promote import plan_promotion, promote, promotion_targets
-from noust.deployers.releases import ReleaseManager
 from noust.validators.domain import validate_domain
 
 if TYPE_CHECKING:

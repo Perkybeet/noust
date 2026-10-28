@@ -1,2 +1,10 @@
 # Bulk reformat with ruff format. Not a real authorship change.
 c48de3a2d43b0f55c7f0a3741503856008fdcb78
+
+# 4.1 structure review (item 88): modules moved or split with the text of each definition
+# unchanged. The lines they touch are the imports and the headers, not an authorship change.
+1250f8ece5781ba71aa48996e70a504013c1c9a7
+9c9dd5496087c4945c6ff82302b915a1b08817e1
+ecfa28b7b614429f8927cc507818c0dcc8785267
+3c025b55c7f3572c3a88d62c95f601386dacf2d6
+5be1f4d1f183348b91d3d221eca5ebbf37052bed

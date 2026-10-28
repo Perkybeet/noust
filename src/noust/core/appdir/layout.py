@@ -29,11 +29,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from noust.core.appdir.releases import CURRENT_LINK, ENV_FILE, SHARED_DIR
 from noust.core.config import Config
 from noust.core.exceptions import DeploymentError
 from noust.core.store import App, AppLayout
 from noust.core.utils import domain_to_app_name
-from noust.deployers.releases import CURRENT_LINK, ENV_FILE, SHARED_DIR
 
 #: The 1.x layout: the service runs the tree every update rebuilds.
 INPLACE = AppLayout.INPLACE.value

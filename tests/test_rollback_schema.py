@@ -353,7 +353,7 @@ def test_restoring_a_backup_from_before_the_change_asks_in_the_manager(
     history: SimpleNamespace, backups: list[str]
 ) -> None:
     """The guard is in RollbackManager.rollback, which every way to a backup passes."""
-    from noust.managers.backup_manager import RollbackManager
+    from noust.managers.rollback_manager import RollbackManager
 
     with pytest.raises(SchemaChangedError) as refusal:
         RollbackManager().rollback(DOMAIN, backup_id="shop-before")

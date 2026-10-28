@@ -19,7 +19,9 @@ from __future__ import annotations
 import inspect
 import json
 import os
+import socket
 import sys
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -30,8 +32,11 @@ import yaml
 from click.testing import CliRunner
 
 from noust.cli.commands import web
+from noust.core import paths
 from noust.core.exceptions import SecurityError
 from noust.core.runner import FakeRunner
+from noust.managers import console_service
+from tests.console_patch_support import patch_console
 
 CONTRACT = json.loads(
     (Path(__file__).parent / "contracts" / "cli_surface.json").read_text(encoding="utf-8")
@@ -81,7 +86,7 @@ def logger_follows_the_current_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
             kwargs.setdefault("stream", sys.stdout)
             super().__init__(*args, **kwargs)
 
-    monkeypatch.setattr(web, "Logger", StdoutLogger)
+    patch_console(monkeypatch, "Logger", StdoutLogger)
 
 
 @pytest.fixture(autouse=True)
@@ -155,7 +160,7 @@ def running_as_root(monkeypatch: pytest.MonkeyPatch) -> None:
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    monkeypatch.setattr(web, "check_root", lambda: True)
+    patch_console(monkeypatch, "check_root", lambda: True)
 
 
 @pytest.fixture
@@ -177,7 +182,7 @@ def deps_present(monkeypatch: pytest.MonkeyPatch) -> None:
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    monkeypatch.setattr(web, "_check_dependencies", lambda: (True, [], []))
+    patch_console(monkeypatch, "_check_dependencies", lambda: (True, [], []))
 
 
 @pytest.fixture
@@ -193,7 +198,7 @@ def pid_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         The path the commands will read and write.
     """
     path = tmp_path / "web.pid"
-    monkeypatch.setattr(web, "get_pid_file", lambda: path)
+    patch_console(monkeypatch, "get_pid_file", lambda: path)
     return path
 
 
@@ -233,8 +238,8 @@ def started(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         captured["issue_token"] = issue_token
         return 0
 
-    monkeypatch.setattr(web, "_start_foreground", foreground)
-    monkeypatch.setattr(web, "_start_daemon", daemon)
+    patch_console(monkeypatch, "_start_foreground", foreground)
+    patch_console(monkeypatch, "_start_daemon", daemon)
     return captured
 
 
@@ -422,7 +427,7 @@ def test_a_range_with_nothing_free_says_so_instead_of_suggesting_a_port(
     ports: Any,
 ) -> None:
     """Naming a port that is also taken would send the operator round again."""
-    ports.taken.update(range(8080, 8080 + web.PORT_SUGGESTION_SPAN + 1))
+    ports.taken.update(range(8080, 8080 + console_service.PORT_SUGGESTION_SPAN + 1))
 
     result = cli_runner.invoke(web.cli, ["start"])
 
@@ -450,7 +455,7 @@ def test_a_loopback_panel_started_as_a_daemon_explains_how_to_reach_it(
     monkeypatch.setattr(logger, "info", lines.append)
     monkeypatch.setattr(logger, "success", lines.append)
 
-    web._report_daemon_started(_loopback_config(8081), 4321, "wasm_tok", logger)
+    console_service._report_daemon_started(_loopback_config(8081), 4321, "wasm_tok", logger)
 
     output = capsys.readouterr().out + "\n".join(lines)
     assert "ssh -L 8081:127.0.0.1:8081 root@198.51.100.7" in output
@@ -472,7 +477,7 @@ def test_a_reachable_daemon_panel_is_not_given_tunnel_instructions(
     config = _loopback_config(8081)
     config.host = "198.51.100.7"
 
-    web._report_daemon_started(config, 4321, "wasm_tok", logger)
+    console_service._report_daemon_started(config, 4321, "wasm_tok", logger)
 
     assert "ssh -L" not in capsys.readouterr().out + "\n".join(lines)
 
@@ -584,7 +589,7 @@ def test_a_name_that_resolves_to_every_interface_is_refused(
 ) -> None:
     """A line in /etc/hosts is not a way past the refusal."""
     monkeypatch.setattr(
-        web.socket,
+        socket,
         "getaddrinfo",
         lambda *args, **kwargs: [(2, 1, 6, "", (ALL_INTERFACES, 0))],
     )
@@ -607,7 +612,7 @@ def test_a_host_that_cannot_be_resolved_is_treated_as_exposed(
     def unresolvable(*args: Any, **kwargs: Any) -> list[Any]:
         raise OSError("Name or service not known")
 
-    monkeypatch.setattr(web.socket, "getaddrinfo", unresolvable)
+    monkeypatch.setattr(socket, "getaddrinfo", unresolvable)
 
     result = cli_runner.invoke(web.cli, ["start", "--host", "panel.invalid"])
 
@@ -689,8 +694,10 @@ def test_missing_dependencies_are_reported_before_the_panel_is_configured(
     Building it before the dependency check would answer a missing package with
     an ImportError traceback instead of the line that says how to install it.
     """
-    monkeypatch.setattr(
-        web, "_check_dependencies", lambda: (False, ["python3-fastapi"], ["fastapi>=0.109.0"])
+    patch_console(
+        monkeypatch,
+        "_check_dependencies",
+        lambda: (False, ["python3-fastapi"], ["fastapi>=0.109.0"]),
     )
     monkeypatch.setattr(sys.stdin, "isatty", lambda: False)
 
@@ -908,15 +915,15 @@ def test_self_signed_mints_a_pair_and_serves_tls(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """--self-signed is the whole third way out of the TLS requirement."""
-    monkeypatch.setattr(web.socket, "gethostname", lambda: "panel-host")
+    monkeypatch.setattr(socket, "gethostname", lambda: "panel-host")
 
     result = cli_runner.invoke(web.cli, ["start", "--host", ALL_INTERFACES, "--self-signed"])
 
     assert result.exit_code == 0, result.output
-    assert minted == [("panel-host", web.PANEL_TLS_CERT, web.PANEL_TLS_KEY)]
+    assert minted == [("panel-host", console_service.PANEL_TLS_CERT, console_service.PANEL_TLS_KEY)]
     assert started["config"].require_https is True
-    assert started["config"].ssl_certfile == str(web.PANEL_TLS_CERT)
-    assert started["config"].ssl_keyfile == str(web.PANEL_TLS_KEY)
+    assert started["config"].ssl_certfile == str(console_service.PANEL_TLS_CERT)
+    assert started["config"].ssl_keyfile == str(console_service.PANEL_TLS_KEY)
 
 
 def test_self_signed_is_issued_to_the_bound_address(
@@ -1411,8 +1418,8 @@ def test_restart_stops_then_starts(
         order.append("stop")
         return 0
 
-    monkeypatch.setattr(web, "_stop", record_stop)
-    monkeypatch.setattr(web.time, "sleep", lambda seconds: None)
+    patch_console(monkeypatch, "_stop", record_stop)
+    monkeypatch.setattr(time, "sleep", lambda seconds: None)
 
     result = cli_runner.invoke(web.cli, ["restart", "--port", "9443"])
 
@@ -1562,9 +1569,9 @@ def test_a_daemon_start_prints_the_token_it_issued(
     """
     from noust.web.auth import SecurityConfig, TokenManager
 
-    monkeypatch.setattr(web.os, "fork", lambda: 4321)
+    monkeypatch.setattr(os, "fork", lambda: 4321)
 
-    assert web._start_daemon(_loopback_config(8081), verbose=False) == 0
+    assert console_service._start_daemon(_loopback_config(8081), verbose=False) == 0
 
     output = capsys.readouterr().out
     printed = next(
@@ -1678,8 +1685,10 @@ def test_token_reports_missing_dependencies_instead_of_crashing(
     cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Without fastapi there is no panel, and the message says how to get one."""
-    monkeypatch.setattr(
-        web, "_check_dependencies", lambda: (False, ["python3-fastapi"], ["fastapi>=0.109.0"])
+    patch_console(
+        monkeypatch,
+        "_check_dependencies",
+        lambda: (False, ["python3-fastapi"], ["fastapi>=0.109.0"]),
     )
 
     result = cli_runner.invoke(web.cli, ["token"])
@@ -1698,10 +1707,12 @@ def test_install_with_pip_builds_the_exact_argv(
     cli_runner: CliRunner, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The command that ends up running is the one under test."""
-    monkeypatch.setattr(
-        web, "_check_dependencies", lambda: (False, ["python3-fastapi"], ["fastapi>=0.109.0"])
+    patch_console(
+        monkeypatch,
+        "_check_dependencies",
+        lambda: (False, ["python3-fastapi"], ["fastapi>=0.109.0"]),
     )
-    monkeypatch.setattr(web, "_is_externally_managed", lambda: False)
+    patch_console(monkeypatch, "_is_externally_managed", lambda: False)
 
     result = cli_runner.invoke(web.cli, ["install", "--pip"])
 
@@ -1713,8 +1724,10 @@ def test_install_with_apt_builds_the_exact_argv(
     cli_runner: CliRunner, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """apt is driven through the runner, never through a shell."""
-    monkeypatch.setattr(
-        web, "_check_dependencies", lambda: (False, ["python3-fastapi"], ["fastapi>=0.109.0"])
+    patch_console(
+        monkeypatch,
+        "_check_dependencies",
+        lambda: (False, ["python3-fastapi"], ["fastapi>=0.109.0"]),
     )
 
     cli_runner.invoke(web.cli, ["install", "--apt"])
@@ -1745,7 +1758,7 @@ def test_unused_dependencies_are_not_demanded(module: str) -> None:
     Args:
         module: Import name that must not appear in the dependency table.
     """
-    assert module not in web.WEB_DEPENDENCIES
+    assert module not in console_service.WEB_DEPENDENCIES
 
 
 def test_every_declared_dependency_is_actually_imported() -> None:
@@ -1755,7 +1768,7 @@ def test_every_declared_dependency_is_actually_imported() -> None:
         for path in (Path(web.__file__).parent.parent.parent / "web").rglob("*.py")
     )
 
-    for module in web.WEB_DEPENDENCIES:
+    for module in console_service.WEB_DEPENDENCIES:
         assert f"import {module}" in sources or f"from {module}" in sources
 
 
@@ -1790,7 +1803,7 @@ def test_install_instructions_does_not_swallow_a_bug_reading_os_release(
     monkeypatch.setattr("builtins.open", boom)
 
     with pytest.raises(ValueError):
-        web._get_install_instructions(["some-pkg"], ["some-pkg"])
+        console_service._get_install_instructions(["some-pkg"], ["some-pkg"])
 
 
 def test_install_instructions_logs_when_os_release_cannot_be_read(
@@ -1811,7 +1824,7 @@ def test_install_instructions_logs_when_os_release_cannot_be_read(
     monkeypatch.setattr("builtins.open", boom)
 
     with caplog.at_level(logging.DEBUG, logger="noust.cli.commands.web"):
-        instructions = web._get_install_instructions(["some-pkg"], ["some-pkg"])
+        instructions = console_service._get_install_instructions(["some-pkg"], ["some-pkg"])
 
     assert instructions == ["pip install some-pkg"]
     assert any("os-release" in record.message for record in caplog.records)
@@ -1886,10 +1899,10 @@ def not_root(monkeypatch: pytest.MonkeyPatch) -> None:
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    monkeypatch.setattr(web, "check_root", lambda: False)
+    patch_console(monkeypatch, "check_root", lambda: False)
     monkeypatch.delenv("NOUST_WEB_STATE_DIR", raising=False)
     monkeypatch.delenv("NOUST_WEB_STATE_DIR", raising=False)
-    monkeypatch.setattr(web.paths, "DATA_DIR", None)
+    monkeypatch.setattr(paths, "DATA_DIR", None)
 
 
 def test_a_start_without_root_says_so_instead_of_failing_on_a_file(
@@ -1944,7 +1957,7 @@ def test_a_start_without_root_but_under_a_data_directory_goes_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A whole installation the user named (a container's volume) is theirs."""
-    monkeypatch.setattr(web.paths, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(paths, "DATA_DIR", tmp_path)
 
     result = cli_runner.invoke(web.cli, ["start"])
 

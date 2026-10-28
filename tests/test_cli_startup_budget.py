@@ -9,9 +9,11 @@ command is, and an operator types ``noust`` many times a day on a laptop and in 
 module is imported when it is run (``LazyGroup``), and what a command needs it imports when it
 needs it; this test holds the part that is not lazy. It reads the source and never starts a
 process (``tests/conftest.py`` forbids it), so it follows the imports the interpreter would run
-when the module loads: the statements at module level, the ``__init__`` of every parent package,
-and the submodule a ``from package import name`` takes when ``name`` is one. An import inside a
-function, or under ``if TYPE_CHECKING``, is not part of the start-up and is not followed.
+when the module loads, with the one reading of the import graph there is
+(``tests/import_graph_support.py``, the same that holds the layers and the cycles): the statements
+at module level, the ``__init__`` of every parent package, and the submodule a ``from package
+import name`` takes when ``name`` is one. An import inside a function, or under ``if
+TYPE_CHECKING``, is not part of the start-up and is not followed.
 
 The budget is a count of Noust modules, not a time: a count does not depend on the machine the
 test runs on, and the time follows it (see ``BUDGET_MEASURED``).
@@ -19,14 +21,14 @@ test runs on, and the time follows it (see ``BUDGET_MEASURED``).
 
 from __future__ import annotations
 
-import ast
-from collections.abc import Iterator
 from functools import cache
 from pathlib import Path
 
 import pytest
 
-SRC = Path(__file__).resolve().parent.parent / "src"
+from tests import import_graph_support as graph
+
+PACKAGE = Path(__file__).resolve().parent.parent / "src" / "noust"
 
 #: The modules the console script and ``python -m noust`` start from.
 ENTRY_POINTS = ("noust.main", "noust.cli.app")
@@ -60,145 +62,32 @@ BUDGET_MEASURED = 16
 BUDGET = BUDGET_MEASURED * 3 // 2
 
 
-def _module_file(module: str) -> Path | None:
-    """
-    Find the source file of a Noust module.
-
-    Args:
-        module: The dotted name.
-
-    Returns:
-        The ``.py`` file, or the ``__init__.py`` of the package; None when it is not Noust's.
-    """
-    relative = Path(*module.split("."))
-    package = SRC / relative / "__init__.py"
-    if package.is_file():
-        return package
-    plain = SRC / relative.with_suffix(".py")
-    return plain if plain.is_file() else None
-
-
-def _is_type_checking(test: ast.expr) -> bool:
-    """
-    Whether an ``if`` test is ``TYPE_CHECKING`` (bare or through ``typing``).
-
-    Args:
-        test: The condition of the ``if``.
-
-    Returns:
-        True for ``TYPE_CHECKING`` and ``typing.TYPE_CHECKING``.
-    """
-    if isinstance(test, ast.Name):
-        return test.id == "TYPE_CHECKING"
-    return isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
-
-
-def _executed_statements(body: list[ast.stmt]) -> Iterator[ast.stmt]:
-    """
-    Walk the statements that run when a module loads, without entering a function.
-
-    Args:
-        body: Statements of a module, or of a block inside it.
-
-    Yields:
-        Every statement that executes at import, nested blocks and class bodies included; the
-        ``if TYPE_CHECKING`` branch is skipped and its ``else`` followed.
-    """
-    for node in body:
-        yield node
-        if isinstance(node, ast.If):
-            if _is_type_checking(node.test):
-                yield from _executed_statements(node.orelse)
-            else:
-                yield from _executed_statements(node.body)
-                yield from _executed_statements(node.orelse)
-        elif isinstance(node, ast.Try):
-            for block in (node.body, node.orelse, node.finalbody):
-                yield from _executed_statements(block)
-            for handler in node.handlers:
-                yield from _executed_statements(handler.body)
-        elif isinstance(node, (ast.With, ast.For, ast.While, ast.ClassDef)):
-            yield from _executed_statements(node.body)
-
-
-def _with_parents(module: str) -> list[str]:
-    """
-    List a module and the packages whose ``__init__`` runs before it.
-
-    Args:
-        module: A dotted name.
-
-    Returns:
-        ``a``, ``a.b`` and ``a.b.c`` for ``a.b.c``.
-    """
-    parts = module.split(".")
-    return [".".join(parts[: i + 1]) for i in range(len(parts))]
-
-
 @cache
-def direct_imports(module: str) -> frozenset[str]:
-    """
-    Name the Noust modules loading one module loads, one step down.
-
-    Args:
-        module: A dotted name of a module of Noust.
-
-    Returns:
-        The modules its module-level imports reach, with the parents of each. A name taken with
-        ``from package import name`` counts as a module when ``name`` is a submodule, the
-        conservative reading: the import system tries the attribute first, so a package that
-        defines the name itself would not load the file, and no package of Noust does that for a
-        name that is also a module.
-    """
-    path = _module_file(module)
-    if path is None:
-        return frozenset()
-    tree = ast.parse(path.read_text(encoding="utf-8"))
-    package = module if path.name == "__init__.py" else module.rpartition(".")[0]
-    found: set[str] = set()
-    for node in _executed_statements(tree.body):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                found.update(_with_parents(alias.name))
-        elif isinstance(node, ast.ImportFrom):
-            if node.level:
-                base_parts = package.split(".")
-                base_parts = base_parts[: len(base_parts) - (node.level - 1)]
-                base = ".".join([*base_parts, *([node.module] if node.module else [])])
-            else:
-                base = node.module or ""
-            found.update(_with_parents(base))
-            for alias in node.names:
-                if _module_file(f"{base}.{alias.name}") is not None:
-                    found.update(_with_parents(f"{base}.{alias.name}"))
-    return frozenset(name for name in found if _module_file(name) is not None and name != module)
+def _edges() -> list[graph.Edge]:
+    return graph.read_edges(PACKAGE)
 
 
-def closure(roots: tuple[str, ...]) -> dict[str, str | None]:
+def closure(
+    roots: tuple[str, ...], package: Path = PACKAGE, edges: list[graph.Edge] | None = None
+) -> dict[str, str | None]:
     """
     Follow the module-level imports from some modules to everything they load.
 
     Args:
         roots: Dotted names to start from.
+        package: The package directory the modules are in.
+        edges: Its import statements, when they are not those of Noust.
 
     Returns:
-        Every Noust module loaded, to the module that first reached it (None for a root), so a
+        Every module loaded, to the module that first reached it (None for a root), so a
         failure can say how a module got in.
     """
-    loaded: dict[str, str | None] = {}
-    pending: list[tuple[str, str | None]] = []
-    for root in roots:
-        for name in _with_parents(root):
-            pending.append((name, None if name == root else root))
-    while pending:
-        name, via = pending.pop(0)
-        if name in loaded or _module_file(name) is None:
-            continue
-        loaded[name] = via
-        for imported in sorted(direct_imports(name)):
-            if imported not in loaded:
-                pending.append((imported, name))
-    return loaded
+    return graph.reach(
+        _edges() if edges is None else edges,
+        roots,
+        frozenset({graph.MODULE}),
+        packages=graph.package_modules(package),
+    )
 
 
 def chain(loaded: dict[str, str | None], module: str) -> str:
@@ -271,24 +160,43 @@ class TestTheWalker:
 
     def test_it_skips_a_function_body_and_type_checking(self, tmp_path: Path) -> None:
         """A deferred import is not part of the start-up, and neither is one for the types."""
-        source = (
-            "from __future__ import annotations\n"
-            "from typing import TYPE_CHECKING\n"
-            "import noust.core.paths\n"
-            "if TYPE_CHECKING:\n"
-            "    import noust.core.store\n"
-            "def late() -> None:\n"
-            "    import noust.core.notifier\n"
-        )
-        tree = ast.parse(source)
-        names = {
-            alias.name
-            for node in _executed_statements(tree.body)
-            if isinstance(node, ast.Import)
-            for alias in node.names
-        }
-        assert names == {"noust.core.paths"}
+        root = tmp_path / "pkg"
+        for relative, text in {
+            "__init__.py": "",
+            "entry.py": (
+                "from __future__ import annotations\n"
+                "from typing import TYPE_CHECKING\n"
+                "import pkg.at_start\n"
+                "if TYPE_CHECKING:\n"
+                "    import pkg.for_types\n"
+                "def late() -> None:\n"
+                "    import pkg.when_called\n"
+            ),
+            "at_start.py": "",
+            "for_types.py": "",
+            "when_called.py": "",
+        }.items():
+            (root / relative).parent.mkdir(parents=True, exist_ok=True)
+            (root / relative).write_text(text, encoding="utf-8")
+
+        loaded = closure(("pkg.entry",), root, graph.read_edges(root))
+
+        assert set(loaded) == {"pkg", "pkg.entry", "pkg.at_start"}
 
     def test_it_takes_the_submodule_a_from_import_names(self) -> None:
         """``from noust.core import fs`` loads ``noust.core.fs`` as well as the package."""
         assert "noust.core.fs" in closure(("noust.cli.app",))
+
+    def test_a_package_that_imports_nothing_is_still_loaded_as_a_parent(
+        self, tmp_path: Path
+    ) -> None:
+        """Its ``__init__`` runs, and what it imports would too: it counts even with no edge."""
+        root = tmp_path / "pkg"
+        (root / "sub").mkdir(parents=True)
+        (root / "__init__.py").write_text("", encoding="utf-8")
+        (root / "sub" / "__init__.py").write_text("", encoding="utf-8")
+        (root / "sub" / "leaf.py").write_text("", encoding="utf-8")
+
+        loaded = closure(("pkg.sub.leaf",), root, graph.read_edges(root))
+
+        assert set(loaded) == {"pkg", "pkg.sub", "pkg.sub.leaf"}

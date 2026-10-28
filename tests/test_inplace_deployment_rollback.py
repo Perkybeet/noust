@@ -39,11 +39,12 @@ from noust.core.config import Config
 from noust.core.exceptions import DeploymentError
 from noust.core.runner import CommandResult, FakeRunner, set_runner
 from noust.core.store import App, DeploymentStatus, NoustStore
-from noust.deployers import base as base_module
 from noust.deployers import lifecycle
 from noust.deployers.interface import UpdateResult
-from noust.managers.backup_manager import BackupManager, BackupMetadata, RollbackManager
+from noust.managers.backup_manager import BackupManager, BackupMetadata
+from noust.managers.rollback_manager import RollbackManager
 from noust.managers.service_manager import UNIT_MARKER, ServiceManager
+from tests.deployer_patch_support import patch_deployer
 
 DOMAIN = "shop.example.com"
 APP = "shop-example-com"
@@ -182,7 +183,7 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
     machine = Machine(root)
     set_runner(machine)
     probe = Probe()
-    monkeypatch.setattr(base_module, "wait_until_healthy", probe)
+    patch_deployer(monkeypatch, "wait_until_healthy", probe)
     monkeypatch.setattr(lifecycle, "wait_until_healthy", probe)
     monkeypatch.setattr(lifecycle.time, "sleep", lambda seconds: None)
     # Ids have a resolution of one second, and a test takes the snapshot and

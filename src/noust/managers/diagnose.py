@@ -47,6 +47,8 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.error import HTTPError, URLError
 
+from noust.core.appdir.layout import app_root
+from noust.core.appdir.releases import Release, ReleaseManager
 from noust.core.config import Config
 from noust.core.exceptions import NoustError
 from noust.core.runner import CommandRunner, get_runner
@@ -70,8 +72,6 @@ from noust.deployers.bluegreen import (
     serving_port,
 )
 from noust.deployers.helpers.health_gate import HealthCheck
-from noust.deployers.helpers.layout import app_root
-from noust.deployers.releases import Release, ReleaseManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ServiceManager

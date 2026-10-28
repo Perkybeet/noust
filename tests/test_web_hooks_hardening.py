@@ -29,8 +29,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from noust.web import auth
-from noust.web.auth import SecurityConfig
+from noust.web.auth import SecurityConfig, credentials
 from noust.web.server import create_app, get_brute_force, get_token_manager
 
 
@@ -88,13 +87,13 @@ def spy_on_credential_checks(monkeypatch: pytest.MonkeyPatch) -> list[str]:
         The credentials checked, in order.
     """
     checked: list[str] = []
-    real = auth.check_credential
+    real = credentials.check_credential
 
     def spy(credential: str, client_ip: str, connection: Any = None) -> dict[str, object] | None:
         checked.append(credential)
         return real(credential, client_ip, connection)
 
-    monkeypatch.setattr(auth, "check_credential", spy)
+    monkeypatch.setattr(credentials, "check_credential", spy)
     return checked
 
 

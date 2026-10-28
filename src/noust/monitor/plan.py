@@ -692,7 +692,7 @@ class PlanBuilder:
             ``{"error": "..."}`` when there is no PHP-FPM for it; empty when no application is
             a PHP one.
         """
-        from noust.deployers.helpers.layout import app_root
+        from noust.core.appdir.layout import app_root
         from noust.deployers.helpers.php_fpm import find_fpm_for, is_php_fpm
 
         php_apps = [app for app in apps if getattr(app, "domain", "") and is_php_fpm(app)]
@@ -733,7 +733,7 @@ class PlanBuilder:
             A plan whose target is the FPM master's cgroup, whose processes
             are then told apart by pool; or one with a reason.
         """
-        from noust.deployers.helpers.layout import app_root
+        from noust.core.appdir.layout import app_root
 
         mine = fpm.get(app.domain, {})
         installation = mine.get("installation")

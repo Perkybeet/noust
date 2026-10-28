@@ -30,13 +30,13 @@ from click.testing import CliRunner
 
 from noust.cli.app import cli as root_cli
 from noust.core import app_mount_store, audit
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.container_store import ContainerSettings
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.fs import RealFileSystem
 from noust.core.store import App, NoustStore
 from noust.deployers import pending_changes
 from noust.deployers.helpers.container_compose import ContainerPlan, build_document
-from noust.deployers.releases import ReleaseManager
 from noust.managers import app_mounts
 from noust.managers.app_mounts import MountManager, clean_source, clean_target
 from noust.managers.service_manager import ResourceLimits

@@ -32,6 +32,7 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.notifications.composers import compose_deploy
 from noust.core.notifications.excerpt import normalize
 from noust.core.notifications.model import (
@@ -45,7 +46,6 @@ from noust.core.notifications.model import (
 )
 from noust.core.notifications.render import discord, email, slack, telegram, webhook
 from noust.core.notifications.render.common import http_url, render_text
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from tests.notifications_support import (
     FIXED_TS,
     catalog,

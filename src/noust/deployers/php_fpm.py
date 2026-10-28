@@ -40,6 +40,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, ClassVar
 
+from noust.core.appdir.layout import app_root, code_path_for, env_file_for
+from noust.core.appdir.releases import first_obstacle, persistent_path
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.dependencies import COMPOSER_DEPENDENCY, dependency_install_hint
@@ -54,7 +56,6 @@ from noust.deployers.helpers import tree_names
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.health import failure_output
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
-from noust.deployers.helpers.layout import app_root, code_path_for, env_file_for
 from noust.deployers.helpers.php_fpm import (
     DEFAULT_MAX_CHILDREN,
     PHP_FPM_TYPE,
@@ -78,7 +79,6 @@ from noust.deployers.helpers.release_build import stage_release
 from noust.deployers.interface import StepReporter, UpdateResult
 from noust.deployers.pipeline import DeployStep
 from noust.deployers.registry import DeployerRegistry
-from noust.deployers.releases import first_obstacle, persistent_path
 from noust.managers.runtimes import RuntimeManager
 
 #: Where an application's PHP settings are kept, in its directory.

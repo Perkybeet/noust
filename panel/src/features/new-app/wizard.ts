@@ -718,7 +718,7 @@ export function limitField(name: keyof LimitsDraft): string {
 
 /**
  * A persistent path from the operator, or why the deployer would refuse it - the same check
- * `noust.deployers.releases.persistent_path` runs when the deploy links `shared/`, run here
+ * `noust.core.appdir.releases.persistent_path` runs when the deploy links `shared/`, run here
  * first so a typo is caught before the build rather than after.
  */
 export function persistentPathProblem(raw: string): string | null {

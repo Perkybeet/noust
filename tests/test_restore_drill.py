@@ -670,6 +670,24 @@ class TestTheApi:
         assert client.get("/api/apps/nobody.example.com/restore-drills").status_code == 404
         assert client.post("/api/apps/nobody.example.com/restore-drills").status_code == 404
 
+    def test_a_domain_that_is_one_only_after_a_port_was_cut_off_is_refused(
+        self, client: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        Like every route under ``/apps/{domain}``: the drill is not run, and its reports are not
+        read, for an application the client did not name. ``validate_domain`` alone takes
+        ``shop.example.com:8080`` for ``shop.example.com`` and acts on it.
+        """
+        queued: list[dict[str, Any]] = []
+        manager = SimpleNamespace(create_job=lambda **kw: queued.append(kw))
+        monkeypatch.setattr("noust.web.api.databases.common.get_job_manager", lambda: manager)
+
+        listed = client.get(f"/api/apps/{DOMAIN}:8080/restore-drills")
+        posted = client.post(f"/api/apps/{DOMAIN}:8080/restore-drills")
+
+        assert (listed.status_code, posted.status_code) == (400, 400), (listed.text, posted.text)
+        assert queued == []
+
     def test_the_job_function_runs_the_drill_and_answers_its_report(
         self, records: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:

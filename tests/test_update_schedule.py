@@ -23,11 +23,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from noust.cli.app import cli as root_cli
-from noust.core import app_rollout_store, deploy_freeze, update_schedule_store
+from noust.core import app_rollout_store, deploy_events, deploy_freeze, update_schedule_store
 from noust.core.exceptions import BackupError, DeploymentError, NoustError, ValidationError
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
-from noust.deployers import deploy_events, lifecycle
+from noust.deployers import lifecycle
 from noust.managers import update_scheduler
 from noust.managers.backup_scheduler import BackupScheduler
 from noust.managers.update_scheduler import UpdateScheduler, run_scheduled

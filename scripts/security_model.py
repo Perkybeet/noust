@@ -267,7 +267,7 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "event streams, and each is closed after twelve hours. No `GET` changes state, so the "
         "CSRF protection of the other methods is enough. Every account must have a second factor, an authenticator "
         "app or a passkey.",
-        "`web/auth.py` (`get_client_ip`, `RateLimiter`, `BruteForceProtection`, `limiter_key`), "
+        "`web/auth/` (`get_client_ip`, `RateLimiter`, `BruteForceProtection`, `limiter_key`), "
         "`web/server.py` (`SecurityMiddleware`); the numbers are generated below.",
         (
             "tests/test_web_auth.py::test_rotating_x_forwarded_for_does_not_bypass_lockout",
@@ -565,7 +565,7 @@ INPUT_CLASSES: tuple[InputClass, ...] = (
     InputClass(
         "Identifiers Noust made",
         "a release id, a backup id, a destination name in a path parameter",
-        "noust.deployers.releases:is_release_id",
+        "noust.core.appdir.releases:is_release_id",
         "a directory or an archive read or deleted as root",
         "exactly the shape Noust generates, matched against the whole string",
         ("tests/test_adversarial_inputs.py::TestIdentifiersOfThingsNoustWrote",),

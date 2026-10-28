@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from noust.core import legacy_names, paths
+from noust.core.appdir.layout import code_path_for
 from noust.core.config import SYSTEMD_DIR
 from noust.core.exceptions import NoustError
 from noust.core.fs import FileSystem, get_fs
@@ -40,7 +41,6 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import NoustStore, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers import tree_names
-from noust.deployers.helpers.layout import code_path_for
 
 __all__ = [
     "Finding",

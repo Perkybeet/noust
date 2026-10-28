@@ -4,7 +4,7 @@
 """
 Filling a new release: its source, and the dependencies it can take over.
 
-:class:`~noust.deployers.releases.ReleaseManager` knows the layout; this module
+:class:`~noust.core.appdir.releases.ReleaseManager` knows the layout; this module
 knows what goes into a release before it is built. Both the deploy pipeline
 and :class:`~noust.deployers.auto.AutoDeployer`, which has to look at the source
 before it knows which deployer builds it, stage a release through here, so
@@ -24,6 +24,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from noust.core.appdir.releases import REPO_CACHE_DIR, Release, ReleaseManager
 from noust.core.exceptions import NoustError
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
@@ -31,7 +32,6 @@ from noust.core.runner import CommandRunner
 from noust.deployers.helpers import tree_names
 from noust.deployers.helpers.health import failure_output
 from noust.deployers.helpers.package_manager import PackageManagerHelper
-from noust.deployers.releases import REPO_CACHE_DIR, Release, ReleaseManager
 from noust.managers.source_manager import SourceManager
 from noust.validators.source import validate_source
 

@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from noust.core import cancellation
+from noust.core.appdir.releases import ReleaseManager, release_order_key
 from noust.core.container_store import (
     ContainerSettings,
     ContainerStore,
@@ -90,7 +91,6 @@ from noust.deployers.helpers.registration import StoreRegistrar
 from noust.deployers.interface import StepReporter, UpdateResult
 from noust.deployers.recorder import DeploymentRecorder, recorder_for
 from noust.deployers.registry import DeployerRegistry
-from noust.deployers.releases import ReleaseManager, release_order_key
 from noust.managers import railpack
 from noust.managers.app_mounts import MountManager
 from noust.managers.port_claims import PortClaims

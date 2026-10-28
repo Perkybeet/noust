@@ -19,10 +19,10 @@ from typing import Any
 import pytest
 
 from noust.core.config import Config
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import IntegrationError
 from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.integrations.forges import api, statuses
 from noust.managers.source_credentials import GitCredentialManager
 from tests.forge_support import FakeForges

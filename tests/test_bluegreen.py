@@ -31,13 +31,13 @@ from typing import Any
 
 import pytest
 
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import DeploymentError, NoustError, RolledBackError, ValidationError
 from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.logger import Logger
 from noust.core.store import App, NoustStore, Service, get_store
 from noust.deployers import bluegreen
 from noust.deployers.bluegreen import BlueGreen, instance_command
-from noust.deployers.releases import ReleaseManager
 
 DOMAIN = "bg.example.com"
 BASE = "bg-example-com"
@@ -568,8 +568,9 @@ def test_a_rollback_that_fails_its_gate_is_recorded_as_rolled_back(
     root: Path, store: NoustStore, app: App, machine: Machine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The history row fails, and says the previous version kept serving."""
-    from noust.deployers import deploy_events, lifecycle
-    from noust.deployers.deploy_events import DeployEventKind
+    from noust.core import deploy_events
+    from noust.core.deploy_events import DeployEventKind
+    from noust.deployers import lifecycle
 
     switched_on(machine, store, app)
     (root / "releases" / FIRST / "server.js").write_text(BROKEN)
@@ -878,17 +879,22 @@ def test_a_redeploy_writes_the_template_and_activates_blue_green(
     deployer._webserver_manager = lambda: machine  # type: ignore[method-assign]
     third = write_release(root, "20260927-100000-ccccccc")
     deployer._staged = StagedRelease(path=third, commit=None, manager=ReleaseManager(root))
-    from noust.deployers import base as base_module
+    from noust.deployers.base import release as release_layer
+    from noust.deployers.base import site_service as site_service_layer
 
-    original = base_module.wait_until_healthy
-    base_module.wait_until_healthy = machine.probe  # type: ignore[assignment]
+    # Each layer of the base deployer looks the probe up in its own module.
+    layers = (release_layer, site_service_layer)
+    originals = [layer.wait_until_healthy for layer in layers]
+    for layer in layers:
+        layer.wait_until_healthy = machine.probe  # type: ignore[assignment]
     bluegreen_sleep = bluegreen.time.sleep
     bluegreen.time.sleep = machine.sleep  # type: ignore[assignment]
     try:
         deployer.create_service()
         deployer._activate_release()
     finally:
-        base_module.wait_until_healthy = original
+        for layer, original in zip(layers, originals, strict=True):
+            layer.wait_until_healthy = original
         bluegreen.time.sleep = bluegreen_sleep  # type: ignore[assignment]
 
     assert machine.events[0] == ("template", BASE)

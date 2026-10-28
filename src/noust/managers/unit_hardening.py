@@ -369,7 +369,7 @@ def directives_for_app(app: App, record: HardeningRecord | None) -> list[str]:
     """
     if record is None or record.profile == "off" or ineligible(app) is not None:
         return []
-    from noust.deployers.helpers.layout import app_root
+    from noust.core.appdir.layout import app_root
 
     return directives_for(
         record.profile,

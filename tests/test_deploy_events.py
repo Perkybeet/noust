@@ -10,11 +10,11 @@ from pathlib import Path
 
 import pytest
 
+from noust.core import deploy_events
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import DeploymentError, RolledBackError
 from noust.core.logger import Logger
 from noust.core.store import App, DeploymentTrigger, NoustStore
-from noust.deployers import deploy_events
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.deployers.recorder import DeploymentRecorder
 
 

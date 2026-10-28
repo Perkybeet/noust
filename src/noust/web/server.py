@@ -53,10 +53,12 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from noust.core import deploy_events
 from noust.core.audit import bind as bind_audit_context
 from noust.core.audit import failclosed
 from noust.core.audit.context import request_correlation_id
 from noust.core.config import Config
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import FleetUnavailableError, SecurityError
 from noust.core.net import host_addresses, is_loopback_host, local_address, loopback_access_lines
 from noust.core.notifications.composers import (
@@ -68,8 +70,6 @@ from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification
 from noust.core.notifier import fresh_config, notify_in_background
 from noust.core.tls_policy import TLS12_CIPHERS, harden_server_context
-from noust.deployers import deploy_events
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.managers.backup_failures import record_failure
 from noust.managers.database.backup_notifications import database_job_notification, database_subject
 from noust.managers.database.uploads import MAX_CHUNK_BYTES
@@ -593,7 +593,7 @@ def get_webhook_failures() -> BruteForceProtection:
 #: Job types whose terminal state is announced from here, by kind reused from
 #: the notifier's deploy vocabulary. A deploy, an update and a rollback are
 #: no longer among them: every deployment, from the CLI, a console job or the
-#: webhook alike, is recorded by noust.deployers.deploy_events's
+#: webhook alike, is recorded by noust.core.deploy_events's
 #: DeploymentRecorder and announced by noust.core.deploy_notifications, a
 #: default subscriber of that - reporting the same job's outcome again here
 #: would say it twice. A backup restore is not a deployment and is not
@@ -706,7 +706,7 @@ class DeploymentWitness:
     """
     Tells whether a console job's deployment was announced by the recorder.
 
-    Subscribed to :mod:`noust.deployers.deploy_events` for the life of the
+    Subscribed to :mod:`noust.core.deploy_events` for the life of the
     server. The job manager runs one job at a time in this process, and a
     deployment publishes from the thread running it, so an event carrying the
     job's id - or, for a rollback, whose history row carries none, the job's
@@ -2508,7 +2508,7 @@ def run_server(
     Run the Noust web server.
 
     ``noust web start`` already refuses this combination before it gets here -
-    see ``_build_security_config`` in ``noust.cli.commands.web`` - but that is
+    see ``_build_security_config`` in ``noust.managers.console_service`` - but that is
     a rule enforced in one caller, and this function is the chokepoint that
     actually binds the socket. Checking again here is what keeps a second
     caller (a test, a future in-process restart, a script that imports this

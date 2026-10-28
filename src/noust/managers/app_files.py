@@ -45,11 +45,11 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from noust.core import audit, paths
+from noust.core.appdir.layout import app_root
 from noust.core.exceptions import NoustError, SecurityError, ServiceError, ValidationError
 from noust.core.fs import get_fs
 from noust.core.runner import CommandResult, CommandRunner, get_runner
 from noust.core.store import App, NoustStore, get_store
-from noust.deployers.helpers.layout import app_root
 from noust.managers.app_identity import service_account
 
 logger = logging.getLogger(__name__)

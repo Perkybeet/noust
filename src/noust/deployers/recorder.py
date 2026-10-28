@@ -39,6 +39,12 @@ from pathlib import Path
 from typing import Any, Protocol, TextIO
 
 from noust.core import app_rollout_store, cancellation, delivery, delivery_store, deploy_guard
+from noust.core.deploy_events import (
+    DeployEvent,
+    DeployEventKind,
+    current_operation,
+    publish,
+)
 from noust.core.exceptions import (
     DeploymentCancelled,
     DeploymentError,
@@ -49,12 +55,6 @@ from noust.core.fs import DryRunFileSystem, FileSystem, get_fs
 from noust.core.logger import Icons, Logger
 from noust.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
 from noust.core.store import DeploymentStatus, NoustStore
-from noust.deployers.deploy_events import (
-    DeployEvent,
-    DeployEventKind,
-    current_operation,
-    publish,
-)
 
 #: How many history rows, and their log files, survive per domain when neither the
 #: application nor the server (``deploy.history_keep``) says another number.
@@ -298,7 +298,7 @@ class DeploymentRecorder:
             operation: What this deployment is (``deploy``, ``update``,
                 ``rollback``, ``activate`` or ``migrate``), announced with every
                 event so a notification can name it. None takes what the
-                enclosing :func:`~noust.deployers.deploy_events.operation` says,
+                enclosing :func:`~noust.core.deploy_events.operation` says,
                 which is how an update names the recorder its deployer builds.
         """
         self._store = store

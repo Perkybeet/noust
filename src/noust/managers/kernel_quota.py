@@ -219,7 +219,7 @@ def _unsuitable(app: App) -> str | None:
     Returns:
         The reason, or None when it can have one.
     """
-    from noust.deployers.helpers.layout import app_root
+    from noust.core.appdir.layout import app_root
     from noust.deployers.lifecycle import is_in_apps_directory
 
     if is_adopted(app.app_type):
@@ -251,7 +251,7 @@ def read(
     if record is None or record.kernel_project is None or record.kernel_mount is None:
         return KernelState()
     run = runner or get_runner()
-    from noust.deployers.helpers.layout import app_root
+    from noust.core.appdir.layout import app_root
 
     facts = facts or quota_facts(app_root(app), runner=run)
     used = hard = None
@@ -331,7 +331,7 @@ def check_possible(app: App, *, runner: CommandRunner | None = None) -> Ground:
         ValidationError: No limit is set, the tree is not one to put a quota on, or the
             filesystem is not mounted with project quotas.
     """
-    from noust.deployers.helpers.layout import app_root
+    from noust.core.appdir.layout import app_root
 
     run = runner or get_runner()
     record = get_record(app.domain)
@@ -376,7 +376,7 @@ def apply(app: App, *, runner: CommandRunner | None = None, actor: str = "system
             is not mounted with project quotas.
         DeploymentError: A command failed, or the kernel does not report the limit afterwards.
     """
-    from noust.deployers.helpers.layout import app_root
+    from noust.core.appdir.layout import app_root
 
     run = runner or get_runner()
     ground = check_possible(app, runner=run)
@@ -422,7 +422,7 @@ def refresh_limit(app: App, *, runner: CommandRunner | None = None) -> KernelSta
     Returns:
         What the kernel holds now.
     """
-    from noust.deployers.helpers.layout import app_root
+    from noust.core.appdir.layout import app_root
 
     run = runner or get_runner()
     record = get_record(app.domain)
@@ -452,7 +452,7 @@ def remove(app: App, *, runner: CommandRunner | None = None, actor: str = "syste
     Raises:
         DeploymentError: A command failed.
     """
-    from noust.deployers.helpers.layout import app_root
+    from noust.core.appdir.layout import app_root
 
     run = runner or get_runner()
     record = get_record(app.domain)

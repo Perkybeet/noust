@@ -19,11 +19,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from noust.core import app_process_store
+from noust.core.appdir.layout import RELEASES, code_path_for
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.store import App, NoustStore, get_store
 from noust.deployers.helpers.build_config import describe_build, project_dir
 from noust.deployers.helpers.hooks import resolve_hooks
-from noust.deployers.helpers.layout import RELEASES, code_path_for
 from noust.deployers.helpers.process_declaration import procfile_honoured
 from noust.deployers.helpers.processes import (
     RELEASE,

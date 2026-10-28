@@ -439,6 +439,7 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
     # outside the sandbox, a restore would write to the machine's own /var.
     # The same path under the sandbox's root instead.
     import noust.managers.backup_manager as backup_module
+    import noust.managers.rollback_manager as rollback_module
 
     deployed_at = backup_module._deployed_at
 
@@ -446,7 +447,10 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
         path = deployed_at(domain, app_name, config)
         return path if sandbox.contains(path) else sandbox.root / path.relative_to(path.anchor)
 
+    # A rollback imports the function by name, so it needs the same replacement or it would restore
+    # outside the sandbox.
     backup_module._deployed_at = sandboxed_deployed_at
+    rollback_module._deployed_at = sandboxed_deployed_at
     # How long the journal keeps the logs is a drop-in under /etc; the sandbox's own, so the page
     # that sets it writes into the temporary machine and never into the developer's journald.
     import noust.managers.log_retention as retention_module
@@ -504,9 +508,9 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
     process_monitor_module.SYSTEMD_DIR = sandbox.systemd_dir
     # The console's own unit names the noust that runs it. The modelled machine has one at
     # /usr/bin/noust, whatever PATH this process was given (the E2E suite runs without one).
-    import noust.cli.commands.web as web_command
+    import noust.managers.console_service as console_service_module
 
-    web_command.find_noust_executable = lambda: "/usr/bin/noust"
+    console_service_module.find_noust_executable = lambda: "/usr/bin/noust"
     BackupManager.DEFAULT_BACKUP_DIR = sandbox.backup_dir
     # The misplaced-backup hint looks in /root and /: on a developer's machine those are the
     # developer's own, so the sandbox has none.
@@ -6633,7 +6637,7 @@ def seed_detected_use(store: Any) -> None:
     Args:
         store: The seeded store.
     """
-    from noust.deployers.helpers.layout import env_file_for
+    from noust.core.appdir.layout import env_file_for
 
     app = store.get_app(DETECTED_APP)
     if app is None:
@@ -8751,19 +8755,19 @@ def enable_totp(backup_codes: int | None = None) -> tuple[str, list[str]]:
         The secret, so a test can compute codes, and the backup codes.
     """
     from noust.core import totp
-    from noust.web import auth
+    from noust.web.auth import tokens
     from noust.web.server import get_token_manager
 
     manager = get_token_manager()
     secret = manager.begin_totp_enrollment()
-    usual = auth.BACKUP_CODE_COUNT
+    usual = tokens.BACKUP_CODE_COUNT
     # Only this enrolment: a later "new backup codes" gives the usual count, as in production.
     if backup_codes is not None:
-        auth.BACKUP_CODE_COUNT = backup_codes
+        tokens.BACKUP_CODE_COUNT = backup_codes
     try:
         codes = manager.confirm_totp_enrollment(totp.totp_now(secret))
     finally:
-        auth.BACKUP_CODE_COUNT = usual
+        tokens.BACKUP_CODE_COUNT = usual
     if codes is None:
         raise RuntimeError("two-factor enrolment did not accept its own code")
     return secret, codes

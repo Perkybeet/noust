@@ -92,6 +92,11 @@ src/noust/
                     token in a CI secret, a file in a repository), each with why and until when;
                     code asks it for the name, it never spells one
     legacy_archive.py  the one reader of the backups and exports made before 4.0
+    appdir/         how an application's directory is laid out, below the managers and the
+                    deployers that both read it: releases.py (ReleaseManager: the only code that
+                    knows releases/, current, shared/), layout.py (which layout, where .env
+                    lives) and permissions.py (handing files to the app's account)
+    deploy_events.py  the deployment events every deployment publishes and its subscribers
     store.py        SQLite persistence (WAL) with versioned migrations
     config.py       layered config; secrets written 0600, redacted on the way out
     exceptions.py   NoustError hierarchy, used for real
@@ -140,10 +145,15 @@ src/noust/
     console_exposure.py  the console on a public name over TLS (`noust console expose`): nginx
                     site, certificate, trusted proxy, and a record of exactly what it made so
                     `unexpose` removes that and no more
+    console_service.py  the console as a process Noust starts and stops: the daemon, the unit
+                    `noust web enable` writes, the port it holds, the trusted proxies; the commands
+                    of `cli/commands/web.py` and the layers that look at the running console ask it
+    backup_manager.py, rollback_manager.py   a backup, and going back to one (the rollback
+                    points, and the safety backup taken first)
     server/platforms.py  the one table of releases and processors Noust installs on; the
                     installer and docs/PLATFORMS.md carry generated copies of it
-  deployers/        strategies over a declarative pipeline (base.py), one per app type
-    releases.py     ReleaseManager: the only code that knows releases/, current, shared/
+  deployers/        strategies over a declarative pipeline (base/: `BaseDeployer`, a chain of classes, one module
+                    per phase of the pipeline), one per app type
     lifecycle.py    the one "update an app"; release activation; resource limits
     migrate.py      in-place to releases, explicit only, undone exactly on failure
     domains.py      the one "names an app answers on": store, site, certificate, DNS check
@@ -153,7 +163,7 @@ src/noust/
                     file Noust writes (helpers/container_compose.py), one image per release
                     (helpers/container_image.py builds, pulls and prunes them), settings in
                     core/container_store.py, changed through helpers/container_settings.py
-    helpers/        layout.py (which layout, where .env lives), health_gate.py, release_build.py,
+    helpers/        health_gate.py, release_build.py,
                     project_file.py (noust.yaml), hooks.py (which hooks run), site.py (the one
                     writer and deleter of an app's site), compose_ports.py (the one port reader)
   fleet/            node enrollment: authorize.py installs the restricted key and prints the
@@ -183,6 +193,10 @@ src/noust/
     api/            thin layer over the managers; one error contract for every router;
                     node_proxy.py forwards every node call, event and WebSocket over its
                     tunnel (rule 3: a central re-implements nothing a node does)
+    auth/           the console's sign-in, a package of the pieces `web/auth.py` was made of
+                    (`tokens.py` the token manager, `sessions.py` the SQLite store, `ratelimit.py`,
+                    `fleet.py` what a node admits from its central, `dependencies.py` what every
+                    route resolves); `__init__.py` imports each public name it had
     server.py       security middleware, CSP, serves the console
     versioning.py   /api/v1 as /api, X-Noust-API-Version, deprecated(); the compatibility
                     promise is docs/api.md and scripts/api_compat.py (panel/openapi.baseline.json)
@@ -262,11 +276,11 @@ under `TYPE_CHECKING` is not one at run time and does not count.
 <!-- layers:start -->
 | Layer | Must not | Places that still do |
 |---|---|---:|
-| `core`, `validators` | import `central`, `cli`, `deployers`, `fleet`, `integrations`, `managers`, `monitor`, `terminal`, `web` | 29 |
+| `core`, `validators` | import `central`, `cli`, `deployers`, `fleet`, `integrations`, `managers`, `monitor`, `terminal`, `web` | 28 |
 | `deployers`, `fleet`, `managers`, `monitor`, `pushdeploy` | import `cli`, `web` | 11 |
-| `web` | import `cli` | 1 |
+| `web` | import `cli` | 0 |
 | any module | import a module that imports it back when it loads | 0 |
-| any module | pass 3000 lines | 20 |
+| any module | pass 3000 lines | 17 |
 <!-- layers:end -->
 
 The table is written from the test's own lists. A new module past 3000 lines is split before it is
@@ -311,7 +325,7 @@ An application is on one of two layouts, recorded in `apps.layout`:
   releases, `app_path` in place, so one unit and one site serve every release.
 
 In place the three are the same directory, which is what keeps that layout exactly as it was.
-Outside a deploy, ask `helpers/layout.py`: `env_file_for(app)` for the `.env`,
+Outside a deploy, ask `core/appdir/layout.py`: `env_file_for(app)` for the `.env`,
 `code_path_for(app)` for the running code. Never join `app_path` with `".env"`.
 
 Rules:

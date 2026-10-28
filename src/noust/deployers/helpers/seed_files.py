@@ -22,10 +22,10 @@ import os
 from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 
+from noust.core.appdir.releases import first_obstacle, persistent_path
 from noust.core.exceptions import DeploymentError
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
-from noust.deployers.releases import first_obstacle, persistent_path
 
 #: What a seeded file is written with unless its recipe says: readable by the
 #: application's group, not by everyone.

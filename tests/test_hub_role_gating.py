@@ -156,7 +156,7 @@ def _backup(method: str, *args: Any) -> Callable[[], Any]:
 
 def _rollback(method: str, *args: Any) -> Callable[[], Any]:
     def call() -> Any:
-        from noust.managers.backup_manager import RollbackManager
+        from noust.managers.rollback_manager import RollbackManager
 
         return getattr(RollbackManager(verbose=False), method)(*args)
 

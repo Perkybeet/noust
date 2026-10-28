@@ -25,10 +25,10 @@ from click.testing import CliRunner, Result
 from noust.cli.app import cli as root_cli
 from noust.cli.app import main
 from noust.cli.commands import releases as releases_module
+from noust.core.appdir.releases import Release
 from noust.core.exceptions import DeploymentError
 from noust.core.logger import Logger
 from noust.deployers.lifecycle import ReleaseActivation, ReleaseInfo
-from noust.deployers.releases import Release
 
 DOMAIN = "rel.example.com"
 OLD = "20260925-100000-aaaaaaa"

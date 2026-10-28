@@ -471,7 +471,7 @@ def _persistent(name: str, raw: Any) -> tuple[str, ...]:
         RecipeError: One is not a path a release may share.
     """
     persistent = _strings(name, raw, "persistent_paths")
-    from noust.deployers.releases import persistent_path
+    from noust.core.appdir.releases import persistent_path
 
     for path in persistent:
         persistent_path(path)

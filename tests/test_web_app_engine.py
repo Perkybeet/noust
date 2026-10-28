@@ -224,8 +224,8 @@ def test_activating_a_release_goes_through_the_lifecycle_as_the_panel(
         schema_changed_ok: bool = False,
     ) -> Any:
         calls.append((domain, release_id, trigger, schema_changed_ok))
+        from noust.core.appdir.releases import ReleaseManager
         from noust.deployers.lifecycle import ReleaseActivation
-        from noust.deployers.releases import ReleaseManager
 
         listed = {r.id: r for r in ReleaseManager(root).list()}
         return ReleaseActivation(

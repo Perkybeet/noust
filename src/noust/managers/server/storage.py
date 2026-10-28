@@ -795,8 +795,8 @@ class StorageManager:
         Args:
             out: The analysis being built.
         """
-        from noust.deployers.helpers.layout import app_root
-        from noust.deployers.releases import ReleaseManager
+        from noust.core.appdir.layout import app_root
+        from noust.core.appdir.releases import ReleaseManager
 
         total = 0
         reclaimable = 0
@@ -1213,8 +1213,8 @@ class StorageManager:
         Returns:
             ``(domain, release id)`` pairs.
         """
-        from noust.deployers.helpers.layout import app_root
-        from noust.deployers.releases import ReleaseManager
+        from noust.core.appdir.layout import app_root
+        from noust.core.appdir.releases import ReleaseManager
 
         doomed = []
         for app in self._apps_on_releases():

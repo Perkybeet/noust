@@ -6,7 +6,7 @@ A deployment's start and end as a status on the commit, and a preview as a comme
 
 The sibling of :mod:`noust.integrations.github.statuses` for the hosts that have no App:
 GitLab, Gitea, Forgejo, Gogs (comments only: it has no commit statuses) and Bitbucket Cloud.
-A default subscriber of :mod:`noust.deployers.deploy_events`: when an application whose source
+A default subscriber of :mod:`noust.core.deploy_events`: when an application whose source
 is a repository on one of them starts deploying, its commit is marked running; when it ends, the
 same check is marked success, failure (with "rolled back" when what served before was put back)
 or cancelled.
@@ -29,9 +29,9 @@ from urllib.parse import urlsplit
 
 from noust.core.background import BackgroundQueue
 from noust.core.config import Config
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import NoustError
 from noust.core.store import get_store
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.deployers.importers.remote import Opener
 from noust.integrations.forges import api
 from noust.integrations.forges.hosts import GITHUB

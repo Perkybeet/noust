@@ -22,9 +22,9 @@ from noust.core import delivery
 from noust.core.exceptions import DeploymentError
 from noust.core.logger import Logger
 from noust.core.store import NoustStore
-from noust.deployers import base as base_module
 from noust.deployers import bluegreen
 from noust.deployers.nodejs import NodeJSDeployer
+from tests.deployer_patch_support import patch_deployer
 from tests.test_release_pipeline import (
     DOMAIN,
     GIT_URL,
@@ -70,7 +70,7 @@ def adoptions(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     def record(domain: str, **kwargs: Any) -> None:
         calls.append({"domain": domain, **kwargs})
 
-    monkeypatch.setattr(base_module, "adopt_for_new_app", record)
+    patch_deployer(monkeypatch, "adopt_for_new_app", record)
     return calls
 
 

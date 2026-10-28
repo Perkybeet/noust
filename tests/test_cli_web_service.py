@@ -34,7 +34,9 @@ from click.testing import CliRunner
 from noust.cli.commands import web
 from noust.core.exceptions import SecurityError, ServiceError
 from noust.core.runner import FakeRunner
+from noust.managers import console_service
 from noust.managers.service_manager import UNIT_MARKER, ServiceManager
+from tests.console_patch_support import patch_console
 
 ALL_INTERFACES = "0.0.0.0"  # noqa: S104 - the address under test, never bound
 
@@ -70,7 +72,7 @@ def logger_follows_the_current_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
             kwargs.setdefault("stream", sys.stdout)
             super().__init__(*args, **kwargs)
 
-    monkeypatch.setattr(web, "Logger", StdoutLogger)
+    patch_console(monkeypatch, "Logger", StdoutLogger)
 
 
 @pytest.fixture(autouse=True)
@@ -148,7 +150,7 @@ def pid_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         The path the commands read and write.
     """
     path = tmp_path / "web.pid"
-    monkeypatch.setattr(web, "get_pid_file", lambda: path)
+    patch_console(monkeypatch, "get_pid_file", lambda: path)
     return path
 
 
@@ -160,7 +162,7 @@ def deps_present(monkeypatch: pytest.MonkeyPatch) -> None:
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    monkeypatch.setattr(web, "_check_dependencies", lambda: (True, [], []))
+    patch_console(monkeypatch, "_check_dependencies", lambda: (True, [], []))
 
 
 @pytest.fixture(autouse=True)
@@ -182,7 +184,7 @@ def no_waiting(monkeypatch: pytest.MonkeyPatch) -> None:
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    monkeypatch.setattr(web.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(time, "sleep", lambda seconds: None)
 
 
 @pytest.fixture(autouse=True)
@@ -230,7 +232,7 @@ def listening(runner: FakeRunner, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
     def in_use(host: str, port: int) -> bool:
         return state["other"] or runner.ran("systemctl", "restart", "noust-web.service")
 
-    monkeypatch.setattr(web, "_port_in_use", in_use)
+    patch_console(monkeypatch, "_port_in_use", in_use)
     return state
 
 
@@ -607,7 +609,7 @@ def test_a_console_that_does_not_come_up_shows_the_journal_and_no_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A token for a console that is not running is a credential for nothing."""
-    monkeypatch.setattr(web, "_port_in_use", lambda host, port: False)
+    patch_console(monkeypatch, "_port_in_use", lambda host, port: False)
     runner.script(["systemctl", "is-active"], stdout="failed\n")
     runner.script(["systemctl", "show", "noust-web.service", "--no-pager"], stdout=CRASHED)
     runner.script(["journalctl", "-u", "noust-web.service"], stdout="OSError: [Errno 98] in use")
@@ -660,7 +662,7 @@ def test_a_console_that_does_not_come_up_has_still_retired_the_old_token(
     from noust.web.auth import SecurityConfig, TokenManager
 
     old = TokenManager(SecurityConfig()).generate_master_token()
-    monkeypatch.setattr(web, "_port_in_use", lambda host, port: False)
+    patch_console(monkeypatch, "_port_in_use", lambda host, port: False)
     runner.script(["systemctl", "is-active"], stdout="failed\n")
     runner.script(["systemctl", "show", "noust-web.service", "--no-pager"], stdout=CRASHED)
     runner.script(["journalctl", "-u", "noust-web.service"], stdout="OSError: [Errno 98] in use")
@@ -1043,8 +1045,8 @@ def test_the_foreground_banner_says_how_to_stop_it_and_keep_it(
     monkeypatch.setattr("noust.core.net.server_address", lambda: "198.51.100.7")
     monkeypatch.setattr("noust.core.net._current_user", lambda: "root")
 
-    options = web.StartOptions(port=8081, trusted_proxy=("127.0.0.1",))
-    web._start_foreground(
+    options = console_service.StartOptions(port=8081, trusted_proxy=("127.0.0.1",))
+    console_service._start_foreground(
         SecurityConfig(host="127.0.0.1", port=8081), options=options, insecure_http=False
     )
 
@@ -1066,9 +1068,9 @@ def test_the_foreground_banner_token_is_the_one_served(
     """Issued in the CLI and served by the server, never issued twice."""
     from noust.web.auth import SecurityConfig, TokenManager
 
-    web._start_foreground(
+    console_service._start_foreground(
         SecurityConfig(host="127.0.0.1", port=8081),
-        options=web.StartOptions(port=8081),
+        options=console_service.StartOptions(port=8081),
         insecure_http=False,
     )
 
@@ -1082,9 +1084,9 @@ def test_the_daemon_banner_says_it_does_not_survive_a_reboot(
     """The background mode is exactly the one that was mistaken for a service."""
     from noust.web.auth import SecurityConfig
 
-    monkeypatch.setattr(web.os, "fork", lambda: 4321)
+    monkeypatch.setattr(os, "fork", lambda: 4321)
 
-    web._start_daemon(SecurityConfig(host="127.0.0.1", port=8081), verbose=False)
+    console_service._start_daemon(SecurityConfig(host="127.0.0.1", port=8081), verbose=False)
 
     output = capsys.readouterr().out
     assert "noust web enable" in output
@@ -1216,7 +1218,7 @@ def test_the_port_probe_sees_a_listener() -> None:
         listener.listen()
         port = listener.getsockname()[1]
 
-        assert web._port_in_use("127.0.0.1", port) is True
+        assert console_service._port_in_use("127.0.0.1", port) is True
 
 
 @pytest.mark.allow_sockets
@@ -1252,12 +1254,12 @@ def test_the_port_probe_ignores_connections_the_previous_console_closed() -> Non
     finally:
         plain.close()
 
-    assert web._port_in_use("127.0.0.1", port) is False
+    assert console_service._port_in_use("127.0.0.1", port) is False
 
 
 @pytest.mark.allow_sockets
 def test_the_port_probe_finds_a_free_port_free() -> None:
-    assert web._port_in_use("127.0.0.1", _free_loopback_port()) is False
+    assert console_service._port_in_use("127.0.0.1", _free_loopback_port()) is False
 
 
 def test_the_unit_rides_out_a_busy_port_and_still_gives_up_on_a_hopeless_start(
@@ -1295,8 +1297,8 @@ def test_the_service_start_waits_for_its_previous_instance_to_let_go(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     answers = iter([True, True, True, False])
-    monkeypatch.setattr(web, "_port_in_use", lambda host, port: next(answers, False))
-    monkeypatch.setattr(web, "_console_holds_port", lambda host, port: True)
+    patch_console(monkeypatch, "_port_in_use", lambda host, port: next(answers, False))
+    patch_console(monkeypatch, "_console_holds_port", lambda host, port: True)
     _installed_unit(unit_dirs)
 
     result = cli_runner.invoke(
@@ -1320,8 +1322,8 @@ def test_the_service_start_does_not_wait_for_something_else(
         asked.append(port)
         return port == 8081
 
-    monkeypatch.setattr(web, "_port_in_use", in_use)
-    monkeypatch.setattr(web, "_console_holds_port", lambda host, port: False)
+    patch_console(monkeypatch, "_port_in_use", in_use)
+    patch_console(monkeypatch, "_console_holds_port", lambda host, port: False)
     _installed_unit(unit_dirs)
 
     result = cli_runner.invoke(
@@ -1341,9 +1343,9 @@ def test_the_service_start_stops_waiting_for_a_console_that_never_lets_go(
     served: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(web, "PORT_RELEASE_WAIT", 0.2)
-    monkeypatch.setattr(web, "_port_in_use", lambda host, port: port == 8081)
-    monkeypatch.setattr(web, "_console_holds_port", lambda host, port: True)
+    patch_console(monkeypatch, "PORT_RELEASE_WAIT", 0.2)
+    patch_console(monkeypatch, "_port_in_use", lambda host, port: port == 8081)
+    patch_console(monkeypatch, "_console_holds_port", lambda host, port: True)
     _installed_unit(unit_dirs)
 
     result = cli_runner.invoke(
@@ -1363,8 +1365,8 @@ def test_a_foreground_start_does_not_wait_for_the_port(
 ) -> None:
     """An operator at a terminal is told at once; only the service rides it out."""
     holds: list[int] = []
-    monkeypatch.setattr(web, "_port_in_use", lambda host, port: port == 9000)
-    monkeypatch.setattr(web, "_console_holds_port", lambda host, port: holds.append(port) or True)
+    patch_console(monkeypatch, "_port_in_use", lambda host, port: port == 9000)
+    patch_console(monkeypatch, "_console_holds_port", lambda host, port: holds.append(port) or True)
 
     result = cli_runner.invoke(web.cli, ["start", "--port", "9000"])
 
@@ -1390,4 +1392,4 @@ def test_a_foreground_start_does_not_wait_for_the_port(
 def test_a_holder_is_the_console_by_its_command_or_its_unit(
     cmdline: list[str], cgroup: str, expected: bool
 ) -> None:
-    assert web._is_console_process(cmdline, cgroup) is expected
+    assert console_service._is_console_process(cmdline, cgroup) is expected

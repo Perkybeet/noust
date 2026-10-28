@@ -34,6 +34,7 @@ import pytest
 from noust.core import app_process_store as processes_store
 from noust.core import unit_hardening_store
 from noust.core.app_process_store import ProcessRecord
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import (
     DeploymentError,
     NoustError,
@@ -46,7 +47,6 @@ from noust.core.runner import CommandResult, FakeRunner
 from noust.core.store import App, NoustStore
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 from noust.deployers.helpers.processes import ProcessSet, parse_processes_block
-from noust.deployers.releases import ReleaseManager
 from noust.managers import app_processes
 from noust.managers.app_processes import ProcessManager, base_name, instance_name
 from tests.test_bluegreen import (  # noqa: F401  (pytest resolves fixtures by name)

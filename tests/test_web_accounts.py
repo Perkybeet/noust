@@ -29,8 +29,9 @@ from noust.core.accounts import AccountManager, AuthPolicy, passwords
 from noust.core.accounts.policy import build_policy
 from noust.core.store import NoustStore
 from noust.web import auth as auth_module
-from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig, tokens
 from noust.web.server import create_app, get_token_manager
+from tests.auth_clock_support import set_clock
 from tests.mfa_support import require_second_factor
 
 PASSWORD = "correct horse battery staple"
@@ -755,7 +756,7 @@ class TestSessions:
         client = build(sandbox, policy=AuthPolicy(idle_minutes=30))
         codes = make_account("maria", "viewer")
         now = [time.time()]
-        monkeypatch.setattr(auth_module, "_now", lambda: now[0])
+        set_clock(monkeypatch, lambda: now[0])
         sign_in(client, "maria", codes[0])
         now[0] += 29 * 60
         assert client.get("/api/auth/verify").status_code == 200
@@ -1080,7 +1081,7 @@ class TestTwoStepSignIn:
     def test_the_step_expires(self, sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         client = build(sandbox)
         codes = make_account("maria", "operator")
-        monkeypatch.setattr(auth_module, "LOGIN_CHALLENGE_TTL", 0)
+        monkeypatch.setattr(tokens, "LOGIN_CHALLENGE_TTL", 0)
         step = password_step(client)
 
         response = second_step(client, step["challenge"], codes[0])

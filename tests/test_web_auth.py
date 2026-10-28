@@ -28,7 +28,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from noust.cli.commands.web import add_start_arguments, build_security_config
-from noust.core import totp
+from noust.core import paths, totp
 from noust.core.exceptions import SecurityError
 from noust.web import auth as auth_module
 from noust.web.auth import (
@@ -39,6 +39,7 @@ from noust.web.auth import (
     TokenManager,
     require_auth,
     state_file_exists,
+    tokens,
 )
 from noust.web.server import _uvicorn_kwargs, create_app, get_token_manager
 
@@ -568,7 +569,7 @@ def test_every_endpoint_that_counts_a_failure_is_behind_the_lockout() -> None:
     """
     from noust.web.server import AUTH_GET_PATHS, AUTH_PATHS
 
-    api_dir = Path(auth_module.__file__).parent / "api"
+    api_dir = Path(auth_module.__file__).parent.parent / "api"
     counted = {
         match
         for source in api_dir.glob("*.py")
@@ -1695,12 +1696,12 @@ def test_tokens_issued_by_wasm_keep_working(
     old_master = f"wasm_{secrets.token_urlsafe(32)}"
     with monkeypatch.context() as patch:
         patch.setattr(secrets, "token_urlsafe", lambda _n=32: old_master.removeprefix("wasm_"))
-        patch.setattr(auth_module.paths, "NAME", "wasm")
+        patch.setattr(paths, "NAME", "wasm")
         assert manager.generate_master_token() == old_master
 
     csrf = login(client, old_master)["csrf_token"]
     with monkeypatch.context() as patch:
-        patch.setattr(auth_module, "API_TOKEN_PREFIX", "wasm_tok_")
+        patch.setattr(tokens, "API_TOKEN_PREFIX", "wasm_tok_")
         legacy = issue_token(client, csrf, old_master, name="legacy", scope="read")["token"]
     assert legacy.startswith("wasm_tok_")
 

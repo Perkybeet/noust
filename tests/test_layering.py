@@ -58,7 +58,7 @@ SURFACES = frozenset({"web", "cli"})
 
 # -- Where the rules are still broken -------------------------------------------------------------
 #
-# Each entry is "importer -> imported". All of them but one are imports inside a function, which is
+# Each entry is "importer -> imported". Nearly all are imports inside a function, which is
 # how a layer reaches for what it should have been given (a cycle avoided by hand). Taking one off
 # means moving what is imported down to where both can reach it, or passing it in.
 
@@ -79,8 +79,6 @@ BASE_IMPORTS_UPWARD = {
     "noust.core.dependencies -> noust.deployers.helpers.php_fpm",
     "noust.core.redact -> noust.deployers.helpers.app_env",
     "noust.core.app_health_store -> noust.terminal.targets",
-    # The only one that runs when the module loads and not inside a function.
-    "noust.core.deploy_notifications -> noust.deployers.deploy_events",
     # Retention sweeps what the layers above keep.
     "noust.core.audit.retention -> noust.managers.backup_manager",
     "noust.core.audit.retention -> noust.monitor.observation_store",
@@ -94,35 +92,35 @@ BASE_IMPORTS_UPWARD = {
     # The ENS profile's checks look at the running server and reach into every layer.
     "noust.core.ens.checks -> noust.central",
     "noust.core.ens.checks -> noust.central.setup",
-    "noust.core.ens.checks -> noust.cli.commands.web",
     "noust.core.ens.checks -> noust.deployers.helpers.sandbox",
     "noust.core.ens.checks -> noust.fleet.policy",
     "noust.core.ens.checks -> noust.managers.backup_manager",
+    "noust.core.ens.checks -> noust.managers.console_service",
     "noust.core.ens.checks -> noust.managers.server.security_checks",
     "noust.core.ens.checks -> noust.managers.service_manager",
 }
 
 #: The layers that do the work importing the console's or the command line's.
 WORKING_LAYERS_IMPORT_A_SURFACE = {
-    # The console's process is defined in a command module, and its sign-in classes and jobs
-    # in ``web``.
+    # The console's sign-in classes and jobs are in ``web``.
     "noust.deployers.app_clone -> noust.web.jobs",
     "noust.fleet.placements -> noust.web.fleet_jobs",
     "noust.fleet.policy -> noust.web.auth",
     "noust.fleet.policy -> noust.web.permissions",
     "noust.fleet.policy -> noust.web.permissions.roles",
-    "noust.managers.console_exposure -> noust.cli.commands.web",
     "noust.managers.console_exposure -> noust.web.auth",
+    # The console's process is the one that starts the console: it issues its token and runs its
+    # server. Both are imports inside the functions that start it.
+    "noust.managers.console_service -> noust.web.auth",
+    "noust.managers.console_service -> noust.web.server",
     "noust.managers.name_migration -> noust.web.auth",
     "noust.managers.overview -> noust.web.machine",
     "noust.managers.previews -> noust.web.jobs",
-    "noust.pushdeploy.repos -> noust.cli.commands.web",
 }
 
-#: The console importing the command line.
-WEB_IMPORTS_THE_CLI = {
-    "noust.web.api.ens -> noust.cli.commands.web",
-}
+#: The console importing the command line. Empty: the console's process is
+#: ``managers/console_service.py``, which the command and the console both read.
+WEB_IMPORTS_THE_CLI: set[str] = set()
 
 #: Modules that import each other when they are loaded, whatever the order. Empty: a command that
 #: attaches itself to a group imports the module that defines the group (a leaf of its own), and
@@ -137,14 +135,12 @@ MAX_MODULE_LINES = 3000
 #: and the module leaves when it is under the limit.
 OVERSIZE_MODULES = {
     "noust.cli.commands.db": 3237,
-    "noust.cli.commands.web": 3481,
     "noust.core.config": 3745,
     "noust.core.runner": 4426,
     "noust.core.store": 5821,
-    "noust.deployers.base": 5032,
     "noust.deployers.docker_compose": 4349,
     "noust.deployers.lifecycle": 4908,
-    "noust.managers.backup_manager": 5249,
+    "noust.managers.backup_manager": 4679,
     "noust.managers.database.base": 3386,
     "noust.managers.database.postgres": 3296,
     "noust.managers.database.service": 3859,
@@ -154,7 +150,6 @@ OVERSIZE_MODULES = {
     "noust.managers.source_manager": 4332,
     "noust.managers.webserver": 3710,
     "noust.web.api.apps": 3543,
-    "noust.web.auth": 6229,
     "noust.web.jobs": 3308,
 }
 

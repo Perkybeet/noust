@@ -38,6 +38,8 @@ from noust.core.app_health_store import HealthExtras
 from noust.core.app_health_store import get_extras as get_health_extras
 from noust.core.app_state import AppState, resolve_state_with_status, resolve_states_with_status
 from noust.core.app_tags import AppTags, validate_tag
+from noust.core.appdir.layout import RELEASES, app_root
+from noust.core.appdir.releases import is_release_id
 from noust.core.config import REDACTED
 from noust.core.exceptions import DeploymentError, NoustError, SourceError, ValidationError
 from noust.core.redact import scrubber_for
@@ -70,7 +72,6 @@ from noust.deployers.helpers.env_manager import redact_url_credentials
 from noust.deployers.helpers.env_sync import plan_sync, render_view
 from noust.deployers.helpers.env_variables import check_audience_request, predefined_for
 from noust.deployers.helpers.health_gate import HealthCheck
-from noust.deployers.helpers.layout import RELEASES, app_root
 from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
 from noust.deployers.helpers.php_fpm import is_php_fpm
 from noust.deployers.inspect import SourceInspection, inspect_source
@@ -87,12 +88,11 @@ from noust.deployers.lifecycle import (
 from noust.deployers.migrate import MigrationPlan, plan_migration
 from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import DeployerRegistry, available_types
-from noust.deployers.releases import is_release_id
 from noust.managers.app_processes import ProcessManager
 from noust.managers.app_replicas import ReplicaManager
-from noust.managers.backup_manager import RollbackManager
 from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.port_claims import PortClaims
+from noust.managers.rollback_manager import RollbackManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import refuse_conflicts, with_database
@@ -2627,7 +2627,7 @@ def list_rollback_points(
 
     Returns:
         The points, newest first, from
-        :meth:`~noust.managers.backup_manager.RollbackManager.list_rollback_points`
+        :meth:`~noust.managers.rollback_manager.RollbackManager.list_rollback_points`
         - the one implementation, shared with ``noust backup rollback --list``.
     """
     validated = strict_domain(domain)

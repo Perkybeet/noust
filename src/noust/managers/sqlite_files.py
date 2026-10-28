@@ -30,11 +30,11 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from noust.core.appdir.layout import RELEASES, app_root
+from noust.core.appdir.releases import SHARED_DIR
 from noust.core.exceptions import DatabaseError, ValidationError
 from noust.core.fs import get_fs
 from noust.core.store import App
-from noust.deployers.helpers.layout import RELEASES, app_root
-from noust.deployers.releases import SHARED_DIR
 from noust.managers.sqlite_snapshot import (
     COMPANION_SUFFIXES,
     SQLITE_MAGIC,

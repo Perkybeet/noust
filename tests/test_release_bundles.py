@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 
 from noust.core import audit, deploy_freeze
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import (
     DeploymentError,
     DeploysFrozenError,
@@ -30,7 +31,6 @@ from noust.core.exceptions import (
 )
 from noust.core.runner import CommandResult
 from noust.core.store import App, NoustStore
-from noust.deployers import base as base_module
 from noust.deployers import bundle as bundles
 from noust.deployers import promote as promote_module
 from noust.deployers import release_bundles
@@ -39,7 +39,7 @@ from noust.deployers.base import BaseDeployer
 from noust.deployers.lifecycle import list_releases
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.release_bundles import build_and_pack, receive
-from noust.deployers.releases import ReleaseManager
+from tests.deployer_patch_support import patch_deployer
 from tests.test_promote import SearchingRunner
 from tests.test_release_bundle import RELEASE, raw_bundle
 from tests.test_release_pipeline import (
@@ -75,7 +75,7 @@ def wired(
     """
     state = SimpleNamespace(healthy=True, receiver=None, built_with=machine)
     monkeypatch.setattr(release_bundles, "get_store", lambda: store)
-    monkeypatch.setattr(base_module, "wait_until_healthy", lambda url, **kwargs: state.healthy)
+    patch_deployer(monkeypatch, "wait_until_healthy", lambda url, **kwargs: state.healthy)
 
     def make(app_type: str, verbose: bool = False) -> Any:
         use = state.receiver if state.receiver is not None else machine

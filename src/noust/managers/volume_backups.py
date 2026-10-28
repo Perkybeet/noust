@@ -68,6 +68,8 @@ from typing import Any
 
 from noust.central import require_server_role
 from noust.core import audit
+from noust.core.appdir.layout import RELEASES, app_root
+from noust.core.appdir.releases import SHARED_DIR, persistent_path
 from noust.core.applock import AppBusyError, app_lock
 from noust.core.backup_files import open_backup, seal_in_place
 from noust.core.config import Config, resolve_backup_directory
@@ -89,8 +91,6 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.signal_guard import stop_as_exit
 from noust.core.store import App, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
-from noust.deployers.helpers.layout import RELEASES, app_root
-from noust.deployers.releases import SHARED_DIR, persistent_path
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
 from noust.managers.backup_failures import record_failure
 from noust.managers.backup_manager import (

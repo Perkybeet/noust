@@ -4,7 +4,7 @@
 """
 GitHub deployments and deployment statuses for Noust's deployments.
 
-A default subscriber of :mod:`noust.deployers.deploy_events`: when an
+A default subscriber of :mod:`noust.core.deploy_events`: when an
 application whose source is a github.com repository covered by this server's
 App starts deploying, a GitHub deployment is created for the commit (or
 branch) and marked in progress; when it ends, the same deployment is marked
@@ -32,10 +32,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from noust.core.background import BackgroundQueue
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import NoustError
 from noust.core.github_host import integration_repository
 from noust.core.store import get_store
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.integrations.github.app import GitHubApp, installation_for, load_app
 from noust.integrations.github.client import repo_path
 

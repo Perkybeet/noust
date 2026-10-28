@@ -32,6 +32,7 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.appdir.layout import code_path_for, env_file_for
 from noust.core.config import REDACTED
 from noust.core.exceptions import EnvConfigError, NoustError
 from noust.core.logger import Logger
@@ -48,7 +49,6 @@ from noust.deployers.helpers.app_env import (
 from noust.deployers.helpers.env_manager import EnvConfig, EnvManager, redact_url_credentials
 from noust.deployers.helpers.env_sync import MAX_FILE_BYTES, EnvSyncPlan, plan_sync
 from noust.deployers.helpers.env_variables import predefined_for
-from noust.deployers.helpers.layout import code_path_for, env_file_for
 
 #: Historical spellings of the subcommand names. They are in scripts and in the
 #: published documentation, so dropping one is a breaking change.

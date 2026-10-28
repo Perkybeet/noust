@@ -36,6 +36,7 @@ from noust.deployers.python import PythonDeployer
 from noust.deployers.static import StaticDeployer
 from noust.deployers.vite import ViteDeployer
 from noust.managers.runtimes import RuntimeManager
+from tests.deployer_patch_support import patch_deployer
 from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
     BROKEN_SERVER,
     DOMAIN,
@@ -848,8 +849,9 @@ class TestAnUpdateThatChangesTheBlock:
 
         set_operator_build(DOMAIN, "build:\n  runtime: node@20\n", actor="ops", store=store)
         machine.git.publish(node_tree(tmp_path / "v2", server=GOOD_SERVER + "// v2\n"))
-        monkeypatch.setattr(
-            "noust.deployers.base.RuntimeManager",
+        patch_deployer(
+            monkeypatch,
+            "RuntimeManager",
             lambda **kwargs: RuntimeManager(
                 runner=machine.runner, root=tmp_path / "runtimes", fetch=lambda url, limit: b""
             ),

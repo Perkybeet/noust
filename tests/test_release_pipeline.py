@@ -25,22 +25,22 @@ import pytest
 from jinja2 import Environment, PackageLoader
 
 from noust.core import app_build_store, legacy_names
-from noust.core.exceptions import DeploymentError, ServiceError, SourceError
-from noust.core.fs import DryRunFileSystem, set_fs
-from noust.core.logger import Logger
-from noust.core.runner import DryRunRunner, FakeRunner, is_read_only
-from noust.core.store import App, NoustStore, ReleaseStatus
-from noust.deployers import base as base_module
-from noust.deployers import lifecycle
-from noust.deployers.auto import AutoDeployer
-from noust.deployers.helpers.health_gate import collapse_attempts as _collapse_attempts
-from noust.deployers.helpers.layout import (
+from noust.core.appdir.layout import (
     CONFIGURED,
     INPLACE,
     RELEASES,
     choose_layout,
     configured_layout,
 )
+from noust.core.appdir.releases import ReleaseManager
+from noust.core.exceptions import DeploymentError, ServiceError, SourceError
+from noust.core.fs import DryRunFileSystem, set_fs
+from noust.core.logger import Logger
+from noust.core.runner import DryRunRunner, FakeRunner, is_read_only
+from noust.core.store import App, NoustStore, ReleaseStatus
+from noust.deployers import lifecycle
+from noust.deployers.auto import AutoDeployer
+from noust.deployers.helpers.health_gate import collapse_attempts as _collapse_attempts
 from noust.deployers.helpers.release_build import (
     StagedRelease,
     lockfiles_match,
@@ -48,11 +48,11 @@ from noust.deployers.helpers.release_build import (
 )
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.python import PythonDeployer
-from noust.deployers.releases import ReleaseManager
 from noust.deployers.static import StaticDeployer
 from noust.deployers.vite import ViteDeployer
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.source_manager import SourceManager
+from tests.deployer_patch_support import patch_deployer
 
 DOMAIN = "rel.example.com"
 #: Not any deployer's default, so a probe of the wrong port shows.
@@ -296,7 +296,7 @@ def machine(root: Path, git: FakeGit, monkeypatch: pytest.MonkeyPatch) -> Simple
             return False
         return True
 
-    monkeypatch.setattr(base_module, "wait_until_healthy", probe)
+    patch_deployer(monkeypatch, "wait_until_healthy", probe)
     return SimpleNamespace(services=services, web=web, runner=runner, git=git, probes=probes)
 
 

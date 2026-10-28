@@ -29,6 +29,7 @@ from typing import Any
 
 import pytest
 
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import DeploymentError, NginxError, NoustError, RolledBackError
 from noust.core.logger import Logger
 from noust.core.runner import FakeRunner
@@ -36,7 +37,6 @@ from noust.core.store import App, NoustStore
 from noust.deployers import bluegreen, lifecycle
 from noust.deployers.bluegreen import Listener
 from noust.deployers.helpers import preflight
-from noust.deployers.releases import ReleaseManager
 from tests.test_bluegreen import (
     BASE,
     DOMAIN,

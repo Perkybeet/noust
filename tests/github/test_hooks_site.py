@@ -26,6 +26,7 @@ from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
 from noust.integrations import hooks_site
 from noust.managers.webserver import NGINX_BACKEND, WebServerManager
+from tests.console_patch_support import patch_console
 
 DOMAIN = "hooks.example.com"
 
@@ -239,8 +240,8 @@ def test_expose_hooks_reads_the_consoles_port_from_its_unit(
         "[Service]\nExecStart=/usr/bin/wasm web start --under-systemd --host 0.0.0.0 "
         "--port 9443 --self-signed\n"
     )
-    monkeypatch.setattr("noust.cli.commands.web._service_unit_path", lambda: unit)
-    monkeypatch.setattr("noust.cli.commands.web._service_status", lambda verbose: None)
+    patch_console(monkeypatch, "_service_unit_path", lambda: unit)
+    patch_console(monkeypatch, "_service_status", lambda verbose: None)
     calls: list[dict[str, Any]] = []
 
     def expose(domain: str, **kwargs: Any) -> hooks_site.HooksExposure:

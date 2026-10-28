@@ -28,12 +28,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from noust.core import paths, push_store
+from noust.core.appdir.layout import app_root
 from noust.core.exceptions import SourceError
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
 from noust.core.runner import CommandResult, CommandRunner
 from noust.core.store import get_store
-from noust.deployers.helpers.layout import app_root
 from noust.validators.source import push_source_domain
 
 #: The account the repositories belong to.

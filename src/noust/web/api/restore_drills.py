@@ -14,17 +14,15 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from noust.core.audit import Actor
-from noust.core.teams import scoped_store
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.restore_drill import DrillRecords, RestoreDrill, drill_days
-from noust.validators.domain import validate_domain
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases.common import queue
-from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute
+from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, known_app
 from noust.web.jobs import JobContext, JobType
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -99,26 +97,6 @@ class DrillRequest(BaseModel):
     backup_id: str | None = Field(default=None, max_length=200)
 
 
-def _known(domain: str) -> str:
-    """
-    Validate a domain and refuse one nothing is deployed at.
-
-    Args:
-        domain: The domain as the client sent it.
-
-    Returns:
-        The validated domain.
-
-    Raises:
-        HTTPException: 404 when nothing is deployed at it (or it is another
-            team's).
-    """
-    validated = validate_domain(domain)
-    if scoped_store().get_app(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    return validated
-
-
 def drill_job(
     domain: str,
     backup_id: str | None = None,
@@ -178,7 +156,7 @@ def list_drills(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     return DrillListOut(
         items=[
             DrillOut(**report.to_dict()) for report in DrillRecords().list(validated, limit=limit)
@@ -211,7 +189,7 @@ def run_drill(
     Raises:
         HTTPException: 404 when the application is unknown.
     """
-    validated = _known(domain)
+    validated = known_app(domain)
     return queue(
         session,
         job_type=JobType.BACKUP,

@@ -21,9 +21,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.appdir.releases import ReleaseManager, is_release_id, release_order_key
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
-from noust.deployers.releases import ReleaseManager, is_release_id, release_order_key
 from noust.managers.backup_scheduler import BackupScheduler
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app as build_app

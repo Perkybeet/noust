@@ -38,14 +38,9 @@ from noust.managers.backup_destinations import (
     parse_crypt_key,
     validate_destination_name,
 )
-from noust.managers.backup_manager import (
-    SCHEDULED_TAG,
-    BackupManager,
-    BackupMetadata,
-    RollbackManager,
-    server_id,
-)
+from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager, BackupMetadata, server_id
 from noust.managers.backup_scheduler import BackupScheduler, run_schedule
+from noust.managers.rollback_manager import RollbackManager
 
 APP = "shop-example-com"
 DOMAIN = "shop.example.com"

@@ -246,3 +246,6 @@ ignore = [
 # Startup banner and update notice: the one place output precedes the logger.
 "src/noust/core/update_checker.py" = ["T201"]
 "src/noust/web/server.py" = ["T201", "S104"]
+# The console's start and stop, moved out of the command module with the banner and the lines it
+# prints for the operator's terminal; they go through the logger when the code is split from them.
+"src/noust/managers/console_service.py" = ["T201"]

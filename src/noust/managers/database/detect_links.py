@@ -26,9 +26,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from noust.core.appdir.layout import app_root, env_file_for
 from noust.core.store import App
 from noust.deployers.helpers.env_manager import EnvManager
-from noust.deployers.helpers.layout import app_root, env_file_for
 
 #: URL schemes, to the canonical engine they name.
 SCHEMES: dict[str, str] = {

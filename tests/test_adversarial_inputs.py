@@ -630,7 +630,7 @@ class TestIdentifiersOfThingsNoustWrote:
     @SETTINGS
     @given(value=HOSTILE)
     def test_a_release_id_names_a_directory_noust_made(self, value: str) -> None:
-        from noust.deployers.releases import is_release_id
+        from noust.core.appdir.releases import is_release_id
 
         if is_release_id(value):
             assert re.fullmatch(r"\d{8}-\d{6}-[0-9a-f]+(-\d+)?", value), repr(value)

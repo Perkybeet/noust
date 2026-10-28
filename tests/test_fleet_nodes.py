@@ -262,13 +262,14 @@ class TestPolicy:
     @pytest.fixture
     def state_dir(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         from noust.web import auth
+        from noust.web.auth import config as auth_config
 
         directory = tmp_path / "state"
         directory.mkdir()
         monkeypatch.setenv(auth.STATE_DIR_ENV, str(directory))
         # A console built by an earlier test leaves its manager installed;
         # the policy would read that console's two-factor state instead.
-        monkeypatch.setattr(auth, "_global_token_manager", None)
+        monkeypatch.setattr(auth_config, "_global_token_manager", None)
         return directory
 
     def test_blocks_without_two_factor(self, state_dir):

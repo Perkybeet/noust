@@ -26,6 +26,7 @@ from typing import Any
 
 import pytest
 
+from noust.core.appdir.releases import ReleaseManager
 from noust.core.config import Config
 from noust.core.exceptions import BuildError
 from noust.core.runner import FakeRunner, SandboxSpec, set_runner
@@ -34,7 +35,6 @@ from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers import sandbox_trial
 from noust.deployers.helpers.release_build import StagedRelease
 from noust.deployers.monorepo import MonorepoDeployer
-from noust.deployers.releases import ReleaseManager
 from tests.test_build_sandbox import as_root  # noqa: F401 - fixture used by name
 
 DOMAIN = "mono.example.com"

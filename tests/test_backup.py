@@ -12,12 +12,8 @@ from unittest import mock
 
 import pytest
 
-from noust.managers.backup_manager import (
-    BackupError,
-    BackupManager,
-    BackupMetadata,
-    RollbackManager,
-)
+from noust.managers.backup_manager import BackupError, BackupManager, BackupMetadata
+from noust.managers.rollback_manager import RollbackManager
 
 
 class TestBackupMetadata:
@@ -533,10 +529,12 @@ class TestEveryRollbackIsHeldLikeADeploy:
 
         import noust.deployers.lifecycle as lifecycle
         import noust.managers.backup_manager as backup_manager
+        import noust.managers.rollback_manager as rollback_manager
 
         app = SimpleNamespace(domain="site.example", app_type="vite")
         store = SimpleNamespace(get_app=lambda domain: app if domain == app.domain else None)
         monkeypatch.setattr(backup_manager, "get_store", lambda: store)
+        monkeypatch.setattr(rollback_manager, "get_store", lambda: store)
         asked: list[str] = []
 
         def gate_for(app_row, store_row, logger):

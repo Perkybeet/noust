@@ -27,11 +27,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from noust.core import app_build_store
+from noust.core.appdir.layout import RELEASES
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.logger import Logger
 from noust.core.store import App, NoustStore
 from noust.deployers.helpers.build_config import project_dir, resolve_build
-from noust.deployers.helpers.layout import RELEASES
 from noust.deployers.helpers.processes import ProcessSet, resolve_processes
 
 if TYPE_CHECKING:
@@ -262,7 +262,7 @@ def declare_restored_tree(
         not on the releases layout.
     """
     # Imported here: the releases module builds on the deployers that import this one.
-    from noust.deployers.releases import ReleaseManager
+    from noust.core.appdir.releases import ReleaseManager
 
     releases = ReleaseManager(app_path, logger=log)
     active = releases.current()

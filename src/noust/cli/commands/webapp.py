@@ -37,6 +37,7 @@ from noust.cli.commands.team_common import placed_in_a_project
 from noust.cli.panel_links import open_in_panel
 from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_states
 from noust.core.app_tags import AppTags, validate_tag
+from noust.core.appdir.layout import CONFIGURED, LAYOUTS, choose_layout
 from noust.core.config import Config
 from noust.core.container_store import forget_secrets
 from noust.core.dependencies import NODE_APP_TYPES, check_deployment_ready
@@ -65,7 +66,6 @@ from noust.core.utils import domain_to_app_name
 from noust.deployers import get_deployer
 from noust.deployers.docker_compose import DockerComposeDeployer, stack_deployer
 from noust.deployers.helpers.env_manager import EnvManager
-from noust.deployers.helpers.layout import CONFIGURED, LAYOUTS, choose_layout
 from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
 from noust.deployers.helpers.php_fpm import is_php_fpm
 from noust.deployers.lifecycle import (

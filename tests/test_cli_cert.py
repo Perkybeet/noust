@@ -33,6 +33,7 @@ from noust.core.exceptions import CertificateError
 from noust.core.logger import Logger
 from noust.core.runner import FakeRunner
 from noust.managers.cert_manager import CertManager
+from tests.console_patch_support import patch_console
 
 CERTBOT_OUTPUT = (
     "Found the following certs:\n"
@@ -209,13 +210,12 @@ def isolated_panel_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Pa
     Yields:
         The configuration file the test may write.
     """
-    from noust.cli.commands import web as web_module
     from noust.core import config as config_module
 
     path = tmp_path / "config.yaml"
     monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", path)
-    monkeypatch.setattr(web_module, "PANEL_TLS_CERT", tmp_path / "panel-tls" / "panel.crt")
-    monkeypatch.setattr(web_module, "PANEL_TLS_KEY", tmp_path / "panel-tls" / "panel.key")
+    patch_console(monkeypatch, "PANEL_TLS_CERT", tmp_path / "panel-tls" / "panel.crt")
+    patch_console(monkeypatch, "PANEL_TLS_KEY", tmp_path / "panel-tls" / "panel.key")
     config_module.Config.reset_instance()
     yield path
     config_module.Config.reset_instance()

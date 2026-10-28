@@ -22,9 +22,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from noust.core import totp
-from noust.web import auth as auth_module
 from noust.web.auth import CSRF_HEADER_NAME, SESSION_COOKIE_NAME, TokenManager
 from noust.web.server import get_brute_force, get_token_manager
+from tests.auth_clock_support import set_clock
 from tests.test_web_auth import build_client, enable_totp, login, make_config
 
 # ------------------------------------------------------------ TOTP replay
@@ -102,7 +102,7 @@ def test_an_older_code_is_refused_once_a_newer_one_was_accepted(
     manager = TokenManager(make_config(sandbox))
     secret = manager.begin_totp_enrollment()
     now = 1_900_000_000.0
-    monkeypatch.setattr(auth_module, "_now", lambda: now)
+    set_clock(monkeypatch, lambda: now)
     assert manager.confirm_totp_enrollment(totp.totp_now(secret, t=now)) is not None
 
     previous = totp.totp_now(secret, t=now - totp.PERIOD)
@@ -122,7 +122,7 @@ def test_an_elevation_code_has_to_be_newer_than_the_login_that_came_first(
     manager = TokenManager(make_config(sandbox))
     secret = manager.begin_totp_enrollment()
     now = 1_900_000_000.0
-    monkeypatch.setattr(auth_module, "_now", lambda: now)
+    set_clock(monkeypatch, lambda: now)
     assert manager.confirm_totp_enrollment(totp.totp_now(secret, t=now)) is not None
 
     previous = totp.totp_now(secret, t=now - totp.PERIOD)
@@ -145,7 +145,7 @@ def test_an_elevation_without_a_login_before_it_takes_any_current_code(
     manager = TokenManager(make_config(sandbox))
     secret = manager.begin_totp_enrollment()
     now = 1_900_000_000.0
-    monkeypatch.setattr(auth_module, "_now", lambda: now)
+    set_clock(monkeypatch, lambda: now)
     assert manager.confirm_totp_enrollment(totp.totp_now(secret, t=now)) is not None
     state = manager._read_totp_state()
     assert state["last_steps"] == {}
@@ -431,12 +431,12 @@ def test_the_window_slides_on_the_successor_when_the_retired_cookie_acts(
     """An elevated action made with the retired cookie keeps the live session's window open."""
     manager, retired, successor, payload = rotated_pair(sandbox)
     opened = time.time()
-    monkeypatch.setattr(auth_module, "_now", lambda: opened)
+    set_clock(monkeypatch, lambda: opened)
     first = manager.elevate(retired)
     payload["elevated_until"] = first
 
     later = opened + 5 * 60
-    monkeypatch.setattr(auth_module, "_now", lambda: later)
+    set_clock(monkeypatch, lambda: later)
     slid = manager.extend_elevation(payload)
 
     assert slid is not None and slid > first

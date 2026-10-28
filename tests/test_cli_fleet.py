@@ -14,6 +14,9 @@ from __future__ import annotations
 import functools
 import io
 import json
+import os
+import signal
+import time
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +31,9 @@ from noust.core.store import NoustStore
 from noust.fleet import authorize as authorize_module
 from noust.fleet.authorize import TUNNEL_USER
 from noust.fleet.policy import FleetAccess, current_access
+from noust.managers import console_service
 from noust.web.auth import STATE_DIR_ENV
+from tests.console_patch_support import patch_console
 from tests.fleet_support import TOKEN, build_fleet, join_code
 from tests.test_fleet_authorize import CENTRAL_KEY, Node
 
@@ -435,8 +440,6 @@ class TestAccessCommand:
 class TestConsoleOnLoopback:
     @pytest.fixture
     def web(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        from noust.cli.commands import web
-
         unit = tmp_path / "noust-web.service"
         state: dict[str, Any] = {
             "active": False,
@@ -445,13 +448,13 @@ class TestConsoleOnLoopback:
             "calls": [],
             "fail": None,
         }
-        monkeypatch.setattr(web, "_service_unit_path", lambda: unit)
-        monkeypatch.setattr(
-            web,
+        patch_console(monkeypatch, "_service_unit_path", lambda: unit)
+        patch_console(
+            monkeypatch,
             "_service_status",
             lambda verbose: {"active": state["active"]} if unit.exists() else None,
         )
-        monkeypatch.setattr(web, "running_daemon", lambda: state["daemon"])
+        patch_console(monkeypatch, "running_daemon", lambda: state["daemon"])
 
         def enable(port, verbose, *, dry_run=False, issue_token=False, port_just_freed=False):
             state["calls"].append(("enable", port, dry_run))
@@ -459,14 +462,20 @@ class TestConsoleOnLoopback:
             if state["fail"] is not None:
                 raise state["fail"]
             state["enabled_with"] = port
-            return None if dry_run else web.ConsoleService(unit=unit, token=None, port=port)
+            return (
+                None
+                if dry_run
+                else console_service.ConsoleService(unit=unit, token=None, port=port)
+            )
 
-        monkeypatch.setattr(web, "enable_loopback_service", enable)
-        monkeypatch.setattr(web, "stop_daemon", lambda pid: state["calls"].append(("stop", pid)))
-        monkeypatch.setattr(
-            web, "restart_daemon", lambda options: state["calls"].append(("restart", options))
+        patch_console(monkeypatch, "enable_loopback_service", enable)
+        patch_console(monkeypatch, "stop_daemon", lambda pid: state["calls"].append(("stop", pid)))
+        patch_console(
+            monkeypatch,
+            "restart_daemon",
+            lambda options: state["calls"].append(("restart", options)),
         )
-        monkeypatch.setattr(web, "_disable", lambda verbose: state["calls"].append(("disable",)))
+        patch_console(monkeypatch, "_disable", lambda verbose: state["calls"].append(("disable",)))
         return unit, state
 
     def _unit(self, unit: Path, *flags: str) -> None:
@@ -477,9 +486,9 @@ class TestConsoleOnLoopback:
         )
 
     def _daemon(self, *argv: str, pid: int = 4321):
-        from noust.cli.commands import web
-
-        return web.DaemonConsole(pid=pid, options=web.options_from_argv(list(argv)))
+        return console_service.DaemonConsole(
+            pid=pid, options=console_service.options_from_argv(list(argv))
+        )
 
     def test_a_running_loopback_console_is_left_alone(self, web):
         unit, state = web
@@ -612,26 +621,24 @@ class TestConsoleOnLoopback:
 
 
 class TestLoopbackService:
-    """noust.cli.commands.web's side: no banner, and the operator's token survives."""
+    """The console service's side: no banner, and the operator's token survives."""
 
     @pytest.fixture
     def web(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, state_dir: Path):
-        from noust.cli.commands import web
-
         captured: dict[str, Any] = {}
-        monkeypatch.setattr(web, "_check_dependencies", lambda: (True, [], []))
-        monkeypatch.setattr(web, "_running_daemon_pid", lambda: None)
-        monkeypatch.setattr(web, "_service_status", lambda verbose: None)
-        monkeypatch.setattr(web, "_port_in_use", lambda host, port: False)
+        patch_console(monkeypatch, "_check_dependencies", lambda: (True, [], []))
+        patch_console(monkeypatch, "_running_daemon_pid", lambda: None)
+        patch_console(monkeypatch, "_service_status", lambda verbose: None)
+        patch_console(monkeypatch, "_port_in_use", lambda host, port: False)
 
         def install(options, config, verbose, logger, *, dry_run=False, issue_token=True):
             captured.update(options=options, issue_token=issue_token)
-            return web.ConsoleService(
+            return console_service.ConsoleService(
                 unit=tmp_path / "unit", token="new" if issue_token else None, port=options.port
             )
 
-        monkeypatch.setattr(web, "_install_and_start", install)
-        return web, captured
+        patch_console(monkeypatch, "_install_and_start", install)
+        return console_service, captured
 
     def test_the_token_on_disk_is_kept(self, web):
         module, captured = web
@@ -684,36 +691,31 @@ class TestLoopbackService:
 
 class TestDaemonConsole:
     def test_reads_how_it_was_started_from_proc(self, tmp_path, monkeypatch):
-        from noust.cli.commands import web
-
         (tmp_path / "55").mkdir()
         (tmp_path / "55" / "cmdline").write_bytes(
             b"/usr/bin/python3\0/usr/bin/noust\0web\0start\0-d\0-p\0"
             b"9200\0--allow-ip\0"
             b"10.0.0.0/8\0--allow-ip=192.168.0.0/16\0"
         )
-        monkeypatch.setattr(web, "_running_daemon_pid", lambda: 55)
+        patch_console(monkeypatch, "_running_daemon_pid", lambda: 55)
 
-        found = web.running_daemon(proc=tmp_path)
+        found = console_service.running_daemon(proc=tmp_path)
 
         assert found is not None
         assert (found.pid, found.options.port, found.options.host) == (55, 9200, "127.0.0.1")
         assert found.options.allow_ip == ("10.0.0.0/8", "192.168.0.0/16")
 
     def test_none_when_nothing_runs(self, monkeypatch):
-        from noust.cli.commands import web
-
-        monkeypatch.setattr(web, "_running_daemon_pid", lambda: None)
-        assert web.running_daemon() is None
+        patch_console(monkeypatch, "_running_daemon_pid", lambda: None)
+        assert console_service.running_daemon() is None
 
     def test_put_back_with_its_options_and_its_token(self, monkeypatch):
-        from noust.cli.commands import web
         from noust.core.runner import FakeRunner
 
         runner = FakeRunner()
-        monkeypatch.setattr(web, "_noust_executable", lambda: "/usr/bin/noust")
+        patch_console(monkeypatch, "_noust_executable", lambda: "/usr/bin/noust")
 
-        web.restart_daemon(web.StartOptions(port=9200), runner=runner)
+        console_service.restart_daemon(console_service.StartOptions(port=9200), runner=runner)
 
         assert runner.calls == [
             (
@@ -730,33 +732,30 @@ class TestDaemonConsole:
         ]
 
     def test_stopping_waits_for_it_to_be_gone(self, monkeypatch, tmp_path):
-        from noust.cli.commands import web
-
         signals: list[tuple[int, int]] = []
         pid_file = tmp_path / "noust-web.pid"
         pid_file.write_text("12")
-        monkeypatch.setattr(web, "get_pid_file", lambda: pid_file)
+        patch_console(monkeypatch, "get_pid_file", lambda: pid_file)
 
         def kill(pid: int, sig: int) -> None:
             signals.append((pid, sig))
             if sig == 0 and len(signals) > 2:
                 raise ProcessLookupError
 
-        monkeypatch.setattr(web.os, "kill", kill)
-        monkeypatch.setattr(web.time, "sleep", lambda seconds: None)
+        monkeypatch.setattr(os, "kill", kill)
+        monkeypatch.setattr(time, "sleep", lambda seconds: None)
 
-        web.stop_daemon(12)
+        console_service.stop_daemon(12)
 
-        assert signals[0] == (12, web.signal.SIGTERM)
+        assert signals[0] == (12, signal.SIGTERM)
         assert not pid_file.exists()
 
     def test_one_that_will_not_stop_is_an_error(self, monkeypatch):
-        from noust.cli.commands import web
         from noust.core.exceptions import ServiceError
 
-        monkeypatch.setattr(web.os, "kill", lambda pid, sig: None)
+        monkeypatch.setattr(os, "kill", lambda pid, sig: None)
         with pytest.raises(ServiceError) as caught:
-            web.stop_daemon(12, timeout=0)
+            console_service.stop_daemon(12, timeout=0)
         assert "kill 12" in caught.value.details
 
     def test_keep_token_needs_daemon(self):

@@ -53,7 +53,7 @@ could read every DATABASE_URL and API key an application was deployed with.
 So an application's unit carries inline only what is not secret and is Noust's
 to decide (PORT, NODE_ENV), and loads the rest with ``EnvironmentFile=-`` from
 the application's env file - the one
-:func:`~noust.deployers.helpers.layout.env_file_for` names, 0600 and owned by
+:func:`~noust.core.appdir.layout.env_file_for` names, 0600 and owned by
 the service account, which backups, restores and deletes already know about
 because ``noust env`` and the panel edit the same file.
 

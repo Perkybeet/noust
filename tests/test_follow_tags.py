@@ -555,7 +555,7 @@ def test_a_commit_update_of_an_application_that_follows_tags_is_a_commit_update(
 # update_app with a tag, on releases
 # ---------------------------------------------------------------------------
 
-from noust.deployers.releases import ReleaseManager  # noqa: E402
+from noust.core.appdir.releases import ReleaseManager  # noqa: E402
 from tests.test_rebuild_commit import HistoryGit  # noqa: E402
 from tests.test_release_activation import two_releases  # noqa: E402,F401
 from tests.test_release_pipeline import (  # noqa: E402,F401

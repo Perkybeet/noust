@@ -5,7 +5,7 @@
 Tests for :mod:`noust.core.deploy_notifications`.
 
 The default subscriber of every deployment in every process - CLI, console
-jobs and the webhook alike, per :mod:`noust.deployers.deploy_events`. What is
+jobs and the webhook alike, per :mod:`noust.core.deploy_events`. What is
 defended:
 
 - **Every deploy event kind maps to its own notification kind**, and an
@@ -42,12 +42,12 @@ import pytest
 
 from noust.core import deploy_notifications
 from noust.core.config import DEFAULT_CONFIG, Config
+from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.notifications.composers import compose_deploy
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification
 from noust.core.notifier import NOTIFICATION_QUEUE, Notifier
 from noust.core.store import App, NoustStore, PreviewRecord
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from tests.test_notifier import CapturingOpener, config, public_dns  # noqa: F401
 
 WEBHOOK_URL = "https://hooks.example.test/wasm"

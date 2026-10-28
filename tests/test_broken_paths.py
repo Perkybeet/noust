@@ -39,7 +39,7 @@ _TRACKED_CLASSES: dict[str, str] = {
     "ServiceManager": "noust.managers.service_manager",
     "CertManager": "noust.managers.cert_manager",
     "BackupManager": "noust.managers.backup_manager",
-    "RollbackManager": "noust.managers.backup_manager",
+    "RollbackManager": "noust.managers.rollback_manager",
     "NginxManager": "noust.managers.nginx_manager",
     "ApacheManager": "noust.managers.apache_manager",
     "SourceManager": "noust.managers.source_manager",
