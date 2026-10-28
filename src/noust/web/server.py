@@ -2508,7 +2508,7 @@ def run_server(
     Run the Noust web server.
 
     ``noust web start`` already refuses this combination before it gets here -
-    see ``_build_security_config`` in ``noust.cli.commands.web`` - but that is
+    see ``_build_security_config`` in ``noust.managers.console_service`` - but that is
     a rule enforced in one caller, and this function is the chokepoint that
     actually binds the socket. Checking again here is what keeps a second
     caller (a test, a future in-process restart, a script that imports this

@@ -11,7 +11,7 @@ command just printed. ``--open`` is the same idea: a handful of read commands
 and hand it to a browser when one is plausibly available.
 
 The panel is optional - ``noust web start`` needs fastapi and uvicorn, and
-:mod:`noust.cli.commands.web` only imports them lazily inside the functions
+:mod:`noust.managers.console_service` only imports them lazily inside the functions
 that actually start it - so this module must not force that dependency onto
 every other command. It only reads ``web.*`` off the layered configuration
 and, best-effort, the self-signed certificate path that command mints; both
@@ -47,9 +47,9 @@ def _panel_serves_tls() -> bool:
     Returns:
         True when both halves of the self-signed pair exist on disk.
     """
-    # Imported lazily, and from a CLI command module rather than duplicated,
+    # Imported lazily, and from the console's service module rather than duplicated,
     # so this stays the one place that knows where that pair lives. The
-    # import is cheap: noust.cli.commands.web does not touch fastapi or
+    # import is cheap: noust.managers.console_service does not touch fastapi or
     # uvicorn until a function that actually starts the server runs.
     from noust.managers.console_service import PANEL_TLS_CERT, PANEL_TLS_KEY
 
