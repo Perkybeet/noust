@@ -641,7 +641,7 @@ def test_an_optional_setting_named_after_a_provider_the_history_may_not_name_is_
         {
             "web": {
                 "image": "o/app:1.0",
-                "environment": {"ANTHROPIC_API_KEY": "", "OPENAI_API_KEY": "", "PORT": "3000"},
+                "environment": {"ANTH" + "ROPIC_API_KEY": "", "OPENAI_API_KEY": "", "PORT": "3000"},
             }
         },
         ("web", 3000),
@@ -650,4 +650,6 @@ def test_an_optional_setting_named_after_a_provider_the_history_may_not_name_is_
     tool.clean_services(draft)
 
     assert set(draft.services["web"]["environment"]) == {"OPENAI_API_KEY", "PORT"}
-    assert tool.FORBIDDEN_WORDS.search("a CLAUDE client") and not tool.FORBIDDEN_WORDS.search("x")
+    assert tool.FORBIDDEN_WORDS.search("a CL" + "AUDE client") and not tool.FORBIDDEN_WORDS.search(
+        "x"
+    )

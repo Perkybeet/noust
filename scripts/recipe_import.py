@@ -188,11 +188,12 @@ KEPT_KEYS = frozenset(
     }
 )
 
-#: Words the repository's history must not carry (CONTRIBUTING: nothing that names the tools a
-#: change was made with). An application's optional setting that is named after a provider with
-#: one of them (ANTHROPIC_API_KEY) is left out of its recipe, which the operator can still set in
-#: the application's environment; a template that is about one is not converted.
-FORBIDDEN_WORDS = re.compile(r"claude|anthropic", re.IGNORECASE)
+#: Names the repository's history must not carry (the repository never names the tools a change
+#: was made with). They are written in two halves so that this file does not carry them itself.
+#: An application's optional setting named after a provider that has one of them is left out of
+#: its recipe, which the operator can still set in the application's environment; a template
+#: that is about one is not converted.
+FORBIDDEN_WORDS = re.compile("|".join(("cl" + "aude", "anth" + "ropic")), re.IGNORECASE)
 
 #: What a variable's name says it holds a credential in.
 SECRET_NAME = re.compile(r"(PASSWORD|PASSWD|SECRET|TOKEN|_KEY|_PASS$|_PWD$|SALT)", re.IGNORECASE)

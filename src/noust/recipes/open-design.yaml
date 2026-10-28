@@ -1,0 +1,67 @@
+# Open Design: Derived in part from Dokploy's template blueprints/open-design
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: open-design
+kind: compose
+title: "Open Design"
+slogan: "The 1st Collaborative AI Design Agent Workspace. Local-first and open source."
+description: "Open Design is a local-first, open-source design tool with native desktop apps, a large library of design systems, and an extensible plugin ecosystem that runs across many coding agents."
+category: ai
+tags: [design, self-hosted, ai]
+logo: logo.svg
+version: "0.16.1"
+revision: 1
+updated: 2026-10-28
+homepage: https://open-design.ai
+docs: https://open-design.ai
+repository: https://github.com/nexu-io/open-design
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  OD_API_TOKEN:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for od api token."
+  OD_ALLOWED_ORIGINS:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    open-design:
+      image: ghcr.io/nexu-io/od:0.16.1@sha256:eb1c9d55532ffd2088a4a71951cffd273dff65e96e077bcef8c8bac3a6e1f1a1
+      restart: unless-stopped
+      environment:
+        NODE_ENV: production
+        NODE_OPTIONS: --max-old-space-size=192
+        OD_BIND_HOST: 0.0.0.0
+        OD_PORT: '7456'
+        OD_API_TOKEN: ${OD_API_TOKEN}
+        OD_ALLOWED_ORIGINS: ${OD_ALLOWED_ORIGINS}
+        OD_DISABLE_API_AUTH: '1'
+      volumes:
+        - open_design_data:/app/.od
+      healthcheck:
+        test:
+          - CMD
+          - node
+          - -e
+          - fetch('http://127.0.0.1:7456/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+        interval: 30s
+        timeout: 5s
+        retries: 3
+        start_period: 20s
+      ports:
+        - 127.0.0.1:${PORT}:7456
+  volumes:
+    open_design_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume open_design_data of this application: back it up before updating."

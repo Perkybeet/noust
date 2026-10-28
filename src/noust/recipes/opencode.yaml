@@ -1,0 +1,81 @@
+# OpenCode: Derived in part from Dokploy's template blueprints/opencode
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: opencode
+kind: compose
+title: "OpenCode"
+slogan: "The open source coding agent."
+description: "OpenCode is an open source AI coding agent. This template runs its password-protected web UI; optionally set a repository URL to clone on start-up, then chat with, edit and run your code from the browser."
+category: ai
+tags: [ai, coding, agent, development, self-hosted]
+logo: simple-icons:opencode
+version: "1.18.32"
+revision: 1
+updated: 2026-10-28
+homepage: https://opencode.ai
+docs: https://opencode.ai/v2/docs
+repository: https://github.com/anomalyco/opencode
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  OPENCODE_SERVER_USERNAME:
+    default: "opencode"
+    description: "Setting OPENCODE_SERVER_USERNAME of the application; the template leaves it to the operator."
+  OPENCODE_SERVER_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for opencode server password."
+  TOOLCHAIN_PACKAGES:
+    default: "git nodejs npm python3"
+    description: "Setting TOOLCHAIN_PACKAGES of the application; the template leaves it to the operator."
+  GIT_REPO_URL:
+    default: ""
+    description: "Setting GIT_REPO_URL of the application; the template leaves it to the operator."
+  GIT_TOKEN:
+    default: ""
+    secret: true
+    description: "Setting GIT_TOKEN of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399,401", timeout: 180}
+compose: |
+  services:
+    opencode:
+      image: ghcr.io/anomalyco/opencode:1.18.32@sha256:b3ce2a73474c57d19abb8c1e9d955c66066b4263e8f15167ba6e6c5ddf9a7ee0
+      restart: unless-stopped
+      entrypoint: []
+      command:
+        - sh
+        - -c
+        - "set -e\napk add --no-cache $${TOOLCHAIN_PACKAGES} >/dev/null 2>&1 || true\nif [ -n \"$${GIT_TOKEN}\"\
+          \ ] && [ -n \"$${GIT_REPO_URL}\" ]; then\n  host=$$(printf '%s' \"$${GIT_REPO_URL}\" | sed -E\
+          \ 's#^https?://([^/]+)/.*#\\1#')\n  git config --global credential.helper store\n  printf 'https://x-access-token:%s@%s\\\
+          n' \"$${GIT_TOKEN}\" \"$$host\" > /root/.git-credentials\nfi\nif [ -n \"$${GIT_REPO_URL}\" ];\
+          \ then\n  dir=\"/workspace/$$(basename \"$${GIT_REPO_URL}\" .git)\"\n  [ -d \"$$dir/.git\" ] ||\
+          \ git clone \"$${GIT_REPO_URL}\" \"$$dir\" || true\nfi\nexec opencode serve --hostname 0.0.0.0\
+          \ --port 4096\n"
+      working_dir: /workspace
+      environment:
+        OPENCODE_SERVER_USERNAME: ${OPENCODE_SERVER_USERNAME}
+        OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
+        TOOLCHAIN_PACKAGES: ${TOOLCHAIN_PACKAGES}
+        GIT_REPO_URL: ${GIT_REPO_URL}
+        GIT_TOKEN: ${GIT_TOKEN}
+      volumes:
+        - opencode-data:/root/.local/share/opencode
+        - opencode-config:/root/.config/opencode
+        - opencode-workspace:/workspace
+      ports:
+        - 127.0.0.1:${PORT}:4096
+  volumes:
+    opencode-data:
+    opencode-config:
+    opencode-workspace:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes opencode-data, opencode-config, opencode-workspace of this application: back them up before updating."

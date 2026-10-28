@@ -13,5 +13,5 @@ docs: https://hermes-agent.nousresearch.com/docs
 repository: https://github.com/NousResearch/hermes-agent
 license: MIT
 available: false
-unavailable_code: root_equivalent
-unavailable_reason: "Its own security policy (SECURITY.md, read 2026-10-06) calls it 'a single-tenant personal agent' whose trust envelope is whatever the operator's account can reach, runs commands directly on the host by default, and states that 'the only security boundary against an adversarial LLM is the operating system'. Whether to give such a program a place on a server that holds other applications is the owner's decision, not a recipe's. Not available in this release."
+unavailable_code: no_sign_in
+unavailable_reason: "Its only web interface, the dashboard, has no sign-in of its own and stores the API keys the agent works with: its compose file binds it to 127.0.0.1 and says 'it stores API keys; exposing it on LAN without auth is unsafe' and to reach it from elsewhere 'use an SSH tunnel or put it behind a reverse proxy that adds authentication' (docker-compose.yml, read 2026-10-28), and the compose file runs it on the host's network. A public site Noust writes would hand those keys to anyone. Its SECURITY.md (read 2026-10-06) also calls it 'a single-tenant personal agent'. Not available in this release."

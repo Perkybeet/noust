@@ -22,4 +22,4 @@ repository: https://github.com/excalidraw/excalidraw
 license: MIT
 available: false
 unavailable_code: no_image
-unavailable_reason: "Upstream publishes its image only as latest and as per-build sha- tags (none of them is the same image as latest), so there is no release to pin, and a recipe never runs a floating tag. Not available in this release."
+unavailable_reason: "Upstream publishes its image only as latest (built 2026-05-06) and as per-build sha- tags; none of them is the same image as latest, and the newest sha- tag, sha-4bfc5bb, was built on 2021-11-04 (Docker Hub, read 2026-10-28). Pinning that tag would install a five-year-old Excalidraw under the current one's name, and a recipe never runs a floating tag. It is installable the day upstream tags a release image or a recipe can build the static site from the release. Not available in this release."

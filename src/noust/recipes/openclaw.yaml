@@ -1,17 +1,83 @@
+# OpenClaw from its published image (ghcr.io/openclaw/openclaw, a release tag per date), as its
+# own compose file runs the gateway (https://github.com/openclaw/openclaw, docker-compose.yml:
+# `node dist/index.js gateway --bind lan --port 18789`, which a first start refuses until it
+# is configured: --allow-unconfigured lets it start so that its control interface can do the
+# configuring; the gateway token in
+# OPENCLAW_GATEWAY_TOKEN, its state under /home/node/.openclaw, NET_RAW and NET_ADMIN dropped,
+# no-new-privileges). The compose file builds the image locally and publishes three ports; the
+# recipe runs the released image and publishes the gateway's alone, on the loopback address.
+# Sandboxing agents in containers needs the Docker socket, which the recipe does not offer.
+#
+# An agent is root-equivalent in the way its own security policy says (SECURITY.md, read
+# 2026-10-28): "Anyone who can operate an agent can make it do anything that agent can do",
+# and it is "not designed as a shared multi-tenant boundary". The recipe says so
+# (root_equivalent: agent), the install asks for a confirmation and sudo mode, and the first
+# notes repeat it.
+#
+# Pinned to the release tag and the digest GitHub's registry serves for it.
 schema: 2
 name: openclaw
 kind: compose
 title: OpenClaw
 slogan: "A personal AI assistant that does things, on any platform."
-description: "An agent gateway that connects models to chat channels, browsers, files and shell tools. Listed because its own policy puts the boundary outside the program."
+description: "An agent gateway that connects models to chat channels, browsers, files and shell tools. Whoever can operate it can make it do anything it can do: treat its sign-in as a shell on this server."
 category: ai
 tags: [agent, assistant, llm]
 logo: logo.svg
-updated: 2026-10-06
+version: "2026.10.8"
+revision: 1
+updated: 2026-10-28
 homepage: https://openclaw.ai
 docs: https://docs.openclaw.ai
 repository: https://github.com/openclaw/openclaw
 license: MIT
-available: false
-unavailable_code: root_equivalent
-unavailable_reason: "Its security policy (SECURITY.md, read 2026-10-06) says 'Anyone who can operate an agent can make it do anything that agent can do' and that it is 'not designed as a shared multi-tenant boundary'; its compose file builds the image locally and offers sandboxing only through the Docker socket, which a recipe may not mount. Not available in this release."
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - A model provider's key, or a local model server, for the agent to think with
+port: 18789
+root_equivalent: agent
+variables:
+  OPENCLAW_GATEWAY_TOKEN:
+    generate: hex32
+    secret: true
+    description: The token that signs into the gateway and its control interface.
+  TZ:
+    default: UTC
+    description: The agent's time zone, such as Europe/Madrid.
+health:
+  path: /
+  expect: "200-399"
+  timeout: 180
+compose: |
+  services:
+    openclaw:
+      image: ghcr.io/openclaw/openclaw:2026.10.8@sha256:82b6ce63048e75ca749dbc250e872ee21f4b1c098fc6bff94636e357bcb64bf5
+      restart: unless-stopped
+      init: true
+      command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789", "--allow-unconfigured"]
+      cap_drop:
+        - NET_RAW
+        - NET_ADMIN
+      security_opt:
+        - no-new-privileges:true
+      environment:
+        HOME: /home/node
+        OPENCLAW_HOME: /home/node
+        OPENCLAW_STATE_DIR: /home/node/.openclaw
+        OPENCLAW_CONFIG_PATH: /home/node/.openclaw/openclaw.json
+        OPENCLAW_CONFIG_DIR: /home/node/.openclaw
+        OPENCLAW_WORKSPACE_DIR: /home/node/.openclaw/workspace
+        OPENCLAW_GATEWAY_PORT: "18789"
+        OPENCLAW_GATEWAY_TOKEN: "${OPENCLAW_GATEWAY_TOKEN}"
+        TZ: "${TZ}"
+      volumes:
+        - openclaw-state:/home/node/.openclaw
+      ports:
+        - "127.0.0.1:${PORT}:18789"
+  volumes:
+    openclaw-state:
+notes:
+  - "Open {{ url }} and sign in with the gateway token, OPENCLAW_GATEWAY_TOKEN (noust env show {{ domain }} --unmask). Whoever has it can make the agent do anything it can do: keep it as you would a shell's password."
+  - "OpenClaw's own security policy says it is not a boundary between users: use a separate installation for each person or trust boundary, and give it only the model keys and accounts you would give them."
+  - "Connect a model and your channels from its control interface; they are kept in the Docker volume openclaw-state of this application: back it up before updating."

@@ -1,0 +1,150 @@
+{
+ "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
+ "recipes": {
+  "activepieces": {
+   "date": "2026-10-28",
+   "seconds": 89,
+   "version": "0.92.1"
+  },
+  "actual-budget": {
+   "date": "2026-10-28",
+   "seconds": 43,
+   "version": "26.10.0"
+  },
+  "affine": {
+   "date": "2026-10-28",
+   "seconds": 80,
+   "version": "0.27.4"
+  },
+  "anythingllm": {
+   "date": "2026-10-28",
+   "seconds": 126,
+   "version": "1.18.0"
+  },
+  "audiobookshelf": {
+   "date": "2026-10-28",
+   "seconds": 47,
+   "version": "2.37.1"
+  },
+  "authentik": {
+   "date": "2026-10-28",
+   "seconds": 198,
+   "version": "2026.8.3"
+  },
+  "baserow": {
+   "date": "2026-10-28",
+   "seconds": 217,
+   "version": "2.4.0"
+  },
+  "bazarr": {
+   "date": "2026-10-28",
+   "seconds": 68,
+   "version": "1.6.2"
+  },
+  "beszel": {
+   "date": "2026-10-28",
+   "seconds": 35,
+   "version": "0.21.0"
+  },
+  "bookstack": {
+   "date": "2026-10-28",
+   "seconds": 91,
+   "version": "26.09.2"
+  },
+  "bugsink": {
+   "date": "2026-10-28",
+   "seconds": 104,
+   "version": "2.6.1"
+  },
+  "changedetection": {
+   "date": "2026-10-28",
+   "seconds": 68,
+   "version": "0.60.9"
+  },
+  "chatwoot": {
+   "date": "2026-10-28",
+   "seconds": 110,
+   "version": "4.18.0"
+  },
+  "cloudbeaver": {
+   "date": "2026-10-28",
+   "seconds": 54,
+   "version": "26.2.3"
+  },
+  "code-server": {
+   "date": "2026-10-28",
+   "seconds": 62,
+   "version": "4.140.0"
+  },
+  "coder": {
+   "date": "2026-10-28",
+   "seconds": 63,
+   "version": "2.38.4"
+  },
+  "convertx": {
+   "date": "2026-10-28",
+   "seconds": 207,
+   "version": "0.19.0"
+  },
+  "couchdb": {
+   "date": "2026-10-28",
+   "seconds": 47,
+   "version": "3.5.3"
+  },
+  "cyberchef": {
+   "date": "2026-10-28",
+   "seconds": 37,
+   "version": "11.5.0"
+  },
+  "dashy": {
+   "date": "2026-10-28",
+   "seconds": 44,
+   "version": "4.8.7"
+  },
+  "directus": {
+   "date": "2026-10-28",
+   "seconds": 76,
+   "version": "12.4.1"
+  },
+  "discourse": {
+   "date": "2026-10-28",
+   "seconds": 298,
+   "version": "2026.1.4"
+  },
+  "docmost": {
+   "date": "2026-10-28",
+   "seconds": 100,
+   "version": "0.96.0"
+  },
+  "docuseal": {
+   "date": "2026-10-28",
+   "seconds": 50,
+   "version": "3.3.3"
+  },
+  "gotify": {
+   "date": "2026-10-28",
+   "seconds": 37,
+   "version": "3.1.1"
+  },
+  "open-design": {
+   "date": "2026-10-28",
+   "seconds": 50,
+   "version": "0.16.1"
+  },
+  "openclaw": {
+   "date": "2026-10-28",
+   "seconds": 106,
+   "version": "2026.10.8"
+  },
+  "opencode": {
+   "date": "2026-10-28",
+   "seconds": 57,
+   "version": "1.18.32"
+  },
+  "portainer": {
+   "date": "2026-10-28",
+   "seconds": 37,
+   "version": "2.45.3"
+  }
+ }
+}

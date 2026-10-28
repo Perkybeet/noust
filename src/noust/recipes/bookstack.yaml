@@ -1,17 +1,141 @@
+# BookStack from LinuxServer.io's image, the one its installation page points to
+# (https://www.bookstackapp.com/docs/admin/installation/: the project publishes no
+# image of its own and lists LinuxServer.io's, whose documentation gives APP_URL,
+# APP_KEY, the DB_* settings and /config as the data), with the MariaDB it supports.
+#
+# A new BookStack can be signed into as admin@admin.com with the password "password",
+# which a recipe cannot leave open. A second, tiny service of the stack (the same image,
+# its entrypoint replaced so that it starts none of BookStack) runs set-admin.php, which
+# waits until the database has been migrated and seeded and then gives that account the
+# email and the generated password this recipe holds as ADMIN_EMAIL and ADMIN_PASSWORD;
+# once the default account is gone it does nothing, so an update or a restart never
+# touches an account the administrator has changed since. The default password is never
+# valid after the install finishes.
+#
+# Pinned to LinuxServer.io's build tag of the 26.09.2 release and the digest Docker Hub
+# serves for it (also the digest ghcr.io serves); MariaDB is the 11.8 long-term release.
 schema: 2
 name: bookstack
 kind: compose
 title: BookStack
 slogan: "A simple, self-hosted wiki for documentation, organised in books."
-description: "Pages, chapters, books and shelves with a WYSIWYG editor, roles and an API. Listed because there is no official image and a new installation starts with a known account."
+description: "Pages, chapters, books and shelves with a WYSIWYG editor, roles and an API. Runs from LinuxServer.io's image, since the project publishes none, with its own MariaDB; the factory account of a new installation is replaced by one with a generated password."
 category: productivity
 tags: [wiki, documentation, knowledge-base]
 logo: simple-icons:bookstack
-updated: 2026-10-06
+version: "26.09.2"
+revision: 1
+updated: 2026-10-28
 homepage: https://www.bookstackapp.com
 docs: https://www.bookstackapp.com/docs/
 repository: https://github.com/BookStackApp/BookStack
 license: MIT
-available: false
-unavailable_code: no_image
-unavailable_reason: "BookStack publishes no container image: its installation page lists only community setups (LinuxServer.io and solidnerd), and says a new installation can be signed into with admin@admin.com and the password 'password', which a recipe cannot leave open (www.bookstackapp.com/docs/admin/installation, read 2026-10-06). Not available in this release."
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 6875
+variables:
+  APP_URL:
+    from: url
+    description: The address people use; BookStack builds every link and asset address from it.
+  BOOKSTACK_DOMAIN:
+    from: fqdn
+    description: The domain of that address, for the administrator's email.
+  ADMIN_EMAIL:
+    value: "admin@${BOOKSTACK_DOMAIN}"
+    description: The email the administrator signs in with. It replaces the factory account's.
+  ADMIN_PASSWORD:
+    generate: password32
+    secret: true
+    description: The administrator's password. It replaces the factory account's.
+  APP_KEY_RAW:
+    generate: base64_32
+    secret: true
+    description: The random bytes of BookStack's application key.
+  APP_KEY:
+    value: "base64:${APP_KEY_RAW}"
+    secret: true
+    description: BookStack's application key, which encrypts its sessions and its stored secrets.
+  DB_PASSWORD:
+    generate: password32
+    secret: true
+    description: The password of the stack's MariaDB account.
+  MARIADB_ROOT_PASSWORD:
+    generate: password32
+    secret: true
+    description: The password of the stack's MariaDB root account.
+  TZ:
+    default: UTC
+    description: The server's time zone, such as Europe/Madrid.
+health:
+  path: /status
+  expect: "200"
+  timeout: 240
+files:
+  set-admin.php:
+    asset: set-admin.php
+    mode: "0644"
+compose: |
+  services:
+    bookstack:
+      image: linuxserver/bookstack:v26.09.2-ls293@sha256:2fdeeb1a2028ce7cb1274696237e32b9f849e16b6d77314d08c78356a6016fca
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        PUID: "1000"
+        PGID: "1000"
+        TZ: "${TZ}"
+        APP_URL: "${APP_URL}"
+        APP_KEY: "${APP_KEY}"
+        DB_HOST: db
+        DB_PORT: "3306"
+        DB_DATABASE: bookstack
+        DB_USERNAME: bookstack
+        DB_PASSWORD: "${DB_PASSWORD}"
+      volumes:
+        - bookstack-config:/config
+      ports:
+        - "127.0.0.1:${PORT}:80"
+    bookstack-admin:
+      image: linuxserver/bookstack:v26.09.2-ls293@sha256:2fdeeb1a2028ce7cb1274696237e32b9f849e16b6d77314d08c78356a6016fca
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      entrypoint: ["/bin/sh", "-c"]
+      command: ["until php /set-admin.php; do sleep 5; done; exec sleep infinity"]
+      environment:
+        DB_HOST: db
+        DB_DATABASE: bookstack
+        DB_USERNAME: bookstack
+        DB_PASSWORD: "${DB_PASSWORD}"
+        ADMIN_EMAIL: "${ADMIN_EMAIL}"
+        ADMIN_PASSWORD: "${ADMIN_PASSWORD}"
+      volumes:
+        - ./set-admin.php:/set-admin.php:ro
+    db:
+      image: mariadb:11.8.9@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+      restart: unless-stopped
+      environment:
+        MARIADB_ROOT_PASSWORD: "${MARIADB_ROOT_PASSWORD}"
+        MARIADB_DATABASE: bookstack
+        MARIADB_USER: bookstack
+        MARIADB_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - bookstack-db:/var/lib/mysql
+  volumes:
+    bookstack-config:
+    bookstack-db:
+notes:
+  - "Sign in at {{ url }} as {{ vars.ADMIN_EMAIL }}; the password is ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The factory account admin@admin.com with the password \"password\" is replaced a few seconds after the first start, before you have a reason to open the page; if you reach it first, wait a minute and reload."
+  - "Change the email and the password from your profile once you are in: the variables only create the first account, and a later update never touches it."
+  - "Add an SMTP server (MAIL_DRIVER=smtp, MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD and MAIL_FROM in the application's environment, then noust restart {{ domain }}) for invitations and password resets by email."
+  - "Your pages and users are in the MariaDB of this stack (Docker volume bookstack-db, dumped by Noust before every update); uploads and the application's files are in the volume bookstack-config. Back up both before updating."
