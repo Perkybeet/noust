@@ -2189,6 +2189,7 @@ class NoustStore:
             13: self._migrate_v12_to_v13,
             14: self._migrate_v13_to_v14,
             15: self._migrate_v14_to_v15,
+            16: self._migrate_v15_to_v16,
         }
 
         for version in range(from_version + 1, SCHEMA_VERSION + 1):
