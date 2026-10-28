@@ -2887,6 +2887,334 @@ def scenario_link(env: FleetEnv) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Views (4.1): one route per resource across the servers.
+# ---------------------------------------------------------------------------
+
+VIEWS_DOMAIN = "views-static.test"
+VIEWS_NODE_JOB = "views-node-nightly"
+VIEWS_CENTRAL_JOB = "views-central-nightly"
+VIEWS_ACCOUNT = "views-audit"
+VIEWS_ROUTES = (
+    "apps",
+    "databases",
+    "sites",
+    "certificates",
+    "backups",
+    "cron",
+    "logs",
+    "alerts",
+    "activity",
+)
+
+
+def views_get(
+    env: FleetEnv,
+    route: str,
+    *,
+    token: str | None = None,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """GET one view of the central as the master token (or `token`), and return its body.
+
+    Fails the scenario on anything but a 200 with the envelope every view answers.
+    """
+    from urllib.parse import urlencode
+
+    query = urlencode(params or {}, doseq=True)
+    path = f"/api/views/{route}" + (f"?{query}" if query else "")
+    status, body, raw = api_call(
+        CENTRAL_NAME,
+        "GET",
+        f"https://127.0.0.1:{CENTRAL_PORT}{path}",
+        token=token or env.master_token,
+    )
+    log_api(env.central, "GET", path, status, raw[:300])
+    env.central.check(status == 200, f"GET {path}: expected 200, got {status}: {raw[:400]!r}")
+    env.central.check(
+        isinstance(body, dict), f"GET {path} answered something that is not an object"
+    )
+    envelope = {
+        "resource",
+        "generated_at",
+        "partial",
+        "fleet",
+        "servers",
+        "nodes",
+        "refusals",
+        "items",
+    }
+    env.central.check(
+        envelope <= set(body), f"GET {path}: the envelope lacks {sorted(envelope - set(body))}"
+    )
+    return dict(body)
+
+
+def _no_envelope_shown(sc: Scenario, body: dict[str, Any], what: str) -> None:
+    """Nothing a person reads in a view is the JSON a server answered with."""
+    for outcome in body["nodes"]:
+        verbatim = (outcome.get("error_verbatim") or "").lstrip()
+        sc.check(
+            not verbatim.startswith("{"),
+            f"{what}: {outcome['name']} shows the JSON it answered with: {verbatim[:200]!r}",
+        )
+
+
+@fleet_scenario("views_one_route_per_resource")
+def scenario_views(env: FleetEnv) -> None:
+    """Every resource answers one route for every server, with the central as one of them.
+
+    An application with its site on the node and a scheduled job on each of the two servers,
+    read through `/api/views`: the server is a column (`node`, `local`, `href`) and a filter
+    (`node`, `@central`), the servers to choose from are listed, the search finds a thing on
+    whichever server it is, and a node that is down is still found by its name and is an outcome,
+    not an error. The five routes of `/api/fleet` this replaces still answer.
+    """
+    ensure_enrolled(env)
+    central, node = env.central, env.node
+    base = f"https://127.0.0.1:{CENTRAL_PORT}"
+    proxy = f"{base}/api/nodes/{env.node_name}/api"
+
+    status, body, raw = api_call(
+        CENTRAL_NAME,
+        "POST",
+        f"{proxy}/apps",
+        token=env.master_token,
+        json_body={
+            "domain": VIEWS_DOMAIN,
+            "source": STATIC_SITE_GIT_URL,
+            "app_type": "static",
+            "ssl": False,
+        },
+    )
+    log_api(central, "POST", f"/api/nodes/{env.node_name}/api/apps", status, raw[:300])
+    central.check(status in (202, 409), f"deploy the node's application: {status} {raw[:400]!r}")
+    if status == 202:
+        job = wait_for_job(CENTRAL_NAME, body["job_id"], env.master_token, node=env.node_name)
+        central.check(job.get("status") == "completed", f"the application's job failed: {job!r}")
+    node.run(f"noust cron create {VIEWS_NODE_JOB} /bin/true --schedule daily", timeout=60)
+    central.run(f"noust cron create {VIEWS_CENTRAL_JOB} /bin/true --schedule daily", timeout=60)
+
+    try:
+        cron = views_get(env, "cron")
+        central.check(cron["fleet"] is True, "a central with a server says it has no fleet")
+        here = [server for server in cron["servers"] if server["local"]]
+        central.check(
+            len(here) == 1 and here[0]["selector"] == "@central",
+            f"the central is not one server among the others: {cron['servers']!r}",
+        )
+        central.check(
+            [s["name"] for s in cron["servers"] if not s["local"]] == [env.node_name],
+            f"the servers to choose from are not the central and the node: {cron['servers']!r}",
+        )
+        rows = {(row["node"], row["name"]): row for row in cron["items"]}
+        mine = rows.get((here[0]["name"], VIEWS_CENTRAL_JOB))
+        central.check(
+            mine is not None and mine["local"] is True and mine["href"] == "/cron",
+            f"the central's own job is not a row of its own: {mine!r}",
+        )
+        theirs = rows.get((env.node_name, VIEWS_NODE_JOB))
+        central.check(
+            theirs is not None
+            and theirs["local"] is False
+            and theirs["href"] == f"/n/{env.node_name}/cron",
+            f"the node's job is not a row with its server and its page: {theirs!r}",
+        )
+
+        only_central = views_get(env, "cron", params={"node": "@central"})
+        central.check(
+            bool(only_central["items"]) and all(row["local"] for row in only_central["items"]),
+            f"naming the central still gave the node's rows: {only_central['items']!r}",
+        )
+        central.check(
+            len(only_central["servers"]) == 2 and only_central["fleet"] is True,
+            "naming a server took the others out of the filter",
+        )
+        only_node = views_get(env, "cron", params={"node": env.node_name})
+        central.check(
+            {row["node"] for row in only_node["items"]} == {env.node_name},
+            f"naming the node gave other rows: {only_node['items']!r}",
+        )
+
+        apps = views_get(env, "apps")
+        app = next((r for r in apps["items"] if r.get("domain") == VIEWS_DOMAIN), None)
+        central.check(
+            app is not None
+            and app["node"] == env.node_name
+            and app["href"] == f"/n/{env.node_name}/apps/{VIEWS_DOMAIN}",
+            f"the node's application is not a row with its server: {app!r}",
+        )
+        sites = views_get(env, "sites")
+        site = next((r for r in sites["items"] if r.get("name") == VIEWS_DOMAIN), None)
+        central.check(
+            site is not None
+            and site["node"] == env.node_name
+            and site["page"] == f"/domains/sites/{VIEWS_DOMAIN}",
+            f"the node's site is not a row with its server: {site!r}",
+        )
+
+        for route in VIEWS_ROUTES:
+            seen = views_get(env, route)
+            names = {outcome["name"] for outcome in seen["nodes"]}
+            central.check(
+                env.node_name in names and here[0]["name"] in names,
+                f"/api/views/{route} did not ask both servers: {sorted(names)!r}",
+            )
+            central.check(
+                all(outcome["status"] != "unreachable" for outcome in seen["nodes"]),
+                f"/api/views/{route}: a server that answers is unreachable: {seen['nodes']!r}",
+            )
+            _no_envelope_shown(central, seen, f"/api/views/{route}")
+
+        found = views_get(env, "search", params={"q": VIEWS_DOMAIN})
+        kinds = {(hit["kind"], hit["node"]) for hit in found["items"]}
+        central.check(
+            {("app", env.node_name), ("site", env.node_name)} <= kinds,
+            f"the search did not find the node's application and site: {sorted(kinds)!r}",
+        )
+        central.check(
+            all(hit["href"].startswith(f"/n/{env.node_name}/") for hit in found["items"]),
+            f"a hit does not lead to the page on its server: {found['items']!r}",
+        )
+        jobs = views_get(env, "search", params={"q": "views- nightly", "kind": "cron"})
+        central.check(
+            {(hit["name"], hit["local"]) for hit in jobs["items"]}
+            == {(VIEWS_NODE_JOB, False), (VIEWS_CENTRAL_JOB, True)},
+            f"the search did not find the job of each server: {jobs['items']!r}",
+        )
+        server = views_get(env, "search", params={"q": env.node_name, "kind": "server"})
+        central.check(
+            [(hit["kind"], hit["name"]) for hit in server["items"]] == [("server", env.node_name)],
+            f"a server is not found by its name: {server['items']!r}",
+        )
+
+        # The node's console stops: it is an outcome of the views, and still found by name.
+        node.run("systemctl stop noust-web", timeout=60, label="systemctl stop noust-web")
+        try:
+            down = views_get(env, "search", params={"q": env.node_name, "refresh": "true"})
+            central.check(
+                [(hit["kind"], hit["name"]) for hit in down["items"]]
+                == [("server", env.node_name)],
+                f"a server that is down is not found by its name: {down['items']!r}",
+            )
+            outcome = next(o for o in down["nodes"] if o["name"] == env.node_name)
+            central.check(
+                outcome["status"] == "unreachable" and down["partial"] is True,
+                f"the node that is down is not an unreachable outcome: {outcome!r}",
+            )
+            central.check(down["refusals"] == [], "a server that is down was told as a refusal")
+        finally:
+            node.run("systemctl start noust-web", timeout=60, label="systemctl start noust-web")
+        wait_until(
+            lambda: next(
+                o
+                for o in views_get(env, "cron", params={"refresh": "true"})["nodes"]
+                if o["name"] == env.node_name
+            )["status"]
+            == "ok",
+            "the node answers again after its console starts",
+            timeout=90,
+        )
+
+        # What /api/fleet answered keeps answering.
+        old_status, old_body, old_raw = api_call(
+            CENTRAL_NAME, "GET", f"{base}/api/fleet/apps", token=env.master_token
+        )
+        log_api(central, "GET", "/api/fleet/apps", old_status, old_raw[:200])
+        central.check(
+            old_status == 200 and isinstance(old_body, dict) and "items" in old_body,
+            f"the route this replaces stopped answering: {old_status} {old_raw[:200]!r}",
+        )
+    finally:
+        node.run(f"noust cron delete {VIEWS_NODE_JOB} --force", check=False, timeout=60)
+        central.run(f"noust cron delete {VIEWS_CENTRAL_JOB} --force", check=False, timeout=60)
+        status, body, raw = api_call(
+            CENTRAL_NAME, "DELETE", f"{proxy}/apps/{VIEWS_DOMAIN}", token=env.master_token
+        )
+        if status == 202:
+            wait_for_job(CENTRAL_NAME, body["job_id"], env.master_token, node=env.node_name)
+
+
+@fleet_scenario("views_group_the_servers_that_refuse")
+def scenario_views_refusals(env: FleetEnv) -> None:
+    """A server that does not let the operator read its audit trail is told once, with what is missing.
+
+    An account of the central that holds the audit trail, and a token of it narrowed to three
+    permissions: the central names such a token by the widest role it wholly holds (`viewer`),
+    which the node's own table does not give the audit trail. The central's own rows come; the
+    node's refusal is one group with its permission and a sentence with a code, and the JSON the
+    node answered with is not what anyone is shown.
+
+    A central that sends the operator's permissions instead of a role name (O4-ROLES) leaves
+    nothing to refuse a node of this release with: the scenario then skips, and the refusal is
+    proven against a node of the release before (`run.py --mixed-fleet`).
+    """
+    ensure_enrolled(env)
+    central = env.central
+    password = secrets.token_urlsafe(24)
+    run_stdin(
+        central,
+        f"noust user create {VIEWS_ACCOUNT} --role admin --stdin",
+        password + "\n",
+        timeout=60,
+        label=f"noust user create {VIEWS_ACCOUNT} --role admin --stdin",
+    )
+    issued = docker_exec(
+        CENTRAL_NAME,
+        f"noust token create {VIEWS_ACCOUNT}-token --owner {VIEWS_ACCOUNT} "
+        "--permission apps.read --permission audit.read --permission fleet.read",
+        timeout=60,
+    )
+    redact(
+        central, f"noust token create {VIEWS_ACCOUNT}-token --owner {VIEWS_ACCOUNT}", "an API token"
+    )
+    match = re.search(r"Token:\s*(\S+)", issued.stdout)
+    central.check(match is not None, "'noust token create' printed no token")
+    token = match.group(1)  # type: ignore[union-attr]
+    try:
+        body = views_get(env, "activity", token=token)
+        refused = next(o for o in body["nodes"] if o["name"] == env.node_name)
+        if refused["status"] != "forbidden":
+            raise ScenarioSkipped(
+                f"{env.node_name} did not refuse the audit trail to a token the central names by "
+                f"a role (it answered {refused['status']!r}): it was given the permissions, not a "
+                "role. Prove the refusal against a node of 3.3.1 (run.py --mixed-fleet)."
+            )
+        local = next(o for o in body["nodes"] if o["local"])
+        central.check(
+            local["status"] == "ok",
+            f"the central's own audit trail was refused to a token that holds it: {local!r}",
+        )
+        central.check(
+            len(body["refusals"]) == 1, f"the refusal is not one group: {body['refusals']!r}"
+        )
+        group = body["refusals"][0]
+        central.check(
+            group["servers"] == [env.node_name]
+            and group["count"] == 1
+            and group["permission"] == "audit.read"
+            and group["reason"] == "permission",
+            f"the group does not say who refused what: {group!r}",
+        )
+        coded = group["coded"] or {}
+        central.check(
+            coded.get("code") == "fleet.refused.permission"
+            and coded.get("params", {}).get("permission") == "audit.read"
+            and bool(group["hint"]),
+            f"the group is not a sentence with a code and a way to give it: {group!r}",
+        )
+        _no_envelope_shown(central, body, "/api/views/activity")
+    finally:
+        listing = as_json(
+            central.run("noust token list --json", timeout=60), what="noust token list --json"
+        )
+        tokens = listing if isinstance(listing, list) else listing.get("tokens", [])
+        for entry in tokens:
+            if entry.get("name") == f"{VIEWS_ACCOUNT}-token":
+                central.run(f"noust token revoke {entry['id']} --force", check=False, timeout=60)
+        central.run(f"noust user remove {VIEWS_ACCOUNT} --force", check=False, timeout=60)
+
+
+# ---------------------------------------------------------------------------
 # Orchestration.
 # ---------------------------------------------------------------------------
 

@@ -32,7 +32,7 @@ from noust.fleet.models import central_name
 from noust.web.jobs import JobManager
 from noust.web.server import create_app, get_token_manager
 from tests.support.fleet_views_support import Central, build_central
-from tests.support.teams_support import PASSWORD
+from tests.support.teams_support import PASSWORD, World, build_world
 from tests.support.web_auth import make_config
 from tests.support.web_central import sign_in
 
@@ -522,3 +522,64 @@ class TestTheRoutesThisReplaces:
             operation = schema["paths"][old]["get"]
             assert operation["deprecated"] is True
             assert operation["x-noust-deprecation"]["successor"] == new
+
+
+@pytest.fixture
+def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, runner: FakeRunner) -> Iterator[World]:
+    """The server with two teams, whose people are accounts with tokens."""
+    built = build_world(tmp_path, monkeypatch)
+    try:
+        yield built
+    finally:
+        NoustStore.reset_instance()
+
+
+class TestAMemberOfOneTeam:
+    def test_sees_the_rows_of_its_team_and_is_told_there_is_no_fleet(self, world: World) -> None:
+        body = world.client.get("/api/views/apps", headers=world.as_("alice")).json()
+
+        assert body["fleet"] is False
+        assert body["servers"] == []
+        assert [row["domain"] for row in body["items"]] == ["shop.acme.example"]
+        assert all(row["local"] for row in body["items"])
+
+    def test_another_teams_rows_are_not_there(self, world: World) -> None:
+        body = world.client.get("/api/views/apps", headers=world.as_("bob")).json()
+
+        assert [row["domain"] for row in body["items"]] == ["blog.globex.example"]
+
+    def test_what_belongs_to_the_whole_server_is_a_refusal_of_this_server_not_a_failure(
+        self, world: World
+    ) -> None:
+        response = world.client.get("/api/views/cron", headers=world.as_("alice"))
+
+        assert response.status_code == 200
+        body = response.json()
+        (outcome,) = body["nodes"]
+        assert (outcome["status"], outcome["code"]) == ("forbidden", "instance_scope_required")
+        (group,) = body["refusals"]
+        assert (group["reason"], group["code"], group["includes_central"]) == (
+            "other",
+            "instance_scope_required",
+            True,
+        )
+        assert group["coded"] is None, "the words are the server's own"
+
+    def test_the_search_finds_what_its_team_sees_and_nothing_else(self, world: World) -> None:
+        mine = world.client.get(
+            "/api/views/search", params={"q": "example", "kind": "app"}, headers=world.as_("alice")
+        ).json()
+        theirs = world.client.get(
+            "/api/views/search", params={"q": "example", "kind": "app"}, headers=world.as_("bob")
+        ).json()
+
+        assert [hit["name"] for hit in mine["items"]] == ["shop.acme.example"]
+        assert [hit["name"] for hit in theirs["items"]] == ["blog.globex.example"]
+
+    def test_the_instance_sees_both_teams_applications(self, world: World) -> None:
+        body = world.client.get("/api/views/apps", headers=world.master).json()
+
+        assert {row["domain"] for row in body["items"]} == {
+            "shop.acme.example",
+            "blog.globex.example",
+        }
