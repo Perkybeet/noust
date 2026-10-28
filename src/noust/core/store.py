@@ -36,7 +36,15 @@ from pathlib import Path
 from typing import Any, NoReturn, Optional, TypeVar
 from urllib.parse import quote
 
-from noust.core import domain_certificates, paths, schema_v12, schema_v13, schema_v14, schema_v15
+from noust.core import (
+    domain_certificates,
+    paths,
+    schema_v12,
+    schema_v13,
+    schema_v14,
+    schema_v15,
+    schema_v16,
+)
 from noust.core.exceptions import DomainConflictError, DomainError, NoustError, ValidationError
 from noust.core.fs import (
     SECRET_DIR_MODE,
@@ -1164,7 +1172,7 @@ def _decode_object(raw: Any) -> dict[str, Any]:
 
 
 # Schema version for migrations
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 
 _DEPLOYMENT_STATUSES_SQL = ", ".join(f"'{status.value}'" for status in DeploymentStatus)
 _DEPLOYMENT_TRIGGERS_SQL = ", ".join(f"'{trigger.value}'" for trigger in DeploymentTrigger)
@@ -1978,6 +1986,8 @@ class NoustStore:
                 self._complete_v13()
             if current >= schema_v14.VERSION:
                 self._complete_v14()
+            if current >= schema_v16.VERSION:
+                self._complete_v16()
 
     def _schema_version(self) -> int | None:
         """
@@ -2086,6 +2096,18 @@ class NoustStore:
             schema_v14.apply_v14(ddl, _run_script)
             teams_backfill.run(ddl)
 
+    def _complete_v16(self) -> None:
+        """
+        Add what a v16 store lacks of v16, when it lacks anything.
+
+        A development build of 4.1 stamped v16 before every area had its fragment.
+        """
+        if not schema_v16.incomplete(self._get_connection().cursor()):
+            return
+        logger.warning("The store is at v16 without all of v16's tables; adding them")
+        with self._ddl_transaction() as ddl:
+            schema_v16.apply_v16(ddl, _run_script)
+
     def _create_fresh_schema(self) -> bool:
         """
         Create every table at the current version, for a database that has none.
@@ -2111,6 +2133,7 @@ class NoustStore:
             schema_v13.apply_v13(cursor, _run_script)
             schema_v14.apply_v14(cursor, _run_script)
             teams_backfill.run(cursor)
+            schema_v16.apply_v16(cursor, _run_script)
             cursor.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
         return True
 
@@ -2393,6 +2416,15 @@ class NoustStore:
             cursor: Cursor the migration runs on.
         """
         schema_v15.apply_v15(cursor)
+
+    def _migrate_v15_to_v16(self, cursor: sqlite3.Cursor) -> None:
+        """
+        Add every table and column of 4.1 (schema v16).
+
+        Args:
+            cursor: Cursor the migration runs on.
+        """
+        schema_v16.apply_v16(cursor, _run_script)
 
     # =========================================================================
     # Application CRUD

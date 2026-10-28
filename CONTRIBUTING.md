@@ -98,6 +98,9 @@ src/noust/
                     lives) and permissions.py (handing files to the app's account)
     deploy_events.py  the deployment events every deployment publishes and its subscribers
     store.py        SQLite persistence (WAL) with versioned migrations
+    schema_fragments.py  what a schema version written one fragment per area shares: apply it, and
+                    ask whether a store lacks any of it (v14 and v16, 4.1's, use it; each lane of a
+                    release fills its own `<AREA>_SQL` and `<AREA>_COLUMNS` and never another's)
     config.py       layered config; secrets written 0600, redacted on the way out
     exceptions.py   NoustError hierarchy, used for real
     channel_secrets.py  the notification channels' credentials in config.yaml, sealed with

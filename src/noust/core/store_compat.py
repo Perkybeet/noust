@@ -42,6 +42,7 @@ SCHEMA_RELEASES: dict[int, str] = {
     13: "3.2.0",
     14: "4.0.0",
     15: "4.0.0",
+    16: "4.1.0",
 }
 
 #: ``noust.db.v13-20261003T101500Z-4242-ab12cd.bak``: the copy the upgrade kept, by schema.

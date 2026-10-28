@@ -16,9 +16,10 @@ that lane writes schema: lanes fill their own pair (``<AREA>_SQL`` and
 
 from __future__ import annotations
 
-import re
 import sqlite3
 from collections.abc import Callable
+
+from noust.core import schema_fragments
 
 #: The schema version this module defines.
 VERSION = 14
@@ -2055,15 +2056,7 @@ def _columns() -> list[tuple[str, str, str]]:
 
 
 def _existing_columns(cursor: sqlite3.Cursor, table: str) -> set[str]:
-    # PRAGMA arguments cannot be bound; the table names come from the lists
-    # above, which are code, never input.
-    cursor.execute(f"PRAGMA table_info({table})")
-    return {row[1] for row in cursor.fetchall()}
-
-
-_CREATED = re.compile(
-    r"CREATE\s+(?:UNIQUE\s+)?(TABLE|INDEX)\s+IF\s+NOT\s+EXISTS\s+(\w+)", re.IGNORECASE
-)
+    return schema_fragments.existing_columns(cursor, table)
 
 
 def incomplete(cursor: sqlite3.Cursor) -> bool:
@@ -2078,13 +2071,7 @@ def incomplete(cursor: sqlite3.Cursor) -> bool:
     Returns:
         True when :func:`apply_v14` would add something.
     """
-    cursor.execute("SELECT type, name FROM sqlite_master WHERE type IN ('table', 'index')")
-    present = {(str(kind), str(name)) for kind, name in cursor.fetchall()}
-    for fragment in _fragments():
-        for kind, name in _CREATED.findall(fragment):
-            if (kind.lower(), name) not in present:
-                return True
-    return any(column not in _existing_columns(cursor, table) for table, column, _ in _columns())
+    return schema_fragments.incomplete(cursor, _fragments(), _columns())
 
 
 def apply_v14(cursor: sqlite3.Cursor, run_script: Callable[[sqlite3.Cursor, str], None]) -> None:
@@ -2096,9 +2083,4 @@ def apply_v14(cursor: sqlite3.Cursor, run_script: Callable[[sqlite3.Cursor, str]
         run_script: The store's statement-by-statement script runner, passed
             in so this module does not import the store.
     """
-    for fragment in _fragments():
-        if fragment.strip():
-            run_script(cursor, fragment)
-    for table, column, definition in _columns():
-        if column not in _existing_columns(cursor, table):
-            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+    schema_fragments.apply(cursor, run_script, _fragments(), _columns())
