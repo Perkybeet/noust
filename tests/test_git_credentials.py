@@ -36,7 +36,7 @@ from noust.managers.source_manager import SourceManager
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app as build_app
 from noust.web.server import get_token_manager
-from tests.deploy_key_support import GitScript
+from tests.support.deploy_key_support import GitScript
 
 DOMAIN = "shop.example.com"
 SOURCE = "https://bitbucket.org/acme/shop.git"

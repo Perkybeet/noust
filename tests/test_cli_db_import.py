@@ -28,7 +28,7 @@ from noust.core.logger import Logger
 from noust.core.runner import set_runner
 from noust.core.store import NoustStore
 from noust.managers.database.base import BaseDatabaseManager
-from tests.database_backup_support import PG_LISTING, RcloneRunner, make_engine
+from tests.support.database_backup_support import PG_LISTING, RcloneRunner, make_engine
 
 SQL = b"-- PostgreSQL database dump\nSELECT 1;\n-- PostgreSQL database dump complete\n"
 

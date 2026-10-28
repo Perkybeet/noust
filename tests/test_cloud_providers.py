@@ -22,7 +22,7 @@ from noust.fleet.cloud.providers import (
     describe_providers,
     provider_for,
 )
-from tests.cloud_support import FakeApi
+from tests.support.cloud_support import FakeApi
 
 TOKEN = "tok" + "-" + "S" * 24
 

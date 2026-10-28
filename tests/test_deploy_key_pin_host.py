@@ -26,7 +26,7 @@ from noust.core.store import NoustStore
 from noust.managers.source_keys import DeployKeyManager
 from noust.web.permissions import Permission
 from noust.web.permissions.routes_deploy_keys import ROUTES
-from tests.deploy_key_support import DeployKeyRunner, ed25519_line, fingerprint, rsa_line
+from tests.support.deploy_key_support import DeployKeyRunner, ed25519_line, fingerprint, rsa_line
 
 
 @pytest.fixture

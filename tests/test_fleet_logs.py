@@ -17,7 +17,7 @@ import pytest
 
 from noust.core.store import NoustStore
 from noust.fleet.aggregate import gather, set_aggregator
-from tests.fleet_views_support import build_central
+from tests.support.fleet_views_support import build_central
 
 
 @pytest.fixture

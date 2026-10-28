@@ -30,7 +30,7 @@ from noust.fleet.liveness import (
     Liveness,
     cycles_after,
 )
-from tests.fleet_views_support import Central, build_central
+from tests.support.fleet_views_support import Central, build_central
 
 T0 = 1_000_000.0
 

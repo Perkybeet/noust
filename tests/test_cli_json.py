@@ -39,7 +39,7 @@ from click.testing import CliRunner
 from noust.cli.app import Context, NoustCommand
 from noust.cli.app import cli as root_cli
 from noust.cli.commands import webapp
-from tests.cli_tree_support import walk
+from tests.support.cli_tree_support import walk
 from tests.test_cli_webapp import ServiceSpy, StoreSpy, console, make_app, services, store
 
 # Re-exported so pytest discovers them as fixtures in this module too.

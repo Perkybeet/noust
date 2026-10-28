@@ -24,7 +24,14 @@ from noust.fleet.models import (
     validate_central_name,
     validate_node_name,
 )
-from tests.fleet_support import HOST_KEY, TOKEN, decoded, ed25519_line, fingerprint, join_code
+from tests.support.fleet_support import (
+    HOST_KEY,
+    TOKEN,
+    decoded,
+    ed25519_line,
+    fingerprint,
+    join_code,
+)
 
 CENTRAL_KEY = ed25519_line(7, "noust-central@nas")
 

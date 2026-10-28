@@ -23,7 +23,7 @@ from click.testing import CliRunner
 
 from noust.cli.app import cli as root_cli
 from noust.core.store import App, NoustStore
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 TEMPLATE = """\
 # documentation: https://docs.example.org/wiki

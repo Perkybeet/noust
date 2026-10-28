@@ -36,7 +36,7 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers
 from noust.web.auth import CSRF_HEADER_NAME, AuditLogger, SecurityConfig, set_audit_logger
 from noust.web.server import create_app, get_token_manager
-from tests.config_files import planted, stored_config
+from tests.support.config_files import planted, stored_config
 
 #: Secrets planted in the stored configuration; none may reach a response.
 PLANTED_SECRETS = {

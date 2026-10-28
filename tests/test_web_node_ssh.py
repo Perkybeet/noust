@@ -30,8 +30,8 @@ from noust.fleet.ssh_options import NodeSSHOptions
 from noust.web.jobs import JobManager
 from noust.web.permissions.registry import route_map
 from noust.web.server import create_app, get_token_manager
-from tests.fleet_support import ed25519_line, fingerprint
-from tests.fleet_views_support import Central, build_central
+from tests.support.fleet_support import ed25519_line, fingerprint
+from tests.support.fleet_views_support import Central, build_central
 from tests.test_web_auth import make_config
 from tests.test_web_central import elevate, sign_in
 

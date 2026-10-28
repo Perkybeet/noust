@@ -33,7 +33,7 @@ from noust.managers.backup_manager import BackupManager, BackupMetadata
 from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler, run_schedule
 from noust.managers.self_backup import SelfBackupManager
 from noust.managers.volume_backups import VolumeBackupManager
-from tests.database_backup_support import RcloneRunner
+from tests.support.database_backup_support import RcloneRunner
 from tests.test_notifier import config  # noqa: F401
 from tests.test_self_backup import PASSPHRASE, FakeTimers, old, server  # noqa: F401
 from tests.test_self_backup import Runner as SelfRunner

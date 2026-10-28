@@ -44,8 +44,8 @@ from noust.fleet.link.listener import (
 )
 from noust.fleet.link.records import ACTIVE, INVITED, PORT_FIRST, LinkRecords
 from noust.fleet.models import parse_public_key
-from tests.fleet_support import HOST_KEY, TOKEN, decoded, ed25519_line, fingerprint
-from tests.link_support import (
+from tests.support.fleet_support import HOST_KEY, TOKEN, decoded, ed25519_line, fingerprint
+from tests.support.link_support import (
     LINK_KEY,
     LINK_UID,
     NONCE,

@@ -24,8 +24,8 @@ from noust.cli.commands import db as db_cli
 from noust.core.config import Config
 from noust.core.logger import Logger
 from noust.core.runner import SubprocessRunner
-from tests.database_migration_support import Lab, build_lab
-from tests.database_move_support import DOMAIN, HOST
+from tests.support.database_migration_support import Lab, build_lab
+from tests.support.database_move_support import DOMAIN, HOST
 
 
 @pytest.fixture

@@ -49,7 +49,7 @@ from noust.managers.server.updates_unit import (
     parse_show,
     start_and_follow,
 )
-from tests.server_support import (  # noqa: F401 - the fixture registers itself
+from tests.support.server_support import (  # noqa: F401 - the fixture registers itself
     SequencedRunner,
     fixture,
     make_host,

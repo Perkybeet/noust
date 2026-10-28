@@ -43,7 +43,7 @@ from noust.managers.transient_unit import (
 from noust.web import job_reconcile
 from noust.web.job_reconcile import Followed, UnitJobKind, reconcile_job, unlogged
 from noust.web.jobs import INTERRUPTED_REASON, JobManager
-from tests.server_support import (  # noqa: F401 - the fixture registers itself
+from tests.support.server_support import (  # noqa: F401 - the fixture registers itself
     SequencedRunner,
     no_package_manager_running,
 )
@@ -611,7 +611,7 @@ class TestCentral:
     @pytest.fixture
     def central(self, tmp_path: Path) -> Iterator[Any]:
         from noust.fleet.aggregate import set_aggregator
-        from tests.fleet_views_support import build_central
+        from tests.support.fleet_views_support import build_central
 
         built = build_central(tmp_path, ("web-1", "web-2"))
         yield built
@@ -761,7 +761,7 @@ class TestNoustLast:
     def _manager(tmp_path: Path, runner: Any, family: str = "apt") -> Any:
         from noust.core.fs import RecordingFileSystem
         from noust.managers.server.updates import UpdatesManager
-        from tests.server_support import make_host, platform_for
+        from tests.support.server_support import make_host, platform_for
 
         return UpdatesManager(
             platform=platform_for(family),

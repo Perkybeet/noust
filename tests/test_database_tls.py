@@ -4,7 +4,7 @@
 """
 TLS for the engines Noust runs (4.0, C-25).
 
-The machine is :class:`~tests.database_instance_support.DockerHost` with an openssl in
+The machine is :class:`~tests.support.database_instance_support.DockerHost` with an openssl in
 front of it, so the certificate is really asked for, written where the container reads
 it, and mounted by the Compose file *on disk*. What is defended:
 
@@ -37,7 +37,7 @@ from noust.managers.database import instance_layout as layout
 from noust.managers.database import tls_authority
 from noust.managers.database.instance_tls import InstanceTls
 from noust.managers.database.tls_authority import TlsAuthority
-from tests.database_instance_support import DockerHost, World, build_world, close_world
+from tests.support.database_instance_support import DockerHost, World, build_world, close_world
 
 GIB = 1024**3
 

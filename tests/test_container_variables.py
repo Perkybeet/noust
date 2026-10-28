@@ -27,7 +27,7 @@ from noust.core.variables.store import VariableStore
 from noust.deployers.helpers.app_env import read_environment_of, write_app_env
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.validators.environment import EnvironmentValidationError
-from tests.container_support import APP, DOMAIN, Docker, root_of
+from tests.support.container_support import APP, DOMAIN, Docker, root_of
 from tests.test_container_deployer import (  # noqa: F401  (pytest resolves fixtures by name)
     IMAGE,
     certs,

@@ -37,7 +37,7 @@ from noust.core.config import (
 from noust.core.exceptions import ConfigError
 from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.logger import Logger
-from tests.config_files import stored_config
+from tests.support.config_files import stored_config
 
 REPO = Path(__file__).resolve().parent.parent
 

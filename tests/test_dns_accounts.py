@@ -38,7 +38,7 @@ from noust.managers.dns.challenge import (
 from noust.managers.dns.cloudflare import CloudflareClient, CloudflareProvider
 from noust.managers.dns.provider import DnsProviderError, is_public_address, same_value, zone_for
 from noust.managers.dns.resolver import parse_addresses, resolve
-from tests.dns_support import Cloudflare, FakeProvider, dns_answer, zones
+from tests.support.dns_support import Cloudflare, FakeProvider, dns_answer, zones
 
 TOKEN = "cf-token-" + "x" * 31
 VALIDATION = "A" * 43

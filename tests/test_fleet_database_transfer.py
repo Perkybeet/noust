@@ -42,7 +42,7 @@ from noust.web.api.databases.users import CreateUserRequest
 from noust.web.fleet_database_actions import transfer_request
 from noust.web.fleet_jobs import FleetJobs, Runner, plan, retry_request
 from noust.web.pydantic_compat import dump_model
-from tests.fleet_views_support import SCHEMA_30, Central, Node, build_central
+from tests.support.fleet_views_support import SCHEMA_30, Central, Node, build_central
 
 ADMIN = Asker(actor="ana", scope="admin", role="admin", elevated=True)
 NAMES = ("db-1", "db-2", "db-3")

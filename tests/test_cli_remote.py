@@ -25,7 +25,7 @@ from click.testing import CliRunner
 
 from noust.cli.app import cli as root_cli
 from noust.client import ApiClient, ContextError, ContextStore, RemoteSettings, resolve_target
-from tests.client_support import Answer, Wire
+from tests.support.client_support import Answer, Wire
 
 TOKEN = "noust_tok_" + "r" * 40
 URL = "https://noust.test"

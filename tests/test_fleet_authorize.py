@@ -55,7 +55,7 @@ from noust.fleet.joincode import JoinCode
 from noust.fleet.models import parse_public_key
 from noust.fleet.policy import FleetAccess, current_access
 from noust.web.auth import STATE_DIR_ENV, SecurityConfig, TokenManager
-from tests.fleet_support import HOST_KEY, ed25519_line, fingerprint
+from tests.support.fleet_support import HOST_KEY, ed25519_line, fingerprint
 
 CENTRAL_KEY = ed25519_line(7, "noust-central@nas")
 OTHER_CENTRAL_KEY = ed25519_line(8, "noust-central@nas")
@@ -784,7 +784,7 @@ class TestIssuedHere:
     def central(self, tmp_path, monkeypatch):
         from noust.core.secrets import SecretStore
         from noust.fleet.keys import NodeKeys
-        from tests.fleet_support import KeygenRunner
+        from tests.support.fleet_support import KeygenRunner
 
         NoustStore.reset_instance()
         store = NoustStore(tmp_path / "central" / "noust.db", fs=RecordingFileSystem())

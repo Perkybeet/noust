@@ -4,7 +4,7 @@
 """
 Tests for the panel's shared seed data factory.
 
-:func:`tests.panel_factory.seed_panel_state` backs both
+:func:`tests.support.panel_factory.seed_panel_state` backs both
 ``scripts/console_server.py`` (formerly the now-deleted
 ``scripts/panel_browser_check.py``) and any test that wants a populated
 panel. These tests are its own contract: that it seeds exactly the counts it
@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from noust.core.store import NoustStore
-from tests.panel_factory import (
+from tests.support.panel_factory import (
     DEFAULT_DOMAINS,
     seed_console_state,
     seed_empty_console_state,

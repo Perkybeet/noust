@@ -41,8 +41,8 @@ from noust.managers.backup_destination_files import DestinationFileManager
 from noust.managers.backup_failures import BackupFailureLog
 from noust.managers.backup_manager import BackupManager
 from noust.managers.volume_backups import SAFETY_TAG, VolumeBackupManager
-from tests.database_backup_support import RcloneRunner, age
-from tests.notifications_support import failure_id_of
+from tests.support.database_backup_support import RcloneRunner, age
+from tests.support.notifications_support import failure_id_of
 
 DOMAIN = "shop.example.com"
 APP = "shop-example-com"

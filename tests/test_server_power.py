@@ -33,7 +33,7 @@ from noust.managers.server.power import (
     unenabled_app_units,
 )
 from noust.managers.server.power_records import PowerRecords
-from tests.server_support import make_host
+from tests.support.server_support import make_host
 
 NOW = datetime(2026, 9, 29, 21, 0, tzinfo=timezone.utc)
 BOOT = "d875e599869f472296c96f9b3e1b5356"

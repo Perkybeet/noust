@@ -34,7 +34,7 @@ from noust.cli import app as cli_app
 from noust.cli.commands import db as db_cli
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
-from tests.console_patch_support import patch_console
+from tests.support.console_patch_support import patch_console
 
 #: Every subcommand the frozen surface promises, with the arguments that make
 #: it parse. Used to prove the command exists and does not explode on --help.

@@ -21,7 +21,7 @@ from noust.core.accounts.oidc import OidcManager
 from noust.core.accounts.oidc_client import OidcClient, OidcHttp, set_client
 from noust.core.store import NoustStore
 from noust.web.auth import STATE_DIR_ENV
-from tests.github_login_support import FakeGitHub
+from tests.support.github_login_support import FakeGitHub
 
 SECRET = "gh-secret-value"
 

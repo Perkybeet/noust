@@ -14,7 +14,7 @@ from noust.core.exceptions import CloudProviderError, NodeError, ValidationError
 from noust.core.secrets import SecretStore
 from noust.core.store import NoustStore
 from noust.fleet.cloud.accounts import CloudAccounts, check_token
-from tests.cloud_support import FakeApi
+from tests.support.cloud_support import FakeApi
 
 TOKEN = "hc" + "_" + "a" * 20 + "Z9k2"
 OTHER = "hc" + "_" + "b" * 20 + "Q7m1"

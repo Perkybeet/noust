@@ -79,7 +79,7 @@ from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Fact, Notification, Section, State
 from noust.deployers.helpers.hooks import compose_deploy_hook_failed
 from noust.deployers.helpers.sandbox_trial import compose_sandbox_trial_failed
-from tests.notifications_netobs import netobs_events
+from tests.support.notifications_netobs import netobs_events
 
 FIXED_TS = datetime(2026, 9, 29, 10, 45, 51, tzinfo=timezone.utc)
 SERVER = "web-1"

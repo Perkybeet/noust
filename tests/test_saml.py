@@ -5,7 +5,7 @@
 Signing in through a SAML 2.0 identity provider (checklist I-20): configuring it, and what a
 sign-in does with a response that is right and with every response that is not.
 
-The identity provider is ``tests/saml_support.FakeIdp``: it answers the AuthnRequest it was sent,
+The identity provider is ``tests/support/saml_support.FakeIdp``: it answers the AuthnRequest it was sent,
 signs with a real key, and can be told to sign wrongly, address the wrong server or say the wrong
 time. The XML security itself is held to the standard in ``tests/test_saml_xml.py``; what these
 tests say is that a response which fails any condition never becomes a ticket.
@@ -39,8 +39,8 @@ from noust.core.accounts.saml import (
 )
 from noust.core.exceptions import ValidationError
 from noust.core.teams import TeamStore
-from tests.oidc_support import Clock
-from tests.saml_support import (
+from tests.support.oidc_support import Clock
+from tests.support.saml_support import (
     NS_SAML,
     FakeIdp,
     Scenario,
@@ -728,7 +728,7 @@ class TestResponsesThatAreNotRight:
             "<saml:EncryptedAssertion><xenc:EncryptedData "
             'xmlns:xenc="http://www.w3.org/2001/04/xmlenc#"/></saml:EncryptedAssertion>'
         )
-        from tests.saml_support import encode_response
+        from tests.support.saml_support import encode_response
 
         with pytest.raises(OidcError) as caught:
             finish(self.saml, begun, encode_response(scenario.response_xml(encrypted)), relay)
@@ -812,7 +812,7 @@ class TestResponsesThatAreNotRight:
         begun = begin(self.saml)
         request, relay = read_redirect(begun.url)
         scenario = idp.scenario(request)
-        from tests.saml_support import encode_response, sign
+        from tests.support.saml_support import encode_response, sign
 
         assertion = scenario.assertion_xml()
         start = assertion.index("<saml:Conditions")

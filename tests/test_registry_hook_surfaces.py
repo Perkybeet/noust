@@ -27,7 +27,7 @@ from noust.core.registry_events import registry_hook_token
 from noust.core.store import App, NoustStore
 from noust.integrations import hooks_site, registry_webhook
 from noust.web.api.hooks import mint_webhook_secret
-from tests.container_support import DIGEST, Docker
+from tests.support.container_support import DIGEST, Docker
 from tests.test_web_hooks import (  # noqa: F401  (pytest resolves fixtures by name)
     admin,
     app,

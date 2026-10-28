@@ -63,7 +63,7 @@ def with_authenticator(name: str, role: str) -> None:
 def with_passkey(account_id: int | None, username: str) -> None:
     pytest.importorskip("cryptography")
     from noust.core.accounts.passkeys import PasskeyManager, PasskeyOwner, RelyingParty
-    from tests.webauthn_authenticator import SoftwareAuthenticator
+    from tests.support.webauthn_authenticator import SoftwareAuthenticator
 
     rp = RelyingParty(id="localhost", origins=("http://localhost:8080",))
     passkeys = PasskeyManager(hostname="central")

@@ -8,7 +8,7 @@ Run the real Noust panel against a seeded, sandboxed machine.
 This is the backend the console is developed and tested against: the real
 FastAPI application from :func:`noust.web.server.create_app`, served by uvicorn
 so its lifespan runs and the ``/events`` stream and the WebSockets work, over
-a store seeded by :func:`tests.panel_factory.seed_console_state` - running,
+a store seeded by :func:`tests.support.panel_factory.seed_console_state` - running,
 stopped, failed and static applications, deployments with captured build
 logs, sites, certificates, databases, backups, cron jobs and a job history.
 
@@ -203,7 +203,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--showcase",
         action="store_true",
         help=(
-            "seed tests.showcase's invented agency instead of tests.panel_factory's "
+            "seed tests.support.showcase's invented agency instead of tests.support.panel_factory's "
             "example.com machine: no real project, domain or person, and no rename-era "
             "example.com sites, for docs/assets/console's screenshots (panel/e2e/docs.spec.ts)"
         ),
@@ -373,7 +373,7 @@ def prepare_environment(sandbox: Sandbox) -> None:
     os.environ["XDG_CONFIG_HOME"] = str(sandbox.home / ".config")
     os.environ["XDG_CACHE_HOME"] = str(sandbox.home / ".cache")
     os.environ["NOUST_WEB_STATE_DIR"] = str(sandbox.state_dir)
-    # The repository's own code, never an installed copy, and tests.panel_factory.
+    # The repository's own code, never an installed copy, and tests.support.panel_factory.
     for entry in (str(REPO), str(REPO / "src")):
         if entry not in sys.path:
             sys.path.insert(0, entry)
@@ -2390,14 +2390,14 @@ def make_runner(
             Fake the fleet's own key pair (``NodeKeys.ensure_keypair``).
 
             Writes a structurally valid ed25519 pair, exactly as
-            ``tests.fleet_support.KeygenRunner`` already does for pytest (rule 3: one
+            ``tests.support.fleet_support.KeygenRunner`` already does for pytest (rule 3: one
             implementation, reused here rather than copied). No real key material is
             needed: this console never opens a real SSH connection with it - see
             ``make_loopback_tunnels`` - so nothing ever reads these files for their
             cryptographic content, only for their shape and for the fingerprint the
             fleet's join code carries.
             """
-            from tests.fleet_support import ed25519_line
+            from tests.support.fleet_support import ed25519_line
 
             # The host keys Noust pinned (Settings, Integrations): listed and forgotten
             # from the file, as ssh-keygen does, never written as a key pair.
@@ -2905,7 +2905,7 @@ def seed_empty_machine(
         certificates - what :func:`make_runner` answers from; all but the units are empty.
     """
     from noust.core.store import get_store
-    from tests.panel_factory import seed_empty_console_state
+    from tests.support.panel_factory import seed_empty_console_state
 
     store = get_store(sandbox.store_file)
     seed_empty_console_state(store)
@@ -2942,18 +2942,18 @@ def seed_machine(
     Args:
         sandbox: The sandbox.
         expired_certificate: Seed the first certificate as expired (``--expired-certificate``).
-        showcase: Seed :func:`tests.showcase.seed_showcase_state`'s invented agency instead
-            of :func:`tests.panel_factory.seed_console_state`'s example.com machine
+        showcase: Seed :func:`tests.support.showcase.seed_showcase_state`'s invented agency instead
+            of :func:`tests.support.panel_factory.seed_console_state`'s example.com machine
             (``--showcase``). Everything below this point reads the seeded application,
             deployment and certificate domains off the store rather than by name, so it
             seeds the showcase's machine exactly as it does the default one; only the
-            2.2/2.3 features that are inherently about *tests.panel_factory*'s own domains
+            2.2/2.3 features that are inherently about *tests.support.panel_factory*'s own domains
             (zero-downtime, previews, the GitHub App, backup destinations, the tabs'
             release history) are skipped, since none of the documentation screenshots need
             them.
-        hostname: With ``showcase``, which of :data:`tests.showcase.NODES` to seed
+        hostname: With ``showcase``, which of :data:`tests.support.showcase.NODES` to seed
             (``--hostname``); the agency's main server when None, matching
-            :func:`tests.showcase.seed_showcase_state`'s own default. Ignored otherwise.
+            :func:`tests.support.showcase.seed_showcase_state`'s own default. Ignored otherwise.
 
     Returns:
         The unit model, each unit's port, each unit's domain, and the domains
@@ -2966,12 +2966,12 @@ def seed_machine(
     tabs_history: dict[str, _TabsApp] = {}
     showcase_cert_alt_names: dict[str, str] | None = None
     if showcase:
-        from tests.showcase import cert_alt_names, seed_showcase_state
+        from tests.support.showcase import cert_alt_names, seed_showcase_state
 
         state: Any = seed_showcase_state(store, node=hostname or "fra-1")
         showcase_cert_alt_names = cert_alt_names(hostname or "fra-1")
     else:
-        from tests.panel_factory import seed_console_state
+        from tests.support.panel_factory import seed_console_state
 
         # First, so the tabs' old deploys get lower ids than the ones seeded as of now.
         tabs_history = seed_app_tabs_history(store)
@@ -3056,7 +3056,7 @@ def seed_machine(
         units,
         list(state.cert_domains),
         expired_certificate=expired_certificate,
-        # The showcase's own site already carries the alias tests.showcase gave it
+        # The showcase's own site already carries the alias tests.support.showcase gave it
         # through store.add_domain; this is only the nginx server_name list a site's
         # own config carries (SitesTab, not the AppDomainsTab), on one of its domains
         # in place of the default machine's example.net.
@@ -3268,7 +3268,7 @@ def seed_cron(domain: str) -> None:
 # Console: the Server page's monitor card needs an installed, running unit
 # and a small findings history to show status, observations and the
 # acknowledge flow; the Activity page needs at least one job with a captured
-# log, since none of tests.panel_factory.seed_console_state's jobs record one.
+# log, since none of tests.support.panel_factory.seed_console_state's jobs record one.
 # ---------------------------------------------------------------------------
 
 
@@ -3462,7 +3462,7 @@ def seed_job_history(sandbox: Sandbox, store: Any, domain: str) -> None:
     """
     Add one job with a captured log, for the Activity page's log drawer.
 
-    :func:`tests.panel_factory.seed_console_state` seeds a small job history
+    :func:`tests.support.panel_factory.seed_console_state` seeds a small job history
     already (a deploy, a backup, a cert renewal, a failed update), none of
     which record ``log_path``: nothing wrote a file for them to point at.
     This adds one more, the way the real job manager does - a text file next
@@ -3495,7 +3495,7 @@ def seed_job_history(sandbox: Sandbox, store: Any, domain: str) -> None:
         JobRecord(
             # Job ids are validated as hexadecimal (JOB_ID_PATTERN in
             # web/api/jobs.py) wherever one names a single job, unlike
-            # tests.panel_factory's own "seed0000" ids, which only ever
+            # tests.support.panel_factory's own "seed0000" ids, which only ever
             # appear in the list.
             id="c0ffee01",
             type="update",
@@ -5204,7 +5204,7 @@ def seed_sources_and_delivery(sandbox: Sandbox, store: Any) -> None:
     from noust.core.runner import get_runner
     from noust.core.utils import domain_to_app_name
     from noust.managers.source_keys import DeployKeyManager
-    from tests.fleet_support import ed25519_line
+    from tests.support.fleet_support import ed25519_line
 
     app = store.get_app(SOURCES_KEY_APP)
     if app is not None:
@@ -6478,7 +6478,7 @@ def seed_databases(sandbox: Sandbox) -> None:
     from noust.managers.database.records import DatabaseLink, DatabaseRecords
     from noust.managers.database.service import DatabaseService
     from noust.web.metrics_collector import get_metrics_store
-    from tests.panel_factory import DESTINATION_SFTP as DESTINATION_SFTP_NAME
+    from tests.support.panel_factory import DESTINATION_SFTP as DESTINATION_SFTP_NAME
 
     store = get_store(sandbox.store_file)
     app = store.get_app("example.com")
@@ -6765,7 +6765,7 @@ def seed_zero_downtime(
     from noust.core.store import App, ReleaseRecord
     from noust.core.utils import domain_to_app_name
     from noust.deployers.bluegreen import BlueGreen, set_zero_downtime
-    from tests.panel_factory import seed_zero_downtime_history
+    from tests.support.panel_factory import seed_zero_downtime_history
 
     model_units, model_ports, model_domains = _zd_model()
     _zd_probe_model(model_units, model_ports)
@@ -6983,7 +6983,7 @@ def seed_previews(
         domains: Each unit's domain, mutated in place.
     """
     import noust.managers.previews as previews_module
-    from tests.panel_factory import PREVIEWS_BASE_DOMAIN, seed_previews_records
+    from tests.support.panel_factory import PREVIEWS_BASE_DOMAIN, seed_previews_records
 
     # Written when the settings are saved: into the sandbox, like every other unit.
     previews_module.SYSTEMD_DIR = sandbox.systemd_dir
@@ -7117,7 +7117,7 @@ def seed_github_app(sandbox: Sandbox, store: Any) -> None:
     Connect the machine to its own GitHub App, and answer GitHub from the sandbox.
 
     The App and its installations are store rows
-    (:func:`tests.panel_factory.seed_github_app`); its private key, webhook
+    (:func:`tests.support.panel_factory.seed_github_app`); its private key, webhook
     secret and client secret are written where the real secret store keeps
     them, the hooks are exposed at :data:`GITHUB_HOOKS_URL` and the App's
     webhook is recorded active there, so Settings > Integrations shows a
@@ -7142,8 +7142,8 @@ def seed_github_app(sandbox: Sandbox, store: Any) -> None:
     )
     from noust.integrations.github.client import GitHubClient, set_client
     from noust.integrations.hooks_site import HOOKS_URL_KEY
-    from tests.panel_factory import GITHUB_APP
-    from tests.panel_factory import seed_github_app as record_github_app
+    from tests.support.panel_factory import GITHUB_APP
+    from tests.support.panel_factory import seed_github_app as record_github_app
 
     record_github_app(store)
     secrets = SecretStore()
@@ -7196,7 +7196,7 @@ def _github_installation(installation_id: int) -> dict[str, Any] | None:
     Returns:
         GitHub's installation object, or None for one the App does not have.
     """
-    from tests.panel_factory import GITHUB_INSTALLATIONS
+    from tests.support.panel_factory import GITHUB_INSTALLATIONS
 
     for known, account, account_type, selection in GITHUB_INSTALLATIONS:
         if known == installation_id:
@@ -7225,7 +7225,7 @@ def _github_opener(request: Any, timeout: float | None = None) -> Any:
     """
     from urllib.parse import urlsplit
 
-    from tests.panel_factory import (
+    from tests.support.panel_factory import (
         GITHUB_APP,
         GITHUB_BRANCHES,
         GITHUB_INSTALLATIONS,
@@ -7331,7 +7331,7 @@ def _github_git_and_openssl(sandbox: Sandbox) -> None:
         sandbox: The sandbox, whose ``/var/www/src/storefront`` is checked out.
     """
     from noust.core.runner import CommandResult, get_runner
-    from tests.panel_factory import GITHUB_REPOSITORIES
+    from tests.support.panel_factory import GITHUB_REPOSITORIES
 
     runner = get_runner()
     original = runner.run
@@ -7815,7 +7815,7 @@ def seed_backup_destinations(sandbox: Sandbox, store: Any) -> None:
     from noust.core.utils import domain_to_app_name
     from noust.managers.backup_destinations import BackupDestinationManager
     from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler
-    from tests.panel_factory import DESTINATION_ENCRYPTED, DESTINATION_SFTP, seed_push_job
+    from tests.support.panel_factory import DESTINATION_ENCRYPTED, DESTINATION_SFTP, seed_push_job
 
     remotes = sandbox.root / "remotes"
     _destinations_rclone_model(sandbox, remotes)
@@ -8129,8 +8129,8 @@ def seed_env_marks(sandbox: Sandbox, store: Any) -> None:
         store: The seeded store.
     """
     from noust.core.utils import domain_to_app_name
-    from tests.panel_factory import ENV_MARKS_APP, ENV_MARKS_PUBLIC
-    from tests.panel_factory import seed_env_marks as mark
+    from tests.support.panel_factory import ENV_MARKS_APP, ENV_MARKS_PUBLIC
+    from tests.support.panel_factory import seed_env_marks as mark
 
     env_file = sandbox.apps_dir / domain_to_app_name(ENV_MARKS_APP) / ".env"
     name, value = ENV_MARKS_PUBLIC
@@ -8965,7 +8965,7 @@ def mount_fleet_test_seam(app: Any, *, console_port: int) -> None:
     from noust.fleet.joincode import JoinCode
     from noust.fleet.models import parse_public_key
     from noust.web.server import get_token_manager
-    from tests.fleet_support import ed25519_line
+    from tests.support.fleet_support import ed25519_line
 
     # Not called inline in the signature below (ruff B008): a route's parameter defaults
     # are evaluated once, at import time, same as this is, so there is no difference but
@@ -9134,7 +9134,7 @@ def _enroll_host_key(host: str) -> str:
     """
     import zlib
 
-    from tests.fleet_support import ed25519_line
+    from tests.support.fleet_support import ed25519_line
 
     return ed25519_line(zlib.crc32(host.encode()), "")
 
@@ -10048,7 +10048,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
 
     redirect_system_paths(sandbox)
     if args.showcase:
-        from tests.showcase import AGENCY_DOMAIN
+        from tests.support.showcase import AGENCY_DOMAIN
 
         ssl_email = f"ops@{AGENCY_DOMAIN}"
     else:
@@ -10116,7 +10116,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
         with contextlib.redirect_stdout(sys.stderr):
             seed_databases(sandbox)
     if args.central_role != "hub" and not args.showcase and not args.empty:
-        # Deploys tests.panel_factory's own "lanzamiento.example.org": nothing the
+        # Deploys tests.support.panel_factory's own "lanzamiento.example.org": nothing the
         # documentation screenshots need, and exactly the example.org the showcase exists
         # to keep out of them.
         with contextlib.redirect_stdout(sys.stderr):
@@ -10150,7 +10150,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     if args.hostname is not None:
         use_fixed_hostname(args.hostname)
     if args.showcase:
-        from tests.showcase import NODE_READINGS
+        from tests.support.showcase import NODE_READINGS
 
         cpu_percent, memory_percent, disk_percent, uptime_s = NODE_READINGS.get(
             args.hostname or "", NODE_READINGS["fra-1"]
@@ -10179,7 +10179,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     if args.fleet_node:
         display_hosts = None
         if args.showcase:
-            from tests.showcase import NODE_SSH_HOSTS
+            from tests.support.showcase import NODE_SSH_HOSTS
 
             display_hosts = NODE_SSH_HOSTS
         join_fleet_node(args.fleet_node, display_hosts=display_hosts)

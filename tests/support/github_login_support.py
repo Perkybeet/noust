@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 
-from tests.oidc_support import FakeResponse
+from tests.support.oidc_support import FakeResponse
 
 
 def _b64(data: bytes) -> str:

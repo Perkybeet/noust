@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-SNAPSHOT_ROOT = Path(__file__).parent / "snapshots"
+SNAPSHOT_ROOT = Path(__file__).parent.parent / "snapshots"
 
 
 def updating() -> bool:

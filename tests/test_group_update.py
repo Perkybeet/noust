@@ -27,8 +27,8 @@ from noust.core.store import NoustStore
 from noust.core.teams import Scope
 from noust.web.jobs import Job, JobType
 from noust.web.permissions.access import AccessManager
-from tests.client_support import Answer, Wire
-from tests.teams_support import World, build_world, make_app, make_person
+from tests.support.client_support import Answer, Wire
+from tests.support.teams_support import World, build_world, make_app, make_person
 
 SHOP = "shop.acme.example"
 MOBILE = "m.acme.example"

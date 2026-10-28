@@ -27,7 +27,7 @@ from noust.pushdeploy import hook
 from noust.pushdeploy.host import PUSH_USER
 from noust.pushdeploy.repos import ssh_config_snippet
 from noust.validators.source import push_source
-from tests.push_support import DOMAIN, OTHER, PushRig, build_rig, ecdsa, ed25519
+from tests.support.push_support import DOMAIN, OTHER, PushRig, build_rig, ecdsa, ed25519
 
 
 @pytest.fixture

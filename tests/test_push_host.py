@@ -28,7 +28,7 @@ from noust.pushdeploy.host import (
     policy_block,
     policy_problems,
 )
-from tests.push_support import GIT_SHELL, PushRig, PushWorld, build_rig
+from tests.support.push_support import GIT_SHELL, PushRig, PushWorld, build_rig
 
 
 @pytest.fixture

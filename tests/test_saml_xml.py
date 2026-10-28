@@ -18,7 +18,7 @@ import pytest
 
 from noust.core.accounts import saml_xml as sx
 from noust.core.accounts.saml_xml import SamlXmlError
-from tests import saml_support as idp
+from tests.support import saml_support as idp
 
 
 def root(xml: str):

@@ -47,9 +47,9 @@ from noust.managers.database.service import DatabaseService
 from noust.recipes import get_recipe
 from noust.recipes.installed import record_install
 from noust.web.api.openapi import api_routes
-from tests.deploy_key_support import DeployKeyRunner
-from tests.fleet_support import ed25519_line, fingerprint
-from tests.teams_support import World, build_world
+from tests.support.deploy_key_support import DeployKeyRunner
+from tests.support.fleet_support import ed25519_line, fingerprint
+from tests.support.teams_support import World, build_world
 
 ACME = "shop.acme.example"
 GLOBEX = "blog.globex.example"

@@ -7,7 +7,7 @@ A test replaces a name where the code under test looks it up.
 A module that became a package imports each of its old names in its ``__init__``, so everything
 that imports them keeps working. A test that replaces one of those names on the package does not
 fail and does not test what it meant to: the code reads the name from the submodule that
-defines it, and the replacement sits where nobody looks (``tests/patch_scan_support.py``).
+defines it, and the replacement sits where nobody looks (``tests/support/patch_scan_support.py``).
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 import noust
-from tests.patch_scan_support import PatchSite, patches_in_tree, patches_of
+from tests.support.patch_scan_support import PatchSite, patches_in_tree, patches_of
 
 ROOT = Path(noust.__file__).resolve().parent.parent.parent
 

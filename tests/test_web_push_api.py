@@ -20,7 +20,7 @@ import pytest
 
 from noust.web.permissions import Permission
 from noust.web.permissions.routes_push import ROUTES
-from tests.push_support import DOMAIN, OTHER, PushRig, build_rig, ed25519
+from tests.support.push_support import DOMAIN, OTHER, PushRig, build_rig, ed25519
 
 
 @pytest.fixture

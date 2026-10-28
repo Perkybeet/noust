@@ -32,7 +32,7 @@ from noust.fleet.builders import Builders
 from noust.web import fleet_jobs
 from noust.web.fleet_jobs import FleetJobs, Runner, plan, retry_request
 from noust.web.fleet_ship_actions import ship_request
-from tests.fleet_views_support import SCHEMA_30, Central, Node, build_central
+from tests.support.fleet_views_support import SCHEMA_30, Central, Node, build_central
 
 ADMIN = Asker(actor="ana", scope="admin", role="admin", elevated=True)
 DOMAIN = "shop.example.com"

@@ -35,7 +35,7 @@ from noust.web.jobs import JobStatus, JobType, get_job_manager
 from noust.web.permissions import Permission
 from noust.web.permissions.registry import permission_for_route
 from noust.web.server import create_app, get_token_manager
-from tests.cloud_support import FakeApi
+from tests.support.cloud_support import FakeApi
 from tests.test_web_auth import make_config
 
 TOKEN = "hc" + "_" + "w" * 20 + "E4r8"

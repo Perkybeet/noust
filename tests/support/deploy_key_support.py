@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from noust.core.runner import CommandResult, FakeRunner
-from tests.fleet_support import ed25519_line, fingerprint
+from tests.support.fleet_support import ed25519_line, fingerprint
 
 __all__ = [
     "DeployKeyRunner",

@@ -23,7 +23,7 @@ from noust.core.config import DEFAULT_CONFIG
 from noust.core.messages import MESSAGES
 from noust.core.notifications.model import ALL_KINDS, EVENT_KINDS, OFF_BY_DEFAULT
 from noust.core.notifications.render.email import wordmark
-from tests.notifications_support import catalog
+from tests.support.notifications_support import catalog
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = ROOT / "src" / "noust" / "core" / "notifications"

@@ -25,7 +25,7 @@ from noust.fleet.link.code import LinkCode
 from noust.fleet.link.listener import LINK_USER
 from noust.fleet.nodes import NodeManager
 from noust.fleet.tunnels import TunnelManager
-from tests.fleet_support import (
+from tests.support.fleet_support import (
     HOST_KEY,
     TOKEN,
     Fleet,

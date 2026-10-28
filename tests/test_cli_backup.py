@@ -38,7 +38,7 @@ from noust.core.exceptions import BackupError
 from noust.core.logger import Logger
 from noust.core.runner import FakeRunner
 from noust.managers.backup_manager import BackupMetadata
-from tests.console_patch_support import patch_console
+from tests.support.console_patch_support import patch_console
 
 CONTRACT = json.loads(
     (Path(__file__).parent / "contracts" / "cli_surface.json").read_text(encoding="utf-8")

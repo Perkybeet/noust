@@ -33,7 +33,7 @@ from noust.core.exceptions import CertificateError
 from noust.core.logger import Logger
 from noust.core.runner import FakeRunner
 from noust.managers.cert_manager import CertManager
-from tests.console_patch_support import patch_console
+from tests.support.console_patch_support import patch_console
 
 CERTBOT_OUTPUT = (
     "Found the following certs:\n"

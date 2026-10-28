@@ -30,7 +30,7 @@ from noust.core.store import NoustStore
 from noust.core.teams import TeamStore
 from noust.web.auth import STATE_DIR_ENV
 from noust.web.permissions.access import AccessManager
-from tests.oidc_support import FakeIdP
+from tests.support.oidc_support import FakeIdP
 
 PASSWORD = "correct horse battery staple"
 SECRET = "the-client-secret-value"

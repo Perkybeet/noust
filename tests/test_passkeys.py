@@ -41,7 +41,7 @@ from noust.core.accounts.webauthn import (
     b64url_decode,
 )
 from noust.core.store import NoustStore
-from tests.webauthn_authenticator import SoftwareAuthenticator
+from tests.support.webauthn_authenticator import SoftwareAuthenticator
 
 PASSWORD = "correct horse battery staple"
 RP = RelyingParty(id="localhost", origins=("http://localhost:8080",))

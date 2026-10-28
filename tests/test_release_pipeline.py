@@ -52,7 +52,7 @@ from noust.deployers.static import StaticDeployer
 from noust.deployers.vite import ViteDeployer
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.source_manager import SourceManager
-from tests.deployer_patch_support import patch_deployer
+from tests.support.deployer_patch_support import patch_deployer
 
 DOMAIN = "rel.example.com"
 #: Not any deployer's default, so a probe of the wrong port shows.

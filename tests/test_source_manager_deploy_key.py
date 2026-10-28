@@ -27,7 +27,7 @@ from noust.managers.source_manager import (
     GIT_SSH_COMMAND,
     SourceManager,
 )
-from tests.deploy_key_support import DeployKeyRunner, GitScript
+from tests.support.deploy_key_support import DeployKeyRunner, GitScript
 
 DOMAIN = "shop.example.com"
 SSH_SOURCE = "git@github.com:acme/shop.git"

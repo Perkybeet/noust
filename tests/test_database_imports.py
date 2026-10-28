@@ -46,7 +46,7 @@ from noust.managers.database.uploads import (
     UploadTooLargeError,
     max_upload_bytes,
 )
-from tests.database_backup_support import (
+from tests.support.database_backup_support import (
     PG_LISTING,
     RcloneRunner,
     make_engine,

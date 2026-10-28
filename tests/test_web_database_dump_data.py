@@ -19,7 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from noust.managers.database.base import BaseDatabaseManager
-from tests.database_backup_support import PG_ARCHIVE
+from tests.support.database_backup_support import PG_ARCHIVE
 from tests.test_web_database_backups import (  # noqa: F401
     _reset_store,
     audited,

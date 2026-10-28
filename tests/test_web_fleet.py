@@ -5,7 +5,7 @@
 ``/api/fleet`` over HTTP: the views, the actions, the labels, on the real application.
 
 The central is the real application with a signed-in operator; the nodes are
-the fakes of :mod:`tests.fleet_views_support` behind the fleet's own client.
+the fakes of :mod:`tests.support.fleet_views_support` behind the fleet's own client.
 What is pinned: every view answers 200 whatever the nodes do, with the
 central's own rows read through its own API as the operator; who may look and
 who may act; sudo mode asked when a node's schema says so; an action planned,
@@ -32,7 +32,7 @@ from noust.fleet.models import central_name
 from noust.web.fleet_jobs import ELEVATION_WINDOW_SECONDS, elevation_deadline
 from noust.web.jobs import JobManager
 from noust.web.server import create_app, get_token_manager
-from tests.fleet_views_support import Central, build_central
+from tests.support.fleet_views_support import Central, build_central
 from tests.test_web_auth import make_config
 from tests.test_web_central import elevate, sign_in
 

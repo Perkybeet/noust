@@ -33,7 +33,7 @@ from noust.core.logger import Logger
 from noust.core.runner import FakeRunner
 from noust.core.store import App, DeploymentRecord, Service
 from noust.managers import diagnose as diagnose_module
-from tests.empty_store_tables import empty_transaction
+from tests.support.empty_store_tables import empty_transaction
 
 DOMAIN = "example.com"
 APP_NAME = "example-com"

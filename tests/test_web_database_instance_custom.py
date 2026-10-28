@@ -31,7 +31,7 @@ from noust.managers.database import managed as managed_module
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.permissions.registry import route_map
 from noust.web.server import create_app, get_token_manager
-from tests.database_instance_support import World, build_world, close_world
+from tests.support.database_instance_support import World, build_world, close_world
 
 DIGEST = "sha256:" + "ab" * 32
 OTHER = "sha256:" + "cd" * 32

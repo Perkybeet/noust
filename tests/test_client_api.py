@@ -17,7 +17,7 @@ import urllib.error
 import pytest
 
 from noust.client import ApiClient, RemoteError, normalise_url
-from tests.client_support import Answer, Wire
+from tests.support.client_support import Answer, Wire
 
 TOKEN = "noust_tok_" + "x" * 40
 

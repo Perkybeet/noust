@@ -64,7 +64,7 @@ from noust.managers.webserver import (
     WebServerStatus,
     create_secured_site,
 )
-from tests.network_tables import NetworkTables
+from tests.support.network_tables import NetworkTables
 
 CERTBOT_OUTPUT = (
     "Found the following certs:\n"

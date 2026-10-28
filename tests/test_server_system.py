@@ -51,7 +51,7 @@ from noust.managers.server.processes import (
     list_processes,
     unit_of_cgroup,
 )
-from tests.server_support import fixture, make_host, platform_for
+from tests.support.server_support import fixture, make_host, platform_for
 
 
 @pytest.fixture
@@ -190,7 +190,7 @@ class TestClock:
     def test_allowed_to_install_it_installs_chrony_with_the_package_managers_environment(
         self, host
     ) -> None:
-        from tests.server_support import SequencedRunner
+        from tests.support.server_support import SequencedRunner
 
         runner = SequencedRunner()
         runner.sequence(
@@ -206,7 +206,7 @@ class TestClock:
         assert "Installed chrony" in message
 
     def test_a_server_with_empty_package_lists_updates_them_and_installs_chrony(self, host) -> None:
-        from tests.server_support import SequencedEmptyAptLists
+        from tests.support.server_support import SequencedEmptyAptLists
 
         runner = SequencedEmptyAptLists()
         runner.sequence(

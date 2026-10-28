@@ -40,7 +40,7 @@ from noust.web.permissions.access import (
 from noust.web.permissions.principal import scope_of
 from noust.web.permissions.team_roles import permissions_at, team_fields
 from noust.web.server import get_token_manager
-from tests.teams_support import Person, World, build_world, make_app, make_person
+from tests.support.teams_support import Person, World, build_world, make_app, make_person
 
 P = Permission
 

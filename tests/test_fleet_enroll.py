@@ -34,7 +34,14 @@ from noust.core.runner import CommandResult, FakeRunner
 from noust.fleet import enroll as enroll_module
 from noust.fleet.enroll import Credential, EnrollRequest, NodeEnroller, find_installer
 from noust.fleet.joincode import JoinCode
-from tests.fleet_support import HOST_KEY, Fleet, build_fleet, ed25519_line, fingerprint, join_code
+from tests.support.fleet_support import (
+    HOST_KEY,
+    Fleet,
+    build_fleet,
+    ed25519_line,
+    fingerprint,
+    join_code,
+)
 
 PASSWORD = "correct-horse-battery-1234"
 PASSPHRASE = "key-passphrase-5678"
@@ -326,7 +333,7 @@ def test_the_join_code_must_carry_the_host_key_that_was_confirmed(
     fleet: Fleet,
     server: FakeServer,
 ) -> None:
-    from tests.fleet_support import ed25519_line
+    from tests.support.fleet_support import ed25519_line
 
     server.code_fields = {"ssh_host_key": ed25519_line(77)}
 

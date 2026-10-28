@@ -6,7 +6,7 @@ Deploying, updating and going back on a container application.
 
 Every test runs the real deployer, store, web server manager (over a temporary
 tree) and release bookkeeping; only processes are faked, by a Docker that
-remembers its images (``tests/container_support.py``).
+remembers its images (``tests/support/container_support.py``).
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ from noust.deployers.helpers.env_manager import EnvManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.webserver import NGINX_BACKEND
-from tests.container_support import (
+from tests.support.container_support import (
     APP,
     DIGEST,
     DOMAIN,

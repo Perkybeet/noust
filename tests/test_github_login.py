@@ -30,8 +30,8 @@ from noust.core.accounts.oidc_client import OidcClient, OidcHttp
 from noust.core.accounts.oidc_model import OidcError, OidcRefused
 from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
-from tests.github_login_support import FakeGitHub
-from tests.oidc_support import Clock
+from tests.support.github_login_support import FakeGitHub
+from tests.support.oidc_support import Clock
 
 PASSWORD = "correct horse battery staple"
 REDIRECT = "https://noust.example.test/api/auth/oidc/callback"

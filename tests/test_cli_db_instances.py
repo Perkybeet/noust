@@ -28,7 +28,7 @@ from noust.core.logger import Logger
 from noust.core.runner import SubprocessRunner
 from noust.managers.database.managed import ManagedInstances
 from noust.managers.database.service import DatabaseService
-from tests.database_instance_support import World, build_world, close_world
+from tests.support.database_instance_support import World, build_world, close_world
 
 
 @pytest.fixture

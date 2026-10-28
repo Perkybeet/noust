@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 
 import noust
-from tests.ratchet_support import check_ratchet
+from tests.support.ratchet_support import check_ratchet
 
 SRC = Path(noust.__file__).resolve().parent
 REPO = SRC.parent.parent

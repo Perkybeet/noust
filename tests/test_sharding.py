@@ -21,7 +21,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests.sharding import assign, parse_shard, select
+from tests.support.sharding import assign, parse_shard, select
 
 ROOT = Path(__file__).resolve().parent.parent
 

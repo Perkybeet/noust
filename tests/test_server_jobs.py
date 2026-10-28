@@ -29,7 +29,7 @@ from noust.managers.server.updates import UpdateRecord
 from noust.web.api.server import jobs, lifecycle
 from noust.web.api.server.common import set_server_context
 from noust.web.jobs import Job, JobContext, JobType
-from tests.server_support import (  # noqa: F401 - the fixture registers itself
+from tests.support.server_support import (  # noqa: F401 - the fixture registers itself
     RecordingAudit,
     fixture,
     make_machine,

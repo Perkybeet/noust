@@ -28,7 +28,7 @@ from noust.managers.database.backup_notifications import (
     database_job_notification,
     database_subject,
 )
-from tests.notifications_support import failure_id_of
+from tests.support.notifications_support import failure_id_of
 
 CTX = NotificationContext("en", "web-1", "https://console.example.com")
 ERROR = "The dump was taken but failed its check\n  Details: pg_restore: error: unexpected EOF"

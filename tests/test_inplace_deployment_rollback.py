@@ -44,7 +44,7 @@ from noust.deployers.interface import UpdateResult
 from noust.managers.backup_manager import BackupManager, BackupMetadata
 from noust.managers.rollback_manager import RollbackManager
 from noust.managers.service_manager import UNIT_MARKER, ServiceManager
-from tests.deployer_patch_support import patch_deployer
+from tests.support.deployer_patch_support import patch_deployer
 
 DOMAIN = "shop.example.com"
 APP = "shop-example-com"

@@ -35,7 +35,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
 from noust.core.teams import TeamStore
 from noust.web.permissions.access import AccessManager
-from tests.oidc_support import FakeIdP
+from tests.support.oidc_support import FakeIdP
 from tests.test_oidc_manager import (  # noqa: F401 - the fixtures of the manager tests
     accounts,
     admin,

@@ -27,7 +27,7 @@ from noust.manifest import (
     plan,
 )
 from noust.manifest.export import export
-from tests.manifest_support import FakeServer
+from tests.support.manifest_support import FakeServer
 
 SHOP = "shop.acme.test"
 

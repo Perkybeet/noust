@@ -36,7 +36,7 @@ from noust.deployers.python import PythonDeployer
 from noust.deployers.static import StaticDeployer
 from noust.deployers.vite import ViteDeployer
 from noust.managers.runtimes import RuntimeManager
-from tests.deployer_patch_support import patch_deployer
+from tests.support.deployer_patch_support import patch_deployer
 from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
     BROKEN_SERVER,
     DOMAIN,

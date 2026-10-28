@@ -23,7 +23,7 @@ from noust.core.accounts.oidc_client import OidcClient, OidcHttp, set_client
 from noust.core.store import NoustStore
 from noust.web.auth import SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.github_login_support import FakeGitHub
+from tests.support.github_login_support import FakeGitHub
 
 PASSWORD = "correct horse battery staple"
 BASE = "http://localhost:8080"

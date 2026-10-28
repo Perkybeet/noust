@@ -27,7 +27,7 @@ import noust.web.api.databases.common as db_common
 from noust.managers.database.settings import Resources
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.database_instance_support import World, build_world, close_world
+from tests.support.database_instance_support import World, build_world, close_world
 
 BODY = {"name": "pg16", "engine": "postgresql", "version": "16", "memory_mb": 512}
 

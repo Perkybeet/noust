@@ -14,7 +14,7 @@ import pytest
 from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
 from noust.fleet.labels import MAX_LABELS, NodeLabels, matches, parse_label, parse_selector
-from tests.fleet_support import build_fleet
+from tests.support.fleet_support import build_fleet
 
 
 @pytest.fixture

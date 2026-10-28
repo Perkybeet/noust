@@ -36,8 +36,8 @@ from noust.fleet.link.node import (
 )
 from noust.fleet.tunnels import PINNED_ALGORITHMS
 from noust.web.auth import STATE_DIR_ENV, SecurityConfig, TokenManager
-from tests.fleet_support import HOST_KEY, TOKEN, KeygenRunner, fingerprint
-from tests.link_support import NONCE
+from tests.support.fleet_support import HOST_KEY, TOKEN, KeygenRunner, fingerprint
+from tests.support.link_support import NONCE
 
 CENTRAL_HOST_KEY = HOST_KEY
 

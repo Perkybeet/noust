@@ -25,7 +25,7 @@ from noust.cli.app import cli as root_cli
 from noust.core.runner import FakeRunner, set_runner
 from noust.core.store import NoustStore
 from noust.deployers.importers import caprover
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 from tests.test_importers_caprover import PASSWORD, server
 from tests.test_importers_dokku import runner_for
 

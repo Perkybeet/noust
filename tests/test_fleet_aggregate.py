@@ -25,7 +25,7 @@ from noust.core.store import NoustStore
 from noust.fleet import aggregate
 from noust.fleet.aggregate import Asker, Failure, gather, set_aggregator
 from noust.fleet.labels import NodeLabels
-from tests.fleet_views_support import Central, build_central
+from tests.support.fleet_views_support import Central, build_central
 
 
 @pytest.fixture

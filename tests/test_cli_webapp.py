@@ -37,8 +37,8 @@ from noust.core.runner import DryRunRunner, FakeRunner, get_runner
 from noust.core.utils import domain_to_app_name
 from noust.deployers import lifecycle
 from noust.managers.webserver import SiteDeletion
-from tests.console_patch_support import patch_console
-from tests.empty_store_tables import empty_transaction
+from tests.support.console_patch_support import patch_console
+from tests.support.empty_store_tables import empty_transaction
 
 #: The commands this module owns, as the user types them.
 COMMANDS = (

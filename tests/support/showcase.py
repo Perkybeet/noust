@@ -4,7 +4,7 @@
 """
 An invented, believable small agency's server, for the documentation screenshots.
 
-``tests.panel_factory`` seeds the machine the E2E suite runs its assertions against, and
+``tests.support.panel_factory`` seeds the machine the E2E suite runs its assertions against, and
 ``DEFAULT_DOMAINS`` (example.com and friends) is load-bearing there: a lot of
 ``panel/e2e/*.spec.ts`` names those domains directly, so it cannot change. The documentation
 screenshots in ``docs/assets/console/`` are a different audience - a published, marketing-facing
@@ -16,7 +16,7 @@ server, with eight applications of different kinds; "ams-3" and "lon-2", each sm
 its own state (see :data:`NODES`) - with a deployment history, domains, databases and the rest
 of what :func:`seed_showcase_state` builds for whichever one ``--hostname`` names.
 ``scripts/console_server.py --showcase`` seeds a sandboxed machine from it, exactly the way it
-seeds one from :func:`tests.panel_factory.seed_console_state` for every other purpose.
+seeds one from :func:`tests.support.panel_factory.seed_console_state` for every other purpose.
 
 Every invented name below was checked not to collide with something real before it was used:
 
@@ -446,7 +446,7 @@ class ShowcaseState:
     """
     What :func:`seed_showcase_state` put in the store.
 
-    Same shape as :class:`tests.panel_factory.SeededState`: ``scripts/console_server.py``'s
+    Same shape as :class:`tests.support.panel_factory.SeededState`: ``scripts/console_server.py``'s
     ``seed_machine`` reads either one the same way, whichever seeding function it called.
     """
 
@@ -627,7 +627,7 @@ def seed_showcase_state(store: NoustStore, *, node: str = "fra-1") -> ShowcaseSt
 
     Args:
         store: The store to write to. Its directory also receives the captured build logs,
-            the same way :func:`tests.panel_factory.seed_console_state` does.
+            the same way :func:`tests.support.panel_factory.seed_console_state` does.
         node: Which of :data:`NODES` to seed; the agency's main server by default. Unknown
             names fall back to it too, rather than raising, so a plain ``--showcase`` with
             no ``--hostname`` still seeds a complete machine.

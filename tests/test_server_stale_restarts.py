@@ -36,7 +36,7 @@ from noust.web.api.server import jobs
 from noust.web.api.server.common import set_server_context
 from noust.web.jobs import Job, JobContext, JobType
 from noust.web.permissions.routes_server import ROUTES
-from tests.server_support import (  # noqa: F401 - the fixture registers itself
+from tests.support.server_support import (  # noqa: F401 - the fixture registers itself
     RecordingAudit,
     make_machine,
     no_package_manager_running,

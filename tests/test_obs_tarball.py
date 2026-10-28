@@ -16,7 +16,7 @@ import fnmatch
 import re
 from pathlib import Path
 
-from tests.tree_support import tree_files
+from tests.support.tree_support import tree_files
 
 REPO = Path(__file__).resolve().parent.parent
 

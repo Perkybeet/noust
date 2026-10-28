@@ -30,8 +30,8 @@ from noust.core.exceptions import ValidationError
 from noust.managers.database import instance_layout as layout
 from noust.managers.database import managed as managed_module
 from noust.managers.database.instance_catalog import SPECS, offered, resolve_pin, with_variant
-from tests.database_instance_support import World, build_world, close_world
-from tests.database_migration_support import Lab, build_lab
+from tests.support.database_instance_support import World, build_world, close_world
+from tests.support.database_migration_support import Lab, build_lab
 
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 

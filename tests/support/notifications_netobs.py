@@ -5,7 +5,7 @@
 The notifications the network and monitoring lane added, for the shared gallery.
 
 Kept in a file of their own and appended after every other event of
-``tests/notifications_support.py``, so the fixed ids of the earlier events do not move.
+``tests/support/notifications_support.py``, so the fixed ids of the earlier events do not move.
 """
 
 from __future__ import annotations

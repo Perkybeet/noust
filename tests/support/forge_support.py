@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from tests.oidc_support import FakeResponse
+from tests.support.oidc_support import FakeResponse
 
 
 @dataclass

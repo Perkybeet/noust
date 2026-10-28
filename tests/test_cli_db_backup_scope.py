@@ -25,7 +25,7 @@ from noust.core.runner import set_runner
 from noust.core.store import NoustStore
 from noust.managers.backup_scheduler import BackupScheduler
 from noust.managers.database.base import BaseDatabaseManager
-from tests.database_backup_support import PG_LISTING, RcloneRunner, make_engine
+from tests.support.database_backup_support import PG_LISTING, RcloneRunner, make_engine
 
 ALL_UNIT = "noust-backup-db-postgresql--all"
 

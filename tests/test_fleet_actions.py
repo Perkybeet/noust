@@ -27,7 +27,7 @@ from noust.fleet.aggregate import Asker, set_aggregator
 from noust.fleet.labels import NodeLabels
 from noust.web import fleet_jobs
 from noust.web.fleet_jobs import FleetJobs, FleetRequest, Runner, batch_size, plan, retry_request
-from tests.fleet_views_support import SCHEMA_30, Central, build_central
+from tests.support.fleet_views_support import SCHEMA_30, Central, build_central
 
 ADMIN = Asker(actor="ana", scope="admin", role="admin", elevated=True)
 

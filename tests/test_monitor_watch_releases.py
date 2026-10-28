@@ -26,7 +26,7 @@ from noust.monitor import watch_recipes
 from noust.monitor.watch_recipes import RecipeWatch, signature
 from noust.monitor.watch_security import SecurityReleaseWatch
 from noust.recipes.updates import RecipeUpdateStatus
-from tests.monitor_rig import Rig
+from tests.support.monitor_rig import Rig
 
 HOUR = 3600.0
 

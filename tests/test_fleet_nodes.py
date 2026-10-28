@@ -26,7 +26,7 @@ from noust.fleet.keys import KNOWN_HOSTS, secret_name
 from noust.fleet.keys import TOKEN as TOKEN_LEAF
 from noust.fleet.policy import node_registration_blockers
 from noust.fleet.status import fleet_status
-from tests.fleet_support import (
+from tests.support.fleet_support import (
     HOST_KEY,
     OTHER_TOKEN,
     TOKEN,

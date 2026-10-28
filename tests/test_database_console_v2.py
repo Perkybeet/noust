@@ -38,7 +38,12 @@ from noust.managers.database.console import (
 )
 from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.postgres import NULL_MARKER, PostgresManager
-from tests.database_data_support import SqlRunner, StubConfig, installed_sql_runner, make_service
+from tests.support.database_data_support import (
+    SqlRunner,
+    StubConfig,
+    installed_sql_runner,
+    make_service,
+)
 
 
 @pytest.fixture

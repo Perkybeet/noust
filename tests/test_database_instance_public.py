@@ -31,7 +31,7 @@ from noust.managers.database.instance_records import assign_managed
 from noust.managers.database.instances import DatabaseInstance
 from noust.managers.database.public_access import PublicAccess
 from noust.managers.database.service import DatabaseService
-from tests.database_public_support import PublicHostRunner, fresh_state, public_engine
+from tests.support.database_public_support import PublicHostRunner, fresh_state, public_engine
 from tests.test_database_public import World
 
 KEY = "postgresql@pg16"

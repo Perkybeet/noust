@@ -245,7 +245,7 @@ def test_a_unit_with_nothing_to_move_is_left_alone(machine) -> None:
 def _check(tmp_path: Path, units: dict[str, str]):
     from noust.managers.server.security_checks import HardeningChecks
     from noust.managers.server.security_probe import SecurityProbe
-    from tests.server_security_support import NOW, FakeHost, FakeSshd
+    from tests.support.server_security_support import NOW, FakeHost, FakeSshd
 
     host = FakeHost(tmp_path / "root")
     for name, body in units.items():

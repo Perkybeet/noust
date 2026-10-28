@@ -4,9 +4,9 @@
 """
 A Docker host and the host's PostgreSQL, with an application on one of its databases.
 
-Where :mod:`tests.database_move_support` has two servers in memory, this has the
+Where :mod:`tests.support.database_move_support` has two servers in memory, this has the
 real :class:`~noust.managers.database.managed.ManagedInstances` over
-:class:`~tests.database_instance_support.DockerHost`, so a new instance is really
+:class:`~tests.support.database_instance_support.DockerHost`, so a new instance is really
 made (its Compose file, its unit, its container) and the engines that run in it
 are the same in-memory servers.
 """
@@ -28,8 +28,8 @@ from noust.managers.database.managed import ManagedInstances
 from noust.managers.database.moves import DatabaseMover
 from noust.managers.database.service import DatabaseService
 from noust.managers.database.settings import Resources
-from tests.database_instance_support import GIB, World, build_world, close_world
-from tests.database_move_support import (
+from tests.support.database_instance_support import GIB, World, build_world, close_world
+from tests.support.database_move_support import (
     APP_PASSWORD,
     HOST,
     FakePolicies,

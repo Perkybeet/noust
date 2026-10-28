@@ -30,7 +30,7 @@ from noust.core.accounts import AuthPolicy
 from noust.core.store import App, NoustStore
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig, SessionStore
 from noust.web.server import create_app, get_brute_force, get_token_manager
-from tests.auth_clock_support import set_clock
+from tests.support.auth_clock_support import set_clock
 
 
 @pytest.fixture
@@ -193,7 +193,7 @@ def clock(monkeypatch: pytest.MonkeyPatch) -> FakeClock:
     """
     Replace the elevation window's time source with a fake, controllable one.
 
-    Only the clock of ``noust.web.auth`` (``tests/auth_clock_support.py``) is patched, so
+    Only the clock of ``noust.web.auth`` (``tests/support/auth_clock_support.py``) is patched, so
     session expiry - computed from the real wall clock elsewhere in the package - is untouched: advancing this
     clock past the ten minute elevation window must not also expire the
     session itself.

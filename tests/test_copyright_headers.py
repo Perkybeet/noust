@@ -17,7 +17,7 @@ import re
 from pathlib import Path
 
 from noust import __copyright__
-from tests.tree_support import tree_files
+from tests.support.tree_support import tree_files
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 

@@ -20,7 +20,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from tests.tree_support import tree_files
+from tests.support.tree_support import tree_files
 
 ROOT = Path(__file__).parent.parent
 

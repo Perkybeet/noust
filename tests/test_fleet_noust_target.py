@@ -23,7 +23,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
 from noust.fleet.aggregate import set_aggregator
 from noust.web.fleet_jobs import FleetRequest, plan
-from tests.fleet_views_support import SCHEMA_30, Central, build_central
+from tests.support.fleet_views_support import SCHEMA_30, Central, build_central
 from tests.test_fleet_actions import ADMIN, _run, _states
 
 

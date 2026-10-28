@@ -270,7 +270,7 @@ under them imports them. `tests/test_layering.py` holds the rules, each with the
 still break it: the test fails when a new place appears and when a listed one is fixed and not taken
 off, so the lists can only get shorter. A command attaches itself to its group by importing the group
 (a module of its own), never the other way round, so no module imports another that imports it back
-when it loads. The graph is read from the syntax tree (`tests/import_graph_support.py`); an import
+when it loads. The graph is read from the syntax tree (`tests/support/import_graph_support.py`); an import
 under `TYPE_CHECKING` is not one at run time and does not count.
 
 <!-- layers:start -->
@@ -629,7 +629,7 @@ cd panel && npm run dev                          # http://localhost:5173
 ```
 
 `console_server.py` runs the real FastAPI app under uvicorn over a store seeded by
-`tests/panel_factory.seed_console_state`, with every system path redirected into a temporary
+`tests/support/panel_factory.seed_console_state`, with every system path redirected into a temporary
 directory and a fake runner answering systemctl, journalctl, nginx and certbot, so nothing on
 the development machine is touched. `--totp` turns on the second sign-in factor; the E2E suite
 starts one per Playwright worker.

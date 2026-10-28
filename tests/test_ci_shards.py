@@ -4,7 +4,7 @@
 """
 Every machine that runs the suite in CI runs a slice, and the slices add up to all of it.
 
-The suite is cut by ``--shard K/N`` (``tests/sharding.py``), one slice to a machine of the matrix.
+The suite is cut by ``--shard K/N`` (``tests/support/sharding.py``), one slice to a machine of the matrix.
 Two ways that goes quietly wrong: a matrix with fewer slices than the count says (a fifth of the
 suite that nobody runs, with a green run to show for it), and a job that runs the whole suite on a
 machine that was only meant to run a slice (the runner is lost before it ends, which is why the

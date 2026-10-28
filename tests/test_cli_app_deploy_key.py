@@ -26,7 +26,7 @@ from noust.core.logger import Logger
 from noust.core.runner import set_runner
 from noust.core.store import App, NoustStore
 from noust.managers.source_keys import DeployKeyManager
-from tests.deploy_key_support import DeployKeyRunner, GitScript, private_key_text
+from tests.support.deploy_key_support import DeployKeyRunner, GitScript, private_key_text
 
 DOMAIN = "shop.example.com"
 SOURCE = "git@github.com:acme/shop.git"

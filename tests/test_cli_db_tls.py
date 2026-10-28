@@ -27,8 +27,8 @@ from noust.core.fs import RealFileSystem
 from noust.core.logger import Logger
 from noust.core.runner import set_runner
 from noust.managers.database import tls_authority
-from tests.database_migration_support import Lab, build_lab
-from tests.database_move_support import DOMAIN, HOST
+from tests.support.database_migration_support import Lab, build_lab
+from tests.support.database_move_support import DOMAIN, HOST
 from tests.test_database_tls import TlsHost, UnprivilegedFs
 
 

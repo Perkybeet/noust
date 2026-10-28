@@ -22,7 +22,7 @@ import pytest
 from noust.core.runner import CommandResult, FakeRunner
 from noust.managers.server.host import HostPaths, OsRelease, PackageFamily, Platform
 
-FIXTURES = Path(__file__).parent / "fixtures" / "server"
+FIXTURES = Path(__file__).parent.parent / "fixtures" / "server"
 
 
 def fixture(*parts: str) -> str:

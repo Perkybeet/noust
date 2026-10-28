@@ -36,7 +36,12 @@ from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.scope import ALL_DATABASES, Exclusions, timer_label
 from noust.managers.database.service import DatabaseService
-from tests.database_backup_support import PG_LISTING, RcloneRunner, make_engine, make_service
+from tests.support.database_backup_support import (
+    PG_LISTING,
+    RcloneRunner,
+    make_engine,
+    make_service,
+)
 from tests.test_database_backups import FakeScheduler
 from tests.test_database_managers import StubConfig, existing_database
 

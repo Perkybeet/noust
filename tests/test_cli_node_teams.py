@@ -17,7 +17,7 @@ from noust.core.store import NoustStore
 from noust.core.teams import TeamNotFoundError, TeamStore
 from noust.core.teams.nodes import NodeAssignments
 from noust.web.auth import STATE_DIR_ENV
-from tests.fleet_support import build_fleet, join_code
+from tests.support.fleet_support import build_fleet, join_code
 
 
 @pytest.fixture

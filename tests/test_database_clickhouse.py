@@ -55,7 +55,7 @@ from noust.managers.database.instances import (
 )
 from noust.managers.database.registry import DatabaseRegistry
 from noust.managers.database.service import DatabaseService
-from tests.database_instance_support import World, build_world, close_world
+from tests.support.database_instance_support import World, build_world, close_world
 from tests.test_database_instance_compose import PASSWORD, record
 
 SECRET = "Tq9Lw2Zr7Pm4Xc1Vb8Nd5Hj3Ka6Sf0Ge"

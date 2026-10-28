@@ -48,8 +48,8 @@ from noust.managers.backup_destination_files import DestinationFileManager
 from noust.managers.backup_failures import BackupFailureLog
 from noust.managers.self_backup import LABEL, SECRET_NAME, SelfBackupManager
 from noust.managers.self_restore import SelfRestore
-from tests.database_backup_support import RcloneRunner, age
-from tests.notifications_support import failure_id_of
+from tests.support.database_backup_support import RcloneRunner, age
+from tests.support.notifications_support import failure_id_of
 
 PASSPHRASE = "correct horse battery"
 pytestmark = pytest.mark.allow_subprocess

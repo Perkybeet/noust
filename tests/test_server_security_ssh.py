@@ -48,7 +48,7 @@ from noust.managers.server.security_sshd import (
     read_effective,
     winning_source,
 )
-from tests.server_security_support import (
+from tests.support.server_security_support import (
     ALICE_FP,
     ALICE_KEY,
     CENTRAL_FP,

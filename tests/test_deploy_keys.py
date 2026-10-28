@@ -33,7 +33,7 @@ from noust.managers.source_keys import (
     secret_name,
     ssh_command,
 )
-from tests.deploy_key_support import (
+from tests.support.deploy_key_support import (
     DeployKeyRunner,
     ed25519_line,
     fingerprint,

@@ -4,7 +4,7 @@
 """
 The WebAuthn verifier: CBOR, authenticator data, COSE keys, and the two ceremonies.
 
-Signatures are real: a software authenticator (``tests/webauthn_authenticator``)
+Signatures are real: a software authenticator (``tests/support/webauthn_authenticator``)
 creates ES256, RS256 and EdDSA keys with ``cryptography`` and signs as a
 security key does. Each check the verifier makes is shown to refuse what it
 exists to refuse - another origin, another RP, no user verification, a reused
@@ -42,7 +42,7 @@ from noust.core.accounts.webauthn import (
     verify_assertion,
     verify_registration,
 )
-from tests.webauthn_authenticator import (
+from tests.support.webauthn_authenticator import (
     FLAG_AT,
     FLAG_BS,
     FLAG_ED,

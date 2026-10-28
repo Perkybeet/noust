@@ -31,8 +31,8 @@ import pytest
 
 from noust.core.fs import set_fs
 from noust.core.runner import FakeRunner, set_runner
-from tests.console_patch_support import patch_console
-from tests.sharding import parse_shard, select
+from tests.support.console_patch_support import patch_console
+from tests.support.sharding import parse_shard, select
 
 
 class RealSubprocessAttempted(AssertionError):

@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient
 from noust.core import totp
 from noust.web.auth import CSRF_HEADER_NAME, SESSION_COOKIE_NAME, TokenManager
 from noust.web.server import get_brute_force, get_token_manager
-from tests.auth_clock_support import set_clock
+from tests.support.auth_clock_support import set_clock
 from tests.test_web_auth import build_client, enable_totp, login, make_config
 
 # ------------------------------------------------------------ TOTP replay

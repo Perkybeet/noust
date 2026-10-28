@@ -10,7 +10,7 @@ module is imported when it is run (``LazyGroup``), and what a command needs it i
 needs it; this test holds the part that is not lazy. It reads the source and never starts a
 process (``tests/conftest.py`` forbids it), so it follows the imports the interpreter would run
 when the module loads, with the one reading of the import graph there is
-(``tests/import_graph_support.py``, the same that holds the layers and the cycles): the statements
+(``tests/support/import_graph_support.py``, the same that holds the layers and the cycles): the statements
 at module level, the ``__init__`` of every parent package, and the submodule a ``from package
 import name`` takes when ``name`` is one. An import inside a function, or under ``if
 TYPE_CHECKING``, is not part of the start-up and is not followed.
@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from tests import import_graph_support as graph
+from tests.support import import_graph_support as graph
 
 PACKAGE = Path(__file__).resolve().parent.parent / "src" / "noust"
 

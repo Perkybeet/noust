@@ -37,7 +37,7 @@ from noust.web.api.deps import install_error_handlers, require_elevated
 from noust.web.api.server import security as security_api
 from noust.web.jobs import Job, JobContext, JobStatus, JobType
 from noust.web.permissions.registry import route_map
-from tests.server_security_support import ED_FP, NOW, FakeHost, FakeSshd, accepted
+from tests.support.server_security_support import ED_FP, NOW, FakeHost, FakeSshd, accepted
 
 PREFIX = "/api/server/security"
 
@@ -321,7 +321,7 @@ class TestChanges:
         assert machine.jobs.jobs == []
 
     def test_a_key_is_added_through_a_job(self, client, machine):
-        from tests.server_security_support import RSA_3072
+        from tests.support.server_security_support import RSA_3072
 
         response = client.post(f"{PREFIX}/ssh/keys", json={"user": "alice", "public_key": RSA_3072})
 

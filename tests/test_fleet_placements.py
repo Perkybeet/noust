@@ -19,7 +19,7 @@ import pytest
 from noust.core.exceptions import NodeError, ValidationError
 from noust.fleet.labels import NodeLabels
 from noust.fleet.placements import Placement, Placements
-from tests.fleet_views_support import Central, build_central
+from tests.support.fleet_views_support import Central, build_central
 
 DOMAIN = "shop.example.com"
 

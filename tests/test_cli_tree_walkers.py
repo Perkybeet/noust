@@ -19,7 +19,7 @@ import pytest
 from noust.cli.app import DEPLOY_VERBS, cli
 from scripts import cli_parity
 from tests import test_cli_audit, test_cli_json, test_cli_surface
-from tests.cli_tree_support import walk
+from tests.support.cli_tree_support import walk
 
 #: The eleven verbs and the five commands of ``deploy schedule``: sixteen things to type.
 DEPLOY_PATHS = {f"deploy {verb}" for verb in DEPLOY_VERBS} | {

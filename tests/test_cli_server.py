@@ -33,7 +33,7 @@ from noust.core.store import NoustStore
 from noust.managers.server.context import ServerContext
 from noust.managers.server.facts import FactCache
 from noust.managers.server.updates import UpdateRecord
-from tests.server_support import (  # noqa: F401 - the fixture registers itself
+from tests.support.server_support import (  # noqa: F401 - the fixture registers itself
     fixture,
     make_machine,
     no_package_manager_running,

@@ -31,7 +31,7 @@ from noust.core.accounts.oidc_model import OidcError, OidcRefused
 from noust.core.exceptions import ConfigError, ValidationError
 from noust.core.store import NoustStore
 from noust.core.teams import TeamStore
-from tests.oidc_support import DROP, Clock, FakeIdP, SigningKey
+from tests.support.oidc_support import DROP, Clock, FakeIdP, SigningKey
 
 PASSWORD = "correct horse battery staple"
 REDIRECT = "https://noust.example.test/api/auth/oidc/callback"
@@ -371,7 +371,7 @@ class TestTokensAreJudged:
         def tamper(token: str) -> str:
             import json
 
-            from tests.oidc_support import b64
+            from tests.support.oidc_support import b64
 
             header, payload, signature = token.split(".")
             claims = {"iss": idp.issuer, "sub": "sub-admin", "aud": idp.client_id, "exp": 9e9}
@@ -389,7 +389,7 @@ class TestTokensAreJudged:
     def test_an_unsigned_token_is_refused(self, manager: OidcManager, idp: FakeIdP) -> None:
         import json
 
-        from tests.oidc_support import b64
+        from tests.support.oidc_support import b64
 
         def strip(token: str) -> str:
             _header, payload, _signature = token.split(".")

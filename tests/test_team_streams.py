@@ -27,7 +27,7 @@ from noust.web.api.node_proxy import WS_CLOSE_NODE_NOT_FOUND
 from noust.web.events import _frame_domain, _stream, hub
 from noust.web.jobs import Job, JobType, get_job_manager
 from noust.web.websockets.router import WS_SUBPROTOCOL, WS_TOKEN_PREFIX
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 ACME = "shop.acme.example"
 GLOBEX = "blog.globex.example"

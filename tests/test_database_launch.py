@@ -30,7 +30,7 @@ from noust.core.exceptions import ConfirmationRequired, DatabaseEngineError, Val
 from noust.managers.database import instance_layout as layout
 from noust.managers.database import managed as managed_module
 from noust.managers.database.instance_launch import InstanceLaunch
-from tests.database_instance_support import World, build_world, close_world
+from tests.support.database_instance_support import World, build_world, close_world
 
 
 @pytest.fixture

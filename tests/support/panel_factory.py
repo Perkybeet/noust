@@ -11,7 +11,7 @@ repeating that setup with its own set of magic numbers, and CONTRIBUTING.md rule
 says there is one implementation of each thing. This module is that one
 implementation.
 
-Importable both from pytest, as ``tests.panel_factory`` (``tests/`` is a
+Importable both from pytest, as ``tests.support.panel_factory`` (``tests/`` is a
 package, and pytest puts the repository root -- the first parent directory
 without an ``__init__.py`` -- on ``sys.path`` when it collects a package like
 this one), and from a plain script, which is not run under pytest and so adds

@@ -28,7 +28,7 @@ from noust.managers.server.summary import (
     read_system_state,
     register_summary_section,
 )
-from tests.server_support import (  # noqa: F401 - the fixture registers itself
+from tests.support.server_support import (  # noqa: F401 - the fixture registers itself
     make_machine,
     no_package_manager_running,
     platform_for,

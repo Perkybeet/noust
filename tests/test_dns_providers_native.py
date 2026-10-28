@@ -5,7 +5,7 @@
 The DNS providers Noust speaks to itself besides Cloudflare: DigitalOcean, Hetzner, Gandi and
 Amazon Route 53.
 
-Each is run against an in-memory copy of its API (``tests/dns_wires.py``), so what is pinned is the
+Each is run against an in-memory copy of its API (``tests/support/dns_wires.py``), so what is pinned is the
 whole path from the ownership rules to the request on the wire: the records are read, created,
 changed and removed in the shape each provider documents; a credential travels in one header and
 nowhere else; the provider's own words reach the operator unchanged; a record the operator made
@@ -39,7 +39,7 @@ from noust.managers.dns.provider import AUTOMATIC_TTL, DnsProvider, DnsProviderE
 from noust.managers.dns.records import Ensured, ManagedDns, Release, ownership_comment
 from noust.managers.dns.route53 import Route53Provider, sign
 from noust.managers.dns.rrset import SINGLE_VALUE_TYPES, parse_record_id, record_id
-from tests.dns_wires import (
+from tests.support.dns_wires import (
     ACCESS_KEY,
     SECRET_KEY,
     TOKEN,

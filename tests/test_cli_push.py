@@ -21,7 +21,7 @@ from typing import Any
 import pytest
 
 from noust.core import push_store
-from tests.push_support import DOMAIN, PushRig, build_rig, ed25519
+from tests.support.push_support import DOMAIN, PushRig, build_rig, ed25519
 
 
 @pytest.fixture

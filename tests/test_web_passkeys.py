@@ -28,8 +28,8 @@ from noust.core.accounts import AccountManager, AuthPolicy, passwords
 from noust.core.store import NoustStore
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_brute_force, get_token_manager
-from tests.mfa_support import require_second_factor
-from tests.webauthn_authenticator import SoftwareAuthenticator
+from tests.support.mfa_support import require_second_factor
+from tests.support.webauthn_authenticator import SoftwareAuthenticator
 
 PASSWORD = "correct horse battery staple"
 BASE = "http://localhost:8080"

@@ -28,7 +28,7 @@ from noust.monitor.watch_containers import (
     describe_event,
     parse_inspect,
 )
-from tests.monitor_rig import NOW, Rig
+from tests.support.monitor_rig import NOW, Rig
 
 CID = "a" * 64
 OTHER = "b" * 64

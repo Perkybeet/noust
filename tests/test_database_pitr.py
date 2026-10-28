@@ -48,7 +48,7 @@ from noust.managers.database.pitr_archive import archive_command, base_id_at, re
 from noust.managers.database.pitr_records import PitrRecords
 from noust.managers.database.postgres import PostgresManager
 from noust.managers.server.host import HostPaths
-from tests.database_backup_support import RcloneRunner
+from tests.support.database_backup_support import RcloneRunner
 
 SYSTEM_ID = "7430000000000000001"
 START = datetime(2026, 10, 17, 12, 0, 0, tzinfo=timezone.utc)

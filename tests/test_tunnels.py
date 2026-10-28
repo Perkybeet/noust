@@ -46,7 +46,7 @@ from noust.managers.tunnels import (
     secret_name,
     unit_name,
 )
-from tests.dns_support import FakeTunnelProvider
+from tests.support.dns_support import FakeTunnelProvider
 
 CLOUDFLARED = "/usr/bin/cloudflared"
 APP = "shop.example.com"

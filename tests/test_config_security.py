@@ -52,7 +52,7 @@ from noust.core.fs import (
 )
 from noust.core.store import NoustStore
 from noust.deployers.helpers.env_manager import EnvConfig, EnvManager, EnvVariable
-from tests.config_files import planted
+from tests.support.config_files import planted
 
 
 @pytest.fixture(autouse=True)

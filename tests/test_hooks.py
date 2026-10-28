@@ -435,7 +435,7 @@ class TestADeploymentWithHooks:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         from noust.core import notifier
-        from tests.notifications_support import context
+        from tests.support.notifications_support import context
 
         built: list[Any] = []
         monkeypatch.setattr(

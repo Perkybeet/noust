@@ -24,7 +24,7 @@ from noust.core.store import NoustStore
 from noust.managers.server.pkg import UpdateScope, backend_for
 from noust.managers.server.probes import READ_ONLY_PROBES, is_declared_probe, matches
 from noust.managers.server.summary import build_summary
-from tests.server_support import (  # noqa: F401 - the fixture registers itself
+from tests.support.server_support import (  # noqa: F401 - the fixture registers itself
     fixture,
     make_machine,
     no_package_manager_running,

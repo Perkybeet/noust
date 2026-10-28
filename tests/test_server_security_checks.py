@@ -33,8 +33,8 @@ from noust.managers.server.security_fail2ban import Fail2ban, parse_jail, parse_
 from noust.managers.server.security_pending import FAIL2BAN_JAIL
 from noust.managers.server.security_probe import SecurityProbe
 from noust.managers.server.security_risks import AcceptedRisks
-from tests.server_security_support import ED_FP, NOW, FakeHost, FakeSshd, accepted
-from tests.server_support import EmptyAptListsMixin
+from tests.support.server_security_support import ED_FP, NOW, FakeHost, FakeSshd, accepted
+from tests.support.server_support import EmptyAptListsMixin
 
 NOW_DT = datetime.fromtimestamp(NOW, tz=timezone.utc)
 
@@ -320,7 +320,7 @@ class TestChecks:
         )
 
     def test_a_central_key_in_root_is_reported(self, runner, host, risks):
-        from tests.server_security_support import CENTRAL_LINE, ED_KEY
+        from tests.support.server_security_support import CENTRAL_LINE, ED_KEY
 
         host.write("/root/.ssh/authorized_keys", ED_KEY + "\n" + CENTRAL_LINE + "\n")
 
@@ -334,7 +334,7 @@ class TestChecks:
     def test_a_central_key_in_root_comes_with_the_exact_line_to_remove_it(
         self, runner, host, risks
     ):
-        from tests.server_security_support import CENTRAL_KEY_BARE, CENTRAL_LINE
+        from tests.support.server_security_support import CENTRAL_KEY_BARE, CENTRAL_LINE
 
         # Any comment: a 3.0 line named its central otherwise than 3.1 does,
         # and 'migrate-tunnel' alone left it here.
@@ -349,7 +349,7 @@ class TestChecks:
         assert any("--replace-root-key" in step for step in check.fix.steps)
 
     def test_a_line_with_noust_s_forwarding_prefix_is_a_central_key(self, runner, host, risks):
-        from tests.server_security_support import CENTRAL_KEY_BARE
+        from tests.support.server_security_support import CENTRAL_KEY_BARE
 
         # Neither the comment nor the permitlisten marker: the options' prefix.
         host.write(

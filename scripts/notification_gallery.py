@@ -7,7 +7,7 @@ Render every notification, on every channel, in both languages, for review.
 
 The renderers in ``noust.core.notifications.render`` are pure, so this script
 needs no server, no network and no account: it builds the canonical set of
-notifications (``tests/notifications_support.py``, the same one the snapshot
+notifications (``tests/support/notifications_support.py``, the same one the snapshot
 tests pin) and writes what each channel would receive::
 
     python scripts/notification_gallery.py --out /tmp/noust-notif-after
@@ -51,7 +51,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from noust.core.notifications.model import Notification  # noqa: E402
 from noust.core.notifications.render import discord, email, slack, telegram, webhook  # noqa: E402
 from noust.core.runner import get_runner  # noqa: E402
-from tests.notifications_support import catalog, hostile  # noqa: E402
+from tests.support.notifications_support import catalog, hostile  # noqa: E402
 
 LOCALES = ("en", "es")
 CHAT_ID = "-1001234567890"

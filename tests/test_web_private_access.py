@@ -24,7 +24,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
 from noust.deployers import private_access
 from noust.managers.private_networks import PrivateNetwork, PrivateNetworks
-from tests.teams_support import World, build_world
+from tests.support.teams_support import World, build_world
 
 APP = "shop.acme.example"
 TAILNET = PrivateNetwork(

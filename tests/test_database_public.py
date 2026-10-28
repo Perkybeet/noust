@@ -43,7 +43,7 @@ from noust.managers.database import public_access
 from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.public_access import PublicAccess, remote_user_name
 from noust.managers.database.service import DatabaseService
-from tests.database_public_support import (
+from tests.support.database_public_support import (
     PUBLIC_IP,
     PublicHostRunner,
     fresh_state,

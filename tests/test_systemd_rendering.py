@@ -29,7 +29,7 @@ from noust.validators.environment import (
     validate_environment,
     validate_unit_value,
 )
-from tests.deployer_patch_support import patch_deployer
+from tests.support.deployer_patch_support import patch_deployer
 
 #: The payload that used to escape the quoted Environment= value and inject a
 #: second User= plus an ExecStartPre= running arbitrary shell.

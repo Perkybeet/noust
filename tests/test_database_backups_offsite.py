@@ -41,7 +41,7 @@ from noust.managers.backup_manager import server_id
 from noust.managers.database.backups import DatabaseBackups
 from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.service import DatabaseService
-from tests.database_backup_support import (
+from tests.support.database_backup_support import (
     PG_ARCHIVE,
     PG_LISTING,
     RcloneRunner,

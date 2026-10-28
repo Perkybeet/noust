@@ -29,7 +29,7 @@ from noust.managers.backup_destinations import BackupDestinationManager
 from noust.managers.backup_failures import BackupFailureLog
 from noust.managers.backup_manager import BackupManager, BackupMetadata
 from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler, run_schedule
-from tests.notifications_support import failure_id_of
+from tests.support.notifications_support import failure_id_of
 from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
 
 # The notifier's config fixture is imported rather than replicated, so there

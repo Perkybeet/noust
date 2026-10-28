@@ -30,8 +30,8 @@ from noust.fleet.cloud.provision import ProvisionRequest, ServerProvisioner
 from noust.fleet.cloud.servers import CloudServers
 from noust.fleet.enroll import EnrollRequest, HostKeyScan
 from noust.fleet.models import PublicKey, parse_public_key
-from tests.cloud_support import FakeApi
-from tests.fleet_support import KeygenRunner
+from tests.support.cloud_support import FakeApi
+from tests.support.fleet_support import KeygenRunner
 
 TOKEN = "hc" + "_" + "t" * 20 + "K9m2"
 
@@ -93,7 +93,7 @@ class StubEnroller:
         self.scans.append((host, port))
         if self.never_matches or self.wrong_scans > 0:
             self.wrong_scans = max(0, self.wrong_scans - 1)
-            from tests.fleet_support import ed25519_line
+            from tests.support.fleet_support import ed25519_line
 
             return HostKeyScan(host, port, parse_public_key(ed25519_line(4242)))
         return HostKeyScan(host, port, self._chosen_key())

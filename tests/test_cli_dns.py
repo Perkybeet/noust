@@ -33,7 +33,7 @@ from noust.deployers.domains import DnsCheck
 from noust.managers.dns.accounts import DnsAccounts, secret_name
 from noust.managers.dns.challenge import DnsChallenge
 from noust.managers.dns.records import ManagedDns
-from tests.dns_support import Cloudflare, FakeProvider, zones
+from tests.support.dns_support import Cloudflare, FakeProvider, zones
 
 TOKEN = "cf-token-" + "x" * 31
 PUBLIC = "8.8.4.4"
@@ -473,7 +473,7 @@ def test_a_route53_key_is_a_name_in_an_argument_and_a_secret_on_standard_input(
     monkeypatch: pytest.MonkeyPatch,
     log: list[str],
 ) -> None:
-    from tests.dns_wires import ACCESS_KEY, SECRET_KEY, Route53Wire
+    from tests.support.dns_wires import ACCESS_KEY, SECRET_KEY, Route53Wire
 
     wire = Route53Wire("example.com")
     monkeypatch.setattr(
@@ -502,7 +502,7 @@ def test_a_route53_key_is_a_name_in_an_argument_and_a_secret_on_standard_input(
 
 
 def test_the_secret_half_of_a_route53_key_does_not_go_in_an_argument(wired: None) -> None:
-    from tests.dns_wires import SECRET_KEY
+    from tests.support.dns_wires import SECRET_KEY
 
     result = invoke(
         [

@@ -46,7 +46,7 @@ from noust.core.notifications.model import (
 )
 from noust.core.notifications.render import discord, email, slack, telegram, webhook
 from noust.core.notifications.render.common import http_url, render_text
-from tests.notifications_support import (
+from tests.support.notifications_support import (
     FIXED_TS,
     catalog,
     context,

@@ -7,7 +7,7 @@ Snapshots of every notification, on every channel, in both languages.
 What a message *says and looks like* is a decision, and a decision is best
 reviewed as a diff. Each channel and language has one file under
 ``tests/snapshots/notifications`` holding the payload of every event of
-``tests/notifications_support.py`` (plus the hostile variants); the email's HTML
+``tests/support/notifications_support.py`` (plus the hostile variants); the email's HTML
 has a file per event so it opens in a browser. When a text changes on purpose:
 
     NOUST_UPDATE_SNAPSHOTS=1 pytest tests/test_notification_snapshots.py
@@ -21,8 +21,8 @@ from __future__ import annotations
 import pytest
 
 from noust.core.notifications.render import discord, email, slack, telegram, webhook
-from tests.notifications_support import catalog, dump, hostile
-from tests.snapshot_files import SNAPSHOT_ROOT, assert_snapshot, updating
+from tests.support.notifications_support import catalog, dump, hostile
+from tests.support.snapshot_files import SNAPSHOT_ROOT, assert_snapshot, updating
 
 LOCALES = ("en", "es")
 CHAT_ID = "-1001234567890"

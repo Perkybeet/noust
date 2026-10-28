@@ -31,7 +31,7 @@ from noust.managers.tunnels import TunnelManager
 from noust.web.api import tunnels as tunnels_api
 from noust.web.api.deps import install_error_handlers
 from noust.web.auth import require_auth
-from tests.dns_support import FakeTunnelProvider
+from tests.support.dns_support import FakeTunnelProvider
 
 BEARER = {"sid": "token", "scope": "admin", "source": "bearer", "type": "api_token"}
 COOKIE = {"sid": "s1", "scope": "admin", "source": "cookie", "type": "session"}

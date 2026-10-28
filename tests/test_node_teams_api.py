@@ -24,7 +24,7 @@ from noust.core.store import NodeRecord
 from noust.core.teams.nodes import NodeAssignments
 from noust.web.api import node_proxy
 from noust.web.api import nodes as nodes_api
-from tests.teams_support import World, build_world, make_person
+from tests.support.teams_support import World, build_world, make_person
 from tests.test_node_proxy import FakeManager, FakeNode, FakeTunnels, ServedNode
 
 

@@ -21,7 +21,7 @@ from noust.core.audit import get_log
 from noust.core.store import NoustStore
 from noust.core.teams import TeamStore
 from noust.web.auth import STATE_DIR_ENV
-from tests.saml_support import make_identity
+from tests.support.saml_support import make_identity
 from tests.test_saml import ISSUER, SSO, metadata_xml
 
 PASSWORD = "correct horse battery staple"

@@ -29,7 +29,7 @@ from noust.cli.app import DEPLOY_VERBS, Context, NoustGroup, cli
 from noust.cli.commands.deploy import cli as deploy_group
 from noust.core.audit import Actor, get_log
 from noust.managers import console_service
-from tests.console_patch_support import patch_console
+from tests.support.console_patch_support import patch_console
 
 ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = ROOT / "src" / "noust" / "templates" / "systemd"

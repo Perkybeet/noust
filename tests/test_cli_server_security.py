@@ -30,7 +30,7 @@ from noust.managers.server import security_checks
 from noust.managers.server.security import ServerSecurity
 from noust.managers.server.security_proof import NEGATIVE_TTL
 from noust.managers.server.security_sshd import DROPIN
-from tests.server_security_support import ED_FP, NOW, FakeHost, FakeSshd, accepted
+from tests.support.server_security_support import ED_FP, NOW, FakeHost, FakeSshd, accepted
 
 
 @pytest.fixture(autouse=True)
@@ -179,7 +179,7 @@ class TestSsh:
         assert {"directive": "X11Forwarding", "before": "yes", "after": "no"} in plan["changes"]
 
     def test_remove_key_refuses_the_central_key(self, machine):
-        from tests.server_security_support import CENTRAL_FP, CENTRAL_LINE, ED_KEY
+        from tests.support.server_security_support import CENTRAL_FP, CENTRAL_LINE, ED_KEY
 
         machine.host.write("/root/.ssh/authorized_keys", ED_KEY + "\n" + CENTRAL_LINE + "\n")
 

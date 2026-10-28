@@ -50,7 +50,7 @@ from noust.managers.database.backups import DatabaseBackups, remote_folder
 from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.service import DatabaseService
 from noust.managers.retention import select_expired
-from tests.database_backup_support import (
+from tests.support.database_backup_support import (
     MYSQL_DUMP,
     MYSQL_DUMP_CUT,
     PG_ARCHIVE,
@@ -62,7 +62,7 @@ from tests.database_backup_support import (
     make_engine,
     make_service,
 )
-from tests.notifications_support import failure_id_of
+from tests.support.notifications_support import failure_id_of
 
 
 @pytest.fixture(autouse=True)

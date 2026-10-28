@@ -21,7 +21,7 @@ import pytest
 from noust.core import delivery
 from noust.core.store import NoustStore
 from noust.deployers.migrate import migrate, plan_migration
-from tests.deployer_patch_support import patch_deployer
+from tests.support.deployer_patch_support import patch_deployer
 from tests.test_migrate import (
     DOMAIN,
     machine,

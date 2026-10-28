@@ -24,8 +24,8 @@ from noust.managers.source_keys import DeployKeyManager
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app as build_app
 from noust.web.server import get_token_manager
-from tests.deploy_key_support import DeployKeyRunner, GitScript, private_key_text
-from tests.fleet_support import ed25519_line, fingerprint
+from tests.support.deploy_key_support import DeployKeyRunner, GitScript, private_key_text
+from tests.support.fleet_support import ed25519_line, fingerprint
 
 DOMAIN = "shop.example.com"
 SOURCE = "git@github.com:acme/shop.git"

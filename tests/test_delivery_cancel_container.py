@@ -24,7 +24,7 @@ from noust.core.applock import app_lock
 from noust.core.cancellation import operation_window, request_cancel
 from noust.core.exceptions import DeploymentCancelled
 from noust.core.runner import CommandCancelled
-from tests.container_support import APP, DOMAIN, Docker, root_of
+from tests.support.container_support import APP, DOMAIN, Docker, root_of
 from tests.test_container_deployer import (  # noqa: F401  (pytest resolves fixtures by name)
     certs,
     docker,

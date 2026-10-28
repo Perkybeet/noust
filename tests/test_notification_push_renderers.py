@@ -16,8 +16,8 @@ import json
 import pytest
 
 from noust.core.notifications.render import gotify, ntfy, pushover, teams
-from tests.notifications_support import catalog, dump, hostile
-from tests.snapshot_files import assert_snapshot
+from tests.support.notifications_support import catalog, dump, hostile
+from tests.support.snapshot_files import assert_snapshot
 
 LOCALES = ("en", "es")
 ROOT = "notifications-push"

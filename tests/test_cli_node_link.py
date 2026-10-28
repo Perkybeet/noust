@@ -27,8 +27,8 @@ from noust.core.store import NoustStore
 from noust.fleet import nodes as nodes_module
 from noust.fleet.link import node as node_module
 from noust.web.auth import STATE_DIR_ENV
-from tests.fleet_support import HOST_KEY, TOKEN
-from tests.link_support import LINK_UID, NONCE, LinkRig, build_link_rig
+from tests.support.fleet_support import HOST_KEY, TOKEN
+from tests.support.link_support import LINK_UID, NONCE, LinkRig, build_link_rig
 from tests.test_fleet_link_node import Server
 
 

@@ -28,7 +28,7 @@ from noust.managers.database.keys import (
     parse_csv_reply,
 )
 from noust.managers.database.redis import RedisManager
-from tests.database_data_support import SqlRunner, installed_sql_runner, make_service
+from tests.support.database_data_support import SqlRunner, installed_sql_runner, make_service
 
 
 @pytest.fixture

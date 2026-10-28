@@ -24,7 +24,7 @@ from noust.cli.commands import db as db_cli
 from noust.core.config import Config
 from noust.core.logger import Logger
 from noust.managers.database.service import DatabaseService
-from tests.database_instance_support import World, build_world, close_world
+from tests.support.database_instance_support import World, build_world, close_world
 
 
 @pytest.fixture

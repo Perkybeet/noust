@@ -4,7 +4,7 @@
 """
 A central with several fake nodes, for the fleet views and actions.
 
-:func:`tests.fleet_support.build_fleet` wires one fake node; the views and the
+:func:`tests.support.fleet_support.build_fleet` wires one fake node; the views and the
 actions need several, each with its own answers. Every node is registered the
 normal way (key, join code, tunnel through the fake ssh), and one transport
 routes each request to the node whose tunnel's local port it was sent to.
@@ -22,7 +22,7 @@ import httpx
 
 from noust.fleet.aggregate import Aggregator, set_aggregator
 from noust.fleet.nodes import NodeManager
-from tests.fleet_support import FakeNode, Fleet, build_fleet
+from tests.support.fleet_support import FakeNode, Fleet, build_fleet
 
 #: The OpenAPI paths of a 3.1 node, as far as the fleet actions look.
 SCHEMA_31: dict[str, dict[str, Any]] = {

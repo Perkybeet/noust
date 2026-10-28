@@ -30,7 +30,7 @@ from noust.managers.server.pkg.apt import (
     parse_upgrade_simulation,
 )
 from noust.managers.server.pkg.base import UpdateScope
-from tests.server_support import EmptyAptLists, fixture, make_host, platform_for
+from tests.support.server_support import EmptyAptLists, fixture, make_host, platform_for
 
 
 @pytest.fixture

@@ -19,7 +19,7 @@ import pytest
 from noust.fleet.aggregate import Asker, set_aggregator
 from noust.fleet.placement_status import placement_status
 from noust.fleet.placements import Placements
-from tests.fleet_views_support import Central, build_central
+from tests.support.fleet_views_support import Central, build_central
 
 DOMAIN = "shop.example.com"
 ASKER = Asker(actor="cli:test@nas", scope="admin")

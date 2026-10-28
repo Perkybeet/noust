@@ -27,7 +27,7 @@ from noust.deployers import promote as promote_module
 from noust.deployers.base import BaseDeployer
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.promote import plan_promotion, promote, promotion_targets
-from tests.deployer_patch_support import patch_deployer
+from tests.support.deployer_patch_support import patch_deployer
 from tests.test_release_pipeline import (
     GIT_URL,
     TreeRunner,

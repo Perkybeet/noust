@@ -31,8 +31,8 @@ from noust.core.store import NoustStore
 from noust.web import auth as auth_module
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig, tokens
 from noust.web.server import create_app, get_token_manager
-from tests.auth_clock_support import set_clock
-from tests.mfa_support import require_second_factor
+from tests.support.auth_clock_support import set_clock
+from tests.support.mfa_support import require_second_factor
 
 PASSWORD = "correct horse battery staple"
 

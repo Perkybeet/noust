@@ -40,7 +40,7 @@ from noust.managers.server.storage import (
     parse_docker_size,
     parse_journal_size,
 )
-from tests.server_support import fixture, make_host, platform_for
+from tests.support.server_support import fixture, make_host, platform_for
 
 
 def _partition(device: str, mountpoint: str, fstype: str = "ext4", opts: str = "rw,relatime"):
@@ -376,7 +376,7 @@ class TestCleanupIsAClosedList:
         assert ("journalctl", "--vacuum-time=14d") in runner.calls
 
     def test_freed_space_is_the_journal_before_minus_after(self, host) -> None:
-        from tests.server_support import SequencedRunner
+        from tests.support.server_support import SequencedRunner
 
         runner = SequencedRunner()
         runner.sequence(

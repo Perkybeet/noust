@@ -29,7 +29,7 @@ from noust.managers.server.security_fail2ban import (
 )
 from noust.managers.server.security_pending import FAIL2BAN_WEB_JAIL
 from noust.managers.server.security_probe import SecurityProbe
-from tests.server_security_support import NOW, FakeHost, FakeSshd
+from tests.support.server_security_support import NOW, FakeHost, FakeSshd
 
 F2B_WITH_WEB = "Status\n|- Number of jail:\t4\n`- Jail list:\tnginx-botsearch, nginx-http-auth, nginx-limit-req, sshd\n"
 F2B_SSHD_ONLY = "Status\n|- Number of jail:\t1\n`- Jail list:\tsshd\n"

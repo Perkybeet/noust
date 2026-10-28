@@ -24,7 +24,7 @@ from noust.core.notifications.excerpt import (
 )
 from noust.core.notifications.model import Excerpt
 from noust.deployers.helpers.health_gate import HealthGate
-from tests.notifications_support import NODE_CRASH, NODE_ERROR
+from tests.support.notifications_support import NODE_CRASH, NODE_ERROR
 
 JOURNAL = [
     "Sep 29 10:45:12 web-1 systemd[1]: Started shop-example-com.service.",

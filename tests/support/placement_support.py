@@ -18,7 +18,7 @@ from typing import Any
 
 import httpx
 
-from tests.fleet_views_support import Node
+from tests.support.fleet_views_support import Node
 
 DOMAIN = "shop.example.com"
 

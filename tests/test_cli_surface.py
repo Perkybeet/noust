@@ -22,7 +22,7 @@ import pytest
 from click.testing import CliRunner
 
 from noust.cli.app import ALIASES, cli
-from tests.cli_tree_support import walk
+from tests.support.cli_tree_support import walk
 
 CONTRACT_FILE = Path(__file__).parent / "contracts/cli_surface.json"
 CONTRACT: dict[str, dict] = json.loads(CONTRACT_FILE.read_text(encoding="utf-8"))

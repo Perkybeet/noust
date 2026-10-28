@@ -36,7 +36,7 @@ from noust.deployers.python import PythonDeployer
 from noust.deployers.registry import DeployerRegistry, detect_app_type, get_deployer
 from noust.deployers.static import StaticDeployer
 from noust.deployers.vite import ViteDeployer
-from tests.deployer_patch_support import patch_deployer
+from tests.support.deployer_patch_support import patch_deployer
 
 # ---------------------------------------------------------------------------
 # Fixtures

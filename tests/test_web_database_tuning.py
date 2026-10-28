@@ -25,7 +25,7 @@ import noust.web.api.databases.jobs as jobs_module
 import noust.web.api.databases.tuning as tuning_module
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
-from tests.database_instance_support import World, build_world, close_world
+from tests.support.database_instance_support import World, build_world, close_world
 
 URL = "/api/databases/instances/pg16/tuning"
 
