@@ -34,6 +34,33 @@ RESERVED_NAMES = frozenset({"installed", "categories", "private", "catalog"})
 #: document of pinned images, deployed by the Compose deployer behind nginx.
 KINDS = ("native", "compose")
 
+#: Why a recipe is listed and cannot be installed, as a code the console translates and the
+#: catalogue filters by (``recipes.unavailable.<code>`` in :mod:`noust.core.server_text`). The
+#: recipe's own ``unavailable_reason`` stays the evidence: which file or page said it, and when.
+UNAVAILABLE_CODES = (
+    "licence",
+    "not_for_production",
+    "no_image",
+    "not_an_application",
+    "host_ports",
+    "archived",
+    "platform_stack",
+    "root_equivalent",
+)
+
+#: The sentence each code is said with. Written out, so that a search for a sentence of the
+#: server's words finds who says it.
+UNAVAILABLE_SENTENCES = {
+    "licence": "recipes.unavailable.licence",
+    "not_for_production": "recipes.unavailable.not_for_production",
+    "no_image": "recipes.unavailable.no_image",
+    "not_an_application": "recipes.unavailable.not_an_application",
+    "host_ports": "recipes.unavailable.host_ports",
+    "archived": "recipes.unavailable.archived",
+    "platform_stack": "recipes.unavailable.platform_stack",
+    "root_equivalent": "recipes.unavailable.root_equivalent",
+}
+
 #: Where a native recipe's code comes from.
 SOURCE_KINDS = ("git", "archive", "template")
 
@@ -601,7 +628,9 @@ class Recipe:
         architectures: The architectures it runs on (all its images are
             published for them), empty for any. Checked against the server.
         available: Whether it can be deployed with this release.
-        unavailable_reason: Why not, when it cannot.
+        unavailable_reason: Why not, when it cannot: the evidence (the page or file read, and when).
+        unavailable_code: The reason as one of :data:`UNAVAILABLE_CODES`.
+        replaced_by: The recipe that stands in for it, when the catalogue has one.
         app_type: The deployer that builds it.
         source: Where a native recipe's code comes from.
         layout: ``releases`` or ``inplace``.
@@ -654,6 +683,8 @@ class Recipe:
     architectures: tuple[str, ...] = ()
     available: bool = True
     unavailable_reason: str | None = None
+    unavailable_code: str | None = None
+    replaced_by: str | None = None
     app_type: str = ""
     source: RecipeSource | None = None
     layout: str = "releases"
@@ -683,6 +714,26 @@ class Recipe:
     def runs_in_docker(self) -> bool:
         """Whether the application runs in containers, which the catalogue says."""
         return self.kind == "compose"
+
+    def _unavailable_view(self) -> dict[str, Any]:
+        """
+        Say why the recipe cannot be installed, in the server's coded words.
+
+        Returns:
+            The code, the sentence as a code and values for the console to translate, the English
+            text and its fix, and the recipe that replaces it; every one None for a recipe that
+            installs.
+        """
+        from noust.core.server_text import say
+
+        said = say(UNAVAILABLE_SENTENCES[self.unavailable_code]) if self.unavailable_code else None
+        return {
+            "unavailable_code": self.unavailable_code,
+            "unavailable": said.to_dict() if said else None,
+            "unavailable_text": said.text if said else None,
+            "unavailable_hint": said.hint if said else None,
+            "replaced_by": self.replaced_by,
+        }
 
     @property
     def logo_icon(self) -> str | None:
@@ -769,6 +820,7 @@ class Recipe:
             "runs_in_docker": self.runs_in_docker,
             "available": self.available,
             "unavailable_reason": self.unavailable_reason,
+            **self._unavailable_view(),
             "app_type": self.app_type or None,
             "database": self.database_engine,
             "database_choices": [ENGINE_OF[choice] for choice in self.database_choices],

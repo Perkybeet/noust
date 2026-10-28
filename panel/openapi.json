@@ -39772,6 +39772,39 @@
             ],
             "title": "Logo"
           },
+          "logo_icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Icon"
+          },
+          "logo_license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo License"
+          },
+          "logo_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Source"
+          },
           "min_noust": {
             "anyOf": [
               {
@@ -39826,6 +39859,17 @@
             },
             "title": "Public Ports",
             "type": "array"
+          },
+          "replaced_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaced By"
           },
           "repository": {
             "anyOf": [
@@ -39888,6 +39932,40 @@
             "title": "Title",
             "type": "string"
           },
+          "unavailable": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable"
+          },
+          "unavailable_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Code"
+          },
+          "unavailable_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Hint"
+          },
           "unavailable_reason": {
             "anyOf": [
               {
@@ -39898,6 +39976,17 @@
               }
             ],
             "title": "Unavailable Reason"
+          },
+          "unavailable_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Text"
           },
           "updated": {
             "anyOf": [
@@ -40071,7 +40160,7 @@
         "type": "object"
       },
       "RecipeSummaryOut": {
-        "description": "One recipe in the catalogue.\n\nAttributes:\n    name: What ``recipe`` takes in ``POST /api/apps``.\n    title: What it is called.\n    slogan: One line for the catalogue card.\n    description: One or two sentences.\n    homepage: The project's site.\n    docs: The project's documentation.\n    repository: The project's source code.\n    license: The project's licence.\n    min_noust: The oldest Noust that can install it, when it asks for one.\n    architectures: What it runs on; empty for any. Checked at install.\n    category: One of the closed list (``GET /api/recipes/categories``).\n    tags: Lower-case labels.\n    logo: Where the logo is served, or None.\n    version: The version of the application the recipe pins.\n    revision: The recipe's own revision of that version.\n    updated: When the recipe last changed (ISO date).\n    kind: ``native`` or ``compose``.\n    runs_in_docker: Whether it runs in containers.\n    available: Whether this release can deploy it.\n    unavailable_reason: Why not, when it cannot.\n    app_type: The deployer that builds it; None when unavailable.\n    database: The SQL engine it is given, if any.\n    database_choices: The SQL engines it can run on when the operator chooses at install\n        (``mysql``, ``mariadb``), its own first; empty when it offers no choice.\n    dependencies: The services it asks Noust to provide.\n    requires: What the server needs, in words.\n    digest_verified: Compose: every image carries a digest read from its\n        registry. None for a native recipe.\n    schema_version: The format version the file is written in.\n    origin: ``shipped`` (the package), ``catalog`` (a signed catalogue\n        package) or ``operator`` (the server's own recipes).",
+        "description": "One recipe in the catalogue.\n\nAttributes:\n    name: What ``recipe`` takes in ``POST /api/apps``.\n    title: What it is called.\n    slogan: One line for the catalogue card.\n    description: One or two sentences.\n    homepage: The project's site.\n    docs: The project's documentation.\n    repository: The project's source code.\n    license: The project's licence.\n    min_noust: The oldest Noust that can install it, when it asks for one.\n    architectures: What it runs on; empty for any. Checked at install.\n    category: One of the closed list (``GET /api/recipes/categories``).\n    tags: Lower-case labels.\n    logo: Where the logo is served, or None.\n    logo_source: ``simple-icons`` (the collection's mark, CC0) or ``asset`` (a file of the\n        recipe); None without a logo.\n    logo_icon: The simple-icons slug, when the logo is the collection's.\n    logo_license: The licence of the mark's file when it is the collection's.\n    version: The version of the application the recipe pins.\n    revision: The recipe's own revision of that version.\n    updated: When the recipe last changed (ISO date).\n    kind: ``native`` or ``compose``.\n    runs_in_docker: Whether it runs in containers.\n    available: Whether this release can deploy it.\n    unavailable_reason: Why not, when it cannot: the evidence the recipe holds, in English.\n    unavailable_code: The reason as a code to filter by (``licence``, ``archived``...).\n    unavailable: The reason as a sentence of the server's, a ``code`` and its ``params``,\n        for the console to translate; None when it installs.\n    unavailable_text: That sentence in English.\n    unavailable_hint: What to do about it, in English.\n    replaced_by: The recipe that stands in for it, when there is one.\n    app_type: The deployer that builds it; None when unavailable.\n    database: The SQL engine it is given, if any.\n    database_choices: The SQL engines it can run on when the operator chooses at install\n        (``mysql``, ``mariadb``), its own first; empty when it offers no choice.\n    dependencies: The services it asks Noust to provide.\n    requires: What the server needs, in words.\n    digest_verified: Compose: every image carries a digest read from its\n        registry. None for a native recipe.\n    schema_version: The format version the file is written in.\n    origin: ``shipped`` (the package), ``catalog`` (a signed catalogue\n        package) or ``operator`` (the server's own recipes).",
         "properties": {
           "app_type": {
             "anyOf": [
@@ -40184,6 +40273,39 @@
             ],
             "title": "Logo"
           },
+          "logo_icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Icon"
+          },
+          "logo_license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo License"
+          },
+          "logo_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Source"
+          },
           "min_noust": {
             "anyOf": [
               {
@@ -40203,6 +40325,17 @@
             "default": "shipped",
             "title": "Origin",
             "type": "string"
+          },
+          "replaced_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaced By"
           },
           "repository": {
             "anyOf": [
@@ -40255,6 +40388,40 @@
             "title": "Title",
             "type": "string"
           },
+          "unavailable": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable"
+          },
+          "unavailable_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Code"
+          },
+          "unavailable_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Hint"
+          },
           "unavailable_reason": {
             "anyOf": [
               {
@@ -40265,6 +40432,17 @@
               }
             ],
             "title": "Unavailable Reason"
+          },
+          "unavailable_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Text"
           },
           "updated": {
             "anyOf": [
@@ -74330,7 +74508,7 @@
     },
     "/api/apps/{domain}/rollback-points": {
       "get": {
-        "description": "List the backups an application can be rolled back to.\n\nDeliberately not gated on the application still being deployed: a backup\nfor a domain Noust no longer serves is still a rollback point until it is\npruned, the same reasoning that keeps deployment history around after an\napplication is deleted (see :mod:`noust.web.views.deployments`).\n\nArgs:\n    domain: Domain whose rollback points are asked for.\n    session: The authenticated session.\n\nReturns:\n    The points, newest first, from\n    :meth:`~noust.managers.backup_manager.RollbackManager.list_rollback_points`\n    - the one implementation, shared with ``noust backup rollback --list``.",
+        "description": "List the backups an application can be rolled back to.\n\nDeliberately not gated on the application still being deployed: a backup\nfor a domain Noust no longer serves is still a rollback point until it is\npruned, the same reasoning that keeps deployment history around after an\napplication is deleted (see :mod:`noust.web.views.deployments`).\n\nArgs:\n    domain: Domain whose rollback points are asked for.\n    session: The authenticated session.\n\nReturns:\n    The points, newest first, from\n    :meth:`~noust.managers.rollback_manager.RollbackManager.list_rollback_points`\n    - the one implementation, shared with ``noust backup rollback --list``.",
         "operationId": "list_rollback_points_api_apps__domain__rollback_points_get",
         "parameters": [
           {
@@ -100348,7 +100526,7 @@
     },
     "/api/recipes": {
       "get": {
-        "description": "List the recipes, the ones this release can deploy first, and search them.\n\nEvery filter given must hold. ``q`` matches the name, title, slogan,\ndescription, category and tags, and each of its words must be found.\n\nArgs:\n    session: The authenticated session.\n    q: Words to look for.\n    category: One category of the closed list.\n    tag: One tag.\n    kind: ``native`` or ``compose``.\n    origin: Only the recipes from this source.\n\nReturns:\n    The matching recipes, with whether each is available and why not, and\n    the files of the server's own recipes that could not be read.\n\nRaises:\n    RecipeError: ``category``, ``kind`` or ``origin`` is not one of the\n        closed lists (400).",
+        "description": "List the recipes, the ones this release can deploy first, and search them.\n\nEvery filter given must hold. ``q`` matches the name, title, slogan,\ndescription, category and tags, and each of its words must be found.\n\nArgs:\n    session: The authenticated session.\n    q: Words to look for.\n    category: One category of the closed list.\n    tag: One tag.\n    kind: ``native`` or ``compose``.\n    origin: Only the recipes from this source.\n    available: Whether the recipe installs.\n    unavailable_code: Only the listed recipes left out for this reason.\n\nReturns:\n    The matching recipes, with whether each is available and why not, and\n    the files of the server's own recipes that could not be read.\n\nRaises:\n    RecipeError: ``category``, ``kind``, ``origin`` or ``unavailable_code`` is not one\n        of the closed lists (400).",
         "operationId": "get_recipes_api_recipes_get",
         "parameters": [
           {
@@ -100441,6 +100619,42 @@
               ],
               "description": "shipped, catalog or operator: where the recipe comes from",
               "title": "Origin"
+            }
+          },
+          {
+            "description": "true: only what installs; false: only what is listed and does not",
+            "in": "query",
+            "name": "available",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only what installs; false: only what is listed and does not",
+              "title": "Available"
+            }
+          },
+          {
+            "description": "Only the listed recipes left out for this reason",
+            "in": "query",
+            "name": "unavailable_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the listed recipes left out for this reason",
+              "title": "Unavailable Code"
             }
           }
         ],

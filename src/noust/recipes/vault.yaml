@@ -23,4 +23,5 @@ docs: https://developer.hashicorp.com/vault/docs
 repository: https://github.com/hashicorp/vault
 license: BUSL-1.1
 available: false
+unavailable_code: licence
 unavailable_reason: "A Vault server starts sealed and uninitialised, and its production configuration and the unseal ceremony are not something a one-click recipe can do safely; its server configuration was not run here. It is also under the Business Source License. Not available in this release."

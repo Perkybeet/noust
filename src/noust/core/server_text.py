@@ -88,6 +88,48 @@ CATALOG: dict[str, str] = {
         "Use lower-case letters, digits and single underscores, starting with a letter, "
         "at most {max} characters."
     ),
+    # -- The recipe catalogue: why a recipe is listed and cannot be installed ---------------
+    "recipes.unavailable.licence": "Its licence does not let an operator run it for others",
+    "recipes.unavailable.licence.hint": (
+        "If you hold a licence that does, deploy it from its own repository with 'noust create'."
+    ),
+    "recipes.unavailable.not_for_production": (
+        "Its own project says this edition is not for production"
+    ),
+    "recipes.unavailable.not_for_production.hint": (
+        "Use the edition the project supports for production, deployed from its repository."
+    ),
+    "recipes.unavailable.no_image": "The project publishes no container image that could be pinned",
+    "recipes.unavailable.no_image.hint": (
+        "Deploy it from the project's repository with 'noust create', or add a Dockerfile of your "
+        "own."
+    ),
+    "recipes.unavailable.not_an_application": (
+        "It is a framework to build an application with, not an application to install"
+    ),
+    "recipes.unavailable.not_an_application.hint": (
+        "Deploy your own project from its repository with 'noust create'."
+    ),
+    "recipes.unavailable.host_ports": (
+        "It needs ports that the server's web server and mail already hold"
+    ),
+    "recipes.unavailable.host_ports.hint": "Run it on a server of its own.",
+    "recipes.unavailable.archived": "The project is archived and no longer maintained",
+    "recipes.unavailable.archived.hint": (
+        "Use the recipe that replaces it, when the catalogue names one."
+    ),
+    "recipes.unavailable.platform_stack": (
+        "It is a platform of dozens of services with a proxy of its own"
+    ),
+    "recipes.unavailable.platform_stack.hint": (
+        "Run it on a server of its own with the project's installer."
+    ),
+    "recipes.unavailable.root_equivalent": (
+        "It controls the server's Docker daemon, which is the same as root on the server"
+    ),
+    "recipes.unavailable.root_equivalent.hint": (
+        "Deploy it yourself with 'noust create' if you accept that, on a server that is yours."
+    ),
     # -- Mail an account is sent (an invitation, a password reset) -------------------------
     "mail.no_transport": "There is no way to send mail from this server",
     "mail.no_transport.hint": (

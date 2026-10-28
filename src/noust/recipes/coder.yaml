@@ -13,4 +13,5 @@ docs: https://coder.com/docs/install/docker
 repository: https://github.com/coder/coder
 license: AGPL-3.0-only
 available: false
+unavailable_code: root_equivalent
 unavailable_reason: "Coder creates workspaces by driving Docker (or a cloud API) from the server: its Docker installation needs the daemon's socket, and its troubleshooting names 'Cannot connect to the Docker daemon at unix:///var/run/docker.sock' (coder.com/docs/install/docker, read 2026-10-06); a recipe may not mount the Docker socket. Not available in this release."

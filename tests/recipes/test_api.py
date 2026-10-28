@@ -499,3 +499,39 @@ class TestWhetherTheCatalogueMayBeDeployed:
         real_config.set("security.allowed_sources", ["github.com/acme", entry])
 
         assert client.get("/api/recipes").json()["recipes_allowed"] is True
+
+
+def test_a_listed_recipe_gives_its_reason_as_a_code_a_sentence_and_a_filter(
+    client: TestClient,
+) -> None:
+    """The console draws the reason in its own language and filters the listing by it."""
+    everything = {i["name"]: i for i in client.get("/api/recipes").json()["items"]}
+    vault = everything["vault"]
+
+    assert vault["unavailable_code"] == "licence"
+    assert vault["unavailable"] == {"code": "recipes.unavailable.licence", "params": {}}
+    assert vault["unavailable_text"] and vault["unavailable_hint"]
+    assert vault["unavailable_reason"]
+    installed = everything["vaultwarden"]
+    assert installed["unavailable_code"] is None and installed["unavailable"] is None
+
+    out = client.get("/api/recipes", params={"available": "false"}).json()["items"]
+    assert out and all(item["available"] is False for item in out)
+    assert all(i["available"] for i in client.get("/api/recipes?available=true").json()["items"])
+    licence = client.get("/api/recipes", params={"unavailable_code": "licence"}).json()["items"]
+    assert "vault" in {item["name"] for item in licence}
+    assert all(item["unavailable_code"] == "licence" for item in licence)
+    refused = client.get("/api/recipes", params={"unavailable_code": "because"})
+    assert refused.status_code == 400 and "unavailable_code" in refused.text
+
+
+def test_a_recipe_says_where_its_logo_comes_from(client: TestClient) -> None:
+    """A file of the recipe, or a mark of the simple-icons collection with its licence."""
+    items = {i["name"]: i for i in client.get("/api/recipes").json()["items"]}
+
+    for item in items.values():
+        assert item["logo_source"] in ("asset", "simple-icons")
+        if item["logo_source"] == "simple-icons":
+            assert item["logo_icon"] and item["logo_license"] == "CC0-1.0"
+        else:
+            assert item["logo_icon"] is None and item["logo_license"] is None

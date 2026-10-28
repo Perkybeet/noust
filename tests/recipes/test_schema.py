@@ -107,6 +107,7 @@ def test_an_unavailable_recipe_is_listed_with_its_reason_and_nothing_to_deploy()
             "homepage": "https://example.com",
             "available": False,
             "unavailable_reason": "Waiting for something.",
+            "unavailable_code": "archived",
         },
     )
 
@@ -134,6 +135,7 @@ def test_an_unavailable_recipe_has_nothing_else(extra: dict[str, Any]) -> None:
         "homepage": "https://example.com",
         "available": False,
         "unavailable_reason": "Waiting.",
+        "unavailable_code": "archived",
         **extra,
     }
 

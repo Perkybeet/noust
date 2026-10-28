@@ -85,13 +85,23 @@ class RecipeSummaryOut(BaseModel):
         category: One of the closed list (``GET /api/recipes/categories``).
         tags: Lower-case labels.
         logo: Where the logo is served, or None.
+        logo_source: ``simple-icons`` (the collection's mark, CC0) or ``asset`` (a file of the
+            recipe); None without a logo.
+        logo_icon: The simple-icons slug, when the logo is the collection's.
+        logo_license: The licence of the mark's file when it is the collection's.
         version: The version of the application the recipe pins.
         revision: The recipe's own revision of that version.
         updated: When the recipe last changed (ISO date).
         kind: ``native`` or ``compose``.
         runs_in_docker: Whether it runs in containers.
         available: Whether this release can deploy it.
-        unavailable_reason: Why not, when it cannot.
+        unavailable_reason: Why not, when it cannot: the evidence the recipe holds, in English.
+        unavailable_code: The reason as a code to filter by (``licence``, ``archived``...).
+        unavailable: The reason as a sentence of the server's, a ``code`` and its ``params``,
+            for the console to translate; None when it installs.
+        unavailable_text: That sentence in English.
+        unavailable_hint: What to do about it, in English.
+        replaced_by: The recipe that stands in for it, when there is one.
         app_type: The deployer that builds it; None when unavailable.
         database: The SQL engine it is given, if any.
         database_choices: The SQL engines it can run on when the operator chooses at install
@@ -118,6 +128,9 @@ class RecipeSummaryOut(BaseModel):
     category: str = "other"
     tags: list[str] = []
     logo: str | None = None
+    logo_source: str | None = None
+    logo_icon: str | None = None
+    logo_license: str | None = None
     version: str | None = None
     revision: int = 1
     updated: str | None = None
@@ -125,6 +138,11 @@ class RecipeSummaryOut(BaseModel):
     runs_in_docker: bool = False
     available: bool
     unavailable_reason: str | None = None
+    unavailable_code: str | None = None
+    unavailable: dict[str, Any] | None = None
+    unavailable_text: str | None = None
+    unavailable_hint: str | None = None
+    replaced_by: str | None = None
     app_type: str | None = None
     database: str | None = None
     database_choices: list[str] = Field(default_factory=list)
@@ -534,6 +552,13 @@ def get_recipes(
     origin: Annotated[
         str | None, Query(description="shipped, catalog or operator: where the recipe comes from")
     ] = None,
+    available: Annotated[
+        bool | None,
+        Query(description="true: only what installs; false: only what is listed and does not"),
+    ] = None,
+    unavailable_code: Annotated[
+        str | None, Query(description="Only the listed recipes left out for this reason")
+    ] = None,
 ) -> RecipeListOut:
     """
     List the recipes, the ones this release can deploy first, and search them.
@@ -548,14 +573,16 @@ def get_recipes(
         tag: One tag.
         kind: ``native`` or ``compose``.
         origin: Only the recipes from this source.
+        available: Whether the recipe installs.
+        unavailable_code: Only the listed recipes left out for this reason.
 
     Returns:
         The matching recipes, with whether each is available and why not, and
         the files of the server's own recipes that could not be read.
 
     Raises:
-        RecipeError: ``category``, ``kind`` or ``origin`` is not one of the
-            closed lists (400).
+        RecipeError: ``category``, ``kind``, ``origin`` or ``unavailable_code`` is not one
+            of the closed lists (400).
     """
     if origin is not None and origin not in ORIGINS:
         raise RecipeError(
@@ -563,7 +590,14 @@ def get_recipes(
         )
     found = [
         recipe
-        for recipe in search_recipes(query=q, category=category, tag=tag, kind=kind)
+        for recipe in search_recipes(
+            query=q,
+            category=category,
+            tag=tag,
+            kind=kind,
+            available=available,
+            unavailable_code=unavailable_code,
+        )
         if origin is None or recipe.origin == origin
     ]
     return RecipeListOut(

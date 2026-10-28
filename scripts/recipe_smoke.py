@@ -77,6 +77,26 @@ ERROR_LINE = re.compile(r"\b(error|fatal|exception|traceback|panic)\b", re.IGNOR
 #: Seconds to let the stack settle after the gate passes, before looking for restarts.
 SETTLE_SECONDS = 25
 
+#: Where an application that does not answer the recipe's path is asked next, in this order: the
+#: conventional liveness endpoints first, then the pages a first visit lands on.
+PROBE_PATHS = (
+    "/",
+    "/health",
+    "/healthz",
+    "/api/health",
+    "/ping",
+    "/api/v1/health",
+    "/api/healthz",
+    "/-/health",
+    "/status",
+    "/api/status",
+    "/up",
+    "/login",
+    "/api/ping",
+    "/version",
+    "/robots.txt",
+)
+
 #: What a project is named when the operator does not say: the prefix, then the recipe.
 DEFAULT_PREFIX = "noust-smoke-"
 
@@ -200,6 +220,9 @@ class SmokeReport:
         log_tail: The end of the stack's log, kept when the gate was not answered, so that the
             report says why.
         problems: What stops the recipe from being accepted; empty when it passes.
+        suggested_health: Where the application does answer, found before the stack was removed,
+            when it answered the gate's request but not as the recipe expects: ``path`` and
+            ``expect``. None when it passed, did not answer at all, or answers nowhere.
         notes: What was seen and is not held against the recipe: a container that restarted once
             and left with status 0 (an application that applies its first-run configuration and
             stops itself, as Hoppscotch's backend does after filling its settings table).
@@ -217,7 +240,32 @@ class SmokeReport:
     error_lines: dict[str, Any] = field(default_factory=dict)
     log_tail: str = ""
     problems: list[str] = field(default_factory=list)
+    suggested_health: dict[str, str] | None = None
     notes: list[str] = field(default_factory=list)
+
+
+def suggest_health(base: str, gate_path: str, gate_status: int) -> dict[str, str] | None:
+    """
+    Look for the path an application that is up answers, when the recipe's path is not it.
+
+    Args:
+        base: ``http://127.0.0.1:<port>``.
+        gate_path: The path the recipe asks.
+        gate_status: What it got there (an HTTP status).
+
+    Returns:
+        ``{"path": ..., "expect": "200-399"}`` for the first conventional path that answers with
+        a success or a redirect; for an application that answers 401 on the recipe's own path,
+        that path with the 401 accepted (the application is the one answering, and it wants a
+        sign in on every page); None when nothing answers like that.
+    """
+    for path in PROBE_PATHS:
+        status, _ = ask(f"{base}{path}", follow=False)
+        if isinstance(status, int) and 200 <= status <= 399:
+            return {"path": path, "expect": "200-399"}
+    if gate_status == 401:
+        return {"path": gate_path, "expect": "200-399,401"}
+    return None
 
 
 def gate_accepts(expect: str | None, status: int) -> bool:
@@ -471,6 +519,10 @@ def smoke(
             )
             report.containers = project.inspect()
             report.log_tail = project.run("logs", "--no-color", "--tail", "40").stdout[-4000:]
+            if isinstance(status, int):
+                report.suggested_health = suggest_health(
+                    f"http://127.0.0.1:{port}", report.gate_path, status
+                )
             return report
         proxied = {
             "Host": domain,

@@ -37,6 +37,7 @@ from noust.core.exceptions import DeploymentError, DomainError, NoustError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
 from noust.core.recipe_sources import recipe_source_dir
+from noust.core.server_text import say
 from noust.core.store import NoustStore, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.databases import (
@@ -49,6 +50,7 @@ from noust.recipes.model import (
     ENGINE_OF,
     KEYED_REQUIREMENTS,
     SQL_REQUIREMENTS,
+    UNAVAILABLE_SENTENCES,
     Entrypoint,
     RecipeBuild,
 )
@@ -234,9 +236,22 @@ def require_available(recipe: Recipe) -> None:
             server's architecture.
     """
     if not recipe.available:
+        said = (
+            say(UNAVAILABLE_SENTENCES[recipe.unavailable_code]) if recipe.unavailable_code else None
+        )
         raise RecipeError(
-            f"{recipe.title} is not available in this release",
-            details=recipe.unavailable_reason or "See: noust recipe list",
+            f"{recipe.title} is not available in this release"
+            + (f": {said.text.lower()}" if said else ""),
+            details=" ".join(
+                part
+                for part in (
+                    recipe.unavailable_reason,
+                    said.hint if said else None,
+                    None if recipe.unavailable_reason else "See: noust recipe list",
+                )
+                if part
+            ),
+            coded=said,
         )
     require_compatible(recipe)
 

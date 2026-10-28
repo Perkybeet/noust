@@ -33,4 +33,5 @@ docs: https://pocketbase.io/docs/
 repository: https://github.com/pocketbase/pocketbase
 license: MIT
 available: false
+unavailable_code: no_image
 unavailable_reason: "PocketBase ships as a single static binary with no container image, and this release has no deployer that runs a pre-built binary (the native build block that would carry its start command is the build lane's). Not available in this release; its verified v0.40.4 archive pin is recorded in the recipe file."

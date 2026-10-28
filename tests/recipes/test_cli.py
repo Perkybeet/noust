@@ -346,3 +346,26 @@ def test_browsing_is_read_only_and_installing_and_updating_are_not() -> None:
 
     assert [read_only(name) for name in ("list", "show", "outdated")] == [True, True, True]
     assert [read_only(name) for name in ("install", "update")] == [False, False]
+
+
+def test_list_can_show_only_what_is_left_out_and_why() -> None:
+    """``--unavailable`` and ``--reason`` are the listing's filter; the line says the reason."""
+    left_out = json.loads(run("recipe", "list", "--json", "--unavailable").output)
+    licence = json.loads(run("recipe", "list", "--json", "--reason", "licence").output)
+    text = run("recipe", "list", "--unavailable").output
+
+    assert left_out["items"] and all(not item["available"] for item in left_out["items"])
+    assert licence["items"] and all(
+        item["unavailable_code"] == "licence" for item in licence["items"]
+    )
+    vault = next(line for line in text.splitlines() if "Vault" in line)
+    assert "does not let an operator run it for others" in vault
+    assert run("recipe", "list", "--reason", "because").exit_code == 2
+
+
+def test_show_of_a_listed_recipe_gives_the_reason_the_fix_and_what_replaces_it() -> None:
+    """The sentence of the server's words, its code, and the next step."""
+    output = run("recipe", "show", "minio").output
+
+    assert "The project is archived and no longer maintained (archived)" in output
+    assert "noust recipe show garage" in output

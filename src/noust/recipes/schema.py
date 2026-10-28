@@ -35,6 +35,7 @@ from noust.recipes.model import (
     GENERATORS,
     KINDS,
     LAYOUTS,
+    NAME_PATTERN,
     REQUIREMENT_ATTRIBUTES,
     REQUIREMENTS,
     RESERVED_VARIABLES,
@@ -42,6 +43,7 @@ from noust.recipes.model import (
     SECRET_GENERATORS,
     SOURCE_KINDS,
     SQL_REQUIREMENTS,
+    UNAVAILABLE_CODES,
     ChangelogEntry,
     Entrypoint,
     PublicPort,
@@ -174,6 +176,8 @@ _V2_UNAVAILABLE = frozenset(
         "license",
         "available",
         "unavailable_reason",
+        "unavailable_code",
+        "replaced_by",
         "needs",
         "changelog",
     }
@@ -707,6 +711,46 @@ def _parse_metadata(
         "changelog": _parse_changelog(name, data.get("changelog")),
         "notes": () if listed_only else _parse_notes(name, data.get("notes")),
     }
+
+
+def _parse_unavailable_code(name: str, raw: Any) -> str:
+    """
+    Read why a listed recipe cannot be installed, as a code.
+
+    Args:
+        name: The recipe.
+        raw: The ``unavailable_code`` value.
+
+    Returns:
+        The code.
+
+    Raises:
+        RecipeError: It is not one of :data:`~noust.recipes.model.UNAVAILABLE_CODES`.
+    """
+    if raw not in UNAVAILABLE_CODES:
+        raise recipe_error(name, f"unavailable_code must be one of {', '.join(UNAVAILABLE_CODES)}")
+    return str(raw)
+
+
+def _parse_replaced_by(name: str, raw: Any) -> str | None:
+    """
+    Read the recipe that stands in for a listed one.
+
+    Args:
+        name: The recipe.
+        raw: The ``replaced_by`` value, or None.
+
+    Returns:
+        The other recipe's name, or None.
+
+    Raises:
+        RecipeError: It is not a recipe name.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or not NAME_PATTERN.fullmatch(raw):
+        raise recipe_error(name, "replaced_by must be the name of another recipe")
+    return raw
 
 
 def _parse_min_noust(name: str, raw: Any) -> str | None:
@@ -1421,10 +1465,13 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
             kind=kind,
             available=False,
             unavailable_reason=_string(name, data, "unavailable_reason"),
+            unavailable_code=_parse_unavailable_code(name, data.get("unavailable_code")),
+            replaced_by=_parse_replaced_by(name, data.get("replaced_by")),
             **_parse_metadata(name, data, listed_only=True),
         )
-    if "unavailable_reason" in data:
-        raise recipe_error(name, "unavailable_reason is only for an unavailable recipe")
+    for key in ("unavailable_reason", "unavailable_code", "replaced_by"):
+        if key in data:
+            raise recipe_error(name, f"{key} is only for an unavailable recipe")
 
     allowed = _V2_COMMON | (_V2_NATIVE if kind == "native" else _V2_COMPOSE)
     unknown = set(data) - allowed

@@ -174,6 +174,7 @@ def test_a_recipe_that_left_the_catalogue_or_is_unavailable_is_never_updatable(
             "homepage": "https://example.com",
             "available": False,
             "unavailable_reason": "Upstream archived the project.",
+            "unavailable_code": "archived",
         },
     )
 

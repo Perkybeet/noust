@@ -541,6 +541,8 @@ def test_the_gate_waits_as_long_as_the_recipe_s_own_timeout_unless_told_otherwis
         return 503, ""
 
     monkeypatch.setattr(smoke, "ask", refuse)
+    # The probes of suggest_health come after the gate gives up; this test counts the gate's own.
+    monkeypatch.setattr(smoke, "PROBE_PATHS", ())
     slow = dataclasses.replace(
         get_recipe("vaultwarden"), health=RecipeHealth(path="/alive", expect="200", timeout=20)
     )
@@ -581,3 +583,56 @@ def test_one_list_of_variables_serves_a_batch_and_each_recipe_takes_the_ones_it_
     )
 
     assert "OIDC_AUTH_URI" not in values and values["SIGNUPS_ALLOWED"] == "false"
+
+
+# ---------------------------------------------------------------------------
+# A gate that is not answered as the recipe says: where the application does answer
+# ---------------------------------------------------------------------------
+
+
+def test_a_gate_that_is_refused_suggests_the_first_path_the_application_does_answer(
+    smoke: ModuleType, fake_docker: type[FakeProject], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The report says where to point the gate, so a recipe is fixed from one run and not three."""
+    answers = {"/alive": 404, "/": 404, "/health": 404, "/healthz": 204, "/login": 200}
+
+    def answer(url: str, *, follow: bool, headers: Any = None) -> tuple[int, str]:
+        path = "/" + url.split("/", 3)[3]
+        return answers.get(path, 404), ""
+
+    monkeypatch.setattr(smoke, "ask", answer)
+
+    report = run_smoke(smoke)
+
+    assert report.problems and report.suggested_health == {"path": "/healthz", "expect": "200-399"}
+
+
+def test_an_application_that_asks_for_a_sign_in_on_every_page_is_suggested_the_status_it_gives(
+    smoke: ModuleType, fake_docker: type[FakeProject], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 401 is an answer from the application and not from a proxy that does not know the host."""
+    monkeypatch.setattr(smoke, "ask", lambda url, *, follow, headers=None: (401, ""))
+
+    report = run_smoke(smoke)
+
+    assert report.suggested_health == {"path": "/alive", "expect": "200-399,401"}
+
+
+def test_a_stack_that_does_not_answer_at_all_suggests_nothing(
+    smoke: ModuleType, fake_docker: type[FakeProject], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A refused connection is not an application that lives somewhere else."""
+    monkeypatch.setattr(smoke, "ask", lambda url, *, follow, headers=None: ("conn:URLError", ""))
+
+    report = run_smoke(smoke)
+
+    assert report.problems and report.suggested_health is None
+
+
+def test_a_stack_that_passes_suggests_nothing(
+    smoke: ModuleType, fake_docker: type[FakeProject], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nothing to correct."""
+    monkeypatch.setattr(smoke, "ask", lambda url, *, follow, headers=None: (200, ""))
+
+    assert run_smoke(smoke).suggested_health is None

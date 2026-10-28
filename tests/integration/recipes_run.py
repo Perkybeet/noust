@@ -65,6 +65,11 @@ os.environ.setdefault("NOUST_IT_MEMORY", "10g")
 
 CONTAINER = f"{PREFIX}-box"
 
+#: Where recipes that are not in the catalogue yet wait to be tried: ``<name>.yaml`` and
+#: ``assets/<name>/`` as the catalogue lays them out. A recipe that passes is accepted into
+#: the catalogue (``accept``); one that does not never enters the repository.
+DRAFTS = Path(os.environ.get("NOUST_RECIPES_DRAFTS", str(Path.home() / "recetas-work" / "drafts")))
+
 #: Where the package and the smoke tool are copied inside the container.
 WORK = "/work"
 
@@ -222,6 +227,34 @@ def up() -> None:
     print(f"[recipes] {CONTAINER} is ready")
 
 
+def is_draft(name: str) -> bool:
+    """
+    Args:
+        name: A recipe.
+
+    Returns:
+        Whether it waits in the drafts folder rather than in the catalogue.
+    """
+    return (DRAFTS / f"{name}.yaml").is_file()
+
+
+def sync_drafts(names: list[str]) -> None:
+    """
+    Put the drafts among the names into the package inside the container.
+
+    Args:
+        names: The recipes about to run.
+    """
+    for name in names:
+        if not is_draft(name):
+            continue
+        target = f"{CONTAINER}:{WORK}/src/noust/recipes"
+        host(["docker", "cp", str(DRAFTS / f"{name}.yaml"), f"{target}/{name}.yaml"])
+        if (DRAFTS / "assets" / name).is_dir():
+            inside(f"rm -rf {WORK}/src/noust/recipes/assets/{shlex.quote(name)}")
+            host(["docker", "cp", str(DRAFTS / "assets" / name), f"{target}/assets/{name}"])
+
+
 def sync() -> None:
     """Copy this tree's package (without the console's build) and the smoke tool into the container."""
     inside(
@@ -312,6 +345,28 @@ def record(entry: dict[str, Any]) -> None:
     write_results(document)
 
 
+def recipe_facts(name: str) -> tuple[str, str]:
+    """
+    Read a recipe's version and Compose document, from the drafts or the catalogue.
+
+    Args:
+        name: The recipe.
+
+    Returns:
+        The version and the document.
+    """
+    import yaml
+
+    if is_draft(name):
+        data = yaml.safe_load((DRAFTS / f"{name}.yaml").read_text(encoding="utf-8"))
+        return str(data["version"]), str(data["compose"])
+    sys.path.insert(0, str(REPO_ROOT / "src"))
+    from noust.recipes import get_recipe
+
+    recipe = get_recipe(name)
+    return recipe.version, recipe.compose or ""
+
+
 def images_of(name: str) -> list[str]:
     """
     List the images a recipe's stack pulls or builds.
@@ -324,10 +379,9 @@ def images_of(name: str) -> list[str]:
     """
     sys.path.insert(0, str(REPO_ROOT / "src"))
     from noust.core.compose_yaml import load_compose
-    from noust.recipes import get_recipe
 
-    recipe = get_recipe(name)
-    document = load_compose(recipe.compose or "")
+    _, compose = recipe_facts(name)
+    document = load_compose(compose)
     found: list[str] = []
     for service, spec in (document.get("services") or {}).items():
         if isinstance(spec, dict) and isinstance(spec.get("image"), str):
@@ -400,10 +454,7 @@ def smoke(name: str, *, extra: list[str]) -> dict[str, Any]:
     Returns:
         The entry for the results file.
     """
-    sys.path.insert(0, str(REPO_ROOT / "src"))
-    from noust.recipes import get_recipe
-
-    recipe = get_recipe(name)
+    version, _ = recipe_facts(name)
     started = time.monotonic()
     command = (
         f"cd {WORK} && rm -f evidence/{shlex.quote(name)}.json && "
@@ -411,7 +462,12 @@ def smoke(name: str, *, extra: list[str]) -> dict[str, Any]:
         f"--project-prefix {PREFIX}- --evidence {WORK}/evidence "
         + " ".join(shlex.quote(item) for item in extra)
     )
-    entry: dict[str, Any] = {"recipe": name, "version": recipe.version, "date": now()}
+    entry: dict[str, Any] = {"recipe": name, "version": version, "date": now()}
+    if is_draft(name):
+        header = (DRAFTS / f"{name}.yaml").read_text(encoding="utf-8").splitlines()[0]
+        entry["source"] = "dokploy" if "Dokploy" in header else "coolify"
+    else:
+        entry["source"] = "catalogue"
     try:
         finished = inside(command, check=False, timeout=RECIPE_TIMEOUT)
         output = finished.stdout + finished.stderr
@@ -428,6 +484,9 @@ def smoke(name: str, *, extra: list[str]) -> dict[str, Any]:
         entry["gate"] = (
             f"{data['gate_path']} -> {data['gate_status']} after {data['gate_seconds']}s"
         )
+        entry["gate_status"] = data["gate_status"]
+        if data.get("suggested_health"):
+            entry["suggested_health"] = data["suggested_health"]
         if data["problems"]:
             entry["problems"] = data["problems"]
             entry["log_tail"] = (data.get("log_tail") or "")[-1500:]
@@ -442,9 +501,23 @@ def smoke(name: str, *, extra: list[str]) -> dict[str, Any]:
     return entry
 
 
+def committed() -> set[str]:
+    """
+    List the recipes the repository tracks.
+
+    Returns:
+        Their names. A recipe that is a draft in the working tree is not among them: it is run
+        by name, and kept or removed by what the run says.
+    """
+    listed = host(
+        ["git", "-C", str(REPO_ROOT), "ls-files", "src/noust/recipes/*.yaml"], timeout=30
+    ).stdout.split()
+    return {Path(path).stem for path in listed}
+
+
 def pending() -> list[str]:
     """
-    List the installable Compose recipes that have no result yet.
+    List the installable Compose recipes of the repository that have no result yet.
 
     Returns:
         Recipe names, sorted.
@@ -453,8 +526,11 @@ def pending() -> list[str]:
     from noust.recipes import list_recipes
 
     done = {entry["recipe"] for entry in read_results().get("results", [])}
+    tracked = committed()
     return sorted(
-        r.name for r in list_recipes() if r.kind == "compose" and r.available and r.name not in done
+        r.name
+        for r in list_recipes()
+        if r.kind == "compose" and r.available and r.name not in done and r.name in tracked
     )
 
 
@@ -462,6 +538,106 @@ def pending() -> list[str]:
 #: counts pulls, a drive short of space), and when there was nothing to run.
 EXIT_STOPPED = 3
 EXIT_NOTHING = 4
+
+
+#: What a stack that is still starting answers, or does not: worth a second look with more time.
+SLOW_ANSWERS = ("502", "503", "504")
+
+#: The longest a gate may wait (``health.timeout`` is held to 600).
+SLOW_WAIT = 600
+
+
+def set_draft_health(name: str, path: str, expect: str, timeout: int) -> None:
+    """
+    Point a draft's health check where the application answered.
+
+    Args:
+        name: The draft.
+        path: The path the gate asks.
+        expect: The statuses it accepts.
+        timeout: Seconds the gate waits.
+    """
+    target = DRAFTS / f"{name}.yaml"
+    line = f'health: {{path: {path}, expect: "{expect}", timeout: {timeout}}}'
+    target.write_text(
+        re.sub(r"^health: .*$", lambda _: line, target.read_text(encoding="utf-8"), flags=re.M),
+        encoding="utf-8",
+    )
+
+
+def draft_health(name: str) -> tuple[str, str, int]:
+    """
+    Args:
+        name: A draft.
+
+    Returns:
+        Its health check's path, expectation and timeout.
+    """
+    import yaml
+
+    health = yaml.safe_load((DRAFTS / f"{name}.yaml").read_text(encoding="utf-8"))["health"]
+    return health["path"], str(health["expect"]), int(health.get("timeout", 180))
+
+
+def retry_draft(name: str, first: dict[str, Any], extra: list[str]) -> dict[str, Any]:
+    """
+    Try a draft that failed once more, when the first run says what to change.
+
+    The run saw the application answer somewhere other than the draft's path (``suggested_health``),
+    or a proxy-like answer from a stack that may only be slow. The draft is corrected and run again;
+    what is recorded is the second run, with the first one's problem beside it.
+
+    Args:
+        name: The draft.
+        first: The entry of the run that failed.
+        extra: Arguments for ``recipe_smoke.py``.
+
+    Returns:
+        The entry to record: the second run's, or the first when nothing was worth changing.
+    """
+    suggestion = first.get("suggested_health")
+    slow = str(first.get("gate_status", "")) in SLOW_ANSWERS or str(
+        first.get("gate_status", "")
+    ).startswith("conn:")
+    if not suggestion and not slow:
+        return first
+    path, expect, timeout = draft_health(name)
+    if suggestion:
+        path, expect = suggestion["path"], suggestion["expect"]
+    else:
+        timeout = SLOW_WAIT
+    set_draft_health(name, path, expect, timeout)
+    sync_drafts([name])
+    second = smoke(name, extra=extra)
+    second["attempts"] = 2
+    second["first_attempt"] = (first.get("problems") or [""])[0][:200]
+    return second
+
+
+def accept(names: list[str]) -> list[str]:
+    """
+    Move drafts that passed into the catalogue's folder of this tree.
+
+    Args:
+        names: The drafts; every one with a passing result when empty.
+
+    Returns:
+        The names moved.
+    """
+    import shutil
+
+    passed = {e["recipe"] for e in read_results().get("results", []) if e["result"] == "pass"}
+    moved: list[str] = []
+    for name in names or sorted(p.stem for p in DRAFTS.glob("*.yaml")):
+        if name not in passed or not is_draft(name):
+            continue
+        shutil.copy2(DRAFTS / f"{name}.yaml", REPO_ROOT / "src/noust/recipes" / f"{name}.yaml")
+        if (DRAFTS / "assets" / name).is_dir():
+            target = REPO_ROOT / "src/noust/recipes/assets" / name
+            shutil.rmtree(target, ignore_errors=True)
+            shutil.copytree(DRAFTS / "assets" / name, target)
+        moved.append(name)
+    return moved
 
 
 def run_batch(names: list[str], extra: list[str]) -> int:
@@ -478,6 +654,7 @@ def run_batch(names: list[str], extra: list[str]) -> int:
     """
     up()
     sync()
+    sync_drafts(names)
     for position, name in enumerate(names, start=1):
         space = free_space_gib()
         if space is not None and space < 30:
@@ -485,6 +662,8 @@ def run_batch(names: list[str], extra: list[str]) -> int:
             return EXIT_STOPPED
         print(f"[recipes] ({position}/{len(names)}) {name} (free: {space} GiB)", flush=True)
         entry = smoke(name, extra=extra)
+        if entry["result"] == "fail" and is_draft(name):
+            entry = retry_draft(name, entry, extra)
         record(entry)
         verdict = entry["result"].upper()
         print(
@@ -533,6 +712,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     for plain in ("up", "sync", "shared-clean", "status", "purge"):
         sub.add_parser(plain)
+    accepting = sub.add_parser("accept")
+    accepting.add_argument("names", nargs="*")
     runner = sub.add_parser("run")
     runner.add_argument("names", nargs="*")
     runner.add_argument("--pending", action="store_true")
@@ -551,6 +732,8 @@ def main(argv: list[str] | None = None) -> int:
         status()
     elif args.command == "purge":
         purge()
+    elif args.command == "accept":
+        print(" ".join(accept(list(args.names))))
     else:
         names = list(args.names) or (pending() if args.pending else [])
         if args.limit:
