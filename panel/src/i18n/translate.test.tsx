@@ -49,7 +49,7 @@ describe("translate", () => {
     // @ts-expect-error: a plain message takes none.
     t("nav.apps.label", { count: 1 });
     const key: PlainKey = "nav.cron.label";
-    expect(t(key)).toBe("Cron");
+    expect(t(key)).toBe("Scheduled tasks");
     const anyKey: MessageKey = "time.justNow";
     expect(anyKey).toBe("time.justNow");
   });

@@ -3,7 +3,6 @@ import type { Catalog } from "../types";
 
 export const catalog: Catalog<typeof en> = {
   page: {
-    title: "Catálogo",
     description: "Aplicaciones listas para instalar, con sus ajustes ya elegidos.",
   },
   own: {

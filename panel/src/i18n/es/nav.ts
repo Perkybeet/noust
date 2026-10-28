@@ -11,7 +11,6 @@ export const nav: Catalog<typeof en> = {
     teamSections: "Secciones del equipo",
     accountSections: "Secciones de la cuenta",
     projectSections: "Secciones de proyectos",
-    appsSections: "Secciones de aplicaciones",
     overviewSections: "Secciones del inicio",
     serverSections: "Secciones del servidor",
     alertsSections: "Secciones de alertas",
@@ -29,7 +28,6 @@ export const nav: Catalog<typeof en> = {
   rail: {
     fold: "Plegar la barra",
     unfold: "Desplegar la barra",
-    close: "Cerrar",
   },
   presentation: {
     label: "Navegación",
@@ -39,7 +37,6 @@ export const nav: Catalog<typeof en> = {
   bottomBar: {
     label: "Áreas",
     more: "Más",
-    databases: "Bases",
   },
   crumbs: {
     switch: "Cambiar {name}",

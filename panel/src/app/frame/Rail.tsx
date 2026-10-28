@@ -20,7 +20,7 @@ import { PresentationSwitch } from "./PresentationSwitch";
  */
 function FoldButton({ folded, open, controls, onPress }: { folded: boolean; open: boolean; controls: string; onPress: () => void }) {
   const t = useT();
-  const label = open ? t("nav.rail.close") : folded ? t("nav.rail.unfold") : t("nav.rail.fold");
+  const label = open ? t("common.words.close") : folded ? t("nav.rail.unfold") : t("nav.rail.fold");
   const Icon = open ? X : folded ? PanelLeftOpen : PanelLeftClose;
   const button = (
     <button
@@ -30,8 +30,8 @@ function FoldButton({ folded, open, controls, onPress }: { folded: boolean; open
       aria-label={folded && !open ? label : undefined}
       onClick={onPress}
       className={cx(
-        "group elev-lift relative flex cursor-pointer items-center rounded-control text-14 font-medium text-fg-muted outline-none hover:bg-surface-raised hover:text-fg",
-        "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus",
+        "group elev-lift relative flex cursor-pointer items-center rounded-control text-14 font-medium text-fg-muted hover:bg-surface-raised hover:text-fg",
+        "focus-visible:-outline-offset-2",
         folded && !open ? "size-11 justify-center" : "h-10 gap-3 px-3",
       )}
     >
@@ -90,7 +90,8 @@ export function Rail({ layout, open, onOpenChange }: { layout: NavLayout; open: 
         // The veil: the page is still there, under the bar, and pressing it is how the bar is dismissed (Escape is the keyboard's).
         <div aria-hidden="true" data-frame="veil" onClick={() => onOpenChange(false)} className="fixed inset-0 z-backdrop bg-backdrop" />
       ) : null}
-      <div
+      <aside
+        aria-label={t("nav.presentation.label")}
         className={cx(
           "flex h-dvh flex-col bg-bg-rail py-3.5",
           folded ? "items-center px-0" : "px-3",
@@ -101,7 +102,7 @@ export function Rail({ layout, open, onOpenChange }: { layout: NavLayout; open: 
           to={homeTarget}
           aria-label={t("shell.sidebarOverview")}
           className={cx(
-            "flex h-11 shrink-0 items-center rounded-control outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+            "flex h-11 shrink-0 items-center rounded-control",
             folded ? "w-11 justify-center" : "px-2.5",
           )}
         >
@@ -134,7 +135,7 @@ export function Rail({ layout, open, onOpenChange }: { layout: NavLayout; open: 
           <PresentationSwitch presentation="double" compact={folded} />
           <FoldButton folded={layout.rail === "folded"} open={over} controls={navId} onPress={press} />
         </div>
-      </div>
+      </aside>
     </div>
   );
 }

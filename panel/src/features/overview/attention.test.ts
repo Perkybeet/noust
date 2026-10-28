@@ -125,7 +125,7 @@ describe("attentionCounters", () => {
       item("unit:noust-cron", "unit", "warn", "noust-cron", [{ kind: "unit", severity: "warn", code: "unit_restarting" }]),
       item("alert:x", "alert", "fail", "x"),
     ]);
-    expect(counters).toEqual({ appsFailed: 2, certificates: 2, certificatesExpired: 1, unitsFailed: 1, alerts: 0 });
+    expect(counters).toEqual({ appsFailed: 2, certificates: 2, certificatesExpired: 1, unitsFailed: 1, alerts: 1 });
   });
 });
 
@@ -151,7 +151,7 @@ describe("attentionTarget and attentionAction", () => {
     expect(attentionTarget(cert)).toEqual({ to: "/domains", search: { q: "d.example.com" } });
 
     expect(attentionTarget(item("unit:noust-web", "unit", "fail", "noust-web"))).toEqual({ to: "/server/services/$name", params: { name: "noust-web" } });
-    expect(attentionTarget(item("probe:blog", "probe", "fail", "blog"))?.to).toBe("/settings/probes");
+    expect(attentionTarget(item("probe:blog", "probe", "fail", "blog"))?.to).toBe("/alerts/probes");
     expect(attentionTarget(item("approval:7", "approval", "warn", "#7"))?.to).toBe("/settings/approvals");
     expect(attentionTarget(item("noust:update", "noust", "warn", "Noust"))?.to).toBe("/settings/about");
     expect(attentionTarget(item("recipe:x", "recipe", "warn", "x"))?.to).toBe("/catalog/installed");

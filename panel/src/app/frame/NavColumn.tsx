@@ -47,8 +47,8 @@ interface ListGroup {
 // The current section is the raised piece under it (SlidingIndicator), which slides to the one chosen;
 // the others rise when the pointer is over them.
 const ITEM =
-  "group elev-lift relative flex h-8 items-center gap-2.5 rounded-control px-2.5 text-13 text-fg-muted outline-none " +
-  "hover:bg-surface-raised hover:text-fg focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus " +
+  "group elev-lift relative flex h-8 items-center gap-2.5 rounded-control px-2.5 text-13 text-fg-muted " +
+  "hover:bg-surface-raised hover:text-fg focus-visible:-outline-offset-2 " +
   "aria-[current=page]:bg-transparent aria-[current=page]:text-fg aria-[current=page]:hover:transform-none aria-[current=page]:hover:shadow-none";
 
 /**
@@ -110,7 +110,7 @@ function ColumnList({ label, groups }: { label: string; groups: readonly ListGro
 function ColumnHead({ area, to, name, server }: { area: string; to: string; name: ReactNode; server?: string | null }) {
   return (
     <div className="flex shrink-0 flex-col gap-1 px-4 pt-4 pb-3">
-      <Link to={to} className="w-fit rounded-chip text-13 font-semibold text-fg-muted outline-none hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+      <Link to={to} activeOptions={{ exact: true }} className="w-fit rounded-chip text-13 font-semibold text-fg-muted hover:text-fg">
         {area}
       </Link>
       <p translate="no" className="title min-w-0 truncate text-16 text-fg">
@@ -227,9 +227,14 @@ function SettingsColumn() {
  * The column and the main bar each have their own raised piece.
  */
 export function NavColumn({ kind }: { kind: ColumnKind }) {
+  const t = useT();
+  const { domain } = useParams({ strict: false });
+  // Named by what it is about, so the two columns of the frame are told apart by a screen reader: the bar is
+  // "Navigation" and this is the application, the machine or Settings.
+  const name = kind === "app" ? (domain ?? t("nav.apps.label")) : kind === "server" ? t("nav.server.label") : t("nav.settings.label");
   return (
-    <div data-frame="column" data-column={kind} className="sticky top-0 flex h-dvh w-column shrink-0 flex-col bg-bg-column">
+    <aside aria-label={name} data-frame="column" data-column={kind} className="sticky top-0 flex h-dvh w-column shrink-0 flex-col bg-bg-column">
       {kind === "app" ? <AppColumn /> : kind === "server" ? <ServerColumn /> : <SettingsColumn />}
-    </div>
+    </aside>
   );
 }

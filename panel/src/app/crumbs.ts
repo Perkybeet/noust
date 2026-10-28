@@ -59,7 +59,7 @@ export function crumbsFor(route: string, scope: Scope): CrumbStep[] {
     const resource = entry.kind === "hidden" && entry.exact === true && param !== undefined;
     steps.push({
       id: entry.id,
-      name: resource && param !== undefined ? { param } : { key: entry.label },
+      name: resource ? { param } : { key: entry.label },
       to: entry.kind === "area" && scope === "fleet" ? (entry.fleetTo ?? entry.to) : entry.to,
       resource,
       entry,

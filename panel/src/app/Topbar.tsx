@@ -164,6 +164,7 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
             {t("shell.session.signOut")}
           </Button>
         </div>
+        {session?.version !== undefined ? <p className="text-12 text-fg-muted">{t.rich("shell.version", { version: <Mono tone="muted">{session.version}</Mono> })}</p> : null}
       </div>
     </Popover>
   );
@@ -202,7 +203,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, searchTriggerRef }: Top
   return (
     <header className="sticky top-0 z-sticky flex h-14 shrink-0 items-center gap-3 bg-bg px-4 sm:px-6 lg:px-8">
       {phone ? (
-        <Link to="/" aria-label={t("nav.overview.label")} className="-ml-1 flex shrink-0 items-center rounded-control p-1 outline-none focus-visible:outline-2 focus-visible:outline-focus">
+        <Link to="/" aria-label={t("nav.overview.label")} className="-ml-1 flex shrink-0 items-center rounded-control p-1">
           <Logo variant="wordmark" height={18} decorative />
         </Link>
       ) : null}

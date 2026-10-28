@@ -75,8 +75,6 @@ export const gitlab: Catalog<typeof en> = {
   },
   callback: {
     title: "GitLab",
-    breadcrumbSettings: "Ajustes",
-    breadcrumbIntegrations: "Integraciones",
     progress: "Terminando el inicio de sesión en GitLab",
     failed: "No se pudo conectar GitLab",
     hint: "El inicio de sesión caduca a los diez minutos y su dirección sirve una sola vez. Empieza de nuevo desde Integraciones.",

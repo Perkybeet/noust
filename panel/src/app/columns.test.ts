@@ -92,6 +92,6 @@ describe("the item a page is in", () => {
 
   it("is none for a route the list does not hold", () => {
     expect(currentItem(items, "/databases")).toBeUndefined();
-    expect(currentItem([], "/apps/$domain")).toBeUndefined();
+    expect(currentItem<{ to: string }>([], "/apps/$domain")).toBeUndefined();
   });
 });

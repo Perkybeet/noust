@@ -62,7 +62,7 @@ const JOB = {
 };
 const ACCEPTED = { job_id: JOB.id, status: "completed", message: "Queued", job: JOB };
 
-async function pageAt(items: unknown[] = [probe("shop"), DOWN], page: Record<string, unknown> = PAGE, extra: Record<string, RouteHandler> = {}, heading = "Settings") {
+async function pageAt(items: unknown[] = [probe("shop"), DOWN], page: Record<string, unknown> = PAGE, extra: Record<string, RouteHandler> = {}, heading = "Alerts") {
   screenWidth(1440);
   let held = items;
   let status = page;
@@ -78,7 +78,7 @@ async function pageAt(items: unknown[] = [probe("shop"), DOWN], page: Record<str
     "POST /api/probes/status-page/write": () => json(200, { files: ["/var/lib/noust/status/index.html", "/var/lib/noust/status/status.json"] }),
     ...extra,
   });
-  const harness = renderConsole("/settings/probes");
+  const harness = renderConsole("/alerts/probes");
   await screen.findByRole("heading", { level: 1, name: heading });
   return {
     ...harness,
@@ -97,7 +97,7 @@ function row(name: string): HTMLElement {
   return found;
 }
 
-describe("Settings > Probes", () => {
+describe("Alerts > Probes", () => {
   it("lists each probe with where it stands, what it last answered and its uptime, and says how many are down", { timeout: 20_000 }, async () => {
     await pageAt();
     await screen.findByRole("list", { name: "Probes" });
@@ -123,9 +123,9 @@ describe("Settings > Probes", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("is in the settings navigation, as the server's own section", { timeout: 20_000 }, async () => {
+  it("is the second tab of Alerts, beside the rules", { timeout: 20_000 }, async () => {
     await pageAt();
-    const nav = await screen.findByRole("navigation", { name: "Settings sections" });
+    const nav = await screen.findByRole("navigation", { name: "Alerts sections" });
     expect(within(nav).getByRole("link", { name: "Probes and status page" })).toHaveAttribute("aria-current", "page");
   });
 
@@ -264,7 +264,7 @@ describe("Settings > Probes", () => {
   });
 });
 
-describe("Settings > Probes: the status page", () => {
+describe("Alerts > Probes: the status page", () => {
   it("keeps the page's files, titles it and writes it now", { timeout: 30_000 }, async () => {
     const { user, backend } = await pageAt();
     const section = (await screen.findByRole("heading", { name: "Status page" })).closest("section") ?? document.body;
@@ -347,12 +347,12 @@ describe("Settings > Probes: the status page", () => {
   });
 });
 
-describe("Settings > Probes in Spanish", () => {
+describe("Alerts > Probes in Spanish", () => {
   it("reads in Spanish, with no accessibility violations", { timeout: 20_000 }, async () => {
     await act(async () => {
       await setLocale("es");
     });
-    await pageAt(undefined, undefined, undefined, "Ajustes");
+    await pageAt(undefined, undefined, undefined, "Alertas");
     expect(await screen.findByText("1 dirección no responde")).toBeInTheDocument();
     expect(screen.getByText("Página de estado")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));

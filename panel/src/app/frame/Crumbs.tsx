@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { ChevronRight, ChevronsUpDown } from "lucide-react";
+import { useState } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
 import { sessionQuery } from "../../api/queries/auth";
 import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem } from "../../components/ui/Menu";
 import { columnIconOf } from "../../features/nav/icons";
-import { useT } from "../../i18n";
+import { hasMessage, useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { crumbsFor } from "../crumbs";
 import type { CrumbName, CrumbStep } from "../crumbs";
@@ -66,6 +67,9 @@ function SectionSwitcher({ step, params, label }: { step: CrumbStep; params: Par
   const t = useT();
   const navigate = useNavigate();
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
+  // The names are asked for when the menu is opened: the sections of a list are written in the catalogs of
+  // many pages, and a page never paints a text whose catalog has not arrived (hasMessage asks for it).
+  const [open, setOpen] = useState(false);
   const parent = step.entry.parent;
   if (parent === undefined || (step.entry.kind !== "tab" && step.entry.kind !== "section")) return null;
   const siblings = DESTS.filter(
@@ -77,8 +81,12 @@ function SectionSwitcher({ step, params, label }: { step: CrumbStep; params: Par
   );
   if (siblings.length < 2) return null;
   return (
-    <Menu trigger={<IconButton size="sm" label={t("nav.crumbs.switch", { name: label })} icon={<ChevronsUpDown />} tooltip={false} className="-ml-0.5" />}>
-      {siblings.map((entry) => {
+    <Menu
+      open={open}
+      onOpenChange={setOpen}
+      trigger={<IconButton size="sm" label={t("nav.crumbs.switch", { name: label })} icon={<ChevronsUpDown />} tooltip={false} className="-ml-0.5" />}
+    >
+      {(open ? siblings.filter((entry) => hasMessage(entry.label)) : []).map((entry) => {
         const Icon = tryIcon(entry.id);
         return (
           <MenuItem
@@ -105,11 +113,14 @@ function SectionSwitcher({ step, params, label }: { step: CrumbStep; params: Par
 export function Crumbs({ className }: { className?: string }) {
   const t = useT();
   const scope = useNavScope();
-  const params = useParams({ strict: false }) as Params;
+  const params: Params = useParams({ strict: false });
   const route = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath ?? "" });
   const nameOf = useName(params);
   const steps = crumbsFor(route, scope);
-  if (steps.length === 0) return null;
+  // The names of the steps are in many pages' catalogs: until every one has arrived the trail is not drawn, and the
+  // top bar has the same height without it, so nothing moves when it appears.
+  const named = steps.every((step) => !("key" in step.name) || hasMessage(step.name.key));
+  if (steps.length === 0 || !named) return null;
   return (
     <nav aria-label={t("shell.pageHeader.breadcrumb")} className={cx("min-w-0", className)}>
       <ol className="flex min-w-0 items-center gap-1 text-14 text-fg-muted">
@@ -128,8 +139,10 @@ export function Crumbs({ className }: { className?: string }) {
                 <Link
                   to={step.to}
                   params={params as never}
+                  // A step above the page is where the page is under, never the page: nothing marks it current.
+                  activeOptions={{ exact: true, includeSearch: false }}
                   {...translate}
-                  className="min-w-0 truncate rounded-chip outline-none hover:text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                  className="min-w-0 truncate rounded-chip hover:text-accent-fg hover:underline hover:underline-offset-2"
                 >
                   {label}
                 </Link>

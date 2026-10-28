@@ -163,7 +163,6 @@ export const common: Catalog<typeof en> = {
   },
   pageHeader: {
     moreActions: "Más acciones",
-    server: "Servidor {server}",
     place: "Dónde vive",
   },
   jobProgress: {

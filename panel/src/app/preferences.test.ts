@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { NAV_KEY, RAIL_KEY, WIDTH_KEY, readPreferences, setNavPresentation, setPageWidth, setRailFold, usePreferences } from "./preferences";
 
@@ -63,10 +63,9 @@ describe("the preferences of the frame", () => {
   });
 
   it("still applies a choice for this page when the browser refuses to store it", () => {
-    const original = Storage.prototype.setItem;
-    Storage.prototype.setItem = () => {
+    const refuse = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new DOMException("denied", "SecurityError");
-    };
+    });
     try {
       const { result } = renderHook(() => usePreferences());
       act(() => {
@@ -74,7 +73,7 @@ describe("the preferences of the frame", () => {
       });
       expect(result.current.rail).toBe("folded");
     } finally {
-      Storage.prototype.setItem = original;
+      refuse.mockRestore();
     }
   });
 });

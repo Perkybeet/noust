@@ -7,7 +7,6 @@ export const nav = {
     teamSections: "Team sections",
     accountSections: "Account sections",
     projectSections: "Project sections",
-    appsSections: "Applications sections",
     overviewSections: "Overview sections",
     serverSections: "Server sections",
     alertsSections: "Alerts sections",
@@ -17,7 +16,7 @@ export const nav = {
   groups: {
     runs: "What runs",
     reach: "How it is reached",
-    happens: "What happens",
+    happens: "What is happening",
     safe: "Kept safe",
     where: "Where it runs",
     manage: "How it is managed",
@@ -28,7 +27,6 @@ export const nav = {
   rail: {
     fold: "Fold the bar",
     unfold: "Unfold the bar",
-    close: "Close",
   },
   /** The choice between the double bar and one bar, drawn in the bar itself. */
   presentation: {
@@ -40,7 +38,6 @@ export const nav = {
   bottomBar: {
     label: "Areas",
     more: "More",
-    databases: "Databases",
   },
   /** The switch beside a breadcrumb that lists its siblings. */
   crumbs: {

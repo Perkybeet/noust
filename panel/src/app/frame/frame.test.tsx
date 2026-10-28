@@ -51,7 +51,7 @@ describe("one bar (below 1280 px)", () => {
     const nav = main();
     const names = within(nav).getAllByRole("link").map((link) => link.textContent);
     expect(names).toEqual(["Home", "Applications", "Databases", "Scheduled tasks", "Domains", "Logs", "Alerts", "Activity", "Backups", "Servers", "Catalog", "Settings"]);
-    for (const title of ["What runs", "How it is reached", "What happens", "Kept safe", "Where it runs", "How it is managed"]) expect(within(nav).getByText(title)).toBeInTheDocument();
+    for (const title of ["What runs", "How it is reached", "What is happening", "Kept safe", "Where it runs", "How it is managed"]) expect(within(nav).getByText(title)).toBeInTheDocument();
     // A group is a list named by its title.
     expect(within(nav).getByRole("list", { name: "What runs" })).toBeInTheDocument();
   });
@@ -177,6 +177,18 @@ describe("the double bar (1440 px and wider)", () => {
     expect(within(main()).getByRole("link", { name: "Applications" })).toHaveAttribute("aria-current", "page");
   });
 
+  it("says where the page is in the top bar: the steps above it are links and only the page's own is current", async () => {
+    await shellAt("/apps/shop.example.com/deployments", 1440);
+    const crumbs = within(screen.getAllByRole("banner")[0] ?? document.body).getByRole("navigation", { name: "Breadcrumb" });
+    const steps = within(crumbs).getAllByRole("listitem").map((item) => item.textContent);
+    expect(steps).toEqual(["Applications", "shop.example.com", "Deployments"]);
+    // A step above the page is where the page is under, never the page: the prefix match of a link marks nothing.
+    const current = crumbs.querySelectorAll('[aria-current="page"]');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent("Deployments");
+    expect(within(crumbs).getByRole("link", { name: "shop.example.com" })).toHaveAttribute("translate", "no");
+  });
+
   it("gives the column and the bar a raised piece each", async () => {
     await shellAt("/apps/shop.example.com", 1440);
     const column = await screen.findByRole("navigation", { name: "Application sections" });
@@ -287,7 +299,7 @@ describe("a phone", () => {
   it("has four areas and More at the foot, and the rest of the areas in the menu", async () => {
     const { user } = await shellAt("/", 390);
     const foot = screen.getByRole("navigation", { name: "Areas" });
-    expect(within(foot).getAllByRole("link").map((link) => link.textContent)).toEqual(["Home", "Applications", "Bases", "Activity"].map((name) => (name === "Bases" ? "Databases" : name)));
+    expect(within(foot).getAllByRole("link").map((link) => link.textContent)).toEqual(["Home", "Applications", "Databases", "Activity"]);
     expect(document.querySelector('[data-frame="rail"]')).toBeNull();
     await user.click(within(foot).getByRole("button", { name: "More" }));
     const dialog = await screen.findByRole("dialog", { name: "Menu" });

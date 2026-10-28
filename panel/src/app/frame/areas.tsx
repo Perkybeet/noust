@@ -152,8 +152,8 @@ function Counts({ counts, folded }: { counts: AreaCounts; folded: boolean }) {
  * pages and a link never has to guess from its address.
  */
 const ROW =
-  "group elev-lift relative flex items-center rounded-control text-fg-muted outline-none " +
-  "hover:bg-surface-raised hover:text-fg focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus " +
+  "group elev-lift relative flex items-center rounded-control text-fg-muted " +
+  "hover:bg-surface-raised hover:text-fg focus-visible:-outline-offset-2 " +
   "aria-[current=page]:bg-transparent aria-[current=page]:text-fg aria-[current=page]:hover:transform-none aria-[current=page]:hover:shadow-none";
 
 export type AreaLinkVariant = "rail" | "folded" | "single" | "bottom";
@@ -162,7 +162,8 @@ const VARIANT: Record<AreaLinkVariant, string> = {
   rail: "h-10 gap-3 px-3 text-14 font-medium",
   folded: "size-11 justify-center text-14 font-medium",
   single: "h-9 gap-2.5 px-3 text-14 font-medium",
-  bottom: "h-14 w-full flex-col justify-center gap-0.5 px-1 text-12 font-medium",
+  // A name that needs two lines (Bases de datos) takes them, from the top, so every icon of the foot is on one line.
+  bottom: "h-14 w-full flex-col justify-start gap-0.5 px-1 pt-1.5 text-12 font-medium",
 };
 
 export function AreaLink({
@@ -190,7 +191,7 @@ export function AreaLink({
       className={cx(ROW, VARIANT[variant])}
     >
       <item.Icon aria-hidden="true" className="size-icon-lg shrink-0 text-fg-faint group-hover:text-fg-muted group-aria-[current=page]:text-accent-fg" />
-      {folded ? <span className="sr-only">{name}</span> : <span className={cx(variant === "bottom" ? "max-w-full truncate" : "min-w-0 flex-1 truncate")}>{name}</span>}
+      {folded ? <span className="sr-only">{name}</span> : <span className={variant === "bottom" ? "max-w-full text-center leading-4" : "min-w-0 flex-1 truncate"}>{name}</span>}
       {variant === "bottom" ? null : <Counts counts={item.counts} folded={folded} />}
     </Link>
   );

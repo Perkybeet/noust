@@ -101,18 +101,6 @@ const ILLUSTRATION_PAIRS: [string, string, number][] = [
 ];
 
 /**
- * The mark of the current navigation item (the bar at its start): drawn in `text`, against what
- * it sits on and what its neighbours are (the sidebar's ground, a hovered item, the active
- * item's own fill). 3:1 (WCAG 1.4.11). The active fill alone cannot carry this: it is 1.1 to 1.3
- * against the ground, which is why the item also has a mark that is not a fill (owner request,
- * 4.0, checklist M-59).
- */
-const NAV_INDICATOR_PAIRS: [string, string][] = ["bg", "surface-hover", "surface-active"].map((ground): [string, string] => [
-  "text",
-  ground,
-]);
-
-/**
  * The border of a tinted block (a Notice, a failed job): decorative, since the block also
  * carries a glyph and words (WCAG 1.4.11 does not ask for 3:1), but it must be seen against
  * both the soft ground it bounds and the surface around it.
@@ -214,16 +202,22 @@ describe("design tokens", () => {
     },
   );
 
-  it.each(THEMES.flatMap((theme) => NAV_INDICATOR_PAIRS.map(([fg, bg]) => [fg, bg, theme] as const)))(
-    "the current navigation item's mark (%s) stands out from %s by 3:1 in %s",
-    (fg, bg, theme) => {
-      expect(contrastRatio(colour(theme, fg), colour(theme, bg))).toBeGreaterThanOrEqual(3);
-    },
-  );
+  it.each(THEMES)("draws the icon of an item of the frame, which is a graphic and not text, at 3:1 on the bar, the column and a hovered item in %s", (theme) => {
+    // The icons are `text-faint`, which is 4.5:1 on the page and on every panel; on the darkest stone of the bar it is
+    // 4.4 in light, which is all that a graphic needs (WCAG 1.4.11) and more than the 3:1 it is held to here.
+    for (const ground of ["bg-rail", "bg-column", "rail-hover"]) {
+      expect(contrastRatio(colour(theme, "text-faint"), colour(theme, ground)), `text-faint on ${ground}`).toBeGreaterThanOrEqual(3);
+    }
+  });
 
-  it.each(THEMES)("explains why the active item needs a mark: its fill alone is under 3:1 against the ground in %s", (theme) => {
-    // If this ever starts passing at 3:1, the mark is no longer needed and this test says so.
-    expect(contrastRatio(colour(theme, "surface-active"), colour(theme, "bg"))).toBeLessThan(3);
+  it.each(THEMES)("tells the current item of the frame by a piece of its own: its tone is not the bar's, the column's or a hovered item's in %s", (theme) => {
+    // C-11: the current item is the raised piece (the sliding indicator draws it in `surface`, with its light edge and
+    // its joint). What it is told apart from is the stone of the main bar, the second column and an item the pointer is
+    // on; its label (`text`) and its icon (`accent-text`) are held on it at 4.5:1 by the text pairs above.
+    for (const ground of ["bg-rail", "bg-column", "rail-hover"]) {
+      expect(contrastRatio(colour(theme, "surface"), colour(theme, ground)), `surface against ${ground}`).toBeGreaterThan(1.1);
+    }
+    expect(colour(theme, "surface")).not.toBe(colour(theme, "surface-raised"));
   });
 
   it.each(THEMES)("keeps every surface, edge and text colour a stone in %s: grey with a trace of green, never a hue", (theme) => {

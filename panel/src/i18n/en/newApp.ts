@@ -3,7 +3,6 @@ export const newApp = {
   page: {
     title: "New application",
     description: "Deploy from a Git repository or a directory on this server, from a recipe, or from an export.",
-    breadcrumb: "Applications",
     queued: "Deploy of {domain} queued",
     importQueued: "Import of {domain} queued",
     soFar: "So far",

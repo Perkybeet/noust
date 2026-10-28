@@ -72,11 +72,11 @@ export function OneBar({ layout }: { layout: NavLayout }) {
   const areas = useAreas();
   const home = areas.groups[0]?.[0];
   return (
-    <div className="sticky top-0 flex h-dvh w-sidebar shrink-0 flex-col bg-bg-column px-3 py-3.5">
+    <aside aria-label={t("nav.presentation.label")} className="sticky top-0 flex h-dvh w-sidebar shrink-0 flex-col bg-bg-column px-3 py-3.5">
       <Link
         to={home === undefined ? "/" : areaTarget(home.entry, areas.scope)}
         aria-label={t("shell.sidebarOverview")}
-        className="flex h-11 shrink-0 items-center rounded-control px-2.5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        className="flex h-11 shrink-0 items-center rounded-control px-2.5"
       >
         <Logo variant="wordmark" height={18} decorative />
       </Link>
@@ -88,6 +88,6 @@ export function OneBar({ layout }: { layout: NavLayout }) {
           <PresentationSwitch presentation="single" />
         </div>
       )}
-    </div>
+    </aside>
   );
 }

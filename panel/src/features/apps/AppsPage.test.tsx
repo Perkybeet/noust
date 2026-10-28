@@ -206,23 +206,21 @@ describe("the applications list", () => {
     await expectNoAxeViolations(table);
   });
 
-  it("opens the recipes in one click, as a tab beside the list (checklist M-19)", async () => {
+  it("has no strip of views for a server nobody organised, and no second link to the recipes: the catalog is an area of the bar", async () => {
     await appsAt();
-    const tabs = screen.getByRole("navigation", { name: "Applications sections" });
-    expect(within(tabs).getByRole("link", { name: /^Applications/ })).toHaveAttribute("href", "/apps");
-    expect(within(tabs).getByRole("link", { name: /^Recipes/ })).toHaveAttribute("href", "/catalog");
-    expect(within(tabs).getByRole("link", { name: /^Installed recipes/ })).toHaveAttribute("href", "/catalog/installed");
+    expect(screen.queryByRole("navigation", { name: "Applications sections" })).not.toBeInTheDocument();
     // The header keeps one primary action and no second link to the same recipes.
     expect(screen.queryByRole("link", { name: "From a recipe" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New application" }).className).toContain("bg-accent");
+    // One click away, in the bar, where it was a tab in 4.0 (checklist M-19).
+    expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Catalog" })).toHaveAttribute("href", "/catalog");
   });
 
   it("offers the recipes on an empty machine too", async () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/apps": () => json(200, { total: 0, apps: [] }) });
     renderConsole("/apps");
     await screen.findByRole("heading", { level: 2, name: "No applications yet" });
-    const tabs = screen.getByRole("navigation", { name: "Applications sections" });
-    expect(within(tabs).getByRole("link", { name: /^Recipes/ })).toHaveAttribute("href", "/catalog");
+    expect(screen.getByRole("link", { name: "Browse the recipes" })).toHaveAttribute("href", "/catalog");
   });
 
   it("invites the first deploy on an empty machine, without filters or a table", async () => {

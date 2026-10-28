@@ -22,7 +22,7 @@ describe("the widths where the frame changes", () => {
 describe("the layout the preferences and the width give", () => {
   it("is one bar below 1280 px whatever the preference says: two columns need about 1410 px", () => {
     for (const width of [390, 1024, 1279]) {
-      expect(layoutFor(width, DEFAULTS).presentation, `${String(width)}`).toBe("single");
+      expect(layoutFor(width, DEFAULTS).presentation, String(width)).toBe("single");
     }
   });
 

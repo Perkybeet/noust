@@ -88,16 +88,15 @@ async function transitionsOf(piece: Locator): Promise<{ property: string; durati
 async function pressAndRead(target: Locator, listSelector: string): Promise<{ property: string; duration: number; easing: string }[]> {
   return target.evaluate(async (element, selector) => {
     (element as HTMLElement).click();
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    await new Promise((resolve) => requestAnimationFrame(resolve));
     const piece = element.closest(selector)?.querySelector('[data-slot="sliding-indicator"]');
-    return (piece?.getAnimations() ?? [])
-      .filter((animation): animation is CSSTransition => animation instanceof CSSTransition)
-      .map((animation) => ({
-        property: animation.transitionProperty,
-        duration: Number(animation.effect?.getTiming().duration ?? 0),
-        easing: animation.effect?.getTiming().easing ?? "",
-      }));
+    const running = (): CSSTransition[] => (piece?.getAnimations() ?? []).filter((animation): animation is CSSTransition => animation instanceof CSSTransition);
+    // The route changes when its page has loaded, a few frames later at most: the piece moves in the frame after that.
+    for (let frame = 0; frame < 90 && running().length === 0; frame += 1) await new Promise((resolve) => requestAnimationFrame(resolve));
+    return running().map((animation) => ({
+      property: animation.transitionProperty,
+      duration: Number(animation.effect?.getTiming().duration ?? 0),
+      easing: animation.effect?.getTiming().easing ?? "",
+    }));
   }, listSelector);
 }
 
@@ -113,8 +112,6 @@ test.describe("the double bar", () => {
     expect(await overflowsSideways(page)).toBe(false);
     await expectNoA11yViolations(page, "Home, the double bar at 1440");
 
-    await bar.getByRole("link", { name: "Applications" }).click();
-    await bar.getByRole("link", { name: "Applications" }).waitFor();
     await page.goto(`${APP}/deployments`);
     await expect(page.getByRole("heading", { level: 1, name: "shop.example.net" })).toBeVisible();
     const sections = column(page, "Application sections");
@@ -140,10 +137,11 @@ test.describe("the double bar", () => {
     await fold.click();
     await expect(page.getByRole("button", { name: "Unfold the bar" })).toHaveAttribute("aria-expanded", "false");
     expect(Math.round((await boxOf(page.locator('[data-frame="rail"]'))).width)).toBe(68);
-    // The icon is a link with its name, and says it in a tooltip on focus.
-    const databases = mainBar(page).getByRole("link", { name: "Databases" });
-    await databases.focus();
-    await expect(page.getByRole("tooltip")).toHaveText("Databases");
+    // The icon is a link with its name, and says it in a tooltip when the keyboard reaches it.
+    await mainBar(page).getByRole("link", { name: "Home" }).focus();
+    await page.keyboard.press("Tab");
+    await expect(mainBar(page).getByRole("link", { name: /^Applications/ })).toBeFocused();
+    await expect(page.getByRole("tooltip")).toHaveText("Applications");
     await settle(page);
     await expectNoA11yViolations(page, "the bar folded to icons");
     await page.reload();
@@ -204,7 +202,7 @@ test.describe("one bar", () => {
   test("at 1440 px has the areas in titled groups and the sections as tabs in the page", async ({ page, consoleServer }) => {
     await openAt(page, consoleServer, 1440, `${APP}/deployments`, "single");
     const bar = mainBar(page);
-    for (const title of ["What runs", "How it is reached", "What happens", "Kept safe", "Where it runs", "How it is managed"]) await expect(bar.getByText(title, { exact: true })).toBeVisible();
+    for (const title of ["What runs", "How it is reached", "What is happening", "Kept safe", "Where it runs", "How it is managed"]) await expect(bar.getByText(title, { exact: true })).toBeVisible();
     await expect(page.locator('[data-frame="column"]')).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Application sections" })).toBeVisible();
     expect(Math.round((await boxOf(bar.locator("xpath=ancestor::div[contains(@class,'w-sidebar')]"))).width)).toBe(264);
@@ -340,7 +338,7 @@ test.describe("the raised piece of the current item", () => {
 
     await openAt(page, consoleServer, 1440, "/");
     await page.screenshot({ path: out("inicio") });
-    await page.goto(`${APP}`);
+    await page.goto(APP);
     await settle(page);
     await page.screenshot({ path: out("aplicacion") });
     await page.getByRole("button", { name: "Fold the bar" }).click();
@@ -350,7 +348,7 @@ test.describe("the raised piece of the current item", () => {
     await page.getByRole("button", { name: "Unfold the bar" }).click();
 
     await page.getByRole("radiogroup", { name: "Navigation" }).getByRole("radio", { name: "One bar" }).click();
-    await page.goto(`${APP}`);
+    await page.goto(APP);
     await settle(page);
     await page.screenshot({ path: out("aplicacion-una-barra") });
     await page.getByRole("radiogroup", { name: "Navigation" }).getByRole("radio", { name: "Double bar" }).click();

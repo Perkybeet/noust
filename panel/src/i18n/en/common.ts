@@ -166,7 +166,6 @@ export const common = {
   },
   pageHeader: {
     moreActions: "More actions",
-    server: "Server {server}",
     place: "Where this lives",
   },
   jobProgress: {

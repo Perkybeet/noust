@@ -1,6 +1,6 @@
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { LayoutGlyph } from "../../components/ui/LayoutGlyph";
-import { Tooltip } from "../../components/ui/Tooltip";
+import { IconButton } from "../../components/ui/IconButton";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { setNavPresentation, usePreferences } from "../preferences";
@@ -22,22 +22,14 @@ export function PresentationSwitch({ presentation, compact = false, className }:
     const other: NavPresentation = presentation === "double" ? "single" : "double";
     const name = t(other === "double" ? "nav.presentation.double" : "nav.presentation.single");
     return (
-      <Tooltip content={name} side="right">
-        <button
-          type="button"
-          aria-label={name}
-          onClick={() => {
-            setNavPresentation(other);
-          }}
-          className={cx(
-            "elev-lift flex size-11 cursor-pointer items-center justify-center rounded-control text-fg-faint outline-none hover:bg-surface-raised hover:text-fg-muted",
-            "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus",
-            className,
-          )}
-        >
-          <LayoutGlyph bars={other === "double" ? 2 : 1} className="size-icon-lg" />
-        </button>
-      </Tooltip>
+      <IconButton
+        label={name}
+        icon={<LayoutGlyph bars={other === "double" ? 2 : 1} className="size-icon-lg" />}
+        onClick={() => {
+          setNavPresentation(other);
+        }}
+        className={cx("size-11", className)}
+      />
     );
   }
   return (

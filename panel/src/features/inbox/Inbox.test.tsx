@@ -106,7 +106,7 @@ describe("the inbox", () => {
     expect(within(at(rows, 0)).getByText("HTTP 503 Service Unavailable")).toBeInTheDocument();
     expect(within(at(rows, 1)).getByText("npm ERR! code ELIFECYCLE")).toBeInTheDocument();
     // A row is two clicks from anywhere: the bell, then the item. The button is the first thing to do there.
-    expect(within(at(rows, 0)).getByRole("link", { name: "Open probes, blog" })).toHaveAttribute("href", "/settings/probes");
+    expect(within(at(rows, 0)).getByRole("link", { name: "Open probes, blog" })).toHaveAttribute("href", "/alerts/probes");
     expect(within(at(rows, 1)).getByRole("link", { name: "Diagnose worker.example.dev" })).toHaveAttribute("href", "/apps/worker.example.dev/diagnose");
     // The verb is drawn with what it acts on, decoratively: the name of the button stays the words.
     const diagnose = within(at(rows, 1)).getByRole("link", { name: "Diagnose worker.example.dev" }).querySelector("svg");
