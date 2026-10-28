@@ -512,6 +512,11 @@ class Draft:
     template: str = ""
     header: dict[str, str] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+    values: dict[str, str] = field(default_factory=dict)
+    files: dict[str, str] = field(default_factory=dict)
+    secret_files: set[str] = field(default_factory=set)
+    root_equivalent: str | None = None
+    shipped: dict[str, str] = field(default_factory=dict)
 
 
 def convert_template(source: Source) -> tuple[Draft, str]:
@@ -561,6 +566,9 @@ def convert_template(source: Source) -> tuple[Draft, str]:
     if result.routed is None:
         raise Skip("no-web-service", "the template names no service for the domain")
     draft.routed = result.routed
+    draft.values = {str(k): str(v) for k, v in result.values.items()}
+    draft.files = {str(k): str(v) for k, v in (getattr(result, "files", None) or {}).items()}
+    draft.secret_files = {str(p) for p in (getattr(result, "secret_files", None) or ())}
     document = load_compose(result.document)
     for key, spec in (document.get("services") or {}).items():
         draft.services[str(key)] = dict(spec or {})
@@ -636,12 +644,13 @@ def clean_services(draft: Draft) -> None:
         for volume in spec.get("volumes") or ():
             if isinstance(volume, dict):
                 raise Skip("long-volume", f"service {key}")
-            source = str(volume).split(":", 1)[0]
-            if source.startswith(("/", ".", "~", "$")):
-                raise Skip("host-mount", f"service {key}: {volume}")
-            mounts.append(str(volume))
+            mount = rewrite_mount(draft, key, str(volume))
+            if mount is not None:
+                mounts.append(mount)
         if mounts:
             spec["volumes"] = mounts
+        else:
+            spec.pop("volumes", None)
         depends = spec.get("depends_on")
         if isinstance(depends, list):
             spec["depends_on"] = {str(item): {"condition": "service_started"} for item in depends}
@@ -663,6 +672,121 @@ def clean_services(draft: Draft) -> None:
         for target, wait in (spec.get("depends_on") or {}).items():
             if draft.services[target].get("healthcheck"):
                 wait["condition"] = "service_healthy"
+
+
+#: Host files that only say the time zone: a recipe sets TZ instead.
+CLOCK_FILES = frozenset({"/etc/localtime", "/etc/timezone"})
+
+#: The one mount of the Docker socket a recipe may make once it says it is root on the server.
+DOCKER_SOCKET = re.compile(r"/var/run/docker\.sock:/var/run/docker\.sock(?::ro)?")
+
+
+def rewrite_mount(draft: Draft, service: str, volume: str) -> str | None:
+    """
+    Make a service's mount into one a recipe may have.
+
+    A named volume stays. The host's clock files go (the recipe sets TZ). A file or a folder of the
+    template's own (Dokploy's ``./files/...``) becomes a file the recipe ships, unless it holds a
+    secret or a ``${NAME}`` the recipe would have to fill in. A host folder the template meant as the
+    service's data (``./files/uploads``, ``./volumes/x``) becomes a named volume. The Docker
+    socket makes the recipe root-equivalent. Anything else of the host is a reason to skip.
+
+    Args:
+        draft: The draft; its shipped files and its volumes are added to.
+        service: The service, for the volume's name and the message.
+        volume: The mount as the template wrote it.
+
+    Returns:
+        The mount the recipe keeps, or None when it is dropped.
+
+    Raises:
+        Skip: The mount is a path of the host a recipe cannot have, or a file with a secret.
+    """
+    source, _, rest = volume.partition(":")
+    if volume.split(":", 1)[0] in CLOCK_FILES:
+        return None
+    if DOCKER_SOCKET.fullmatch(volume):
+        draft.root_equivalent = "docker_socket"
+        return volume
+    if not source.startswith(("/", ".", "~", "$")):
+        return volume
+    if not source.startswith("./"):
+        raise Skip("host-mount", f"service {service}: {volume}")
+    relative = source[2:].rstrip("/")
+    target = rest
+    held = {path: body for path, body in draft.files.items() if path.rstrip("/") == relative}
+    held.update(
+        {path: body for path, body in draft.files.items() if path.startswith(relative + "/")}
+    )
+    if held:
+        for path, body in held.items():
+            if path in draft.secret_files or "${" in body or "$" in body:
+                raise Skip("template-files", f"{path} holds a secret or a reference")
+            draft.shipped[path] = body
+        return f"./{relative}:{target}"
+    if relative.startswith(("files/", "volumes/")) and "." not in relative.rsplit("/", 1)[-1]:
+        name = re.sub(r"[^a-z0-9]+", "-", f"{service}-{relative.rsplit('/', 1)[-1]}".lower())
+        if name not in draft.volumes:
+            draft.volumes.append(name)
+        return f"{name}:{target}"
+    raise Skip("host-mount", f"service {service}: {volume}")
+
+
+_DEFAULTED = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*):?-([^${}]*)\}")
+
+
+def walk_strings(node: Any, change: Any) -> Any:
+    """
+    Args:
+        node: A parsed document.
+        change: A function from a string to a string.
+
+    Returns:
+        The document with ``change`` applied to every string in it, keys included.
+    """
+    if isinstance(node, str):
+        return change(node)
+    if isinstance(node, list):
+        return [walk_strings(item, change) for item in node]
+    if isinstance(node, dict):
+        return {walk_strings(k, change): walk_strings(v, change) for k, v in node.items()}
+    return node
+
+
+def one_default_each(draft: Draft) -> None:
+    """
+    Give a variable that two services default differently one default, declared once.
+
+    Compose lets ``${TZ:-UTC}`` in one service and ``${TZ:-Europe/Berlin}`` in another; a recipe
+    reads one value for one name. The first default becomes the variable's and every reference
+    becomes the plain ``${TZ}``.
+
+    Args:
+        draft: Changed in place; the variable is added to ``draft.variables`` with its default.
+    """
+    defaults: dict[str, list[str]] = {}
+
+    def look(text: str) -> str:
+        for name, default in _DEFAULTED.findall(text):
+            defaults.setdefault(name, [])
+            if default not in defaults[name]:
+                defaults[name].append(default)
+        return text
+
+    walk_strings(draft.services, look)
+    clashes = {name: seen[0] for name, seen in defaults.items() if len(seen) > 1}
+    if not clashes:
+        return
+
+    def settle(text: str) -> str:
+        return _DEFAULTED.sub(
+            lambda match: f"${{{match.group(1)}}}" if match.group(1) in clashes else match.group(0),
+            text,
+        )
+
+    draft.services = walk_strings(draft.services, settle)
+    for name, default in clashes.items():
+        draft.variables[name] = {"origin": "template", "secret": False, "value": default}
 
 
 def secret_literals(draft: Draft) -> None:
@@ -834,7 +958,10 @@ def declare_variables(draft: Draft, text: str) -> dict[str, dict[str, Any]]:
         if known is not None and known["origin"] == "domain":
             entry = {"from": "fqdn" if name.startswith("SERVICE_FQDN") else "url"}
         elif known is not None and known["origin"] == "generated":
-            if known["secret"]:
+            composed = compose_value(draft, name, found)
+            if composed is not None:
+                entry = {"value": composed, "secret": True}
+            elif known["secret"]:
                 entry = {"generate": generator_for(name, known["value"])}
             else:
                 entry = {"generate": "user"}
@@ -853,6 +980,45 @@ def declare_variables(draft: Draft, text: str) -> dict[str, dict[str, Any]]:
         entry["description"] = describe_variable(name, entry)
         found[name] = entry
     return found
+
+
+def compose_value(draft: Draft, name: str, found: dict[str, dict[str, Any]]) -> str | None:
+    """
+    Rebuild a value the converter made out of other generated values and the domain.
+
+    Dokploy expands ``postgres://app:${password:32}@db/app`` into a string with one random
+    password in it; a recipe must not generate that string again as a password, it must write
+    the string over the variables it is made of.
+
+    Args:
+        draft: The draft, with the converter's values.
+        name: The variable.
+        found: The variables declared so far; the domain's is added when the string holds it.
+
+    Returns:
+        The string with each secret it holds replaced by its variable and the sample domain by the
+        deployment's, or None when the value is just a random string.
+    """
+    value = draft.values.get(name)
+    if not value:
+        return None
+    composed = value
+    for other, known in draft.variables.items():
+        secret = draft.values.get(other)
+        if other == name or known["origin"] != "generated" or not secret or len(secret) < 8:
+            continue
+        if secret in composed and secret != value:
+            composed = composed.replace(secret, f"${{{other}}}")
+            made = {"generate": generator_for(other, secret), "secret": True}
+            made["description"] = describe_variable(other, made)
+            found.setdefault(other, made)
+    if DOMAIN in composed:
+        found.setdefault(
+            "APP_DOMAIN",
+            {"from": "fqdn", "description": "The domain people use to reach the application."},
+        )
+        composed = composed.replace(DOMAIN, "${APP_DOMAIN}")
+    return composed if composed != value else None
 
 
 def _subject(name: str) -> str:
@@ -1001,7 +1167,10 @@ def unique_volumes(services: Mapping[str, Mapping[str, Any]]) -> list[str]:
     found: dict[str, None] = {}
     for spec in services.values():
         for volume in spec.get("volumes") or ():
-            found.setdefault(str(volume).split(":", 1)[0])
+            source = str(volume).split(":", 1)[0]
+            # A path (the socket, a file the recipe ships) is not a volume to declare.
+            if not source.startswith(("/", ".", "~", "$")):
+                found.setdefault(source)
     return list(found)
 
 
@@ -1076,6 +1245,13 @@ def build_text(
         "Settings that Noust generated are in this application's environment (noust env show "
         "{{ domain }}); secrets are masked there, and --unmask shows them.",
     ]
+    if draft.root_equivalent:
+        notes.insert(
+            1,
+            f"{title} controls the Docker daemon of this server, which is the same as root on it: "
+            "it can start any container with any part of the server mounted, Noust's applications "
+            "included. Give its sign-in only to people you would give root.",
+        )
     account = [
         name for name in variables if name.startswith(("SERVICE_USER_", "SERVICE_PASSWORD_"))
     ]
@@ -1129,6 +1305,14 @@ def build_text(
         f"health: {{path: {health['path']}, expect: {quote(health['expect'])}, "
         f"timeout: {health['timeout']}}}"
     )
+    if draft.root_equivalent:
+        lines.append(f"root_equivalent: {draft.root_equivalent}")
+    if draft.shipped:
+        lines.append("files:")
+        for shipped in draft.shipped:
+            lines.append(f"  {shipped}:")
+            lines.append(f"    asset: {shipped}")
+            lines.append('    mode: "0644"')
     lines.append("compose: |")
     lines.extend(f"  {row}" if row else "" for row in compose_text.rstrip().splitlines())
     lines.append("notes:")
@@ -1144,7 +1328,9 @@ def monogram(title: str) -> str:
     Returns:
         The monogram SVG the catalogue ships when the project has no mark in simple-icons.
     """
-    return str(recipe_draft.logo_svg(title))
+    # The console's policy allows a short plain label: letters, digits, spaces and . + -
+    plain = re.sub(r"[^A-Za-z0-9 .+-]", "", title).strip() or "App"
+    return str(recipe_draft.logo_svg(plain))
 
 
 def icon_slug(name: str, title: str, icons: Path) -> str | None:
@@ -1195,6 +1381,7 @@ def draft_recipe(
     draft, _ = convert_template(source)
     clean_services(draft)
     secret_literals(draft)
+    one_default_each(draft)
     archs = pin_images(draft)
     page = front_matter(source.docs)
     meta = dokploy_meta(source.dokploy)
@@ -1208,6 +1395,7 @@ def draft_recipe(
     else:
         logo = "logo.svg"
         assets["logo.svg"] = monogram(title)
+    assets.update(draft.shipped)
     chosen = dict(health or {"path": "/", "expect": "200-399", "timeout": 180})
     text = build_text(draft, source, facts, archs, logo=logo, health=chosen)
     try:

@@ -90,7 +90,7 @@ SHARED_REPOSITORIES = (
 )
 
 #: What a registry that counts pulls says when it has had enough.
-RATE_LIMITED = re.compile(r"toomanyrequests|rate limit", re.IGNORECASE)
+RATE_LIMITED = re.compile(r"toomanyrequests|pull rate limit|429 Too Many Requests", re.IGNORECASE)
 
 #: Pull-through mirrors of Docker Hub's public images the container's Docker asks first.
 REGISTRY_MIRRORS = ("mirror.gcr.io",)
@@ -495,6 +495,11 @@ def smoke(name: str, *, extra: list[str]) -> dict[str, Any]:
         entry["gate_status"] = data["gate_status"]
         if data.get("suggested_health"):
             entry["suggested_health"] = data["suggested_health"]
+        # A stack whose container keeps restarting or has left is not a slow one.
+        entry["unsteady"] = any(
+            container.get("restarts", 0) > 0 or container.get("state") not in ("running",)
+            for container in data.get("containers") or ()
+        )
         if data["problems"]:
             entry["problems"] = data["problems"]
             entry["log_tail"] = (data.get("log_tail") or "")[-1500:]
@@ -545,6 +550,27 @@ def pending() -> list[str]:
         for r in list_recipes()
         if r.kind == "compose" and r.available and r.name not in done and r.name in tracked
     )
+
+
+def pending_drafts() -> list[str]:
+    """
+    List the drafts that have no result yet, the most wanted first.
+
+    Returns:
+        Draft names: in the order of ``queue.txt`` next to the drafts folder when there is one
+        (most starred projects first), else sorted.
+    """
+    done = {
+        entry["recipe"]
+        for entry in read_results().get("results", [])
+        if not entry.get("rate_limited")
+    }
+    waiting = [p.stem for p in DRAFTS.glob("*.yaml") if p.stem not in done]
+    queue = DRAFTS.parent / "queue.txt"
+    if queue.is_file():
+        order = {name: place for place, name in enumerate(queue.read_text().split())}
+        return sorted(waiting, key=lambda name: (order.get(name, len(order)), name))
+    return sorted(waiting)
 
 
 #: The exit status of ``run`` when it stopped before the end of its list (a registry that
@@ -609,9 +635,8 @@ def retry_draft(name: str, first: dict[str, Any], extra: list[str]) -> dict[str,
         The entry to record: the second run's, or the first when nothing was worth changing.
     """
     suggestion = first.get("suggested_health")
-    slow = str(first.get("gate_status", "")) in SLOW_ANSWERS or str(
-        first.get("gate_status", "")
-    ).startswith("conn:")
+    status = str(first.get("gate_status", ""))
+    slow = (status in SLOW_ANSWERS or status.startswith("conn:")) and not first.get("unsteady")
     if not suggestion and not slow:
         return first
     path, expect, timeout = draft_health(name)
@@ -730,6 +755,9 @@ def main(argv: list[str] | None = None) -> int:
     runner = sub.add_parser("run")
     runner.add_argument("names", nargs="*")
     runner.add_argument("--pending", action="store_true")
+    runner.add_argument(
+        "--drafts", action="store_true", help="the drafts with no result yet, most wanted first"
+    )
     runner.add_argument("--limit", type=int, default=0, help="stop after this many recipes")
     runner.add_argument("--var", action="append", default=[])
     runner.add_argument("--wait", type=int, default=None)
@@ -748,7 +776,9 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "accept":
         print(" ".join(accept(list(args.names))))
     else:
-        names = list(args.names) or (pending() if args.pending else [])
+        names = list(args.names) or (
+            pending() if args.pending else pending_drafts() if args.drafts else []
+        )
         if args.limit:
             names = names[: args.limit]
         if not names:

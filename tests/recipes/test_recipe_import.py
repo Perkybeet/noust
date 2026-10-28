@@ -132,7 +132,6 @@ def test_a_service_is_rewritten_into_what_the_closed_schema_accepts(tool: Module
         ({"devices": ["/dev/fuse"]}, "uses-devices"),
         ({"network_mode": "host"}, "uses-network_mode"),
         ({"build": "."}, "uses-build"),
-        ({"volumes": ["/var/run/docker.sock:/var/run/docker.sock"]}, "host-mount"),
         ({"volumes": ["./conf:/etc/app"]}, "host-mount"),
         ({"ports": ["53:53/udp"]}, "extra-port"),
         ({"healthcheck": {"test": ["CMD", "true"]}, "secrets": ["x"]}, "service-keys"),
@@ -413,3 +412,173 @@ def test_docker_hub_is_read_through_a_mirror_only_when_asked(
     assert pins._endpoint("docker.io", "library/redis") == ("mirror.example.test", None)
     # Only Hub's images go through it.
     assert pins._endpoint("ghcr.io", "o/app") == ("ghcr.io", "token")
+
+
+# -- the mounts of a template ------------------------------------------------------------------
+
+
+def test_the_hosts_clock_files_are_dropped_because_a_recipe_sets_the_time_zone(
+    tool: ModuleType,
+) -> None:
+    """``/etc/localtime`` is a path of the host and says only what TZ says."""
+    draft = tool.Draft(name="demo")
+
+    assert tool.rewrite_mount(draft, "web", "/etc/localtime:/etc/localtime:ro") is None
+    assert tool.rewrite_mount(draft, "web", "/etc/timezone:/etc/timezone:ro") is None
+
+
+def test_the_docker_socket_makes_the_recipe_root_on_the_server_and_nothing_else_of_the_host_is_kept(
+    tool: ModuleType,
+) -> None:
+    """The one path a recipe may mount once it says what it is."""
+    draft = tool.Draft(name="demo")
+
+    kept = tool.rewrite_mount(draft, "web", "/var/run/docker.sock:/var/run/docker.sock:ro")
+
+    assert kept == "/var/run/docker.sock:/var/run/docker.sock:ro"
+    assert draft.root_equivalent == "docker_socket"
+    for volume in ("/:/host", "/root:/root", "/var/run/docker.sock:/docker.sock", "~/x:/x"):
+        with pytest.raises(tool.Skip) as skipped:
+            tool.rewrite_mount(draft, "web", volume)
+        assert skipped.value.code == "host-mount"
+
+
+def test_a_file_of_the_template_becomes_a_file_the_recipe_ships(tool: ModuleType) -> None:
+    """Dokploy's ``./files/x`` is the recipe's asset, and a folder takes its files with it."""
+    draft = tool.Draft(name="demo")
+    draft.files = {
+        "files/app.conf": "listen = 80\n",
+        "files/conf/a.yml": "a: 1\n",
+        "files/conf/b.yml": "b: 2\n",
+    }
+
+    one = tool.rewrite_mount(draft, "web", "./files/app.conf:/conf/app.conf:ro")
+    many = tool.rewrite_mount(draft, "web", "./files/conf:/etc/app")
+
+    assert one == "./files/app.conf:/conf/app.conf:ro" and many == "./files/conf:/etc/app"
+    assert set(draft.shipped) == {"files/app.conf", "files/conf/a.yml", "files/conf/b.yml"}
+
+
+@pytest.mark.parametrize(
+    "body",
+    ["token = abc\n", "home = ${HOME}\n", "echo $USER\n"],
+)
+def test_a_file_that_holds_a_secret_or_a_reference_is_not_shipped(
+    tool: ModuleType, body: str
+) -> None:
+    """A recipe's file is the same for every install: nothing in it may be an install's own."""
+    draft = tool.Draft(name="demo")
+    draft.files = {"files/app.conf": body}
+    draft.secret_files = {"files/app.conf"} if "token" in body else set()
+
+    with pytest.raises(tool.Skip) as skipped:
+        tool.rewrite_mount(draft, "web", "./files/app.conf:/conf/app.conf")
+
+    assert skipped.value.code == "template-files"
+
+
+def test_a_folder_the_template_meant_as_data_becomes_a_named_volume(tool: ModuleType) -> None:
+    """``./files/uploads`` has no files in the template: it is where the service writes."""
+    draft = tool.Draft(name="demo")
+
+    kept = tool.rewrite_mount(draft, "kutt", "./files/uploads:/app/uploads")
+
+    assert kept == "kutt-uploads:/app/uploads" and "kutt-uploads" in draft.volumes
+    assert tool.rewrite_mount(draft, "web", "data:/data") == "data:/data"
+    with pytest.raises(tool.Skip):
+        tool.rewrite_mount(draft, "web", "./conf.yml:/conf.yml")
+
+
+def test_a_value_the_converter_made_of_a_password_is_written_over_the_variable_it_holds(
+    tool: ModuleType,
+) -> None:
+    """Paperclip's DATABASE_URL was declared as a random password, so the database never matched."""
+    password = "Zx9Qv7LmN2pRt5YwK8cBd3FgHj6SaE4U"
+    draft = tool.Draft(name="demo")
+    draft.variables = {
+        "POSTGRES_PASSWORD": {"origin": "generated", "secret": True, "value": password},
+        "DATABASE_URL": {
+            "origin": "generated",
+            "secret": True,
+            "value": f"postgres://app:{password}@db:5432/app",
+        },
+        "PUBLIC_URL": {
+            "origin": "generated",
+            "secret": False,
+            "value": "https://app.example.com/x",
+        },
+    }
+    draft.values = {name: str(entry["value"]) for name, entry in draft.variables.items()}
+
+    declared = tool.declare_variables(
+        draft, "a: ${DATABASE_URL} b: ${PUBLIC_URL} c: ${POSTGRES_PASSWORD}"
+    )
+
+    assert declared["DATABASE_URL"]["value"] == "postgres://app:${POSTGRES_PASSWORD}@db:5432/app"
+    assert declared["DATABASE_URL"]["secret"] is True
+    assert declared["POSTGRES_PASSWORD"]["generate"] == "password32"
+    assert declared["PUBLIC_URL"]["value"] == "https://${APP_DOMAIN}/x"
+    assert declared["APP_DOMAIN"]["from"] == "fqdn"
+
+
+def test_a_secret_only_a_composed_value_uses_is_still_declared(tool: ModuleType) -> None:
+    """The document never names it, the value does: a recipe may not use an undeclared variable."""
+    password = "Zx9Qv7LmN2pRt5YwK8cBd3FgHj6SaE4U"
+    draft = tool.Draft(name="demo")
+    draft.variables = {
+        "DB_PASSWORD": {"origin": "generated", "secret": True, "value": password},
+        "DATABASE_URL": {
+            "origin": "generated",
+            "secret": True,
+            "value": f"mysql://u:{password}@db/app",
+        },
+    }
+    draft.values = {name: str(entry["value"]) for name, entry in draft.variables.items()}
+
+    declared = tool.declare_variables(draft, "x: ${DATABASE_URL}")
+
+    assert "DB_PASSWORD" in declared and declared["DB_PASSWORD"]["secret"] is True
+
+
+def test_only_named_volumes_are_declared_never_a_path_a_service_mounts(tool: ModuleType) -> None:
+    """The socket and a file the recipe ships are mounts, not volumes: declaring them broke 'a plain name'."""
+    services = {
+        "web": {
+            "volumes": [
+                "data:/data",
+                "/var/run/docker.sock:/var/run/docker.sock:ro",
+                "./files/app.yml:/etc/app.yml:ro",
+                "${MEDIA}:/media",
+            ]
+        },
+        "db": {"volumes": ["data:/other", "db:/var/lib/db"]},
+    }
+
+    assert tool.unique_volumes(services) == ["data", "db"]
+
+
+def test_a_title_with_characters_the_console_s_policy_refuses_still_gets_a_monogram(
+    tool: ModuleType,
+) -> None:
+    """GLPI's title had a character outside the short plain label a logo may hold."""
+    from noust.recipes.logos import validate_svg
+
+    svg = tool.monogram("GLPI — IT asset & service (ITSM)")
+
+    assert validate_svg("glpi", svg) == svg
+    assert validate_svg("x", tool.monogram("——")) is not None
+
+
+def test_two_defaults_for_one_variable_become_one_declared_default(tool: ModuleType) -> None:
+    """Compose allows ${TZ:-UTC} here and ${TZ:-Europe/Berlin} there; a recipe reads one value."""
+    draft = tool.Draft(name="demo")
+    draft.services = {
+        "web": {"environment": {"TZ": "${TZ:-UTC}", "A": "${A:-1}"}},
+        "worker": {"environment": {"TZ": "${TZ:-Europe/Berlin}", "A": "${A:-1}"}},
+    }
+
+    tool.one_default_each(draft)
+
+    assert draft.services["web"]["environment"] == {"TZ": "${TZ}", "A": "${A:-1}"}
+    assert draft.services["worker"]["environment"]["TZ"] == "${TZ}"
+    assert draft.variables["TZ"]["value"] == "UTC" and "A" not in draft.variables
