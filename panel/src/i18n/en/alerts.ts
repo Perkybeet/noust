@@ -4,6 +4,9 @@
  */
 export const alerts = {
   documentTitle: "Alerts settings",
+  page: {
+    description: "What warns you before a person does: rules on the measurements, and addresses asked from outside.",
+  },
   loadingLabel: "the alert rules",
   notSaved: "The alert settings were not saved",
   metrics: {

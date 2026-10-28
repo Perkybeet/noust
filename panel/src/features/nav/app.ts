@@ -4,26 +4,29 @@ import type { Dest, Strip, TabItem } from "../../app/navCore";
 // An application. Its page is the Overview tab of its own strip, and its settings are a list on
 // the side of the last tab. The register is app/nav.ts; these are groups of it.
 
-const app = hidden("app", "/apps/$domain", "nav.appTabs.overview.label", "apps", { parent: "apps", exact: true });
-const appSettings = tab(app, "settings", "nav.appTabs.settings.label", { keywords: "nav.appTabs.settings.keywords", rootLabel: "appSettings.nav.general" });
+// Each section says what it is for (`intent`), which is how the second column groups them: use it,
+// configure it, fix it, or what is dangerous.
+const app = hidden("app", "/apps/$domain", "nav.appTabs.overview.label", "apps", { parent: "apps", exact: true, intent: "use" });
+const appSettings = tab(app, "settings", "nav.appTabs.settings.label", { keywords: "nav.appTabs.settings.keywords", rootLabel: "appSettings.nav.general", intent: "configure" });
 
 export const APP_SCREENS: Strip = [
   app,
-  tab(app, "deployments", "nav.appTabs.deployments.label", { keywords: "nav.appTabs.deployments.keywords" }),
-  tab(app, "logs", "nav.appTabs.logs.label", { keywords: "nav.appTabs.logs.keywords" }),
-  tab(app, "metrics", "nav.appTabs.metrics.label", { keywords: "nav.appTabs.metrics.keywords" }),
-  tab(app, "environment", "nav.appTabs.environment.label", { keywords: "nav.appTabs.environment.keywords" }),
-  tab(app, "database", "databases.appTab.tabLabel", { keywords: "databases.appTab.tabKeywords" }),
-  tab(app, "domains", "nav.appTabs.domains.label", { keywords: "nav.appTabs.domains.keywords" }),
+  tab(app, "deployments", "nav.appTabs.deployments.label", { keywords: "nav.appTabs.deployments.keywords", intent: "use" }),
+  tab(app, "logs", "nav.appTabs.logs.label", { keywords: "nav.appTabs.logs.keywords", intent: "use" }),
+  tab(app, "metrics", "nav.appTabs.metrics.label", { keywords: "nav.appTabs.metrics.keywords", intent: "use" }),
+  tab(app, "environment", "nav.appTabs.environment.label", { keywords: "nav.appTabs.environment.keywords", intent: "configure" }),
+  tab(app, "database", "databases.appTab.tabLabel", { keywords: "databases.appTab.tabKeywords", intent: "configure" }),
+  tab(app, "domains", "nav.appTabs.domains.label", { keywords: "nav.appTabs.domains.keywords", intent: "configure" }),
   appSettings,
   // Off the strip: reached from what is wrong (Diagnose) or from "More actions" (Terminal, Files).
-  hidden("app.diagnose", "/apps/$domain/diagnose", "appPages.actions.diagnose", "app", { parent: "app", keywords: "nav.screens.diagnose.keywords" }),
+  hidden("app.diagnose", "/apps/$domain/diagnose", "appPages.actions.diagnose", "app", { parent: "app", intent: "fix", keywords: "nav.screens.diagnose.keywords" }),
   hidden("app.terminal", "/apps/$domain/terminal", "appPages.actions.terminal", "app", {
     parent: "app",
+    intent: "fix",
     permission: "apps.terminal",
     keywords: "nav.screens.terminal.keywords",
   }),
-  hidden("app.files", "/apps/$domain/files", "runtime.files.title", "app", { parent: "app", permission: "apps.terminal", keywords: "nav.screens.files.keywords" }),
+  hidden("app.files", "/apps/$domain/files", "runtime.files.title", "app", { parent: "app", intent: "fix", permission: "apps.terminal", keywords: "nav.screens.files.keywords" }),
 ];
 
 /** An application's sections (D8), eight at most (docs/DESIGN.md, "LinkTabs"): each a URL under /apps/$domain. */
@@ -52,6 +55,6 @@ export const APP_SETTINGS_SCREENS: Strip = [
   setting("security", "runtime.nav.security", "runtime"),
   setting("access", "network.access.nav", "access"),
   setting("protection", "network.protection.nav", "access", { keywords: "appSettings.keywords.protection" }),
-  setting("export", "appSettings.nav.export", "danger"),
-  setting("delete", "common.words.delete", "danger"),
+  setting("export", "appSettings.nav.export", "danger", { intent: "danger" }),
+  setting("delete", "common.words.delete", "danger", { intent: "danger" }),
 ];

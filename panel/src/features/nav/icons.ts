@@ -15,26 +15,19 @@ import type { ObjectName } from "../../components/ui/objectIcons";
  * sidebar, the palette and the lists on the side read this.
  */
 const OBJECT_OF: Readonly<Record<string, ObjectName>> = {
-  // The bar of a server.
+  // The main bar: the twelve areas.
   overview: "overview",
-  projects: "project",
   apps: "app",
   databases: "database",
-  domains: "domain",
-  backups: "backup",
   cron: "cron",
+  domains: "domain",
   logs: "log",
+  alerts: "alert",
   activity: "activity",
+  backups: "backup",
   server: "server",
+  catalog: "recipe",
   settings: "settings",
-  // The bar of the fleet.
-  fleet: "overview",
-  "fleet.servers": "node",
-  "fleet.apps": "app",
-  "fleet.certificates": "certificate",
-  "fleet.backups": "backup",
-  "fleet.updates": "update",
-  "fleet.activity": "activity",
   // An application's settings: General is the head of the list, the tab they are under.
   "app.settings": "general",
   "app.settings.source": "source",
@@ -62,8 +55,6 @@ const OBJECT_OF: Readonly<Record<string, ObjectName>> = {
   "settings.integrations": "integration",
   "settings.about": "noust",
   "settings.notifications": "channel",
-  "settings.alerts": "alert",
-  "settings.probes": "probe",
   "settings.log-shipping": "logShipping",
   "settings.tokens": "token",
   "settings.api": "api",
@@ -84,6 +75,33 @@ const OBJECT_OF: Readonly<Record<string, ObjectName>> = {
   "account.security": "signInSecurity",
 };
 
+/**
+ * The sections of a resource that the second column draws. They are tabs of the register and so have
+ * no icon of their own in a strip (their width is the budget); the column has the room, and draws the
+ * object each is about. Apart from the table above so that its ratchet (an object for every area and
+ * every section, and nothing else) stays about the areas.
+ */
+const COLUMN_OBJECT: Readonly<Record<string, ObjectName>> = {
+  app: "app",
+  "app.deployments": "deployment",
+  "app.logs": "log",
+  "app.metrics": "overview",
+  "app.environment": "variable",
+  "app.database": "database",
+  "app.domains": "domain",
+  "app.settings": "general",
+  "app.diagnose": "diagnose",
+  "app.terminal": "terminal",
+  "app.files": "file",
+  server: "server",
+  "server.updates": "update",
+  "server.security": "serviceSecurity",
+  "server.storage": "disk",
+  "server.services": "service",
+  "server.system": "node",
+  "server.terminal": "terminal",
+};
+
 /** The ids this table draws: a test holds them to the areas and the sections of the register, in both directions. */
 export const ICON_IDS: readonly string[] = Object.keys(OBJECT_OF);
 
@@ -93,6 +111,16 @@ export function iconOf(entry: Pick<Dest, "id">): LucideIcon {
   if (object === undefined) throw new Error(`the screen "${entry.id}" has no icon: add its object to features/nav/icons.ts`);
   return OBJECT_ICONS[object];
 }
+
+/** The icon of a section in the second column: an area's or a section's own, or the object of a tab of a resource. */
+export function columnIconOf(entry: Pick<Dest, "id">): LucideIcon {
+  const object = COLUMN_OBJECT[entry.id] ?? OBJECT_OF[entry.id];
+  if (object === undefined) throw new Error(`the section "${entry.id}" has no icon in the second column: add its object to features/nav/icons.ts`);
+  return OBJECT_ICONS[object];
+}
+
+/** The ids the second column draws beside the areas' and the sections': a test holds them to the register. */
+export const COLUMN_IDS: readonly string[] = Object.keys(COLUMN_OBJECT);
 
 /** The icon of a screen, or none: for what draws a screen that may be a tab, which has no icon of its own. */
 export function sectionIcon(entry: Pick<Dest, "id">): LucideIcon | undefined {

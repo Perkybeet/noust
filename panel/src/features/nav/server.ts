@@ -1,9 +1,15 @@
 import { area, hidden, strip, tab } from "../../app/navCore";
 
-/** The machine: its tabs, and Terminal, which is reached from "More actions". The register is app/nav.ts; this is one group of it. */
+/**
+ * The machine, which is Servers on the bar: its tabs, and Terminal, which is reached from "More
+ * actions". Where the console holds a fleet the area opens the list of servers (`fleetTo`), and
+ * each server has its page, this one. The register is app/nav.ts; this is one group of it.
+ */
 export const SERVER_SCREENS = strip(
   area("server", "/server", "nav.server.label", {
-    group: "machine",
+    scope: "both",
+    group: "where",
+    fleetTo: "/fleet/servers",
     shortcut: ["g", "v"],
     goTo: "nav.server.goTo",
     keywords: "nav.server.keywords",
@@ -18,6 +24,7 @@ export const SERVER_SCREENS = strip(
     hidden("server.terminal", "/server/terminal", "terminal.page.title", "server", {
       parent: "server",
       permission: "server.terminal",
+      intent: "fix",
       keywords: "nav.screens.terminal.keywords",
     }),
   ],

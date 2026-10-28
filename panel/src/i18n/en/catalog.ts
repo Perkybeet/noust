@@ -2,6 +2,7 @@
 export const catalog = {
   page: {
     title: "Catalog",
+    description: "Applications ready to install, with their settings already chosen.",
   },
   own: {
     open: "Add a recipe",

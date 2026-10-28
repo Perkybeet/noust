@@ -13,14 +13,23 @@ import { INTERIM_ROWS } from "./redirects";
 /** Every path of the console, as the router knows it. */
 export type ConsolePath = FileRouteTypes["to"];
 
-/** Whose sidebar a destination is in. "This central" uses the fleet's. */
+/**
+ * Whose face a screen is. "This central" uses the fleet's. The bar is the same twelve areas on
+ * both (an area is `both`); a `fleet` screen is the fleet's own face of an area (`faceOf`).
+ */
 export type Scope = "server" | "fleet";
 
-/** Where a screen is drawn: the sidebar, a tab strip, a settings list, or only reached from somewhere. */
+/** Where a screen is drawn: the main bar, a tab strip, a list on the side, or only reached from somewhere. */
 export type Kind = "area" | "tab" | "section" | "hidden";
 
 /** Whose a setting is, the first question of NV-7. */
 export type Owner = "account" | "resource" | "group" | "server" | "instance" | "fleet";
+
+/**
+ * What a section of a resource is for, which is how the second column groups it (usar, configurar,
+ * arreglar, peligro): the entries of a resource say it, the column and the strip of one bar read it.
+ */
+export type Intent = "use" | "configure" | "fix" | "danger";
 
 /** A condition under which a destination exists at all; one that does not apply is absent, not disabled (NV-12). */
 export type When = "organised" | "fleet" | "compose" | "unit" | "built";
@@ -34,8 +43,14 @@ export interface Dest {
   /** The area, tab or resource this one is under: the breadcrumbs and the tree. */
   parent?: string;
   scope: Scope | "both";
-  /** The sidebar's group, or the settings group (an id, titled by whoever draws it). */
+  /** The main bar's group, or the settings group (an id, titled by whoever draws it). */
   group?: string;
+  /** An area only: where its fleet face is, when the area has one ("/fleet/apps" for Applications). */
+  fleetTo?: ConsolePath;
+  /** A fleet screen only: the area it is the fleet's face of, which the bar lights and the breadcrumbs say. */
+  faceOf?: string;
+  /** What the section is for, in the second column of its resource. */
+  intent?: Intent;
   /** Settings only: whose the section is (NV-7). */
   owner?: Owner;
   /** One name, the same in the sidebar, the title, the tab and the palette (NV-5). */

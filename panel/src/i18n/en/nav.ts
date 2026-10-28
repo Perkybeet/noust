@@ -9,6 +9,42 @@ export const nav = {
     projectSections: "Project sections",
     appsSections: "Applications sections",
     overviewSections: "Overview sections",
+    serverSections: "Server sections",
+    alertsSections: "Alerts sections",
+    catalogSections: "Catalog sections",
+  },
+  /** The titles of the groups of the main bar, drawn when it is one bar (the double bar separates them by space). */
+  groups: {
+    runs: "What runs",
+    reach: "How it is reached",
+    happens: "What happens",
+    safe: "Kept safe",
+    where: "Where it runs",
+    manage: "How it is managed",
+  },
+  /** What an application's sections are for: the titles of the groups of its second column. */
+  intents: { use: "Use", configure: "Configure", fix: "Fix", danger: "Danger" },
+  /** The main bar's own controls. */
+  rail: {
+    fold: "Fold the bar",
+    unfold: "Unfold the bar",
+    close: "Close",
+  },
+  /** The choice between the double bar and one bar, drawn in the bar itself. */
+  presentation: {
+    label: "Navigation",
+    double: "Double bar",
+    single: "One bar",
+  },
+  /** The bar at the foot of a phone: four areas and the rest. */
+  bottomBar: {
+    label: "Areas",
+    more: "More",
+    databases: "Databases",
+  },
+  /** The switch beside a breadcrumb that lists its siblings. */
+  crumbs: {
+    switch: "Switch {name}",
   },
   /**
    * Settings split by whose they are (features/settings/SettingsShell.tsx): the titles of its
@@ -37,27 +73,28 @@ export const nav = {
   running: { one: "{count} in progress", other: "{count} in progress" },
   /** After a destination's name: "Domains 2 certificates need renewing". */
   expiring: { one: "{count} certificate needs renewing", other: "{count} certificates need renewing" },
-  overview: { label: "Overview", keywords: "home dashboard health", goTo: "Go to overview" },
+  overview: { label: "Home", keywords: "overview dashboard health", goTo: "Go to home" },
   projects: { label: "Projects", keywords: "teams environments production staging organise group workspace", goTo: "Go to projects" },
   apps: { label: "Applications", keywords: "apps sites deploy", goTo: "Go to applications" },
-  catalog: { keywords: "catalog catalogue recipes templates one-click marketplace store install apps" },
+  catalog: { label: "Catalog", keywords: "catalog catalogue recipes templates one-click marketplace store install apps", goTo: "Go to the catalog" },
   databases: { label: "Databases", keywords: "mysql postgres redis mongodb sql", goTo: "Go to databases" },
-  cron: { label: "Cron", keywords: "schedule timers jobs", goTo: "Go to cron" },
+  cron: { label: "Scheduled tasks", keywords: "cron schedule timers jobs", goTo: "Go to scheduled tasks" },
   domains: { label: "Domains", keywords: "ssl tls https certbot nginx apache sites certificates dns", goTo: "Go to domains" },
   backups: { label: "Backups", keywords: "restore snapshots", goTo: "Go to backups" },
   activity: { label: "Activity", keywords: "jobs history deployments", goTo: "Go to activity" },
+  alerts: { label: "Alerts", goTo: "Go to alerts" },
   logs: { goTo: "Go to logs" },
-  server: { label: "Server", keywords: "machine health cpu memory disk processes monitor", goTo: "Go to the server" },
+  server: { label: "Servers", keywords: "server machine health cpu memory disk processes monitor", goTo: "Go to servers" },
   settings: { label: "Settings", keywords: "preferences configuration", goTo: "Go to settings" },
-  /** The fleet's own bar, while "All servers" or "This central" is selected. */
+  /** The fleet's views, each the face of an area of the bar (features/nav/fleet.ts). */
   fleetBar: {
-    overview: { label: "Overview", goTo: "Go to the fleet overview" },
-    servers: { label: "Servers", goTo: "Go to the fleet's servers" },
-    apps: { label: "Applications", goTo: "Go to the fleet's applications" },
-    certificates: { label: "Certificates", goTo: "Go to the fleet's certificates" },
-    backups: { label: "Backups", goTo: "Go to the fleet's backups" },
+    overview: { label: "Overview" },
+    servers: { label: "Servers" },
+    apps: { label: "Applications" },
+    certificates: { label: "Certificates" },
+    backups: { label: "Backups" },
     updates: { label: "Updates", goTo: "Go to the fleet's updates" },
-    activity: { label: "Activity", goTo: "Go to the fleet's activity" },
+    activity: { label: "Activity" },
   },
   appTabs: {
     overview: { label: "Overview" },
@@ -143,8 +180,14 @@ export const nav = {
   },
   /** What these screens were called before the 4.0 navigation: still search words in the palette (RENAMED). */
   renamed: {
+    overview: "Overview",
+    cron: "Cron",
+    backups: "Backups",
+    server: "Server",
+    recipes: "Recipes",
+    recipesInstalled: "Installed recipes",
+    projects: "Projects",
     domains: "Domains and certificates",
-    catalog: "Catalog",
     notifications: "Notifications",
     alerts: "Alerts",
     console: "Console access",

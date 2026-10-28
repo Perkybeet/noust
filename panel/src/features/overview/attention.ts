@@ -159,6 +159,8 @@ export interface AttentionCounters {
   certificatesExpired: number;
   /** Noust's own services that failed, beyond the applications': red beside Server. */
   unitsFailed: number;
+  /** Alerts that fire and probes that are down: red beside Alerts. */
+  alerts: number;
 }
 
 export function attentionCounters(items: readonly OverviewAttentionItem[]): AttentionCounters {
@@ -166,6 +168,7 @@ export function attentionCounters(items: readonly OverviewAttentionItem[]): Atte
   let certificates = 0;
   let certificatesExpired = 0;
   let unitsFailed = 0;
+  let alerts = 0;
   for (const item of items) {
     const kind = item.subject["kind"];
     if (kind === "app" && item.reasons.some((reason) => (reason.kind === "state" || reason.kind === "deploy") && reason.severity === "fail")) appsFailed += 1;
@@ -175,6 +178,7 @@ export function attentionCounters(items: readonly OverviewAttentionItem[]): Atte
     }
     // An application's own units are its state; these are Noust's others.
     if (kind === "unit" && item.reasons.some((reason) => reason.severity === "fail")) unitsFailed += 1;
+    if (kind === "alert" || kind === "probe") alerts += 1;
   }
-  return { appsFailed, certificates, certificatesExpired, unitsFailed };
+  return { appsFailed, certificates, certificatesExpired, unitsFailed, alerts };
 }

@@ -1,26 +1,33 @@
 import { area, strip, tab } from "../../app/navCore";
 import type { Strip } from "../../app/navCore";
 
-const apps = area("apps", "/apps", "nav.apps.label", { group: "runs", shortcut: ["g", "a"], goTo: "nav.apps.goTo", keywords: "nav.apps.keywords" });
-
-// The recipes are a view of what Applications makes (D-2), not a destination of the bar: they keep
-// the addresses they always had, `/catalog`, and are one click from the list that makes applications.
-const recipes = tab(apps, "recipes", "nav.screens.recipes.label", {
-  to: "/catalog",
-  exact: true,
-  keywords: "nav.catalog.keywords",
-  command: "nav.screens.recipes.command",
-});
-const installed = tab(apps, "installed", "nav.screens.installedRecipes.label", {
-  to: "/catalog/installed",
-  exact: true,
-  keywords: "nav.screens.installedRecipes.keywords",
-  command: "nav.screens.installedRecipes.command",
+/** The area of the applications: the first entry of its own strip. */
+export const APPS_AREA = area("apps", "/apps", "nav.apps.label", {
+  scope: "both",
+  group: "runs",
+  fleetTo: "/fleet/apps",
+  shortcut: ["g", "a"],
+  goTo: "nav.apps.goTo",
+  keywords: "nav.apps.keywords",
 });
 
 /**
- * The three views of Applications the list and the catalogue draw as tabs. Kept apart from the
- * register's group (nav/apps.ts, which also names the wizard) so that a page drawing the strip does
- * not ask for the texts of the screens it does not draw.
+ * Projects is the second view of the list, how a person who organised their applications filters
+ * them (D-5): a tab of Applications and not an area of the bar, offered only to a server whose people
+ * organised theirs. It keeps the address it always had.
  */
-export const APPS_TABS: Strip = strip(apps, () => [recipes, installed]);
+export const PROJECTS_TAB = tab(APPS_AREA, "projects", "nav.projects.label", {
+  to: "/projects",
+  exact: true,
+  shortcut: ["g", "p"],
+  goTo: "nav.projects.goTo",
+  keywords: "nav.projects.keywords",
+  when: "organised",
+});
+
+/**
+ * The views of Applications the list draws as tabs. Kept apart from the register's group
+ * (nav/apps.ts, which also names the wizard) so that a page drawing the strip does not ask for the
+ * texts of the screens it does not draw.
+ */
+export const APPS_TABS: Strip = strip(APPS_AREA, () => [PROJECTS_TAB]);

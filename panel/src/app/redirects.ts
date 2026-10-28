@@ -25,6 +25,9 @@ export const REDIRECT_ROWS = [
   { from: "/settings/security", to: "/account/security", state: "live", plain: true },
   { from: "/settings/servers", to: "/fleet/servers", state: "live" },
   { from: "/apps/$domain/settings/builds", to: "/apps/$domain/settings/build", state: "live" },
+  // 4.1: what warns an operator is an area of the bar.
+  { from: "/settings/alerts", to: "/alerts", state: "live" },
+  { from: "/settings/probes", to: "/alerts/probes", state: "live" },
 ] as const;
 
 /**

@@ -125,7 +125,7 @@ describe("attentionCounters", () => {
       item("unit:noust-cron", "unit", "warn", "noust-cron", [{ kind: "unit", severity: "warn", code: "unit_restarting" }]),
       item("alert:x", "alert", "fail", "x"),
     ]);
-    expect(counters).toEqual({ appsFailed: 2, certificates: 2, certificatesExpired: 1, unitsFailed: 1 });
+    expect(counters).toEqual({ appsFailed: 2, certificates: 2, certificatesExpired: 1, unitsFailed: 1, alerts: 0 });
   });
 });
 
