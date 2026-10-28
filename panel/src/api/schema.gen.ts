@@ -18818,6 +18818,8 @@ export interface paths {
          *
          *     Raises:
          *         ValidationError: An unknown server or option, or no server to apply to.
+         *         HTTPException: 403 ``elevation_required`` for ``adopt``, ``restore`` and ``restore_all``
+         *             without sudo mode: they take over what a server has or undo what its operator did.
          */
         post: operations["apply_settings_api_fleet_settings_apply_post"];
         delete?: never;

@@ -33,7 +33,7 @@ from noust.fleet.client import actor_label as fleet_actor_label
 from noust.fleet.settings.desired import FleetSettings
 from noust.fleet.settings.kinds import KINDS, NODE_SCOPE_PREFIX, PLANNED, check_scope, kind_of
 from noust.web.api.databases.common import session_actor
-from noust.web.api.deps import NoustErrorRoute, require_auth, require_elevated
+from noust.web.api.deps import NoustErrorRoute, ensure_elevated, require_auth, require_elevated
 from noust.web.api.fleet import _plan_and_start, asker_for
 from noust.web.auth import actor_label
 from noust.web.permissions.principal import permissions_of
@@ -560,11 +560,18 @@ async def apply_settings(
 
     Raises:
         ValidationError: An unknown server or option, or no server to apply to.
+        HTTPException: 403 ``elevation_required`` for ``adopt``, ``restore`` and ``restore_all``
+            without sudo mode: they take over what a server has or undo what its operator did.
     """
     from noust.fleet.nodes import NodeManager
     from noust.web.fleet_jobs import FleetRequest
     from noust.web.fleet_settings_actions import ACTION
 
+    if not body.plan and (body.adopt or body.restore or body.restore_all):
+        # Applying what somebody already approved asks nothing more of whoever presses the
+        # button; taking over what a server has, or undoing what its own operator did, is a
+        # decision of theirs.
+        ensure_elevated(request, session)
     names = list(body.nodes) or [record.name for record in NodeManager().list()]
     if not names:
         raise ValidationError(

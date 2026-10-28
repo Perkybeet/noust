@@ -408,6 +408,20 @@ class TestApplyingToTheFleet:
         wait(operator, body["job"]["job_id"])
         assert nodes["web-2"].held[("channel", "ops")]["enabled"] is True
 
+    def test_taking_over_or_putting_back_asks_sudo_mode_and_plain_applying_does_not(
+        self, client: TestClient
+    ) -> None:
+        sign_in(client)
+        set_channel_without_sudo = client.post(f"{URL}/apply", json={"plan": True})
+        assert set_channel_without_sudo.status_code == 200
+
+        for option in ({"adopt": True}, {"restore": ["channel/ops"]}, {"restore_all": True}):
+            response = client.post(f"{URL}/apply", json=option)
+            assert response.status_code == 403, option
+            assert response.json()["error"] == "elevation_required"
+        # Only planning what they would do asks nothing.
+        assert client.post(f"{URL}/apply", json={"adopt": True, "plan": True}).status_code == 200
+
     def test_a_bad_option_or_server_is_refused(self, operator: TestClient) -> None:
         assert operator.post(f"{URL}/apply", json={"nodes": ["web-9"]}).status_code == 400
         assert operator.post(f"{URL}/apply", json={"restore": ["nope"]}).status_code == 400
