@@ -2,13 +2,11 @@ import type { shell as en } from "../en/shell";
 import type { Catalog } from "../types";
 
 export const shell: Catalog<typeof en> = {
-  consoleProduct: "Consola",
   sidebarOverview: "Consola Noust, resumen",
   version: "Versión {version}",
   skipToContent: "Saltar al contenido",
   menu: {
     title: "Menú",
-    open: "Abrir menú",
   },
   session: {
     label: "Sesión y preferencias",
@@ -18,6 +16,9 @@ export const shell: Catalog<typeof en> = {
     account: "Cuenta",
     signInSecurity: "Seguridad de inicio de sesión",
     theme: "Tema",
+    pageWidth: "Ancho de la página",
+    widthComfortable: "Cómodo",
+    widthFull: "Completo",
     keyboardShortcuts: "Atajos de teclado",
     documentation: "Documentación de esta página",
     signOut: "Cerrar sesión",

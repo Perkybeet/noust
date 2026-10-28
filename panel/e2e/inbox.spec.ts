@@ -73,11 +73,11 @@ test("the bell holds what needs the operator, from any page, and the item is two
   await expect(open).toBeHidden();
 });
 
-test("the sidebar counts the same things, beside the places that have them", async ({ page, consoleServer }) => {
+test("the bar counts the same things, beside the places that have them", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/databases");
   const main = page.getByRole("navigation", { name: "Main" });
   await expect(main.getByRole("link", { name: /^Applications \d+ failed/ })).toBeVisible();
-  await expect(main.getByRole("link", { name: /^Server \d+ failed/ })).toBeVisible();
+  await expect(main.getByRole("link", { name: /^Servers \d+ failed/ })).toBeVisible();
   await expect(main.getByRole("link", { name: /^Domains .*certificate/ })).toBeVisible();
 });
 

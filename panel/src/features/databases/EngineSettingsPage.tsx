@@ -285,7 +285,6 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
  */
 export function EngineSettingsPage({ engine }: { engine: string }) {
   const t = useT();
-  const { node } = useNode();
   const engines = useQuery(enginesQuery());
   const settings = useQuery(engineSettingsQuery(engine));
   const listed = engines.data?.engines.find((item) => item.name === engine);
@@ -298,10 +297,6 @@ export function EngineSettingsPage({ engine }: { engine: string }) {
     <DetailPage
       header={{
         title: t("databases.engineSettings.title", { engine: display }),
-        breadcrumbs: [
-          { label: t("databases.page.title"), to: "/databases" },
-          { label: t("databases.tabs.engines"), to: "/databases/engines" },
-        ],
         status: state !== null ? <StatusPill state={state.state} label={t(state.label)} /> : <Skeleton className="h-6 w-24 rounded-pill" />,
         ...(data !== undefined
           ? {
@@ -321,7 +316,6 @@ export function EngineSettingsPage({ engine }: { engine: string }) {
               ),
             }),
         description: t("databases.engineSettings.description", { engine: display }),
-        server: node,
       }}
     >
       {settings.isError && data === undefined ? (

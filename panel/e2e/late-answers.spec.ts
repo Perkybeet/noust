@@ -1,6 +1,6 @@
 /**
  * A page holds its shape when the second answer it waits for comes late. Some of what a page
- * draws is the answer to a request that follows the first one: whether the sidebar offers
+ * draws is the answer to a request that follows the first one: whether the list of applications offers
  * Projects is `GET /api/teams/mine`, whether a database's overview has its charts is the
  * metrics read after the overview. On a slow or busy machine that moment is long, and whatever
  * appears then pushes every row under it down while the operator is reaching for one (the
@@ -43,20 +43,17 @@ async function shiftOf(page: Page, server: ConsoleServer, path: string, pattern:
 }
 
 for (const path of ["/apps", "/catalog"]) {
-  test(`the sidebar of ${path} does not shift while the teams are read`, async ({ page, consoleServer }) => {
+  test(`${path} does not shift while the teams are read`, async ({ page, consoleServer }) => {
     const { score, report, shifts } = await shiftOf(page, consoleServer, path, "**/api/teams/mine");
     expect(score, report).toBeLessThanOrEqual(CLS_LIMIT);
-    // The Projects link was a shift of a few thousandths, far under the limit: what is held is
-    // that no row of the sidebar (its links, its lists, the rows of its skeleton) moves at all. A sidebar link is
-    // `group relative flex h-control-md`: the page's own tab strip draws `group relative flex h-10`, a count arriving
-    // there is the page's and is held by the limit above, so the pattern names the sidebar's height.
-    const sidebar = shifts.filter((shift) => shift.sources.some((source) => /<a\.group\.relative\.flex\.h-control-md|<ul\.flex\.flex-col\.gap-px|<li\.flex\.h-control-md/.test(source)));
-    expect(sidebar, report).toEqual([]);
-
-    // What the shift was held for: the link did arrive, the nav is no longer busy.
-    const nav = page.getByRole("navigation", { name: "Main" });
-    await expect(nav).not.toHaveAttribute("aria-busy", "true");
-    await expect(nav.getByRole("link", { name: "Projects" })).toBeVisible();
+    // The main bar is the same twelve areas whether the teams are known or not (Projects is a link in the header
+    // of the list of applications, not a destination of the bar), so none of its links is ever a shift. A link of
+    // the bar is `group elev-lift relative flex h-10` (the rail) or `h-9` (one bar).
+    const bar = shifts.filter((shift) => shift.sources.some((source) => /<a\.group\.elev-lift\.relative\.flex\.h-(?:9|10)\b/.test(source)));
+    expect(bar, report).toEqual([]);
+    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveCount(12);
+    // What was waited for did arrive, in the header of the list, where a link arriving moves nothing.
+    if (path === "/apps") await expect(page.getByRole("link", { name: "Projects" })).toBeVisible();
   });
 }
 

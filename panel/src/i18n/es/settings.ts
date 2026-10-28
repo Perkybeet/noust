@@ -646,8 +646,6 @@ export const settings: Catalog<typeof en> = {
     },
     callback: {
       title: "Conectando GitHub",
-      breadcrumbSettings: "Ajustes",
-      breadcrumbIntegrations: "Integraciones",
       backToIntegrations: "Volver a integraciones",
       progressConversion: "Terminando la App con la respuesta de GitHub",
       progressInstallation: "Registrando la instalación",

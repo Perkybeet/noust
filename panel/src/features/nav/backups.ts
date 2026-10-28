@@ -3,7 +3,9 @@ import { area, strip, tab } from "../../app/navCore";
 /** Backups and its four tabs. The register is app/nav.ts; this is one group of it. */
 export const BACKUPS_SCREENS = strip(
   area("backups", "/backups", "nav.backups.label", {
-    group: "runs",
+    scope: "both",
+    group: "safe",
+    fleetTo: "/fleet/backups",
     shortcut: ["g", "k"],
     goTo: "nav.backups.goTo",
     keywords: "nav.backups.keywords",

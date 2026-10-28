@@ -19,7 +19,6 @@ import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
-import { useNode } from "../../nodes/useNode";
 import { AppRowActions } from "../apps/AppRowActions";
 import { AppsTable } from "../apps/AppsTable";
 import type { Deployment } from "../apps/data";
@@ -58,7 +57,6 @@ export interface ProjectPageProps {
  */
 export function ProjectPage({ team, project: slug, search, onSearchChange }: ProjectPageProps) {
   const t = useT();
-  const { node } = useNode();
   const navigate = useNavigate();
   const org = useOrganization();
   const resources = useResources();
@@ -80,10 +78,8 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
     afterDelete: () => onSearchChange({}),
   });
 
-  const breadcrumbs = [{ label: t("teams.projects.title"), to: "/projects" }];
-
   if (!org.available || org.loading) {
-    const header = { title: slug, mono: true, breadcrumbs, server: node };
+    const header = { title: slug, mono: true };
     // The strip of environments has its place from the first frame, so nothing is pushed down when it arrives.
     return (
       <DetailPage header={header} {...(org.loading || org.error === null || org.error === undefined ? { tabs: <LoadingRegion label={t("teams.project.loadingTabs", { name: slug })}><Skeleton className="h-control-md w-64 rounded-control" /></LoadingRegion> } : {})}>
@@ -100,7 +96,7 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
 
   if (project === undefined) {
     return (
-      <DetailPage header={{ title: slug, mono: true, breadcrumbs, server: node }}>
+      <DetailPage header={{ title: slug, mono: true }}>
         <EmptyState
           variant="firstUse"
           icon={<OBJECT_ICONS.project />}
@@ -175,8 +171,6 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
 
   const header = {
     title: project.name,
-    breadcrumbs,
-    server: node,
     meta: (
       <>
         {org.teams.length > 1 || org.scope.showTeam ? <span>{org.labels.team(team)}</span> : null}

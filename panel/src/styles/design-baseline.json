@@ -64,7 +64,7 @@
     "focus-ring-repeat": {
       "app/LanguageSwitch.tsx": 1,
       "app/LinkTabs.tsx": 1,
-      "app/PageHeader.tsx": 2,
+      "app/PageHeader.tsx": 1,
       "app/ThemeSwitch.tsx": 1,
       "components/page/SegmentedControl.tsx": 1,
       "components/page/SettingsLayout.tsx": 2,
@@ -94,7 +94,7 @@
     },
     "inline-style": {},
     "middle-dot": {
-      "app/PageHeader.tsx": 3,
+      "app/PageHeader.tsx": 2,
       "components/page/SettingsLayout.tsx": 2,
       "components/ui/Chart.tsx": 1,
       "components/ui/DataTable.tsx": 1,
@@ -157,9 +157,7 @@
       "main.tsx": 1
     },
     "off-role-text": {},
-    "off-scale-space": {
-      "app/Topbar.tsx": 1
-    },
+    "off-scale-space": {},
     "page-without-template": {
       "features/settings/github/GitHubCallback.tsx": 1
     },

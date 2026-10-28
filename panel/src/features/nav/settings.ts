@@ -50,18 +50,10 @@ export const SETTINGS_SCREENS: Strip = [
     keywords: "nav.settingsTabs.about.keywords",
     command: "nav.settingsTabs.about.command",
   }),
-  // Monitoring: where the messages go, when they are sent, what is watched from outside, what is exported.
+  // Monitoring: where the messages go and what is exported. What warns (the rules, the probes) is Alerts, an area of the bar.
   setting("notifications", "nav.settingsTabs.notifications.label", "server", "monitoring", {
     keywords: "nav.settingsTabs.notifications.keywords",
     command: "nav.settingsTabs.notifications.command",
-  }),
-  setting("alerts", "nav.settingsTabs.alerts.label", "server", "monitoring", {
-    keywords: "nav.settingsTabs.alerts.keywords",
-    command: "nav.settingsTabs.alerts.command",
-  }),
-  setting("probes", "nav.settingsTabs.probes.label", "server", "monitoring", {
-    keywords: "nav.settingsTabs.probes.keywords",
-    command: "nav.settingsTabs.probes.command",
   }),
   setting("log-shipping", "nav.settingsTabs.logShipping.label", "server", "monitoring", {
     keywords: "nav.settingsTabs.logShipping.keywords",
@@ -180,15 +172,22 @@ export function groupSettings(screens: Strip, block: SettingsBlock, ctx: NavCont
  * an operator who knew "Console access" still finds it. Keys, so the old name is translated.
  */
 export const RENAMED: Readonly<Record<string, readonly PlainKey[]>> = {
+  // The areas of the bar that 4.1 renamed or moved: what they were called in 4.0.
+  overview: ["nav.renamed.overview"],
+  cron: ["nav.renamed.cron"],
+  backups: ["nav.renamed.backups"],
+  server: ["nav.renamed.server"],
   domains: ["nav.renamed.domains"],
-  "apps.recipes": ["nav.renamed.catalog"],
+  catalog: ["nav.renamed.recipes"],
+  "catalog.installed": ["nav.renamed.recipesInstalled"],
+  "apps.projects": ["nav.renamed.projects"],
+  alerts: ["nav.renamed.alerts"],
+  "alerts.probes": ["nav.renamed.probes"],
   "settings.notifications": ["nav.renamed.notifications"],
-  "settings.alerts": ["nav.renamed.alerts"],
   "settings.console": ["nav.renamed.console"],
   "settings.about": ["nav.renamed.about"],
   "settings.access": ["nav.renamed.access"],
   "settings.compliance": ["nav.renamed.compliance"],
-  "settings.probes": ["nav.renamed.probes"],
   "settings.log-shipping": ["nav.renamed.logShipping"],
   "settings.cloud": ["nav.renamed.cloud"],
   "account.security": ["nav.renamed.security"],

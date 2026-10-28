@@ -1,7 +1,5 @@
 /** Strings of the console's services: the systemd units Noust manages, under Server, and their unit files. */
 export const services = {
-  breadcrumbServer: "Server",
-  breadcrumbServices: "Services",
   state: {
     restarting: "Restarting",
   },

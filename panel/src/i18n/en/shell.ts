@@ -5,14 +5,12 @@
  */
 export const shell = {
   /** The wordmark's product suffix (Logo's `product` prop), apart from "Noust Console" above. */
-  consoleProduct: "Console",
   /** The sidebar's logo link, which doubles as the overview link. */
   sidebarOverview: "Noust Console, overview",
   version: "Version {version}",
   skipToContent: "Skip to content",
   menu: {
     title: "Menu",
-    open: "Open menu",
   },
   session: {
     label: "Session and preferences",
@@ -22,6 +20,9 @@ export const shell = {
     account: "Account",
     signInSecurity: "Sign-in security",
     theme: "Theme",
+    pageWidth: "Page width",
+    widthComfortable: "Comfortable",
+    widthFull: "Full",
     keyboardShortcuts: "Keyboard shortcuts",
     documentation: "Documentation for this page",
     signOut: "Sign out",

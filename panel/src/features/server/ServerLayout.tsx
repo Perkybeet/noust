@@ -15,6 +15,7 @@ import { ListChecks, Power, RotateCw } from "lucide-react";
 import { request } from "../../api/client";
 import { LinkTabs } from "../../app/LinkTabs";
 import type { LinkTab } from "../../app/LinkTabs";
+import { useColumnCarries } from "../../app/frame/columnContext";
 import { tabsOf, withCounts } from "../../app/navCore";
 import { DetailPage } from "../../components/page/DetailPage";
 import { Button } from "../../components/ui/Button";
@@ -67,6 +68,8 @@ function Layout() {
   const t = useT();
   const { node } = useNode();
   const power = usePowerDialog();
+  // The double bar's second column holds the sections: the strip under the header is for one bar.
+  const columnHasTabs = useColumnCarries("server");
   const jobs = useServerJob();
   const hasJob = useHasServerJob();
   const navigate = useNavigate();
@@ -110,7 +113,6 @@ function Layout() {
     <DetailPage
       header={{
         title: t("server.title"),
-        server: node,
         status: !available ? undefined : verdict !== null ? <StatusPill state={verdict.state} label={verdictLabel(t, verdict)} /> : <Skeleton className="h-6 w-28 rounded-pill" />,
         meta: !available ? undefined : summary.data !== undefined ? <Facts summary={summary.data} t={t} /> : (
           <span className="flex h-5 w-80 max-w-full items-center">
@@ -148,7 +150,7 @@ function Layout() {
       }}
       banner={banner}
       job={hasJob ? <ServerJobSlot /> : undefined}
-      tabs={<LinkTabs label={t("server.tabs.label")} tabs={tabs} />}
+      {...(columnHasTabs ? {} : { tabs: <LinkTabs label={t("server.tabs.label")} tabs={tabs} /> })}
     >
       <Outlet />
     </DetailPage>

@@ -1,8 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { AlertSettings } from "../../../features/settings/alerts/AlertSettings";
-
-/** Settings > Alerts: rules on the recorded metrics, which of them are firing, and the built-in checks. */
+/**
+ * Settings > Alerts moved in 4.1: what warns an operator is an area of the bar, Alerts. The old
+ * address keeps working and opens it (app/nav.ts, REDIRECTS).
+ */
 export const Route = createFileRoute("/_console/settings/alerts")({
-  component: AlertSettings,
+  beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/alerts", replace: true });
+  },
 });

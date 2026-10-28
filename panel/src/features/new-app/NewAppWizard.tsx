@@ -29,7 +29,6 @@ import { textLinkClassName } from "../../components/ui/TextLink";
 import { translate, useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { useNode } from "../../nodes/useNode";
 import { normalizeDomain } from "../domains/names";
 import { imageProblem } from "../container/model";
 import { AddressFields } from "./AddressFields";
@@ -214,7 +213,6 @@ interface StepView {
  */
 export function NewAppWizard() {
   const t = useT();
-  const { node } = useNode();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const apps = useQuery(appsQuery());
@@ -1204,8 +1202,6 @@ export function NewAppWizard() {
         header={{
           title: t("newApp.page.title"),
           description: t("newApp.page.description"),
-          breadcrumbs: [{ label: t("newApp.page.breadcrumb"), to: "/apps" }],
-          server: node,
         }}
         steps={steps.map((id) => ({ id, label: t(STEP_LABELS[id]) }))}
         current={current}

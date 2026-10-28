@@ -25,6 +25,10 @@ export const REDIRECT_ROWS = [
   { from: "/settings/security", to: "/account/security", state: "live", plain: true },
   { from: "/settings/servers", to: "/fleet/servers", state: "live" },
   { from: "/apps/$domain/settings/builds", to: "/apps/$domain/settings/build", state: "live" },
+  // 4.1: what warns an operator is an area of the bar.
+  // The page of Alerts has no filters to carry: what the old address carried is dropped.
+  { from: "/settings/alerts", to: "/alerts", state: "live", plain: true },
+  { from: "/settings/probes", to: "/alerts/probes", state: "live", plain: true },
 ] as const;
 
 /**

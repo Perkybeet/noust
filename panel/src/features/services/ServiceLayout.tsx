@@ -24,7 +24,6 @@ import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
-import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { SERVICE_SCREENS } from "../nav/server";
 import { serviceState } from "./data";
@@ -32,19 +31,10 @@ import { useServiceActions } from "./useServiceActions";
 import { useServiceRecord } from "./useServiceRecord";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
-/** Where a service page sits: under the server, in its Services tab. */
-export function serviceBreadcrumbs(t: T): { label: string; to: string }[] {
-  return [
-    { label: t("services.breadcrumbServer"), to: "/server" },
-    { label: t("services.breadcrumbServices"), to: "/server/services" },
-  ];
-}
-
 function NotFound({ name }: { name: string }) {
   const t = useT();
-  const { node } = useNode();
   return (
-    <DetailPage header={{ title: name, mono: true, breadcrumbs: serviceBreadcrumbs(t), server: node }}>
+    <DetailPage header={{ title: name, mono: true }}>
       <EmptyState
         variant="firstUse"
         level={2}
@@ -131,8 +121,6 @@ export function ServiceLayout({ name }: { name: string }) {
         header={{
           title: name,
           mono: true,
-          server: node,
-          breadcrumbs: serviceBreadcrumbs(t),
           status: view !== null ? <StatusPill state={view.state} label={t(view.label)} /> : record.loading ? <Skeleton className="h-6 w-24 rounded-pill" /> : undefined,
           meta: service?.description ? (
             <Mono tone="muted" truncate>

@@ -1,13 +1,8 @@
-import { area, strip, tab } from "../../app/navCore";
+import { strip, tab } from "../../app/navCore";
+import { PROJECTS_TAB } from "./appsTabs";
 
-/** Projects and the Teams tab under it (D-5). The register is app/nav.ts; this is one group of it. */
-export const PROJECTS_SCREENS = strip(
-  area("projects", "/projects", "nav.projects.label", {
-    group: "runs",
-    shortcut: ["g", "p"],
-    goTo: "nav.projects.goTo",
-    keywords: "nav.projects.keywords",
-    when: "organised",
-  }),
-  (projects) => [tab(projects, "teams", "teams.list.title", { keywords: "nav.screens.teams.keywords" })],
-);
+/**
+ * Projects, the second view of Applications, and the Teams tab under it (D-5). The register is
+ * app/nav.ts; this is one group of it.
+ */
+export const PROJECTS_SCREENS = strip(PROJECTS_TAB, (projects) => [tab(projects, "teams", "teams.list.title", { keywords: "nav.screens.teams.keywords" })]);

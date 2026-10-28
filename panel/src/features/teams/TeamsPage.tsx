@@ -23,7 +23,6 @@ import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
-import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { NameDialog } from "./NameDialog";
 import { ProjectsTabs, projectsHeader } from "./ProjectsTabs";
@@ -54,7 +53,6 @@ function held(detail: TeamDetail | undefined): number | null {
  */
 export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
   const t = useT();
-  const { node } = useNode();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const org = useOrganization();
@@ -142,7 +140,6 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
   const Add = ICONS.add;
   const header = projectsHeader(
     t,
-    node,
     mayCreate ? (
       <Button variant="primary" icon={<Add aria-hidden="true" />} onClick={openCreate}>
         {t("teams.list.new")}

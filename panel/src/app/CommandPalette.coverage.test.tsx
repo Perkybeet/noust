@@ -62,6 +62,14 @@ describe("the palette over the register", () => {
     }
   });
 
+  it("ranks the name a screen had, typed whole, above a screen that only has the word in its name", () => {
+    // Recipes became the Catalog (4.1) and has a screen called "Installed recipes": the old name still opens the old place first.
+    expect(found(commands, "Recipes")[0]).toBe(ids.get("catalog"));
+    expect(found(commands, "Cron")[0]).toBe(ids.get("cron"));
+    // A screen that is called so now still comes first: the alias is just under the name, not over it.
+    expect(found(commands, "Installed recipes")[0]).toBe(ids.get("catalog.installed"));
+  });
+
   it("finds what the operator named in the task list: the terminal, the schedules, DNS, the metrics export", () => {
     const first = (query: string): string => {
       const id = found(commands, query)[0];
@@ -76,10 +84,11 @@ describe("the palette over the register", () => {
 
   it("says where each result lives, to the right, when its name alone does not", () => {
     // A screen with a phrase of its own says its place beside it; one named by its place does not repeat it.
-    const alerts = commands.find((command) => command.id === "page:/settings/alerts");
-    expect(alerts).toMatchObject({ label: "Alert rules settings", detail: "Settings › Alert rules" });
+    const probes = commands.find((command) => command.id === "page:/alerts/probes");
+    expect(probes).toMatchObject({ label: "Probes and status page settings", detail: "Alerts › Probes and status page" });
     const updates = commands.find((command) => command.id === "page:/server/updates");
-    expect(updates).toMatchObject({ label: "Server › System updates" });
+    // The area the machine's screens are under is called Servers now (4.1), and a screen named by its place says it.
+    expect(updates).toMatchObject({ label: "Servers › System updates" });
     expect(updates?.detail).toBeUndefined();
     const apps = commands.find((command) => command.id === "page:/apps");
     expect(apps?.detail).toBeUndefined();

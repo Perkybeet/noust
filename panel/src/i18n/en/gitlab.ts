@@ -77,8 +77,6 @@ export const gitlab = {
   },
   callback: {
     title: "GitLab",
-    breadcrumbSettings: "Settings",
-    breadcrumbIntegrations: "Integrations",
     progress: "Finishing the sign-in to GitLab",
     failed: "GitLab could not be connected",
     hint: "The sign-in expires after ten minutes and its address works once. Start again from Integrations.",

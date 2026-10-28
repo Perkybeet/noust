@@ -83,6 +83,7 @@ import {
   Split,
   SquareTerminal,
   Stamp,
+  Stethoscope,
   Terminal,
   Trash2,
   Undo2,
@@ -135,6 +136,7 @@ export const OBJECT_ICONS = {
   service: ServerCog,
   file: FolderOpen,
   terminal: SquareTerminal,
+  diagnose: Stethoscope,
   update: RefreshCw,
   // The places and the groups.
   server: Server,

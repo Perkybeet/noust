@@ -62,9 +62,9 @@ export function attentionTarget(item: OverviewAttentionItem): AttentionTarget | 
     case "monitor":
       return { to: "/server" };
     case "alert":
-      return { to: "/settings/alerts" };
+      return { to: "/alerts" };
     case "probe":
-      return { to: "/settings/probes" };
+      return { to: "/alerts/probes" };
     case "approval":
       return { to: "/settings/approvals" };
     case "noust":

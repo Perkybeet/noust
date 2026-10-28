@@ -135,10 +135,10 @@ function ruleRow(name: string): HTMLElement {
   return found;
 }
 
-describe("Settings > Alerts", () => {
+describe("Alerts", () => {
   it("lists each rule as a sentence with where it stands, and says which are firing and since when", { timeout: 20_000 }, async () => {
     alertsBackend();
-    const { container } = renderConsole("/settings/alerts");
+    const { container } = renderConsole("/alerts");
     await screen.findByRole("list", { name: "Alert rules" });
     expect(screen.getByText("1 alert is firing")).toBeInTheDocument();
 
@@ -158,7 +158,7 @@ describe("Settings > Alerts", () => {
 
   it("acknowledges a firing alert, shows who has it and when, and reopens it", { timeout: 30_000 }, async () => {
     const backend = alertsBackend();
-    const { user } = renderConsole("/settings/alerts");
+    const { user } = renderConsole("/alerts");
     await screen.findByRole("list", { name: "Alert rules" });
     const firing = ruleRow("shop-memory");
     // Nothing is acknowledged yet, and a rule that is fine has nothing to acknowledge.
@@ -185,7 +185,7 @@ describe("Settings > Alerts", () => {
 
   it("explains what a rule is when there is none", { timeout: 20_000 }, async () => {
     alertsBackend([]);
-    renderConsole("/settings/alerts");
+    renderConsole("/alerts");
     expect(await screen.findByText("No alert rules yet")).toBeInTheDocument();
     // Nothing to say about what is firing while there is nothing to fire, and one button to write the first rule.
     expect(screen.queryByText("No alert is firing.")).not.toBeInTheDocument();
@@ -194,7 +194,7 @@ describe("Settings > Alerts", () => {
 
   it("creates a rule from the drawer, with the limit as typed and the time in minutes", { timeout: 30_000 }, async () => {
     const backend = alertsBackend();
-    const { user } = renderConsole("/settings/alerts");
+    const { user } = renderConsole("/alerts");
     await screen.findByRole("list", { name: "Alert rules" });
     await user.click(screen.getByRole("button", { name: "New rule" }));
     const drawer = await screen.findByRole("dialog", { name: "New alert rule" });
@@ -236,7 +236,7 @@ describe("Settings > Alerts", () => {
       "PUT /api/alerts/rules/cpu-high": () =>
         problem(400, "validation_error", "Not a limit: 'plenty'", { hint: "Write a number, with a unit where the metric has one: 90, 90%, 512MB, 2MB/s.", fields: { threshold: "Not a limit: 'plenty'" } }),
     });
-    const { user } = renderConsole("/settings/alerts");
+    const { user } = renderConsole("/alerts");
     await screen.findByText("No alert rules yet");
     // The header's button and the empty state's: either opens the drawer.
     const [header] = screen.getAllByRole("button", { name: "New rule" });
@@ -253,7 +253,7 @@ describe("Settings > Alerts", () => {
 
   it("edits a rule without letting its name change, and shows its limit the way it is typed", { timeout: 30_000 }, async () => {
     const backend = alertsBackend();
-    const { user } = renderConsole("/settings/alerts");
+    const { user } = renderConsole("/alerts");
     await screen.findByRole("list", { name: "Alert rules" });
     await user.click(within(ruleRow("shop-memory")).getByRole("button", { name: "Actions for shop-memory" }));
     await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
@@ -268,7 +268,7 @@ describe("Settings > Alerts", () => {
 
   it("switches a rule off and removes one after a question", { timeout: 30_000 }, async () => {
     const backend = alertsBackend();
-    const { user } = renderConsole("/settings/alerts");
+    const { user } = renderConsole("/alerts");
     await screen.findByRole("list", { name: "Alert rules" });
     await user.click(within(ruleRow("cpu-high")).getByRole("switch", { name: "Judge cpu-high" }));
     await waitFor(() => {
@@ -290,7 +290,7 @@ describe("Settings > Alerts", () => {
 
   it("writes only the built-in checks that changed, and puts a refusal beside its field", { timeout: 30_000 }, async () => {
     const backend = alertsBackend();
-    const { user } = renderConsole("/settings/alerts");
+    const { user } = renderConsole("/alerts");
     const disk = await screen.findByLabelText("Almost full at (%)");
     // The values arrive with the configuration; until then the fields hold their place, empty.
     await waitFor(() => {
@@ -312,7 +312,7 @@ describe("Settings > Alerts", () => {
 
   it("turns a check off with its own box and not with a zero, and brings back what it held when it is ticked again", { timeout: 30_000 }, async () => {
     const backend = alertsBackend();
-    const { user } = renderConsole("/settings/alerts");
+    const { user } = renderConsole("/alerts");
     const box = await screen.findByRole("checkbox", { name: /Missing backups/ });
     await waitFor(() => {
       expect(screen.getByLabelText("Days without a new one")).toHaveValue("2");
@@ -346,7 +346,7 @@ describe("Settings > Alerts", () => {
     const config = configBody();
     config.config.monitor.token_warning_days = 0;
     const backend = alertsBackend(undefined, { "GET /api/config": () => json(200, config) });
-    const { user } = renderConsole("/settings/alerts");
+    const { user } = renderConsole("/alerts");
     const box = await screen.findByRole("checkbox", { name: /API tokens/ });
     await waitFor(() => {
       expect(box).not.toBeChecked();
@@ -364,7 +364,7 @@ describe("Settings > Alerts", () => {
     await act(async () => {
       await setLocale("es");
     });
-    const { container } = renderConsole("/settings/alerts");
+    const { container } = renderConsole("/alerts");
     expect(await screen.findByRole("list", { name: "Reglas de alerta" })).toBeInTheDocument();
     expect(screen.getByText("1 alerta está activa")).toBeInTheDocument();
     expect(screen.getByText("Comprobaciones incluidas")).toBeInTheDocument();

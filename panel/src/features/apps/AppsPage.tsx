@@ -14,12 +14,11 @@ import { ICONS } from "../../components/ui/icons";
 import { Select } from "../../components/ui/Select";
 import { STATUS } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
-import { useNode } from "../../nodes/useNode";
 import { useOwnerScope } from "../teams/ownership";
 import { useOrganization } from "../teams/useOrganization";
 import { AppRowActions } from "./AppRowActions";
 import { AppsTable } from "./AppsTable";
-import { AppsTabs, appsHeader } from "./AppsTabs";
+import { appsHeader } from "./appsHeader";
 import { BulkAppsDialog } from "./BulkAppsDialog";
 import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics, useTypeName } from "./data";
 import { STATE_FILTERS, appTagNames, appTypes, filterApps, isFiltered } from "./filters";
@@ -28,6 +27,7 @@ import { RestartTaggedApps } from "./RestartTaggedApps";
 import { UpdateTaggedApps } from "./UpdateTaggedApps";
 import { useStateTransitions } from "./useStateTransitions";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import { useOrganised } from "../teams/useOrganised";
 
 const ALL = "all";
 
@@ -65,7 +65,9 @@ function NewAppLink() {
  */
 export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   const t = useT();
-  const { node } = useNode();
+  // Projects is the other view of the list, for a server whose people organised theirs: a link in the header, which
+  // arrives without moving the list (a strip that appeared once the teams were read would push every row down).
+  const { organised } = useOrganised();
   const apps = useQuery(appsQuery());
   const deploys = useQuery(recentDeploysQuery());
   const metrics = useLatestMetrics();
@@ -116,9 +118,22 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
         ? t("apps.page.countFiltered", { shown: shown.length, total: owner.inTeam.length })
         : t("apps.page.count", { count: owner.inTeam.length });
 
-  const header = appsHeader(t, node, {
+  const header = appsHeader(t, {
     secondaryActions: (
       <>
+        {organised ? (
+          <>
+            <Link to="/projects" className={buttonClassName("secondary")}>
+              <OBJECT_ICONS.project aria-hidden="true" />
+              {t("nav.projects.label")}
+            </Link>
+            {/* A team's pages are the deepest of the console: through Projects they would be a fifth click from the Overview (NV-2). */}
+            <Link to="/projects/teams" className={buttonClassName("secondary")}>
+              <OBJECT_ICONS.team aria-hidden="true" />
+              {t("teams.list.title")}
+            </Link>
+          </>
+        ) : null}
         {/* A bulk update is offered where the list is narrowed to one tag, and not before. */}
         {search.tag !== undefined && shown.length > 0 && canDeploy ? <UpdateTaggedApps tag={search.tag} count={shown.length} /> : null}
         {search.tag !== undefined && shown.length > 0 && canOperate ? <RestartTaggedApps tag={search.tag} count={shown.length} /> : null}
@@ -130,7 +145,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
 
   if (apps.isError && apps.data === undefined) {
     return (
-      <ListPage header={header} tabs={<AppsTabs />}>
+      <ListPage header={header}>
         <ErrorBlock error={apps.error} title={t("apps.page.couldNotLoad")} onRetry={() => void apps.refetch()} retrying={apps.isRefetching} />
       </ListPage>
     );
@@ -138,7 +153,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
 
   if (firstUse) {
     return (
-      <ListPage header={header} tabs={<AppsTabs />}>
+      <ListPage header={header}>
         <EmptyState
           variant="firstUse"
           icon={<OBJECT_ICONS.app />}
@@ -162,7 +177,6 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   return (
     <ListPage
       header={header}
-      tabs={<AppsTabs />}
       filters={
         <FilterBar
           label={t("apps.page.filterLabel")}

@@ -26,9 +26,11 @@
 import type { LucideIcon } from "lucide-react";
 
 import { ACCOUNT_SCREENS } from "../features/nav/account";
+import { ALERTS_SCREENS } from "../features/nav/alerts";
 import { APP_SCREENS, APP_SETTINGS_SCREENS } from "../features/nav/app";
 import { APPS_SCREENS } from "../features/nav/apps";
 import { BACKUPS_SCREENS } from "../features/nav/backups";
+import { CATALOG_SCREENS } from "../features/nav/catalog";
 import { DATABASES_SCREENS, DATABASE_SCREENS } from "../features/nav/databases";
 import { DOMAINS_SCREENS } from "../features/nav/domains";
 import { FLEET_SCREENS } from "../features/nav/fleet";
@@ -48,7 +50,7 @@ import type { ConsolePath, Dest, NavContext, Scope, TabItem } from "./navCore";
 export { INTERIM, isStaged, tabsOf, withCounts } from "./navCore";
 export type { ConsolePath, Dest, Kind, NavContext, Owner, Scope, Strip, TabItem, When } from "./navCore";
 export { APP_TABS } from "../features/nav/app";
-export { FLEET_APPS_SCREENS } from "../features/nav/fleet";
+export { FLEET_APPS_SCREENS, FLEET_SERVERS_SCREENS } from "../features/nav/fleet";
 export { TEAM_TABS } from "../features/nav/team";
 
 /** The register itself, filled in the order the lists draw the groups. */
@@ -58,19 +60,22 @@ const BY_ID = new Map<string, Dest>();
 /** Every screen, in the order its list draws it. */
 export const DESTS: readonly Dest[] = REGISTERED;
 
-// The server scope first, in its three groups separated by space (what runs, what happens, the
-// machine), then what is under them, then the fleet, Settings and the account.
+// The twelve areas of the bar in the order it draws them (home; what runs; how it is reached; what
+// happens; what is kept safe; where it runs), then what is under them, then the fleet's faces, Settings
+// and the account.
 for (const group of [
   OVERVIEW_SCREENS,
-  PROJECTS_SCREENS,
   APPS_SCREENS,
+  PROJECTS_SCREENS,
   DATABASES_SCREENS,
-  DOMAINS_SCREENS,
-  BACKUPS_SCREENS,
   CRON_SCREENS,
+  DOMAINS_SCREENS,
   LOGS_SCREENS,
+  ALERTS_SCREENS,
   ACTIVITY_SCREENS,
+  BACKUPS_SCREENS,
   SERVER_SCREENS,
+  CATALOG_SCREENS,
   SERVICE_SCREENS,
   DATABASE_SCREENS,
   APP_SCREENS,
@@ -117,6 +122,22 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
 };
 
 /**
+ * Where each exception sits in the tree, for the breadcrumbs: the entry it is opened from, and what names
+ * the page (a parameter of its route, the resource's name, or a text).
+ */
+export const EXCEPTION_CRUMBS: Readonly<Record<string, { from: string; name: { param: string; prefix?: string } | { key: PlainKey } }>> = {
+  "/apps/$domain/deployments/$id": { from: "app.deployments", name: { param: "id", prefix: "#" } },
+  "/catalog/$name": { from: "catalog", name: { param: "name" } },
+  "/databases/engines/$engine/settings": { from: "databases.engines", name: { param: "engine" } },
+  "/domains/sites/$site": { from: "domains.sites", name: { param: "site" } },
+  "/fleet/jobs/$id": { from: "activity", name: { param: "id", prefix: "#" } },
+  "/projects/$team/$project": { from: "apps.projects", name: { param: "project" } },
+  "/server/services/$name/unit": { from: "service", name: { key: "services.actions.unitFile" } },
+  "/integrations/github/callback": { from: "settings.integrations", name: { key: "settings.integrations.callback.title" } },
+  "/integrations/gitlab/callback": { from: "settings.integrations", name: { key: "gitlab.callback.title" } },
+};
+
+/**
  * Screens the plan puts in the register whose route another lane creates. The lane that adds the
  * route moves the entry into the register in the same change; the register test fails when a
  * route appears without it, and when an entry lingers here after its route exists.
@@ -148,15 +169,24 @@ export interface Redirect {
  */
 export const REDIRECTS: readonly Redirect[] = REDIRECT_ROWS;
 
-/** The sidebar of a scope: its areas, grouped, in order. Settings is pinned under them and is not here. */
-export function sidebarFor(scope: Scope, ctx: NavContext = {}): Dest[][] {
+/**
+ * The main bar: the areas, grouped and in order, the same whether the console holds a fleet or not
+ * (Settings is pinned under them and is not here). Where an area goes from the fleet's pages is
+ * `areaTarget`'s.
+ */
+export function sidebarFor(ctx: NavContext = {}): Dest[][] {
   const groups = new Map<string, Dest[]>();
   for (const entry of REGISTERED) {
-    if (entry.kind !== "area" || entry.scope !== scope || entry.group === "pinned" || !shown(entry, ctx)) continue;
+    if (entry.kind !== "area" || entry.group === "pinned" || !shown(entry, ctx)) continue;
     const key = entry.group ?? entry.id;
     groups.set(key, [...(groups.get(key) ?? []), entry]);
   }
   return [...groups.values()];
+}
+
+/** Where an area opens: its fleet face from the fleet's pages, where it has one, and its own page otherwise. */
+export function areaTarget(entry: Dest, scope: Scope): ConsolePath {
+  return scope === "fleet" ? (entry.fleetTo ?? entry.to) : entry.to;
 }
 
 /** The same tabs for an id the caller has as text: tests and the palette, which draw nothing on a route. */
@@ -206,25 +236,40 @@ function rootOf(entry: Dest): Dest {
 }
 
 /**
- * The addresses that keep an area lit in the sidebar besides its own: the screens that are under
- * it in the tree but live at another start (the recipes are at `/catalog` and belong to
- * Applications, a team's pages are at `/teams` and belong to Projects, the Map is Overview's).
+ * Screens that live at an address of their own and belong to an area all the same: what an outside
+ * service sends the browser back to, and a job of the fleet. They are in `EXCEPTIONS`, so no entry
+ * of the register says which area they are under.
  */
-export function litBy(area: Dest): string[] {
-  const own = staticPrefix(area.to);
-  const others = REGISTERED.filter((entry) => entry !== area && rootOf(entry) === area).map((entry) => staticPrefix(entry.to));
-  return [...new Set(others.filter((prefix) => !isUnder(prefix, own)))];
+const OWNED_BY: Readonly<Record<string, string>> = { "/fleet/jobs": "activity", "/integrations": "settings" };
+
+/**
+ * The area, or the resource, a path is under: the entry whose address is the longest start of it,
+ * and where its chain of parents ends. One answer for the bar (which item is current), the second
+ * column (which resource's sections), the breadcrumbs and the title. A page that is under nothing is
+ * `undefined`. The home page owns `/` and nothing beneath it: every address starts with it.
+ */
+export function areaOf(pathname: string): Dest | undefined {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  let best: { entry: Dest; length: number } | undefined;
+  const consider = (entry: Dest, prefix: string): void => {
+    const under = prefix === "/" ? path === "/" : isUnder(path, prefix);
+    if (under && (best === undefined || prefix.length > best.length)) best = { entry, length: prefix.length };
+  };
+  for (const entry of REGISTERED) consider(entry, staticPrefix(entry.to));
+  for (const [prefix, id] of Object.entries(OWNED_BY)) consider(dest(id), prefix);
+  return best === undefined ? undefined : rootOf(best.entry);
 }
 
 /**
- * The `g` shortcuts, in the order the shortcut list shows them, of one scope (or of all). Settings
- * is in both: the same two keys open it from a server and from the fleet.
+ * The `g` shortcuts, in the order the shortcut list shows them, of one scope (or of all). The areas
+ * are in both: the same two keys open each from a server and from the fleet.
  */
 export function shortcuts(scope?: Scope): { id: string; keys: readonly string[]; description: PlainKey; to: ConsolePath }[] {
   return REGISTERED.flatMap((entry) => {
     if (entry.shortcut === undefined || entry.goTo === undefined) return [];
     if (scope !== undefined && entry.scope !== "both" && entry.scope !== scope) return [];
-    return [{ id: entry.id, keys: entry.shortcut, description: entry.goTo, to: entry.to }];
+    // The fleet's pages open an area at its fleet face, where it has one.
+    return [{ id: entry.id, keys: entry.shortcut, description: entry.goTo, to: scope === undefined ? entry.to : areaTarget(entry, scope) }];
   });
 }
 
@@ -243,6 +288,8 @@ export interface PaletteEntry {
   path: string;
   /** Search words, the old names included. */
   keywords: string;
+  /** The names it had before, each of them whole (the palette ranks one typed whole just under the current name). */
+  aliases: readonly string[];
   shortcut?: readonly string[];
   /** What it is, drawn: the same in every list (features/nav/icons.ts). */
   icon: LucideIcon;
@@ -262,8 +309,8 @@ export function paletteEntries(ctx: PaletteContext): PaletteEntry[] {
   return REGISTERED.filter((entry) => !entry.to.includes("$") && shown(entry, ctx)).map((entry) => {
     const place = [...crumbsOf(entry.id), entry].filter((step) => step.kind !== "hidden" || step === entry).map((step) => t(step.label));
     const old = (RENAMED[entry.id] ?? []).map((key) => t(key));
-    // The fleet's destinations are named by their phrase ("Certificates on every server"): their bare name is also a server's.
-    const bare = entry.kind === "area" && entry.scope !== "fleet";
+    // The fleet's faces are named by their phrase ("Certificates on every server"): their bare name is the area's.
+    const bare = entry.kind === "area";
     return {
       id: entry.id,
       to: entry.to,
@@ -271,6 +318,7 @@ export function paletteEntries(ctx: PaletteContext): PaletteEntry[] {
       text: bare ? t(entry.label) : entry.command !== undefined ? t(entry.command) : place.join(" › "),
       path: place.join(" › "),
       keywords: [entry.keywords !== undefined ? t(entry.keywords) : "", ...old].join(" ").trim(),
+      aliases: old,
       ...(entry.shortcut !== undefined ? { shortcut: entry.shortcut } : {}),
       // A tab has no icon of its own: the area's it is under.
       icon: sectionIcon(entry) ?? areaIcon(entry),

@@ -10,18 +10,23 @@ import type { Page } from "@playwright/test";
 import { expect, expectNoA11yViolations, settle, signIn, startConsoleServer, test, totpCode } from "./fixtures";
 import { signInSpanish, useSpanish } from "./spanish";
 
-/** The sidebar, top to bottom, with the heading each destination opens on. */
+/**
+ * The main bar, top to bottom, with the heading each area opens on. The titles are the pages' own, which the
+ * area lanes of 4.1 rename to the bar's names as they redo each one.
+ */
 const DESTINATIONS: readonly { link: string; path: string; title: string }[] = [
-  { link: "Overview", path: "/", title: "Overview" },
+  { link: "Home", path: "/", title: "Overview" },
   { link: "Applications", path: "/apps", title: "Applications" },
   { link: "Databases", path: "/databases", title: "Databases" },
+  { link: "Scheduled tasks", path: "/cron", title: "Cron" },
   { link: "Domains", path: "/domains", title: "Domains" },
-  { link: "Backups", path: "/backups", title: "Backups" },
-  { link: "Cron", path: "/cron", title: "Cron" },
   { link: "Logs", path: "/logs", title: "Logs" },
+  { link: "Alerts", path: "/alerts", title: "Alerts" },
   { link: "Activity", path: "/activity", title: "Activity" },
-  // Services live under Server (its tab), not in the sidebar.
-  { link: "Server", path: "/server", title: "Server" },
+  { link: "Backups", path: "/backups", title: "Backups" },
+  // Services live under Servers (its tab), not in the bar.
+  { link: "Servers", path: "/server", title: "Server" },
+  { link: "Catalog", path: "/catalog", title: "Catalog" },
   { link: "Settings", path: "/settings", title: "Settings" },
 ];
 
@@ -147,8 +152,11 @@ test("the command palette opens with Ctrl+K, filters, navigates on Enter and clo
   await settle(page);
   await expectNoA11yViolations(page, "the command palette");
 
+  // Scheduled tasks was called Cron in 4.0: the old name still finds it, after what is named by it (a service).
   await search.fill("cron");
-  await expect(page.getByRole("option").first()).toContainText("Cron");
+  await expect(page.getByRole("option", { name: /^Scheduled tasks/ })).toBeVisible();
+  await search.fill("scheduled tasks");
+  await expect(page.getByRole("option").first()).toContainText("Scheduled tasks");
   await page.keyboard.press("Enter");
   await expect(palette).toBeHidden();
   await expect(page).toHaveURL(/\/cron$/);

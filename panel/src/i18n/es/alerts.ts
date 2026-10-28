@@ -3,6 +3,9 @@ import type { Catalog } from "../types";
 
 export const alerts: Catalog<typeof en> = {
   documentTitle: "Ajustes de alertas",
+  page: {
+    description: "Lo que te avisa antes que una persona: reglas sobre las mediciones y direcciones preguntadas desde fuera.",
+  },
   loadingLabel: "las reglas de alerta",
   notSaved: "No se guardaron los ajustes de alertas",
   metrics: {

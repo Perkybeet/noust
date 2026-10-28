@@ -659,8 +659,6 @@ export const settings = {
     },
     callback: {
       title: "Connecting GitHub",
-      breadcrumbSettings: "Settings",
-      breadcrumbIntegrations: "Integrations",
       backToIntegrations: "Back to integrations",
       progressConversion: "Finishing the App with GitHub's answer",
       progressInstallation: "Recording the installation",

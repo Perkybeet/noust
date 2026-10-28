@@ -34,7 +34,7 @@ function row(page: Page, name: string) {
 
 test("a rule is two clicks from the list, says what it watches, and goes when it is removed", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 400 .* \/api\/alerts\/rules\/disk-full$/);
-  await signIn(page, consoleServer, "/settings/alerts");
+  await signIn(page, consoleServer, "/alerts");
   await expect(page.getByText("No alert rules yet")).toBeVisible();
   await expect(page.getByRole("button", { name: "New rule" })).toHaveCount(1);
 
@@ -93,7 +93,7 @@ test("a rule is two clicks from the list, says what it watches, and goes when it
 test("the built-in checks are one form: only what changed is written, and the bar says so", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .* \/api\/config$/);
   problems.expect(/status of 400 .* \/api\/config$/);
-  await signIn(page, consoleServer, "/settings/alerts");
+  await signIn(page, consoleServer, "/alerts");
   const disk = page.getByLabel("Almost full at (%)");
   await expect(disk).toHaveValue("90");
   await expect(page.getByLabel("Days before they expire")).toHaveValue("14");

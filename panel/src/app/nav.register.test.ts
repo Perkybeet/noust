@@ -2,8 +2,10 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
 import { SETTINGS_SECTIONS } from "../features/app/settings/sections";
+import { ALERTS_SCREENS } from "../features/nav/alerts";
 import { APPS_SCREENS } from "../features/nav/apps";
 import { BACKUPS_SCREENS } from "../features/nav/backups";
+import { CATALOG_SCREENS } from "../features/nav/catalog";
 import { APPS_TABS } from "../features/nav/appsTabs";
 import { DATABASES_SCREENS, DATABASE_SCREENS } from "../features/nav/databases";
 import { DOMAINS_SCREENS } from "../features/nav/domains";
@@ -19,12 +21,15 @@ import {
   DESTS,
   EXCEPTIONS,
   FLEET_APPS_SCREENS,
+  FLEET_SERVERS_SCREENS,
   INTERIM,
   PLANNED,
   REDIRECTS,
   RENAMED,
   SETTINGS_GROUPS,
   TEAM_TABS,
+  areaOf,
+  areaTarget,
   crumbsOf,
   dest,
   paletteEntries,
@@ -36,7 +41,7 @@ import {
   withCounts,
 } from "./nav";
 import type { Dest, NavContext, PaletteContext, Strip } from "./nav";
-import { ICON_IDS, iconOf } from "../features/nav/icons";
+import { COLUMN_IDS, ICON_IDS, columnIconOf, iconOf } from "../features/nav/icons";
 import { CENTRAL_PATHS } from "./nodeRoute";
 import { buildRouter } from "./router";
 
@@ -159,49 +164,90 @@ describe("3. the budgets", () => {
     expect(sections.filter((entry) => !grouped.includes(entry.id)).map((entry) => entry.id)).toEqual([]);
   });
 
-  it("keeps the bar to ten destinations on a server and seven on a fleet, in three groups (NV-3)", () => {
-    const server = sidebarFor("server");
-    expect(server.length).toBeLessThanOrEqual(3);
-    expect(server.flat().length).toBeLessThanOrEqual(10);
-    expect(sidebarFor("fleet").flat().length).toBeLessThanOrEqual(7);
+  it("keeps the bar to twelve areas in six groups, and Settings pinned under them (NV-3)", () => {
+    const bar = sidebarFor();
+    expect(bar.length).toBeLessThanOrEqual(6);
+    expect(bar.flat().length).toBe(11);
+    // Settings is the twelfth: pinned at the foot of the bar, and not one of its groups.
+    expect(dest("settings").group).toBe("pinned");
   });
 
-  it("draws the bar of 4.0: what runs, what happens, the machine; and the fleet's seven (2.3)", () => {
-    expect(sidebarFor("server").map((group) => group.map((entry) => entry.to))).toEqual([
-      ["/", "/projects", "/apps", "/databases", "/domains", "/backups", "/cron"],
-      ["/logs", "/activity"],
-      ["/server"],
+  it("draws the bar of 4.1: twelve areas, the same with or without a fleet (2 of the navigation design)", () => {
+    expect(sidebarFor().map((group) => group.map((entry) => entry.to))).toEqual([
+      ["/"],
+      ["/apps", "/databases", "/cron"],
+      ["/domains"],
+      ["/logs", "/alerts", "/activity"],
+      ["/backups"],
+      ["/server", "/catalog"],
     ]);
-    expect(sidebarFor("fleet").map((group) => group.map((entry) => entry.to))).toEqual([
-      ["/fleet", "/fleet/servers", "/fleet/apps", "/fleet/certificates", "/fleet/backups", "/fleet/updates", "/fleet/activity"],
-    ]);
-    // The catalog left the bar (D-2): it is the second and third view of Applications, at the addresses it always had.
-    expect(sidebarFor("server").flat().map((entry) => entry.id)).not.toContain("catalog");
-    expect(paths(tabsOf(APPS_SCREENS))).toEqual(["/apps", "/catalog", "/catalog/installed"]);
-    // What the list and the catalogue draw is the same three, without the wizard the register also names.
-    expect(paths(tabsOf(APPS_TABS))).toEqual(["/apps", "/catalog", "/catalog/installed"]);
-    expect(dest("apps.recipes").parent).toBe("apps");
+    // The recipes are the catalog's, an area of its own, at the addresses they always had.
+    expect(paths(tabsOf(CATALOG_SCREENS))).toEqual(["/catalog", "/catalog/installed"]);
+    // Projects is the second view of the list, for a server whose people organised theirs.
+    expect(paths(tabsOf(APPS_SCREENS, { when: { organised: true } }))).toEqual(["/apps"]);
+    expect(paths(tabsOf(APPS_TABS, { when: { organised: true } }))).toEqual(["/apps", "/projects"]);
+    expect(paths(tabsOf(APPS_TABS, { when: { organised: false } }))).toEqual(["/apps"]);
+    expect(dest("apps.projects").parent).toBe("apps");
+  });
+
+  it("opens an area at its fleet face from the fleet's pages, where it has one, and every face is a screen of the fleet", () => {
+    const faces = DESTS.filter((entry) => entry.faceOf !== undefined);
+    expect(faces.map((entry) => entry.to).sort()).toEqual(["/fleet", "/fleet/activity", "/fleet/apps", "/fleet/backups", "/fleet/certificates", "/fleet/servers"]);
+    for (const area of sidebarFor().flat()) {
+      if (area.fleetTo === undefined) continue;
+      const face = DESTS.find((entry) => entry.to === area.fleetTo);
+      expect(face?.faceOf, `${area.id} opens ${area.fleetTo} from the fleet, which is not its face`).toBe(area.id);
+      expect(areaTarget(area, "fleet")).toBe(area.fleetTo);
+      expect(areaTarget(area, "server")).toBe(area.to);
+    }
+    // An area with no fleet view opens where it always did.
+    expect(areaTarget(dest("databases"), "fleet")).toBe("/databases");
+  });
+
+  it("knows which area a path is under, the longest start of it, and the fleet's faces are their area's", () => {
+    const area = (path: string): string | undefined => areaOf(path)?.id;
+    expect(area("/")).toBe("overview");
+    expect(area("/map")).toBe("overview");
+    expect(area("/fleet")).toBe("overview");
+    expect(area("/apps")).toBe("apps");
+    expect(area("/apps/shop.example.net/deployments/3")).toBe("apps");
+    expect(area("/projects/teams")).toBe("apps");
+    expect(area("/teams/acme/members")).toBe("apps");
+    expect(area("/fleet/apps")).toBe("apps");
+    expect(area("/fleet/placements")).toBe("apps");
+    expect(area("/fleet/certificates")).toBe("domains");
+    expect(area("/fleet/updates")).toBe("server");
+    expect(area("/fleet/servers")).toBe("server");
+    expect(area("/fleet/jobs/abc")).toBe("activity");
+    expect(area("/server/services/noust-web/logs")).toBe("server");
+    expect(area("/catalog/ghost")).toBe("catalog");
+    expect(area("/alerts/probes")).toBe("alerts");
+    expect(area("/settings/tokens")).toBe("settings");
+    expect(area("/integrations/github/callback")).toBe("settings");
+    expect(area("/account/security")).toBe("account");
+    expect(area("/nowhere")).toBeUndefined();
   });
 
   it("keeps a screen's place in the bar apart from where it is reached from (NV-4)", () => {
-    // Settings is pinned under the bar and the fleet is offered above it: neither is one of its groups.
-    expect(sidebarFor("server").flat().map((entry) => entry.id)).not.toContain("settings");
-    expect(sidebarFor("server").flat().map((entry) => entry.id)).not.toContain("fleet");
+    // Settings is pinned under the bar: it is not one of its groups.
+    expect(sidebarFor().flat().map((entry) => entry.id)).not.toContain("settings");
+    // The fleet is a face of the areas, not an area.
+    expect(sidebarFor().flat().map((entry) => entry.id)).not.toContain("fleet");
   });
 });
 
 describe("4. the names", () => {
   it("says a destination of the bar in a word or two, without 'and' (NV-5)", () => {
-    const withAnd = [...sidebarFor("server").flat(), ...sidebarFor("fleet").flat()].filter((entry) => /\band\b/i.test(label(entry))).map((entry) => entry.id);
+    const withAnd = sidebarFor().flat().filter((entry) => /\band\b/i.test(label(entry))).map((entry) => entry.id);
     expect(withAnd, "a bar name with 'and'").toEqual([]);
     expect(label(dest("domains"))).toBe("Domains");
   });
 
-  it("never gives two destinations of one scope the same name", () => {
-    for (const scope of ["server", "fleet"] as const) {
-      const names = [...sidebarFor(scope).flat(), ...DESTS.filter((entry) => entry.scope === "both" && entry.kind === "area")].map(label);
-      expect(new Set(names).size, `${scope}: ${names.join(", ")}`).toBe(names.length);
-    }
+  it("never gives two areas the same name, and names them as the glossary does (1 of the navigation design)", () => {
+    const areas = DESTS.filter((entry) => entry.kind === "area");
+    const names = areas.map(label);
+    expect(new Set(names).size, names.join(", ")).toBe(names.length);
+    expect(names).toEqual(["Home", "Applications", "Databases", "Scheduled tasks", "Domains", "Logs", "Alerts", "Activity", "Backups", "Servers", "Catalog", "Settings"]);
   });
 
   it("never gives two tabs of one strip the same name", () => {
@@ -226,7 +272,7 @@ describe("4. the names", () => {
     // A list is the sidebar of a scope, or the sections under one entry.
     const lists = new Map<string, Dest[]>();
     for (const entry of DESTS) {
-      const key = entry.kind === "area" ? `bar of ${entry.scope}` : entry.kind === "section" ? `under ${entry.parent ?? ""}` : "";
+      const key = entry.kind === "area" ? "the bar" : entry.kind === "section" ? `under ${entry.parent ?? ""}` : "";
       if (key !== "") lists.set(key, [...(lists.get(key) ?? []), entry]);
     }
     for (const [key, entries] of lists) {
@@ -243,8 +289,19 @@ describe("4. the names", () => {
     const server = entries.find((entry) => entry.id === "server");
     const updates = entries.find((entry) => entry.id === "server.updates");
     expect(updates?.icon).toBe(server?.icon);
-    const alerts = entries.find((entry) => entry.id === "settings.alerts");
-    expect(alerts?.icon).not.toBe(entries.find((entry) => entry.id === "settings")?.icon);
+    const channels = entries.find((entry) => entry.id === "settings.notifications");
+    expect(channels?.icon).not.toBe(entries.find((entry) => entry.id === "settings")?.icon);
+    // The fleet's face of an area is drawn as the area.
+    expect(entries.find((entry) => entry.id === "fleet.certificates")?.icon).toBe(entries.find((entry) => entry.id === "domains")?.icon);
+  });
+
+  it("draws every section of the second column as the object it is, and no two of one list as the same one", () => {
+    const sections = ["app", "server"].map((root) => DESTS.filter((entry) => entry.id === root || entry.id.startsWith(`${root}.`)).filter((entry) => COLUMN_IDS.includes(entry.id)));
+    for (const list of sections) {
+      const icons = list.map((entry) => columnIconOf(entry).displayName ?? "");
+      expect(new Set(icons).size, icons.join(", ")).toBe(icons.length);
+    }
+    for (const id of COLUMN_IDS) expect(DESTS.some((entry) => entry.id === id), `${id} is drawn by the column and is no screen`).toBe(true);
   });
 
   it("names every screen in Spanish too", async () => {
@@ -258,18 +315,18 @@ describe("4. the names", () => {
 });
 
 describe("5. the shortcuts", () => {
-  it("gives every destination of the bar two keys, in both scopes (NV-6)", () => {
-    const without = [...sidebarFor("server").flat(), ...sidebarFor("fleet").flat(), dest("settings")].filter((entry) => entry.shortcut === undefined).map((entry) => entry.id);
-    expect(without, "a destination of the bar with no shortcut").toEqual([]);
+  it("gives every area of the bar two keys (NV-6)", () => {
+    const without = [...sidebarFor().flat(), dest("settings")].filter((entry) => entry.shortcut === undefined).map((entry) => entry.id);
+    expect(without, "an area of the bar with no shortcut").toEqual([]);
   });
 
-  it("keeps the same letter for the same noun on a server's bar and on the fleet's", () => {
-    const letter = (id: string): string => (dest(id).shortcut ?? []).join(" ");
-    expect(letter("fleet.apps")).toBe(letter("apps"));
-    expect(letter("fleet.backups")).toBe(letter("backups"));
-    expect(letter("fleet.certificates")).toBe(letter("domains"));
-    expect(letter("fleet.servers")).toBe(letter("server"));
-    expect(letter("fleet")).toBe(letter("overview"));
+  it("opens an area from the fleet's pages with the same two keys, at its fleet face", () => {
+    // The faces have no keys of their own: the area's open them. Only Updates, which is no area, has letters.
+    for (const face of DESTS.filter((entry) => entry.faceOf !== undefined)) expect(face.shortcut, `${face.id} would take keys its area has`).toBeUndefined();
+    const fleet = new Map(shortcuts("fleet").map((shortcut) => [shortcut.id, shortcut.to]));
+    expect(fleet.get("apps")).toBe("/fleet/apps");
+    expect(fleet.get("domains")).toBe("/fleet/certificates");
+    expect(fleet.get("databases")).toBe("/databases");
   });
 
   it("never gives a letter to two destinations that can be on one bar, nor takes the ones the shell keeps", () => {
@@ -287,25 +344,32 @@ describe("5. the shortcuts", () => {
   it("lists those of the scope on screen, in the order of the bar", () => {
     expect(shortcuts("server").map((shortcut) => [...shortcut.keys, shortcut.to])).toEqual([
       ["g", "o", "/"],
-      ["g", "p", "/projects"],
       ["g", "a", "/apps"],
+      ["g", "p", "/projects"],
       ["g", "b", "/databases"],
-      ["g", "n", "/domains"],
-      ["g", "k", "/backups"],
       ["g", "c", "/cron"],
+      ["g", "n", "/domains"],
       ["g", "l", "/logs"],
+      ["g", "e", "/alerts"],
       ["g", "y", "/activity"],
+      ["g", "k", "/backups"],
       ["g", "v", "/server"],
+      ["g", "t", "/catalog"],
       ["g", "s", "/settings"],
     ]);
     expect(shortcuts("fleet").map((shortcut) => [...shortcut.keys, shortcut.to])).toEqual([
       ["g", "o", "/fleet"],
-      ["g", "v", "/fleet/servers"],
       ["g", "a", "/fleet/apps"],
+      ["g", "b", "/databases"],
+      ["g", "c", "/cron"],
       ["g", "n", "/fleet/certificates"],
-      ["g", "k", "/fleet/backups"],
-      ["g", "u", "/fleet/updates"],
+      ["g", "l", "/logs"],
+      ["g", "e", "/alerts"],
       ["g", "y", "/fleet/activity"],
+      ["g", "k", "/fleet/backups"],
+      ["g", "v", "/fleet/servers"],
+      ["g", "t", "/catalog"],
+      ["g", "u", "/fleet/updates"],
       ["g", "s", "/settings"],
     ]);
   });
@@ -346,14 +410,26 @@ describe("6. the palette finds every screen", () => {
 
   it("says where each one lives, in words", () => {
     const byId = new Map(entries.map((entry) => [entry.id, entry.path]));
-    expect(byId.get("server.updates")).toBe("Server › System updates");
-    expect(byId.get("settings.alerts")).toBe("Settings › Alert rules");
+    expect(byId.get("server.updates")).toBe("Servers › System updates");
+    expect(byId.get("alerts.probes")).toBe("Alerts › Probes and status page");
+    expect(byId.get("settings.notifications")).toBe("Settings › Channels");
     expect(byId.get("backups.schedules")).toBe("Backups › Schedules");
-    expect(byId.get("server.terminal")).toBe("Server › Terminal");
-    expect(byId.get("overview.map")).toBe("Overview › Map");
+    expect(byId.get("server.terminal")).toBe("Servers › Terminal");
+    expect(byId.get("overview.map")).toBe("Home › Map");
+    expect(byId.get("catalog.installed")).toBe("Catalog › Installed recipes");
     for (const entry of DESTS.filter((candidate) => candidate.parent !== undefined && !candidate.to.includes("$") && !isInterim(candidate))) {
       expect(byId.get(entry.id)?.split(" › ").length, entry.id).toBeGreaterThanOrEqual(2);
     }
+  });
+
+  it("finds a screen of the bar by the name it had in 4.0", () => {
+    const everything = paletteEntries(paletteContext({ staged: true }));
+    const commandsOf = everything.map((entry): Command => ({ id: entry.id, group: "Pages", label: entry.text, keywords: entry.keywords, detail: entry.path, kind: "navigate", run: () => undefined }));
+    const found = (query: string): string[] => filterCommands(commandsOf, query).flatMap((group) => group.items.map((item) => item.id));
+    expect(found("overview")).toContain("overview");
+    expect(found("cron")).toContain("cron");
+    expect(found("recipes")).toContain("catalog");
+    expect(found("projects")).toContain("apps.projects");
   });
 
   it("keeps the old name of a renamed screen as a word of its own", () => {
@@ -389,8 +465,8 @@ describe("7. what a role cannot see is not found", () => {
   });
 
   it("leaves the destinations that do not apply out of the lists", () => {
-    expect(sidebarFor("server", { when: { organised: false } }).flat().map((entry) => entry.id)).not.toContain("projects");
-    expect(sidebarFor("server", { when: { organised: true } }).flat().map((entry) => entry.id)).toContain("projects");
+    expect(tabsById("apps", { when: { organised: false } }).map((tab) => tab.to)).not.toContain("/projects");
+    expect(tabsById("apps", { when: { organised: true } }).map((tab) => tab.to)).toContain("/projects");
   });
 });
 
@@ -399,7 +475,7 @@ describe("the screens that are only a route so far", () => {
     for (const row of INTERIM) {
       const entry = DESTS.find((candidate) => candidate.to === row.from);
       expect(entry, `${row.from} has no entry`).toBeDefined();
-      expect(sidebarFor("server").flat().map((candidate) => candidate.to)).not.toContain(row.from);
+      expect(sidebarFor().flat().map((candidate) => candidate.to)).not.toContain(row.from);
       expect(paletteEntries(paletteContext()).map((candidate) => candidate.to)).not.toContain(row.from);
       expect(DESTS.some((candidate) => candidate.to === row.to), `${row.from} opens ${row.to}, which is no screen`).toBe(true);
       expect(row.after.trim()).not.toBe("");
@@ -430,7 +506,7 @@ describe("whose a screen is", () => {
     const names = (block: "server" | "instance") => settingsGroups(block, EVERYTHING).map((group) => [group.id, group.sections.map((entry) => entry.id.replace(/^settings\.?/, "") || "general")]);
     expect(names("server")).toEqual([
       ["this-server", ["general", "variables", "secret-managers", "console", "integrations", "about"]],
-      ["monitoring", ["notifications", "alerts", "probes", "log-shipping"]],
+      ["monitoring", ["notifications", "log-shipping"]],
       ["developers", ["tokens", "api", "manifest", "mcp"]],
     ]);
     expect(names("instance")).toEqual([
@@ -444,8 +520,6 @@ describe("whose a screen is", () => {
     const names = Object.fromEntries(DESTS.filter((entry) => entry.parent === "settings").map((entry) => [entry.id, label(entry)]));
     expect(names).toMatchObject({
       "settings.notifications": "Channels",
-      "settings.alerts": "Alert rules",
-      "settings.probes": "Probes and status page",
       "settings.log-shipping": "Logs and metrics export",
       "settings.console": "Console address",
       "settings.about": "About Noust",
@@ -496,10 +570,13 @@ describe("what the pages draw from the register", () => {
     expect(APP_TABS[0]).toEqual({ label: "nav.appTabs.overview.label", to: "/apps/$domain", exact: true });
     expect(paths(TEAM_TABS)).toEqual(["/teams/$team", "/teams/$team/members", "/teams/$team/variables", "/teams/$team/notifications", "/teams/$team/settings"]);
     expect(paths(tabsOf(FLEET_APPS_SCREENS))).toEqual(["/fleet/apps", "/fleet/placements"]);
+    expect(paths(tabsOf(FLEET_SERVERS_SCREENS))).toEqual(["/fleet/servers", "/fleet/updates"]);
     expect(paths(tabsById("server"))).toEqual(["/server", "/server/updates", "/server/security", "/server/storage", "/server/services", "/server/system"]);
     expect(paths(tabsById("backups"))).toEqual(["/backups", "/backups/schedules", "/backups/volumes", "/backups/noust", "/backups/destinations"]);
     expect(paths(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/dns", "/domains/tunnels", "/domains/ports"]);
-    expect(paths(tabsById("apps"))).toEqual(["/apps", "/catalog", "/catalog/installed"]);
+    expect(paths(tabsById("apps"))).toEqual(["/apps", "/projects"]);
+    expect(paths(tabsById("catalog"))).toEqual(["/catalog", "/catalog/installed"]);
+    expect(paths(tabsById("alerts"))).toEqual(["/alerts", "/alerts/probes"]);
     expect(paths(tabsById("databases"))).toEqual(["/databases", "/databases/engines"]);
     expect(paths(tabsById("service"))).toEqual(["/server/services/$name", "/server/services/$name/logs"]);
   });
@@ -518,8 +595,9 @@ describe("what the pages draw from the register", () => {
       expect(tabsOf(strip, EVERYTHING), id).toEqual(tabsById(id, EVERYTHING));
     };
     same(OVERVIEW_SCREENS, "overview");
-    same(PROJECTS_SCREENS, "projects");
-    same(APPS_SCREENS, "apps");
+    same(PROJECTS_SCREENS, "apps.projects");
+    same(CATALOG_SCREENS, "catalog");
+    same(ALERTS_SCREENS, "alerts");
     same(DATABASES_SCREENS, "databases");
     same(DOMAINS_SCREENS, "domains");
     same(BACKUPS_SCREENS, "backups");
@@ -528,8 +606,9 @@ describe("what the pages draw from the register", () => {
     same(DATABASE_SCREENS, "database");
     expect(APP_TABS).toEqual(tabsById("app"));
     expect(TEAM_TABS).toEqual(tabsById("team"));
-    // The fleet's views are the sidebar's; its pages draw only the strip of the applications' two.
+    // The fleet's views are the faces of the areas; its pages draw only the strips of the two areas that have a second view.
     same(FLEET_APPS_SCREENS, "fleet.apps");
+    same(FLEET_SERVERS_SCREENS, "fleet.servers");
     expect(tabsOf(OVERVIEW_SCREENS).map((tab) => tab.to)).toEqual(["/", "/map"]);
     expect(tabsOf(PROJECTS_SCREENS).map((tab) => tab.to)).toEqual(["/projects", "/projects/teams"]);
   });
@@ -550,7 +629,7 @@ describe("what the pages draw from the register", () => {
 
   it("walks from a screen up to the list it belongs to", () => {
     expect(crumbsOf("app.settings.source").map((entry) => entry.id)).toEqual(["apps", "app", "app.settings"]);
-    expect(crumbsOf("team.members").map((entry) => entry.id)).toEqual(["projects", "projects.teams", "team"]);
+    expect(crumbsOf("team.members").map((entry) => entry.id)).toEqual(["apps", "apps.projects", "apps.projects.teams", "team"]);
     expect(crumbsOf("overview")).toEqual([]);
   });
 });

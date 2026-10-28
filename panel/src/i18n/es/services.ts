@@ -2,8 +2,6 @@ import type { services as en } from "../en/services";
 import type { Catalog } from "../types";
 
 export const services: Catalog<typeof en> = {
-  breadcrumbServer: "Servidor",
-  breadcrumbServices: "Servicios",
   state: {
     restarting: "Reiniciándose",
   },

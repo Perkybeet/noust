@@ -115,10 +115,6 @@ export function GitLabCallback() {
     <DetailPage
       header={{
         title: t("gitlab.callback.title"),
-        breadcrumbs: [
-          { label: t("gitlab.callback.breadcrumbSettings"), to: "/settings" },
-          { label: t("gitlab.callback.breadcrumbIntegrations"), to: "/settings/integrations" },
-        ],
       }}
     >
       {body}

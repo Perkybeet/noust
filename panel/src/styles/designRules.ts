@@ -349,7 +349,12 @@ export const KIT_HEIGHTS: Readonly<Record<string, readonly Height[]>> = {
   "components/ui/Button.tsx": ["raised"],
   "components/ui/IconButton.tsx": ["raised"],
   "components/ui/ChoiceCards.tsx": ["raised"],
-  // the frame
+  // the frame: every item of a bar and of the second column is flat until the pointer is on it and the
+  // current one is the sliding indicator's raised piece; the choice of bar is a carved rail of raised options
+  "app/frame/Rail.tsx": ["raised"],
+  "app/frame/areas.tsx": ["raised"],
+  "app/frame/BottomBar.tsx": ["raised"],
+  "app/frame/NavColumn.tsx": ["raised"],
   "app/Topbar.tsx": ["carved"],
   "app/Shell.tsx": ["seated"],
   "app/ThemeSwitch.tsx": ["carved"],

@@ -19,6 +19,22 @@ export type RouteIdsAt = (location: ParsedLocation) => readonly string[];
 
 let routeIdsAt: RouteIdsAt | undefined;
 
+/** The namespaces the breadcrumbs of an address draw, which are the pages' above the page's own (app/crumbs.ts). */
+export type TrailNamespaces = (location: ParsedLocation) => readonly Namespace[];
+
+let trailAt: TrailNamespaces | undefined;
+
+/**
+ * The top bar draws where a page is from the register, so the texts of the steps above the page are the
+ * ones of other pages' catalogs (a service's unit file is under the server's Services tab). The router says
+ * which they are for an address (`app/router.ts`), and they are loaded with the page's own.
+ *
+ * @param source - What names the namespaces of the trail of an address.
+ */
+export function installTrailNamespaces(source: TrailNamespaces): void {
+  trailAt = source;
+}
+
 /**
  * The router says how an address becomes route ids (`app/router.ts`). The root route cannot ask
  * the router itself: its `beforeLoad` would take the type of the matches from a router type that
@@ -47,6 +63,11 @@ export function namespacesForRoutes(routeIds: readonly string[]): readonly Names
   return [...wanted];
 }
 
+/** The namespaces of the routes of an address and of the trail above its page, without repeats. */
+export function namespacesFor(location: ParsedLocation, ofRoutes: readonly Namespace[]): readonly Namespace[] {
+  return [...new Set([...ofRoutes, ...(trailAt?.(location) ?? [])])];
+}
+
 /**
  * Makes sure a language has what the routes of an address draw, so the page is shown in it from
  * its first frame. Returns nothing when it is all here (the common case, and a navigation then does
@@ -59,7 +80,7 @@ export function namespacesForRoutes(routeIds: readonly string[]): readonly Names
  */
 export function loadRouteNamespaces(locale: Locale, location: ParsedLocation): Promise<void> | undefined {
   if (routeIdsAt === undefined) return undefined;
-  const wanted = namespacesForRoutes(routeIdsAt(location));
+  const wanted = namespacesFor(location, namespacesForRoutes(routeIdsAt(location)));
   if (areNamespacesLoaded(locale, wanted)) return undefined;
   return loadNamespaces(locale, wanted).catch((error: unknown) => {
     console.error(`Could not load the ${locale} texts of this page`, error);

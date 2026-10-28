@@ -150,10 +150,6 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
   const dirty = draft !== null && draft !== saved;
   const webserver = config.data?.webserver ?? info.data?.webserver ?? "nginx";
   const app = apps.data?.apps.find((candidate) => candidate.domain === site) ?? null;
-  const breadcrumbs = [
-    { label: t("nav.domains.label"), to: "/domains" },
-    { label: t("domains.page.sitesTab"), to: "/domains/sites" },
-  ];
 
   // The editor's bar asks before the page is left with changes (and not for the views of this page,
   // which share the draft). A deleted site has nothing to lose: its draft is dropped first and the
@@ -241,7 +237,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
 
   if ((info.isError && isApiError(info.error) && info.error.status === 404) || (config.isError && isApiError(config.error) && config.error.status === 404)) {
     return (
-      <ListPage header={{ title: site, mono: true, breadcrumbs }}>
+      <ListPage header={{ title: site, mono: true }}>
         <EmptyState
           variant="firstUse"
           icon={<FileX />}
@@ -310,7 +306,6 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
         header={{
           title: site,
           mono: true,
-          breadcrumbs,
           ...(info.data ? { status: <SiteState enabled={info.data.enabled} size="md" /> } : {}),
           meta: info.data ? (
             <>

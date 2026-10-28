@@ -3,6 +3,7 @@ import { area, hidden, strip, tab } from "../../app/navCore";
 /** Databases and its Engines tab. The register is app/nav.ts; this is one group of it. */
 export const DATABASES_SCREENS = strip(
   area("databases", "/databases", "nav.databases.label", {
+    scope: "both",
     group: "runs",
     shortcut: ["g", "b"],
     goTo: "nav.databases.goTo",

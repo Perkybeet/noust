@@ -67,6 +67,11 @@ export interface SettingsLayoutProps {
    * default (NV-11): a list that long is searched, not read. Its `/` shortcut is the page's.
    */
   filterFrom?: number;
+  /**
+   * The list is already on screen, as the second column of the double bar: the page draws the section
+   * alone and does not repeat the list.
+   */
+  carried?: boolean;
   /** The current subsection: its own route, one form, at most one and a half screens. */
   children: ReactNode;
   className?: string;
@@ -111,7 +116,7 @@ function NavList({ items, phone, labelledBy }: { items: readonly SettingsNavItem
   );
 }
 
-interface NavGroup {
+export interface NavGroup {
   key: string;
   scopeKey: string;
   scope: ReactNode;
@@ -122,8 +127,24 @@ interface NavGroup {
 /** What a heading is made of, as the string that tells two apart: a node has to bring a key. */
 const keyOf = (key: string | undefined, node: ReactNode): string => key ?? (typeof node === "string" ? node : "");
 
+/** Consecutive items of one group, each group under its heading: how the list is read, here and in the second column. */
+export function groupNavItems(items: readonly SettingsNavItem[]): NavGroup[] {
+  const groups: NavGroup[] = [];
+  for (const item of items) {
+    const scopeKey = keyOf(item.scopeKey, item.scope);
+    const key = `${scopeKey}|${keyOf(item.groupKey, item.group)}`;
+    const last = groups.at(-1);
+    if (last?.key === key) last.items.push(item);
+    else groups.push({ key, scopeKey, scope: item.scope, heading: item.group, items: [item] });
+  }
+  return groups;
+}
+
+/** From how many sections a list has a box that narrows it (NV-11): one number, for the page's list and the column's. */
+export const SETTINGS_FILTER_FROM = 12;
+
 /** Whether an item answers a filter: every word typed is in its name or in its keywords. */
-function matches(item: SettingsNavItem, query: string): boolean {
+export function answersFilter(item: SettingsNavItem, query: string): boolean {
   const haystack = `${item.label} ${item.keywords ?? ""}`.toLowerCase();
   return query
     .toLowerCase()
@@ -139,25 +160,26 @@ function matches(item: SettingsNavItem, query: string): boolean {
  * from twelve sections has a box that narrows it. On a phone the navigation is an index page of
  * its own and each subsection has a way back to it.
  */
-export function SettingsLayout({ label, items, index = false, backTo, backParams, filterFrom = 12, children, className }: SettingsLayoutProps) {
+export function SettingsLayout({ label, items, index = false, backTo, backParams, filterFrom = SETTINGS_FILTER_FROM, carried = false, children, className }: SettingsLayoutProps) {
   const t = useT();
   const id = useId();
   const wide = useMediaQuery(SM_UP);
   const [query, setQuery] = useState("");
+  if (carried) {
+    return (
+      <div data-template="settings" className={cx("min-w-0 max-w-settings", className)}>
+        <div data-slot="content" className="flex min-w-0 flex-col gap-6">
+          {children}
+        </div>
+      </div>
+    );
+  }
   const filterable = items.length >= filterFrom;
   const narrowing = filterable && query.trim() !== "";
-  const kept = narrowing ? items.filter((item) => matches(item, query)) : items;
+  const kept = narrowing ? items.filter((item) => answersFilter(item, query)) : items;
   const safe = kept.filter((item) => item.danger !== true);
   const danger = kept.filter((item) => item.danger === true);
-  // Consecutive items of one group, each group under its heading.
-  const groups: NavGroup[] = [];
-  for (const item of safe) {
-    const scopeKey = keyOf(item.scopeKey, item.scope);
-    const key = `${scopeKey}|${keyOf(item.groupKey, item.group)}`;
-    const last = groups.at(-1);
-    if (last?.key === key) last.items.push(item);
-    else groups.push({ key, scopeKey, scope: item.scope, heading: item.group, items: [item] });
-  }
+  const groups = groupNavItems(safe);
   const Search = ICONS.search;
   const filterBox = filterable ? (
     <Input

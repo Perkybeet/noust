@@ -7,9 +7,9 @@
 import { act, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { renderConsole } from "../test/console";
-import { FakeEventSource, fakeBackend, json, signedInRoutes } from "../test/fakes";
-import { setLocale } from "./locale";
+import { renderConsole } from "../../test/console";
+import { FakeEventSource, fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import { setLocale } from "../locale";
 
 const job = (id: string, status: "running" | "pending") => ({ id, type: "deploy", status, name: `Job ${id}`, metadata: {}, logs: [] });
 

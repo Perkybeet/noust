@@ -7,18 +7,27 @@ import type { AppInfo } from "../features/apps/data";
 import { useT } from "../i18n";
 import { NodeNotice } from "../nodes/NodeNotice";
 import { PageServerContext } from "../nodes/pageServer";
-import { useHasFleet, useServerList } from "../nodes/servers";
-import { useConsoleContext } from "../nodes/useNode";
+import { useHasFleet } from "../nodes/servers";
 import { useServerEvents } from "../realtime/events";
+import { cx } from "../lib/cx";
+import { columnKindOf } from "./columns";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { focusPageTitle } from "./focus";
+import { BottomBar } from "./frame/BottomBar";
+import { Crumbs } from "./frame/Crumbs";
+import { NavColumnContext } from "./frame/columnContext";
+import { NavColumn } from "./frame/NavColumn";
+import { OneBar, OneBarNav } from "./frame/OneBar";
+import { Rail } from "./frame/Rail";
+import { usePageServerName } from "./frame/usePageServerName";
 import { shortcuts as registeredShortcuts } from "./nav";
+import { useNavLayout } from "./navLayout";
 import { useNavScope } from "./useNavScope";
 import PaletteHost from "./PaletteHost";
+import { usePreferences } from "./preferences";
 import { shortcutKey, useKeyboardShortcuts } from "./shortcuts";
 import type { KeyBinding } from "./shortcuts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
-import { Sidebar, SidebarFooter, SidebarNav } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import type { AppVerb } from "./verbCommands";
 
@@ -55,22 +64,11 @@ function SkipLink() {
 const APP_PATH = /^\/apps\/([^/]+)(?:\/|$)/;
 
 /**
- * The server every page is about, when the console holds a fleet: the page header says it above
- * the title and a confirmation names it, for every page at once. None on the fleet's and the
- * central's own pages, which are no one server's, and none on a lone server.
- */
-function usePageServerName(): string | null {
-  const context = useConsoleContext();
-  const hasFleet = useHasFleet();
-  const { hostname } = useServerList();
-  if (!hasFleet || context.kind !== "server") return null;
-  return context.node ?? hostname;
-}
-
-/**
- * The frame around every signed-in page: sidebar, topbar with the machine strip, the page,
- * and the three overlays anyone can summon from anywhere (palette, shortcuts, mobile menu).
- * It also opens the live event stream and moves focus to each new page's heading.
+ * The frame around every signed-in page: the navigation (the double bar, one bar, or a phone's bar at
+ * the foot, by the width of the window and what the person chose), the top bar with the breadcrumbs and
+ * the machine strip, the page, and the three overlays anyone can summon from anywhere (palette,
+ * shortcuts, the phone's menu). It also opens the live event stream and moves focus to each new page's
+ * heading.
  */
 export function Shell() {
   const t = useT();
@@ -83,6 +81,8 @@ export function Shell() {
   const [paletteReady, setPaletteReady] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  // The main bar opened over the page, where there is no room for it beside (1280 to 1439 px).
+  const [railOpen, setRailOpen] = useState(false);
   const returnFocus = useRef<HTMLElement | null>(null);
   // Choosing a page in the menu hands focus to that page's heading, not back to the button.
   const [menuNavigated, setMenuNavigated] = useState(false);
@@ -91,12 +91,17 @@ export function Shell() {
   const pageServer = usePageServerName();
   const hasFleet = useHasFleet();
   const scope = useNavScope();
+  const layout = useNavLayout();
+  const { width } = usePreferences();
+  // The second column is the double bar's: a resource with sections has one, and nothing else does.
+  const columnKind = layout.presentation === "double" ? columnKindOf(pathname) : null;
 
   useEffect(
     () =>
       router.subscribe("onRendered", (event) => {
         if (!event.pathChanged || event.fromLocation === undefined) return;
         setNavOpen(false);
+        setRailOpen(false);
         focusPageTitle();
       }),
     [router],
@@ -179,45 +184,42 @@ export function Shell() {
   }, []);
 
   return (
-    <div className="flex min-h-dvh bg-bg text-fg">
-      <SkipLink />
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar
-          onOpenPalette={openPalette}
-          onOpenShortcuts={openShortcuts}
-          onOpenNav={() => {
-            setMenuNavigated(false);
-            setNavOpen(true);
-          }}
-        />
-        <main id="main" tabIndex={-1} className="flex-1 outline-none">
-          {/* The shell caps the page at --width-page (L-1); each template sets its own inner
-              grid from the width tokens, so a header and its content always share edges. */}
-          <div className="mx-auto w-full max-w-page px-4 pt-6 pb-16 sm:px-6 lg:px-8 lg:pt-8">
-            <PageServerContext value={pageServer}>
-              <NodeNotice />
-              <ErrorBoundary resetKey={pathname}>
-                <Outlet />
-              </ErrorBoundary>
-            </PageServerContext>
-          </div>
-        </main>
-      </div>
-
-      <Drawer
-        open={navOpen}
-        onOpenChange={setNavOpen}
-        title={t("shell.menu.title")}
-        finalFocus={!menuNavigated}
-      >
-        <div className="flex min-h-full flex-col justify-between gap-8">
-          <SidebarNav onNavigate={closeMenuAfterNavigation} className="-mx-2" />
-          <div className="-mx-2 border-t border-border pt-3">
-            <SidebarFooter onNavigate={closeMenuAfterNavigation} />
-          </div>
+    <NavColumnContext value={columnKind}>
+      <div className="flex min-h-dvh bg-bg text-fg">
+        <SkipLink />
+        {layout.presentation === "double" ? <Rail layout={layout} open={railOpen} onOpenChange={setRailOpen} /> : layout.phone ? null : <OneBar layout={layout} />}
+        {columnKind !== null ? <NavColumn kind={columnKind} /> : null}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar onOpenPalette={openPalette} onOpenShortcuts={openShortcuts} />
+          <main id="main" tabIndex={-1} className="flex-1 outline-none">
+            {/* The shell caps the page at --width-page (L-1) unless the person chose the whole width; each
+                template sets its own inner grid from the width tokens, so a header and its content always share edges. */}
+            <div className={cx("mx-auto w-full px-4 pt-6 sm:px-6 lg:px-8 lg:pt-8", width === "full" ? "max-w-none" : "max-w-page", layout.phone ? "pb-24" : "pb-16")}>
+              {/* On a phone the trail has no room in the top bar: it is the first line of the page. */}
+              {layout.phone ? <Crumbs className="mb-4" /> : null}
+              <PageServerContext value={pageServer}>
+                <NodeNotice />
+                <ErrorBoundary resetKey={pathname}>
+                  <Outlet />
+                </ErrorBoundary>
+              </PageServerContext>
+            </div>
+          </main>
         </div>
-      </Drawer>
+        {layout.phone ? (
+          <BottomBar
+            onOpenMore={() => {
+              setMenuNavigated(false);
+              setNavOpen(true);
+            }}
+          />
+        ) : null}
+
+        <Drawer open={navOpen} onOpenChange={setNavOpen} title={t("shell.menu.title")} finalFocus={!menuNavigated}>
+          <div className="flex min-h-full flex-col justify-between gap-8">
+            <OneBarNav onNavigate={closeMenuAfterNavigation} className="-mx-2" />
+          </div>
+        </Drawer>
 
       {paletteReady ? (
         <PaletteHost open={paletteOpen} onOpenChange={setPaletteOpen} onOpenShortcuts={openShortcuts} onVerb={runVerb} returnFocus={() => returnFocus.current} />
@@ -228,6 +230,7 @@ export function Shell() {
           <VerbRunner key={chosenVerb.choice} app={chosenVerb.app} verb={chosenVerb.verb} />
         </Suspense>
       ) : null}
-    </div>
+      </div>
+    </NavColumnContext>
   );
 }

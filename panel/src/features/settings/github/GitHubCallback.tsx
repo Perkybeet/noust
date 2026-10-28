@@ -161,13 +161,7 @@ export function GitHubCallback() {
 
   return (
     <>
-      <PageHeader
-        title={t("settings.integrations.callback.title")}
-        breadcrumbs={[
-          { label: t("settings.integrations.callback.breadcrumbSettings"), to: "/settings" },
-          { label: t("settings.integrations.callback.breadcrumbIntegrations"), to: "/settings/integrations" },
-        ]}
-      />
+      <PageHeader title={t("settings.integrations.callback.title")} />
       {body}
     </>
   );

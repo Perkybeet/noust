@@ -131,12 +131,7 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
     onError: (error) => reportActionError(t("databases.layout.forgetFailed", { name }), error),
   });
 
-  const header: PageHeaderProps = {
-    title: name,
-    mono: true,
-    server: node,
-    breadcrumbs: [{ label: t("databases.page.title"), to: "/databases" }],
-  };
+  const header: PageHeaderProps = { title: name, mono: true };
 
   if (overview.isError && isApiError(overview.error) && overview.error.status === 404) {
     return (

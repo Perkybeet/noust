@@ -125,14 +125,15 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "account-security", path: "/account/security" },
   { name: "settings-controls", path: "/settings/controls" },
   { name: "settings-notifications", path: "/settings/notifications" },
-  { name: "settings-alerts", path: "/settings/alerts" },
+  // 4.1: what warns an operator is an area of the bar.
+  { name: "alerts", path: "/alerts" },
   { name: "settings-tokens", path: "/settings/tokens" },
   { name: "settings-integrations", path: "/settings/integrations" },
   { name: "settings-console", path: "/settings/console" },
   // 3.4: where the logs of applications are shipped, and how long the journal keeps them.
   { name: "settings-log-shipping", path: "/settings/log-shipping" },
   // 3.4: addresses asked from outside the application, and the public status page.
-  { name: "settings-probes", path: "/settings/probes" },
+  { name: "alerts-probes", path: "/alerts/probes" },
   // 3.4: roles where they are needed, single sign-on, the MCP endpoint, a manifest and the API.
   { name: "settings-access", path: "/settings/access" },
   { name: "settings-sso", path: "/settings/sso" },

@@ -10,7 +10,6 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
-import { useNode } from "../../nodes/useNode";
 import { ProjectsTable } from "./ProjectsTable";
 import { ProjectsTabs, projectsHeader } from "./ProjectsTabs";
 import type { ProjectsSearch } from "./search";
@@ -34,7 +33,6 @@ export interface ProjectsPageProps {
  */
 export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
   const t = useT();
-  const { node } = useNode();
   const org = useOrganization();
   const resources = useResources();
   const actions = useProjectActions(resources);
@@ -67,7 +65,6 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
   const Add = ICONS.add;
   const header = projectsHeader(
     t,
-    node,
     actions.teams.length > 0 ? (
       <Button variant="primary" icon={<Add aria-hidden="true" />} onClick={actions.create}>
         {t("teams.projects.new")}

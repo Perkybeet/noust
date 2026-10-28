@@ -42,6 +42,11 @@ export interface Command {
   /** Other words it should be found by. */
   keywords?: string;
   /**
+   * What the screen was called before, for whoever learned it then: typed whole, it ranks just under
+   * the name it has now, above a screen that merely has the word in its name.
+   */
+  aliases?: readonly string[];
+  /**
    * For a command that does something to a named thing ("Restart shop.example.com"): the words
    * that say what it does. It is found only once one of them is typed, so naming the thing
    * alone finds the thing and not every verb that could be said of it.
@@ -175,6 +180,7 @@ export function scoreCommand(command: Command, query: string): number {
   }
   const label = command.label.toLowerCase();
   if (label === q) return 100;
+  if (command.aliases?.some((alias) => alias.toLowerCase() === q) === true) return 90;
   if (label.startsWith(q)) return 80;
   if (label.split(/[\s./-]+/).some((word) => word.startsWith(q))) return 60;
   if (label.includes(q)) return 40;

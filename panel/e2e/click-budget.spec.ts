@@ -205,11 +205,14 @@ test.describe("starting a first application", () => {
       await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
     });
     await walked(page, "T03a", async () => {
-      // Where the recipes are: a tab of the list, or a link beside it, or (3.3.1) the wizard's own choice.
+      // Where the recipes are: the Catalog of the bar (4.1), or a tab of the list, or a link beside it, or (3.3.1) the wizard's own choice.
       // The tab carries the count of recipes after its name ("Recipes 143").
+      const catalog = page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Catalog", exact: true });
       const tab = page.locator("main").getByRole("link", { name: /^Recipes\b/ });
       const link = page.getByRole("link", { name: "From a recipe" });
-      if ((await tab.count()) > 0) {
+      if ((await catalog.count()) > 0) {
+        await catalog.click();
+      } else if ((await tab.count()) > 0) {
         await tab.first().click();
       } else if ((await link.count()) > 0) {
         await link.click();
@@ -708,7 +711,7 @@ test.describe("from any page", () => {
     { name: "Ports", to: "/domains/ports" },
     { name: "Logs and metrics export", to: "/settings/log-shipping", was: { name: "Log shipping", to: "/settings/log-shipping" } },
     { name: "System updates", to: "/server/updates", was: { name: "Updates", to: "/server/updates" } },
-    { name: "Alert rules", to: "/settings/alerts", was: { name: "Alerts", to: "/settings/alerts" } },
+    { name: "Alert rules", to: "/alerts", was: { name: "Alerts", to: "/alerts" } },
     { name: "Channels", to: "/settings/notifications", was: { name: "Notifications", to: "/settings/notifications" } },
     { name: "Accounts", to: "/settings/accounts" },
     { name: "API tokens", to: "/settings/tokens", was: { name: "Tokens", to: "/settings/tokens" } },
@@ -900,7 +903,7 @@ withFleet.describe("a fleet", () => {
     });
     if (!MEASURE_ONLY) {
       const destinations = await page.getByRole("navigation", { name: "Main" }).getByRole("link").count();
-      expect(destinations, "the fleet's sidebar").toBeLessThanOrEqual(7);
+      expect(destinations, "the main bar").toBeLessThanOrEqual(12);
       expect(destinations).toBeGreaterThan(0);
     }
   });

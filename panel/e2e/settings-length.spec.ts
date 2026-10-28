@@ -81,8 +81,6 @@ const SERVER_SETTINGS: readonly Route[] = [
   { id: "settings-integrations", path: "/settings/integrations" },
   { id: "settings-about", path: "/settings/about" },
   { id: "settings-notifications", path: "/settings/notifications" },
-  { id: "settings-alerts", path: "/settings/alerts" },
-  { id: "settings-probes", path: "/settings/probes" },
   { id: "settings-log-shipping", path: "/settings/log-shipping" },
   { id: "settings-tokens", path: "/settings/tokens" },
   { id: "settings-api", path: "/settings/api" },
@@ -138,6 +136,8 @@ const NOT_A_SUBSECTION: Readonly<Record<string, string>> = {
   "apps/$domain/settings/compose.tsx": "only a Compose stack has it, and the seeded machine has none",
   "apps/$domain/settings/builds.tsx": "it redirects to Build: the sandbox is a card of that page since 4.0",
   "settings/servers.tsx": "it redirects to Fleet > Servers: the fleet's list is the one list of servers since 4.0",
+  "settings/alerts.tsx": "it redirects to Alerts, an area of the bar since 4.1",
+  "settings/probes.tsx": "it redirects to Alerts > Probes and status page, since 4.1",
 };
 
 /** The route files under a settings directory of src/routes, as `settings/x.tsx` relative to _console. */
@@ -184,8 +184,9 @@ async function heightOf(page: Page): Promise<number> {
   let steady = 0;
   for (let attempt = 0; attempt < 40 && steady < 3; attempt += 1) {
     const now = await page.evaluate(() => {
-      // The layout's column is the sibling of its side list; the page template has a content slot of its own around both.
-      const content = document.querySelector('[data-slot="nav"]')?.parentElement?.querySelector(':scope > [data-slot="content"]') ?? null;
+      // The layout's content column: beside its side list in a page, and alone where the second column of the double bar
+      // carries the list. Both are the template's own child, so the number means the same in every presentation.
+      const content = document.querySelector('[data-template="settings"] > [data-slot="content"]');
       if (content === null) return Math.ceil(document.documentElement.scrollHeight);
       // The column stretches to the height of the side list beside it, so its own box is a floor and
       // says nothing about a short page: what is measured is what it holds, one child under the next.

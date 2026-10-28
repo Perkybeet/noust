@@ -82,6 +82,8 @@
     { "route": "/fleet/activity", "slug": "central", "source": "docs/CENTRAL.md" },
     { "route": "/fleet/jobs/$id", "slug": "central", "source": "docs/CENTRAL.md" },
 
+    { "route": "/alerts", "slug": "monitor", "source": "docs/MONITOR.md" },
+    { "route": "/alerts/probes", "slug": "probes", "source": "docs/probes.md" },
     { "route": "/settings", "slug": "console", "source": "docs/console.md", "anchor": "settings" },
     { "route": "/settings/about", "slug": "release-policy", "source": "docs/release-policy.md" },
     { "route": "/settings/accounts", "slug": "security", "source": "docs/security.md", "anchor": "authentication" },

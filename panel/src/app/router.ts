@@ -3,10 +3,12 @@ import { createRouter } from "@tanstack/react-router";
 import type { RouterHistory } from "@tanstack/react-router";
 
 import { installNodeSource } from "../api/nodeScope";
-import { installRouteIds, namespacesForRoutes } from "../i18n/routeNamespaces";
+import { isNamespace } from "../i18n/catalogs";
+import { installRouteIds, installTrailNamespaces, namespacesFor, namespacesForRoutes } from "../i18n/routeNamespaces";
 import type { Namespace } from "../i18n/types";
 import { rememberServer } from "../nodes/lastServer";
 import { routeTree } from "../routeTree.gen";
+import { crumbsFor } from "./crumbs";
 import { RouteError } from "./ErrorBoundary";
 import { nodeFromSearch, nodeRewrite, onNodeDropped } from "./nodeRoute";
 import { RoutePending } from "./RoutePending";
@@ -43,12 +45,23 @@ export function buildRouter(queryClient: QueryClient, history?: RouterHistory) {
   installNodeSource(() => nodeFromSearch(router.latestLocation.search));
   // The root route loads the texts of whatever page an address opens; the router knows which.
   installRouteIds((location) => matchedRouteIds(router, location.pathname));
+  // And what the top bar says of where the page is: the pages above it are other pages' texts.
+  installTrailNamespaces((location) => trailNamespaces(router, location.pathname));
   // An old `/n/web-2/fleet` is the fleet now; the server it named is where the operator was.
   onNodeDropped(rememberServer);
   return router;
 }
 
 export type AppRouter = ReturnType<typeof buildRouter>;
+
+/** The namespaces the breadcrumbs of a path draw: the first segment of the key of each step that is named by a text. */
+function trailNamespaces(router: Pick<AppRouter, "getMatchedRoutes">, pathname: string): Namespace[] {
+  const [matched] = router.getMatchedRoutes(pathname);
+  const leaf = matched.at(-1)?.fullPath as string | undefined;
+  if (leaf === undefined) return [];
+  const found = crumbsFor(leaf, "server").flatMap((step) => ("key" in step.name ? [step.name.key.split(".")[0] ?? ""] : []));
+  return [...new Set(found)].filter((name): name is Namespace => isNamespace(name));
+}
 
 /**
  * The namespaces of the catalogs that the address the browser opened will draw, which is what
@@ -57,7 +70,7 @@ export type AppRouter = ReturnType<typeof buildRouter>;
  * the chrome of the language, instead of after the router has begun.
  */
 export function namespacesOfLocation(router: AppRouter): readonly Namespace[] {
-  return namespacesForRoutes(matchedRouteIds(router, router.latestLocation.pathname));
+  return namespacesFor(router.latestLocation, namespacesForRoutes(matchedRouteIds(router, router.latestLocation.pathname)));
 }
 
 declare module "@tanstack/react-router" {

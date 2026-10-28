@@ -5,7 +5,6 @@ export const newApp: Catalog<typeof en> = {
   page: {
     title: "Nueva aplicación",
     description: "Despliega desde un repositorio Git o un directorio de este servidor, desde una receta o desde una exportación.",
-    breadcrumb: "Aplicaciones",
     queued: "Despliegue de {domain} en cola",
     importQueued: "Importación de {domain} en cola",
     soFar: "Hasta ahora",

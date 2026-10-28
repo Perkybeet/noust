@@ -71,10 +71,10 @@ describe("PageHeader", () => {
     expect(await screen.findByRole("menuitem", { name: "Stop" })).toBeInTheDocument();
   });
 
-  it("names the server above the title when the console manages several", async () => {
-    await renderRouted(<PageHeader title="Applications" server="web-2" />);
-    expect(screen.getByText("web-2")).toHaveAttribute("translate", "no");
-    expect(screen.getByText("web-2").parentElement).toHaveTextContent("Server web-2");
+  it("does not name the server above its title, nor draw the breadcrumbs: the top bar and the second column say them (NV-15)", async () => {
+    const { container } = await renderRouted(<PageHeader title="Applications" />);
+    expect(container.querySelector("header")?.querySelector("nav")).toBeNull();
+    expect(screen.queryByText(/^Server /)).not.toBeInTheDocument();
   });
 
   it("leaves its bottom margin to a template when flush", async () => {
@@ -104,11 +104,6 @@ describe("PageHeader", () => {
       expect(place.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
-    it("follows the server's name when the console manages several", async () => {
-      await renderRouted(<PageHeader title="shop.example.com" server="fra-1" place={[{ label: "Acme", to: "/apps" }]} />);
-      expect(screen.getByText("fra-1").closest("p")).toHaveTextContent("Server fra-1 · Acme");
-    });
-
     it("draws nothing where there is nothing to tell apart", async () => {
       await renderRouted(<PageHeader title="shop.example.com" place={[]} />);
       expect(screen.queryByRole("group", { name: "Where this lives" })).not.toBeInTheDocument();
@@ -136,7 +131,6 @@ describe("PageHeader", () => {
         mono
         place={[{ label: "Acme", to: "/apps" }]}
         statusExtras={<button type="button">3 not applied</button>}
-        breadcrumbs={[{ label: "Applications", to: "/apps" }]}
         status={<StatusPill state="running" />}
         meta={<span>Next.js</span>}
         secondaryActions={<Button>Restart</Button>}

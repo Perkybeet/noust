@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowRightLeft, CircleArrowUp, Copy, PackageCheck, Play, RotateCw, Square, Stethoscope } from "lucide-react";
+import { ArrowRightLeft, CircleArrowUp, Copy, PackageCheck, Play, RotateCw, Square } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -124,7 +124,7 @@ export function useAppHeaderActions(
   const overflow = (
     <>
       {/* Off the tab strip (eight tabs at most), one click away from every tab. */}
-      <MenuItem icon={<Stethoscope />} onClick={() => void navigate({ to: "/apps/$domain/diagnose", params: { domain } })}>
+      <MenuItem icon={<OBJECT_ICONS.diagnose />} onClick={() => void navigate({ to: "/apps/$domain/diagnose", params: { domain } })}>
         {t("appPages.actions.diagnose")}
       </MenuItem>
       {canOpenTerminal ? (

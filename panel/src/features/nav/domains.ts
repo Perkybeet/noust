@@ -7,7 +7,9 @@ import { area, strip, tab } from "../../app/navCore";
  */
 export const DOMAINS_SCREENS = strip(
   area("domains", "/domains", "nav.domains.label", {
-    group: "runs",
+    scope: "both",
+    group: "reach",
+    fleetTo: "/fleet/certificates",
     shortcut: ["g", "n"],
     goTo: "nav.domains.goTo",
     keywords: "nav.domains.keywords",

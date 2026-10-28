@@ -51,11 +51,11 @@ describe("a page on a node", () => {
     expect(app).toHaveAttribute("href", "/n/web-2/apps/api.web2.example");
     const nav = screen.getByRole("navigation", { name: "Main" });
     expect(within(nav).getByRole("link", { name: "Databases" })).toHaveAttribute("href", "/n/web-2/databases");
-    expect(within(nav).getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/n/web-2");
+    expect(within(nav).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/n/web-2");
     // A node's own settings are the node's; the central's sections never carry it (see below).
     expect(screen.getAllByRole("link", { name: "Settings" })[0]).toHaveAttribute("href", "/n/web-2/settings");
 
-    fireEvent.click(within(nav).getByRole("link", { name: /^Server/ }));
+    fireEvent.click(within(nav).getByRole("link", { name: /^Servers/ }));
     await screen.findByRole("heading", { level: 1, name: "Server" });
     // Services live under Server now: the sidebar opens Server, on the node.
     await waitFor(() => {
@@ -286,10 +286,13 @@ describe("the shell on a node", () => {
 });
 
 describe("the three contexts", () => {
-  it("names the server over every page's title on a fleet, this one's too", async () => {
-    await consoleAt("/apps");
+  it("names the server in the selector and in an application's column, and never above a page's title (item 92)", async () => {
+    await consoleAt("/apps/shop.example.com");
+    // The scope selector of the top bar says which server this is.
+    expect(await trigger("Server: web-01")).toBeInTheDocument();
     const main = screen.getByRole("main");
-    expect(await within(main).findByText((_, element) => element?.tagName === "P" && element.textContent === "Server web-01")).toBeInTheDocument();
+    await screen.findByRole("heading", { level: 1, name: "shop.example.com" });
+    expect(within(main).queryByText((_, element) => element?.tagName === "P" && element.textContent === "Server web-01")).toBeNull();
   });
 
   it("says All servers on the fleet's pages and This central on the central's, and the bar follows, never a silent jump", async () => {
@@ -303,19 +306,24 @@ describe("the three contexts", () => {
     await waitFor(() => {
       expect(screen.getByTestId("announcer-polite")).toHaveTextContent("Viewing all servers");
     });
-    // The bar is the fleet's own seven destinations (NV-10), not the last server's under another name.
+    // The bar is the same twelve areas (NV-10), each at its fleet face where it has one and, where it has none,
+    // back at the server the operator came from: never the last server's page under the fleet's name.
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     if (nav === undefined) throw new Error("no main navigation");
     expect(within(nav).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/fleet",
-      "/fleet/servers",
       "/fleet/apps",
+      "/n/web-2/databases",
+      "/n/web-2/cron",
       "/fleet/certificates",
-      "/fleet/backups",
-      "/fleet/updates",
+      "/n/web-2/logs",
+      "/n/web-2/alerts",
       "/fleet/activity",
+      "/fleet/backups",
+      "/fleet/servers",
+      "/n/web-2/catalog",
+      "/n/web-2/settings",
     ]);
-    expect(within(nav).queryByRole("link", { name: "Databases" })).toBeNull();
     // Settings still lead to the server the operator came from.
     expect(screen.getAllByRole("link", { name: "Settings" })[0]).toHaveAttribute("href", "/n/web-2/settings");
 
@@ -325,8 +333,8 @@ describe("the three contexts", () => {
       expect(history.location.pathname).toBe("/settings/central");
     });
     expect(await trigger("Server: this central, web-01")).toBeInTheDocument();
-    // This central has no bar of its own: the fleet's, with Settings below it.
-    expect(within(screen.getAllByRole("navigation", { name: "Main" })[0] ?? nav).queryByRole("link", { name: "Databases" })).toBeNull();
+    // This central has no bar of its own: the same twelve areas, and the ones with no fleet face lead back to the server.
+    expect(within(screen.getAllByRole("navigation", { name: "Main" })[0] ?? nav).getByRole("link", { name: "Databases" })).toHaveAttribute("href", "/n/web-2/databases");
     expect(screen.queryByRole("link", { name: /^Back to / })).not.toBeInTheDocument();
   });
 

@@ -11,6 +11,7 @@ import { deploymentsQuery } from "../../api/queries/deployments";
 import { appDomainsQuery } from "../../api/queries/domains";
 import { queueQuery } from "../../api/queries/queue";
 import { LinkTabs } from "../../app/LinkTabs";
+import { useColumnCarries } from "../../app/frame/columnContext";
 import type { PageHeaderProps } from "../../app/PageHeader";
 import { DetailPage } from "../../components/page/DetailPage";
 import { JobProgress } from "../../components/page/JobProgress";
@@ -26,7 +27,6 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { useNode } from "../../nodes/useNode";
 import { useTypeName } from "../apps/data";
 import { CancelJobButton } from "../queue/CancelJobButton";
 import { useCancelJob } from "../queue/useCancelJob";
@@ -214,7 +214,8 @@ export function AppLayout({ domain }: { domain: string }) {
 
 function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App>; job: AppJob }) {
   const t = useT();
-  const { node } = useNode();
+  // The double bar's second column holds the sections: the strip under the header is for one bar.
+  const columnHasTabs = useColumnCarries("app");
   const certs = useQuery(certsQuery());
   const names = useQuery(appDomainsQuery(domain));
   const condition = useAppCondition(domain, app.data);
@@ -234,15 +235,8 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
 
   useAnnounceChange(app.data ? view.label : null, `${domain}: ${view.label}`, view.state === "failed" ? "assertive" : "polite");
 
-  const header: PageHeaderProps = {
-    title: domain,
-    mono: true,
-    server: node,
-    breadcrumbs: [
-      { label: t("nav.apps.label"), to: "/apps" },
-      ...(onDeployment !== false ? [{ label: t("nav.appTabs.deployments.label"), to: `/apps/${domain}/deployments` }] : []),
-    ],
-  };
+  // Where the page is in the tree is the top bar's (breadcrumbs generated from the register), not the header's.
+  const header: PageHeaderProps = { title: domain, mono: true };
 
   if (app.isError && isApiError(app.error) && app.error.status === 404) return <NotFound domain={domain} header={header} t={t} />;
 
@@ -287,7 +281,7 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
         }}
         {...(banner !== null ? { banner } : {})}
         {...(job.running !== null || job.failed !== null ? { job: <Job job={job} domain={domain} t={t} /> } : {})}
-        {...(ready ? { tabs: <LinkTabs label={t("nav.landmarks.appSections")} tabs={appTabs(domain, counts, { adopted: isAdopted(loaded) })} /> } : {})}
+        {...(ready && !columnHasTabs ? { tabs: <LinkTabs label={t("nav.landmarks.appSections")} tabs={appTabs(domain, counts, { adopted: isAdopted(loaded) })} /> } : {})}
       >
         <div hidden={!ready}>
           <Outlet />

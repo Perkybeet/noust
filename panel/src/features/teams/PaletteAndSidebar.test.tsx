@@ -16,10 +16,10 @@ afterAll(() => {
   configure({ asyncUtilTimeout: 1_000 });
 });
 
-async function shellAt(options: Parameters<typeof teamsRoutes>[0] = {}, session?: Parameters<typeof teamsRoutes>[1], extra: Record<string, RouteHandler> = {}) {
+async function shellAt(options: Parameters<typeof teamsRoutes>[0] = {}, session?: Parameters<typeof teamsRoutes>[1], extra: Record<string, RouteHandler> = {}, path = "/") {
   screenWidth(1440);
   const backend = fakeBackend({ ...teamsRoutes(options, session), ...extra });
-  const harness = renderConsole("/");
+  const harness = renderConsole(path);
   await screen.findByRole("heading", { level: 1 });
   return { ...harness, backend };
 }
@@ -75,23 +75,27 @@ describe("the command palette and teams", () => {
   });
 });
 
-describe("the sidebar's Projects", () => {
+describe("Projects, the other view of Applications", () => {
+  // The bar is the same twelve areas whatever the server holds: Projects is a link in the header of the list.
   it("is offered where there is something to organise", async () => {
-    await shellAt({}, viewerSession());
-    const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(await within(nav).findByRole("link", { name: "Projects" })).toHaveAttribute("href", "/projects");
+    await shellAt({}, viewerSession(), {}, "/apps");
+    expect(await screen.findByRole("link", { name: "Projects" })).toHaveAttribute("href", "/projects");
+    // Teams beside it: a team's pages stay four clicks from the Overview (NV-2).
+    expect(screen.getByRole("link", { name: "Teams" })).toHaveAttribute("href", "/projects/teams");
+    expect(within(screen.getByRole("navigation", { name: "Main" })).queryByRole("link", { name: "Projects" })).not.toBeInTheDocument();
   });
 
   it("is offered to whoever may start organising, on a server nobody organised", async () => {
-    await shellAt(ALONE);
-    const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(await within(nav).findByRole("link", { name: "Projects" })).toBeInTheDocument();
+    await shellAt(ALONE, undefined, {}, "/apps");
+    expect(await screen.findByRole("link", { name: "Projects" })).toBeInTheDocument();
   });
 
-  it("is not drawn for someone who only reads, on a server nobody organised: the sidebar is what it always was", async () => {
-    await shellAt(ALONE, viewerSession());
+  it("is not drawn for someone who only reads, on a server nobody organised: the list is what it always was", async () => {
+    await shellAt(ALONE, viewerSession(), {}, "/apps");
     const nav = screen.getByRole("navigation", { name: "Main" });
     await within(nav).findByRole("link", { name: /^Applications/ });
-    expect(within(nav).queryByRole("link", { name: "Projects" })).not.toBeInTheDocument();
+    await screen.findByRole("heading", { level: 1, name: "Applications" });
+    expect(screen.queryByRole("link", { name: "Projects" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Teams" })).not.toBeInTheDocument();
   });
 });

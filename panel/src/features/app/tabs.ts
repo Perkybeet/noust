@@ -23,7 +23,7 @@ export type SectionCounts = Readonly<Partial<Record<string, number | null>>>;
  * deployments to list, no environment Noust writes, no database it links and no domains it
  * manages (checklist B-85).
  */
-const ADOPTED_TABS: ReadonlySet<string> = new Set(["/apps/$domain", "/apps/$domain/logs", "/apps/$domain/metrics", "/apps/$domain/settings"]);
+export const ADOPTED_TABS: ReadonlySet<string> = new Set(["/apps/$domain", "/apps/$domain/logs", "/apps/$domain/metrics", "/apps/$domain/settings"]);
 
 /**
  * The tabs of one app: every section, its domain filled in, and a count after the label where

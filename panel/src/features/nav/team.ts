@@ -1,7 +1,7 @@
 import { hidden, tab, tabsOf } from "../../app/navCore";
 import type { Strip, TabItem } from "../../app/navCore";
 
-const team = hidden("team", "/teams/$team", "nav.teamTabs.overview.label", "projects.teams", { parent: "projects.teams", exact: true });
+const team = hidden("team", "/teams/$team", "nav.teamTabs.overview.label", "apps.projects.teams", { parent: "apps.projects.teams", exact: true });
 
 /** A team: under the Teams tab of Projects, with a strip of its own. The register is app/nav.ts; this is one group of it. */
 export const TEAM_SCREENS: Strip = [

@@ -94,6 +94,7 @@ export const fleet = {
     title: "Fleet",
     description: "Every server this central manages, at once.",
     tabsLabel: "Fleet application views",
+    serversTabsLabel: "Fleet server views",
     addServer: "Add a server",
     runAction: "Run an action",
     loadFailed: "Could not load the fleet",

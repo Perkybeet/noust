@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { LinkTabs } from "../../app/LinkTabs";
 import { tabsOf } from "../../app/navCore";
-import { FLEET_APPS_SCREENS } from "../nav/fleet";
+import { FLEET_APPS_SCREENS, FLEET_SERVERS_SCREENS } from "../nav/fleet";
 import { DetailPage } from "../../components/page/DetailPage";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -49,6 +49,7 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
   const onApps = useRouterState({ select: (state) => state.location.pathname === "/fleet/apps" });
   const onAppsViews = useRouterState({ select: (state) => state.location.pathname === "/fleet/apps" || state.location.pathname === "/fleet/placements" });
   const onServers = useRouterState({ select: (state) => state.location.pathname === "/fleet/servers" });
+  const onServersViews = useRouterState({ select: (state) => state.location.pathname === "/fleet/servers" || state.location.pathname === "/fleet/updates" });
 
   const add = (
     <Button
@@ -102,7 +103,15 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
               ),
             }
           : {})}
-        {...(empty || !onAppsViews ? {} : { tabs: <LinkTabs label={t("fleet.page.tabsLabel")} tabs={tabsOf(FLEET_APPS_SCREENS)} /> })}
+        {...(empty || !(onAppsViews || onServersViews)
+          ? {}
+          : {
+              tabs: onAppsViews ? (
+                <LinkTabs label={t("fleet.page.tabsLabel")} tabs={tabsOf(FLEET_APPS_SCREENS)} />
+              ) : (
+                <LinkTabs label={t("fleet.page.serversTabsLabel")} tabs={tabsOf(FLEET_SERVERS_SCREENS)} />
+              ),
+            })}
       >
         {empty ? (
           <EmptyState

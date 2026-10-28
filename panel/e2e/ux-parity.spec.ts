@@ -2,7 +2,7 @@
  * The 3.4 console parity items that are about how the shell looks and finds things, against the
  * real backend and in both themes (checklist M-59, M-51, M-23):
  *
- * - the current navigation item has a bar that is 3:1 against the ground and the item's own fill
+ * - the current navigation item is the raised piece, with a label and an icon that are legible on it
  *   (the contrast is read off the rendered colours, not the tokens);
  * - a list of more than 20 rows is paged, the size is the operator's and is kept;
  * - the command palette finds a database, a certificate, a service, a deployment and a settings
@@ -40,41 +40,42 @@ async function contrastOf(page: Page, foreground: string, ...grounds: string[]):
   );
 }
 
-test("the current navigation item has a bar that stands out from its fill and from the sidebar", async ({ page, consoleServer }) => {
+test("the current navigation item is the raised piece under it, told by more than its fill (C-11)", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/apps");
   await settle(page);
   const nav = page.getByRole("navigation", { name: "Main" });
   const current = nav.getByRole("link", { name: /^Applications/ });
   await expect(current).toHaveAttribute("aria-current", "page");
-  const bar = current.locator("[data-nav-indicator]");
-  await expect(bar).toHaveCount(1);
-  await expect(nav.locator("[data-nav-indicator]")).toHaveCount(1);
+  // No bar of colour at its side (the stripe of 4.0 is retired): the mark is the piece, its label and its icon.
+  await expect(nav.locator("[data-nav-indicator]")).toHaveCount(0);
+  await expect(nav.getByRole("link").and(page.locator('[aria-current="page"]'))).toHaveCount(1);
 
-  const colours = await bar.evaluate((element) => {
-    // The ground behind something: the first ancestor with a background of its own.
-    const groundOf = (start: Element | null): string => {
-      for (let node = start; node !== null; node = node.parentElement) {
-        const background = getComputedStyle(node).backgroundColor;
-        if (background !== "rgba(0, 0, 0, 0)" && background !== "transparent") return background;
-      }
-      return getComputedStyle(document.body).backgroundColor;
-    };
-    const link = element.parentElement;
-    return {
-      bar: getComputedStyle(element).backgroundColor,
-      fill: groundOf(link),
-      sidebar: groundOf(link?.parentElement ?? null),
-      width: element.getBoundingClientRect().width,
-      height: element.getBoundingClientRect().height,
-    };
-  });
-  const [againstFill, againstSidebar] = await contrastOf(page, colours.bar, colours.fill, colours.sidebar);
-  expect(againstFill, `the bar ${colours.bar} against the item's fill ${colours.fill}`).toBeGreaterThanOrEqual(3);
-  expect(againstSidebar, `the bar ${colours.bar} against the sidebar ${colours.sidebar}`).toBeGreaterThanOrEqual(3);
-  // A mark you can see: two pixels wide and most of the item tall.
-  expect(colours.width).toBeGreaterThanOrEqual(2);
-  expect(colours.height).toBeGreaterThanOrEqual(16);
-  await expectNoA11yViolations(page, "the sidebar with its current item marked");
+  const read = async (link: ReturnType<typeof nav.getByRole>) =>
+    link.evaluate((element) => {
+      const piece = element.closest("nav")?.querySelector('[data-slot="sliding-indicator"]');
+      const icon = element.querySelector("svg");
+      return {
+        text: getComputedStyle(element).color,
+        icon: icon === null ? "" : getComputedStyle(icon).color,
+        piece: piece === null || piece === undefined ? null : { fill: getComputedStyle(piece).backgroundColor, shadow: getComputedStyle(piece).boxShadow },
+      };
+    });
+  const here = await read(current);
+  const elsewhere = await read(nav.getByRole("link", { name: "Databases" }));
+  // The piece is raised: a tone of its own and the joint beneath it, which a flat fill does not have.
+  expect(here.piece?.fill).not.toBe("rgba(0, 0, 0, 0)");
+  expect(here.piece?.shadow).not.toBe("none");
+  // The label and the icon of the current item are not the others': stronger text and the accent.
+  expect(here.text).not.toBe(elsewhere.text);
+  expect(here.icon).not.toBe(elsewhere.icon);
+  // Legible on the piece it sits on, in both themes (the render, not the tokens).
+  const [labelOnPiece, iconOnPiece] = [
+    (await contrastOf(page, here.text, here.piece?.fill ?? "rgb(255, 255, 255)"))[0] ?? 0,
+    (await contrastOf(page, here.icon, here.piece?.fill ?? "rgb(255, 255, 255)"))[0] ?? 0,
+  ];
+  expect(labelOnPiece, `the label ${here.text} on the piece ${here.piece?.fill ?? ""}`).toBeGreaterThanOrEqual(4.5);
+  expect(iconOnPiece, `the icon ${here.icon} on the piece ${here.piece?.fill ?? ""}`).toBeGreaterThanOrEqual(3);
+  await expectNoA11yViolations(page, "the main bar with its current item marked");
 });
 
 test("a list of more than twenty rows is paged, the size is chosen, and it is kept", async ({ page, consoleServer }) => {
