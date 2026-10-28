@@ -14,12 +14,15 @@ type checker.
 An edge names what the statement writes: ``import a.b.c`` is an edge to
 ``a.b.c``, ``from a.b import c`` is an edge to ``a.b.c`` when that is a module
 and to ``a.b`` when ``c`` is a name inside it. The package initialisers that
-Python runs on the way are not edges of their own.
+Python runs on the way are not edges of their own; :func:`reach` adds them when
+what it answers is what an import loads (``packages``), because importing
+``a.b.c`` runs the ``__init__`` of ``a`` and of ``a.b`` first.
 """
 
 from __future__ import annotations
 
 import ast
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -257,27 +260,56 @@ def strongly_connected(edges: list[Edge], kinds: frozenset[str]) -> list[list[st
     return sorted(groups)
 
 
-def closure(edges: list[Edge], start: str, kinds: frozenset[str]) -> set[str]:
+def parents_of(module: str) -> list[str]:
     """
-    List every module that loading one module loads, through the statements written.
+    List the packages whose ``__init__`` runs before a module is imported.
+
+    Args:
+        module: A dotted name.
+
+    Returns:
+        ``["a", "a.b"]`` for ``a.b.c``, outermost first.
+    """
+    parts = module.split(".")
+    return [".".join(parts[:end]) for end in range(1, len(parts))]
+
+
+def reach(
+    edges: list[Edge],
+    starts: tuple[str, ...] | list[str],
+    kinds: frozenset[str],
+    *,
+    packages: Collection[str] | None = None,
+) -> dict[str, str | None]:
+    """
+    List every module that loading some modules loads, through the statements written.
 
     Args:
         edges: The package's edges.
-        start: The module to start from.
+        starts: The modules to start from.
         kinds: Which kinds of statement count.
+        packages: The modules that exist (the keys of :func:`package_modules`). When given, the
+            packages whose ``__init__`` Python runs on the way to each module reached, and to a
+            start, are loaded too, and what they import follows; this is what importing a module
+            costs. Without it only the statements written count, which is what a cycle is made of.
 
     Returns:
-        The modules reached, ``start`` included.
+        Each module reached to the module whose import reached it first (None for a start), so a
+        failure can say how a module got in. A package reached as the parent of a module is
+        reached through that module.
     """
     forward: dict[str, list[str]] = {}
     for edge in edges:
         if edge.kind in kinds:
             forward.setdefault(edge.source, []).append(edge.target)
-    seen = {start}
-    pending = [start]
+    reached: dict[str, str | None] = {}
+    pending: list[tuple[str, str | None]] = [(start, None) for start in starts]
     while pending:
-        for target in forward.get(pending.pop(), ()):
-            if target not in seen:
-                seen.add(target)
-                pending.append(target)
-    return seen
+        module, via = pending.pop(0)
+        if module in reached:
+            continue
+        reached[module] = via
+        if packages is not None:
+            pending.extend((parent, module) for parent in parents_of(module) if parent in packages)
+        pending.extend((target, module) for target in forward.get(module, ()))
+    return reached
