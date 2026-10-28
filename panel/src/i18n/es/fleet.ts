@@ -86,6 +86,7 @@ export const fleet: Catalog<typeof en> = {
     title: "Flota",
     description: "Todos los servidores que gestiona esta central, a la vez.",
     tabsLabel: "Vistas de las aplicaciones de la flota",
+    serversTabsLabel: "Vistas de los servidores de la flota",
     addServer: "Añadir un servidor",
     runAction: "Ejecutar una acción",
     loadFailed: "No se pudo cargar la flota",

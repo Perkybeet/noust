@@ -6,7 +6,8 @@ import type { PlainKey } from "../../i18n";
 // area that has a fleet view says where it is (`fleetTo`). These are those views, each the fleet's face
 // of an area (`faceOf`): the bar lights the area, the breadcrumbs say the area, and the palette finds
 // the view by its phrase ("Certificates on every server"). The two keys an area answers to are the
-// area's own, so only the screen that has no area of its own (Updates) has letters here.
+// area's own. Updates has no area of its own: it is the second view of Servers, as Placements is of
+// Applications, and the bar cannot hold it, so it is a tab of the page and the palette still finds it.
 
 const face = (id: string, to: Dest["to"], label: PlainKey, area: string, more: More = {}): Dest =>
   hidden(id, to, label, area, { scope: "fleet", parent: area, ...more });
@@ -37,7 +38,10 @@ const backups = face("fleet.backups", "/fleet/backups", "nav.fleetBar.backups.la
   keywords: "fleet.tabs.keywords.backups",
   command: "fleet.tabs.command.backups",
 });
-const updates = face("fleet.updates", "/fleet/updates", "nav.fleetBar.updates.label", "server", {
+const updates = tab(servers, "updates", "nav.fleetBar.updates.label", {
+  to: "/fleet/updates",
+  scope: "fleet",
+  exact: true,
   shortcut: ["g", "u"],
   goTo: "nav.fleetBar.updates.goTo",
   keywords: "fleet.tabs.keywords.updates",
@@ -56,5 +60,8 @@ const activity = face("fleet.activity", "/fleet/activity", "nav.fleetBar.activit
  */
 export const FLEET_SCREENS: Strip = [overview, servers, apps, placements, certificates, backups, updates, activity];
 
-/** The two views of the fleet's applications, every server's and those that run on several: the one strip the fleet's pages draw. */
+/** The two views of the fleet's applications, every server's and those that run on several. */
 export const FLEET_APPS_SCREENS: Strip = [apps, placements];
+
+/** The two views of the fleet's servers: the list, and what each one has waiting to be updated. */
+export const FLEET_SERVERS_SCREENS: Strip = [servers, updates];

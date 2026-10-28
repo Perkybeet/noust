@@ -52,8 +52,8 @@ describe("the breadcrumbs the register gives a page", () => {
 
   it("says an area once from the fleet's pages, where its fleet face is the area", () => {
     expect(ids("/fleet/placements", "fleet")).toEqual(["apps", "fleet.apps.placements"]);
-    // A screen of the fleet that is no area's face is a step of its area.
-    expect(ids("/fleet/updates", "fleet")).toEqual(["server", "fleet.updates"]);
+    // The updates of every server are the second view of the fleet's Servers, a step of that area as Placements is of Applications.
+    expect(ids("/fleet/updates", "fleet")).toEqual(["server", "fleet.servers.updates"]);
   });
 
   it("opens the area at its fleet face from the fleet's pages and at its own page from a server's", () => {

@@ -649,7 +649,9 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
   await page.getByRole("searchbox", { name: "Search applications" }).fill(NODE_APP);
   await expect(page.getByRole("region", { name: "Applications on every server" }).getByRole("link", { name: NODE_APP, exact: true })).toBeVisible();
 
-  await page.goto("/fleet/updates");
+  // Updates is the second view of the fleet's Servers, a tab of that page and no longer a link of the bar.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Servers", exact: true }).click();
+  await page.getByRole("navigation", { name: "Fleet server views" }).getByRole("link", { name: "Updates" }).click();
   const updates = page.getByRole("region", { name: "Noust and system updates of every server" });
   await expect(updates.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
   await settle(page);

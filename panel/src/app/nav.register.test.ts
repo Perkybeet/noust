@@ -21,6 +21,7 @@ import {
   DESTS,
   EXCEPTIONS,
   FLEET_APPS_SCREENS,
+  FLEET_SERVERS_SCREENS,
   INTERIM,
   PLANNED,
   REDIRECTS,
@@ -569,6 +570,7 @@ describe("what the pages draw from the register", () => {
     expect(APP_TABS[0]).toEqual({ label: "nav.appTabs.overview.label", to: "/apps/$domain", exact: true });
     expect(paths(TEAM_TABS)).toEqual(["/teams/$team", "/teams/$team/members", "/teams/$team/variables", "/teams/$team/notifications", "/teams/$team/settings"]);
     expect(paths(tabsOf(FLEET_APPS_SCREENS))).toEqual(["/fleet/apps", "/fleet/placements"]);
+    expect(paths(tabsOf(FLEET_SERVERS_SCREENS))).toEqual(["/fleet/servers", "/fleet/updates"]);
     expect(paths(tabsById("server"))).toEqual(["/server", "/server/updates", "/server/security", "/server/storage", "/server/services", "/server/system"]);
     expect(paths(tabsById("backups"))).toEqual(["/backups", "/backups/schedules", "/backups/volumes", "/backups/noust", "/backups/destinations"]);
     expect(paths(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/dns", "/domains/tunnels", "/domains/ports"]);
@@ -604,8 +606,9 @@ describe("what the pages draw from the register", () => {
     same(DATABASE_SCREENS, "database");
     expect(APP_TABS).toEqual(tabsById("app"));
     expect(TEAM_TABS).toEqual(tabsById("team"));
-    // The fleet's views are the faces of the areas; its pages draw only the strip of the applications' two.
+    // The fleet's views are the faces of the areas; its pages draw only the strips of the two areas that have a second view.
     same(FLEET_APPS_SCREENS, "fleet.apps");
+    same(FLEET_SERVERS_SCREENS, "fleet.servers");
     expect(tabsOf(OVERVIEW_SCREENS).map((tab) => tab.to)).toEqual(["/", "/map"]);
     expect(tabsOf(PROJECTS_SCREENS).map((tab) => tab.to)).toEqual(["/projects", "/projects/teams"]);
   });
