@@ -735,8 +735,10 @@ grow).
   split (FM-8, NV-9).
 - The side list is titled by whose each section is (account, resource, group, server, instance,
   fleet: NV-11), holds 8 items per group at most, 6 groups and 20 per block of scope (NV-3), and
-  grows a filter box from 12 entries (`SettingsLayout`'s `filterFrom`; an item's `keywords` are
-  the old names that still find it).
+  grows a filter box from 12 entries (`SETTINGS_FILTER_FROM`; an item's `keywords` are the old
+  names that still find it). In the double bar the list is the second column and the box is at its
+  head, above the groups; the page then draws the section alone (`carried`). One bar and the
+  phone's index draw the list and the box in the page.
 - A subsection's one primary action that is not a Save ("Invite a person", "Create token")
   goes in the page's header through `SettingsPrimaryAction` (`features/settings/SettingsShell`),
   never in a section.

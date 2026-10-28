@@ -211,6 +211,23 @@ describe("the double bar (1440 px and wider)", () => {
     expect(screen.getAllByRole("navigation", { name: "Settings sections" })).toHaveLength(1);
   });
 
+  it("narrows Settings' column by a section's name and by the name it had before, and says when none answers", async () => {
+    const { user } = await shellAt("/settings/tokens", 1440);
+    const settings = await screen.findByRole("navigation", { name: "Settings sections" });
+    const filter = screen.getByRole("searchbox", { name: "Filter sections" });
+    // Only the column has the box: the page beside it does not draw the list again.
+    expect(screen.getAllByRole("searchbox", { name: "Filter sections" })).toHaveLength(1);
+    await user.type(filter, "notifications");
+    expect(within(settings).getAllByRole("link")).toHaveLength(1);
+    expect(within(settings).getByRole("link", { name: "Channels" })).toBeInTheDocument();
+    await user.clear(filter);
+    await user.type(filter, "zzzz");
+    expect(within(settings).queryAllByRole("link")).toHaveLength(0);
+    expect(screen.getByText("No section matches this filter.")).toBeInTheDocument();
+    await user.clear(filter);
+    expect(within(settings).getByRole("link", { name: "API tokens" })).toHaveAttribute("aria-current", "page");
+  });
+
   it("folds to icons by a button that says what it does and what it is, and keeps the choice", async () => {
     const { user } = await shellAt("/", 1440);
     const fold = screen.getByRole("button", { name: "Fold the bar" });

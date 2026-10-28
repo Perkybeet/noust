@@ -1,14 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useRouterState } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
-import { useId, useMemo } from "react";
+import { useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import { appQuery } from "../../api/queries/apps";
 import { sessionQuery } from "../../api/queries/auth";
-import { groupNavItems } from "../../components/page/SettingsLayout";
+import { SETTINGS_FILTER_FROM, answersFilter, groupNavItems } from "../../components/page/SettingsLayout";
+import { Input } from "../../components/ui/Input";
+import { Kbd } from "../../components/ui/Kbd";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { SlidingIndicator } from "../../components/ui/SlidingIndicator";
+import { ICONS } from "../../components/ui/icons";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { isAdopted } from "../../features/app/adopted";
 import { SERVER_CAPABILITY, securityOverviewQuery, summaryQuery } from "../../features/server/queries";
@@ -193,11 +196,19 @@ function ServerColumn() {
   );
 }
 
-/** Settings: whose each section is, in the groups the register gives. */
+/**
+ * Settings: whose each section is, in the groups the register gives, and from twelve sections a box that
+ * narrows them by name and by the name they had before (NV-11): twenty-four sections are searched, not read.
+ */
 function SettingsColumn() {
   const t = useT();
   const { items } = useSettingsItems();
-  const groups: ListGroup[] = groupNavItems(items).map((group) => ({
+  const [query, setQuery] = useState("");
+  const filterable = items.length >= SETTINGS_FILTER_FROM;
+  const narrowing = filterable && query.trim() !== "";
+  const kept = narrowing ? items.filter((item) => answersFilter(item, query)) : items;
+  const Search = ICONS.search;
+  const groups: ListGroup[] = groupNavItems(kept).map((group) => ({
     key: group.key,
     ...(group.heading !== undefined ? { heading: group.heading } : {}),
     ...(group.scope !== undefined ? { scope: group.scope } : {}),
@@ -215,6 +226,29 @@ function SettingsColumn() {
       <div className="shrink-0 px-4 pt-4 pb-3">
         <p className="display min-w-0 truncate text-24 text-fg">{t("nav.settings.label")}</p>
       </div>
+      {filterable ? (
+        <div className="shrink-0 px-3 pb-3">
+          <Input
+            type="search"
+            size="sm"
+            aria-label={t("common.settingsLayout.filter")}
+            placeholder={t("common.settingsLayout.filterPlaceholder")}
+            // The page's `/` goes here when nothing else on it searches (the shell takes the first).
+            data-page-search=""
+            value={query}
+            onValueChange={(value: string) => setQuery(value)}
+            icon={<Search />}
+            {...(query === "" ? { suffix: <Kbd className="pointer-coarse:hidden">/</Kbd> } : {})}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+      ) : null}
+      {narrowing && kept.length === 0 ? (
+        <p role="status" className="shrink-0 px-5 pb-3 text-13 text-fg-muted">
+          {t("common.settingsLayout.noMatches")}
+        </p>
+      ) : null}
       <ColumnList label={t("nav.landmarks.settingsSections")} groups={groups} />
     </>
   );

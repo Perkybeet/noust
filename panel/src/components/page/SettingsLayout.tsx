@@ -140,8 +140,11 @@ export function groupNavItems(items: readonly SettingsNavItem[]): NavGroup[] {
   return groups;
 }
 
+/** From how many sections a list has a box that narrows it (NV-11): one number, for the page's list and the column's. */
+export const SETTINGS_FILTER_FROM = 12;
+
 /** Whether an item answers a filter: every word typed is in its name or in its keywords. */
-function matches(item: SettingsNavItem, query: string): boolean {
+export function answersFilter(item: SettingsNavItem, query: string): boolean {
   const haystack = `${item.label} ${item.keywords ?? ""}`.toLowerCase();
   return query
     .toLowerCase()
@@ -157,7 +160,7 @@ function matches(item: SettingsNavItem, query: string): boolean {
  * from twelve sections has a box that narrows it. On a phone the navigation is an index page of
  * its own and each subsection has a way back to it.
  */
-export function SettingsLayout({ label, items, index = false, backTo, backParams, filterFrom = 12, carried = false, children, className }: SettingsLayoutProps) {
+export function SettingsLayout({ label, items, index = false, backTo, backParams, filterFrom = SETTINGS_FILTER_FROM, carried = false, children, className }: SettingsLayoutProps) {
   const t = useT();
   const id = useId();
   const wide = useMediaQuery(SM_UP);
@@ -173,7 +176,7 @@ export function SettingsLayout({ label, items, index = false, backTo, backParams
   }
   const filterable = items.length >= filterFrom;
   const narrowing = filterable && query.trim() !== "";
-  const kept = narrowing ? items.filter((item) => matches(item, query)) : items;
+  const kept = narrowing ? items.filter((item) => answersFilter(item, query)) : items;
   const safe = kept.filter((item) => item.danger !== true);
   const danger = kept.filter((item) => item.danger === true);
   const groups = groupNavItems(safe);

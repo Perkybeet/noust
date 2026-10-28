@@ -23,9 +23,10 @@ test("the sections are in six groups that say whose they are, in the order of th
   expect(links).not.toContain("Alert rules");
   expect(links.indexOf("Logs and metrics export")).toBeGreaterThan(links.indexOf("Channels"));
   expect(links.indexOf("API tokens")).toBeLessThan(links.indexOf("API reference"));
-  // The list stays inside the screen: below the top bar, never taller than the window (it scrolls inside).
-  const box = await page.locator("[data-slot=nav] > div").boundingBox();
-  expect(box?.height ?? 9_999).toBeLessThanOrEqual(900 - 56);
+  // The list stays inside the screen: the column is the window's height and the list scrolls inside it.
+  const box = await page.locator('[data-frame="column"]').boundingBox();
+  expect(box?.height ?? 9_999).toBeLessThanOrEqual(900);
+  expect(await list.evaluate((nav) => getComputedStyle(nav).overflowY)).toBe("auto");
   await settle(page);
   await expectNoA11yViolations(page, "the settings list");
 });
