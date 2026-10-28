@@ -1030,3 +1030,59 @@ class TestRepositoriesAndNamesThatBecomePartsOfAnApiPath:
             assert path.startswith("/") and not path.startswith("//")
             assert not CONTROL.search(path) and " " not in path and "\\" not in path
             assert all(part not in {".", ".."} for part in path.split("?", 1)[0].split("/")), path
+
+
+# ---------------------------------------------------------------------------
+# What a push of the fleet's settings is signed with, and where it is set
+# ---------------------------------------------------------------------------
+
+SETTING_KINDS = ["channel", "alert_rule", "backup_destination", "registry", "variable"]
+
+
+class TestTheSettingsOfTheFleet:
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_scope_is_the_fleet_or_one_server_and_nothing_else(self, value: str) -> None:
+        from noust.fleet.settings.kinds import check_scope
+
+        accepted, result = verdict(check_scope, value)
+
+        if accepted:
+            assert result == value and not CONTROL.search(result)
+            assert result == "fleet" or re.fullmatch(r"node:[a-z0-9][a-z0-9-]*", result), result
+
+    @SETTINGS
+    @given(value=HOSTILE, kind=st.sampled_from(SETTING_KINDS))
+    def test_the_name_of_a_setting_is_inert_where_it_goes(self, value: str, kind: str) -> None:
+        from noust.fleet.settings.kinds import kind_of
+
+        accepted, result = verdict(kind_of(kind).check_name, value)
+
+        # It is a segment of a path to the server's own route, an argument and a secret's name.
+        if accepted:
+            assert result == value and not CONTROL.search(result)
+            assert not any(char in result for char in "/\\ \t\n\r\x00:;|&$`'\"<>(){}[]*?!#~%=,")
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_a_node_reads_as_a_signature_is_exactly_one_and_forges_no_field(
+        self, value: str
+    ) -> None:
+        from noust.fleet.settings.signature import SyncSignature
+
+        accepted, parsed = verdict(SyncSignature.parse, value, "change:c0123456789ab")
+
+        if accepted and parsed is not None:
+            signature = parsed.signature
+            assert signature.actor == value, "the header is read back as it was written"
+            assert not CONTROL.search(value) and "\n" not in value
+            assert re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:@+-]{0,63}", signature.person)
+            assert re.fullmatch(r"c[0-9a-f]{12}", signature.change)
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p])
+    def test_a_payload_in_the_person_or_the_change_is_refused(self, payload: str) -> None:
+        from noust.fleet.settings.signature import SyncSignature
+
+        for person, change in ((payload, "c0123456789ab"), ("ana", payload)):
+            with pytest.raises(NoustError):
+                SyncSignature(person=person, change=change)
