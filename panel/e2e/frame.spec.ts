@@ -342,6 +342,9 @@ test.describe("the raised piece of the current item", () => {
     await page.goto(APP);
     await settle(page);
     await page.screenshot({ path: out("aplicacion") });
+    await page.goto("/settings/tokens");
+    await settle(page);
+    await page.screenshot({ path: out("ajustes") });
     await page.getByRole("button", { name: "Fold the bar" }).click();
     await page.goto("/");
     await settle(page);
