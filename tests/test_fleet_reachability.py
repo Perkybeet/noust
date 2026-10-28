@@ -371,3 +371,18 @@ class TestProbe:
         probe_module._gather_round()
 
         assert asked == []
+
+    def test_the_probe_asks_with_a_label_a_node_accepts_and_so_reaches_it(self, fleet):
+        # The label was once "noust (reachability probe)": the client refuses spaces and brackets
+        # in an actor, so no round ever left the central and no node was ever seen to answer.
+        from noust.fleet.client import ACTOR_PATTERN
+        from noust.fleet.probe import PROBE_ACTOR
+
+        fleet.added()
+        record = fleet.store.get_node("web-2")
+        source = aggregate.NodeSource(
+            fleet.manager, record, aggregate.Asker(actor=PROBE_ACTOR, scope="read"), 5
+        )
+
+        assert ACTOR_PATTERN.fullmatch(PROBE_ACTOR)
+        assert source.request("GET", "/api/system/version").status_code == 200

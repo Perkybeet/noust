@@ -52,8 +52,10 @@ PROBE_NODE_TIMEOUT = 10.0
 #: from them: an application's lock is named after its domain, never hidden.
 LOCK_FILE = ".fleet-probe.lock"
 
-#: Who the nodes' audit logs say asked.
-PROBE_ACTOR = "noust (reachability probe)"
+#: Who the nodes' audit logs say asked. An actor label is letters, digits and ``._:@+-``
+#: (:data:`noust.fleet.client.ACTOR_PATTERN`): with spaces and brackets here, as it once was, the
+#: client refused it before any request left and the probe never saw a node answer.
+PROBE_ACTOR = "noust-probe"
 
 _LOCK_FILE_MODE = 0o600
 
