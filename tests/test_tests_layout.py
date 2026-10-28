@@ -13,9 +13,12 @@ fixtures every test may ask for. These guards keep it that way.
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
+
+from tests.support.areas import AREAS, area_of, mark_by_area
 
 TESTS = Path(__file__).resolve().parent
 ROOT = TESTS.parent
@@ -118,3 +121,72 @@ class TestTheDetector:
     )
     def test_it_spares_the_support_modules_and_the_conftest(self, source: str) -> None:
         assert imported_test_modules(source, TESTS / "test_example.py") == []
+
+
+@dataclass
+class FakeItem:
+    """What ``mark_by_area`` needs of a test: where it is and a way to mark it."""
+
+    path: Path
+    marks: list[str] = field(default_factory=list)
+
+    def get_closest_marker(self, name: str) -> object | None:
+        return object() if name in self.marks else None
+
+    def add_marker(self, marker: pytest.MarkDecorator) -> None:
+        self.marks.append(marker.name)
+
+
+def first_words() -> dict[str, int]:
+    """How many test files of ``tests/`` begin with each word."""
+    count: dict[str, int] = {}
+    for path in TESTS.glob("test_*.py"):
+        word = path.stem.removeprefix("test_").split("_")[0]
+        count[word] = count.get(word, 0) + 1
+    return count
+
+
+class TestAreas:
+    """A test file is marked with the area its name begins with, so ``-m web`` runs that slice."""
+
+    def test_a_file_is_in_the_area_its_name_begins_with(self) -> None:
+        assert area_of(TESTS / "test_web_auth.py") == "web"
+        assert area_of(TESTS / "test_database_backups.py") == "database"
+
+    def test_a_name_that_only_starts_like_an_area_is_not_in_it(self) -> None:
+        # `applock` is not `app`: the area is the whole first word, not its first letters.
+        assert area_of(TESTS / "test_applock.py") is None
+        assert area_of(TESTS / "test_webserver_managers.py") is None
+
+    def test_a_file_in_a_directory_below_is_in_no_area(self) -> None:
+        assert area_of(TESTS / "recipes" / "test_web_things.py") is None
+
+    def test_a_file_that_is_not_a_test_is_in_no_area(self) -> None:
+        assert area_of(TESTS / "support" / "web_auth.py") is None
+        assert area_of(TESTS / "conftest.py") is None
+
+    def test_every_test_of_a_file_gets_the_marker_once(self) -> None:
+        first = FakeItem(TESTS / "test_cli_audit.py")
+        other = FakeItem(TESTS / "test_zoneinfo_thing.py")
+
+        mark_by_area([first, other])
+        mark_by_area([first, other])
+
+        assert first.marks == ["cli"]
+        assert other.marks == []
+
+    def test_every_word_that_ten_files_begin_with_is_an_area(self) -> None:
+        missing = sorted(word for word, n in first_words().items() if n >= 10 and word not in AREAS)
+
+        assert not missing, (
+            "Ten test files begin with each of these words: add them to AREAS in "
+            f"tests/support/areas.py with a line that says what they test: {missing}"
+        )
+
+    def test_no_area_is_left_without_files(self) -> None:
+        assert not sorted(set(AREAS) - set(first_words())), "These areas have no test file any more"
+
+    def test_every_area_is_a_registered_marker(self, pytestconfig: pytest.Config) -> None:
+        registered = {line.split(":")[0].split("(")[0] for line in pytestconfig.getini("markers")}
+
+        assert set(AREAS) <= registered

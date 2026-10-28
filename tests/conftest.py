@@ -31,6 +31,7 @@ import pytest
 
 from noust.core.fs import set_fs
 from noust.core.runner import FakeRunner, set_runner
+from tests.support.areas import AREAS, mark_by_area
 from tests.support.console_patch_support import patch_console
 
 # Fixtures that many modules asked for and defined the same way, needing nothing a lean environment
@@ -75,17 +76,20 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """
-    Keep the slice this run was asked for.
+    Mark every test with its area, then keep the slice this run was asked for.
 
-    Every xdist worker collects the whole suite and applies the same cut, so they agree on what
-    the run is made of without being told.
+    The markers go on before pytest applies ``-m``, which is why this runs first. Every xdist
+    worker collects the whole suite and applies the same cut, so they agree on what the run is
+    made of without being told.
 
     Args:
         config: The pytest configuration object.
         items: The collected tests; the ones outside the slice are removed in place.
     """
+    mark_by_area(items)
     spec = config.getoption("--shard") or os.environ.get("NOUST_TEST_SHARD")
     if not spec:
         return
@@ -128,6 +132,10 @@ def pytest_configure(config: pytest.Config) -> None:
     Args:
         config: The pytest configuration object.
     """
+    for area, what in AREAS.items():
+        config.addinivalue_line(
+            "markers", f"{area}: tests of {what} (the files named test_{area}_*)"
+        )
     config.addinivalue_line(
         "markers",
         "allow_subprocess: permit this test to execute real processes",
