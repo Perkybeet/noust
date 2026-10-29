@@ -216,7 +216,7 @@ def test_a_credential_a_template_wrote_becomes_one_generated_variable_everywhere
     assert draft.variables["DB_PASSWORD"]["origin"] == "generated"
 
 
-def test_a_value_that_only_looks_like_a_secret_by_its_name_is_left_alone(
+def test_a_value_that_only_looks_like_a_secret_by_its_name_is_a_setting_not_a_secret(
     tool: ModuleType,
 ) -> None:
     """``TOKEN_EXPIRY: 3600`` and ``SECRET_KEY_BASE: ${X}`` are not credentials to replace."""
@@ -237,11 +237,13 @@ def test_a_value_that_only_looks_like_a_secret_by_its_name_is_left_alone(
 
     tool.secret_literals(draft)
 
+    # Not credentials: the first two are settings, and a setting is a declared variable.
     assert draft.services["web"]["environment"] == {
-        "TOKEN_EXPIRY": "3600",
+        "TOKEN_EXPIRY": "${TOKEN_EXPIRY}",
         "SECRET_KEY_BASE": "${KEY}",
-        "USE_KEY": "no",
+        "USE_KEY": "${USE_KEY}",
     }
+    assert draft.variables["TOKEN_EXPIRY"]["value"] == "3600"
 
 
 @pytest.mark.parametrize(
@@ -655,3 +657,21 @@ def test_an_optional_setting_named_after_a_provider_the_history_may_not_name_is_
     assert tool.FORBIDDEN_WORDS.search("a CL" + "AUDE client") and not tool.FORBIDDEN_WORDS.search(
         "x"
     )
+
+
+def test_a_setting_whose_name_looks_like_a_secret_but_holds_a_duration_becomes_a_declared_setting(
+    tool: ModuleType,
+) -> None:
+    """TOKEN_EXPIRY: 24h is no credential, and the catalogue holds no literal in such a name."""
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0", "environment": {"TOKEN_EXPIRY": "24h", "API_TOKEN": "abc"}}},
+        ("web", 80),
+    )
+
+    tool.secret_literals(draft)
+
+    assert draft.services["web"]["environment"]["TOKEN_EXPIRY"] == "${TOKEN_EXPIRY}"
+    assert draft.variables["TOKEN_EXPIRY"]["value"] == "24h"
+    declared = tool.declare_variables(draft, "x: ${TOKEN_EXPIRY}")
+    assert declared["TOKEN_EXPIRY"]["default"] == "24h"

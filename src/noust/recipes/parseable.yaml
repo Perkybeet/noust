@@ -1,0 +1,58 @@
+# Parseable: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/parseable
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: parseable
+kind: compose
+title: "Parseable"
+slogan: "Parseable is an open source, unified infrastructure observability platform built in Rust on a..."
+description: "Fast observability and log analytics platform on object storage"
+category: ai
+tags: [observability, logging, analytics, monitoring, ai]
+logo: logo.svg
+version: "1.6.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://parseable.com
+docs: https://www.parseable.com/docs
+repository: https://github.com/parseablehq/parseable
+license: AGPL-3.0-only
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  PARSEABLE_USERNAME:
+    generate: "user"
+    description: "The user name Noust generated for parseable username."
+  PARSEABLE_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for parseable password."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    parseable:
+      image: parseable/parseable:v1.6.0@sha256:929d674d097a3e8ff94b8a20c9318837e13c75dd6fae198a8bf7c19f02076c9a
+      command: parseable local-store
+      restart: unless-stopped
+      volumes:
+        - parseable-staging:/parseable/staging
+        - parseable-data:/parseable/data
+      environment:
+        P_ADDR: 0.0.0.0:8000
+        P_USERNAME: ${PARSEABLE_USERNAME}
+        P_PASSWORD: ${PARSEABLE_PASSWORD}
+        P_STAGING_DIR: /parseable/staging
+        P_FS_DIR: /parseable/data
+      ports:
+        - 127.0.0.1:${PORT}:8000
+  volumes:
+    parseable-staging:
+    parseable-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes parseable-staging, parseable-data of this application: back them up before updating."

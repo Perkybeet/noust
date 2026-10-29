@@ -94,7 +94,22 @@ PROBE_PATHS = (
     "/login",
     "/api/ping",
     "/version",
+    "/api/v2/heartbeat",
+    "/api/heartbeat",
+    "/api/version",
+    "/api/v1/version",
+    "/v2/languages",
+    "/server/status/ready",
+    "/readyz",
+    "/livez",
+    "/ready",
+    "/alive",
+    "/_health",
+    "/healthy",
+    "/-/healthy",
+    "/manifest.json",
     "/robots.txt",
+    "/favicon.ico",
 )
 
 #: What a project is named when the operator does not say: the prefix, then the recipe.

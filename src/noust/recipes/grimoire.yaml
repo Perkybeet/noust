@@ -1,0 +1,41 @@
+# Grimoire: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/grimoire
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: grimoire
+kind: compose
+title: "Grimoire"
+slogan: "Bookmark manager for the wizards 🧙"
+description: "Grimoire is a self-hosted bookmarking app designed for speed and simplicity."
+category: utilities
+tags: [bookmarks, self-hosted, knowledge-management, utilities]
+logo: logo.svg
+version: "0.4.4"
+revision: 1
+updated: 2026-10-28
+homepage: https://goniszewski.com/grimoire/
+docs: https://github.com/goniszewski/grimoire
+repository: https://github.com/goniszewski/grimoire
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    grimoire:
+      image: goniszewski/grimoire:0.4.4@sha256:f62d25dcecbd77113385caf492554976386cdff73c1ce848a1cd78fc99cb0cda
+      restart: unless-stopped
+      volumes:
+        - grimoire_data:/app/data
+      ports:
+        - 127.0.0.1:${PORT}:5173
+  volumes:
+    grimoire_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume grimoire_data of this application: back it up before updating."

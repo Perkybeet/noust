@@ -1,0 +1,41 @@
+# Directory Lister: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/directory-lister
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: directory-lister
+kind: compose
+title: "Directory Lister"
+slogan: "📂 Directory Lister is the easiest way to expose the contents of any web-accessible folder for..."
+description: "Directory Lister is a simple PHP application that lists the contents of any web-accessible directory and allows navigation there within."
+category: utilities
+tags: [file-manager, directory-listing, php, utilities]
+logo: logo.svg
+version: "5.8.2"
+revision: 1
+updated: 2026-10-28
+homepage: https://www.directorylister.com
+docs: https://docs.directorylister.com/
+repository: https://github.com/DirectoryLister/DirectoryLister
+license: MIT
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    directory-lister:
+      image: directorylister/directorylister:5.8.2@sha256:d982d7c7c004ad830d3c1e2fa655af23f5cac7e281849ce088c72259ad964aa8
+      restart: unless-stopped
+      volumes:
+        - directory-lister-data:/data
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    directory-lister-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume directory-lister-data of this application: back it up before updating."

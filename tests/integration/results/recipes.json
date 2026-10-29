@@ -1,10 +1,10 @@
 {
   "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
   "harness": "Ubuntu 24.04 with systemd and a Docker of its own (Dockerfile.systemd)",
-  "updated": "2026-10-29T02:40:19Z",
+  "updated": "2026-10-29T03:19:56Z",
   "totals": {
-    "pass": 174,
-    "fail": 13
+    "pass": 192,
+    "fail": 10
   },
   "results": [
     {
@@ -41,23 +41,25 @@
       "images_removed": 1
     },
     {
-      "recipe": "anubis",
-      "version": "1.28.2",
-      "date": "2026-10-29T01:37:37Z",
+      "recipe": "answer",
+      "version": "1.4.1",
+      "date": "2026-10-29T03:09:19Z",
       "source": "dokploy",
-      "seconds": 186,
+      "seconds": 635,
       "result": "fail",
-      "gate": "/ -> 500 after 180s",
-      "gate_status": "500",
+      "gate": "/ -> conn:ConnectionResetError after 603s",
+      "gate_status": "conn:ConnectionResetError",
       "unsteady": false,
       "problems": [
-        "the health gate's request to / got 500, the recipe expects 200-399"
+        "the health gate's request to / got conn:ConnectionResetError, the recipe expects 200-399"
       ],
-      "log_tail": ",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\nanubis-1  | {\"time\":\"2026-10-29T01:40:28.500493606Z\",\"level\":\"ERROR\",\"source\":{\"function\":\"github.com/TecharoHQ/anubis/lib.(*Server).maybeReverseProxy\",\"file\":\"github.com/TecharoHQ/anubis/lib/anubis.go\",\"line\":339},\"msg\":\"check failed\",\"subsystem\":\"anubis\",\"host\":\"127.0.0.1:18080\",\"method\":\"GET\",\"path\":\"/\",\"user_agent\":\"Python-urllib/3.12\",\"accept_language\":\"\",\"priority\":\"\",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\nanubis-1  | {\"time\":\"2026-10-29T01:40:33.523259924Z\",\"level\":\"ERROR\",\"source\":{\"function\":\"github.com/TecharoHQ/anubis/lib.(*Server).maybeReverseProxy\",\"file\":\"github.com/TecharoHQ/anubis/lib/anubis.go\",\"line\":339},\"msg\":\"check failed\",\"subsystem\":\"anubis\",\"host\":\"127.0.0.1:18080\",\"method\":\"GET\",\"path\":\"/\",\"user_agent\":\"Python-urllib/3.12\",\"accept_language\":\"\",\"priority\":\"\",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\nanubis-1  | {\"time\":\"2026-10-29T01:40:38.535253692Z\",\"level\":\"ERROR\",\"source\":{\"function\":\"github.com/TecharoHQ/anubis/lib.(*Server).maybeReverseProxy\",\"file\":\"github.com/TecharoHQ/anubis/lib/anubis.go\",\"line\":339},\"msg\":\"check failed\",\"subsystem\":\"anubis\",\"host\":\"127.0.0.1:18080\",\"method\":\"GET\",\"path\":\"/\",\"user_agent\":\"Python-urllib/3.12\",\"accept_language\":\"\",\"priority\":\"\",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\n",
+      "log_tail": "uffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.017 s, sync=0.206 s, total=0.241 s; sync files=301, longest=0.010 s, average=0.001 s; distance=4273 kB, estimate=4273 kB; lsn=0/191F100, redo lsn=0/191F100\ndb-1      | 2026-10-29 03:09:36.430 UTC [48] LOG:  database system is shut down\ndb-1      |  done\ndb-1      | server stopped\ndb-1      | \ndb-1      | PostgreSQL init process complete; ready for start up.\ndb-1      | \ndb-1      | 2026-10-29 03:09:36.504 UTC [1] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit\ndb-1      | 2026-10-29 03:09:36.504 UTC [1] LOG:  listening on IPv4 address \"0.0.0.0\", port 5432\ndb-1      | 2026-10-29 03:09:36.504 UTC [1] LOG:  listening on IPv6 address \"::\", port 5432\ndb-1      | 2026-10-29 03:09:36.509 UTC [1] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"\ndb-1      | 2026-10-29 03:09:36.519 UTC [64] LOG:  database system was shut down at 2026-10-29 03:09:36 UTC\ndb-1      | 2026-10-29 03:09:36.526 UTC [1] LOG:  database system is ready to accept connections\ndb-1      | 2026-10-29 03:14:36.521 UTC [62] LOG:  checkpoint starting: time\ndb-1      | 2026-10-29 03:14:40.774 UTC [62] LOG:  checkpoint complete: wrote 45 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=4.217 s, sync=0.017 s, total=4.253 s; sync files=12, longest=0.005 s, average=0.002 s; distance=261 kB, estimate=261 kB; lsn=0/1960538, redo lsn=0/1960500\n",
       "error_lines": 0,
       "transient": false,
       "rate_limited": false,
-      "images_removed": 1
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got conn:ConnectionResetError, the recipe expects 200-399"
     },
     {
       "recipe": "anythingllm",
@@ -203,6 +205,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "bytestash",
+      "version": "1.5.6",
+      "date": "2026-10-29T02:45:39Z",
+      "source": "dokploy",
+      "seconds": 40,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "calibre",
       "version": "7.26.0",
       "date": "2026-10-29T01:32:56Z",
@@ -220,19 +237,15 @@
       "first_attempt": "the health gate's request to / got 401, the recipe expects 200-399"
     },
     {
-      "recipe": "calibre-web",
-      "version": "2021.12.16",
-      "date": "2026-10-29T01:41:30Z",
-      "source": "coolify",
-      "seconds": 206,
-      "result": "fail",
-      "gate": "/ -> conn:ConnectionResetError after 180s",
-      "gate_status": "conn:ConnectionResetError",
-      "unsteady": true,
-      "problems": [
-        "the health gate's request to / got conn:ConnectionResetError, the recipe expects 200-399"
-      ],
-      "log_tail": "pm1 = ProxyGenerator()\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/scholarly/_proxy_generator.py\", line 54, in __init__\ncalibre-web-1  |     self._new_session()\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/scholarly/_proxy_generator.py\", line 417, in _new_session\ncalibre-web-1  |     'User-Agent': UserAgent().random,\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/fake_useragent/fake.py\", line 69, in __init__\ncalibre-web-1  |     self.load()\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/fake_useragent/fake.py\", line 75, in load\ncalibre-web-1  |     self.data = load_cached(\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/fake_useragent/utils.py\", line 250, in load_cached\ncalibre-web-1  |     update(path, use_cache_server=use_cache_server, verify_ssl=verify_ssl)\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/fake_useragent/utils.py\", line 245, in update\ncalibre-web-1  |     write(path, load(use_cache_server=use_cache_server, verify_ssl=verify_ssl))\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/fake_useragent/utils.py\", line 187, in load\ncalibre-web-1  |     ret = json.loads(get(\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/fake_useragent/utils.py\", line 84, in get\ncalibre-web-1  |     raise FakeUserAgentError('Maximum amount of retries reached')\ncalibre-web-1  | fake_useragent.errors.FakeUserAgentError: Maximum amount of retries reached\n",
+      "recipe": "certmate",
+      "version": "2.21.3",
+      "date": "2026-10-29T03:02:24Z",
+      "source": "dokploy",
+      "seconds": 46,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
       "error_lines": 0,
       "transient": false,
       "rate_limited": false,
@@ -252,6 +265,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "chatto",
+      "version": "0.4",
+      "date": "2026-10-29T02:41:32Z",
+      "source": "dokploy",
+      "seconds": 41,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "chatwoot",
       "version": "4.18.0",
       "date": "2026-10-28T21:10:00Z",
@@ -263,25 +291,6 @@
       "error_lines": 2,
       "rate_limited": false,
       "images_removed": 2
-    },
-    {
-      "recipe": "chroma",
-      "version": "1.0.15",
-      "date": "2026-10-29T01:23:14Z",
-      "source": "coolify",
-      "seconds": 195,
-      "result": "fail",
-      "gate": "/ -> 404 after 180s",
-      "gate_status": "404",
-      "unsteady": false,
-      "problems": [
-        "the health gate's request to / got 404, the recipe expects 200-399"
-      ],
-      "log_tail": "  | ==========\nchromadb-1  | persist_path: \"/data\"\nchromadb-1  | \nchromadb-1  | ==========\nchromadb-1  | \nchromadb-1  | \nchromadb-1  | \nchromadb-1  |                 \u001b[38;5;069m(((((((((    \u001b[38;5;203m(((((\u001b[38;5;220m####\nchromadb-1  |              \u001b[38;5;069m(((((((((((((\u001b[38;5;203m(((((((((\u001b[38;5;220m#########\nchromadb-1  |            \u001b[38;5;069m(((((((((((((\u001b[38;5;203m(((((((((((\u001b[38;5;220m###########\nchromadb-1  |          \u001b[38;5;069m((((((((((((((\u001b[38;5;203m((((((((((((\u001b[38;5;220m############\nchromadb-1  |         \u001b[38;5;069m(((((((((((((\u001b[38;5;203m((((((((((((((\u001b[38;5;220m#############\nchromadb-1  |         \u001b[38;5;069m(((((((((((((\u001b[38;5;203m((((((((((((((\u001b[38;5;220m#############\nchromadb-1  |          \u001b[38;5;069m((((((((((((\u001b[38;5;203m(((((((((((((\u001b[38;5;220m##############\nchromadb-1  |          \u001b[38;5;069m((((((((((((\u001b[38;5;203m((((((((((((\u001b[38;5;220m##############\nchromadb-1  |            \u001b[38;5;069m((((((((((\u001b[38;5;203m(((((((((((\u001b[38;5;220m#############\nchromadb-1  |              \u001b[38;5;069m((((((((\u001b[38;5;203m((((((((\u001b[38;5;220m##############\nchromadb-1  |                 \u001b[38;5;069m(((((\u001b[38;5;203m((((    \u001b[38;5;220m#########\u001b[0m\nchromadb-1  | \nchromadb-1  | Saving data to: /data\nchromadb-1  | Connect to Chroma at: http://localhost:8000\nchromadb-1  | Getting started guide: https://docs.trychroma.com/docs/overview/getting-started\nchromadb-1  | \nchromadb-1  | OpenTelemetry is not enabled because it is missing from the config.\nchromadb-1  | Listening on 0.0.0.0:8000\n",
-      "error_lines": 0,
-      "transient": false,
-      "rate_limited": false,
-      "images_removed": 1
     },
     {
       "recipe": "clickhouse",
@@ -413,6 +422,21 @@
       "first_attempt": "the health gate's request to / got conn:ConnectionResetError, the recipe expects 200-399"
     },
     {
+      "recipe": "cup",
+      "version": "3.6.0",
+      "date": "2026-10-29T03:03:11Z",
+      "source": "dokploy",
+      "seconds": 30,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "cyberchef",
       "version": "11.5.0",
       "date": "2026-10-28T22:21:37Z",
@@ -456,6 +480,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "databasement",
+      "version": "1.8.4",
+      "date": "2026-10-29T02:44:28Z",
+      "source": "dokploy",
+      "seconds": 70,
+      "result": "pass",
+      "gate": "/ -> 302 after 10s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "databasus",
       "version": "3.16.2",
       "date": "2026-10-29T02:11:16Z",
@@ -466,6 +505,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "directory-lister",
+      "version": "5.8.2",
+      "date": "2026-10-29T02:47:04Z",
+      "source": "dokploy",
+      "seconds": 47,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -494,6 +548,36 @@
       "gate": "/ -> 200 after 60s",
       "gate_status": "200",
       "error_lines": 1,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "docling",
+      "version": "1.38.2",
+      "date": "2026-10-29T02:48:49Z",
+      "source": "coolify",
+      "seconds": 153,
+      "result": "pass",
+      "gate": "/ -> 307 after 15s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "docling-serve",
+      "version": "1.38.2",
+      "date": "2026-10-29T02:51:26Z",
+      "source": "dokploy",
+      "seconds": 362,
+      "result": "pass",
+      "gate": "/ -> 307 after 15s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 4,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -710,6 +794,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "firefox",
+      "version": "26.09.1",
+      "date": "2026-10-29T02:43:25Z",
+      "source": "coolify",
+      "seconds": 62,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "flaresolverr",
       "version": "3.5.2",
       "date": "2026-10-29T01:48:05Z",
@@ -717,6 +816,21 @@
       "seconds": 56,
       "result": "pass",
       "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "flarum",
+      "version": "2.0.2",
+      "date": "2026-10-29T03:04:40Z",
+      "source": "dokploy",
+      "seconds": 64,
+      "result": "pass",
+      "gate": "/ -> 200 after 20s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
@@ -813,25 +927,6 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
-      "rate_limited": false,
-      "images_removed": 1
-    },
-    {
-      "recipe": "gel",
-      "version": "6",
-      "date": "2026-10-29T01:55:19Z",
-      "source": "dokploy",
-      "seconds": 200,
-      "result": "fail",
-      "gate": "/ -> 404 after 180s",
-      "gate_status": "404",
-      "unsteady": false,
-      "problems": [
-        "the health gate's request to / got 404, the recipe expects 200-399"
-      ],
-      "log_tail": "7 edb.server: loading system config\ngel-1  | INFO 1 _unknown 2026-10-29T01:55:52.694 edb.server: introspecting extensions for database '__edgedbsys__'\ngel-1  | INFO 1 _unknown 2026-10-29T01:55:52.694 edb.server: introspecting extensions for database 'main'\ngel-1  | INFO 1 _unknown 2026-10-29T01:55:52.705 edb.server: Connection established to backend database: __edgedbsys__\ngel-1  | INFO 1 _unknown 2026-10-29T01:55:52.709 edb.server: Connection established to backend database: main\ngel-1  | INFO 1 - 2026-10-29T01:55:52.712 edb.server: loading TLS certificates\ngel-1  | INFO 1 _unknown 2026-10-29T01:55:53.705 edb.server: Backend connections to database __edgedbsys__: 1 were discarded in at least the last 1.0 seconds.\ngel-1  | INFO 1 _unknown 2026-10-29T01:55:53.709 edb.server: Backend connections to database main: 1 were discarded in at least the last 1.0 seconds.\ngel-1  | INFO 1 - 2026-10-29T01:55:53.958 edb.server: started 14 compiler worker processes\ngel-1  | INFO 1 - 2026-10-29T01:55:53.963 edb.server: Serving on {0.0.0.0, ::}:5656\ngel-1  | INFO 1 - 2026-10-29T01:55:53.964 edb.server: Serving admin on /run/gel/.s.GEL.admin.5656\ngel-1  | INFO 1 _unknown 2026-10-29T01:55:53.980 edb.server: Connection established to backend database: main\ngel-1  | INFO 1 _unknown 2026-10-29T01:55:53.980 edb.server: introspecting database 'main'\ngel-1  | INFO 1 _unknown 2026-10-29T01:55:55.237 edb.server: Backend connections to database main: 2 were established in at least the last 1.0 seconds.\n",
-      "error_lines": 0,
-      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -976,6 +1071,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "grimoire",
+      "version": "0.4.4",
+      "date": "2026-10-29T02:40:19Z",
+      "source": "dokploy",
+      "seconds": 72,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -1310,25 +1420,6 @@
       "images_removed": 1
     },
     {
-      "recipe": "languagetool",
-      "version": "6.6",
-      "date": "2026-10-29T01:49:02Z",
-      "source": "dokploy",
-      "seconds": 216,
-      "result": "fail",
-      "gate": "/ -> 400 after 180s",
-      "gate_status": "400",
-      "unsteady": false,
-      "problems": [
-        "the health gate's request to / got 400, the recipe expects 200-399"
-      ],
-      "log_tail": "ccess from 172.19.0.1, HTTP user agent: Python-urllib/3.12, User agent param: null, Referrer: null, language: null, h: 1, r: 35, time: 0m: ALL, l: DEFAULT, Stacktrace follows:org.languagetool.server.BadRequestException: Missing arguments for LanguageTool API. Please see https://languagetool.org/http-api/swagger-ui/#/default\nlanguagetool-1  | \tat org.languagetool.server.LanguageToolHttpHandler.handle(LanguageToolHttpHandler.java:217)\nlanguagetool-1  | \tat jdk.httpserver/com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:98)\nlanguagetool-1  | \tat jdk.httpserver/sun.net.httpserver.AuthFilter.doFilter(AuthFilter.java:82)\nlanguagetool-1  | \tat jdk.httpserver/com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:101)\nlanguagetool-1  | \tat jdk.httpserver/sun.net.httpserver.ServerImpl$Exchange$LinkHandler.handle(ServerImpl.java:870)\nlanguagetool-1  | \tat jdk.httpserver/com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:98)\nlanguagetool-1  | \tat jdk.httpserver/sun.net.httpserver.ServerImpl$Exchange.run(ServerImpl.java:837)\nlanguagetool-1  | \tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)\nlanguagetool-1  | \tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)\nlanguagetool-1  | \tat java.base/java.lang.Thread.run(Thread.java:1589)\nlanguagetool-1  | \nlanguagetool-1  | 2026-10-29 01:52:23.147 GMT INFO  org.languagetool.server.LanguageToolHttpHandler Handled request in 1ms; sending code 400\n",
-      "error_lines": 0,
-      "transient": false,
-      "rate_limited": false,
-      "images_removed": 1
-    },
-    {
       "recipe": "leantime",
       "version": "3.12.0",
       "date": "2026-10-28T23:29:24Z",
@@ -1355,6 +1446,21 @@
       "error_lines": 4,
       "rate_limited": false,
       "images_removed": 2
+    },
+    {
+      "recipe": "libredb-studio",
+      "version": "1.0.0",
+      "date": "2026-10-29T03:03:42Z",
+      "source": "dokploy",
+      "seconds": 56,
+      "result": "pass",
+      "gate": "/ -> 307 after 5s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
     },
     {
       "recipe": "librespeed",
@@ -1470,6 +1576,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "lowcoder",
+      "version": "3.0.0",
+      "date": "2026-10-29T02:57:32Z",
+      "source": "coolify",
+      "seconds": 110,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "lubelogger",
       "version": "1.6.5",
       "date": "2026-10-29T02:39:38Z",
@@ -1553,6 +1674,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 7,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "mazanoke",
+      "version": "1.1.7",
+      "date": "2026-10-29T02:42:14Z",
+      "source": "dokploy",
+      "seconds": 34,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -1800,6 +1936,20 @@
       "images_removed": 1
     },
     {
+      "recipe": "open_notebook",
+      "version": "2",
+      "date": "2026-10-29T03:04:40Z",
+      "source": "dokploy",
+      "seconds": 0,
+      "result": "fail",
+      "problems": [
+        ", pocket-id, pocketbase, portainer, postgresus, privatebin, prometheus, prowlarr, pulse, qbittorrent, qdrant, qui, rabbitmq, radarr, rivet-engine, rocketchat, roundcube, searxng, seerr, sftpgo, shlink, silex, silverbullet, siyuan, snipe-it, sonarr, speedtest-tracker, stalwart, steedos, stirling-pdf, strapi, supabase, superset, syncthing, tandoor, transmission, trek, trilium, tuwunel, twenty, typebot, typesense, umami, unleash, upsnap, uptime-kuma, vault, vaultwarden, versitygw, victoriametrics, vikunja, wallos, weaviate, wekan, wikijs, wordpress, yourls, yuvomi, zitadel. See: noust recipe list"
+      ],
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
+    },
+    {
       "recipe": "openbao",
       "version": "2.7.2",
       "date": "2026-10-28T22:48:09Z",
@@ -1903,6 +2053,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "otterwiki",
+      "version": "2",
+      "date": "2026-10-29T03:01:27Z",
+      "source": "dokploy",
+      "seconds": 56,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "outline",
       "version": "1.11.0",
       "date": "2026-10-29T00:12:52Z",
@@ -1984,6 +2149,21 @@
       "gate_status": "302",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "parseable",
+      "version": "1.6.0",
+      "date": "2026-10-29T02:46:21Z",
+      "source": "dokploy",
+      "seconds": 42,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -2368,25 +2548,6 @@
       "images_removed": 1
     },
     {
-      "recipe": "silo",
-      "version": "RELEASE.2026-08-06T00-00-00Z",
-      "date": "2026-10-29T02:26:53Z",
-      "source": "dokploy",
-      "seconds": 188,
-      "result": "fail",
-      "gate": "/ -> 403 after 180s",
-      "gate_status": "403",
-      "unsteady": false,
-      "problems": [
-        "the health gate's request to / got 403, the recipe expects 200-399"
-      ],
-      "log_tail": "silo-1  | INFO: Formatting 1st pool, 1 set(s), 1 drives per set.\nsilo-1  | INFO: WARNING: Host local has more than 0 drives of set. A host failure will result in data becoming unavailable.\nsilo-1  | Silo Object Storage Server\nsilo-1  | Copyright: 2015-2025 MinIO, Inc.\nsilo-1  | Modifications: Copyright 2025-2026 PGSTY\nsilo-1  | License: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html\nsilo-1  | Version: RELEASE.2026-08-06T00-00-00Z (go1.26.5 linux/amd64)\nsilo-1  | \nsilo-1  | API: http://172.19.0.2:9000  http://127.0.0.1:9000 \nsilo-1  | WebUI: http://172.19.0.2:9001 http://127.0.0.1:9001  \nsilo-1  | \nsilo-1  | Docs: https://silo.pgsty.com/docs/\n",
-      "error_lines": 0,
-      "transient": false,
-      "rate_limited": false,
-      "images_removed": 1
-    },
-    {
       "recipe": "silverbullet",
       "version": "2.12.1",
       "date": "2026-10-29T00:34:12Z",
@@ -2439,6 +2600,21 @@
       "gate_status": "302",
       "unsteady": false,
       "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "steedos",
+      "version": "3.0.14",
+      "date": "2026-10-29T02:59:25Z",
+      "source": "dokploy",
+      "seconds": 118,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 1,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -2541,6 +2717,26 @@
       "gate": "/api/health-check -> 200 after 5s",
       "gate_status": "200",
       "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "tuwunel",
+      "version": "1.5.0",
+      "date": "2026-10-29T02:42:49Z",
+      "source": "dokploy",
+      "seconds": 35,
+      "result": "fail",
+      "gate": "/ -> conn:URLError after 30s",
+      "gate_status": "conn:URLError",
+      "unsteady": true,
+      "problems": [
+        "noust-test-recetas-tuwunel-tuwunel-1 restarted 9 times",
+        "the health gate's request to / got conn:URLError, the recipe expects 200-399"
+      ],
+      "log_tail": " `TUWUNEL_` environment variable(s)\ntuwunel-1  | Error: There was a problem with your configuration file: server name is not a valid IP address or domain name for key \"SERVER_NAME\" in `TUWUNEL_` environment variable(s)\ntuwunel-1  | Error: There was a problem with your configuration file: server name is not a valid IP address or domain name for key \"SERVER_NAME\" in `TUWUNEL_` environment variable(s)\ntuwunel-1  | Error: There was a problem with your configuration file: server name is not a valid IP address or domain name for key \"SERVER_NAME\" in `TUWUNEL_` environment variable(s)\ntuwunel-1  | Error: There was a problem with your configuration file: server name is not a valid IP address or domain name for key \"SERVER_NAME\" in `TUWUNEL_` environment variable(s)\ntuwunel-1  | Error: There was a problem with your configuration file: server name is not a valid IP address or domain name for key \"SERVER_NAME\" in `TUWUNEL_` environment variable(s)\ntuwunel-1  | Error: There was a problem with your configuration file: server name is not a valid IP address or domain name for key \"SERVER_NAME\" in `TUWUNEL_` environment variable(s)\ntuwunel-1  | Error: There was a problem with your configuration file: server name is not a valid IP address or domain name for key \"SERVER_NAME\" in `TUWUNEL_` environment variable(s)\ntuwunel-1  | Error: There was a problem with your configuration file: server name is not a valid IP address or domain name for key \"SERVER_NAME\" in `TUWUNEL_` environment variable(s)\n",
       "error_lines": 0,
       "transient": false,
       "rate_limited": false,
@@ -2719,6 +2915,21 @@
       "seconds": 64,
       "result": "pass",
       "gate": "/healthz -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "yuvomi",
+      "version": "1.85.0",
+      "date": "2026-10-29T02:47:52Z",
+      "source": "dokploy",
+      "seconds": 56,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,

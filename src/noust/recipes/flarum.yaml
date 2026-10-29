@@ -1,0 +1,79 @@
+# Flarum: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/flarum
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: flarum
+kind: compose
+title: "Flarum"
+slogan: "Simple forum software for building great communities."
+description: "Flarum is a delightfully simple, modern forum software. It is fast, free, and easy to use with a clean and extensible architecture."
+category: communication
+tags: [forum, community, discussion, php, communication]
+logo: logo.svg
+version: "2.0.2"
+revision: 1
+updated: 2026-10-28
+homepage: https://flarum.org
+docs: https://docs.flarum.org/
+repository: https://github.com/flarum/flarum
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  FLARUM_DOMAIN:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  DB_NAME:
+    default: "flarum"
+    description: "Setting DB_NAME of the application; the template leaves it to the operator."
+  DB_USER:
+    default: "flarum"
+    description: "Setting DB_USER of the application; the template leaves it to the operator."
+  DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for db password."
+  MYSQL_ROOT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql root password."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    flarum:
+      image: crazymax/flarum:2.0.2@sha256:cff0216da14932588bf63956c4d3633777e7dc21956a07d1a8f0682efcf8df63
+      restart: unless-stopped
+      environment:
+        FLARUM_BASE_URL: https://${FLARUM_DOMAIN}
+        DB_HOST: db
+        DB_NAME: ${DB_NAME}
+        DB_USER: ${DB_USER}
+        DB_PASSWORD: ${DB_PASSWORD}
+      volumes:
+        - flarum-data:/data
+      depends_on:
+        db:
+          condition: service_started
+      ports:
+        - 127.0.0.1:${PORT}:8000
+    db:
+      image: mariadb:11@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+      restart: unless-stopped
+      environment:
+        MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+        MYSQL_DATABASE: ${DB_NAME}
+        MYSQL_USER: ${DB_USER}
+        MYSQL_PASSWORD: ${DB_PASSWORD}
+      volumes:
+        - db-data:/var/lib/mysql
+  volumes:
+    flarum-data:
+    db-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes flarum-data, db-data of this application: back them up before updating."

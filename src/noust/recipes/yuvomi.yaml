@@ -1,0 +1,75 @@
+# Yuvomi: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/yuvomi
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: yuvomi
+kind: compose
+title: "Yuvomi"
+slogan: "One home instead of many subscriptions."
+description: "Privacy-first, self-hosted family planner. Tasks, shopping, meals, calendar sync, budget — one private home for everything your household runs on. No cloud, no subscriptions."
+category: analytics
+tags: [open-source, family, productivity, calendar, tasks, analytics]
+logo: logo.svg
+version: "1.85.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://yuvomi.cloud/
+docs: https://github.com/ulsklyc/yuvomi#readme
+repository: https://github.com/ulsklyc/yuvomi
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DOCUMENT_STORAGE_LOCAL_ENABLED:
+    default: "false"
+    description: "Setting DOCUMENT_STORAGE_LOCAL_ENABLED of the application; the template leaves it to the operator."
+  SESSION_SECRET:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for session secret."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    yuvomi:
+      image: ghcr.io/ulsklyc/yuvomi:1.85.0@sha256:6bd22963b7a8b793d34b7f88bf7341862ba3e62ba9d7d4b1d50ea0e50643b8ad
+      restart: unless-stopped
+      environment:
+        NODE_ENV: production
+        DB_PATH: /data/yuvomi.db
+        BACKUP_DIR: /backups
+        DOCUMENT_STORAGE_LOCAL_ENABLED: ${DOCUMENT_STORAGE_LOCAL_ENABLED}
+        DOCUMENT_STORAGE_LOCAL_PATH: /documents
+        SESSION_SECURE: 'true'
+        TRUST_PROXY: '1'
+        SESSION_SECRET: ${SESSION_SECRET}
+      volumes:
+        - yuvomi-data:/data
+        - yuvomi-backups:/backups
+        - yuvomi-modules:/app/modules
+        - yuvomi-documents:/documents
+      healthcheck:
+        test:
+          - CMD
+          - node
+          - -e
+          - 'require(''http'').get(''http://localhost:3000/health'', r => process.exit(r.statusCode ===
+            200 ? 0 : 1))'
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 30s
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    yuvomi-data:
+    yuvomi-backups:
+    yuvomi-modules:
+    yuvomi-documents:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes yuvomi-data, yuvomi-backups, yuvomi-modules, yuvomi-documents of this application: back them up before updating."

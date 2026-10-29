@@ -1,0 +1,41 @@
+# Cup: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/cup
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: cup
+kind: compose
+title: "Cup"
+slogan: "🥤Docker container updates made easy"
+description: "Cup is a self-hosted Docker container management UI."
+category: development
+tags: [docker, container, management, ui, self-hosted, development]
+logo: logo.svg
+version: "3.6.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://cup.sergi0g.dev
+docs: https://cup.sergi0g.dev/docs
+repository: https://github.com/sergi0g/cup
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+root_equivalent: docker_socket
+compose: |
+  services:
+    cup:
+      image: ghcr.io/sergi0g/cup:v3.6.0@sha256:e22aaf5cba4d5949e2e3777a880c5f368607bdbb4bfd1381ae2faf581a1e3c92
+      restart: unless-stopped
+      command: serve
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+      ports:
+        - 127.0.0.1:${PORT}:8000
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "Cup controls the Docker daemon of this server, which is the same as root on it: it can start any container with any part of the server mounted, Noust's applications included. Give its sign-in only to people you would give root."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."

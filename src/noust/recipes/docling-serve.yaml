@@ -1,0 +1,55 @@
+# Docling Serve: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/docling-serve
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: docling-serve
+kind: compose
+title: "Docling Serve"
+slogan: "Running Docling as an API service"
+description: "Running Docling as an API service for document processing and conversion with AI-powered capabilities."
+category: ai
+tags: [document-processing, api, ai, conversion, pdf, office]
+logo: logo.svg
+version: "1.38.2"
+revision: 1
+updated: 2026-10-28
+homepage: https://github.com/docling-project/docling-serve
+docs: https://github.com/docling-project/docling-serve/blob/main/docs/README.md
+repository: https://github.com/docling-project/docling-serve
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    docling-serve:
+      image: quay.io/docling-project/docling-serve:v1.38.2@sha256:8a5fbc993da9dec17c53880e2445834591ad26800ef698ca64096bef29671808
+      restart: unless-stopped
+      environment:
+        DOCLING_SERVE_ENABLE_UI: '1'
+        DOCLING_SERVE_HOST: 0.0.0.0
+        DOCLING_SERVE_PORT: '5001'
+      volumes:
+        - docling-data:/app/data
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://localhost:5001/health
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 40s
+      ports:
+        - 127.0.0.1:${PORT}:5001
+  volumes:
+    docling-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume docling-data of this application: back it up before updating."

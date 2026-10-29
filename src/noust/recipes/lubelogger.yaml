@@ -1,0 +1,58 @@
+# LubeLogger: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/lubelogger
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: lubelogger
+kind: compose
+title: "LubeLogger"
+slogan: "LubeLogger is a web-based vehicle maintenance and fuel mileage tracker"
+description: "LubeLogger is a self-hosted vehicle maintenance and fuel mileage tracker for managing service records, reminders, fuel logs, and vehicle expenses."
+category: utilities
+tags: [vehicle, maintenance, fleet, self-hosted, utilities]
+logo: logo.svg
+version: "1.6.5"
+revision: 1
+updated: 2026-10-28
+homepage: https://lubelogger.com
+docs: https://docs.lubelogger.com/
+repository: https://github.com/hargata/lubelog
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  LUBELOGGER_LOCALE:
+    default: "en_US.UTF-8"
+    description: "Setting LUBELOGGER_LOCALE of the application; the template leaves it to the operator."
+  LUBELOGGER_DOMAIN:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  LUBELOGGER_ENABLE_AUTH:
+    default: "false"
+    description: "Setting LUBELOGGER_ENABLE_AUTH of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    lubelogger:
+      image: ghcr.io/hargata/lubelogger:v1.6.5@sha256:293604d85b021b6489ef3d0b22c792cefcc802bf8eec0b5c4766a4a979b8a998
+      restart: unless-stopped
+      environment:
+        LC_ALL: ${LUBELOGGER_LOCALE}
+        LANG: ${LUBELOGGER_LOCALE}
+        LUBELOGGER_DOMAIN: ${LUBELOGGER_DOMAIN}
+        EnableAuth: ${LUBELOGGER_ENABLE_AUTH}
+      volumes:
+        - lubelogger-data:/App/data
+        - lubelogger-keys:/root/.aspnet/DataProtection-Keys
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    lubelogger-data:
+    lubelogger-keys:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes lubelogger-data, lubelogger-keys of this application: back them up before updating."

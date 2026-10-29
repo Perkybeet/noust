@@ -200,7 +200,7 @@ SECRET_NAME = re.compile(r"(PASSWORD|PASSWD|SECRET|TOKEN|_KEY|_PASS$|_PWD$|SALT)
 
 #: A literal that is not a credential in a name that looks like one.
 NOT_A_CREDENTIAL = re.compile(
-    r"^(true|false|none|null|disabled|enabled|\d+|file:.*)$", re.IGNORECASE
+    r"^(true|false|none|null|disabled|enabled|\d+|\d+[smhdw]|file:.*)$", re.IGNORECASE
 )
 
 #: Words in a template's category or tags, to the closed list of categories (first match wins).
@@ -824,6 +824,14 @@ def secret_literals(draft: Draft) -> None:
             if not SECRET_NAME.search(key) or not value or "${" in value:
                 continue
             if NOT_A_CREDENTIAL.fullmatch(value) or len(value) < 4:
+                # Not a credential, in a name that looks like one (TOKEN_EXPIRY: 24h): the catalogue
+                # holds no literal in such a name, so it becomes a setting with that default.
+                if len(value) <= 40 and re.fullmatch(r"[A-Za-z0-9_.:/-]+", value):
+                    name = re.sub(r"[^A-Z0-9_]", "_", key.upper())
+                    draft.variables.setdefault(
+                        name, {"origin": "template", "secret": False, "value": value}
+                    )
+                    environment[key] = f"${{{name}}}"
                 continue
             if value not in assigned:
                 name = re.sub(r"[^A-Z0-9_]", "_", key.upper())

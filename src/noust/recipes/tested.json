@@ -66,15 +66,30 @@
    "seconds": 104,
    "version": "2.6.1"
   },
+  "bytestash": {
+   "date": "2026-10-29",
+   "seconds": 40,
+   "version": "1.5.6"
+  },
   "calibre": {
    "date": "2026-10-29",
    "seconds": 111,
    "version": "7.26.0"
   },
+  "certmate": {
+   "date": "2026-10-29",
+   "seconds": 46,
+   "version": "2.21.3"
+  },
   "changedetection": {
    "date": "2026-10-28",
    "seconds": 68,
    "version": "0.60.9"
+  },
+  "chatto": {
+   "date": "2026-10-29",
+   "seconds": 41,
+   "version": "0.4"
   },
   "chatwoot": {
    "date": "2026-10-28",
@@ -116,6 +131,11 @@
    "seconds": 47,
    "version": "3.5.3"
   },
+  "cup": {
+   "date": "2026-10-29",
+   "seconds": 30,
+   "version": "3.6.0"
+  },
   "cyberchef": {
    "date": "2026-10-28",
    "seconds": 37,
@@ -131,10 +151,20 @@
    "seconds": 44,
    "version": "4.8.7"
   },
+  "databasement": {
+   "date": "2026-10-29",
+   "seconds": 70,
+   "version": "1.8.4"
+  },
   "databasus": {
    "date": "2026-10-29",
    "seconds": 54,
    "version": "3.16.2"
+  },
+  "directory-lister": {
+   "date": "2026-10-29",
+   "seconds": 47,
+   "version": "5.8.2"
   },
   "directus": {
    "date": "2026-10-28",
@@ -145,6 +175,16 @@
    "date": "2026-10-28",
    "seconds": 298,
    "version": "2026.1.4"
+  },
+  "docling": {
+   "date": "2026-10-29",
+   "seconds": 153,
+   "version": "1.38.2"
+  },
+  "docling-serve": {
+   "date": "2026-10-29",
+   "seconds": 362,
+   "version": "1.38.2"
   },
   "docmost": {
    "date": "2026-10-28",
@@ -206,10 +246,20 @@
    "seconds": 79,
    "version": "6.7.9"
   },
+  "firefox": {
+   "date": "2026-10-29",
+   "seconds": 62,
+   "version": "26.09.1"
+  },
   "flaresolverr": {
    "date": "2026-10-29",
    "seconds": 56,
    "version": "3.5.2"
+  },
+  "flarum": {
+   "date": "2026-10-29",
+   "seconds": 64,
+   "version": "2.0.2"
   },
   "flatnotes": {
    "date": "2026-10-29",
@@ -285,6 +335,11 @@
    "date": "2026-10-28",
    "seconds": 73,
    "version": "13.2.3"
+  },
+  "grimoire": {
+   "date": "2026-10-29",
+   "seconds": 72,
+   "version": "0.4.4"
   },
   "grocy": {
    "date": "2026-10-29",
@@ -411,6 +466,11 @@
    "seconds": 167,
    "version": "0.8.8"
   },
+  "libredb-studio": {
+   "date": "2026-10-29",
+   "seconds": 56,
+   "version": "1.0.0"
+  },
   "librespeed": {
    "date": "2026-10-28",
    "seconds": 49,
@@ -451,6 +511,16 @@
    "seconds": 91,
    "version": "1.45.0"
   },
+  "lowcoder": {
+   "date": "2026-10-29",
+   "seconds": 110,
+   "version": "3.0.0"
+  },
+  "lubelogger": {
+   "date": "2026-10-29",
+   "seconds": 40,
+   "version": "1.6.5"
+  },
   "mage-ai": {
    "date": "2026-10-29",
    "seconds": 116,
@@ -475,6 +545,11 @@
    "date": "2026-10-28",
    "seconds": 84,
    "version": "11.11.1"
+  },
+  "mazanoke": {
+   "date": "2026-10-29",
+   "seconds": 34,
+   "version": "1.1.7"
   },
   "mealie": {
    "date": "2026-10-28",
@@ -596,6 +671,11 @@
    "seconds": 46,
    "version": "2.0.8"
   },
+  "otterwiki": {
+   "date": "2026-10-29",
+   "seconds": 56,
+   "version": "2"
+  },
   "outline": {
    "date": "2026-10-29",
    "seconds": 93,
@@ -625,6 +705,11 @@
    "date": "2026-10-29",
    "seconds": 128,
    "version": "3.3.0"
+  },
+  "parseable": {
+   "date": "2026-10-29",
+   "seconds": 42,
+   "version": "1.6.0"
   },
   "penpot": {
    "date": "2026-10-29",
@@ -766,6 +851,11 @@
    "seconds": 47,
    "version": "1.15.1"
   },
+  "steedos": {
+   "date": "2026-10-29",
+   "seconds": 118,
+   "version": "3.0.14"
+  },
   "stirling-pdf": {
    "date": "2026-10-29",
    "seconds": 95,
@@ -860,6 +950,11 @@
    "date": "2026-10-29",
    "seconds": 64,
    "version": "2.5.315"
+  },
+  "yuvomi": {
+   "date": "2026-10-29",
+   "seconds": 56,
+   "version": "1.85.0"
   }
  }
 }

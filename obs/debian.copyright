@@ -12,11 +12,13 @@ Files:
  src/noust/recipes/anythingllm.yaml
  src/noust/recipes/babybuddy.yaml
  src/noust/recipes/databasus.yaml
+ src/noust/recipes/docling.yaml
  src/noust/recipes/docuseal.yaml
  src/noust/recipes/dokuwiki.yaml
  src/noust/recipes/dozzle.yaml
  src/noust/recipes/drizzle-gateway.yaml
  src/noust/recipes/elasticsearch.yaml
+ src/noust/recipes/firefox.yaml
  src/noust/recipes/glance.yaml
  src/noust/recipes/glitchtip.yaml
  src/noust/recipes/gotenberg.yaml
@@ -30,6 +32,7 @@ Files:
  src/noust/recipes/kimai.yaml
  src/noust/recipes/libretranslate.yaml
  src/noust/recipes/linkwarden.yaml
+ src/noust/recipes/lowcoder.yaml
  src/noust/recipes/mage-ai.yaml
  src/noust/recipes/marimo.yaml
  src/noust/recipes/mealie.yaml
@@ -54,17 +57,29 @@ License: Apache-2.0
 
 Files:
  src/noust/recipes/archivebox.yaml
+ src/noust/recipes/bytestash.yaml
  src/noust/recipes/calibre.yaml
+ src/noust/recipes/certmate.yaml
+ src/noust/recipes/chatto.yaml
  src/noust/recipes/commafeed.yaml
  src/noust/recipes/cookie-cloud.yaml
+ src/noust/recipes/cup.yaml
  src/noust/recipes/dagu.yaml
+ src/noust/recipes/databasement.yaml
+ src/noust/recipes/directory-lister.yaml
  src/noust/recipes/discourse.yaml
+ src/noust/recipes/docling-serve.yaml
  src/noust/recipes/filegator.yaml
  src/noust/recipes/flaresolverr.yaml
+ src/noust/recipes/flarum.yaml
  src/noust/recipes/flatnotes.yaml
  src/noust/recipes/go2rtc.yaml
+ src/noust/recipes/grimoire.yaml
  src/noust/recipes/jellyseerr.yaml
  src/noust/recipes/komari-monitor.yaml
+ src/noust/recipes/libredb-studio.yaml
+ src/noust/recipes/lubelogger.yaml
+ src/noust/recipes/mazanoke.yaml
  src/noust/recipes/nginx.yaml
  src/noust/recipes/omni-tools.yaml
  src/noust/recipes/open-design.yaml
@@ -72,18 +87,22 @@ Files:
  src/noust/recipes/opengist.yaml
  src/noust/recipes/openseo.yaml
  src/noust/recipes/openspeedtest.yaml
+ src/noust/recipes/otterwiki.yaml
  src/noust/recipes/owncast.yaml
  src/noust/recipes/paperclip.yaml
+ src/noust/recipes/parseable.yaml
  src/noust/recipes/postgresus.yaml
  src/noust/recipes/prometheus.yaml
  src/noust/recipes/pulse.yaml
  src/noust/recipes/qui.yaml
  src/noust/recipes/silex.yaml
  src/noust/recipes/speedtest-tracker.yaml
+ src/noust/recipes/steedos.yaml
  src/noust/recipes/trek.yaml
  src/noust/recipes/upsnap.yaml
  src/noust/recipes/versitygw.yaml
  src/noust/recipes/victoriametrics.yaml
+ src/noust/recipes/yuvomi.yaml
 Copyright: 2024 Dokploy and Carlos Ortiz
            2026 Yago López Prado
 Comment: Derived in part from the service templates of Dokploy
