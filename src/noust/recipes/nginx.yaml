@@ -1,0 +1,43 @@
+# Nginx: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/nginx
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: nginx
+kind: compose
+title: "Nginx"
+slogan: "The official NGINX Open Source repository."
+description: "Nginx is a high-performance web server and reverse proxy. Self-host it on your own server with Dokploy, which deploys Nginx as a Docker Compose service in a few clicks."
+category: utilities
+tags: [webserver, utilities]
+logo: simple-icons:nginx
+version: "1.31.8"
+revision: 1
+updated: 2026-10-28
+homepage: https://nginx.org/
+docs: https://nginx.org/en/docs/
+repository: https://github.com/nginx/nginx
+license: BSD-2-Clause
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    nginx:
+      image: nginx:1.31.8@sha256:c4d1df1ca40ef8cf932f19853f00eb0f81ffe5becda1256365bbf0a057060ffb
+      restart: unless-stopped
+      volumes:
+        - nginx-config:/etc/nginx
+        - nginx-html:/usr/share/nginx/html
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    nginx-config:
+    nginx-html:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes nginx-config, nginx-html of this application: back them up before updating."

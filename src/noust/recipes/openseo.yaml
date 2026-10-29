@@ -1,0 +1,68 @@
+# OpenSEO: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/openseo
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: openseo
+kind: compose
+title: "OpenSEO"
+slogan: "Open source alternative to Semrush and Ahrefs"
+description: "OpenSEO is an open source, self-hosted alternative to Semrush and Ahrefs for keyword research, rank tracking, backlinks, and site audits."
+category: analytics
+tags: [seo, analytics, marketing]
+logo: logo.svg
+version: "0.1.6"
+revision: 1
+updated: 2026-10-28
+homepage: https://openseo.so
+docs: https://openseo.so/docs/self-hosting
+repository: https://github.com/every-app/open-seo
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  OPENSEO_HOST:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  DATAFORSEO_API_KEY:
+    default: ""
+    secret: true
+    description: "Setting DATAFORSEO_API_KEY of the application; the template leaves it to the operator."
+  OPENROUTER_API_KEY:
+    default: ""
+    secret: true
+    description: "Setting OPENROUTER_API_KEY of the application; the template leaves it to the operator."
+  OPENROUTER_MODEL:
+    default: "openai/gpt-4o-mini"
+    description: "Setting OPENROUTER_MODEL of the application; the template leaves it to the operator."
+  OPENSEO_TELEMETRY_DISABLED:
+    default: ""
+    description: "Setting OPENSEO_TELEMETRY_DISABLED of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    openseo:
+      image: ghcr.io/every-app/open-seo:v0.1.6@sha256:b7930375e3cffd6530c2423dac0913e97cd5b22f05caf26908e26033acac289c
+      restart: unless-stopped
+      environment:
+        CLOUDFLARE_INCLUDE_PROCESS_ENV: 'true'
+        PORT: '3001'
+        ALLOWED_HOST: ${OPENSEO_HOST}
+        AUTH_MODE: local_noauth
+        DATAFORSEO_API_KEY: ${DATAFORSEO_API_KEY}
+        OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+        OPENROUTER_MODEL: ${OPENROUTER_MODEL}
+        OPENSEO_TELEMETRY_DISABLED: ${OPENSEO_TELEMETRY_DISABLED}
+      volumes:
+        - openseo-data:/app/.wrangler
+      ports:
+        - 127.0.0.1:${PORT}:3001
+  volumes:
+    openseo-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume openseo-data of this application: back it up before updating."

@@ -598,16 +598,18 @@ def test_the_credit_of_a_first_draft_is_put_in_the_form_the_notices_list_recipes
     fixed = tool.credit_header(old)
 
     assert fixed.startswith(
-        "# Dozzle: Derived in part from Coolify's template templates/compose/dozzle.yaml\n"
+        "# Dozzle: Derived in part from Coolify's template "
+        "https://github.com/coollabsio/coolify/blob/next/templates/compose/dozzle.yaml\n"
     )
     assert "Apache-2.0, Copyright 2025 Andras Bacsai" in fixed and fixed.endswith("schema: 2\n")
     dokploy = old.replace(
         "Coolify service template (templates/compose/dozzle.yaml)",
         "Dokploy service template (blueprints/dozzle)",
     )
-    assert "Derived in part from Dokploy's template blueprints/dozzle" in tool.credit_header(
-        dokploy
-    )
+    assert (
+        "Derived in part from Dokploy's template "
+        "https://github.com/Dokploy/templates/tree/main/blueprints/dozzle"
+    ) in tool.credit_header(dokploy)
     assert "MIT, Copyright 2024 Dokploy and Carlos Ortiz" in tool.credit_header(dokploy)
     # A header that already carries the credit is left as it is.
     assert tool.credit_header(fixed) == fixed

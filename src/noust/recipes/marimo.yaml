@@ -1,0 +1,73 @@
+# Marimo: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/marimo.yml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: marimo
+kind: compose
+title: "Marimo"
+slogan: "An open-source reactive notebook for Python — reproducible, git-friendly, SQL built-in..."
+description: "Open-source reactive notebook for Python."
+category: data
+tags: [notebook, python, data, analysis]
+logo: logo.svg
+version: "0.25.2"
+revision: 1
+updated: 2026-10-28
+homepage: https://marimo.io
+docs: https://marimo.io/
+repository: https://github.com/marimo-team/marimo
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_MARIMO:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_MARIMO:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for marimo."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    marimo:
+      image: ghcr.io/marimo-team/marimo:0.25.2@sha256:51b0d37f0ce60202e006eccb5e13bb24da7355c5f37405ef551d4537c10f3872
+      environment:
+        SERVICE_URL_MARIMO: ${SERVICE_URL_MARIMO}
+        TOKEN_PASSWORD: ${SERVICE_PASSWORD_MARIMO}
+      volumes:
+        - marimo:/app
+      command:
+        - marimo
+        - edit
+        - --token-password
+        - ${SERVICE_PASSWORD_MARIMO}
+        - --port
+        - '8080'
+        - --host
+        - 0.0.0.0
+      healthcheck:
+        test:
+          - CMD
+          - uvx
+          - --with
+          - httpx[cli]
+          - httpx
+          - http://localhost:8080/health
+        interval: 5s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    marimo:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_MARIMO in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume marimo of this application: back it up before updating."

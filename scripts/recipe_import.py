@@ -1285,13 +1285,19 @@ def build_text(
             f"{', '.join(volumes)} of this application: back "
             f"{'them' if len(volumes) > 1 else 'it'} up before updating."
         )
-    mark = "Derived in part from Coolify's template"
+    credit = (
+        "Derived in part from Coolify's template "
+        f"https://github.com/coollabsio/coolify/blob/next/{draft.template}"
+    )
     licence_of_origin = "Apache-2.0, Copyright 2025 Andras Bacsai"
     if draft.origin == "Dokploy":
-        mark = "Derived in part from Dokploy's template"
+        credit = (
+            "Derived in part from Dokploy's template "
+            f"https://github.com/Dokploy/templates/tree/main/{draft.template}"
+        )
         licence_of_origin = "MIT, Copyright 2024 Dokploy and Carlos Ortiz"
     lines = [
-        f"# {title}: {mark} {draft.template}",
+        f"# {title}: {credit}",
         f"# ({licence_of_origin}), changed into a recipe: every image pinned to a release and the",
         "# digest its registry serves, the web port on the loopback address, credentials generated,",
         "# and nothing the closed schema refuses. The template's authors keep their rights in it.",
@@ -1495,11 +1501,19 @@ def credit_header(text: str) -> str:
     if found is None:
         return text
     if found["origin"] == "Coolify":
-        mark, licence = "Coolify's", "Apache-2.0, Copyright 2025 Andras Bacsai"
+        credit = (
+            "Derived in part from Coolify's template "
+            f"https://github.com/coollabsio/coolify/blob/next/{found['template']}"
+        )
+        licence = "Apache-2.0, Copyright 2025 Andras Bacsai"
     else:
-        mark, licence = "Dokploy's", "MIT, Copyright 2024 Dokploy and Carlos Ortiz"
+        credit = (
+            "Derived in part from Dokploy's template "
+            f"https://github.com/Dokploy/templates/tree/main/{found['template']}"
+        )
+        licence = "MIT, Copyright 2024 Dokploy and Carlos Ortiz"
     header = (
-        f"# {found['title']}: Derived in part from {mark} template {found['template']}\n"
+        f"# {found['title']}: {credit}\n"
         f"# ({licence}), changed into a recipe: every image pinned to a release and the\n"
         "# digest its registry serves, the web port on the loopback address, credentials generated,\n"
         "# and nothing the closed schema refuses. The template's authors keep their rights in it.\n"

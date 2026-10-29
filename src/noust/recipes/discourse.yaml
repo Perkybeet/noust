@@ -1,4 +1,4 @@
-# Discourse: Derived in part from Dokploy's template blueprints/discourse
+# Discourse: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/discourse
 # (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
 # digest its registry serves, the web port on the loopback address, credentials generated,
 # and nothing the closed schema refuses. The template's authors keep their rights in it.

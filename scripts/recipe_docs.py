@@ -135,10 +135,13 @@ def provenance(recipe: Recipe) -> str:
         recipe: A recipe of the package.
 
     Returns:
-        ``coolify`` when its header credits a Coolify template, else ``project``.
+        ``coolify`` when its header credits a Coolify template, ``dokploy`` when it credits a
+        Dokploy one, else ``project``.
     """
     head = (RECIPES / f"{recipe.name}.yaml").read_text(encoding="utf-8").split("schema:", 1)[0]
-    return "coolify" if re.search(r"Coolify'?s? (service )?template", head) else "project"
+    if re.search(r"Coolify'?s? (service )?template", head):
+        return "coolify"
+    return "dokploy" if re.search(r"Dokploy'?s? (service )?template", head) else "project"
 
 
 def generate() -> str:
@@ -161,9 +164,10 @@ def generate() -> str:
         "",
         f"Of the {len(installable)} you can install, {kinds['compose']} run in Docker and "
         f"{kinds['native']} are native (a pinned source built by one of Noust's deployers). "
-        f"{sources['project']} were written from the project's own documentation, and "
+        f"{sources['project']} were written from the project's own documentation, "
         f"{sources['coolify']} took part of their wiring from Coolify's service templates "
-        "(Apache-2.0), credited in the header of their file. Every image is pinned by tag and by "
+        f"(Apache-2.0) and {sources['dokploy']} from Dokploy's (MIT), credited in the header of "
+        "their file. Every image is pinned by tag and by "
         "digest and every recipe starts closed. `scripts/recipe_smoke.py` starts a recipe in "
         "Docker and asks its health check: run it for a recipe you add or change.",
         "",

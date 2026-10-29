@@ -1,0 +1,95 @@
+# Paperclip: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/paperclip
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: paperclip
+kind: compose
+title: "Paperclip"
+slogan: "The open-source app everyone uses to manage agents at work"
+description: "Paperclip is an open-source control plane for managing teams of AI agents, goals, budgets, tickets, and recurring work."
+category: ai
+tags: [ai, agents, automation, self-hosted]
+logo: logo.svg
+version: "2026.1023.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://paperclip.ing
+docs: https://docs.paperclip.ing/
+repository: https://github.com/paperclipai/paperclip
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  DATABASE_URL:
+    value: "postgres://paperclip:${POSTGRES_PASSWORD}@postgres:5432/paperclip"
+    secret: true
+    description: "Setting DATABASE_URL of the application; the template leaves it to the operator."
+  BETTER_AUTH_SECRET:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for better auth secret."
+  PAPERCLIP_DEPLOYMENT_MODE:
+    default: "authenticated"
+    description: "Setting PAPERCLIP_DEPLOYMENT_MODE of the application; the template leaves it to the operator."
+  PAPERCLIP_DEPLOYMENT_EXPOSURE:
+    default: "private"
+    description: "Setting PAPERCLIP_DEPLOYMENT_EXPOSURE of the application; the template leaves it to the operator."
+  PAPERCLIP_PUBLIC_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    postgres:
+      image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: paperclip
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: paperclip
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U paperclip -d paperclip
+        interval: 10s
+        timeout: 5s
+        retries: 10
+      volumes:
+        - postgres-data:/var/lib/postgresql/data
+    paperclip:
+      image: ghcr.io/paperclipai/paperclip:2026.1023.0@sha256:40f46940c4612ead131aebe6079cd4651f8cd1434af49f7c621887f4a452a62e
+      restart: unless-stopped
+      depends_on:
+        postgres:
+          condition: service_healthy
+      environment:
+        HOST: 0.0.0.0
+        PORT: '3100'
+        SERVE_UI: 'true'
+        DATABASE_URL: ${DATABASE_URL}
+        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+        PAPERCLIP_HOME: /paperclip
+        PAPERCLIP_INSTANCE_ID: default
+        PAPERCLIP_CONFIG: /paperclip/instances/default/config.json
+        PAPERCLIP_DEPLOYMENT_MODE: ${PAPERCLIP_DEPLOYMENT_MODE}
+        PAPERCLIP_DEPLOYMENT_EXPOSURE: ${PAPERCLIP_DEPLOYMENT_EXPOSURE}
+        PAPERCLIP_PUBLIC_URL: ${PAPERCLIP_PUBLIC_URL}
+      volumes:
+        - paperclip-data:/paperclip
+      ports:
+        - 127.0.0.1:${PORT}:3100
+  volumes:
+    postgres-data:
+    paperclip-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes postgres-data, paperclip-data of this application: back them up before updating."

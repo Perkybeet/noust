@@ -11,14 +11,19 @@ Files:
  src/noust/recipes/affine.yaml
  src/noust/recipes/anythingllm.yaml
  src/noust/recipes/docuseal.yaml
+ src/noust/recipes/dozzle.yaml
+ src/noust/recipes/drizzle-gateway.yaml
  src/noust/recipes/elasticsearch.yaml
  src/noust/recipes/glance.yaml
  src/noust/recipes/glitchtip.yaml
  src/noust/recipes/homebox.yaml
  src/noust/recipes/hoppscotch.yaml
+ src/noust/recipes/influxdb.yaml
  src/noust/recipes/karakeep.yaml
  src/noust/recipes/kimai.yaml
+ src/noust/recipes/libretranslate.yaml
  src/noust/recipes/linkwarden.yaml
+ src/noust/recipes/marimo.yaml
  src/noust/recipes/mealie.yaml
  src/noust/recipes/openobserve.yaml
  src/noust/recipes/outline.yaml
@@ -38,9 +43,19 @@ Comment: Derived in part from the Docker Compose templates of Coolify
 License: Apache-2.0
 
 Files:
+ src/noust/recipes/archivebox.yaml
+ src/noust/recipes/calibre.yaml
  src/noust/recipes/discourse.yaml
+ src/noust/recipes/flaresolverr.yaml
+ src/noust/recipes/go2rtc.yaml
+ src/noust/recipes/nginx.yaml
  src/noust/recipes/open-design.yaml
  src/noust/recipes/opencode.yaml
+ src/noust/recipes/openseo.yaml
+ src/noust/recipes/paperclip.yaml
+ src/noust/recipes/prometheus.yaml
+ src/noust/recipes/trek.yaml
+ src/noust/recipes/victoriametrics.yaml
 Copyright: 2024 Dokploy and Carlos Ortiz
            2026 Yago López Prado
 Comment: Derived in part from the service templates of Dokploy

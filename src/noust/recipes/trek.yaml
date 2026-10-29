@@ -1,0 +1,87 @@
+# TREK: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/trek
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: trek
+kind: compose
+title: "TREK"
+slogan: "A self-hosted travel/trip planner with real-time collaboration, interactive maps, PWA support..."
+description: "A minimalist, self-hosted trip planner with Kanban-style task boards, budgets, packing lists, interactive maps, real-time collaboration, and OIDC single sign-on."
+category: security
+tags: [travel, planning, productivity, security]
+logo: logo.svg
+version: "3.3.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://demo.liketrek.com
+docs: https://github.com/mauriceboe/TREK/wiki
+repository: https://github.com/liketrek/TREK
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ENCRYPTION_KEY:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for encryption key."
+  TZ:
+    default: "UTC"
+    description: "Setting TZ of the application; the template leaves it to the operator."
+  LOG_LEVEL:
+    default: "info"
+    description: "Setting LOG_LEVEL of the application; the template leaves it to the operator."
+  APP_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  ALLOWED_ORIGINS:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  ADMIN_EMAIL:
+    default: "admin@app.example.com"
+    description: "Setting ADMIN_EMAIL of the application; the template leaves it to the operator."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for admin password."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    trek:
+      image: mauriceboe/trek:3.3.0@sha256:1abd6fc1fcb336aeb2be38552fb5f0a4fd9c3ef629b609a2dd99c8cc9954942b
+      restart: unless-stopped
+      environment:
+        NODE_ENV: production
+        PORT: '3000'
+        ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+        TZ: ${TZ:-UTC}
+        LOG_LEVEL: ${LOG_LEVEL:-info}
+        APP_URL: ${APP_URL}
+        ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+        ADMIN_EMAIL: ${ADMIN_EMAIL}
+        ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      volumes:
+        - trek-data:/app/data
+        - trek-uploads:/app/uploads
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - -qO-
+          - http://localhost:3000/api/health
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 15s
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    trek-data:
+    trek-uploads:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes trek-data, trek-uploads of this application: back them up before updating."

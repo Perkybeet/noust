@@ -1,0 +1,55 @@
+# Dozzle: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/dozzle.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: dozzle
+kind: compose
+title: "Dozzle"
+slogan: "Dozzle is a simple and lightweight web UI for Docker logs."
+description: "Dozzle is a real-time log viewer for Docker containers. Self-host it on your own server with Dokploy, which deploys Dozzle as a Docker Compose service in a few clicks."
+category: monitoring
+tags: [dozzle, docker, logs, web-ui, monitoring]
+logo: logo.svg
+version: "11.3.5"
+revision: 1
+updated: 2026-10-28
+homepage: https://dozzle.dev/
+docs: https://dozzle.dev/guide/getting-started#running-with-docker
+repository: https://github.com/amir20/dozzle
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_DOZZLE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+root_equivalent: docker_socket
+compose: |
+  services:
+    dozzle:
+      image: amir20/dozzle:v11.3.5@sha256:dd09e6aaa9d5ad686b6017427a502c40dc862ba28445609813e5ea1f66f6dbdf
+      environment:
+        SERVICE_URL_DOZZLE: ${SERVICE_URL_DOZZLE}
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+      healthcheck:
+        test:
+          - CMD
+          - /dozzle
+          - healthcheck
+        interval: 3s
+        timeout: 30s
+        retries: 5
+        start_period: 30s
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "Dozzle controls the Docker daemon of this server, which is the same as root on it: it can start any container with any part of the server mounted, Noust's applications included. Give its sign-in only to people you would give root."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."

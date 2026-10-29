@@ -1,0 +1,86 @@
+# InfluxDB: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/influxdb.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: influxdb
+kind: compose
+title: "InfluxDB"
+slogan: "Open source time series database for metrics, events, and analytics."
+description: "InfluxDB 2.7 is the platform purpose-built to collect, store, process and visualize time series data."
+category: smart-home
+tags: [influxdb, time, series, metrics, iot, monitoring, telegraf, self-hosted]
+logo: simple-icons:influxdb
+version: "2.7-alpine"
+revision: 1
+updated: 2026-10-28
+homepage: https://influxdata.com
+docs: https://docs.influxdata.com/influxdb/
+repository: https://github.com/influxdata/influxdb
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_INFLUXDB:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_INFLUXDB:
+    generate: "user"
+    description: "The user name Noust generated for influxdb."
+  SERVICE_PASSWORD_INFLUXDB:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for influxdb."
+  SERVICE_ORG_INFLUXDB:
+    default: ""
+    description: "Setting SERVICE_ORG_INFLUXDB of the application; the template leaves it to the operator."
+  SERVICE_BUCKET_INFLUXDB:
+    default: ""
+    description: "Setting SERVICE_BUCKET_INFLUXDB of the application; the template leaves it to the operator."
+  SERVICE_PASSWORD_INFLUXDB_TOKEN:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for influxdb token."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    influxdb:
+      image: influxdb:2.7-alpine@sha256:991673dc2d237bd79b15d6627410d72de111387e7dac673dbb92cf3333ffcc8c
+      environment:
+        SERVICE_URL_INFLUXDB: ${SERVICE_URL_INFLUXDB}
+        INFLUXDB_HTTP_BIND_ADDRESS: :8086
+        INFLUXDB_INIT_MODE: setup
+        INFLUXDB_INIT_USERNAME: ${SERVICE_USER_INFLUXDB}
+        INFLUXDB_INIT_PASSWORD: ${SERVICE_PASSWORD_INFLUXDB}
+        INFLUXDB_INIT_ORG: ${SERVICE_ORG_INFLUXDB}
+        INFLUXDB_INIT_BUCKET: ${SERVICE_BUCKET_INFLUXDB}
+        INFLUXDB_INIT_RETENTION: '0'
+        INFLUXDB_INIT_ADMIN_TOKEN: ${SERVICE_PASSWORD_INFLUXDB_TOKEN}
+      volumes:
+        - influxdb-data:/var/lib/influxdb2
+        - influxdb-config:/etc/influxdb2
+      healthcheck:
+        test:
+          - CMD
+          - influx
+          - ping
+          - --host
+          - http://127.0.0.1:8086
+        interval: 10s
+        timeout: 5s
+        retries: 5
+        start_period: 20s
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8086
+  volumes:
+    influxdb-data:
+    influxdb-config:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_INFLUXDB and SERVICE_PASSWORD_INFLUXDB and SERVICE_PASSWORD_INFLUXDB_TOKEN in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes influxdb-data, influxdb-config of this application: back them up before updating."

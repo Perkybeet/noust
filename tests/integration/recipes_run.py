@@ -89,6 +89,14 @@ SHARED_REPOSITORIES = (
     "pgvector/pgvector",
 )
 
+#: What a pull says when the network, and not the recipe, failed: a name that did not resolve, a
+#: connection that timed out. The run is not a result about the recipe and is made again.
+TRANSIENT = re.compile(
+    r"no such host|i/o timeout|TLS handshake timeout|connection reset by peer|"
+    r"temporary failure in name resolution|context deadline exceeded",
+    re.IGNORECASE,
+)
+
 #: What a registry that counts pulls says when it has had enough.
 RATE_LIMITED = re.compile(r"toomanyrequests|pull rate limit|429 Too Many Requests", re.IGNORECASE)
 
@@ -610,7 +618,9 @@ def smoke(name: str, *, extra: list[str]) -> dict[str, Any]:
             entry["suggested_health"] = data["suggested_health"]
         # A stack whose container keeps restarting or has left is not a slow one.
         entry["unsteady"] = any(
-            container.get("restarts", 0) > 0 or container.get("state") not in ("running",)
+            container.get("restarts", 0) > 0
+            or container.get("state") not in ("running",)
+            or container.get("health") == "unhealthy"
             for container in data.get("containers") or ()
         )
         if data["problems"]:
@@ -629,6 +639,11 @@ def smoke(name: str, *, extra: list[str]) -> dict[str, Any]:
         entry["verified"] = (
             "what the recipe promises beyond the gate was checked on the running stack"
         )
+    entry["transient"] = bool(
+        entry["result"] == "fail"
+        and "docker compose up failed" in " ".join(entry.get("problems", []))
+        and TRANSIENT.search(" ".join(entry.get("problems", [])))
+    )
     entry["rate_limited"] = bool(RATE_LIMITED.search(output + " ".join(entry.get("problems", []))))
     entry["images_removed"] = len(remove_images(name))
     return entry
@@ -662,7 +677,7 @@ def pending() -> list[str]:
     done = {
         entry["recipe"]
         for entry in read_results().get("results", [])
-        if not entry.get("rate_limited")
+        if not entry.get("rate_limited") and not entry.get("transient")
     }
     tracked = committed()
     return sorted(
@@ -683,7 +698,7 @@ def pending_drafts() -> list[str]:
     done = {
         entry["recipe"]
         for entry in read_results().get("results", [])
-        if not entry.get("rate_limited")
+        if not entry.get("rate_limited") and not entry.get("transient")
     }
     waiting = [p.stem for p in DRAFTS.glob("*.yaml") if p.stem not in done]
     queue = DRAFTS.parent / "queue.txt"
@@ -707,7 +722,7 @@ def next_names(count: int) -> list[str]:
     done = {
         entry["recipe"]
         for entry in read_results().get("results", [])
-        if not entry.get("rate_limited")
+        if not entry.get("rate_limited") and not entry.get("transient")
     }
     priority = DRAFTS.parent / "priority.txt"
     first = priority.read_text().split() if priority.is_file() else []
