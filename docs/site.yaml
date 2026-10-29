@@ -375,8 +375,17 @@ tabs:
             summary: "An engine's settings and limits on the host, making a database public on purpose, and the ports open beyond the machine."
           - source: docs/disaster-recovery.md
             slug: guides/backups
+            title: Back up applications and databases
             type: guide
-            summary: Backups of applications and databases, destinations, and restoring a whole server.
+            summary: What Noust backs up and how (databases, application data, its own state), sealing backups on the disk, and proving they come back.
+          - source: docs/backups-destinations.md
+            slug: guides/backups/destinations
+            type: guide
+            summary: Where backups can go, provider by provider, what has been tried against each real service, and how a destination is encrypted and watched.
+          - source: docs/backups-restore-server.md
+            slug: guides/backups/restore-a-server
+            type: guide
+            summary: Bring a whole server back from its backups on a new machine, or move every application to another server.
       - title: Automate
         pages:
           - source: docs/ci.md

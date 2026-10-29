@@ -13,6 +13,11 @@ Together they are enough to bring a server back from nothing.
 Every destination (rclone) is the same one for the four of them: configure it once with
 `noust backup destination`.
 
+The rest of this guide is on pages of its own:
+
+- [Where backups go: destinations, encrypted](backups-destinations.md)
+- [Bring a whole server back, or move to another](backups-restore-server.md)
+
 ## Databases
 
 PostgreSQL, MySQL, MariaDB and MongoDB are covered; a SQLite file inside an application is
@@ -198,7 +203,8 @@ store's migrations and starts everything again.
 ## Backups sealed on this server's disk
 
 A backup on the disk that holds it is readable by whoever gets the disk, a snapshot of it, a copy
-of `/var/backups` or a retired drive. Destinations can already be encrypted (below); this seals the
+of `/var/backups` or a retired drive. Destinations can already be encrypted
+([Where backups go](backups-destinations.md#destinations-are-encrypted-and-watched)); this seals the
 copies that stay **on the server**:
 
 ```bash
@@ -264,42 +270,6 @@ readable: they hold ids, sizes and digests, never the data.
   envelope under its own passphrase), a dump handed to `noust db import`, files no record describes
   (a restore's safety copy, a dump put in the directory by hand) and what a destination already holds.
 
-## Bringing a whole server back
-
-On a new machine with Noust installed and the bundle on it (or on a destination):
-
-```bash
-noust restore-server --from noust-self-<host>-<time>.tar.gz.enc --plan     # what it would bring back
-noust restore-server --from noust-self-<host>-<time>.tar.gz.enc
-noust restore-server --from-destination nas --name noust-self-<host>-<time>.tar.gz.enc --host <old-host>
-```
-
-The flow restores Noust's state, names the database engines this machine lacks (with the
-`noust db install` command for each), then for every application restores the newest backup
-(local, or on the destinations its schedule sends to), lays the newer data backups over it,
-renders its site and starts it through the health gate. The final report says per application
-what came back, what failed (with the evidence) and what had no backup. It exits 1 when any
-application is not back; fix what it says and run it again with `--skip-state` to retry only
-the applications.
-
-With `--install` it also installs what the machine lacks: the web server the restored configuration
-names, Docker when an application or a database instance needs it, and the database engines (apt and
-zypper from the distribution's own repositories; a distribution that does not carry Docker is told how,
-never given a third-party repository). Without it nothing is installed and the report names the
-command. Once an engine is there the flow creates the PostgreSQL roles the new server lacks, then loads
-each database no application owns from its newest dump, on this server or on a destination, and never
-over a database the server already has. The report lists the software, the roles and the databases, and a
-database with no dump anywhere makes it not ok.
-
-The console runs everything after the state is back: `GET /api/server/restore/plan` says what a
-restore would do now, and `POST /api/server/restore` (a job, sudo mode, `backups.manage`) does it.
-Restoring the state replaces the store the console runs on, so that step stays a command at a terminal
-and the job keeps the state that is here.
-
-What it does not do: deploy an application that never had a backup (it says so; deploy it again from
-its source). A schema change that nothing can undo the database for needs `--accept-schema-changes`,
-as every other way back does.
-
 ## Does a backup come back?
 
 A backup nobody restored is a hope. `noust backup drill` rehearses it:
@@ -331,186 +301,6 @@ after the backup and its destinations, in the same run; a drill that fails is an
 backup and does not fail the backup's own run. `POST /api/apps/{domain}/restore-drills` (a job) and
 `GET` the same path are the API, and the backup history drawer shows the reports. For a whole server,
 `noust restore-server --plan` rehearses it, and the next section moves one.
-
-## Provider guides
-
-A destination is an rclone remote; the `--type` decides which. Object stores take the bucket (or
-container) as the first part of the **folder**: `--field path=my-bucket/noust-backups`. A destination
-is tried when it is saved: `noust backup destination add` and `update` (and `POST` and `PUT
-/api/backup-destinations`) create the folder, which is the first real write so a key that can only
-read fails here, and list it, exactly as `noust backup destination test NAME` does, and keep nothing
-that does not answer. `--skip-test` (`"verify": false` in the API) saves one that is down on purpose.
-For an object store the **bucket must already exist**: Noust looks at it first, read only, and says
-so, instead of creating a bucket in your account out of a mistyped name. So the matrix that matters
-is your own: a provider is supported on your account when `destination add` succeeds. Noust's offline
-tests pin what is passed to rclone for each type below, not how a provider answers; the next
-subsection says what has been run against a real server.
-
-| Where | `--type` | What to give |
-|---|---|---|
-| Amazon S3 | `s3` | `provider=AWS`, `region`, the access key; no endpoint |
-| Cloudflare R2 | `s3` | `provider=Cloudflare`, `endpoint=https://<account>.r2.cloudflarestorage.com` |
-| Backblaze B2 | `b2` (native) or `s3` | `account` and application key; or `provider=Backblaze`, `endpoint=https://s3.<region>.backblazeb2.com` |
-| Hetzner Object Storage | `s3` | `provider=Hetzner`, `endpoint=https://<location>.your-objectstorage.com` |
-| Wasabi | `s3` | `provider=Wasabi`, `endpoint=https://s3.<region>.wasabisys.com` |
-| DigitalOcean Spaces | `s3` | `provider=DigitalOcean`, `endpoint=https://<region>.digitaloceanspaces.com` |
-| Scaleway | `s3` | `provider=Scaleway`, `endpoint=https://s3.<region>.scw.cloud`, `region` |
-| IDrive e2 | `s3` | `provider=IDrive`, the endpoint of your bucket's region |
-| MinIO | `s3` | `provider=Minio`, your own `endpoint` |
-| Ceph (RadosGW) | `s3` | `provider=Ceph`, your own `endpoint` |
-| Supabase Storage, Vultr and other S3 | `s3` | `provider=Other`, the `endpoint` they give you |
-| Azure Blob Storage | `azureblob` | `account` and the account key |
-| Google Cloud Storage | `gcs` | the JSON key of a service account (read from `--stdin`) |
-| An SSH server | `sftp` | `host`, `user`, and a password or `key_file` |
-| An FTP server | `ftp` | `host`, `user`, password, and `explicit_tls=true` (plain FTP sends the password in clear) |
-| A NAS | `smb`, `webdav` or `sftp` | `host`, `user`, password |
-| Nextcloud, ownCloud | `webdav` | `url`, `vendor`, `user`, an app password |
-| Google Drive, OneDrive, Dropbox, Box, pCloud | `drive`, `onedrive`, `dropbox`, `box`, `pcloud` | the token `rclone authorize <type>` prints on your own computer |
-| A disk this server mounts | `local` | an absolute `path` |
-
-A provider name outside the list of the S3 form is passed to rclone as written (`provider=Alibaba`):
-rclone knows more of them than the form offers. An address inside this machine's own networks (a NAS
-on the LAN, a local MinIO) is refused until it is named in `security.allow_private_hosts`.
-
-### What has been tried against the real service
-
-The table above says what Noust passes to rclone. This one says what has been run against a real
-server, when, and with which rclone. A row is added when its run is, with the date it was run:
-
-| Where | Last tried | rclone | What ran |
-|---|---|---|---|
-| MinIO (`s3`, `provider=Minio`) | 2026-10-17 | 1.60.1 | A bucket that does not exist is refused and not created; a wrong key is refused with the server's own words and nothing is kept; a name MinIO would refuse is stopped before the network; a file goes up, is listed, comes back identical and is deleted, in clear and encrypted |
-| An SSH server (`sftp`) | 2026-10-17 | 1.60.1 | Against rclone's own SFTP server: tried and kept, a wrong password refused and not kept, a file sent (verified by MD5), listed, fetched back identical and deleted |
-| A WebDAV server (`webdav`, `vendor=other`) | 2026-10-17 | 1.60.1 | Against rclone's own WebDAV server, the same steps, the upload verified by size |
-
-The rclone is the 1.60.1 package of the harness image (`v1.60.1-DEV`); a newer one is expected to
-behave the same and has not been tried. The SFTP and WebDAV rows prove Noust's side of the
-protocol (what it passes, what it keeps, what it refuses) against rclone's server for it, which is a
-different implementation from the client's side; they do not prove a particular vendor's quirks.
-
-**Not tried against the real service**, and so supported as far as rclone documents it and no
-further: Amazon S3, Cloudflare R2, Backblaze B2, Hetzner Object Storage, Wasabi, DigitalOcean
-Spaces, Scaleway, IDrive e2, Ceph, Supabase Storage and Vultr, Azure Blob Storage, Google Cloud
-Storage, an FTP server, SMB, Nextcloud and ownCloud, Google Drive, OneDrive, Dropbox, Box, pCloud.
-Prove yours with `noust backup destination add`; if it connects, the same steps ran.
-
-The runs are `python tests/integration/backups_run.py --scenario s3_destination` and `--scenario
-protocol_destinations` (Docker; they create `noust-test-w6b-*` containers with the label `noust.test=1`
-and remove them).
-
-**Amazon S3 with the least access.** Give the key only what a backup needs; this policy is the whole of
-it (replace the bucket):
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
-      "Resource": "arn:aws:s3:::my-noust-backups"
-    },
-    {
-      "Effect": "Allow",
-      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
-      "Resource": "arn:aws:s3:::my-noust-backups/*"
-    }
-  ]
-}
-```
-
-```bash
-noust backup destination add offsite --type s3 \
-  --field provider=AWS --field region=eu-west-1 --field access_key_id=AKIA... \
-  --field path=my-noust-backups/server-1 --stdin < secret-access-key.txt
-noust backup destination test offsite
-```
-
-**Cloudflare R2.** Create an API token with "Object Read & Write" on the bucket; R2 has no regions, so
-leave `region` empty and use the account's endpoint.
-
-**Google Cloud Storage.** Create a service account, give it *Storage Object Admin* on the bucket only,
-download its JSON key and pass it whole: `--stdin < key.json`. `bucket_policy_only=true` is right for a
-bucket with uniform bucket-level access, which is the default for new ones.
-
-**Azure Blob Storage.** The container must exist; `--field path=container/noust-backups`. The account key
-is under *Access keys* of the storage account.
-
-**Backblaze.** The native `b2` type uses an application key limited to one bucket; the S3 type works with
-the same key against the S3 endpoint of the bucket's region. Either is fine; native is one request fewer
-per file.
-
-What a provider does with a bucket's own lifecycle rules (versioning, object lock, expiry) is its
-business and Noust's retention does not know about it: a lifecycle rule that deletes objects younger
-than the schedule keeps them makes a backup disappear from under the schedule, and `noust backup
-verify` is how you find out.
-
-## Destinations are encrypted, and watched
-
-A destination made without a word about encryption wraps the remote in rclone's `crypt` backend with a
-key generated here and printed once by `noust backup destination show-key`: `noust backup destination
-add --encrypt/--no-encrypt` (on by default), `encrypted` in the API (true, false or omitted), and
-`backup.encrypt_new_destinations: false` turns the default off for a server that wants plain copies.
-What the operator said wins; a key given to read backups already there means encryption; otherwise the
-default. The `ens-medium` profile refuses an upload to an unencrypted destination whatever the default is.
-
-The monitor announces a backup that was never taken, which fails nothing, and a destination that went
-away, which fails only the next upload: `backup_missing` when no successful run of a schedule, a
-database's policy, an application's data policy or Noust's own backup is newer than
-`monitor.backup_missing_days` (2; a weekly or monthly schedule is given its period and a day; `0` turns it
-off), once, then every day while it stays true; and `destination_unreachable` when a destination some
-policy sends to does not answer (asked every `monitor.backup_check_hours`, as `noust backup destination
-test` asks), once per outage with rclone's own words, and again when it answers. Both are switches under
-`notifications.events`.
-
-## Moving to another server
-
-Bringing a server back and moving to another one are the same restore with two steps around it, and
-`noust server migrate` is those two steps. Nothing in them stops, changes or removes anything on the old
-server (it keeps answering until DNS points at the new one), and none of it edits DNS.
-
-```bash
-# On the old server
-noust server migrate plan --to nas        # what would move, what the new server needs, what stops it
-noust server migrate prepare --to nas     # copy everything now and send it to the destination
-
-# On the new server (Noust, the web server and Docker installed; the engines the plan named)
-noust restore-server --from-destination nas --name noust-self-<host>-<time>.tar.gz.enc --host <old-host>
-noust server migrate check                # does everything answer? where do the names resolve now?
-```
-
-**`prepare`** takes a fresh copy of everything, in an order that makes the bundle consistent with it, and
-sends each piece to a destination both servers can reach: every application (its release, `.env`, the dumps of
-its databases and its Docker volumes, as `noust backup create` takes it), the data of every application
-(persistent paths and volumes, like `noust backup volumes`), the databases no application owns, and last the
-bundle of Noust's own state, sealed under a passphrase that is never sent (`--passphrase-file`,
-`NOUST_SELF_BACKUP_PASSPHRASE`, a prompt, or `--stored-passphrase` for the one the self-backup schedule keeps).
-Each piece is its own step: one that fails (a volume that is gone, a destination that refused one file) is
-reported and the others still go, so a single bad piece does not leave twenty applications without a copy.
-It prints the commands to run on the new server, with the bundle's name and this server's folder filled in.
-`--app` limits it to some applications, `--no-data` leaves the data out. It is safe to repeat: for a final
-copy, stop what writes to the applications and run it again.
-
-**`plan`** is the same without copying: each application with every name it answers on, its databases, how
-many pieces of data it has and when it was last backed up; the standalone databases; the database engines the
-new server needs (`noust db install`); and what stops it, which is a destination that does not exist or that
-cannot be reached.
-
-**`check`** runs on the new server after `restore-server` and asks every application what a person asks
-before moving DNS: does its unit (or its stack) run, does it answer the way a deploy's health gate asks
-(the probe's own words when it does not), is a certificate there for each of its names, are its databases up,
-and where does each name resolve now. An application that is down, or whose database is missing, makes the
-report fail (exit status 1); a name that still resolves to the old server is listed as *pending*, not as wrong,
-with the addresses it resolves to: pointing it at the new server is yours to do, and `noust cert create` issues
-the certificates of the names that had none once DNS answers. The report is dated and is also
-`GET /api/server/migration/check`.
-
-What it does not do: install the web server, Docker or the engines on the new server (the plan and
-`restore-server` name what is missing); move the containers of a database *instance* (their databases come in
-the applications' backups, the instance itself is made again with `noust db instance create`); or touch
-anything that is not under Noust's care. The API is `GET /api/server/migration/plan`,
-`POST /api/server/migration/prepare` (sudo mode, a job, `backups.manage`) and `GET .../check`; the restore stays
-a command at a terminal, because it replaces the store the console runs on.
 
 ## Configuration
 

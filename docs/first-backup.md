@@ -98,7 +98,7 @@ noust backup restore wrenfield-io_20261029_181502
 
 It replaces the application's files with the ones in the backup, after asking. To restore from the
 copy off the server, on this server or a new one, add `--from offsite`. To bring back a whole
-server, see [Bringing a whole server back](disaster-recovery.md#bringing-a-whole-server-back).
+server, see [Bringing a whole server back](backups-restore-server.md#bringing-a-whole-server-back).
 
 A restore puts the application's files back, not its database: the dumps in the archive are loaded
 with their own command, `noust db import` ([Databases](disaster-recovery.md#databases)), because
