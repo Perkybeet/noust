@@ -1,0 +1,1 @@
+import{s as e}from"./icons-BCoUS5XU.js";import{st as t}from"./useNode-H0Kb7_X3.js";function n(n,r){let i=e(n);return t(()=>(r(i),()=>{r(e=>e===i?void 0:e)}),[i,r]),i}export{n as t};

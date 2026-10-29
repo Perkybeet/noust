@@ -1,1 +1,0 @@
-import{t as e}from"./useQuery-CRrP_wA8.js";import{g as t}from"./auth-eGANHJAm.js";function n(n){let{data:r}=e({...t(),select:e=>e.permissions});return r?.includes(n)??!1}export{n as t};

@@ -1,1 +1,0 @@
-import{in as e}from"./useNode-CVgs5h80.js";import{n as t}from"./ErrorBoundary-WXVz_kw7.js";var n=e(),r=({error:e})=>(0,n.jsx)(`main`,{className:`mx-auto min-h-dvh max-w-3xl px-6 py-16`,children:(0,n.jsx)(t,{error:e})});export{r as errorComponent};
