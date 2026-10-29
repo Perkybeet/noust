@@ -10,6 +10,7 @@ The rest of this guide is on pages of its own:
 - [Routes at a prefix, and signing in with a service of your own](network-routes.md)
 - [HTTP/3 and a web application firewall](network-http3-waf.md)
 - [DNS accounts, private networks, tunnels and ports](network-dns.md)
+- [Noust DNS: a name server of your own](network-dns-server.md)
 - [Moving to the other web server](network-webserver.md)
 
 ## Access: a password, addresses, limits and headers

@@ -36,12 +36,13 @@ from noust.core.store import NoustStore
 from noust.core.teams.model import ResourceNotFoundError
 from noust.core.timeutil import utc_now_iso
 from noust.core.tunnel_store import TunnelStore
-from noust.managers.dns import digitalocean, gandi, hetzner, route53
+from noust.managers.dns import digitalocean, gandi, hetzner, ionos, route53
 from noust.managers.dns.catalog import KINDS, ProviderKind, kind_of
 from noust.managers.dns.cloudflare import CloudflareClient, CloudflareProvider, Opener
 from noust.managers.dns.digitalocean import DigitalOceanProvider
 from noust.managers.dns.gandi import GandiProvider
 from noust.managers.dns.hetzner import HetznerProvider
+from noust.managers.dns.ionos import IonosProvider
 from noust.managers.dns.provider import DnsProvider, DnsProviderError, Zone
 from noust.managers.dns.route53 import Route53Provider
 
@@ -52,6 +53,9 @@ _NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,30}$")
 
 #: The native kinds whose credential is one token, kept as it is.
 _SINGLE_TOKEN = frozenset({"cloudflare", "digitalocean", "hetzner", "gandi"})
+
+#: The native kinds whose credential is one key, kept as it is.
+_SINGLE_KEY = frozenset({"ionos"})
 
 #: What a credential value may not hold: a line break would add a line to the file
 #: certbot reads, and anything else is not a credential.
@@ -439,6 +443,7 @@ class DnsAccounts:
             ),
             "hetzner": lambda: HetznerProvider(hetzner.client(values["token"], self._opener)),
             "gandi": lambda: GandiProvider(gandi.client(values["token"], self._opener)),
+            "ionos": lambda: IonosProvider(ionos.client(values["key"], self._opener)),
             "route53": lambda: Route53Provider(
                 route53.client(values["access_key_id"], values["secret_access_key"], self._opener)
             ),
@@ -455,11 +460,13 @@ class DnsAccounts:
             values: Its fields.
 
         Returns:
-            What is kept in the secret store: the token alone for a kind that has only one,
+            What is kept in the secret store: the token (or the key) alone for a kind that has only one,
             else a JSON document of every field the provider needs.
         """
         if spec.kind in _SINGLE_TOKEN:
             return values["token"]
+        if spec.kind in _SINGLE_KEY:
+            return values["key"]
         return json.dumps({f.name: values[f.name] for f in spec.fields if f.name != "account_id"})
 
     @staticmethod
@@ -477,6 +484,8 @@ class DnsAccounts:
         """
         if spec.kind in _SINGLE_TOKEN:
             return {"token": blob.strip()}
+        if spec.kind in _SINGLE_KEY:
+            return {"key": blob.strip()}
         try:
             loaded = json.loads(blob)
         except json.JSONDecodeError:

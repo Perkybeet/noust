@@ -17,7 +17,11 @@ noust dns ensure shop.example.com api.example.com
 noust dns records | release shop.example.com | sweep | check api.example.com
 ```
 
-Noust speaks the API of five providers itself: it lists their zones, makes and removes records
+A provider is not the only way to have DNS: Noust can also run a name server of its own on your
+servers, with the zones edited in Noust, DNSSEC, and the exact steps to delegate a domain to it. That
+is [Noust DNS](network-dns-server.md), an option with costs that page lists first.
+
+Noust speaks the API of six providers itself: it lists their zones, makes and removes records
 under the ownership model below, and answers the certificate challenge without a certbot plugin
 (see [certificates.md](certificates.md)). Linode, OVH and RFC 2136 still answer the challenge
 through certbot's plugin and make no records.
@@ -28,6 +32,7 @@ through certbot's plugin and make no records.
 | DigitalOcean | A personal access token with write scope | Keeps no note with a record. |
 | Hetzner | An API token of the **Cloud** project that holds the zones, with read and write rights | Hetzner moved DNS into the Cloud API and closed the old DNS Console API: a zone still on the old console must be migrated first. Keeps a comment with each value. |
 | Gandi | A personal access token with the right to manage the domains' technical configuration (LiveDNS) | Keeps no note with a record; its smallest TTL is 300 seconds. |
+| IONOS | An API key from developer.hosting.ionos.com/keys, pasted whole as `prefix.secret` | Keeps no note with a record; its smallest TTL is 60 seconds (an hour when none is asked). The domain's DNS must be hosted by IONOS, or the records are written and never seen. A zone IONOS only copies from elsewhere is not offered, and a record switched off in the control panel is not one Noust finds. |
 | Amazon Route 53 | The access key id and secret of an IAM user allowed `route53:ListHostedZones`, `ListResourceRecordSets` and `ChangeResourceRecordSets` | Keeps no note with a record. Requests are signed with SigV4 by Noust itself, with no SDK. The secret half is read from standard input, like any other credential. |
 
 A provider that keeps records in sets (Route 53, Hetzner, Gandi) has no number for a record, so

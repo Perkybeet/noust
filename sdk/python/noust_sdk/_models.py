@@ -778,6 +778,206 @@ AuditStatusResponse = TypedDict("AuditStatusResponse", {
     "total_bytes": NotRequired[int],
 })
 
+AuthDnsAddRecordRequest = TypedDict("AuthDnsAddRecordRequest", {
+    "content": Required[str],
+    "name": Required[str],
+    "ttl": NotRequired[Union[int, None]],
+    "type": Required[str],
+})
+
+AuthDnsAddSecondaryRequest = TypedDict("AuthDnsAddSecondaryRequest", {
+    "address": Required[str],
+    "hostname": NotRequired[Union[str, None]],
+})
+
+AuthDnsClusterIn = TypedDict("AuthDnsClusterIn", {
+    "epel": NotRequired[bool],
+    "plan": NotRequired[bool],
+    "primary": Required["AuthDnsClusterServerIn"],
+    "secondaries": NotRequired[list["AuthDnsClusterServerIn"]],
+})
+
+AuthDnsClusterServerIn = TypedDict("AuthDnsClusterServerIn", {
+    "hostname": Required[str],
+    "listen": NotRequired[Union[list[str], None]],
+    "node": Required[str],
+})
+
+AuthDnsCreateZoneRequest = TypedDict("AuthDnsCreateZoneRequest", {
+    "contact": NotRequired[Union[str, None]],
+    "default_ttl": NotRequired[int],
+    "dnssec": NotRequired[bool],
+    "glue": NotRequired[Union[dict[str, list[str]], None]],
+    "name": Required[str],
+    "nameservers": NotRequired[Union[list[str], None]],
+})
+
+AuthDnsDelegationCheckModel = TypedDict("AuthDnsDelegationCheckModel", {
+    "delegated": NotRequired[Union[bool, None]],
+    "ds_matches": NotRequired[Union[bool, None]],
+    "ds_published": NotRequired[Union[bool, None]],
+    "problems": Required[list["AuthDnsSentenceModel"]],
+    "public_nameservers": Required[list[str]],
+    "ready": Required[bool],
+    "servers": Required[list["AuthDnsServerCheckModel"]],
+    "zone": Required[str],
+})
+
+AuthDnsDelegationPlanModel = TypedDict("AuthDnsDelegationPlanModel", {
+    "dnssec": Required[bool],
+    "ds": Required[list["AuthDnsDsModel"]],
+    "nameservers": Required[list["AuthDnsNameServerModel"]],
+    "steps": Required[list["AuthDnsSentenceModel"]],
+    "warnings": Required[list["AuthDnsSentenceModel"]],
+    "zone": Required[str],
+})
+
+AuthDnsDnssecModel = TypedDict("AuthDnsDnssecModel", {
+    "algorithm": Required[str],
+    "ds": Required[list["AuthDnsDsModel"]],
+    "enabled": Required[bool],
+    "zone": Required[str],
+})
+
+AuthDnsDnssecRequest = TypedDict("AuthDnsDnssecRequest", {
+    "ds_removed": NotRequired[bool],
+    "enabled": Required[bool],
+})
+
+AuthDnsDsModel = TypedDict("AuthDnsDsModel", {
+    "algorithm": Required[int],
+    "digest": Required[str],
+    "digest_type": Required[int],
+    "key_tag": Required[int],
+    "text": Required[str],
+})
+
+AuthDnsInstallRequest = TypedDict("AuthDnsInstallRequest", {
+    "epel": NotRequired[bool],
+})
+
+AuthDnsNameServerModel = TypedDict("AuthDnsNameServerModel", {
+    "addresses": Required[list[str]],
+    "glue": Required[bool],
+    "name": Required[str],
+})
+
+AuthDnsRecordModel = TypedDict("AuthDnsRecordModel", {
+    "content": Required[str],
+    "created_at": NotRequired[str],
+    "created_by": NotRequired[Union[str, None]],
+    "id": NotRequired[Union[int, None]],
+    "name": Required[str],
+    "ttl": NotRequired[Union[int, None]],
+    "type": Required[str],
+    "updated_at": NotRequired[str],
+    "updated_by": NotRequired[Union[str, None]],
+    "zone": Required[str],
+})
+
+AuthDnsRemovedModel = TypedDict("AuthDnsRemovedModel", {
+    "removed": Required[bool],
+})
+
+AuthDnsSecondaryModel = TypedDict("AuthDnsSecondaryModel", {
+    "added_at": NotRequired[str],
+    "added_by": NotRequired[Union[str, None]],
+    "address": Required[str],
+    "hostname": NotRequired[Union[str, None]],
+})
+
+AuthDnsSentenceModel = TypedDict("AuthDnsSentenceModel", {
+    "code": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "params": NotRequired[dict[str, Union[bool, int, float, str]]],
+    "text": Required[str],
+})
+
+AuthDnsServerCheckModel = TypedDict("AuthDnsServerCheckModel", {
+    "address": Required[str],
+    "answers": Required[bool],
+    "authoritative": Required[bool],
+    "name": Required[str],
+    "refuses_recursion": NotRequired[Union[bool, None]],
+    "serial": NotRequired[Union[int, None]],
+})
+
+AuthDnsServerStatusModel = TypedDict("AuthDnsServerStatusModel", {
+    "candidates": NotRequired[list[str]],
+    "configured": Required[bool],
+    "engine": Required[str],
+    "firewall": NotRequired[dict[str, Any]],
+    "foreign_zones": NotRequired[list[str]],
+    "hostname": NotRequired[Union[str, None]],
+    "installed": Required[bool],
+    "listen": NotRequired[list[str]],
+    "primary_address": NotRequired[Union[str, None]],
+    "role": NotRequired[Union[str, None]],
+    "running": Required[bool],
+    "secondaries": NotRequired[list["AuthDnsSecondaryModel"]],
+    "version": NotRequired[Union[str, None]],
+    "warnings": NotRequired[list[str]],
+    "zones": NotRequired[int],
+})
+
+AuthDnsSetupRequest = TypedDict("AuthDnsSetupRequest", {
+    "epel": NotRequired[bool],
+    "hostname": NotRequired[Union[str, None]],
+    "listen": NotRequired[Union[list[str], None]],
+    "primary_address": NotRequired[Union[str, None]],
+    "role": Required[Literal["primary", "secondary"]],
+    "transfer_key": NotRequired[Union["AuthDnsTransferKeyIn", None]],
+})
+
+AuthDnsTransferKeyIn = TypedDict("AuthDnsTransferKeyIn", {
+    "secret": Required[str],
+})
+
+AuthDnsTransferKeyModel = TypedDict("AuthDnsTransferKeyModel", {
+    "algorithm": Required[str],
+    "name": Required[str],
+    "secret": Required[str],
+})
+
+AuthDnsUpdateRecordRequest = TypedDict("AuthDnsUpdateRecordRequest", {
+    "content": NotRequired[Union[str, None]],
+    "default_ttl": NotRequired[bool],
+    "ttl": NotRequired[Union[int, None]],
+})
+
+AuthDnsUpdateZoneRequest = TypedDict("AuthDnsUpdateZoneRequest", {
+    "contact": NotRequired[Union[str, None]],
+    "default_ttl": NotRequired[Union[int, None]],
+    "glue": NotRequired[Union[dict[str, list[str]], None]],
+    "nameservers": NotRequired[Union[list[str], None]],
+})
+
+AuthDnsZoneListModel = TypedDict("AuthDnsZoneListModel", {
+    "zones": Required[list["AuthDnsZoneSummaryModel"]],
+})
+
+AuthDnsZoneModel = TypedDict("AuthDnsZoneModel", {
+    "contact": Required[str],
+    "created_at": NotRequired[str],
+    "created_by": NotRequired[Union[str, None]],
+    "default_ttl": Required[int],
+    "dnssec": Required[bool],
+    "name": Required[str],
+    "nameservers": Required[list[str]],
+    "records": Required[list["AuthDnsRecordModel"]],
+    "serial": NotRequired[Union[int, None]],
+    "updated_at": NotRequired[str],
+    "updated_by": NotRequired[Union[str, None]],
+})
+
+AuthDnsZoneSummaryModel = TypedDict("AuthDnsZoneSummaryModel", {
+    "dnssec": NotRequired[Union[bool, None]],
+    "name": Required[str],
+    "records": Required[int],
+    "role": Required[str],
+    "serial": NotRequired[Union[int, None]],
+})
+
 AutoUpdateChange = TypedDict("AutoUpdateChange", {
     "channel": NotRequired[Union[str, None]],
     "days": NotRequired[Union[str, None]],

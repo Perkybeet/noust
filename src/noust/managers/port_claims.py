@@ -23,6 +23,7 @@ Every holder is one source here, and every picker and validator asks this module
 - ``stream``: a TCP or UDP port published through nginx;
 - ``database``: the public port of a database made reachable;
 - ``instance``: the loopback port of an engine Noust runs itself;
+- ``dns``: port 53, over both protocols, on the addresses Noust DNS answers on;
 - ``process``: whatever the kernel says listens (``ss``), with the process holding it.
 
 Two claims conflict when they are on the same port and protocol and their addresses can
@@ -39,10 +40,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from noust.core.authdns_store import AuthDnsStore
 from noust.core.config import Config
 from noust.core.database_exposures import ExposureStore
 from noust.core.db_instance_store import DbInstanceStore
 from noust.core.exceptions import NoustError, PortConflictError
+from noust.core.paths import AUTHDNS_PORT
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import NoustStore, get_store, is_compose_backed
 from noust.core.stream_store import StreamStore
@@ -78,6 +81,7 @@ STACK = "stack"
 STREAM = "stream"
 DATABASE = "database"
 INSTANCE = "instance"
+DNS = "dns"
 PROCESS = "process"
 
 #: The addresses that mean "every interface", as ``ss`` and Compose spell them.
@@ -96,7 +100,7 @@ class PortClaim:
     Attributes:
         port: The port.
         protocol: ``tcp`` or ``udp``.
-        kind: ``system``, ``app``, ``stack``, ``stream``, ``database``, ``instance`` or
+        kind: ``system``, ``app``, ``stack``, ``stream``, ``database``, ``instance``, ``dns`` or
             ``process``.
         owner: Whose it is: the application's domain, the stream's name, the process.
         address: The address it is bound to; None for every address.
@@ -138,6 +142,8 @@ class PortClaim:
             return f"is the public port of the database {self.owner}"
         if self.kind == INSTANCE:
             return f"is the port of the database engine {self.owner}"
+        if self.kind == DNS:
+            return "is where Noust DNS answers"
         return f"is already in use ({self.owner})"
 
 
@@ -317,6 +323,22 @@ class PortClaims:
             for row in DbInstanceStore(self.store).all()
         ]
 
+    def _dns(self, protocol: str) -> list[PortClaim]:
+        """
+        Args:
+            protocol: ``tcp`` or ``udp``.
+
+        Returns:
+            Port 53 on each address Noust DNS answers on, over both protocols.
+        """
+        server = AuthDnsStore(self.store).server()
+        if server is None:
+            return []
+        return [
+            PortClaim(AUTHDNS_PORT, protocol, DNS, "noust-dns", address=address)
+            for address in server.listen
+        ]
+
     def _listeners(self, protocol: str) -> list[PortClaim]:
         """
         Args:
@@ -359,6 +381,7 @@ class PortClaims:
             *self._streams(protocol),
             *self._databases(protocol),
             *self._instances(protocol),
+            *self._dns(protocol),
         ]
         if listening:
             found.extend(self._listeners(protocol))

@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The DNS providers Noust speaks to itself besides Cloudflare: DigitalOcean, Hetzner, Gandi and
-Amazon Route 53.
+The DNS providers Noust speaks to itself besides Cloudflare: DigitalOcean, Hetzner, Gandi, IONOS
+and Amazon Route 53.
 
 Each is run against an in-memory copy of its API (``tests/support/dns_wires.py``), so what is pinned is the
 whole path from the ownership rules to the request on the wire: the records are read, created,
@@ -28,24 +28,27 @@ from noust.core.dns_store import DnsAccount, DnsStore
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore
-from noust.managers.dns import digitalocean, gandi, hetzner, route53
+from noust.managers.dns import digitalocean, gandi, hetzner, ionos, route53
 from noust.managers.dns.accounts import DnsAccounts, secret_name
 from noust.managers.dns.catalog import KINDS
 from noust.managers.dns.challenge import CHALLENGE_COMMENT, DEFAULT_PROPAGATION, DnsChallenge
 from noust.managers.dns.digitalocean import DigitalOceanProvider
 from noust.managers.dns.gandi import GandiProvider
 from noust.managers.dns.hetzner import HetznerProvider
+from noust.managers.dns.ionos import IonosProvider
 from noust.managers.dns.provider import AUTOMATIC_TTL, DnsProvider, DnsProviderError, Zone
 from noust.managers.dns.records import Ensured, ManagedDns, Release, ownership_comment
 from noust.managers.dns.route53 import Route53Provider, sign
 from noust.managers.dns.rrset import SINGLE_VALUE_TYPES, parse_record_id, record_id
 from tests.support.dns_wires import (
     ACCESS_KEY,
+    IONOS_KEY,
     SECRET_KEY,
     TOKEN,
     DigitalOceanWire,
     GandiWire,
     HetznerWire,
+    IonosWire,
     Route53Wire,
     Wire,
 )
@@ -54,7 +57,7 @@ PUBLIC = "8.8.4.4"
 OTHER = "9.9.9.9"
 ORDER = "A" * 43
 SPF = "v=spf1 include:_spf.example.com ~all"
-ALL_KINDS = ["digitalocean", "hetzner", "gandi", "route53"]
+ALL_KINDS = ["digitalocean", "hetzner", "gandi", "ionos", "route53"]
 SET_KINDS = ["hetzner", "gandi", "route53"]
 
 
@@ -70,6 +73,7 @@ class Case:
         denial: ``(status, body, words)``: what the provider answers a credential it refuses, and
             the part of that which must reach the operator verbatim.
         sleeps: The pauses the provider asked for.
+        secret: What the account's credential is, which travels in one header and nowhere else.
     """
 
     kind: str
@@ -77,6 +81,7 @@ class Case:
     provider: DnsProvider
     denial: tuple[int, bytes, str]
     sleeps: list[float]
+    secret: str = TOKEN
 
     @property
     def zone(self) -> Zone:
@@ -123,6 +128,20 @@ def build(kind: str) -> Case:
                 "access token is invalid",
             ),
             sleeps,
+        )
+    if kind == "ionos":
+        iw = IonosWire("example.com")
+        return Case(
+            kind,
+            iw,
+            IonosProvider(ionos.client(IONOS_KEY, iw)),
+            (
+                401,
+                b'[{"code":"Unauthorized","message":"The API key is not valid"}]',
+                "Unauthorized: The API key is not valid",
+            ),
+            sleeps,
+            secret=IONOS_KEY,
         )
     rw = Route53Wire("example.com")
     return Case(
@@ -245,7 +264,7 @@ def test_a_refused_credential_reaches_the_operator_in_the_providers_own_words(
     assert words in (raised.value.output or "")
     assert raised.value.details
     everything = f"{raised.value.message} {raised.value.details} {raised.value.output}"
-    assert TOKEN not in everything and SECRET_KEY not in everything
+    assert case.secret not in everything and SECRET_KEY not in everything
 
 
 def test_a_provider_that_cannot_be_reached_says_what_to_check(case: Case) -> None:
@@ -266,8 +285,8 @@ def test_the_credential_goes_in_the_signature_or_the_header_and_nowhere_else(cas
 
     assert case.wire.requests
     for seen in case.wire.requests:
-        assert TOKEN not in seen.url and SECRET_KEY not in seen.url
-        assert TOKEN.encode() not in seen.body and SECRET_KEY.encode() not in seen.body
+        assert case.secret not in seen.url and SECRET_KEY not in seen.url
+        assert case.secret.encode() not in seen.body and SECRET_KEY.encode() not in seen.body
         assert seen.url.startswith("https://")
 
 
@@ -500,6 +519,109 @@ def test_gandi_reads_a_set_that_is_not_there_as_nothing() -> None:
     )
 
 
+# -- IONOS -----------------------------------------------------------------------------
+
+
+def test_ionos_authenticates_with_the_key_in_x_api_key_and_names_records_in_full() -> None:
+    case = build("ionos")
+    assert isinstance(case.wire, IonosWire)
+
+    case.provider.create_record(case.zone, "api.example.com", "A", PUBLIC, ttl=600)
+    case.provider.create_record(case.zone, "example.com", "TXT", SPF)
+
+    assert all(r.headers["x-api-key"] == IONOS_KEY for r in case.wire.requests)
+    assert not any("authorization" in r.headers for r in case.wire.requests)
+    first, second = [r.json() for r in case.wire.writes()]
+    assert first == [
+        {
+            "name": "api.example.com",
+            "type": "A",
+            "content": PUBLIC,
+            "ttl": 600,
+            "prio": 0,
+            "disabled": False,
+        }
+    ]
+    assert second[0]["content"] == f'"{SPF}"'
+    assert second[0]["name"] == "example.com"
+
+
+def test_ionos_never_asks_for_less_than_a_minute_and_automatic_is_an_hour() -> None:
+    case = build("ionos")
+    assert isinstance(case.wire, IonosWire)
+
+    case.provider.create_record(case.zone, "a.example.com", "A", PUBLIC, ttl=10)
+    case.provider.create_record(case.zone, "b.example.com", "A", PUBLIC, ttl=AUTOMATIC_TTL)
+    case.provider.create_record(case.zone, "c.example.com", "A", PUBLIC, ttl=900)
+
+    assert [case.wire.ttl(f"{n}.example.com", "A") for n in "abc"] == [60, 3600, 900]
+
+
+def test_ionos_asks_for_the_record_by_name_and_type_and_not_the_whole_zone() -> None:
+    case = build("ionos")
+    case.wire.seed("api.example.com", "A", PUBLIC)
+
+    case.provider.find_records(case.zone, "api.example.com", "A")
+
+    (read,) = [r for r in case.wire.requests if r.method == "GET" and r.path.count("/") == 2]
+    assert read.query == {"recordName": "api.example.com", "recordType": "A"}
+
+
+def test_ionos_changes_the_content_and_keeps_the_ttl_the_priority_and_the_switch() -> None:
+    case = build("ionos")
+    assert isinstance(case.wire, IonosWire)
+    case.wire.seed("api.example.com", "A", PUBLIC, ttl=1800)
+    case.wire.edit("api.example.com", "A", prio=7, disabled=False)
+    (found,) = case.provider.find_records(case.zone, "api.example.com", "A")
+
+    case.provider.update_record(case.zone, found.id, OTHER)
+
+    (put,) = [r for r in case.wire.writes() if r.method == "PUT"]
+    assert put.json() == {"content": OTHER, "ttl": 1800, "prio": 7, "disabled": False}
+
+
+def test_ionos_ignores_a_record_the_operator_switched_off_because_it_answers_nothing() -> None:
+    case = build("ionos")
+    assert isinstance(case.wire, IonosWire)
+    case.wire.seed("api.example.com", "A", PUBLIC)
+    case.wire.edit("api.example.com", "A", disabled=True)
+
+    assert case.provider.find_records(case.zone, "api.example.com", "A") == []
+
+
+def test_ionos_does_not_offer_a_zone_it_only_copies() -> None:
+    wire = IonosWire("example.com", slaves=("copy.example.net",))
+
+    zones = IonosProvider(ionos.client(IONOS_KEY, wire)).zones()
+
+    assert [z.name for z in zones] == ["example.com"]
+
+
+def test_ionos_error_words_come_from_a_list_or_from_one_object() -> None:
+    case = build("ionos")
+    case.wire.refuse_next = (400, b'[{"code":"InvalidTtl","message":"ttl must be at least 60"}]')
+    with pytest.raises(DnsProviderError) as listed:
+        case.provider.create_record(case.zone, "a.example.com", "A", PUBLIC)
+    case.wire.refuse_next = (403, b'{"code":"Forbidden","message":"No access to this zone"}')
+    with pytest.raises(DnsProviderError) as single:
+        case.provider.zones()
+
+    assert listed.value.output == "InvalidTtl: ttl must be at least 60"
+    assert single.value.output == "Forbidden: No access to this zone"
+    assert "X-API-Key" in single.value.details or "key" in single.value.details
+
+
+@pytest.mark.parametrize("key", ["", "nodot", ".secret", "prefix.", "pre fix.secret", "a.b\nc"])
+def test_a_key_that_is_not_a_prefix_and_a_secret_is_refused_before_a_request(key: str) -> None:
+    wire = IonosWire("example.com")
+
+    with pytest.raises(DnsProviderError) as raised:
+        ionos.client(key, wire)
+
+    assert "prefix" in raised.value.message
+    assert wire.requests == []
+
+
 # -- Amazon Route 53 ------------------------------------------------------------------
 
 
@@ -662,6 +784,7 @@ CREDENTIALS = {
     "digitalocean": {"token": TOKEN},
     "hetzner": {"token": TOKEN},
     "gandi": {"token": TOKEN},
+    "ionos": {"key": IONOS_KEY},
     "route53": {"access_key_id": ACCESS_KEY, "secret_access_key": SECRET_KEY},
 }
 
@@ -684,7 +807,7 @@ def test_an_account_is_proven_before_it_is_kept_and_its_credential_is_only_a_sec
     with store._transaction() as cursor:
         cursor.execute("SELECT * FROM dns_providers")
         rows = json.dumps([dict(row) for row in cursor.fetchall()])
-    assert TOKEN not in rows and SECRET_KEY not in rows
+    assert case.secret not in rows and SECRET_KEY not in rows
     assert [z.name for z in manager.provider("dns").zones()] == ["example.com"]
     assert [z.name for z in manager.verify("dns")] == ["example.com"]
 
@@ -755,12 +878,14 @@ def test_the_catalog_says_what_each_account_can_do() -> None:
         "digitalocean",
         "hetzner",
         "gandi",
+        "ionos",
         "route53",
     }
     assert {k for k, s in KINDS.items() if s.tunnels} == {"cloudflare"}
     assert {k for k, s in KINDS.items() if s.native and not s.comments} == {
         "digitalocean",
         "gandi",
+        "ionos",
         "route53",
     }
     assert [f.name for f in KINDS["route53"].fields if not f.secret] == ["access_key_id"]
@@ -792,7 +917,7 @@ class Managed:
     kind: str
 
 
-@pytest.fixture(params=["digitalocean", "gandi", "route53", "hetzner"])
+@pytest.fixture(params=["digitalocean", "gandi", "route53", "hetzner", "ionos"])
 def managed(
     request: pytest.FixtureRequest, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> Managed:
@@ -843,6 +968,8 @@ def test_a_record_somebody_changed_is_left_as_they_left_it(managed: Managed) -> 
     managed.dns.ensure("api.example.com", PUBLIC, app_domain="shop.example.com")
     if isinstance(managed.wire, DigitalOceanWire):
         managed.wire.edit(1000, data=OTHER)
+    elif isinstance(managed.wire, IonosWire):
+        managed.wire.edit("api.example.com", "A", content=OTHER)
     else:
         # A provider that names a record by its value sees an edit as the record going away and a
         # different one appearing; either way Noust deletes nothing it did not make.
@@ -901,6 +1028,8 @@ def _zone_id(wire: Wire) -> str:
         return next(iter(wire.zones))
     if isinstance(wire, Route53Wire):
         return next(iter(wire.zones))
+    if isinstance(wire, IonosWire):
+        return wire.zones["example.com"]
     return "example.com"
 
 
@@ -941,6 +1070,7 @@ def challenge_for(
     [
         ("digitalocean", DEFAULT_PROPAGATION),
         ("gandi", DEFAULT_PROPAGATION),
+        ("ionos", DEFAULT_PROPAGATION),
         ("hetzner", KINDS["hetzner"].propagation),
         ("route53", KINDS["route53"].propagation),
     ],
@@ -968,7 +1098,7 @@ def test_the_accounts_own_wait_beats_the_providers_default(
     assert waits == [5.0]
 
 
-@pytest.mark.parametrize("kind", ["digitalocean", "gandi", "route53"])
+@pytest.mark.parametrize("kind", ["digitalocean", "gandi", "ionos", "route53"])
 def test_where_there_is_no_note_cleanup_removes_this_orders_value_and_only_that(
     challenge_for: Callable[..., tuple[DnsChallenge, Case, list[float]]], kind: str
 ) -> None:

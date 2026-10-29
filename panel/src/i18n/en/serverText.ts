@@ -32,6 +32,82 @@ export const serverText = {
       hint: "Send the reason in the {header} header (percent-encoded).",
     },
   },
+  authdns: {
+    check: {
+      ds_dangling: {
+        text: "The parent zone holds a DS record for {zone}, and the zone is not signed",
+        hint: "Resolvers that validate refuse the domain. Remove the DS at your registrar, or sign the zone.",
+      },
+      ds_mismatch: {
+        text: "The DS record the parent zone holds for {zone} is not the one of this zone's key",
+        hint: "Replace it at your registrar with the one in the steps.",
+      },
+      ds_missing: {
+        text: "The parent zone has no DS record for {zone}, which is signed",
+        hint: "Add it at your registrar, after the name servers have changed.",
+      },
+      no_public_answer: {
+        text: "No public resolver answered, so the delegation of {zone} could not be checked",
+        hint: "Check this server's outbound access to port 53 of the public resolvers.",
+      },
+      not_authoritative: {
+        text: "{server} at {address} answered, but not as the authority for {zone}",
+        hint: "The zone is not loaded there yet, or another program answers on port 53.",
+      },
+      not_delegated: {
+        text: "Resolvers find {found} for {zone}, not your name servers",
+        hint: "Change the name servers at your registrar and wait for its TTL to pass.",
+      },
+      out_of_sync: {
+        text: "{server} serves serial {serial} of {zone} and {primary} serves {primary_serial}",
+        hint: "A secondary copies a zone a few seconds after the primary changes it. If this lasts, check that the primary can reach it on port 53.",
+      },
+      recurses: {
+        text: "{server} at {address} answers questions about other domains",
+        hint: "A name server open to recursion can be used to attack others. Noust DNS never does this: another program is answering on that address.",
+      },
+      silent: {
+        text: "{server} at {address} did not answer for {zone}",
+        hint: "Port 53 over UDP and TCP must be open to the internet on {address}, in the firewall and in your provider's panel.",
+      },
+    },
+    delegation: {
+      check: {
+        text: "Check that resolvers find your name servers",
+        hint: "Run: {command}",
+      },
+      ds: {
+        text: "Once the name servers have changed, add this DS record to {zone} at your registrar: {ds}",
+        hint: "Enter the key tag, the algorithm, the digest type and the digest in the order your registrar's form asks for them. Adding the DS before the name servers changed makes resolvers that validate refuse the domain.",
+      },
+      glue: {
+        text: "At your registrar, register {hosts} as name servers with these addresses: {addresses}",
+        hint: "A name server inside the domain it serves can only be found through addresses the registrar itself holds (glue records). Your registrar may call them host records or child name servers.",
+      },
+      nameservers: {
+        text: "At your registrar, set the name servers of {zone} to {nameservers}",
+        hint: "Look for custom name servers or DNS delegation in the domain's settings. The change reaches resolvers after the registrar's TTL, often a few hours and at most two days.",
+      },
+      one_server: {
+        text: "Only one name server answers for {zone}",
+        hint: "If it is down, {zone} is down. Add a secondary on another server, in another network, and name it in the zone.",
+      },
+      same_network: {
+        text: "{first} and {second} are in the same network",
+        hint: "One outage there takes both. Put one of them in another network.",
+      },
+    },
+    warning: {
+      amplification: {
+        text: "A name server on the internet can be used to flood other people with traffic",
+        hint: "Noust DNS never recurses, limits how fast it answers one address and hands zone transfers only to the servers you name, which keeps it a poor tool for that. It still answers on port 53 for anyone, so keep it updated.",
+      },
+      availability: {
+        text: "A name server is a service the whole internet depends on: if it is down, every name it serves is down",
+        hint: "Run at least two, on servers in different networks, and keep their operating systems updated.",
+      },
+    },
+  },
   controls: {
     asked_by_framework: {
       text: "The control {control} asks for it, and the framework in force ({frameworks}) asks for that control, so it stays on while the framework is on and cannot be turned off by itself.",

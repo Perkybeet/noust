@@ -165,6 +165,20 @@ NGINX_UPSTREAMS_DIR = Path("/etc/nginx/noust-upstreams")
 #: PID file of a console started with ``noust web start -d`` as root.
 WEB_PID_FILE = Path("/run/noust-web.pid")
 
+#: Noust DNS: the name server program Noust installs, its configuration (Noust writes the whole
+#: file and marks it), where it keeps its zones and its signing keys, its unit, and the names it
+#: uses between servers: the key a primary and its secondaries sign transfers with, and the
+#: catalog zone through which a secondary learns which zones a primary serves (RFC 9432;
+#: ``.invalid`` can never be a real name).
+AUTHDNS_ENGINE = "knot"
+AUTHDNS_UNIT = "knot"
+AUTHDNS_CONFIG = Path("/etc/knot/knot.conf")
+AUTHDNS_STORAGE = Path("/var/lib/knot")
+AUTHDNS_ZONES = AUTHDNS_STORAGE / "zones"
+AUTHDNS_TRANSFER_KEY = "noust-xfr"
+AUTHDNS_CATALOG = "noust-catalog.invalid"
+AUTHDNS_PORT = 53
+
 #: Prefix of a PHP-FPM pool file Noust writes: ``noust-<app>.conf``.
 PHP_POOL_PREFIX = "noust-"
 

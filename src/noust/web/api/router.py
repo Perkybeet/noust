@@ -50,6 +50,7 @@ from noust.web.api.approvals import router as approvals_router
 from noust.web.api.apps import router as apps_router
 from noust.web.api.audit import router as audit_router
 from noust.web.api.auth import router as auth_router
+from noust.web.api.authdns import router as authdns_router
 from noust.web.api.backup_destinations import router as backup_destinations_router
 from noust.web.api.backup_encryption import router as backup_encryption_router
 from noust.web.api.backup_failures import router as backup_failures_router
@@ -83,6 +84,7 @@ from noust.web.api.ens import router as ens_router
 from noust.web.api.fleet import router as fleet_router
 from noust.web.api.fleet_builders import router as fleet_builders_router
 from noust.web.api.fleet_databases import router as fleet_databases_router
+from noust.web.api.fleet_dns import router as fleet_dns_router
 from noust.web.api.fleet_placements import router as fleet_placements_router
 from noust.web.api.fleet_self import router as fleet_self_router
 from noust.web.api.fleet_settings import router as fleet_settings_router
@@ -292,6 +294,9 @@ router.include_router(site_policy_router, prefix="/apps", tags=["Domains"])
 router.include_router(policy_ranges_router, prefix="/policy", tags=["Domains"])
 # DNS accounts and records; and, under an application, its certificate and its DNS.
 router.include_router(dns_providers_router, prefix="/dns", tags=["DNS"])
+# Noust DNS: a name server of its own for the operator's domains (a primary and its secondaries),
+# its zones and their records, DNSSEC, and the steps to delegate a domain to it.
+router.include_router(authdns_router, prefix="/dns/noust", tags=["DNS"])
 # TCP and UDP ports published through nginx's stream module, and the firewall rules made for them.
 router.include_router(streams_router, prefix="/streams", tags=["Streams"])
 # What answers a name no site serves: the web server's default, ahead of every site.
@@ -442,6 +447,8 @@ router.include_router(fleet_placements_router, prefix="/fleet/placements", tags=
 router.include_router(fleet_builders_router, prefix="/fleet/builders", tags=["Fleet"])
 # A database moved to another server: the fleet engine's action, with a typed body.
 router.include_router(fleet_databases_router, prefix="/fleet/databases", tags=["Fleet"])
+# Noust DNS on the fleet: a primary and secondaries set up as a bulk action, and the view of them.
+router.include_router(fleet_dns_router, prefix="/fleet/dns", tags=["Fleet"])
 # Guided enrollment of a server: its host key, then the job that installs and joins it.
 router.include_router(node_enroll_router, prefix="/fleet/enroll", tags=["Fleet"])
 # Servers created at a cloud provider: accounts, the cloud-init library and the machines.

@@ -397,6 +397,26 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("cron_jobs", "job_runs"): ("GET", "/api/cron/{name}/runs", "apps.read", False),
     ("dns", "get_app_dns"): ("GET", "/api/apps/{domain}/dns", "apps.read", False),
     ("dns", "ensure_app_dns"): ("POST", "/api/apps/{domain}/dns", "apps.manage", False),
+    ("dns", "server_status"): ("GET", "/api/dns/noust/server", "server.read", False),
+    ("dns", "setup_server"): ("POST", "/api/dns/noust/server", "server.host_access", True),
+    ("dns", "remove_server"): ("DELETE", "/api/dns/noust/server", "server.host_access", True),
+    ("dns", "install_server"): ("POST", "/api/dns/noust/server/install", "server.host_access", True),
+    ("dns", "transfer_key"): ("GET", "/api/dns/noust/server/key", "server.host_access", True),
+    ("dns", "add_secondary"): ("POST", "/api/dns/noust/server/secondaries", "server.manage", False),
+    ("dns", "remove_secondary"): ("DELETE", "/api/dns/noust/server/secondaries/{address}", "server.manage", False),
+    ("dns", "list_zones"): ("GET", "/api/dns/noust/zones", "server.read", False),
+    ("dns", "create_zone"): ("POST", "/api/dns/noust/zones", "server.manage", False),
+    ("dns", "get_zone"): ("GET", "/api/dns/noust/zones/{zone}", "server.read", False),
+    ("dns", "update_zone"): ("PATCH", "/api/dns/noust/zones/{zone}", "server.manage", False),
+    ("dns", "delete_zone"): ("DELETE", "/api/dns/noust/zones/{zone}", "server.manage", True),
+    ("dns", "delegation_plan"): ("GET", "/api/dns/noust/zones/{zone}/delegation", "server.read", False),
+    ("dns", "delegation_check"): ("GET", "/api/dns/noust/zones/{zone}/delegation/check", "server.read", False),
+    ("dns", "get_dnssec"): ("GET", "/api/dns/noust/zones/{zone}/dnssec", "server.read", False),
+    ("dns", "set_dnssec"): ("PUT", "/api/dns/noust/zones/{zone}/dnssec", "server.manage", True),
+    ("dns", "ds_published"): ("POST", "/api/dns/noust/zones/{zone}/dnssec/ds-published", "server.manage", False),
+    ("dns", "add_record"): ("POST", "/api/dns/noust/zones/{zone}/records", "server.manage", False),
+    ("dns", "update_record"): ("PATCH", "/api/dns/noust/zones/{zone}/records/{record_id}", "server.manage", False),
+    ("dns", "delete_record"): ("DELETE", "/api/dns/noust/zones/{zone}/records/{record_id}", "server.manage", False),
     ("dns", "list_providers"): ("GET", "/api/dns/providers", "apps.read", False),
     ("dns", "add_provider"): ("POST", "/api/dns/providers", "server.manage", True),
     ("dns", "update_provider"): ("PATCH", "/api/dns/providers/{name}", "server.manage", False),
@@ -635,6 +655,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "unlink_machine"): ("DELETE", "/api/fleet/cloud/servers/{node}/link", "fleet.manage", True),
     ("fleet", "power_on_machine"): ("POST", "/api/fleet/cloud/servers/{node}/power-on", "fleet.manage", True),
     ("fleet", "transfer_database"): ("POST", "/api/fleet/databases/transfer", "fleet.manage", False),
+    ("fleet", "fleet_dns"): ("GET", "/api/fleet/dns", "fleet.read", False),
+    ("fleet", "set_up_cluster"): ("POST", "/api/fleet/dns/cluster", "fleet.manage", False),
     ("fleet", "enroll_server"): ("POST", "/api/fleet/enroll", "fleet.manage", True),
     ("fleet", "scan_host_key"): ("POST", "/api/fleet/enroll/host-key", "fleet.manage", False),
     ("fleet", "list_jobs"): ("GET", "/api/fleet/jobs", "fleet.read", False),
@@ -4172,7 +4194,7 @@ class CronJobs:
 
 
 class DNS:
-    """DNS: 9 operations."""
+    """DNS: 29 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4192,6 +4214,166 @@ class DNS:
 
         Needs: permission `apps.manage`."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/dns", query=None, body=body)
+
+    def server_status(self) -> "AuthDnsServerStatusModel":
+        """GET /api/dns/noust/server
+
+        Server Status
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/dns/noust/server", query=None, body=None)
+
+    def setup_server(self, body: "AuthDnsSetupRequest") -> "JobAcceptedResponse":
+        """POST /api/dns/noust/server
+
+        Setup Server
+
+        Needs: permission `server.host_access`, sudo mode."""
+        return self._call("POST", "/api/dns/noust/server", query=None, body=body)
+
+    def remove_server(self, *, delete_zones: Union[bool, None] = None) -> "AuthDnsRemovedModel":
+        """DELETE /api/dns/noust/server
+
+        Remove Server
+
+        Needs: permission `server.host_access`, sudo mode."""
+        return self._call("DELETE", "/api/dns/noust/server", query={"delete_zones": delete_zones}, body=None)
+
+    def install_server(self, body: "AuthDnsInstallRequest") -> "JobAcceptedResponse":
+        """POST /api/dns/noust/server/install
+
+        Install Server
+
+        Needs: permission `server.host_access`, sudo mode."""
+        return self._call("POST", "/api/dns/noust/server/install", query=None, body=body)
+
+    def transfer_key(self) -> "AuthDnsTransferKeyModel":
+        """GET /api/dns/noust/server/key
+
+        Transfer Key
+
+        Needs: permission `server.host_access`, sudo mode."""
+        return self._call("GET", "/api/dns/noust/server/key", query=None, body=None)
+
+    def add_secondary(self, body: "AuthDnsAddSecondaryRequest") -> "AuthDnsSecondaryModel":
+        """POST /api/dns/noust/server/secondaries
+
+        Add Secondary
+
+        Needs: permission `server.manage`."""
+        return self._call("POST", "/api/dns/noust/server/secondaries", query=None, body=body)
+
+    def remove_secondary(self, address: str) -> "AuthDnsRemovedModel":
+        """DELETE /api/dns/noust/server/secondaries/{address}
+
+        Remove Secondary
+
+        Needs: permission `server.manage`."""
+        return self._call("DELETE", f"/api/dns/noust/server/secondaries/{quote(str(address), safe='')}", query=None, body=None)
+
+    def list_zones(self) -> "AuthDnsZoneListModel":
+        """GET /api/dns/noust/zones
+
+        List Zones
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/dns/noust/zones", query=None, body=None)
+
+    def create_zone(self, body: "AuthDnsCreateZoneRequest") -> "AuthDnsZoneModel":
+        """POST /api/dns/noust/zones
+
+        Create Zone
+
+        Needs: permission `server.manage`."""
+        return self._call("POST", "/api/dns/noust/zones", query=None, body=body)
+
+    def get_zone(self, zone: str) -> "AuthDnsZoneModel":
+        """GET /api/dns/noust/zones/{zone}
+
+        Get Zone
+
+        Needs: permission `server.read`."""
+        return self._call("GET", f"/api/dns/noust/zones/{quote(str(zone), safe='')}", query=None, body=None)
+
+    def update_zone(self, zone: str, body: "AuthDnsUpdateZoneRequest") -> "AuthDnsZoneModel":
+        """PATCH /api/dns/noust/zones/{zone}
+
+        Update Zone
+
+        Needs: permission `server.manage`."""
+        return self._call("PATCH", f"/api/dns/noust/zones/{quote(str(zone), safe='')}", query=None, body=body)
+
+    def delete_zone(self, zone: str) -> "AuthDnsRemovedModel":
+        """DELETE /api/dns/noust/zones/{zone}
+
+        Delete Zone
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/dns/noust/zones/{quote(str(zone), safe='')}", query=None, body=None)
+
+    def delegation_plan(self, zone: str) -> "AuthDnsDelegationPlanModel":
+        """GET /api/dns/noust/zones/{zone}/delegation
+
+        Delegation Plan
+
+        Needs: permission `server.read`."""
+        return self._call("GET", f"/api/dns/noust/zones/{quote(str(zone), safe='')}/delegation", query=None, body=None)
+
+    def delegation_check(self, zone: str) -> "AuthDnsDelegationCheckModel":
+        """GET /api/dns/noust/zones/{zone}/delegation/check
+
+        Delegation Check
+
+        Needs: permission `server.read`."""
+        return self._call("GET", f"/api/dns/noust/zones/{quote(str(zone), safe='')}/delegation/check", query=None, body=None)
+
+    def get_dnssec(self, zone: str) -> "AuthDnsDnssecModel":
+        """GET /api/dns/noust/zones/{zone}/dnssec
+
+        Get Dnssec
+
+        Needs: permission `server.read`."""
+        return self._call("GET", f"/api/dns/noust/zones/{quote(str(zone), safe='')}/dnssec", query=None, body=None)
+
+    def set_dnssec(self, zone: str, body: "AuthDnsDnssecRequest") -> "AuthDnsDnssecModel":
+        """PUT /api/dns/noust/zones/{zone}/dnssec
+
+        Set Dnssec
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("PUT", f"/api/dns/noust/zones/{quote(str(zone), safe='')}/dnssec", query=None, body=body)
+
+    def ds_published(self, zone: str) -> "AuthDnsDnssecModel":
+        """POST /api/dns/noust/zones/{zone}/dnssec/ds-published
+
+        Ds Published
+
+        Needs: permission `server.manage`."""
+        return self._call("POST", f"/api/dns/noust/zones/{quote(str(zone), safe='')}/dnssec/ds-published", query=None, body=None)
+
+    def add_record(self, zone: str, body: "AuthDnsAddRecordRequest") -> "AuthDnsRecordModel":
+        """POST /api/dns/noust/zones/{zone}/records
+
+        Add Record
+
+        Needs: permission `server.manage`."""
+        return self._call("POST", f"/api/dns/noust/zones/{quote(str(zone), safe='')}/records", query=None, body=body)
+
+    def update_record(self, zone: str, record_id: int | str, body: "AuthDnsUpdateRecordRequest") -> "AuthDnsRecordModel":
+        """PATCH /api/dns/noust/zones/{zone}/records/{record_id}
+
+        Update Record
+
+        Needs: permission `server.manage`."""
+        return self._call("PATCH", f"/api/dns/noust/zones/{quote(str(zone), safe='')}/records/{quote(str(record_id), safe='')}", query=None, body=body)
+
+    def delete_record(self, zone: str, record_id: int | str) -> "AuthDnsRemovedModel":
+        """DELETE /api/dns/noust/zones/{zone}/records/{record_id}
+
+        Delete Record
+
+        Needs: permission `server.manage`."""
+        return self._call("DELETE", f"/api/dns/noust/zones/{quote(str(zone), safe='')}/records/{quote(str(record_id), safe='')}", query=None, body=None)
 
     def list_providers(self) -> "DnsAccountList":
         """GET /api/dns/providers
@@ -5884,7 +6066,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 65 operations."""
+    """Fleet: 67 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6144,6 +6326,22 @@ class Fleet:
 
         Needs: permission `fleet.manage`."""
         return self._call("POST", "/api/fleet/databases/transfer", query=None, body=body)
+
+    def fleet_dns(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "FleetViewOut":
+        """GET /api/fleet/dns
+
+        Fleet Dns
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/dns", query={"node": node, "refresh": refresh}, body=None)
+
+    def set_up_cluster(self, body: "AuthDnsClusterIn") -> "NoustWebApiFleetActionOut":
+        """POST /api/fleet/dns/cluster
+
+        Set Up Cluster
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", "/api/fleet/dns/cluster", query=None, body=body)
 
     def enroll_server(self, body: "EnrollBody") -> "JobAcceptedResponse":
         """POST /api/fleet/enroll

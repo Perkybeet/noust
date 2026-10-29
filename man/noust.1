@@ -9088,7 +9088,7 @@ Explain why an application is down.
 Print the diagnosis as JSON.
 
 .SS noust dns
-DNS accounts, the records Noust manages in them, and the DNS\-01 challenge.
+DNS accounts, the DNS\-01 challenge, and Noust DNS: a name server of your own.
 
 .SS noust dns challenge
 The two hooks certbot runs for a DNS\-01 order. Not for humans.
@@ -9161,7 +9161,7 @@ Print the outcome as JSON.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
 .SS noust dns provider
-The DNS accounts Noust holds: Cloudflare, DigitalOcean, Hetzner, Gandi and Route 53 (records and the challenge, Cloudflare also tunnels), and certbot's plugins.
+The DNS accounts Noust holds: Cloudflare, DigitalOcean, Hetzner, Gandi, IONOS and Route 53 (records and the challenge, Cloudflare also tunnels), and certbot's plugins.
 
 .SS noust dns provider add
 Add a DNS account. Its credential is proven first, and kept only in the secret store.
@@ -9275,11 +9275,309 @@ Print the outcomes as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust dns server
+Noust DNS on this server: install it, make it a primary or a secondary, and remove it.
+
+.SS noust dns server add\-secondary
+Let a server copy this primary's zones, and tell it when they change.
+.TP
+.B Arguments
+.br
+\fIaddress\fR
+.TP
+.B \-\-hostname
+The name it has as a name server.
+.TP
+.B \-\-json
+Print the secondary as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns server install
+Install Knot DNS, the program that answers; configure nothing.
+.TP
+.B \-\-epel
+Agree to enable EPEL, where Knot comes from on RHEL.
+.TP
+.B \-\-json
+Print the state as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns server key
+Print the key a primary signs its transfers with, for a secondary's \-\-key\-stdin.
+.TP
+.B \-\-json
+Print the key as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns server remove
+Stop the name server and take Noust DNS off this server.
+.TP
+.B \-\-delete\-zones
+Also delete the zones and records this server serves.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns server remove\-secondary
+Stop copying this primary's zones to a server.
+.TP
+.B Arguments
+.br
+\fIaddress\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns server setup
+Make this server a primary or a secondary of Noust DNS.
+.TP
+.B \-\-role
+A primary holds the zones; a secondary copies them from a primary.
+.TP
+.B \-\-hostname
+The name this server has as a name server.
+.TP
+.B \-\-listen
+An address to answer on. Repeatable. The server's public addresses by default.
+.TP
+.B \-\-primary
+A secondary: the primary.
+.TP
+.B \-\-key\-stdin
+A secondary: read the primary's transfer key from one line of standard input.
+.TP
+.B \-\-epel
+Agree to enable EPEL, where Knot comes from on RHEL.
+.TP
+.B \-\-json
+Print the state as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns server status
+Show Noust DNS on this server: whether it is installed, its role and its zones.
+.TP
+.B \-\-json
+Print the state as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust dns sweep
 Release the records nobody has used for an hour. The monitor does this every hour.
 .TP
 .B \-\-json
 Print the outcomes as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns zone
+The zones Noust DNS serves: records, DNSSEC, and how to delegate a domain to them.
+
+.SS noust dns zone check
+Look at the world and say whether the domain is delegated to this server.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns zone create
+Make a zone and serve it.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-nameserver
+A name server of the zone. Repeatable. This server and its secondaries by default.
+.TP
+.B \-\-contact
+The address the SOA names. hostmaster@ZONE by default.
+.TP
+.B \-\-ttl
+The default TTL. Default: 3600.
+.TP
+.B \-\-glue
+The address of a name server inside the zone. Repeatable.
+.TP
+.B \-\-dnssec
+Sign the zone.
+.TP
+.B \-\-json
+Print the zone as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns zone delegation
+Say exactly what to do at the registrar to delegate a domain to this server.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the steps as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns zone delete
+Stop serving a zone and delete it with all its records.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-yes
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns zone dnssec
+Show a zone's signing, or turn it on or off.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-enable
+Sign the zone.
+.TP
+.B \-\-disable
+Stop signing the zone.
+.TP
+.B \-\-ds\-removed
+With \-\-disable: the DS record is already gone from the registrar.
+.TP
+.B \-\-ds\-published
+Tell the server the registrar now has the DS record.
+.TP
+.B \-\-json
+Print the state as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns zone list
+List the zones this server serves.
+.TP
+.B \-\-json
+Print the zones as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns zone record
+The records of a zone.
+
+.SS noust dns zone record add
+Add a record: NAME is relative to the zone (www, @ for the zone itself, *.apps).
+.TP
+.B Arguments
+.br
+\fIzone_name\fR
+.br
+\fIname\fR
+.br
+\fIrecord_type\fR
+.br
+\fIcontent\fR
+.TP
+.B \-\-ttl
+Seconds to live. The zone's by default.
+.TP
+.B \-\-json
+Print the record as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns zone record remove
+Remove a record. Its number is in ``noust dns zone show``.
+.TP
+.B Arguments
+.br
+\fIzone_name\fR
+.br
+\fIrecord_id\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns zone record set
+Change what a record holds, or its TTL.
+.TP
+.B Arguments
+.br
+\fIzone_name\fR
+.br
+\fIrecord_id\fR
+.TP
+.B \-\-content
+What the record holds.
+.TP
+.B \-\-ttl
+Seconds to live.
+.TP
+.B \-\-default\-ttl
+Go back to the zone's TTL.
+.TP
+.B \-\-json
+Print the record as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns zone set
+Change a zone's name servers, contact or default TTL.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-nameserver
+Replace the name servers. Repeatable.
+.TP
+.B \-\-contact
+The address the SOA names.
+.TP
+.B \-\-ttl
+The default TTL.
+.TP
+.B \-\-glue
+The address of a name server inside the zone.
+.TP
+.B \-\-json
+Print the zone as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust dns zone show
+Show a zone and its records.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the zone as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.

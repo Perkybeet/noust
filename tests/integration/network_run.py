@@ -24,6 +24,10 @@ Containers (never more than three at once, all on a network of their own, no pub
   presets expect it.
 - ``noust-test-de-trust``: AlmaLinux 9, made by the ``internal_ca_private_names`` scenario only,
   to follow the trust steps Noust prints for a family of systems the server is not.
+- ``noust-test-de-secondary``: the server image again with Noust installed, made by the
+  ``authdns_signed_zone`` scenario only: the second name server of Noust DNS, in another container
+  and so another address, with the server as the primary and the client as the visitor that asks
+  with ``dig`` and validates with ``delv``.
 
 The Coolify scenarios (``--scenario coolify``) download templates from Coolify's repository at a
 pinned commit, check their sha256 and deploy them with the inner Docker's Compose, so they need
@@ -119,6 +123,8 @@ AUTHELIA = f"{PREFIX}-authelia"
 OAUTH2 = f"{PREFIX}-oauth2"
 #: A device of another family (AlmaLinux), to follow the trust steps for a system the server is not.
 TRUST = f"{PREFIX}-trust"
+#: The second name server of the Noust DNS scenario: the server image again, with Noust installed.
+SECONDARY = f"{PREFIX}-secondary"
 TRUST_IMAGE = "almalinux:9"
 DOCKER_VOLUME = f"{PREFIX}-docker"
 SERVER_IMAGE = f"{PREFIX}-server:latest"
@@ -126,7 +132,7 @@ CLIENT_IMAGE = f"{PREFIX}-client:latest"
 
 #: What the harness may remove, by exact name. The providers share the server's network
 #: namespace, so they go first.
-OWNED_CONTAINERS = (TRUST, AUTHELIA, OAUTH2, CLIENT, SERVER)
+OWNED_CONTAINERS = (SECONDARY, TRUST, AUTHELIA, OAUTH2, CLIENT, SERVER)
 #: The certificate scenarios' authority and DNS provider, removed with the rest (see DNS).
 ACME_CONTAINERS = (
     f"{PREFIX}-dns",
@@ -533,6 +539,12 @@ class Env:
     ) -> subprocess.CompletedProcess[str]:
         """Run a script in the device of another family (AlmaLinux), when a scenario started one."""
         return self._run(TRUST, "device", script, timeout, check, label)
+
+    def sec(
+        self, script: str, *, timeout: int = 60, check: bool = True, label: str | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        """Run a script in the second name server, when a scenario started one."""
+        return self._run(SECONDARY, "secondary", script, timeout, check, label)
 
     def note(self, text: str) -> None:
         """Add a line of explanation to the evidence."""
@@ -4418,6 +4430,328 @@ def scenario_first_deploy(env: Env) -> None:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Noust DNS: a primary and a secondary in two containers, a signed zone, real queries
+# ---------------------------------------------------------------------------
+
+#: The domain Noust DNS serves in the scenario, and one made later to prove the secondary learns
+#: zones with no instruction. ``.test`` can never be a real name.
+DNS_ZONE = "dnsdemo.test"
+DNS_LATER = "later.test"
+DNS_PRIMARY_NAME = "ns1.dnsdemo.test"
+DNS_SECONDARY_NAME = "ns2.dnsdemo.test"
+
+
+def start_secondary(env: Env) -> str:
+    """
+    Start the second name server: the server image again, with Noust installed, and no inner Docker.
+
+    Args:
+        env: The environment.
+
+    Returns:
+        Its address on the harness network.
+    """
+    if not is_running(SECONDARY):
+        print(f"[setup] starting {SECONDARY}")
+        docker(
+            "run",
+            "-d",
+            "--name",
+            owned(SECONDARY),
+            "--label",
+            LABEL,
+            "--network",
+            NETWORK,
+            "--privileged",
+            "--cgroupns=host",
+            "-v",
+            "/sys/fs/cgroup:/sys/fs/cgroup:rw",
+            "--tmpfs",
+            "/run",
+            "--tmpfs",
+            "/run/lock",
+            SERVER_IMAGE,
+            timeout=60,
+        )
+        wait_for_systemd(SECONDARY)
+        # The image carries Docker for the Coolify scenarios; this server needs none of it.
+        sh_in(SECONDARY, "systemctl mask --now docker.service docker.socket", check=False)
+        install_noust(SECONDARY, env.wheel)
+    else:
+        # A container a --keep run left: it runs the wheel of that run, not this one.
+        docker("cp", str(env.wheel), f"{SECONDARY}:/tmp/{env.wheel.name}")
+        sh_in(
+            SECONDARY,
+            f"/opt/noust/bin/pip install --quiet --no-deps --force-reinstall '/tmp/{env.wheel.name}'",
+            timeout=300,
+        )
+    return container_ip(SECONDARY)
+
+
+def dig(env: Env, server: str, *arguments: str, label: str | None = None) -> str:
+    """
+    Ask a name server from the visitor with the real ``dig``.
+
+    Args:
+        env: The environment.
+        server: The server's address.
+        *arguments: What follows ``dig @server``.
+        label: What to show in the evidence.
+
+    Returns:
+        dig's output.
+    """
+    command = f"dig @{server} +time=3 +tries=2 {' '.join(arguments)}"
+    return env.cli(command, label=label, check=False, timeout=30).stdout
+
+
+def wait_for_answer(
+    env: Env, server: str, name: str, record_type: str, expected: str, *, timeout: float = 60.0
+) -> None:
+    """
+    Wait until a server answers a question with a record that holds ``expected``.
+
+    Args:
+        env: The environment.
+        server: The server's address.
+        name: The name asked.
+        record_type: The type asked.
+        expected: A text the answer's data must contain.
+        timeout: Seconds.
+    """
+    wait_for(
+        lambda: expected in dig(env, server, name, record_type, "+short"),
+        f"{server} to answer {record_type} {name} with {expected}",
+        timeout=timeout,
+    )
+
+
+@scenario("authdns_signed_zone")
+def scenario_authdns(env: Env) -> None:
+    """Noust DNS: a signed zone made on a primary reaches a secondary, validates, and no one recurses."""
+    primary = env.server_ip
+    secondary = start_secondary(env)
+    env.cli("command -v dig >/dev/null || apk add --no-cache bind-tools", timeout=240)
+    env.note(f"primary {primary}, secondary {secondary}, visitor {env.client_ip}")
+
+    # -- the primary: Knot is installed by Noust, answers where it was told, and nowhere else
+    said = env.srv(
+        f"noust dns server setup --role primary --hostname {DNS_PRIMARY_NAME} --listen {primary}",
+        timeout=900,
+    )
+    env.check(
+        "the whole internet depends on" in said.stdout + said.stderr
+        and "flood other people with traffic" in said.stdout + said.stderr,
+        "the two costs of a name server must be said before it is set up",
+    )
+    status = json_of(env.srv("noust dns server status --json"), "dns server status --json")
+    env.check(
+        (status["role"], status["listen"], status["running"]) == ("primary", [primary], True),
+        f"the primary: {status}",
+    )
+    env.check(
+        status["version"] and status["version"].split(".")[:2] >= ["3", "1"],
+        f"a Knot that interprets catalog zones: {status['version']}",
+    )
+    env.srv(
+        f"ss -lunH | grep -q '{primary}:53 ' && ss -ltnH | grep -q '{primary}:53 '",
+        label="it answers on port 53 over UDP and TCP, on the address it was given",
+    )
+    env.srv(
+        "! ss -lunH | grep -E '(0.0.0.0|\\[::\\]|\\*):53 '",
+        label="and on no wildcard address",
+    )
+
+    # -- the secondary: given the primary and its key (on standard input, never an argument)
+    key = env.srv("noust dns server key", label="noust dns server key").stdout.strip()
+    SECRETS_SEEN.add(key)
+    env.check(len(key) == 44, "the key is 32 bytes in base64")
+    env.sec(
+        f"printf %s '{key}' | noust dns server setup --role secondary "
+        f"--hostname {DNS_SECONDARY_NAME} --listen {secondary} --primary {primary} --key-stdin",
+        label="noust dns server setup --role secondary ... --key-stdin   (the key on stdin)",
+        timeout=900,
+    )
+    env.srv(f"noust dns server add-secondary {secondary} --hostname {DNS_SECONDARY_NAME}")
+
+    # -- a zone is made on the primary and nowhere else
+    env.srv(
+        f"noust dns zone create {DNS_ZONE} --nameserver {DNS_PRIMARY_NAME} "
+        f"--nameserver {DNS_SECONDARY_NAME} --glue {DNS_PRIMARY_NAME}={primary} "
+        f"--glue {DNS_SECONDARY_NAME}={secondary}"
+    )
+    env.srv(f"noust dns zone record add {DNS_ZONE} www A 192.0.2.10 --ttl 300")
+    env.srv(f"noust dns zone record add {DNS_ZONE} @ TXT 'v=spf1 -all'")
+    env.srv(f"noust dns zone record add {DNS_ZONE} @ MX '10 mail.dnsdemo.test'")
+    env.srv(f"noust dns zone record add {DNS_ZONE} mail A 192.0.2.25")
+    asked = dig(env, primary, f"www.{DNS_ZONE}", "A", label="the visitor asks the primary")
+    env.check(
+        "192.0.2.10" in asked and "flags: qr aa" in asked,
+        f"the primary must answer as the authority: {asked}",
+    )
+
+    # -- the secondary was told nothing about the zone: it learned it from the catalog
+    wait_for_answer(env, secondary, f"www.{DNS_ZONE}", "A", "192.0.2.10")
+    listed = json_of(env.sec("noust dns zone list --json"), "dns zone list --json on the secondary")
+    env.check(
+        [z["name"] for z in listed["zones"]] == [DNS_ZONE],
+        f"the secondary lists the zone it copied: {listed}",
+    )
+    served = dig(env, secondary, f"www.{DNS_ZONE}", "A", label="the visitor asks the secondary")
+    env.check("flags: qr aa" in served, f"the secondary is an authority too: {served}")
+
+    # -- a change reaches it at once (NOTIFY), and the serials agree
+    env.srv(f"noust dns zone record add {DNS_ZONE} api A 192.0.2.77")
+    wait_for_answer(env, secondary, f"api.{DNS_ZONE}", "A", "192.0.2.77")
+    serials = {
+        where: dig(env, address, DNS_ZONE, "SOA", "+short").split()[2]
+        for where, address in (("primary", primary), ("secondary", secondary))
+    }
+    env.check(serials["primary"] == serials["secondary"], f"the serials must agree: {serials}")
+
+    # -- DNSSEC: signed on the primary, transferred signed, and it validates against the DS
+    signed = json_of(
+        env.srv(f"noust dns zone dnssec {DNS_ZONE} --enable --json"), "dns zone dnssec --enable"
+    )
+    env.check(signed["enabled"] and signed["ds"], f"the zone is signed and has a DS: {signed}")
+    ds = next(item for item in signed["ds"] if item["digest_type"] == 2)
+    wait_for(
+        lambda: "RRSIG"
+        in dig(env, secondary, f"www.{DNS_ZONE}", "A", "+dnssec", "+noall", "+answer"),
+        "the signed zone to reach the secondary",
+        timeout=90,
+    )
+    for where, address in (("primary", primary), ("secondary", secondary)):
+        answer = dig(
+            env,
+            address,
+            f"www.{DNS_ZONE}",
+            "A",
+            "+dnssec",
+            label=f"dig +dnssec against the {where}",
+        )
+        env.check(
+            "RRSIG" in answer and "flags: qr aa" in answer, f"{where}: signed answer: {answer}"
+        )
+    anchor = (
+        "trust-anchors {\n"
+        f'    "{DNS_ZONE}." static-ds {ds["key_tag"]} {ds["algorithm"]} {ds["digest_type"]} '
+        f'"{ds["digest"]}";\n'
+        "};\n"
+    )
+    put_file(CLIENT, "/root/anchor.conf", anchor)
+    for where, address in (("primary", primary), ("secondary", secondary)):
+        checked = env.cli(
+            f"delv @{address} -a /root/anchor.conf +root={DNS_ZONE} www.{DNS_ZONE} A",
+            label=f"delv: validate www.{DNS_ZONE} from the {where} against the DS Noust printed",
+            check=False,
+            timeout=60,
+        )
+        output = checked.stdout + checked.stderr
+        env.check(
+            "fully validated" in output,
+            f"{where}: the answer must validate against the DS given to the registrar: {output}",
+        )
+    # A wrong DS must not validate, or the test above proves nothing.
+    wrong = anchor.replace(ds["digest"], "0" * len(ds["digest"]))
+    put_file(CLIENT, "/root/wrong-anchor.conf", wrong)
+    refused = env.cli(
+        f"delv @{primary} -a /root/wrong-anchor.conf +root={DNS_ZONE} www.{DNS_ZONE} A",
+        label="delv against a DS that is not the zone's key (it must fail)",
+        check=False,
+        timeout=60,
+    )
+    env.check(
+        "fully validated" not in refused.stdout + refused.stderr,
+        "a DS that is not the key of the zone must not validate",
+    )
+
+    # -- nobody recurses, and nobody but the secondary transfers
+    for where, address in (("primary", primary), ("secondary", secondary)):
+        other = dig(
+            env, address, "example.org", "A", "+rd", label=f"a recursive question to the {where}"
+        )
+        env.check("status: REFUSED" in other, f"{where}: a question about another domain: {other}")
+        flags = next(line for line in other.splitlines() if line.startswith(";; flags:"))
+        env.check(" ra" not in flags.split(";")[1], f"{where} must not offer recursion: {flags}")
+        transfer = dig(
+            env, address, DNS_ZONE, "AXFR", label=f"AXFR from the visitor to the {where}"
+        )
+        env.check(
+            "Transfer failed" in transfer or "status: NOTAUTH" in transfer or "REFUSED" in transfer,
+            f"{where}: a transfer without the key must be refused: {transfer}",
+        )
+    held = env.srv(
+        f"knotc zone-status {DNS_ZONE}.", label="what Knot says of the zone on the primary"
+    ).stdout
+    env.check("role: master" in held, held)
+
+    # -- the delegation: the steps, and the check that says what is missing
+    steps = env.srv(f"noust dns zone delegation {DNS_ZONE}").stdout
+    env.check(
+        "At your registrar, register ns1.dnsdemo.test, ns2.dnsdemo.test as name servers" in steps
+        and f"set the name servers of {DNS_ZONE}" in steps
+        and "add this DS record" in steps
+        and steps.index("register")
+        < steps.index("set the name servers")
+        < steps.index("DS record"),
+        f"the steps in the order that works: {steps}",
+    )
+    result = env.srv(f"noust dns zone check {DNS_ZONE} --json", check=False)
+    report = json_of(result, "dns zone check --json")
+    env.check(
+        all(s["authoritative"] and s["refuses_recursion"] for s in report["servers"]),
+        f"both name servers answer as the authority and refuse to recurse: {report['servers']}",
+    )
+    env.check(
+        report["ready"] is False and result.returncode == 1,
+        "a domain no registrar has delegated is not ready, and the command exits 1",
+    )
+    codes = {problem["code"] for problem in report["problems"]}
+    env.check(
+        codes <= {"authdns.check.not_delegated", "authdns.check.no_public_answer"},
+        f"the only thing missing is the registrar: {codes}",
+    )
+
+    # -- a zone made later reaches the secondary through the catalog, and goes the same way
+    env.srv(
+        f"noust dns zone create {DNS_LATER} --nameserver {DNS_PRIMARY_NAME} "
+        f"--nameserver {DNS_SECONDARY_NAME}"
+    )
+    env.srv(f"noust dns zone record add {DNS_LATER} hello TXT 'made after the secondary joined'")
+    wait_for_answer(env, secondary, f"hello.{DNS_LATER}", "TXT", "made after the secondary joined")
+    env.srv(f"noust dns zone delete {DNS_LATER} --yes")
+    wait_for(
+        lambda: DNS_LATER
+        not in [
+            z["name"] for z in json_of(env.sec("noust dns zone list --json"), "zone list")["zones"]
+        ],
+        "the secondary to drop the zone the primary deleted",
+        timeout=90,
+    )
+
+    # -- the guard that keeps a domain from going dark
+    refused_off = env.srv(f"noust dns zone dnssec {DNS_ZONE} --disable", check=False)
+    env.check(
+        refused_off.returncode == 1,
+        "a signed zone must not be unsigned while the registrar may hold its DS",
+    )
+
+    # -- it survives a restart of the name server with the same serial and the same key
+    before = dig(env, primary, DNS_ZONE, "SOA", "+short").split()[2]
+    env.srv("systemctl restart knot && sleep 3")
+    after = dig(env, primary, DNS_ZONE, "SOA", "+short").split()[2]
+    env.check(before == after, f"the serial must survive a restart: {before} -> {after}")
+    env.srv(f"noust dns zone dnssec {DNS_ZONE} --json | grep -q '{ds['digest']}'")
+
+    # -- taking it away puts Knot's own configuration back and keeps the keys
+    env.sec("noust dns server remove")
+    env.srv("noust dns server remove --delete-zones")
+    env.srv("! systemctl is-active --quiet knot", label="Knot is stopped")
+    env.srv("ls /var/lib/knot/keys >/dev/null", label="and the signing keys are still there")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -4514,8 +4848,14 @@ def setup(args: argparse.Namespace) -> Env:
 _SESSION_COOKIE = re.compile(r"(authelia_session|_oauth2_proxy)=[^;\"'\s]+")
 
 
+#: Secrets a scenario learnt while it ran (a transfer key): evidence is shared, so none reaches a file.
+SECRETS_SEEN: set[str] = set()
+
+
 def redacted(text: str) -> str:
-    """The text with every session cookie value replaced."""
+    """The text with every session cookie value and every secret a scenario registered replaced."""
+    for secret in SECRETS_SEEN:
+        text = text.replace(secret, "<redacted>")
     return _SESSION_COOKIE.sub(r"\1=<redacted>", text)
 
 

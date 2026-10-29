@@ -83,6 +83,9 @@ SENSITIVE_READS = {
     "/api/backups/encryption/keys/{key_id}": "a key the backups on the disk are sealed with, "
     "shown to keep it elsewhere; it asks for sudo mode and the permission that reads secrets, "
     "and the read is recorded without the value",
+    "/api/dns/noust/server/key": "the key a primary signs its zone transfers with, read once by "
+    "the central that is setting up a secondary; it only reads, asks for sudo mode and the "
+    "permission that changes the host, and no log or job keeps the value",
 }
 
 

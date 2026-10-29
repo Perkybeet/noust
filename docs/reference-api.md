@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1105 operations.
+1127 operations.
 
 ## Access
 
@@ -455,6 +455,26 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 |---|---|---|---|---|---|
 | GET | `/api/apps/{domain}/dns` | Get App Dns | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/dns` | Ensure App Dns | `apps.manage` |  |  |
+| GET | `/api/dns/noust/server` | Server Status | `server.read` |  |  |
+| POST | `/api/dns/noust/server` | Setup Server | `server.host_access` | yes |  |
+| DELETE | `/api/dns/noust/server` | Remove Server | `server.host_access` | yes |  |
+| POST | `/api/dns/noust/server/install` | Install Server | `server.host_access` | yes |  |
+| GET | `/api/dns/noust/server/key` | Transfer Key | `server.host_access` | yes |  |
+| POST | `/api/dns/noust/server/secondaries` | Add Secondary | `server.manage` |  |  |
+| DELETE | `/api/dns/noust/server/secondaries/{address}` | Remove Secondary | `server.manage` |  |  |
+| GET | `/api/dns/noust/zones` | List Zones | `server.read` |  |  |
+| POST | `/api/dns/noust/zones` | Create Zone | `server.manage` |  |  |
+| GET | `/api/dns/noust/zones/{zone}` | Get Zone | `server.read` |  |  |
+| PATCH | `/api/dns/noust/zones/{zone}` | Update Zone | `server.manage` |  |  |
+| DELETE | `/api/dns/noust/zones/{zone}` | Delete Zone | `server.manage` | yes |  |
+| GET | `/api/dns/noust/zones/{zone}/delegation` | Delegation Plan | `server.read` |  |  |
+| GET | `/api/dns/noust/zones/{zone}/delegation/check` | Delegation Check | `server.read` |  |  |
+| GET | `/api/dns/noust/zones/{zone}/dnssec` | Get Dnssec | `server.read` |  |  |
+| PUT | `/api/dns/noust/zones/{zone}/dnssec` | Set Dnssec | `server.manage` | yes |  |
+| POST | `/api/dns/noust/zones/{zone}/dnssec/ds-published` | Ds Published | `server.manage` |  |  |
+| POST | `/api/dns/noust/zones/{zone}/records` | Add Record | `server.manage` |  |  |
+| PATCH | `/api/dns/noust/zones/{zone}/records/{record_id}` | Update Record | `server.manage` |  |  |
+| DELETE | `/api/dns/noust/zones/{zone}/records/{record_id}` | Delete Record | `server.manage` |  |  |
 | GET | `/api/dns/providers` | List Providers | `apps.read` |  |  |
 | POST | `/api/dns/providers` | Add Provider | `server.manage` | yes |  |
 | PATCH | `/api/dns/providers/{name}` | Update Provider | `server.manage` |  |  |
@@ -718,6 +738,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/fleet/cloud/servers/{node}/link` | Unlink Machine | `fleet.manage` | yes |  |
 | POST | `/api/fleet/cloud/servers/{node}/power-on` | Power On Machine | `fleet.manage` | yes |  |
 | POST | `/api/fleet/databases/transfer` | Transfer Database | `fleet.manage` |  |  |
+| GET | `/api/fleet/dns` | Fleet Dns | `fleet.read` |  |  |
+| POST | `/api/fleet/dns/cluster` | Set Up Cluster | `fleet.manage` |  |  |
 | POST | `/api/fleet/enroll` | Enroll Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/enroll/host-key` | Scan Host Key | `fleet.manage` |  |  |
 | GET | `/api/fleet/jobs` | List Jobs | `fleet.read` |  |  |
