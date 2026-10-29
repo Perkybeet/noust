@@ -625,6 +625,8 @@ EVENTS: dict[str, EventSpec] = {
             "sources.lease.hold": "A central leased this server access to GitHub to clone the repositories it serves.",
             "sources.lease.drop": "A central took back the access to GitHub it had leased this server.",
             "sources.event.forward": "A central forwarded a push, a tag or a pull request of GitHub to this server, which queued what it asks for.",
+            "sources.lease.refresh": "The access to GitHub that the servers of the fleet clone with was leased again by hand.",
+            "sources.forward.retry": "An event of GitHub that was given up on was handed to a server again.",
         },
     ),
     # The console's terminal and one-off commands (4.0): a shell as an application,

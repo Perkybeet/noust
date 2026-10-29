@@ -510,6 +510,17 @@ CATALOG: dict[str, str] = {
         "is running and reaches this server. A deploy key does not depend on the central; "
         "see: {command}"
     ),
+    "sources.no_app": "This central has no GitHub App to lease access with",
+    "sources.no_app.hint": (
+        "Create it in the console (Integrations, GitHub) or with: noust github setup"
+    ),
+    "sources.delivery_not_retryable": (
+        "That event is {state}, and only an event that was given up on can be handed over again"
+    ),
+    "sources.delivery_not_retryable.hint": (
+        "A server that took the event is not sent it twice; one that is still waiting is tried "
+        "again by itself."
+    ),
     "sources.central_only": (
         "Only the central that manages this server can lease it access to GitHub"
     ),
@@ -537,6 +548,34 @@ CATALOG: dict[str, str] = {
     "sources.node_refused": "{node} would not take the access to GitHub: {reason}",
     "sources.node_refused.hint": (
         "The server's own words are beside this. It is tried again in a few minutes."
+    ),
+    "sources.webhook_unreachable": (
+        "GitHub cannot reach this central, so a push to a repository its servers deploy deploys "
+        "nothing"
+    ),
+    "sources.webhook_unreachable.hint": (
+        "The servers it manages have no address GitHub could call: the App's webhook is this "
+        "central's. On a server with a web server, give it a name of its own: {command}. Behind a "
+        "proxy of your own, say where it answers: {config_command}"
+    ),
+    "sources.node_independent": (
+        "{node} is independent, so this central hands it nothing from GitHub"
+    ),
+    "sources.node_independent.hint": (
+        "Make it follow the fleet again and the access and the events of its repositories reach "
+        "it. Until then it deploys from its own credentials."
+    ),
+    "sources.forward_gave_up": (
+        "{node} did not take the {kind} of {repository} in {minutes} minutes, and the central "
+        "gave up"
+    ),
+    "sources.forward_gave_up.hint": (
+        "Nothing was deployed on {node} for it. Once it answers again, update the application "
+        "there, or push again."
+    ),
+    "sources.forward_refused": "{node} would not take the {kind} of {repository}: {reason}",
+    "sources.forward_refused.hint": (
+        "The server's own words are beside this. Nothing was deployed on {node} for it."
     ),
     "sources.github_refused": "GitHub would not give a token for installation {installation}",
     "sources.github_refused.hint": (

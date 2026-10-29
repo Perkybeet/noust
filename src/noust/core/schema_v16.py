@@ -199,6 +199,7 @@ CREATE TABLE IF NOT EXISTS source_follows (
     environment_url TEXT,
     job_id TEXT,
     number INTEGER,
+    action TEXT,
     provider_ref INTEGER,
     comment_ref TEXT,
     last_state TEXT,

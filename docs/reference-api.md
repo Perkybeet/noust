@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1087 operations.
+1095 operations.
 
 ## Access
 
@@ -1221,6 +1221,19 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/unknown-hosts` | Get Unknown Hosts | `server.read` |  |  |
 | PUT | `/api/unknown-hosts` | Put Unknown Hosts | `server.manage` | yes |  |
 | DELETE | `/api/unknown-hosts` | Delete Unknown Hosts | `server.manage` | yes |  |
+
+## Sources
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/fleet/sources` | Sources Status | `fleet.read` |  |  |
+| GET | `/api/fleet/sources/deliveries` | Sources Deliveries | `fleet.read` |  |  |
+| POST | `/api/fleet/sources/deliveries/{forward_id}/retry` | Retry Delivery | `fleet.manage` |  |  |
+| POST | `/api/fleet/sources/leases` | Lease Again | `fleet.manage` |  |  |
+| POST | `/api/sources/events` | Forward Event | `apps.deploy` |  |  |
+| GET | `/api/sources/leases` | List Leases | `apps.read` |  |  |
+| PUT | `/api/sources/leases` | Hold Lease | `apps.deploy` |  |  |
+| DELETE | `/api/sources/leases` | Drop Leases | `apps.deploy` |  |  |
 
 ## Streams
 

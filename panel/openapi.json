@@ -14863,78 +14863,6 @@
         "title": "DeletionPlanResponse",
         "type": "object"
       },
-      "DeliveriesOut": {
-        "description": "The record of deliveries of every server.\n\nAttributes:\n    counts: For each server that answered (this central's own name for itself), how many\n        deliveries its record has in each state (``sent``, ``failed``, ``retrying``,\n        ``held``), the whole of it and not only the part listed in ``items``.",
-        "properties": {
-          "counts": {
-            "additionalProperties": {
-              "additionalProperties": {
-                "type": "integer"
-              },
-              "type": "object"
-            },
-            "title": "Counts",
-            "type": "object"
-          },
-          "fleet": {
-            "title": "Fleet",
-            "type": "boolean"
-          },
-          "generated_at": {
-            "title": "Generated At",
-            "type": "string"
-          },
-          "items": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "nodes": {
-            "items": {
-              "$ref": "#/components/schemas/ViewNodeOut"
-            },
-            "title": "Nodes",
-            "type": "array"
-          },
-          "partial": {
-            "title": "Partial",
-            "type": "boolean"
-          },
-          "refusals": {
-            "items": {
-              "$ref": "#/components/schemas/RefusalGroupOut"
-            },
-            "title": "Refusals",
-            "type": "array"
-          },
-          "resource": {
-            "title": "Resource",
-            "type": "string"
-          },
-          "servers": {
-            "items": {
-              "$ref": "#/components/schemas/ViewServerOut"
-            },
-            "title": "Servers",
-            "type": "array"
-          }
-        },
-        "required": [
-          "resource",
-          "generated_at",
-          "partial",
-          "fleet",
-          "servers",
-          "nodes",
-          "refusals",
-          "items"
-        ],
-        "title": "DeliveriesOut",
-        "type": "object"
-      },
       "DeliveryConfig": {
         "description": "The limits a server delivers under: how much builds at once, waits, and takes.",
         "properties": {
@@ -14964,6 +14892,33 @@
           }
         },
         "title": "DeliveryConfig",
+        "type": "object"
+      },
+      "DeliveryCountsOut": {
+        "description": "How many events are in each state.\n\nAttributes:\n    pending: Waiting for their server.\n    delivered: Taken.\n    failed: Refused for good.\n    expired: Given up on after the server stayed away.",
+        "properties": {
+          "delivered": {
+            "default": 0,
+            "title": "Delivered",
+            "type": "integer"
+          },
+          "expired": {
+            "default": 0,
+            "title": "Expired",
+            "type": "integer"
+          },
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "pending": {
+            "default": 0,
+            "title": "Pending",
+            "type": "integer"
+          }
+        },
+        "title": "DeliveryCountsOut",
         "type": "object"
       },
       "DeliveryListResponse": {
@@ -15091,6 +15046,135 @@
           "updated_at"
         ],
         "title": "DeliveryModel",
+        "type": "object"
+      },
+      "DeliveryOut": {
+        "description": "An event handed, or owed, to a server.\n\nAttributes:\n    id: Its id.\n    delivery: GitHub's id for the delivery.\n    node: The server.\n    kind: ``push``, ``tag`` or ``pull_request``.\n    repository: ``owner/repo``.\n    ref: The branch or tag.\n    number: The pull request.\n    commit: The commit announced.\n    state: ``pending``, ``delivered``, ``failed`` or ``expired``.\n    attempts: How many times it was tried.\n    next_attempt_at: When it is tried next.\n    error: Why the last try did not work.\n    jobs: What the server queued for it (domain and job).\n    follows: What the central follows because of it.\n    created_at: When it was written down.\n    delivered_at: When the server took it.",
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "delivered_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivered At"
+          },
+          "delivery": {
+            "title": "Delivery",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProblemOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "follows": {
+            "items": {
+              "$ref": "#/components/schemas/FollowOut"
+            },
+            "title": "Follows",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "jobs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "next_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Attempt At"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "repository": {
+            "title": "Repository",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "delivery",
+          "node",
+          "kind",
+          "repository",
+          "state",
+          "attempts",
+          "created_at"
+        ],
+        "title": "DeliveryOut",
         "type": "object"
       },
       "DeployKeyCreateRequest": {
@@ -22891,6 +22975,127 @@
         "title": "FleetViewOut",
         "type": "object"
       },
+      "FollowOut": {
+        "description": "A deployment or a preview the central follows.\n\nAttributes:\n    id: Its number.\n    node: The server it is on.\n    domain: The application.\n    kind: ``deployment`` or ``preview``.\n    repository: ``owner/repo``.\n    ref: The commit, branch or tag.\n    job_id: The server's job (a deployment).\n    number: The pull request (a preview).\n    action: What happened to the pull request.\n    last_state: What was last said on GitHub.\n    state: ``active``, ``done`` or ``lost``.\n    detail: How it ended.\n    created_at: When it began.\n    finished_at: When it ended.",
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last State"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "repository": {
+            "title": "Repository",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "node",
+          "domain",
+          "kind",
+          "repository",
+          "state",
+          "created_at"
+        ],
+        "title": "FollowOut",
+        "type": "object"
+      },
       "FollowTagsResponse": {
         "description": "The tags an application deploys now.\n\nAttributes:\n    domain: The application's domain.\n    follow_tags: The glob it follows, or None when it follows a branch.\n    following: Whether it follows tags.\n    previous: The glob it followed before.",
         "properties": {
@@ -23046,6 +23251,187 @@
           "presets"
         ],
         "title": "ForwardAuthPresets",
+        "type": "object"
+      },
+      "ForwardedEventIn": {
+        "description": "An event a central forwards.\n\nAttributes:\n    kind: ``push``, ``tag`` or ``pull_request``.\n    event: The event as :func:`noust.core.forge_events.event_to_dict` writes it.\n    delivery: The code host's id for the delivery, kept in the jobs' metadata and the\n        applications' delivery logs.\n    host: The GitHub host the repository is on, which decides which sources are it.\n    default_branch: The repository's default branch (a push only), which an application with\n        no branch of its own follows.",
+        "properties": {
+          "default_branch": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "delivery": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery"
+          },
+          "event": {
+            "additionalProperties": true,
+            "title": "Event",
+            "type": "object"
+          },
+          "host": {
+            "default": "github.com",
+            "maxLength": 300,
+            "title": "Host",
+            "type": "string"
+          },
+          "kind": {
+            "maxLength": 20,
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "event"
+        ],
+        "title": "ForwardedEventIn",
+        "type": "object"
+      },
+      "ForwardedEventOut": {
+        "description": "What this server did with the event.\n\nAttributes:\n    status: ``queued`` when something was queued, ``ignored`` otherwise.\n    kind: The kind of event.\n    jobs: The updates queued by a push or a tag.\n    ignored: The applications that did not update, with why.\n    refused: How many updates the full queue refused (when some were queued anyway).\n    previews: The applications that preview a pull request.\n    job_ids: The jobs the previews queued.",
+        "properties": {
+          "ignored": {
+            "items": {
+              "$ref": "#/components/schemas/ForwardedIgnored"
+            },
+            "title": "Ignored",
+            "type": "array"
+          },
+          "job_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Job Ids",
+            "type": "array"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/ForwardedJob"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "previews": {
+            "items": {
+              "$ref": "#/components/schemas/ForwardedPreview"
+            },
+            "title": "Previews",
+            "type": "array"
+          },
+          "refused": {
+            "default": 0,
+            "title": "Refused",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "kind"
+        ],
+        "title": "ForwardedEventOut",
+        "type": "object"
+      },
+      "ForwardedIgnored": {
+        "description": "An application the event concerned and that did not update.\n\nAttributes:\n    domain: The application.\n    reason: Why, in a word (``skip``, ``paths``, ``paused``, ``frozen``) or the sentence\n        of a tag it does not deploy.\n    detail: The sentence, when there is one.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "reason"
+        ],
+        "title": "ForwardedIgnored",
+        "type": "object"
+      },
+      "ForwardedJob": {
+        "description": "An update the event queued.\n\nAttributes:\n    domain: The application.\n    job_id: The job, which the central follows.\n    merged: The update that waited already covers this push: the last push wins.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "merged": {
+            "default": false,
+            "title": "Merged",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "job_id"
+        ],
+        "title": "ForwardedJob",
+        "type": "object"
+      },
+      "ForwardedPreview": {
+        "description": "An application that previews the pull request.\n\nAttributes:\n    parent: The application previewed.\n    number: The pull request.\n    action: ``opened``, ``updated`` or ``closed``.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "parent": {
+            "title": "Parent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent",
+          "number",
+          "action"
+        ],
+        "title": "ForwardedPreview",
         "type": "object"
       },
       "FrameworkChange": {
@@ -23467,8 +23853,45 @@
         "title": "GitHubHostRequest",
         "type": "object"
       },
+      "GitHubSourcesOut": {
+        "description": "The GitHub this central serves its servers with.\n\nAttributes:\n    configured: Whether this central has an App.\n    host: The GitHub host.\n    hooks_url: Where GitHub delivers, when this central has a public address for it.\n    warnings: What keeps it from working: GitHub has no address to deliver to.",
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "hooks_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hooks Url"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/SentenceOut"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "configured",
+          "host"
+        ],
+        "title": "GitHubSourcesOut",
+        "type": "object"
+      },
       "GitHubStatusOut": {
-        "description": "The GitHub integration of this server.",
+        "description": "The GitHub integration of this server.\n\nAttributes:\n    warnings: What keeps it from working for the servers a central manages: GitHub has no\n        address to deliver this central's pushes to.",
         "properties": {
           "app_id": {
             "anyOf": [
@@ -23579,6 +24002,14 @@
               }
             ],
             "title": "Slug"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SentenceOut"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
         "required": [
@@ -28256,6 +28687,148 @@
         "title": "LdapLoginRequest",
         "type": "object"
       },
+      "LeaseAgainIn": {
+        "description": "Lease again now.\n\nAttributes:\n    nodes: Only these servers; all of them when omitted.\n    force: Replace the leases that are not due.",
+        "properties": {
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "nodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nodes"
+          }
+        },
+        "title": "LeaseAgainIn",
+        "type": "object"
+      },
+      "LeaseIn": {
+        "description": "A token a central leases to this server.\n\nAttributes:\n    key: The central's name for this lease (host, installation and part); leasing the same\n        key again replaces it.\n    host: The GitHub host the token is for.\n    installation_id: The installation it was issued from.\n    repositories: ``owner/repo`` it reads.\n    token: The installation token. A secret: kept sealed, never answered back.\n    expires_in: Seconds it lives from now; at most two hours.\n    permissions: What it may do; only ``{\"contents\": \"read\"}`` is accepted.",
+        "properties": {
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "host": {
+            "maxLength": 300,
+            "title": "Host",
+            "type": "string"
+          },
+          "installation_id": {
+            "title": "Installation Id",
+            "type": "integer"
+          },
+          "key": {
+            "maxLength": 200,
+            "title": "Key",
+            "type": "string"
+          },
+          "permissions": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permissions"
+          },
+          "repositories": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "title": "Repositories",
+            "type": "array"
+          },
+          "token": {
+            "maxLength": 2000,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "host",
+          "installation_id",
+          "repositories",
+          "token",
+          "expires_in"
+        ],
+        "title": "LeaseIn",
+        "type": "object"
+      },
+      "LeasedAgainOut": {
+        "description": "What leasing again came to.\n\nAttributes:\n    nodes: Each server after the look.",
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/NodeSourcesOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodes"
+        ],
+        "title": "LeasedAgainOut",
+        "type": "object"
+      },
+      "LeasesDroppedOut": {
+        "description": "The answer to taking leases back.\n\nAttributes:\n    dropped: How many were forgotten.",
+        "properties": {
+          "dropped": {
+            "title": "Dropped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dropped"
+        ],
+        "title": "LeasesDroppedOut",
+        "type": "object"
+      },
+      "LeasesOut": {
+        "description": "Every lease this server holds, and the centrals that call it.\n\nAttributes:\n    items: The leases, by central and key.\n    centrals: The centrals that call this server and when each last did.",
+        "properties": {
+          "centrals": {
+            "items": {
+              "$ref": "#/components/schemas/CentralCallOut"
+            },
+            "title": "Centrals",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__source_leases__LeaseOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "LeasesOut",
+        "type": "object"
+      },
       "LiftedResponse": {
         "description": "What lifting did.",
         "properties": {
@@ -29676,6 +30249,14 @@
           "state": {
             "title": "State",
             "type": "string"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SentenceOut"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
         "required": [
@@ -32562,6 +33143,67 @@
           "step"
         ],
         "title": "NodeRotationResponse",
+        "type": "object"
+      },
+      "NodeSourcesOut": {
+        "description": "Where one server stands on the access to clone with.\n\nAttributes:\n    node: The server.\n    state: ``leased``, ``none`` (it deploys nothing from the App's repositories),\n        ``independent``, ``unsupported`` (an older Noust), ``ceiling`` (the server lets its\n        central only read), ``unreachable``, ``failed``, ``unknown`` (not looked at since the\n        console started and nothing recorded) or ``no_app``.\n    leases: Its leases.\n    uncovered: The repositories of its applications the App does not reach.\n    problems: Why, one for each.\n    error: Why the whole server could not be leased.\n    checked_at: When it was last looked at; null when the answer is what was recorded.",
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProblemOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "leases": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__fleet_sources__LeaseOut"
+            },
+            "title": "Leases",
+            "type": "array"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemOut"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "uncovered": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Uncovered",
+            "type": "array"
+          }
+        },
+        "required": [
+          "node",
+          "state"
+        ],
+        "title": "NodeSourcesOut",
         "type": "object"
       },
       "NodeTeamRequest": {
@@ -36775,6 +37417,48 @@
           }
         },
         "title": "ProbeResult",
+        "type": "object"
+      },
+      "ProblemOut": {
+        "description": "Something that could not be done, and why.\n\nAttributes:\n    text: The sentence in English.\n    hint: How to fix it.\n    coded: The same sentence as ``{code, params}``, for the console to translate.\n    output: The words of GitHub or of the server, verbatim; never a token.",
+        "properties": {
+          "coded": {
+            "additionalProperties": true,
+            "title": "Coded",
+            "type": "object"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "coded"
+        ],
+        "title": "ProblemOut",
         "type": "object"
       },
       "ProcessChangeResponse": {
@@ -48151,6 +48835,37 @@
         "title": "SelfUpdateOut",
         "type": "object"
       },
+      "SentenceOut": {
+        "description": "Something the operator should know, as a sentence with a code.\n\nAttributes:\n    text: The sentence in English.\n    hint: How to fix it.\n    coded: The same sentence as ``{code, params}``, for the console to translate.",
+        "properties": {
+          "coded": {
+            "additionalProperties": true,
+            "title": "Coded",
+            "type": "object"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "coded"
+        ],
+        "title": "SentenceOut",
+        "type": "object"
+      },
       "SeparationConflict": {
         "description": "A person holding roles that should not go together.\n\nAttributes:\n    person_ref: The person.\n    accounts: Their accounts, with the role of each.\n    exception: Whether a documented exception covers them.",
         "properties": {
@@ -52663,6 +53378,36 @@
           "state"
         ],
         "title": "SourceStatusOut",
+        "type": "object"
+      },
+      "SourcesOut": {
+        "description": "What a central does so that its servers deploy from GitHub.\n\nAttributes:\n    github: The App and whether GitHub can reach this central.\n    nodes: Each server's access to clone with.\n    deliveries: How many events are in each state.\n    following: How many deployments and previews are followed now.",
+        "properties": {
+          "deliveries": {
+            "$ref": "#/components/schemas/DeliveryCountsOut"
+          },
+          "following": {
+            "title": "Following",
+            "type": "integer"
+          },
+          "github": {
+            "$ref": "#/components/schemas/GitHubSourcesOut"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/NodeSourcesOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "github",
+          "nodes",
+          "deliveries",
+          "following"
+        ],
+        "title": "SourcesOut",
         "type": "object"
       },
       "SparkFigure": {
@@ -64147,6 +64892,107 @@
         "title": "ActionOut",
         "type": "object"
       },
+      "noust__web__api__fleet_sources__DeliveriesOut": {
+        "description": "The events handed to the servers.\n\nAttributes:\n    items: Them, newest first.\n    total: How many are listed.\n    counts: How many are in each state, all of them.",
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/DeliveryCountsOut"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "counts"
+        ],
+        "title": "DeliveriesOut",
+        "type": "object"
+      },
+      "noust__web__api__fleet_sources__LeaseOut": {
+        "description": "One lease a server holds, or was meant to.\n\nAttributes:\n    key: Its name on the server.\n    host: The GitHub host.\n    installation_id: The installation its token comes from.\n    repositories: What it lets the server read.\n    state: ``leased``, ``failed``, ``issued`` (made just now) or ``current``.\n    expires_at: When the server's token ends.\n    expires_in: Seconds left; 0 once it ended.\n    error: Why the last try failed.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProblemOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "expires_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "installation_id": {
+            "title": "Installation Id",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "repositories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Repositories",
+            "type": "array"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "installation_id",
+          "repositories",
+          "state"
+        ],
+        "title": "LeaseOut",
+        "type": "object"
+      },
       "noust__web__api__gitlab__BranchListOut": {
         "description": "A project's branches.",
         "properties": {
@@ -65259,6 +66105,71 @@
         "title": "CheckOut",
         "type": "object"
       },
+      "noust__web__api__source_leases__LeaseOut": {
+        "description": "A lease this server holds. Never the token.\n\nAttributes:\n    central: The central that leased it.\n    key: Its name.\n    host: The GitHub host.\n    installation_id: The installation.\n    repositories: What it reads, sorted.\n    permissions: What it may do.\n    received_at: When it arrived.\n    expires_at: When it stops being used, on this server's clock.\n    expires_in: Seconds left; 0 once it ended.\n    ended: Whether it ended: a clone of its repositories fails until the central renews it.",
+        "properties": {
+          "central": {
+            "title": "Central",
+            "type": "string"
+          },
+          "ended": {
+            "title": "Ended",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "installation_id": {
+            "title": "Installation Id",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "permissions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "object"
+          },
+          "received_at": {
+            "title": "Received At",
+            "type": "string"
+          },
+          "repositories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Repositories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "central",
+          "key",
+          "host",
+          "installation_id",
+          "repositories",
+          "permissions",
+          "received_at",
+          "expires_at",
+          "expires_in",
+          "ended"
+        ],
+        "title": "LeaseOut",
+        "type": "object"
+      },
       "noust__web__api__source_uploads__UploadResponse": {
         "description": "An upload in progress.",
         "properties": {
@@ -65602,6 +66513,78 @@
           "created_at"
         ],
         "title": "ProjectOut",
+        "type": "object"
+      },
+      "noust__web__api__views__DeliveriesOut": {
+        "description": "The record of deliveries of every server.\n\nAttributes:\n    counts: For each server that answered (this central's own name for itself), how many\n        deliveries its record has in each state (``sent``, ``failed``, ``retrying``,\n        ``held``), the whole of it and not only the part listed in ``items``.",
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "fleet": {
+            "title": "Fleet",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/ViewNodeOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "refusals": {
+            "items": {
+              "$ref": "#/components/schemas/RefusalGroupOut"
+            },
+            "title": "Refusals",
+            "type": "array"
+          },
+          "resource": {
+            "title": "Resource",
+            "type": "string"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/ViewServerOut"
+            },
+            "title": "Servers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "resource",
+          "generated_at",
+          "partial",
+          "fleet",
+          "servers",
+          "nodes",
+          "refusals",
+          "items"
+        ],
+        "title": "DeliveriesOut",
         "type": "object"
       },
       "noust__web__api__volume_backups__PolicyDestination": {
@@ -98203,6 +99186,201 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/fleet/sources": {
+      "get": {
+        "description": "Show what this central does so that its servers deploy from GitHub.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The App and whether GitHub can reach this central, each server's access to clone with, how\n    many events are in each state and how many deployments are followed.",
+        "operationId": "sources_status_api_fleet_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sources Status",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/fleet/sources/deliveries": {
+      "get": {
+        "description": "List the events handed, or owed, to the servers.\n\nArgs:\n    session: The authenticated session.\n    node: Only this server's.\n    state: Only in this state: ``pending``, ``delivered``, ``failed`` or ``expired``.\n    limit: Most events.\n\nReturns:\n    The events, newest first, each with what the server queued and what is followed.\n\nRaises:\n    ValidationError: 400 for a state nobody defined.",
+        "operationId": "sources_deliveries_api_fleet_sources_deliveries_get",
+        "parameters": [
+          {
+            "description": "Only this server's",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this server's",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Only in this state",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only in this state",
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__fleet_sources__DeliveriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sources Deliveries",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/fleet/sources/deliveries/{forward_id}/retry": {
+      "post": {
+        "description": "Hand an event over again that the central had given up on.\n\nArgs:\n    forward_id: The event.\n    session: The authenticated session.\n\nReturns:\n    The event, pending and due now; the worker hands it over within seconds.\n\nRaises:\n    HTTPException: 404 when there is no such event; 409 when it is not one that was given up\n        on (one the server took is not sent twice).",
+        "operationId": "retry_delivery_api_fleet_sources_deliveries__forward_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "forward_id",
+            "required": true,
+            "schema": {
+              "title": "Forward Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Delivery",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/sources/leases": {
+      "post": {
+        "description": "Look at the servers and lease what each needs, now.\n\nArgs:\n    body: The servers to look at, and whether to replace what is not due.\n    session: The authenticated session.\n\nReturns:\n    Each server after the look.\n\nRaises:\n    HTTPException: 409 ``no_github_app`` when this central has no App to lease with.",
+        "operationId": "lease_again_api_fleet_sources_leases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaseAgainIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeasedAgainOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lease Again",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
     "/api/fleet/summary": {
       "get": {
         "description": "Every server at a glance: reachability, version, its overview and its machine.\n\nEach row carries the server's own ``overview`` (``GET /api/overview``),\n``server`` summary (``GET /api/server/summary``) and ``machine`` snapshot,\nverbatim, plus the counts ``noust fleet status`` prints. A node too old to\noffer the overview is ``unsupported`` and still shows what it has.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per server.",
@@ -110786,6 +111964,165 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/sources/events": {
+      "post": {
+        "description": "Queue what an event of the central's code host asks for on this server.\n\nArgs:\n    body: The event.\n    session: The authenticated session; only a central's.\n\nReturns:\n    What was queued, what declined and why, and what previews the pull request.\n\nRaises:\n    HTTPException: 403 ``central_only`` for anyone but a central.\n    ValidationError: 400 naming the field of an event that is not exactly one.",
+        "operationId": "forward_event_api_sources_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForwardedEventIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardedEventOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forward Event",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/sources/leases": {
+      "delete": {
+        "description": "Forget leases of the calling central, one or all.\n\nArgs:\n    session: The authenticated session; only a central's, and only its own leases.\n    key: Only this lease; every one of the central's when omitted.\n\nReturns:\n    How many were forgotten.\n\nRaises:\n    HTTPException: 403 ``central_only`` for anyone but a central.",
+        "operationId": "drop_leases_api_sources_leases_delete",
+        "parameters": [
+          {
+            "description": "Only this lease",
+            "in": "query",
+            "name": "key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this lease",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeasesDroppedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Drop Leases",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "apps.deploy"
+      },
+      "get": {
+        "description": "List the GitHub access centrals have leased to this server.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Each lease with when it ends, and the centrals that call this server.",
+        "operationId": "list_leases_api_sources_leases_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeasesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Leases",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Take a token a central leases to this server, replacing the lease of the same key.\n\nArgs:\n    body: The lease.\n    session: The authenticated session; only a central's.\n\nReturns:\n    The lease, without its token.\n\nRaises:\n    HTTPException: 403 ``central_only`` for anyone but a central.\n    ValidationError: 400 when it is not a lease this server will keep.",
+        "operationId": "hold_lease_api_sources_leases_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__source_leases__LeaseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hold Lease",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
     "/api/streams": {
       "get": {
         "description": "List the published ports, and say whether nginx here can publish another.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The ports and what nginx offers.",
@@ -115709,7 +117046,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeliveriesOut"
+                  "$ref": "#/components/schemas/noust__web__api__views__DeliveriesOut"
                 }
               }
             },

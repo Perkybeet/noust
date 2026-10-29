@@ -100,7 +100,7 @@ def parse_push(payload: dict[str, Any]) -> PushEvent | None:
     )
 
 
-def _repository_of(source: str | None, hosts: Sequence[str] | None) -> str | None:
+def repository_of(source: str | None, hosts: Sequence[str] | None) -> str | None:
     """
     Args:
         source: An application's source.
@@ -148,7 +148,7 @@ def follows_push(
     """
     if preview_parent or follow_tags:
         return False
-    if _repository_of(source, hosts) != push.repository.lower():
+    if repository_of(source, hosts) != push.repository.lower():
         return False
     wanted = branch or parse_git_url(source or "")["branch"] or default_branch
     return wanted == push.branch
@@ -180,7 +180,7 @@ def follows_tags(
     """
     if preview_parent or not follow_tags:
         return False
-    return _repository_of(source, hosts) == repository.lower()
+    return repository_of(source, hosts) == repository.lower()
 
 
 def apps_following(

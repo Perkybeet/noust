@@ -114,6 +114,14 @@ class TestHubCommands:
         result = CliRunner().invoke(root_cli, ["2fa", "status"])
         assert result.exit_code == 0, result.output
 
+    def test_a_hub_may_have_the_github_app(self, hub: None, tmp_path: Path) -> None:
+        # A hub deploys nothing, but it receives the pushes of the repositories its servers
+        # deploy and hands them on, so the App is its to have.
+        central.refuse_command_on_hub("github")
+        assert "github" not in central.HUB_REFUSED_COMMANDS
+
+        assert main(["github", "status"]) == 0
+
     def test_a_server_does_not_refuse_them(self) -> None:
         central.refuse_command_on_hub("list")
         central.refuse_command_on_hub("cert")
@@ -123,7 +131,7 @@ class TestHubCommands:
 
         known = {*COMMAND_MODULES, *WEBAPP_COMMANDS}
         assert set(central.HUB_REFUSED_COMMANDS) <= known
-        for kept in ("2fa", "config", "token", "sessions", "web", "central", "notify"):
+        for kept in ("2fa", "config", "token", "sessions", "web", "central", "notify", "github"):
             assert kept not in central.HUB_REFUSED_COMMANDS
 
 

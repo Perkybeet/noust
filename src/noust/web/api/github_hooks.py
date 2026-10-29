@@ -26,6 +26,12 @@ signature or the secret.
 - ``installation`` and ``installation_repositories``: the stored
   installations follow.
 - anything else: 202, ignored.
+
+A central that manages servers does the same for theirs (item 90): a ``push``, a tag and a
+``pull_request`` are also written down for each server that deploys the repository
+(:mod:`noust.fleet.sources.forward`), and the answer lists them as ``forwarded``. The App is the
+central's, and a central that is a ``hub`` has no application of its own, so it only forwards. What
+cannot be written down is logged and never changes what GitHub is answered.
 """
 
 from __future__ import annotations
@@ -33,6 +39,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import sqlite3
 from collections.abc import Sequence
 from typing import Any
 
@@ -41,9 +48,18 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from noust.core.exceptions import NoustError, QueueFullError
-from noust.core.forge_events import PushEvent, TagEvent, parse_pull_request, parse_tag_event
+from noust.core.forge_events import (
+    PullRequestEvent,
+    PushEvent,
+    TagEvent,
+    event_kind,
+    parse_pull_request,
+    parse_tag_event,
+)
+from noust.core.github_host import configured_host
 from noust.core.secrets import SecretStore
 from noust.core.store import get_store
+from noust.fleet.sources.worker import get_worker
 from noust.integrations.github import webhooks
 from noust.integrations.github.app import WEBHOOK_SECRET, read_meta, write_meta
 from noust.integrations.github.service import github_hooks_url
@@ -202,6 +218,45 @@ def queue_tag_updates(
     return queued, ignored
 
 
+def forward_event(
+    event: PushEvent | TagEvent | PullRequestEvent, delivery: str | None, default_branch: str | None
+) -> list[dict[str, str]]:
+    """
+    Write an event down for the servers of this central that deploy its repository.
+
+    The delivery is answered to GitHub whatever becomes of this: what could not be written down
+    is logged, and what was is handed to the servers by the worker, not by this request.
+
+    Args:
+        event: The push, the tag or the pull request.
+        delivery: GitHub's delivery id.
+        default_branch: The repository's default branch, for a push.
+
+    Returns:
+        ``node`` and ``id`` of each delivery owed; none when this central manages no server that
+        deploys the repository.
+    """
+    try:
+        worker = get_worker()
+        owed = worker.forwarder.enqueue(
+            event,
+            delivery=delivery or "none",
+            host=configured_host(),
+            default_branch=default_branch,
+        )
+    except (NoustError, sqlite3.Error) as exc:
+        logger.warning(
+            "Could not forward %s of %s to the servers: %s",
+            event_kind(event),
+            event.repository,
+            exc,
+        )
+        return []
+    if owed:
+        worker.wake()
+    return [{"node": item.node, "id": item.id} for item in owed]
+
+
 @router.post("/github")
 async def deliver(request: Request) -> JSONResponse:
     """
@@ -279,12 +334,21 @@ async def deliver(request: Request) -> JSONResponse:
         announced = parse_tag_event("github", event, payload)
         if announced is not None:
             queued, ignored = await run_in_threadpool(queue_tag_updates, announced, delivery)
-            if queued:
-                domains = ", ".join(job["domain"] for job in queued)
+            forwarded = await run_in_threadpool(forward_event, announced, delivery, None)
+            if queued or forwarded:
+                domains = ", ".join(
+                    [job["domain"] for job in queued]
+                    + [f"{f['node']} (forwarded)" for f in forwarded]
+                )
                 _record(request, "accepted", f"{event} of {announced.tag}: {domains}")
                 return JSONResponse(
                     status_code=202,
-                    content={"status": "queued", "jobs": queued, "ignored": ignored},
+                    content={
+                        "status": "queued",
+                        "jobs": queued,
+                        "ignored": ignored,
+                        **({"forwarded": forwarded} if forwarded else {}),
+                    },
                 )
             if ignored:
                 _record(
@@ -307,14 +371,15 @@ async def deliver(request: Request) -> JSONResponse:
         repository = payload.get("repository")
         default = repository.get("default_branch") if isinstance(repository, dict) else None
         jobs, refused, declined = await run_in_threadpool(queue_updates, push, default, delivery)
-        if not jobs and refused:
+        forwarded = await run_in_threadpool(forward_event, push, delivery, default)
+        if not jobs and refused and not forwarded:
             _record(
                 request,
                 "refused",
                 f"push to {push.repository}@{push.branch}: the deploy queue is full",
             )
             return error_response(refused[0])
-        if not jobs and declined:
+        if not jobs and not forwarded and declined:
             domains = ", ".join(item["domain"] for item in declined)
             _record(
                 request,
@@ -326,12 +391,14 @@ async def deliver(request: Request) -> JSONResponse:
                 status_code=200,
                 content={"status": "ignored", "reason": declined[0]["reason"], "ignored": declined},
             )
-        if not jobs:
+        if not jobs and not forwarded:
             _record(request, "ignored", f"push to {push.repository}@{push.branch}: no application")
             return JSONResponse(
                 status_code=200, content={"status": "ignored", "reason": "no_application"}
             )
-        domains = ", ".join(job["domain"] for job in jobs)
+        domains = ", ".join(
+            [job["domain"] for job in jobs] + [f"{f['node']} (forwarded)" for f in forwarded]
+        )
         _record(request, "accepted", f"push to {push.repository}@{push.branch}: {domains}")
         return JSONResponse(
             status_code=202,
@@ -340,6 +407,7 @@ async def deliver(request: Request) -> JSONResponse:
                 "jobs": jobs,
                 **({"refused": len(refused)} if refused else {}),
                 **({"ignored": declined} if declined else {}),
+                **({"forwarded": forwarded} if forwarded else {}),
             },
         )
 
@@ -353,15 +421,20 @@ async def deliver(request: Request) -> JSONResponse:
         from noust.managers.previews import handle_pull_request
 
         job_ids = await run_in_threadpool(handle_pull_request, pull)
+        forwarded = await run_in_threadpool(forward_event, pull, delivery, None)
         _record(
             request,
             "accepted",
             f"pull_request {pull.action.value} {pull.repository}#{pull.number}: "
-            f"{len(job_ids)} job(s)",
+            f"{len(job_ids)} job(s), {len(forwarded)} forwarded",
         )
         return JSONResponse(
             status_code=202,
-            content={"status": "accepted", "jobs": [{"job_id": job_id} for job_id in job_ids]},
+            content={
+                "status": "accepted",
+                "jobs": [{"job_id": job_id} for job_id in job_ids],
+                **({"forwarded": forwarded} if forwarded else {}),
+            },
         )
 
     if event in ("installation", "installation_repositories"):

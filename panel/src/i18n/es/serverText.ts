@@ -512,6 +512,18 @@ export const serverText: Catalog<typeof en> = {
       text: "Solo la central que gestiona este servidor puede cederle acceso a GitHub",
       hint: "La central hace y renueva la cesión por su cuenta; no hay nada que hacer en este servidor. Para clonar con una credencial propia de este servidor, dale a la aplicación una clave de despliegue.",
     },
+    delivery_not_retryable: {
+      text: "Ese evento está en estado {state}, y solo se puede entregar otra vez uno que se dio por perdido",
+      hint: "Un servidor que ya tomó el evento no lo recibe dos veces; uno que aún espera lo vuelve a intentar solo.",
+    },
+    forward_gave_up: {
+      text: "{node} no aceptó el {kind} de {repository} en {minutes} minutos, y la central lo dejó",
+      hint: "No se desplegó nada en {node} por ello. Cuando vuelva a responder, actualiza allí la aplicación, o haz push otra vez.",
+    },
+    forward_refused: {
+      text: "{node} no ha querido aceptar el {kind} de {repository}: {reason}",
+      hint: "Las palabras del propio servidor van al lado. No se desplegó nada en {node} por ello.",
+    },
     github_refused: {
       text: "GitHub no ha querido dar un token para la instalación {installation}",
       hint: "Las palabras de GitHub van al lado. Si la App se eliminó o cambiaron sus permisos, acepta los permisos nuevos en los ajustes de la App en GitHub, o instálala otra vez.",
@@ -524,6 +536,10 @@ export const serverText: Catalog<typeof en> = {
       text: "El acceso a GitHub que {central} cedió a este servidor para {repository} terminó el {ended_at}, y {central} no ha llamado desde el {last_call}",
       hint: "Todo lo que arranque en este servidor y lea {repository} (una actualización programada, una preview) falla hasta que {central} vuelva a llamar y ceda uno nuevo: comprueba que la central está en marcha y llega a este servidor. Una clave de despliegue no depende de la central; mira: {command}",
     },
+    no_app: {
+      text: "Esta central no tiene una GitHub App con la que ceder acceso",
+      hint: "Créala en la consola (Integraciones, GitHub) o con: noust github setup",
+    },
     no_installation: {
       text: "Ninguna instalación de la GitHub App llega a {repository}",
       hint: "Instala la App en la cuenta {owner} y deja que lea {repository}: {url}",
@@ -531,6 +547,10 @@ export const serverText: Catalog<typeof en> = {
     node_ceiling: {
       text: "{node} deja a esta central solo leer, así que no se le puede ceder acceso a GitHub",
       hint: "Ceder acceso necesita el techo deploy o superior. En {node}, como root: {command}",
+    },
+    node_independent: {
+      text: "{node} es independiente, así que esta central no le pasa nada de GitHub",
+      hint: "Haz que vuelva a seguir la flota y le llegarán el acceso y los eventos de sus repositorios. Hasta entonces despliega con sus propias credenciales.",
     },
     node_refused: {
       text: "{node} no ha querido aceptar el acceso a GitHub: {reason}",
@@ -547,6 +567,10 @@ export const serverText: Catalog<typeof en> = {
     not_reachable: {
       text: "La GitHub App no puede leer {repository}",
       hint: "Añade {repository} a los repositorios a los que llega la instalación de la App: {url}",
+    },
+    webhook_unreachable: {
+      text: "GitHub no llega a esta central, así que un push a un repositorio que sus servidores despliegan no despliega nada",
+      hint: "Los servidores que gestiona no tienen una dirección a la que GitHub pueda llamar: el webhook de la App es de esta central. En un servidor con servidor web, dale un nombre propio: {command}. Detrás de un proxy tuyo, di dónde responde: {config_command}",
     },
   },
   terminal: {
