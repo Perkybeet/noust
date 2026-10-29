@@ -537,6 +537,10 @@ tabs:
             slug: guides/fleet/operate
             type: guide
             summary: "See every server at once, act on several, run an application on several, build once for all, move a database, the fleet's settings, versions and updates."
+          - source: docs/central-sources.md
+            slug: guides/fleet/github
+            type: guide
+            summary: "Deploy from GitHub on the servers a central manages: the App stays on the central, which leases each server access to clone, hands it the pushes and writes the status of the commit."
           - source: docs/central-maintain.md
             slug: guides/fleet/maintain
             type: guide

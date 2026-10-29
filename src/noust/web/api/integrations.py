@@ -30,6 +30,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from noust.fleet.sources.reach import webhook_warnings
 from noust.integrations.github import manifest, service
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated
@@ -53,8 +54,29 @@ class InstallationOut(BaseModel):
     settings_url: str | None = None
 
 
+class SentenceOut(BaseModel):
+    """
+    Something the operator should know, as a sentence with a code.
+
+    Attributes:
+        text: The sentence in English.
+        hint: How to fix it.
+        coded: The same sentence as ``{code, params}``, for the console to translate.
+    """
+
+    text: str
+    hint: str | None = None
+    coded: dict[str, Any]
+
+
 class GitHubStatusOut(BaseModel):
-    """The GitHub integration of this server."""
+    """
+    The GitHub integration of this server.
+
+    Attributes:
+        warnings: What keeps it from working for the servers a central manages: GitHub has no
+            address to deliver this central's pushes to.
+    """
 
     configured: bool
     app_id: int | None = None
@@ -68,6 +90,7 @@ class GitHubStatusOut(BaseModel):
     hooks_url: str | None = None
     hooks_active: bool = False
     host: str = "github.com"
+    warnings: list[SentenceOut] = []
 
 
 class GitHubHostRequest(BaseModel):
@@ -112,6 +135,7 @@ class ManifestOut(BaseModel):
     manifest: dict[str, Any]
     post_url: str
     state: str
+    warnings: list[SentenceOut] = []
 
 
 class ConversionRequest(BaseModel):
@@ -186,6 +210,17 @@ class RemovalOut(BaseModel):
     settings_url: str | None = None
 
 
+def _warnings() -> list[SentenceOut]:
+    """
+    Returns:
+        What keeps GitHub from delivering to this central while servers depend on it.
+    """
+    return [
+        SentenceOut(text=text.text, hint=text.hint, coded=text.to_dict())
+        for text in webhook_warnings()
+    ]
+
+
 def _status_out() -> GitHubStatusOut:
     """
     Build the status response.
@@ -193,7 +228,7 @@ def _status_out() -> GitHubStatusOut:
     Returns:
         The integration's status.
     """
-    return GitHubStatusOut(**service.status().to_dict())
+    return GitHubStatusOut(**service.status().to_dict(), warnings=_warnings())
 
 
 @router.get("/github", response_model=GitHubStatusOut)
@@ -232,7 +267,12 @@ def github_manifest(
     started = manifest.start(
         data.origin, hooks_url=service.github_hooks_url(), organization=data.organization
     )
-    return ManifestOut(manifest=started.manifest, post_url=started.post_url, state=started.state)
+    return ManifestOut(
+        manifest=started.manifest,
+        post_url=started.post_url,
+        state=started.state,
+        warnings=_warnings(),
+    )
 
 
 @router.post("/github/manifest/conversions", response_model=GitHubStatusOut)

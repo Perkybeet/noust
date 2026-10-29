@@ -842,6 +842,10 @@ NOT_OWNED: dict[str, str] = {
     "fleet_managed": "which of its settings a central manages on this node and the fingerprint of "
     "what the node applied, never a value: the node's own, reached only through "
     "/api/managed-settings, which is the instance's",
+    "source_follows": "the deployment or preview that a server started for an event of a code host, "
+    "which the central follows to write the status of the commit and the comment of the pull "
+    "request: the central's own, reached only through /api/fleet/sources, which is the instance's. "
+    "The server keeps the application and applies its own teams' scope to it",
     "fleet_node_settings": "whether a central pushes the fleet's settings to a server or leaves it "
     "independent, and whether it should look at it again: the central's own, reached only through "
     "/api/fleet/settings, which is the instance's",

@@ -545,6 +545,72 @@ export const serverText = {
       hint: "List the roles with: {command}",
     },
   },
+  sources: {
+    central_only: {
+      text: "Only the central that manages this server can lease it access to GitHub",
+      hint: "The central makes and renews the lease itself; there is nothing to do on this server. To clone with a credential of this server's own, give the application a deploy key.",
+    },
+    delivery_not_retryable: {
+      text: "That event is {state}, and only an event that was given up on can be handed over again",
+      hint: "A server that took the event is not sent it twice; one that is still waiting is tried again by itself.",
+    },
+    forward_gave_up: {
+      text: "{node} did not take the {kind} of {repository} in {minutes} minutes, and the central gave up",
+      hint: "Nothing was deployed on {node} for it. Once it answers again, update the application there, or push again.",
+    },
+    forward_refused: {
+      text: "{node} would not take the {kind} of {repository}: {reason}",
+      hint: "The server's own words are beside this. Nothing was deployed on {node} for it.",
+    },
+    github_refused: {
+      text: "GitHub would not give a token for installation {installation}",
+      hint: "GitHub's own words are beside this. If the App was removed or its permissions changed, accept the new permissions in the App's settings on GitHub, or install it again.",
+    },
+    lease_expired: {
+      text: "The GitHub access that {central} leased to this server for {repository} ended at {ended_at} and has not been renewed",
+      hint: "{central} last called at {last_call} and did not lease a new one: it may not reach GitHub, or its GitHub App no longer covers {repository}. Until it does, anything that starts on this server and reads {repository} fails. A deploy key does not depend on the central; see: {command}",
+    },
+    lease_expired_quiet: {
+      text: "The GitHub access that {central} leased to this server for {repository} ended at {ended_at}, and {central} has not called since {last_call}",
+      hint: "Anything that starts on this server and reads {repository} (a scheduled update, a preview) fails until {central} calls again and leases a new one: check that the central is running and reaches this server. A deploy key does not depend on the central; see: {command}",
+    },
+    no_app: {
+      text: "This central has no GitHub App to lease access with",
+      hint: "Create it in the console (Integrations, GitHub) or with: noust github setup",
+    },
+    no_installation: {
+      text: "No installation of the GitHub App reaches {repository}",
+      hint: "Install the App on the account {owner} and let it read {repository}: {url}",
+    },
+    node_ceiling: {
+      text: "{node} lets this central only read, so it cannot be leased access to GitHub",
+      hint: "Leasing needs the deploy ceiling or higher. On {node}, as root: {command}",
+    },
+    node_independent: {
+      text: "{node} is independent, so this central hands it nothing from GitHub",
+      hint: "Make it follow the fleet again and the access and the events of its repositories reach it. Until then it deploys from its own credentials.",
+    },
+    node_refused: {
+      text: "{node} would not take the access to GitHub: {reason}",
+      hint: "The server's own words are beside this. It is tried again in a few minutes.",
+    },
+    node_unreachable: {
+      text: "{node} could not be reached to lease it access to GitHub",
+      hint: "It is tried again within a minute, and the access it holds ends on its own. Check it with: {command}",
+    },
+    node_unsupported: {
+      text: "{node} runs a Noust that cannot hold the GitHub access this central leases",
+      hint: "Update Noust on {node} to 4.1 or later; the access is leased within a minute of it.",
+    },
+    not_reachable: {
+      text: "The GitHub App cannot read {repository}",
+      hint: "Add {repository} to the repositories the App's installation reaches: {url}",
+    },
+    webhook_unreachable: {
+      text: "GitHub cannot reach this central, so a push to a repository its servers deploy deploys nothing",
+      hint: "The servers it manages have no address GitHub could call: the App's webhook is this central's. On a server with a web server, give it a name of its own: {command}. Behind a proxy of your own, say where it answers: {config_command}",
+    },
+  },
   terminal: {
     disabled: {
       text: "Terminals are turned off on this server",

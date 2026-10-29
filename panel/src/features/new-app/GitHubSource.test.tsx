@@ -11,16 +11,30 @@ import type { Inspection } from "./wizard";
 
 const STATUS: GitHubStatus = {
   configured: true,
+  warnings: [],
   app_id: 424242,
   slug: "noust-web-01",
   name: "Noust web-01",
   owner: "acme",
   html_url: "https://github.com/apps/noust-web-01",
-  settings_url: "https://github.com/organizations/acme/settings/apps/noust-web-01",
+  settings_url:
+    "https://github.com/organizations/acme/settings/apps/noust-web-01",
   install_url: "https://github.com/apps/noust-web-01/installations/new",
   installations: [
-    { installation_id: 7001, account: "acme", account_type: "Organization", repository_selection: "selected", settings_url: null },
-    { installation_id: 7002, account: "yago", account_type: "User", repository_selection: "all", settings_url: null },
+    {
+      installation_id: 7001,
+      account: "acme",
+      account_type: "Organization",
+      repository_selection: "selected",
+      settings_url: null,
+    },
+    {
+      installation_id: 7002,
+      account: "yago",
+      account_type: "User",
+      repository_selection: "all",
+      settings_url: null,
+    },
   ],
   hooks_url: "https://hooks.example.com/hooks/github",
   hooks_active: true,
@@ -28,9 +42,30 @@ const STATUS: GitHubStatus = {
 };
 
 const REPOSITORIES: GitHubRepository[] = [
-  { full_name: "acme/api", private: true, default_branch: "main", clone_url: "https://github.com/acme/api.git", source: "github:acme/api", installation_id: 7001 },
-  { full_name: "acme/storefront", private: true, default_branch: "production", clone_url: "https://github.com/acme/storefront.git", source: "github:acme/storefront", installation_id: 7001 },
-  { full_name: "yago/blog", private: false, default_branch: "main", clone_url: "https://github.com/yago/blog.git", source: "github:yago/blog", installation_id: 7002 },
+  {
+    full_name: "acme/api",
+    private: true,
+    default_branch: "main",
+    clone_url: "https://github.com/acme/api.git",
+    source: "github:acme/api",
+    installation_id: 7001,
+  },
+  {
+    full_name: "acme/storefront",
+    private: true,
+    default_branch: "production",
+    clone_url: "https://github.com/acme/storefront.git",
+    source: "github:acme/storefront",
+    installation_id: 7001,
+  },
+  {
+    full_name: "yago/blog",
+    private: false,
+    default_branch: "main",
+    clone_url: "https://github.com/yago/blog.git",
+    source: "github:yago/blog",
+    installation_id: 7002,
+  },
 ];
 
 const BRANCHES = {
@@ -69,21 +104,44 @@ const JOB = {
   metadata: { domain: "storefront.example.com" },
 };
 
-function wizard(status: GitHubStatus | null, extra: Record<string, RouteHandler> = {}) {
+function wizard(
+  status: GitHubStatus | null,
+  extra: Record<string, RouteHandler> = {},
+) {
   const backend = fakeBackend({
     ...signedInRoutes(),
     "GET /api/config/webserver": () => json(200, { webserver: "nginx" }),
-    "GET /api/apps/types": () => json(200, { types: [{ type: "nextjs", name: "Next.js", default_port: 3000 }] }),
+    "GET /api/apps/types": () =>
+      json(200, {
+        types: [{ type: "nextjs", name: "Next.js", default_port: 3000 }],
+      }),
     "GET /api/domains/dns": (call) =>
-      json(200, { domain: call.search.get("name"), expected_addresses: ["203.0.113.10"], resolved_addresses: ["203.0.113.10"], points_here: true }),
-    ...(status !== null ? { "GET /api/integrations/github": () => json(200, status) } : {}),
-    "GET /api/integrations/github/repositories": () => json(200, { items: REPOSITORIES, total: REPOSITORIES.length }),
-    "GET /api/integrations/github/repositories/acme/storefront/branches": () => json(200, BRANCHES),
+      json(200, {
+        domain: call.search.get("name"),
+        expected_addresses: ["203.0.113.10"],
+        resolved_addresses: ["203.0.113.10"],
+        points_here: true,
+      }),
+    ...(status !== null
+      ? { "GET /api/integrations/github": () => json(200, status) }
+      : {}),
+    "GET /api/integrations/github/repositories": () =>
+      json(200, { items: REPOSITORIES, total: REPOSITORIES.length }),
+    "GET /api/integrations/github/repositories/acme/storefront/branches": () =>
+      json(200, BRANCHES),
     "POST /api/apps/inspect": () => json(200, INSPECTION),
-    "POST /api/apps": () => json(202, { job_id: JOB.id, status: "pending", message: "Deployment queued", job: JOB }),
-    "GET /api/deployments": () => json(200, { items: [], total: 0, next_before_id: null }),
+    "POST /api/apps": () =>
+      json(202, {
+        job_id: JOB.id,
+        status: "pending",
+        message: "Deployment queued",
+        job: JOB,
+      }),
+    "GET /api/deployments": () =>
+      json(200, { items: [], total: 0, next_before_id: null }),
     [`GET /api/jobs/${JOB.id}`]: () => json(200, JOB),
-    "GET /api/jobs/active": () => json(200, { jobs: [JOB], total: 1, active: 1 }),
+    "GET /api/jobs/active": () =>
+      json(200, { jobs: [JOB], total: 1, active: 1 }),
     ...extra,
   });
   return { backend, harness: renderConsole("/apps/new") };
@@ -91,7 +149,10 @@ function wizard(status: GitHubStatus | null, extra: Record<string, RouteHandler>
 
 describe("filterRepositories", () => {
   it("puts repositories whose name starts with the text first, then the rest that hold it", () => {
-    const names = (query: string) => filterRepositories(REPOSITORIES, query).map((repository) => repository.full_name);
+    const names = (query: string) =>
+      filterRepositories(REPOSITORIES, query).map(
+        (repository) => repository.full_name,
+      );
     expect(names("")).toEqual(["acme/api", "acme/storefront", "yago/blog"]);
     expect(names("sto")).toEqual(["acme/storefront"]);
     expect(names("acme")).toEqual(["acme/api", "acme/storefront"]);
@@ -101,75 +162,103 @@ describe("filterRepositories", () => {
 });
 
 describe("the new-app wizard, from GitHub", () => {
-  it("offers the App's repositories first, searchable, private ones marked, and passes axe", { timeout: 20_000 }, async () => {
-    const { user } = wizard(STATUS).harness;
-    const search = await screen.findByRole("combobox", { name: "Repository" });
-    expect(screen.getByRole("radio", { name: "From GitHub" })).toBeChecked();
-    const list = screen.getByRole("listbox", { name: "Repositories" });
-    const options = within(list).getAllByRole("option");
-    expect(options.map((option) => option.textContent)).toEqual([
-      expect.stringContaining("acme/api"),
-      expect.stringContaining("acme/storefront"),
-      expect.stringContaining("yago/blog"),
-    ]);
-    const [api, , blog] = options;
-    if (!api || !blog) throw new Error("missing options");
-    expect(within(api).getByText("Private")).toBeInTheDocument();
-    expect(within(blog).getByText("Public")).toBeInTheDocument();
-    await expectNoAxeViolations(document.body);
+  it(
+    "offers the App's repositories first, searchable, private ones marked, and passes axe",
+    { timeout: 20_000 },
+    async () => {
+      const { user } = wizard(STATUS).harness;
+      const search = await screen.findByRole("combobox", {
+        name: "Repository",
+      });
+      expect(screen.getByRole("radio", { name: "From GitHub" })).toBeChecked();
+      const list = screen.getByRole("listbox", { name: "Repositories" });
+      const options = within(list).getAllByRole("option");
+      expect(options.map((option) => option.textContent)).toEqual([
+        expect.stringContaining("acme/api"),
+        expect.stringContaining("acme/storefront"),
+        expect.stringContaining("yago/blog"),
+      ]);
+      const [api, , blog] = options;
+      if (!api || !blog) throw new Error("missing options");
+      expect(within(api).getByText("Private")).toBeInTheDocument();
+      expect(within(blog).getByText("Public")).toBeInTheDocument();
+      await expectNoAxeViolations(document.body);
 
-    await user.type(search, "blog");
-    expect(within(list).getAllByRole("option")).toHaveLength(1);
-    await user.clear(search);
-    await user.type(search, "nothing-like-it");
-    expect(await screen.findByText('No repository matches "nothing-like-it".')).toBeInTheDocument();
-  });
+      await user.type(search, "blog");
+      expect(within(list).getAllByRole("option")).toHaveLength(1);
+      await user.clear(search);
+      await user.type(search, "nothing-like-it");
+      expect(
+        await screen.findByText('No repository matches "nothing-like-it".'),
+      ).toBeInTheDocument();
+    },
+  );
 
-  it("chooses a repository from the keyboard, preselects its default branch, and carries the installation into the inspection and the deploy", { timeout: 30_000 }, async () => {
-    const { backend, harness } = wizard(STATUS);
-    const { user } = harness;
-    const search = await screen.findByRole("combobox", { name: "Repository" });
-    await user.click(search);
-    await user.keyboard("{ArrowDown}");
-    expect(search).toHaveAttribute("aria-activedescendant", within(screen.getByRole("listbox")).getAllByRole("option")[1]?.id);
-    await user.keyboard("{Enter}");
+  it(
+    "chooses a repository from the keyboard, preselects its default branch, and carries the installation into the inspection and the deploy",
+    { timeout: 30_000 },
+    async () => {
+      const { backend, harness } = wizard(STATUS);
+      const { user } = harness;
+      const search = await screen.findByRole("combobox", {
+        name: "Repository",
+      });
+      await user.click(search);
+      await user.keyboard("{ArrowDown}");
+      expect(search).toHaveAttribute(
+        "aria-activedescendant",
+        within(screen.getByRole("listbox")).getAllByRole("option")[1]?.id,
+      );
+      await user.keyboard("{Enter}");
 
-    // Chosen: the repository stands in place of the search, focus on its control.
-    expect(await screen.findByRole("button", { name: "Change repository" })).toHaveFocus();
-    expect(screen.getByText("acme/storefront")).toBeInTheDocument();
-    const branch = screen.getByRole("combobox", { name: "Branch" });
-    expect(branch).toHaveTextContent("production");
+      // Chosen: the repository stands in place of the search, focus on its control.
+      expect(
+        await screen.findByRole("button", { name: "Change repository" }),
+      ).toHaveFocus();
+      expect(screen.getByText("acme/storefront")).toBeInTheDocument();
+      const branch = screen.getByRole("combobox", { name: "Branch" });
+      expect(branch).toHaveTextContent("production");
 
-    await user.click(branch);
-    await user.click(await screen.findByRole("option", { name: "staging" }));
-    expect(branch).toHaveTextContent("staging");
-    await expectNoAxeViolations(document.body);
+      await user.click(branch);
+      await user.click(await screen.findByRole("option", { name: "staging" }));
+      expect(branch).toHaveTextContent("staging");
+      await expectNoAxeViolations(document.body);
 
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("heading", { level: 2, name: "Address" });
-    expect(backend.callsTo("POST /api/apps/inspect").at(-1)?.body).toEqual({
-      source: "github:acme/storefront",
-      branch: "staging",
-      github_installation_id: 7001,
-    });
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await screen.findByRole("heading", { level: 2, name: "Address" });
+      expect(backend.callsTo("POST /api/apps/inspect").at(-1)?.body).toEqual({
+        source: "github:acme/storefront",
+        branch: "staging",
+        github_installation_id: 7001,
+      });
 
-    await user.type(screen.getByLabelText("Domain"), "storefront.example.com");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    // One type detected and nothing declared: configuration and variables have nothing to ask,
-    // so the address is followed by the deploy itself (checklist M-12).
-    await screen.findByRole("heading", { level: 2, name: "Deploy" });
-    expect(screen.queryByRole("heading", { level: 2, name: "Configuration" })).not.toBeInTheDocument();
-    await user.click(await screen.findByRole("button", { name: "Deploy storefront.example.com" }));
-    await waitFor(() => {
-      expect(backend.callsTo("POST /api/apps")).toHaveLength(1);
-    });
-    expect(backend.callsTo("POST /api/apps")[0]?.body).toMatchObject({
-      domain: "storefront.example.com",
-      source: "github:acme/storefront",
-      branch: "staging",
-      github_installation_id: 7001,
-    });
-  });
+      await user.type(
+        screen.getByLabelText("Domain"),
+        "storefront.example.com",
+      );
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      // One type detected and nothing declared: configuration and variables have nothing to ask,
+      // so the address is followed by the deploy itself (checklist M-12).
+      await screen.findByRole("heading", { level: 2, name: "Deploy" });
+      expect(
+        screen.queryByRole("heading", { level: 2, name: "Configuration" }),
+      ).not.toBeInTheDocument();
+      await user.click(
+        await screen.findByRole("button", {
+          name: "Deploy storefront.example.com",
+        }),
+      );
+      await waitFor(() => {
+        expect(backend.callsTo("POST /api/apps")).toHaveLength(1);
+      });
+      expect(backend.callsTo("POST /api/apps")[0]?.body).toMatchObject({
+        domain: "storefront.example.com",
+        source: "github:acme/storefront",
+        branch: "staging",
+        github_installation_id: 7001,
+      });
+    },
+  );
 
   it("asks for a repository before inspecting", async () => {
     const { backend, harness } = wizard(STATUS);
@@ -183,145 +272,287 @@ describe("the new-app wizard, from GitHub", () => {
   it("changes the repository, and Escape keeps the one chosen", async () => {
     const { user } = wizard(STATUS).harness;
     await user.click(await screen.findByRole("option", { name: /yago\/blog/ }));
-    await user.click(await screen.findByRole("button", { name: "Change repository" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Change repository" }),
+    );
     const search = screen.getByRole("combobox", { name: "Repository" });
     expect(search).toHaveFocus();
     await user.keyboard("{Escape}");
     expect(await screen.findByText("yago/blog")).toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: "Repository" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Repository" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("keeps the typed source one choice away, without an installation", { timeout: 20_000 }, async () => {
-    const { backend, harness } = wizard(STATUS);
-    const { user } = harness;
-    await user.click(await screen.findByRole("option", { name: /acme\/api/ }));
-    await user.click(screen.getByRole("radio", { name: "URL or path" }));
-    const field = screen.getByLabelText("Repository or directory");
-    // Switching starts clean: what was chosen on GitHub does not linger as a typed source.
-    expect(field).toHaveValue("");
-    await user.type(field, "https://gitlab.com/acme/api.git");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("heading", { level: 2, name: "Address" });
-    expect(backend.callsTo("POST /api/apps/inspect").at(-1)?.body).toEqual({ source: "https://gitlab.com/acme/api.git" });
-  });
+  it(
+    "keeps the typed source one choice away, without an installation",
+    { timeout: 20_000 },
+    async () => {
+      const { backend, harness } = wizard(STATUS);
+      const { user } = harness;
+      await user.click(
+        await screen.findByRole("option", { name: /acme\/api/ }),
+      );
+      await user.click(screen.getByRole("radio", { name: "URL or path" }));
+      const field = screen.getByLabelText("Repository or directory");
+      // Switching starts clean: what was chosen on GitHub does not linger as a typed source.
+      expect(field).toHaveValue("");
+      await user.type(field, "https://gitlab.com/acme/api.git");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await screen.findByRole("heading", { level: 2, name: "Address" });
+      expect(backend.callsTo("POST /api/apps/inspect").at(-1)?.body).toEqual({
+        source: "https://gitlab.com/acme/api.git",
+      });
+    },
+  );
 
   it("types the branch when GitHub cannot list them", async () => {
     const { user } = wizard(STATUS, {
-      "GET /api/integrations/github/repositories/acme/storefront/branches": () => problem(502, "integrationerror", "GitHub answered 502 Bad Gateway"),
+      "GET /api/integrations/github/repositories/acme/storefront/branches":
+        () =>
+          problem(502, "integrationerror", "GitHub answered 502 Bad Gateway"),
     }).harness;
-    await user.click(await screen.findByRole("option", { name: /acme\/storefront/ }));
-    expect(await screen.findByText("GitHub answered 502 Bad Gateway")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Branch" })).toHaveValue("production");
+    await user.click(
+      await screen.findByRole("option", { name: /acme\/storefront/ }),
+    );
+    expect(
+      await screen.findByText("GitHub answered 502 Bad Gateway"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Branch" })).toHaveValue(
+      "production",
+    );
   });
 
   it("points to installing the App when it has no installation", async () => {
     wizard({ ...STATUS, installations: [] });
-    expect(await screen.findByText(/not installed on any account yet/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Install on GitHub/ })).toHaveAttribute("href", STATUS.install_url);
+    expect(
+      await screen.findByText(/not installed on any account yet/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Install on GitHub/ }),
+    ).toHaveAttribute("href", STATUS.install_url);
   });
 
   it("offers From GitHub where no App is connected, and keeps the typed source until it is chosen", async () => {
-    wizard({ configured: false, installations: [], hooks_url: null, hooks_active: false, host: "github.com" });
-    expect(await screen.findByLabelText("Repository or directory")).toBeInTheDocument();
+    wizard({
+      configured: false,
+      warnings: [],
+      installations: [],
+      hooks_url: null,
+      hooks_active: false,
+      host: "github.com",
+    });
+    expect(
+      await screen.findByLabelText("Repository or directory"),
+    ).toBeInTheDocument();
     const modes = screen.getByRole("radiogroup", { name: "Where the code is" });
-    expect(within(modes).getByRole("radio", { name: "URL or path" })).toBeChecked();
-    expect(await within(modes).findByRole("radio", { name: "From GitHub" })).not.toBeChecked();
+    expect(
+      within(modes).getByRole("radio", { name: "URL or path" }),
+    ).toBeChecked();
+    expect(
+      await within(modes).findByRole("radio", { name: "From GitHub" }),
+    ).not.toBeChecked();
     // The way to Settings is gone: connecting is done here.
-    expect(screen.queryByRole("link", { name: "Connect a GitHub App" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Connect a GitHub App" }),
+    ).not.toBeInTheDocument();
   });
 
   it("stays on the typed source when the integration cannot be read", async () => {
     const { backend } = wizard(null);
-    expect(await screen.findByLabelText("Repository or directory")).toBeInTheDocument();
+    expect(
+      await screen.findByLabelText("Repository or directory"),
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(backend.callsTo("GET /api/integrations/github")).toHaveLength(1);
     });
-    expect(screen.queryByRole("radio", { name: "From GitHub" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("radio", { name: "From GitHub" }),
+    ).not.toBeInTheDocument();
   });
 });
 
-const NO_APP: GitHubStatus = { configured: false, installations: [], hooks_url: null, hooks_active: false, host: "github.com" };
+const NO_APP: GitHubStatus = {
+  configured: false,
+  warnings: [],
+  installations: [],
+  hooks_url: null,
+  hooks_active: false,
+  host: "github.com",
+};
 
 afterEach(() => {
   window.sessionStorage.clear();
 });
 
 describe("connecting GitHub without leaving the wizard", () => {
-  it("is a card on From GitHub that keeps the draft when the browser goes to GitHub, and nothing the operator filled in", { timeout: 30_000 }, async () => {
-    const { user, backend } = (() => {
-      const made = wizard(NO_APP, {
-        // Not https: the console posts the manifest only to an https address, so this stays on the page.
-        "POST /api/integrations/github/manifest": () => json(200, { post_url: "http://github.test/settings/apps/new", manifest: {} }),
+  it(
+    "is a card on From GitHub that keeps the draft when the browser goes to GitHub, and nothing the operator filled in",
+    { timeout: 30_000 },
+    async () => {
+      const { user, backend } = (() => {
+        const made = wizard(NO_APP, {
+          // Not https: the console posts the manifest only to an https address, so this stays on the page.
+          "POST /api/integrations/github/manifest": () =>
+            json(200, {
+              post_url: "http://github.test/settings/apps/new",
+              manifest: {},
+            }),
+        });
+        return { user: made.harness.user, backend: made.backend };
+      })();
+      await user.click(
+        await screen.findByRole("radio", { name: "From GitHub" }),
+      );
+      const connect = await screen.findByRole(
+        "button",
+        { name: "Connect GitHub" },
+        { timeout: 5_000 },
+      );
+      expect(
+        screen.getByText("Connect GitHub with an App of your own"),
+      ).toBeInTheDocument();
+      await expectNoAxeViolations(screen.getByRole("main"));
+
+      await user.click(connect);
+      await waitFor(() => {
+        expect(
+          backend.callsTo("POST /api/integrations/github/manifest"),
+        ).toHaveLength(1);
       });
-      return { user: made.harness.user, backend: made.backend };
-    })();
-    await user.click(await screen.findByRole("radio", { name: "From GitHub" }));
-    const connect = await screen.findByRole("button", { name: "Connect GitHub" }, { timeout: 5_000 });
-    expect(screen.getByText("Connect GitHub with an App of your own")).toBeInTheDocument();
-    await expectNoAxeViolations(screen.getByRole("main"));
+      expect(
+        JSON.parse(
+          window.sessionStorage.getItem("noust.newApp.draft") ?? "null",
+        ),
+      ).toEqual({ mode: "github", source: "", branch: "", step: "source" });
+    },
+  );
 
-    await user.click(connect);
-    await waitFor(() => {
-      expect(backend.callsTo("POST /api/integrations/github/manifest")).toHaveLength(1);
-    });
-    expect(JSON.parse(window.sessionStorage.getItem("noust.newApp.draft") ?? "null")).toEqual({ mode: "github", source: "", branch: "", step: "source" });
-  });
+  it(
+    "asks to connect before Continue, in the words of what is missing",
+    { timeout: 30_000 },
+    async () => {
+      const { user } = wizard(NO_APP).harness;
+      await user.click(
+        await screen.findByRole("radio", { name: "From GitHub" }),
+      );
+      await screen.findByRole(
+        "button",
+        { name: "Connect GitHub" },
+        { timeout: 5_000 },
+      );
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      expect(
+        await screen.findAllByText("Connect GitHub to choose a repository."),
+      ).not.toHaveLength(0);
+      expect(
+        screen.queryByRole("heading", { level: 2, name: "Address" }),
+      ).not.toBeInTheDocument();
+    },
+  );
 
-  it("asks to connect before Continue, in the words of what is missing", { timeout: 30_000 }, async () => {
-    const { user } = wizard(NO_APP).harness;
-    await user.click(await screen.findByRole("radio", { name: "From GitHub" }));
-    await screen.findByRole("button", { name: "Connect GitHub" }, { timeout: 5_000 });
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findAllByText("Connect GitHub to choose a repository.")).not.toHaveLength(0);
-    expect(screen.queryByRole("heading", { level: 2, name: "Address" })).not.toBeInTheDocument();
-  });
+  it(
+    "comes back from GitHub on the repositories, with the address cleaned of the resume",
+    { timeout: 30_000 },
+    async () => {
+      window.sessionStorage.setItem(
+        "noust.newApp.draft",
+        JSON.stringify({
+          mode: "github",
+          source: "",
+          branch: "",
+          step: "source",
+        }),
+      );
+      const backend = fakeBackend({
+        ...signedInRoutes(),
+        "GET /api/config/webserver": () => json(200, { webserver: "nginx" }),
+        "GET /api/apps/types": () =>
+          json(200, {
+            types: [{ type: "nextjs", name: "Next.js", default_port: 3000 }],
+          }),
+        "GET /api/integrations/github": () => json(200, STATUS),
+        "GET /api/integrations/github/repositories": () =>
+          json(200, { items: REPOSITORIES, total: REPOSITORIES.length }),
+      });
+      const harness = renderConsole("/apps/new?resume=1");
+      expect(
+        await screen.findByRole("combobox", { name: "Repository" }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "From GitHub" })).toBeChecked();
+      await waitFor(() => {
+        expect(harness.location().search).not.toContain("resume");
+      });
+      expect(
+        backend.callsTo("GET /api/integrations/github/repositories"),
+      ).toHaveLength(1);
+    },
+  );
 
-  it("comes back from GitHub on the repositories, with the address cleaned of the resume", { timeout: 30_000 }, async () => {
-    window.sessionStorage.setItem("noust.newApp.draft", JSON.stringify({ mode: "github", source: "", branch: "", step: "source" }));
-    const backend = fakeBackend({
-      ...signedInRoutes(),
-      "GET /api/config/webserver": () => json(200, { webserver: "nginx" }),
-      "GET /api/apps/types": () => json(200, { types: [{ type: "nextjs", name: "Next.js", default_port: 3000 }] }),
-      "GET /api/integrations/github": () => json(200, STATUS),
-      "GET /api/integrations/github/repositories": () => json(200, { items: REPOSITORIES, total: REPOSITORIES.length }),
-    });
-    const harness = renderConsole("/apps/new?resume=1");
-    expect(await screen.findByRole("combobox", { name: "Repository" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "From GitHub" })).toBeChecked();
-    await waitFor(() => {
-      expect(harness.location().search).not.toContain("resume");
-    });
-    expect(backend.callsTo("GET /api/integrations/github/repositories")).toHaveLength(1);
-  });
+  it(
+    "forgets the draft when the wizard is left",
+    { timeout: 30_000 },
+    async () => {
+      window.sessionStorage.setItem(
+        "noust.newApp.draft",
+        JSON.stringify({
+          mode: "github",
+          source: "",
+          branch: "",
+          step: "source",
+        }),
+      );
+      const { user } = wizard(STATUS).harness;
+      await screen.findByRole("combobox", { name: "Repository" });
+      await user.click(
+        within(screen.getByRole("navigation", { name: "Main" })).getByRole(
+          "link",
+          { name: "Applications" },
+        ),
+      );
+      await waitFor(() => {
+        expect(window.sessionStorage.getItem("noust.newApp.draft")).toBeNull();
+      });
+    },
+  );
 
-  it("forgets the draft when the wizard is left", { timeout: 30_000 }, async () => {
-    window.sessionStorage.setItem("noust.newApp.draft", JSON.stringify({ mode: "github", source: "", branch: "", step: "source" }));
-    const { user } = wizard(STATUS).harness;
-    await screen.findByRole("combobox", { name: "Repository" });
-    await user.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Applications" }));
-    await waitFor(() => {
-      expect(window.sessionStorage.getItem("noust.newApp.draft")).toBeNull();
-    });
-  });
+  it(
+    "says no repositories yet, with the way to configure the installation on GitHub, in this tab",
+    { timeout: 30_000 },
+    async () => {
+      wizard(STATUS, {
+        "GET /api/integrations/github/repositories": () =>
+          json(200, { items: [], total: 0 }),
+      });
+      expect(
+        await screen.findByText("No repositories yet."),
+      ).toBeInTheDocument();
+      const configure = screen.getByRole("link", { name: "Configure GitHub" });
+      expect(configure).toHaveAttribute("href", STATUS.install_url);
+      expect(configure).not.toHaveAttribute("target");
+    },
+  );
 
-  it("says no repositories yet, with the way to configure the installation on GitHub, in this tab", { timeout: 30_000 }, async () => {
-    wizard(STATUS, { "GET /api/integrations/github/repositories": () => json(200, { items: [], total: 0 }) });
-    expect(await screen.findByText("No repositories yet.")).toBeInTheDocument();
-    const configure = screen.getByRole("link", { name: "Configure GitHub" });
-    expect(configure).toHaveAttribute("href", STATUS.install_url);
-    expect(configure).not.toHaveAttribute("target");
-  });
-
-  it("installs the App in this tab and keeps the draft for the way back", { timeout: 30_000 }, async () => {
-    const { user } = wizard({ ...STATUS, installations: [] }).harness;
-    const install = await screen.findByRole("link", { name: "Install on GitHub" });
-    expect(install).toHaveAttribute("href", STATUS.install_url);
-    expect(install).not.toHaveAttribute("target");
-    // jsdom cannot navigate: the click is stopped where the browser would leave.
-    install.addEventListener("click", (event) => {
-      event.preventDefault();
-    });
-    await user.click(install);
-    expect(JSON.parse(window.sessionStorage.getItem("noust.newApp.draft") ?? "null")).toMatchObject({ mode: "github" });
-  });
+  it(
+    "installs the App in this tab and keeps the draft for the way back",
+    { timeout: 30_000 },
+    async () => {
+      const { user } = wizard({ ...STATUS, installations: [] }).harness;
+      const install = await screen.findByRole("link", {
+        name: "Install on GitHub",
+      });
+      expect(install).toHaveAttribute("href", STATUS.install_url);
+      expect(install).not.toHaveAttribute("target");
+      // jsdom cannot navigate: the click is stopped where the browser would leave.
+      install.addEventListener("click", (event) => {
+        event.preventDefault();
+      });
+      await user.click(install);
+      expect(
+        JSON.parse(
+          window.sessionStorage.getItem("noust.newApp.draft") ?? "null",
+        ),
+      ).toMatchObject({ mode: "github" });
+    },
+  );
 });

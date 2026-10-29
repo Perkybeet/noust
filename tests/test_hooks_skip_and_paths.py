@@ -265,7 +265,7 @@ class TestThroughTheGitHubApp:
 
         event = webhooks.parse_push(payload)
         assert event is not None
-        jobs, refused, declined = github_hooks._queue_updates(event, "main", "d-1")
+        jobs, refused, declined = github_hooks.queue_updates(event, "main", "d-1")
         assert [job["domain"] for job in jobs] == ["api.example.com"]
         assert [item["domain"] for item in declined] == ["web.example.com"]
         assert declined[0]["reason"] == "paths"
@@ -278,7 +278,7 @@ class TestThroughTheGitHubApp:
         payload = push([commit("x [skip cd]", modified=("apps/api/server.ts",))])
         event = webhooks.parse_push(payload)
         assert event is not None
-        jobs, _refused, declined = github_hooks._queue_updates(event, "main", "d-2")
+        jobs, _refused, declined = github_hooks.queue_updates(event, "main", "d-2")
         assert jobs == []
         assert {item["reason"] for item in declined} == {"skip"}
 

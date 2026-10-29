@@ -84,6 +84,7 @@ The rest of this guide is on pages of its own:
 
 - [Add servers to a central](central-servers.md)
 - [Operate the fleet](central-operate.md)
+- [Deploy from GitHub on its servers](central-sources.md)
 - [Look after the central](central-maintain.md)
 - [How a central drives a server](fleet-model.md)
 

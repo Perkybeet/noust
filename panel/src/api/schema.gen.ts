@@ -19162,6 +19162,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fleet/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sources Status
+         * @description Show what this central does so that its servers deploy from GitHub.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The App and whether GitHub can reach this central, each server's access to clone with, how
+         *         many events are in each state and how many deployments are followed.
+         */
+        get: operations["sources_status_api_fleet_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/sources/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sources Deliveries
+         * @description List the events handed, or owed, to the servers.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         node: Only this server's.
+         *         state: Only in this state: ``pending``, ``delivered``, ``failed`` or ``expired``.
+         *         limit: Most events.
+         *
+         *     Returns:
+         *         The events, newest first, each with what the server queued and what is followed.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a state nobody defined.
+         */
+        get: operations["sources_deliveries_api_fleet_sources_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/sources/deliveries/{forward_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Delivery
+         * @description Hand an event over again that the central had given up on.
+         *
+         *     Args:
+         *         forward_id: The event.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The event, pending and due now; the worker hands it over within seconds.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such event; 409 when it is not one that was given up
+         *             on (one the server took is not sent twice).
+         */
+        post: operations["retry_delivery_api_fleet_sources_deliveries__forward_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/sources/leases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lease Again
+         * @description Look at the servers and lease what each needs, now.
+         *
+         *     Args:
+         *         body: The servers to look at, and whether to replace what is not due.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Each server after the look.
+         *
+         *     Raises:
+         *         HTTPException: 409 ``no_github_app`` when this central has no App to lease with.
+         *         ValidationError: 400 for repositories without the servers they are for, or a repository
+         *             that is not one.
+         */
+        post: operations["lease_again_api_fleet_sources_leases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/summary": {
         parameters: {
             query?: never;
@@ -27028,6 +27150,92 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forward Event
+         * @description Queue what an event of the central's code host asks for on this server.
+         *
+         *     Args:
+         *         body: The event.
+         *         session: The authenticated session; only a central's.
+         *
+         *     Returns:
+         *         What was queued, what declined and why, and what previews the pull request.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``central_only`` for anyone but a central.
+         *         ValidationError: 400 naming the field of an event that is not exactly one.
+         */
+        post: operations["forward_event_api_sources_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/leases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Leases
+         * @description List the GitHub access centrals have leased to this server.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Each lease with when it ends, and the centrals that call this server.
+         */
+        get: operations["list_leases_api_sources_leases_get"];
+        /**
+         * Hold Lease
+         * @description Take a token a central leases to this server, replacing the lease of the same key.
+         *
+         *     Args:
+         *         body: The lease.
+         *         session: The authenticated session; only a central's.
+         *
+         *     Returns:
+         *         The lease, without its token.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``central_only`` for anyone but a central.
+         *         ValidationError: 400 when it is not a lease this server will keep.
+         */
+        put: operations["hold_lease_api_sources_leases_put"];
+        post?: never;
+        /**
+         * Drop Leases
+         * @description Forget leases of the calling central, one or all.
+         *
+         *     Args:
+         *         session: The authenticated session; only a central's, and only its own leases.
+         *         key: Only this lease; every one of the central's when omitted.
+         *
+         *     Returns:
+         *         How many were forgotten.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``central_only`` for anyone but a central.
+         */
+        delete: operations["drop_leases_api_sources_leases_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -38482,41 +38690,6 @@ export interface components {
             path: string;
         };
         /**
-         * DeliveriesOut
-         * @description The record of deliveries of every server.
-         *
-         *     Attributes:
-         *         counts: For each server that answered (this central's own name for itself), how many
-         *             deliveries its record has in each state (``sent``, ``failed``, ``retrying``,
-         *             ``held``), the whole of it and not only the part listed in ``items``.
-         */
-        DeliveriesOut: {
-            /** Counts */
-            counts?: {
-                [key: string]: {
-                    [key: string]: number;
-                };
-            };
-            /** Fleet */
-            fleet: boolean;
-            /** Generated At */
-            generated_at: string;
-            /** Items */
-            items: {
-                [key: string]: unknown;
-            }[];
-            /** Nodes */
-            nodes: components["schemas"]["ViewNodeOut"][];
-            /** Partial */
-            partial: boolean;
-            /** Refusals */
-            refusals: components["schemas"]["RefusalGroupOut"][];
-            /** Resource */
-            resource: string;
-            /** Servers */
-            servers: components["schemas"]["ViewServerOut"][];
-        };
-        /**
          * DeliveryConfig
          * @description The limits a server delivers under: how much builds at once, waits, and takes.
          */
@@ -38539,6 +38712,38 @@ export interface components {
              * @default 25
              */
             queue_limit: number;
+        };
+        /**
+         * DeliveryCountsOut
+         * @description How many events are in each state.
+         *
+         *     Attributes:
+         *         pending: Waiting for their server.
+         *         delivered: Taken.
+         *         failed: Refused for good.
+         *         expired: Given up on after the server stayed away.
+         */
+        DeliveryCountsOut: {
+            /**
+             * Delivered
+             * @default 0
+             */
+            delivered: number;
+            /**
+             * Expired
+             * @default 0
+             */
+            expired: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Pending
+             * @default 0
+             */
+            pending: number;
         };
         /**
          * DeliveryListResponse
@@ -38611,6 +38816,63 @@ export interface components {
             subject: string;
             /** Updated At */
             updated_at: number;
+        };
+        /**
+         * DeliveryOut
+         * @description An event handed, or owed, to a server.
+         *
+         *     Attributes:
+         *         id: Its id.
+         *         delivery: GitHub's id for the delivery.
+         *         node: The server.
+         *         kind: ``push``, ``tag`` or ``pull_request``.
+         *         repository: ``owner/repo``.
+         *         ref: The branch or tag.
+         *         number: The pull request.
+         *         commit: The commit announced.
+         *         state: ``pending``, ``delivered``, ``failed`` or ``expired``.
+         *         attempts: How many times it was tried.
+         *         next_attempt_at: When it is tried next.
+         *         error: Why the last try did not work.
+         *         jobs: What the server queued for it (domain and job).
+         *         follows: What the central follows because of it.
+         *         created_at: When it was written down.
+         *         delivered_at: When the server took it.
+         */
+        DeliveryOut: {
+            /** Attempts */
+            attempts: number;
+            /** Commit */
+            commit?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Delivered At */
+            delivered_at?: string | null;
+            /** Delivery */
+            delivery: string;
+            error?: components["schemas"]["ProblemOut"] | null;
+            /** Follows */
+            follows?: components["schemas"]["FollowOut"][];
+            /** Id */
+            id: string;
+            /** Jobs */
+            jobs?: {
+                [key: string]: unknown;
+            }[];
+            /** Kind */
+            kind: string;
+            /** Next Attempt At */
+            next_attempt_at?: string | null;
+            /** Node */
+            node: string;
+            /** Number */
+            number?: number | null;
+            /** Ref */
+            ref?: string | null;
+            /** Repository */
+            repository: string;
+            /** State */
+            state: string;
         };
         /**
          * DeployKeyCreateRequest
@@ -42737,6 +42999,56 @@ export interface components {
             resource: string;
         };
         /**
+         * FollowOut
+         * @description A deployment or a preview the central follows.
+         *
+         *     Attributes:
+         *         id: Its number.
+         *         node: The server it is on.
+         *         domain: The application.
+         *         kind: ``deployment`` or ``preview``.
+         *         repository: ``owner/repo``.
+         *         ref: The commit, branch or tag.
+         *         job_id: The server's job (a deployment).
+         *         number: The pull request (a preview).
+         *         action: What happened to the pull request.
+         *         last_state: What was last said on GitHub.
+         *         state: ``active``, ``done`` or ``lost``.
+         *         detail: How it ended.
+         *         created_at: When it began.
+         *         finished_at: When it ended.
+         */
+        FollowOut: {
+            /** Action */
+            action?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Detail */
+            detail?: string | null;
+            /** Domain */
+            domain: string;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Id */
+            id: number;
+            /** Job Id */
+            job_id?: string | null;
+            /** Kind */
+            kind: string;
+            /** Last State */
+            last_state?: string | null;
+            /** Node */
+            node: string;
+            /** Number */
+            number?: number | null;
+            /** Ref */
+            ref?: string | null;
+            /** Repository */
+            repository: string;
+            /** State */
+            state: string;
+        };
+        /**
          * FollowTagsResponse
          * @description The tags an application deploys now.
          *
@@ -42843,6 +43155,123 @@ export interface components {
         ForwardAuthPresets: {
             /** Presets */
             presets: components["schemas"]["ForwardAuthPreset"][];
+        };
+        /**
+         * ForwardedEventIn
+         * @description An event a central forwards.
+         *
+         *     Attributes:
+         *         kind: ``push``, ``tag`` or ``pull_request``.
+         *         event: The event as :func:`noust.core.forge_events.event_to_dict` writes it.
+         *         delivery: The code host's id for the delivery, kept in the jobs' metadata and the
+         *             applications' delivery logs.
+         *         host: The GitHub host the repository is on, which decides which sources are it.
+         *         default_branch: The repository's default branch (a push only), which an application with
+         *             no branch of its own follows.
+         */
+        ForwardedEventIn: {
+            /** Default Branch */
+            default_branch?: string | null;
+            /** Delivery */
+            delivery?: string | null;
+            /** Event */
+            event: {
+                [key: string]: unknown;
+            };
+            /**
+             * Host
+             * @default github.com
+             */
+            host: string;
+            /** Kind */
+            kind: string;
+        };
+        /**
+         * ForwardedEventOut
+         * @description What this server did with the event.
+         *
+         *     Attributes:
+         *         status: ``queued`` when something was queued, ``ignored`` otherwise.
+         *         kind: The kind of event.
+         *         jobs: The updates queued by a push or a tag.
+         *         ignored: The applications that did not update, with why.
+         *         refused: How many updates the full queue refused (when some were queued anyway).
+         *         previews: The applications that preview a pull request.
+         *         job_ids: The jobs the previews queued.
+         */
+        ForwardedEventOut: {
+            /** Ignored */
+            ignored?: components["schemas"]["ForwardedIgnored"][];
+            /** Job Ids */
+            job_ids?: string[];
+            /** Jobs */
+            jobs?: components["schemas"]["ForwardedJob"][];
+            /** Kind */
+            kind: string;
+            /** Previews */
+            previews?: components["schemas"]["ForwardedPreview"][];
+            /**
+             * Refused
+             * @default 0
+             */
+            refused: number;
+            /** Status */
+            status: string;
+        };
+        /**
+         * ForwardedIgnored
+         * @description An application the event concerned and that did not update.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         reason: Why, in a word (``skip``, ``paths``, ``paused``, ``frozen``) or the sentence
+         *             of a tag it does not deploy.
+         *         detail: The sentence, when there is one.
+         */
+        ForwardedIgnored: {
+            /** Detail */
+            detail?: string | null;
+            /** Domain */
+            domain: string;
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * ForwardedJob
+         * @description An update the event queued.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         job_id: The job, which the central follows.
+         *         merged: The update that waited already covers this push: the last push wins.
+         */
+        ForwardedJob: {
+            /** Domain */
+            domain: string;
+            /** Job Id */
+            job_id: string;
+            /**
+             * Merged
+             * @default false
+             */
+            merged: boolean;
+        };
+        /**
+         * ForwardedPreview
+         * @description An application that previews the pull request.
+         *
+         *     Attributes:
+         *         parent: The application previewed.
+         *         number: The pull request.
+         *         action: ``opened``, ``updated`` or ``closed``.
+         */
+        ForwardedPreview: {
+            /** Action */
+            action: string;
+            /** Number */
+            number: number;
+            /** Parent */
+            parent: string;
         };
         /**
          * FrameworkChange
@@ -43054,8 +43483,32 @@ export interface components {
             host?: string | null;
         };
         /**
+         * GitHubSourcesOut
+         * @description The GitHub this central serves its servers with.
+         *
+         *     Attributes:
+         *         configured: Whether this central has an App.
+         *         host: The GitHub host.
+         *         hooks_url: Where GitHub delivers, when this central has a public address for it.
+         *         warnings: What keeps it from working: GitHub has no address to deliver to.
+         */
+        GitHubSourcesOut: {
+            /** Configured */
+            configured: boolean;
+            /** Hooks Url */
+            hooks_url?: string | null;
+            /** Host */
+            host: string;
+            /** Warnings */
+            warnings?: components["schemas"]["SentenceOut"][];
+        };
+        /**
          * GitHubStatusOut
          * @description The GitHub integration of this server.
+         *
+         *     Attributes:
+         *         warnings: What keeps it from working for the servers a central manages: GitHub has no
+         *             address to deliver this central's pushes to.
          */
         GitHubStatusOut: {
             /** App Id */
@@ -43091,6 +43544,11 @@ export interface components {
             settings_url?: string | null;
             /** Slug */
             slug?: string | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["SentenceOut"][];
         };
         /**
          * GitLabStatusOut
@@ -45604,6 +46062,97 @@ export interface components {
             username: string;
         };
         /**
+         * LeaseAgainIn
+         * @description Lease again now.
+         *
+         *     Attributes:
+         *         nodes: Only these servers; all of them when omitted.
+         *         force: Replace the leases that are not due.
+         *         repositories: ``owner/repo`` these servers should be able to read although no application
+         *             of theirs deploys from them yet: the console asks before it creates the first one,
+         *             because an application is made by cloning its repository. Needs ``nodes``; kept in
+         *             the lease for half an hour.
+         */
+        LeaseAgainIn: {
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Nodes */
+            nodes?: string[] | null;
+            /** Repositories */
+            repositories?: string[] | null;
+        };
+        /**
+         * LeaseIn
+         * @description A token a central leases to this server.
+         *
+         *     Attributes:
+         *         key: The central's name for this lease (host, installation and part); leasing the same
+         *             key again replaces it.
+         *         host: The GitHub host the token is for.
+         *         installation_id: The installation it was issued from.
+         *         repositories: ``owner/repo`` it reads.
+         *         token: The installation token. A secret: kept sealed, never answered back.
+         *         expires_in: Seconds it lives from now; at most two hours.
+         *         permissions: What it may do; only ``{"contents": "read"}`` is accepted.
+         */
+        LeaseIn: {
+            /** Expires In */
+            expires_in: number;
+            /** Host */
+            host: string;
+            /** Installation Id */
+            installation_id: number;
+            /** Key */
+            key: string;
+            /** Permissions */
+            permissions?: {
+                [key: string]: string;
+            } | null;
+            /** Repositories */
+            repositories: string[];
+            /** Token */
+            token: string;
+        };
+        /**
+         * LeasedAgainOut
+         * @description What leasing again came to.
+         *
+         *     Attributes:
+         *         nodes: Each server after the look.
+         */
+        LeasedAgainOut: {
+            /** Nodes */
+            nodes: components["schemas"]["NodeSourcesOut"][];
+        };
+        /**
+         * LeasesDroppedOut
+         * @description The answer to taking leases back.
+         *
+         *     Attributes:
+         *         dropped: How many were forgotten.
+         */
+        LeasesDroppedOut: {
+            /** Dropped */
+            dropped: number;
+        };
+        /**
+         * LeasesOut
+         * @description Every lease this server holds, and the centrals that call it.
+         *
+         *     Attributes:
+         *         items: The leases, by central and key.
+         *         centrals: The centrals that call this server and when each last did.
+         */
+        LeasesOut: {
+            /** Centrals */
+            centrals?: components["schemas"]["CentralCallOut"][];
+            /** Items */
+            items: components["schemas"]["noust__web__api__source_leases__LeaseOut"][];
+        };
+        /**
          * LiftedResponse
          * @description What lifting did.
          */
@@ -46377,6 +46926,11 @@ export interface components {
             post_url: string;
             /** State */
             state: string;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["SentenceOut"][];
         };
         /**
          * ManifestRequest
@@ -47859,6 +48413,37 @@ export interface components {
             node?: components["schemas"]["NodeResponse"] | null;
             /** Step */
             step: string;
+        };
+        /**
+         * NodeSourcesOut
+         * @description Where one server stands on the access to clone with.
+         *
+         *     Attributes:
+         *         node: The server.
+         *         state: ``leased``, ``none`` (it deploys nothing from the App's repositories),
+         *             ``independent``, ``unsupported`` (an older Noust), ``ceiling`` (the server lets its
+         *             central only read), ``unreachable``, ``failed``, ``unknown`` (not looked at since the
+         *             console started and nothing recorded) or ``no_app``.
+         *         leases: Its leases.
+         *         uncovered: The repositories of its applications the App does not reach.
+         *         problems: Why, one for each.
+         *         error: Why the whole server could not be leased.
+         *         checked_at: When it was last looked at; null when the answer is what was recorded.
+         */
+        NodeSourcesOut: {
+            /** Checked At */
+            checked_at?: string | null;
+            error?: components["schemas"]["ProblemOut"] | null;
+            /** Leases */
+            leases?: components["schemas"]["noust__web__api__fleet_sources__LeaseOut"][];
+            /** Node */
+            node: string;
+            /** Problems */
+            problems?: components["schemas"]["ProblemOut"][];
+            /** State */
+            state: string;
+            /** Uncovered */
+            uncovered?: string[];
         };
         /**
          * NodeTeamRequest
@@ -50145,6 +50730,28 @@ export interface components {
              * @default
              */
             output: string;
+        };
+        /**
+         * ProblemOut
+         * @description Something that could not be done, and why.
+         *
+         *     Attributes:
+         *         text: The sentence in English.
+         *         hint: How to fix it.
+         *         coded: The same sentence as ``{code, params}``, for the console to translate.
+         *         output: The words of GitHub or of the server, verbatim; never a token.
+         */
+        ProblemOut: {
+            /** Coded */
+            coded: {
+                [key: string]: unknown;
+            };
+            /** Hint */
+            hint?: string | null;
+            /** Output */
+            output?: string | null;
+            /** Text */
+            text: string;
         };
         /**
          * ProcessChangeResponse
@@ -56227,6 +56834,25 @@ export interface components {
             supported: boolean;
         };
         /**
+         * SentenceOut
+         * @description Something the operator should know, as a sentence with a code.
+         *
+         *     Attributes:
+         *         text: The sentence in English.
+         *         hint: How to fix it.
+         *         coded: The same sentence as ``{code, params}``, for the console to translate.
+         */
+        SentenceOut: {
+            /** Coded */
+            coded: {
+                [key: string]: unknown;
+            };
+            /** Hint */
+            hint?: string | null;
+            /** Text */
+            text: string;
+        };
+        /**
          * SeparationConflict
          * @description A person holding roles that should not go together.
          *
@@ -58695,6 +59321,24 @@ export interface components {
              * @default false
              */
             truncated: boolean;
+        };
+        /**
+         * SourcesOut
+         * @description What a central does so that its servers deploy from GitHub.
+         *
+         *     Attributes:
+         *         github: The App and whether GitHub can reach this central.
+         *         nodes: Each server's access to clone with.
+         *         deliveries: How many events are in each state.
+         *         following: How many deployments and previews are followed now.
+         */
+        SourcesOut: {
+            deliveries: components["schemas"]["DeliveryCountsOut"];
+            /** Following */
+            following: number;
+            github: components["schemas"]["GitHubSourcesOut"];
+            /** Nodes */
+            nodes: components["schemas"]["NodeSourcesOut"][];
         };
         /**
          * SparkFigure
@@ -64807,6 +65451,53 @@ export interface components {
             plan: components["schemas"]["FleetPlanOut"];
         };
         /**
+         * DeliveriesOut
+         * @description The events handed to the servers.
+         *
+         *     Attributes:
+         *         items: Them, newest first.
+         *         total: How many are listed.
+         *         counts: How many are in each state, all of them.
+         */
+        noust__web__api__fleet_sources__DeliveriesOut: {
+            counts: components["schemas"]["DeliveryCountsOut"];
+            /** Items */
+            items: components["schemas"]["DeliveryOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * LeaseOut
+         * @description One lease a server holds, or was meant to.
+         *
+         *     Attributes:
+         *         key: Its name on the server.
+         *         host: The GitHub host.
+         *         installation_id: The installation its token comes from.
+         *         repositories: What it lets the server read.
+         *         state: ``leased``, ``failed``, ``issued`` (made just now) or ``current``.
+         *         expires_at: When the server's token ends.
+         *         expires_in: Seconds left; 0 once it ended.
+         *         error: Why the last try failed.
+         */
+        noust__web__api__fleet_sources__LeaseOut: {
+            error?: components["schemas"]["ProblemOut"] | null;
+            /** Expires At */
+            expires_at?: string | null;
+            /** Expires In */
+            expires_in?: number | null;
+            /** Host */
+            host?: string | null;
+            /** Installation Id */
+            installation_id: number;
+            /** Key */
+            key: string;
+            /** Repositories */
+            repositories: string[];
+            /** State */
+            state: string;
+        };
+        /**
          * BranchListOut
          * @description A project's branches.
          */
@@ -65385,6 +66076,46 @@ export interface components {
             title: string;
         };
         /**
+         * LeaseOut
+         * @description A lease this server holds. Never the token.
+         *
+         *     Attributes:
+         *         central: The central that leased it.
+         *         key: Its name.
+         *         host: The GitHub host.
+         *         installation_id: The installation.
+         *         repositories: What it reads, sorted.
+         *         permissions: What it may do.
+         *         received_at: When it arrived.
+         *         expires_at: When it stops being used, on this server's clock.
+         *         expires_in: Seconds left; 0 once it ended.
+         *         ended: Whether it ended: a clone of its repositories fails until the central renews it.
+         */
+        noust__web__api__source_leases__LeaseOut: {
+            /** Central */
+            central: string;
+            /** Ended */
+            ended: boolean;
+            /** Expires At */
+            expires_at: string;
+            /** Expires In */
+            expires_in: number;
+            /** Host */
+            host: string;
+            /** Installation Id */
+            installation_id: number;
+            /** Key */
+            key: string;
+            /** Permissions */
+            permissions: {
+                [key: string]: string;
+            };
+            /** Received At */
+            received_at: string;
+            /** Repositories */
+            repositories: string[];
+        };
+        /**
          * UploadResponse
          * @description An upload in progress.
          */
@@ -65546,6 +66277,41 @@ export interface components {
             slug: string;
             /** Team */
             team: string;
+        };
+        /**
+         * DeliveriesOut
+         * @description The record of deliveries of every server.
+         *
+         *     Attributes:
+         *         counts: For each server that answered (this central's own name for itself), how many
+         *             deliveries its record has in each state (``sent``, ``failed``, ``retrying``,
+         *             ``held``), the whole of it and not only the part listed in ``items``.
+         */
+        noust__web__api__views__DeliveriesOut: {
+            /** Counts */
+            counts?: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /** Fleet */
+            fleet: boolean;
+            /** Generated At */
+            generated_at: string;
+            /** Items */
+            items: {
+                [key: string]: unknown;
+            }[];
+            /** Nodes */
+            nodes: components["schemas"]["ViewNodeOut"][];
+            /** Partial */
+            partial: boolean;
+            /** Refusals */
+            refusals: components["schemas"]["RefusalGroupOut"][];
+            /** Resource */
+            resource: string;
+            /** Servers */
+            servers: components["schemas"]["ViewServerOut"][];
         };
         /**
          * PolicyDestination
@@ -86808,6 +87574,125 @@ export interface operations {
             };
         };
     };
+    sources_status_api_fleet_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcesOut"];
+                };
+            };
+        };
+    };
+    sources_deliveries_api_fleet_sources_deliveries_get: {
+        parameters: {
+            query?: {
+                /** @description Only this server's */
+                node?: string | null;
+                /** @description Only in this state */
+                state?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__fleet_sources__DeliveriesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_delivery_api_fleet_sources_deliveries__forward_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                forward_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lease_again_api_fleet_sources_leases_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaseAgainIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeasedAgainOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     fleet_summary_api_fleet_summary_get: {
         parameters: {
             query?: {
@@ -95104,6 +95989,124 @@ export interface operations {
             };
         };
     };
+    forward_event_api_sources_events_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForwardedEventIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardedEventOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_leases_api_sources_leases_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeasesOut"];
+                };
+            };
+        };
+    };
+    hold_lease_api_sources_leases_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_leases__LeaseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    drop_leases_api_sources_leases_delete: {
+        parameters: {
+            query?: {
+                /** @description Only this lease */
+                key?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeasesDroppedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_streams_api_streams_get: {
         parameters: {
             query?: never;
@@ -98146,7 +99149,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DeliveriesOut"];
+                    "application/json": components["schemas"]["noust__web__api__views__DeliveriesOut"];
                 };
             };
             /** @description Validation Error */

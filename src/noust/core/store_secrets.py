@@ -121,6 +121,18 @@ NOT_SECRET: dict[tuple[str, str], str] = {
     ("oidc_tickets", "ticket_hash"): "a hash of a one-time value, short-lived",
     ("registry_logins", "secret_name"): "the name of a secret in the secret store",
     (
+        "source_lease_grants",
+        "lease_key",
+    ): "the name of a lease (host, installation and part), not a credential",
+    (
+        "source_leases",
+        "lease_key",
+    ): "the name of a lease (host, installation and part), not a credential",
+    (
+        "source_leases",
+        "token_name",
+    ): "the name of the secret file the token is in; the token is never a column",
+    (
         "secret_providers",
         "settings",
     ): "an address and options; its credential is in the secret store",

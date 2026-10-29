@@ -69,6 +69,52 @@ class TestRepositoryProbe:
 
         assert preflight.repository_unreachable(runner, "https://example.com/x.git") == []
 
+    def test_a_private_repository_is_probed_with_the_token_its_central_leased(
+        self, runner: FakeRunner, store
+    ):
+        """
+        The first application of a repository is made by cloning it, and the probe that comes
+        first is the clone's own credential's to carry: without it a repository only the token
+        reaches is "not accessible" and the application is never made.
+        """
+        from noust.integrations.github.leases import SourceLeases
+
+        SourceLeases().hold(
+            central="nas",
+            key="ghe",
+            host="ghe.example.com",
+            installation_id=5,
+            repositories=["you/app"],
+            token="ghs_leased_probe",
+            expires_in=3600,
+        )
+        runner.script(["git", "ls-remote"], stdout="abc123\tHEAD")
+
+        issues = preflight.repository_unreachable(runner, "https://ghe.example.com/you/app.git")
+
+        assert issues == []
+        (env,) = [
+            dict(e or {})
+            for c, e in zip(runner.calls, runner.envs, strict=True)
+            if "ls-remote" in c
+        ]
+        assert env["GIT_CONFIG_KEY_0"] == "http.https://ghe.example.com/.extraheader"
+        assert "AUTHORIZATION: basic" in env["GIT_CONFIG_VALUE_0"]
+        for call in runner.calls:
+            assert "ghs_leased_probe" not in " ".join(call)
+
+    def test_a_repository_no_lease_covers_is_probed_as_before(self, runner: FakeRunner, store):
+        runner.script(["git", "ls-remote"], stdout="abc123\tHEAD")
+
+        preflight.repository_unreachable(runner, "https://example.com/x.git")
+
+        (env,) = [
+            dict(e or {})
+            for c, e in zip(runner.calls, runner.envs, strict=True)
+            if "ls-remote" in c
+        ]
+        assert "GIT_CONFIG_COUNT" not in env
+
     @pytest.mark.parametrize("source", ["/var/www/local", "./relative", "~/somewhere"])
     def test_a_local_path_is_not_probed(self, runner: FakeRunner, source: str):
         assert preflight.repository_unreachable(runner, source) == []

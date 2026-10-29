@@ -530,6 +530,107 @@ CATALOG: dict[str, str] = {
     "approvals.central_missing.hint": (
         "Ask for it on the central and retry through it once it is approved."
     ),
+    # -- The GitHub access a central leases to a server, and what an ended one looks like ----
+    "sources.lease_expired_quiet": (
+        "The GitHub access that {central} leased to this server for {repository} ended at "
+        "{ended_at}, and {central} has not called since {last_call}"
+    ),
+    "sources.lease_expired_quiet.hint": (
+        "Anything that starts on this server and reads {repository} (a scheduled update, a "
+        "preview) fails until {central} calls again and leases a new one: check that the central "
+        "is running and reaches this server. A deploy key does not depend on the central; "
+        "see: {command}"
+    ),
+    "sources.no_app": "This central has no GitHub App to lease access with",
+    "sources.no_app.hint": (
+        "Create it in the console (Integrations, GitHub) or with: noust github setup"
+    ),
+    "sources.delivery_not_retryable": (
+        "That event is {state}, and only an event that was given up on can be handed over again"
+    ),
+    "sources.delivery_not_retryable.hint": (
+        "A server that took the event is not sent it twice; one that is still waiting is tried "
+        "again by itself."
+    ),
+    "sources.central_only": (
+        "Only the central that manages this server can lease it access to GitHub"
+    ),
+    "sources.central_only.hint": (
+        "The central makes and renews the lease itself; there is nothing to do on this server. "
+        "To clone with a credential of this server's own, give the application a deploy key."
+    ),
+    "sources.node_unsupported": (
+        "{node} runs a Noust that cannot hold the GitHub access this central leases"
+    ),
+    "sources.node_unsupported.hint": (
+        "Update Noust on {node} to 4.1 or later; the access is leased within a minute of it."
+    ),
+    "sources.node_ceiling": (
+        "{node} lets this central only read, so it cannot be leased access to GitHub"
+    ),
+    "sources.node_ceiling.hint": (
+        "Leasing needs the deploy ceiling or higher. On {node}, as root: {command}"
+    ),
+    "sources.node_unreachable": "{node} could not be reached to lease it access to GitHub",
+    "sources.node_unreachable.hint": (
+        "It is tried again within a minute, and the access it holds ends on its own. Check it "
+        "with: {command}"
+    ),
+    "sources.node_refused": "{node} would not take the access to GitHub: {reason}",
+    "sources.node_refused.hint": (
+        "The server's own words are beside this. It is tried again in a few minutes."
+    ),
+    "sources.webhook_unreachable": (
+        "GitHub cannot reach this central, so a push to a repository its servers deploy deploys "
+        "nothing"
+    ),
+    "sources.webhook_unreachable.hint": (
+        "The servers it manages have no address GitHub could call: the App's webhook is this "
+        "central's. On a server with a web server, give it a name of its own: {command}. Behind a "
+        "proxy of your own, say where it answers: {config_command}"
+    ),
+    "sources.node_independent": (
+        "{node} is independent, so this central hands it nothing from GitHub"
+    ),
+    "sources.node_independent.hint": (
+        "Make it follow the fleet again and the access and the events of its repositories reach "
+        "it. Until then it deploys from its own credentials."
+    ),
+    "sources.forward_gave_up": (
+        "{node} did not take the {kind} of {repository} in {minutes} minutes, and the central "
+        "gave up"
+    ),
+    "sources.forward_gave_up.hint": (
+        "Nothing was deployed on {node} for it. Once it answers again, update the application "
+        "there, or push again."
+    ),
+    "sources.forward_refused": "{node} would not take the {kind} of {repository}: {reason}",
+    "sources.forward_refused.hint": (
+        "The server's own words are beside this. Nothing was deployed on {node} for it."
+    ),
+    "sources.github_refused": "GitHub would not give a token for installation {installation}",
+    "sources.github_refused.hint": (
+        "GitHub's own words are beside this. If the App was removed or its permissions changed, "
+        "accept the new permissions in the App's settings on GitHub, or install it again."
+    ),
+    "sources.no_installation": "No installation of the GitHub App reaches {repository}",
+    "sources.no_installation.hint": (
+        "Install the App on the account {owner} and let it read {repository}: {url}"
+    ),
+    "sources.not_reachable": "The GitHub App cannot read {repository}",
+    "sources.not_reachable.hint": (
+        "Add {repository} to the repositories the App's installation reaches: {url}"
+    ),
+    "sources.lease_expired": (
+        "The GitHub access that {central} leased to this server for {repository} ended at "
+        "{ended_at} and has not been renewed"
+    ),
+    "sources.lease_expired.hint": (
+        "{central} last called at {last_call} and did not lease a new one: it may not reach "
+        "GitHub, or its GitHub App no longer covers {repository}. Until it does, anything that "
+        "starts on this server and reads {repository} fails. A deploy key does not depend on the "
+        "central; see: {command}"
+    ),
 }
 
 

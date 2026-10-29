@@ -1008,6 +1008,14 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("sites", "get_unknown_hosts"): ("GET", "/api/unknown-hosts", "server.read", False),
     ("sites", "put_unknown_hosts"): ("PUT", "/api/unknown-hosts", "server.manage", True),
     ("sites", "delete_unknown_hosts"): ("DELETE", "/api/unknown-hosts", "server.manage", True),
+    ("sources", "sources_status"): ("GET", "/api/fleet/sources", "fleet.read", False),
+    ("sources", "sources_deliveries"): ("GET", "/api/fleet/sources/deliveries", "fleet.read", False),
+    ("sources", "retry_delivery"): ("POST", "/api/fleet/sources/deliveries/{forward_id}/retry", "fleet.manage", False),
+    ("sources", "lease_again"): ("POST", "/api/fleet/sources/leases", "fleet.manage", False),
+    ("sources", "forward_event"): ("POST", "/api/sources/events", "apps.deploy", False),
+    ("sources", "list_leases"): ("GET", "/api/sources/leases", "apps.read", False),
+    ("sources", "hold_lease"): ("PUT", "/api/sources/leases", "apps.deploy", False),
+    ("sources", "drop_leases"): ("DELETE", "/api/sources/leases", "apps.deploy", False),
     ("streams", "list_streams"): ("GET", "/api/streams", "server.read", False),
     ("streams", "open_stream"): ("POST", "/api/streams", "server.host_access", True),
     ("streams", "plan_stream"): ("POST", "/api/streams/plan", "server.read", False),
@@ -6358,7 +6366,7 @@ class Fleet:
         Needs: permission `databases.read`."""
         return self._call("GET", "/api/views/databases", query={"node": node, "refresh": refresh}, body=None)
 
-    def view_deliveries(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, state: Union[str, None] = None, channel: Union[str, None] = None, limit: Union[int, None] = None) -> "DeliveriesOut":
+    def view_deliveries(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, state: Union[str, None] = None, channel: Union[str, None] = None, limit: Union[int, None] = None) -> "NoustWebApiViewsDeliveriesOut":
         """GET /api/views/deliveries
 
         View Deliveries
@@ -9336,6 +9344,78 @@ class Sites:
 
 
 
+class Sources:
+    """Sources: 8 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def sources_status(self) -> "SourcesOut":
+        """GET /api/fleet/sources
+
+        Sources Status
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/sources", query=None, body=None)
+
+    def sources_deliveries(self, *, node: Union[str, None] = None, state: Union[str, None] = None, limit: Union[int, None] = None) -> "NoustWebApiFleetSourcesDeliveriesOut":
+        """GET /api/fleet/sources/deliveries
+
+        Sources Deliveries
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/sources/deliveries", query={"node": node, "state": state, "limit": limit}, body=None)
+
+    def retry_delivery(self, forward_id: str) -> "DeliveryOut":
+        """POST /api/fleet/sources/deliveries/{forward_id}/retry
+
+        Retry Delivery
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", f"/api/fleet/sources/deliveries/{quote(str(forward_id), safe='')}/retry", query=None, body=None)
+
+    def lease_again(self, body: "LeaseAgainIn") -> "LeasedAgainOut":
+        """POST /api/fleet/sources/leases
+
+        Lease Again
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", "/api/fleet/sources/leases", query=None, body=body)
+
+    def forward_event(self, body: "ForwardedEventIn") -> "ForwardedEventOut":
+        """POST /api/sources/events
+
+        Forward Event
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", "/api/sources/events", query=None, body=body)
+
+    def list_leases(self) -> "LeasesOut":
+        """GET /api/sources/leases
+
+        List Leases
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/sources/leases", query=None, body=None)
+
+    def hold_lease(self, body: "LeaseIn") -> "NoustWebApiSourceLeasesLeaseOut":
+        """PUT /api/sources/leases
+
+        Hold Lease
+
+        Needs: permission `apps.deploy`."""
+        return self._call("PUT", "/api/sources/leases", query=None, body=body)
+
+    def drop_leases(self, *, key: Union[str, None] = None) -> "LeasesDroppedOut":
+        """DELETE /api/sources/leases
+
+        Drop Leases
+
+        Needs: permission `apps.deploy`."""
+        return self._call("DELETE", "/api/sources/leases", query={"key": key}, body=None)
+
+
+
 class Streams:
     """Streams: 4 operations."""
 
@@ -10395,6 +10475,7 @@ class Api:
     services: Services
     single_sign_on: SingleSignOn
     sites: Sites
+    sources: Sources
     streams: Streams
     system: System
     tags: Tags
@@ -10456,6 +10537,7 @@ class Api:
         self.services = Services(call)
         self.single_sign_on = SingleSignOn(call)
         self.sites = Sites(call)
+        self.sources = Sources(call)
         self.streams = Streams(call)
         self.system = System(call)
         self.tags = Tags(call)
