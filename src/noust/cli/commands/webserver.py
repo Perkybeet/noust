@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import dataclasses
 import json
-from collections.abc import Sequence
-from typing import Any
+from collections.abc import Callable, Sequence
+from typing import Any, TypeVar
 
 import click
 
@@ -35,6 +35,8 @@ from noust.deployers.webserver_move_plan import (
     other_than,
     plan_move,
 )
+
+_F = TypeVar("_F", bound=Callable[..., Any])
 
 #: The two web servers the command takes.
 SERVERS = click.Choice(["nginx", "apache"])
@@ -116,7 +118,16 @@ def _count(number: int, noun: str) -> str:
 # -- plan and migrate -----------------------------------------------------------------------
 
 
-def _options(function):  # type: ignore[no-untyped-def]
+def _options(function: _F) -> _F:
+    """
+    Give a command the sites it is about and where they go.
+
+    Args:
+        function: The command's function.
+
+    Returns:
+        The same function, with ``DOMAINS``, ``--to`` and ``--all``.
+    """
     for decorator in reversed(
         (
             click.argument("domains", nargs=-1),

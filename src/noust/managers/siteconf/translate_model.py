@@ -145,6 +145,24 @@ class Findings:
             target=DISPLAY[self.target],
         )
 
+    def cannot(self, directive: str, line: int | None) -> None:
+        """
+        Record a directive that makes the file something else than a website, so it is not
+        translated at all (a TCP or UDP forward written as a ``server``).
+
+        Args:
+            directive: Its name in the old file.
+            line: Its line.
+        """
+        self._add(
+            "unsupported",
+            "blocks",
+            directive,
+            line,
+            "webserver_move.unsupported",
+            target=DISPLAY[self.target],
+        )
+
     def protection(self, directive: str, line: int | None) -> None:
         """
         Record a protection (a login, a limit, a firewall) the new server cannot give.

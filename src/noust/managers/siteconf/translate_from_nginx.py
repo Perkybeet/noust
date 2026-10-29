@@ -288,6 +288,9 @@ class NginxReader:
                 self.findings.protection(name, child.line)
             elif name in _TUNING:
                 self.findings.tuning(name, child.line)
+            elif name in ("proxy_pass", "proxy_timeout"):
+                # Written in a server, these are the stream module's: a forward, not a website.
+                self.findings.cannot(name, child.line)
             elif name == "set":
                 self.findings.unsupported(name, child.line)
             else:
@@ -303,6 +306,10 @@ class NginxReader:
         if not words:
             return
         spec, options = words[0], words[1:]
+        if "udp" in options:
+            # A forward of UDP is the stream module's, not a website.
+            self.findings.cannot("listen " + spec + " udp", node.line)
+            return
         if "quic" in options:
             self.findings.unsupported("listen " + spec + " quic", node.line)
             return

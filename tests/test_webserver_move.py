@@ -295,6 +295,58 @@ class TestThePlan:
         assert all({"code", "params", "text", "severity"} <= set(f) for f in site["findings"])
 
 
+class TestSitesOfNoApplication:
+    LANDING = "landing.example.org"
+
+    @pytest.fixture(autouse=True)
+    def landing(self, servers: TwoServers) -> None:
+        servers.nginx.create_site(self.LANDING, "static", {"static_dir": "/var/www/landing"})
+        servers.nginx.enable_site(self.LANDING)
+
+    def test_a_site_nobody_deployed_is_in_the_plan_and_moves_with_the_rest(
+        self, servers: TwoServers
+    ) -> None:
+        the_plan = plan(servers)
+
+        kinds = {site.domain: site.kind for site in the_plan.sites}
+        assert kinds[self.LANDING] == "site" and kinds[NODE] == "app"
+
+        go(servers, the_plan)
+
+        row = get_store().get_site(self.LANDING)
+        assert row is not None and row.webserver == "apache" and row.app_id is None
+        assert servers.apache.site_enabled(self.LANDING)
+
+    def test_leaving_it_out_of_a_handover_is_refused(self, servers: TwoServers) -> None:
+        the_plan = plan(servers, [STATIC, NODE, PHP])
+
+        assert [item.code for item in the_plan.blockers] == ["webserver_move.partial_handover"]
+
+    @pytest.mark.parametrize(
+        ("feature", "code", "command"),
+        [
+            ("console", "webserver_move.console_site", "noust console unexpose"),
+            ("status", "webserver_move.status_site", "noust probe status-page unpublish"),
+        ],
+    )
+    def test_the_consoles_name_and_the_status_page_stay_behind_nginx(
+        self,
+        servers: TwoServers,
+        monkeypatch: pytest.MonkeyPatch,
+        feature: str,
+        code: str,
+        command: str,
+    ) -> None:
+        monkeypatch.setattr(
+            "noust.deployers.webserver_move_plan.feature_sites", lambda: {self.LANDING: feature}
+        )
+
+        site = next(item for item in plan(servers).sites if item.domain == self.LANDING)
+
+        (blocker,) = site.blockers
+        assert blocker.code == code and blocker.params["command"] == command
+
+
 class TestRequiringAgreement:
     def test_the_move_itself_must_be_confirmed(self, servers: TwoServers) -> None:
         with pytest.raises(ConfirmationRequired) as asked:
@@ -522,6 +574,52 @@ class TestOneSiteWhileTheNewServerServes:
         assert mine.read_text().startswith("server {")
         assert theirs.read_text().startswith("<VirtualHost")
         assert not servers.nginx.site_enabled(NODE) and servers.apache.site_enabled(NODE)
+
+
+class TestAPasswordAndAnAddressList:
+    HASH = "$6$salt$" + "a" * 86
+
+    def protect(self, servers: TwoServers) -> None:
+        from noust.managers.site_policy import SitePolicy
+
+        policies = servers.nginx.policies
+        policies.records.set_user(NODE, "ana", self.HASH, created_by="test")
+        policies.save(
+            NODE, SitePolicy(basic_auth=True, allow_ips=["10.0.0.0/8"], access="any"), actor="t"
+        )
+        # What a deploy does: the site is written again with the policy in it.
+        servers.nginx.update_site(NODE, "proxy", {"port": 3000})
+
+    def test_the_site_names_the_new_servers_accounts_and_they_are_written_there(
+        self, servers: TwoServers
+    ) -> None:
+        self.protect(servers)
+        old = servers.nginx.sites_available.parent / "noust-auth" / "api-example-com.users"
+        assert old.exists()
+
+        go(servers, plan(servers))
+
+        new = servers.apache.sites_available.parent / "noust-auth" / "api-example-com.users"
+        text = servers.apache.get_site_config(NODE)
+        assert f"AuthUserFile {new}" in text and str(old) not in text
+        assert new.read_text() == f"ana:{self.HASH}\n"
+        assert not old.exists(), "the old server's copy goes with the old site"
+        assert "<RequireAny>" in text and "Require ip 10.0.0.0/8" in text
+
+    def test_a_failed_move_leaves_the_new_servers_accounts_nowhere(
+        self, servers: TwoServers
+    ) -> None:
+        self.protect(servers)
+        servers.unanswered.add(NODE)
+
+        with pytest.raises(WebserverMoveError):
+            go(servers, plan(servers))
+
+        new = servers.apache.sites_available.parent / "noust-auth" / "api-example-com.users"
+        assert not new.exists()
+        assert (
+            servers.nginx.sites_available.parent / "noust-auth" / "api-example-com.users"
+        ).exists()
 
 
 class TestAndBack:

@@ -112,9 +112,13 @@ def translate(text: str, *, source: Kind, target: Kind, domain: str) -> Translat
     header = _HEADER.format(
         target=DISPLAY[target].capitalize(), domain=domain, source=DISPLAY[source]
     )
-    return Translation(
+    result = Translation(
         header + "\n" + body, source, target, tuple(findings.items), modules, tuple(names)
     )
+    if result.blocked:
+        # What cannot be translated is not half written: a blocked file yields no text at all.
+        return Translation("", source, target, result.findings)
+    return result
 
 
 def kind_of(webserver: str) -> Kind:

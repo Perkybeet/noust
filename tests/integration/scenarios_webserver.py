@@ -288,6 +288,13 @@ def _move(sc: Scenario) -> None:
         "noust webserver migrate --to apache --all" in guard.stdout + guard.stderr,
         "the refusal of the setting should name the command that moves them",
     )
+    rehearsal = sc.run(
+        "noust --dry-run webserver migrate --to apache --all --yes",
+        timeout=180,
+        label="noust --dry-run webserver migrate --to apache --all --yes",
+    )
+    sc.check("Rehearsal" in rehearsal.stdout, f"a dry run says so: {rehearsal.stdout[-300:]!r}")
+    sc.check(not status(sc)["servers"]["apache"]["running"], "a dry run did not start Apache")
     check_all(sc, "nginx", "after the refusals")
     check_tls(sc, "nginx", "after the refusals")
 
