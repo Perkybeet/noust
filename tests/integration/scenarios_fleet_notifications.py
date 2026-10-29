@@ -214,14 +214,21 @@ def register(fr: Any) -> None:
             central.check(job["status"] == "succeeded", f"applying to the fleet failed: {job!r}")
 
             first, second = items_of(job, node1_name), items_of(job, NODE2_ID)
+
+            def reached(items: dict[tuple[str, str], dict[str, Any]], name: str) -> str:
+                # A server that joined a moment ago may have been reconciled by the central's
+                # watcher between two saves, so what it already holds comes back as in sync.
+                state = str(items[("channel", name)]["state"])
+                return "sent" if state in ("created", "in_sync") else state
+
             central.check(
-                {name: first[("channel", name)]["state"] for name in settings}
-                == {"ops-all": "created", "ops-shop": "created", "ops-node2": "out_of_reach"},
+                {name: reached(first, name) for name in settings}
+                == {"ops-all": "sent", "ops-shop": "sent", "ops-node2": "out_of_reach"},
                 f"the first node was not sent what its routes reach: {first!r}",
             )
             central.check(
-                {name: second[("channel", name)]["state"] for name in settings}
-                == {"ops-all": "created", "ops-shop": "out_of_reach", "ops-node2": "created"},
+                {name: reached(second, name) for name in settings}
+                == {"ops-all": "sent", "ops-shop": "out_of_reach", "ops-node2": "sent"},
                 f"the second node was not sent what its routes reach: {second!r}",
             )
             central.check(
