@@ -508,6 +508,14 @@ export const serverText: Catalog<typeof en> = {
     },
   },
   sources: {
+    central_only: {
+      text: "Solo la central que gestiona este servidor puede cederle acceso a GitHub",
+      hint: "La central hace y renueva la cesión por su cuenta; no hay nada que hacer en este servidor. Para clonar con una credencial propia de este servidor, dale a la aplicación una clave de despliegue.",
+    },
+    github_refused: {
+      text: "GitHub no ha querido dar un token para la instalación {installation}",
+      hint: "Las palabras de GitHub van al lado. Si la App se eliminó o cambiaron sus permisos, acepta los permisos nuevos en los ajustes de la App en GitHub, o instálala otra vez.",
+    },
     lease_expired: {
       text: "El acceso a GitHub que {central} cedió a este servidor para {repository} terminó el {ended_at} y no se ha renovado",
       hint: "{central} llamó por última vez el {last_call} y no cedió uno nuevo: puede que no llegue a GitHub, o que su GitHub App ya no cubra {repository}. Hasta que lo haga, todo lo que arranque en este servidor y lea {repository} falla. Una clave de despliegue no depende de la central; mira: {command}",
@@ -515,6 +523,30 @@ export const serverText: Catalog<typeof en> = {
     lease_expired_quiet: {
       text: "El acceso a GitHub que {central} cedió a este servidor para {repository} terminó el {ended_at}, y {central} no ha llamado desde el {last_call}",
       hint: "Todo lo que arranque en este servidor y lea {repository} (una actualización programada, una preview) falla hasta que {central} vuelva a llamar y ceda uno nuevo: comprueba que la central está en marcha y llega a este servidor. Una clave de despliegue no depende de la central; mira: {command}",
+    },
+    no_installation: {
+      text: "Ninguna instalación de la GitHub App llega a {repository}",
+      hint: "Instala la App en la cuenta {owner} y deja que lea {repository}: {url}",
+    },
+    node_ceiling: {
+      text: "{node} deja a esta central solo leer, así que no se le puede ceder acceso a GitHub",
+      hint: "Ceder acceso necesita el techo deploy o superior. En {node}, como root: {command}",
+    },
+    node_refused: {
+      text: "{node} no ha querido aceptar el acceso a GitHub: {reason}",
+      hint: "Las palabras del propio servidor van al lado. Se intenta otra vez en unos minutos.",
+    },
+    node_unreachable: {
+      text: "No se ha podido llegar a {node} para cederle acceso a GitHub",
+      hint: "Se intenta otra vez en menos de un minuto, y el acceso que tiene termina solo. Compruébalo con: {command}",
+    },
+    node_unsupported: {
+      text: "{node} ejecuta un Noust que no puede guardar el acceso a GitHub que esta central cede",
+      hint: "Actualiza Noust en {node} a la 4.1 o posterior; el acceso se cede en menos de un minuto después.",
+    },
+    not_reachable: {
+      text: "La GitHub App no puede leer {repository}",
+      hint: "Añade {repository} a los repositorios a los que llega la instalación de la App: {url}",
     },
   },
   terminal: {

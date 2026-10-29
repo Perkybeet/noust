@@ -31,7 +31,7 @@ import logging
 import sqlite3
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -44,6 +44,7 @@ from noust.core.secrets import SecretStore
 from noust.core.store import GitHubAppRecord, get_store
 from noust.integrations.github.client import GitHubClient, get_client
 from noust.integrations.github.leases import SourceLeases, expired_sentence, target_of
+from noust.validators.source import github_repository_parts
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,12 @@ JWT_BACKDATE = 60
 JWT_LIFETIME = 540
 #: Seconds before its expiry an installation token is replaced.
 TOKEN_REFRESH_MARGIN = 300
+
+#: Most repositories GitHub lets one installation token be limited to.
+MAX_TOKEN_REPOSITORIES = 500
+
+#: A token that lives less than this is not worth leasing: it would end before it arrived.
+MIN_LEASE_LIFETIME = 120
 
 #: Seconds ``openssl`` may take to sign.
 SIGN_TIMEOUT = 15
@@ -161,6 +168,24 @@ class _CachedToken:
 
     token: str
     refresh_at: float
+
+
+@dataclass(frozen=True)
+class ScopedToken:
+    """
+    An installation token made for some repositories and few permissions.
+
+    Attributes:
+        token: The token. A secret: it is leased to a server and shown to nobody.
+        expires_in: Seconds it lives, from now.
+        repositories: ``owner/repo`` in lower case, sorted: what it reaches.
+        permissions: What GitHub says it may do.
+    """
+
+    token: str
+    expires_in: int
+    repositories: tuple[str, ...]
+    permissions: dict[str, str]
 
 
 class GitHubApp:
@@ -275,6 +300,86 @@ class GitHubApp:
             IntegrationError: GitHub refused or could not be reached.
         """
         return _tokens.get(self, installation_id)
+
+    def scoped_installation_token(
+        self,
+        installation_id: int,
+        repositories: Sequence[str],
+        permissions: Mapping[str, str],
+    ) -> ScopedToken:
+        """
+        Ask GitHub for a token that reaches some repositories of an installation and does little.
+
+        GitHub's "create an installation access token" takes the names of the repositories the
+        token is for and the permissions it holds, both narrower than the installation's own. This
+        is what a central leases to a server: the repositories the server serves, read only. The
+        token is not cached (a lease has its own life) and is checked before it is returned:
+        a token that can write or that reaches more than was asked for never leaves this call.
+
+        Args:
+            installation_id: The installation.
+            repositories: ``owner/repo`` it should reach, at most
+                :data:`MAX_TOKEN_REPOSITORIES`.
+            permissions: What it may do, such as ``{"contents": "read"}``.
+
+        Returns:
+            The token, how long it lives and what it reaches.
+
+        Raises:
+            IntegrationError: Nothing or too much was asked for, GitHub answered something that
+                is not a token, or one broader than asked (GitHubAPIError when GitHub refused).
+        """
+        if not repositories or len(repositories) > MAX_TOKEN_REPOSITORIES:
+            raise IntegrationError(
+                f"A scoped token reaches from 1 to {MAX_TOKEN_REPOSITORIES} repositories",
+                details=f"{len(repositories)} were asked for; the central sends several leases.",
+            )
+        wanted = {name.lower() for name in repositories}
+        # Names only: GitHub takes the repositories of the installation's own account.
+        names = [github_repository_parts(full)[1] for full in repositories]
+        answer = self.app_request(
+            "POST",
+            f"/app/installations/{int(installation_id)}/access_tokens",
+            {"repositories": names, "permissions": dict(permissions)},
+        )
+        data = answer if isinstance(answer, dict) else {}
+        token = data.get("token")
+        if not isinstance(token, str) or not token:
+            raise IntegrationError(
+                f"GitHub answered no token for installation {installation_id}",
+                details="Retry; if it persists, reinstall the App on that account.",
+            )
+        granted = data.get("permissions")
+        reached = {
+            str(item.get("full_name") or "").lower()
+            for item in data.get("repositories") or []
+            if isinstance(item, dict)
+        }
+        if (
+            not isinstance(granted, dict)
+            or any(level != "read" for level in granted.values())
+            or data.get("repository_selection") != "selected"
+            or (reached and not reached <= wanted)
+        ):
+            raise IntegrationError(
+                "GitHub gave a token that can do more than was asked of it",
+                details="It reaches more than the repositories named or holds more than reading; "
+                "it is not leased to a server.",
+            )
+        now = self.clock()
+        expires_in = int(_expiry(data.get("expires_at"), now + 3600) - now)
+        if expires_in < MIN_LEASE_LIFETIME:
+            raise IntegrationError(
+                "GitHub gave a token that is about to end",
+                details="Check this server's clock against GitHub's; a token that lives under "
+                f"{MIN_LEASE_LIFETIME} seconds is not leased.",
+            )
+        return ScopedToken(
+            token=token,
+            expires_in=expires_in,
+            repositories=tuple(sorted(reached or wanted)),
+            permissions={str(name): str(level) for name, level in granted.items()},
+        )
 
     def as_installation(
         self,

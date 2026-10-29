@@ -138,6 +138,7 @@ from noust.web.api.site_logs import router as site_logs_router
 from noust.web.api.site_policy import ranges_router as policy_ranges_router
 from noust.web.api.site_policy import router as site_policy_router
 from noust.web.api.sites import router as sites_router
+from noust.web.api.source_leases import router as source_leases_router
 from noust.web.api.source_uploads import router as source_uploads_router
 from noust.web.api.streams import router as streams_router
 from noust.web.api.system import router as system_router
@@ -239,6 +240,8 @@ router.include_router(probes_router, prefix="/probes", tags=["Probes"])
 router.include_router(alerts_router, prefix="/alerts", tags=["Alerts"])
 router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 router.include_router(managed_settings_router, prefix="/managed-settings", tags=["Fleet settings"])
+# What a central gives this server to deploy from its repositories (4.1).
+router.include_router(source_leases_router, prefix="/sources", tags=["Sources"])
 router.include_router(overview_router, prefix="/overview", tags=["Overview"])
 # How the server fits together, as a graph read from it (4.0).
 router.include_router(map_router, prefix="/map", tags=["Map"])

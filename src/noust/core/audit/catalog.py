@@ -616,6 +616,16 @@ EVENTS: dict[str, EventSpec] = {
             "fleet.setting.restore": "This node's operator asked the central to put a setting back as the fleet's.",
         },
     ),
+    # The access to GitHub a central gives the servers it manages (4.1): leased tokens, scoped to
+    # the repositories a server serves and to reading them, and the events of those repositories.
+    **_events(
+        "change",
+        NOTICE,
+        {
+            "sources.lease.hold": "A central leased this server access to GitHub to clone the repositories it serves.",
+            "sources.lease.drop": "A central took back the access to GitHub it had leased this server.",
+        },
+    ),
     # The console's terminal and one-off commands (4.0): a shell as an application,
     # or as root, is the most root-equivalent thing the console opens.
     **_events(

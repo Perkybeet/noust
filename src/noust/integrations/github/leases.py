@@ -29,6 +29,7 @@ Git receives it the way it receives every credential of Noust: in its environmen
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 import json
 import logging
@@ -441,7 +442,7 @@ class SourceLeases:
             )
         return token
 
-    def _covering(self, host: str, repository: str) -> list[Lease]:
+    def _covering(self, host: str, repository: str) -> builtins.list[Lease]:
         """
         Args:
             host: The GitHub host.
