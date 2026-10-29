@@ -5,8 +5,8 @@
  * never list different things (docs/DESIGN.md, NV-1).
  *
  * Only a resource with sections has a column: an application, a server and Settings. A list has one
- * where it has saved views to put in it, and none has yet; Home has none, because its fleet is a
- * filter and each server leads to its page.
+ * where it has views to put in it: Databases, with its two sections and the engines that filter them.
+ * Home has none, because its fleet is a filter and each server leads to its page.
  */
 
 import type { LucideIcon } from "lucide-react";
@@ -18,16 +18,20 @@ import { DESTS, isUnder } from "./nav";
 import { shown } from "./navCore";
 import type { ConsolePath, Dest, Intent, NavContext } from "./navCore";
 
-/** Which resource's sections the column holds. */
-export type ColumnKind = "app" | "server" | "settings";
+/** Which resource's sections the column holds. `databases` is a list with views to put in it: its two sections and its engines. */
+export type ColumnKind = "app" | "server" | "settings" | "databases";
 
 const APP_PAGE = /^\/apps\/(?!new(?:\/|$))[^/]+(?:\/|$)/;
 
-/** The column a path has, or none: an application's page, the server's, or one of Settings. */
+/** The pages of Databases that have the column: the list, the database servers and one server's settings; a database's own page has its tabs. */
+const DATABASES_PAGE = /^\/databases(?:\/servers|\/engines\/[^/]+\/settings)?\/?$/;
+
+/** The column a path has, or none: an application's page, the server's, Databases, or one of Settings. */
 export function columnKindOf(pathname: string): ColumnKind | null {
   if (APP_PAGE.test(pathname)) return "app";
   if (isUnder(pathname, "/server")) return "server";
   if (isUnder(pathname, "/settings")) return "settings";
+  if (DATABASES_PAGE.test(pathname)) return "databases";
   return null;
 }
 

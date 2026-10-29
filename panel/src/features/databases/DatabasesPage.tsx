@@ -1,38 +1,38 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { Link2, Plug, Tags, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { request } from "../../api/client";
-import { databaseBackupsQuery, databaseKeys, databasesQuery, enginesQuery, exposureQuery, policiesQuery } from "../../api/queries/databases";
-import type { Database, Engine } from "../../api/queries/databases";
-import { jobKeys } from "../../api/queries/jobs";
+import { sessionQuery } from "../../api/queries/auth";
+import { databaseBackupsQuery, databasesQuery, enginesQuery, exposureQuery, policiesQuery } from "../../api/queries/databases";
+import { useColumnCarries } from "../../app/frame/columnContext";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { RowMenu } from "../../components/page/RowMenu";
+import { Section, Sections } from "../../components/page/Section";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
+import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
-import { MenuGroup, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Notice } from "../../components/ui/Notice";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { Select } from "../../components/ui/Select";
-import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
-import type { T } from "../../i18n";
-import { reportActionError } from "../apps/useAppActions";
+import { useNode } from "../../nodes/useNode";
 import { useOwnerScope } from "../teams/ownership";
-import { ResourceTagsDialog } from "../app/settings/ResourceTagsDialog";
+import { DatabaseRowActions } from "./DatabaseRowActions";
 import { DatabasesTable } from "./DatabasesTable";
 import { ListingProblemsNotice } from "./EngineAccess";
-import { can, engineName, instanceLabel, isContainer, sortInstances } from "./engines";
+import { engineName } from "./engines";
 import { filterDatabases, isFiltered } from "./filters";
 import type { DatabasesSearch } from "./filters";
 import { useDatabasesHeader } from "./listHeader";
 import { newestDumps, policiesById } from "./protection";
-import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import { engineGroups } from "./servers";
+import { ServerSlabs } from "./servers/ServerSlabs";
+import { useDatabaseServers } from "./servers/useDatabaseServers";
+import { useServerActions } from "./servers/useServerActions";
 
 const ALL = "all";
 
@@ -43,94 +43,6 @@ export interface DatabasesPageProps {
   onSearchChange: (search: DatabasesSearch, options?: { replace?: boolean }) => void;
 }
 
-/** The menu at the end of a database's row: open it, back it up now, query it, connect to it. */
-function DatabaseMenu({ database, engines, t }: { database: Database; engines: readonly Engine[] | undefined; t: T }) {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const engine = engines?.find((item) => item.name === database.engine);
-  const params = { engine: database.engine, name: database.name };
-  const backup = useMutation({
-    mutationFn: () => request("post", "/api/databases/backup-policies/{engine}/{database}/run", { params: { engine: database.engine, database: database.name } }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: jobKeys.active });
-      toast.info(t("databases.list.backupQueued", { name: database.name }), {
-        action: { label: t("databases.list.follow"), onClick: () => void navigate({ to: "/databases/$engine/$name/backups", params }) },
-      });
-    },
-    onError: (error) => reportActionError(t("databases.list.backupFailed", { name: database.name }), error),
-  });
-  // A use found in an application's environment becomes a recorded link; the application is
-  // not touched (its environment already names the database), so nothing needs confirming.
-  const record = useMutation({
-    mutationFn: (app: string) =>
-      request("post", "/api/databases/databases/{engine}/{name}/links/detected", { params: { engine: database.engine, name: database.name }, body: { app } }),
-    onSuccess: (_link, app) => {
-      void queryClient.invalidateQueries({ queryKey: databaseKeys.lists });
-      void queryClient.invalidateQueries({ queryKey: databaseKeys.database(database.engine, database.name) });
-      toast.success(t("databases.list.linkRecorded", { app, name: database.name }));
-    },
-    onError: (error, app) => reportActionError(t("databases.list.recordFailed", { app, name: database.name }), error),
-  });
-  const detected = (database.detected_apps ?? []).filter((app) => !(database.apps ?? []).includes(app));
-  const [editingTags, setEditingTags] = useState(false);
-  return (
-    <>
-    <RowMenu name={database.name}>
-      <MenuItem icon={<OBJECT_ICONS.database />} onClick={() => void navigate({ to: "/databases/$engine/$name", params })}>
-        {t("databases.list.open")}
-      </MenuItem>
-      {can(engine, "sql") ? (
-        <MenuItem icon={<OBJECT_ICONS.terminal />} disabled={database.missing} onClick={() => void navigate({ to: "/databases/$engine/$name/query", params })}>
-          {t("databases.list.query")}
-        </MenuItem>
-      ) : null}
-      <MenuItem icon={<Plug />} disabled={database.missing} onClick={() => void navigate({ to: "/databases/$engine/$name/connect", params })}>
-        {t("databases.list.connect")}
-      </MenuItem>
-      <MenuItem icon={<Tags />} disabled={database.missing} onClick={() => setEditingTags(true)}>
-        {t("databases.list.editTags")}
-      </MenuItem>
-      {can(engine, "dump") ? (
-        <>
-          <MenuSeparator />
-          <MenuItem icon={<OBJECT_ICONS.backup />} disabled={database.missing || backup.isPending} onClick={() => backup.mutate()}>
-            {t("common.words.backUpNow")}
-          </MenuItem>
-        </>
-      ) : null}
-      {detected.length > 0 ? (
-        <>
-          <MenuSeparator />
-          <MenuGroup label={t("databases.list.detectedGroup")}>
-            {detected.map((app) => (
-              <MenuItem
-                key={app}
-                icon={<Link2 />}
-                disabled={record.isPending}
-                description={t("databases.list.recordLinkDescription")}
-                onClick={() => record.mutate(app)}
-              >
-                {t("databases.list.recordLink", { app })}
-              </MenuItem>
-            ))}
-          </MenuGroup>
-        </>
-      ) : null}
-    </RowMenu>
-    {editingTags ? (
-      <ResourceTagsDialog
-        name={database.name}
-        noun={t("databases.list.noun")}
-        tags={database.tags ?? []}
-        save={(tags) => request("put", "/api/databases/databases/{engine}/{name}/tags", { params: { engine: database.engine, name: database.name }, body: { tags } })}
-        onSaved={() => void queryClient.invalidateQueries({ queryKey: databaseKeys.lists })}
-        onClose={() => setEditingTags(false)}
-      />
-    ) : null}
-    </>
-  );
-}
-
 /** How long the rows wait for the notice above them once the list itself has answered. */
 const SETTLE_MS = 1_000;
 
@@ -139,19 +51,26 @@ const WAITING = "waiting";
 const ANSWERED = "answered";
 
 /**
- * Every database on the server, as a T1 list: the name first and whether it is backed up
- * beside it, the engine, who uses it, its size and its newest dump. Above it, the filters and
- * at most one notice (an engine that could not be read first, since the list itself is then
- * incomplete; then a port open to the network); the engines have their own tab.
+ * Databases, in two parts of one page: the databases (the name first, the server each runs on, who uses it,
+ * its size and whether it is backed up) and the database servers they run on, with where each stands in its
+ * project's support. Above them the filters and at most one notice: a job in hand, then a server that could
+ * not be read (the list is then incomplete), then a port open to the network. The engines in the side column
+ * narrow both parts.
  */
 export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   const t = useT();
-  const { header, tabs, dialogs, openCreate } = useDatabasesHeader();
+  const { node } = useNode();
+  const actions = useServerActions();
+  const { header, tabs, dialogs, openCreate } = useDatabasesHeader("databases", actions);
   const list = useQuery(databasesQuery());
+  const serverList = useDatabaseServers();
   const engines = useQuery(enginesQuery());
   const policies = useQuery(policiesQuery());
   const dumps = useQuery(databaseBackupsQuery());
   const exposure = useQuery(exposureQuery());
+  const { data: hostname } = useQuery({ ...sessionQuery(), select: (session) => session.hostname });
+  const machine = node ?? hostname ?? "";
+  const carried = useColumnCarries("databases");
   const listed = list.data !== undefined;
   const [settleExpired, setSettleExpired] = useState(false);
   useEffect(() => {
@@ -166,14 +85,11 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   const all = owner.inTeam;
   const byPolicy = useMemo(() => policiesById(policies.data), [policies.data]);
   const newest = useMemo(() => newestDumps(dumps.data?.backups), [dumps.data]);
-  const shown = useMemo(() => filterDatabases(owner.shown, search, byPolicy), [owner.shown, search, byPolicy]);
+  const servers = serverList.servers;
+  const shown = useMemo(() => filterDatabases(owner.shown, search, byPolicy, servers ?? []), [owner.shown, search, byPolicy, servers]);
+  const shownServers = useMemo(() => (servers ?? []).filter((server) => search.engine === undefined || server.flavour === search.engine || server.key === search.engine), [servers, search.engine]);
   const tagNames = useMemo(() => [...new Set(all.flatMap((database) => database.tags ?? []))].sort(), [all]);
-  // The server's own engines, then each instance in a container, named by where it runs so two
-  // PostgreSQLs are told apart.
-  const engineOptions = useMemo(
-    () => sortInstances((engines.data?.engines ?? []).filter((engine) => engine.installed || isContainer(engine))),
-    [engines.data],
-  );
+  const engineChoices = useMemo(() => engineGroups(servers ?? [], everything), [servers, everything]);
 
   const set = (patch: SearchPatch, replace = false): void => {
     const next: SearchPatch = { ...search, ...patch };
@@ -200,13 +116,15 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   }, [opening]);
 
   const filtered = isFiltered(search);
-  const running = (engines.data?.engines ?? []).some((engine) => engine.running);
+  const running = (serverList.servers ?? []).some((server) => server.running);
   const exposed = exposure.data?.exposed ?? [];
   const unprotected = policies.data?.unprotected?.length ?? 0;
   const problems = list.data?.problems ?? [];
 
   let notice;
-  if (problems.length > 0) {
+  if (actions.notice !== null) {
+    notice = actions.notice;
+  } else if (problems.length > 0) {
     notice = <ListingProblemsNotice problems={problems} engines={engines.data?.engines} />;
   } else if (exposed.length > 0) {
     notice = (
@@ -231,8 +149,13 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
     );
   }
 
-  // The filters and the count above the table, drawn with the rows (`arrival` below):
-  // nothing is there to be pushed when they come.
+  // The settling below: the notice above the list depends on the policies and the open ports, so the list waits
+  // for them and a notice arriving late never pushes the rows down under the pointer. It waits behind
+  // placeholder rows, never behind a blank page, and never more than SETTLE_MS: the open-port check reads the
+  // firewall and can take seconds, and rows the operator can already use are worth a notice that moves them once.
+  const settling = (policies.isPending || exposure.isPending) && list.data !== undefined && !settleExpired;
+  const loading = list.isPending || settling || owner.loading;
+
   const filterBar = (count?: string) => (
     <FilterBar
       label={t("databases.list.filterLabel")}
@@ -244,13 +167,16 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
       }}
       filters={
         <>
-          <Select
-            aria-label={t("databases.list.engineLabel")}
-            value={search.engine ?? ALL}
-            onValueChange={(value) => set({ engine: value === ALL ? undefined : value })}
-            options={[{ value: ALL, label: t("databases.list.everyEngine") }, ...engineOptions.map((engine) => ({ value: engine.name, label: instanceLabel(t, engine) }))]}
-            className="min-w-40"
-          />
+          {/* With the side column the engines are there; without it (one bar, a phone) they are a filter here. */}
+          {!carried ? (
+            <Select
+              aria-label={t("databases.list.engineLabel")}
+              value={search.engine ?? ALL}
+              onValueChange={(value) => set({ engine: value === ALL ? undefined : value })}
+              options={[{ value: ALL, label: t("databases.list.everyEngine") }, ...engineChoices.map((group) => ({ value: group.flavour, label: group.name }))]}
+              className="min-w-40"
+            />
+          ) : null}
           {/* What the rows say one by one, counted: the way to get at the ones without a schedule. */}
           {unprotected > 0 || search.backups !== undefined ? (
             <SegmentedControl<"all" | "attention">
@@ -288,51 +214,51 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
     />
   );
 
-  // The notice above the list depends on the policies and the open ports: the list waits for
-  // them, so a notice arriving late never pushes the rows down under the pointer. It waits
-  // behind placeholder rows, never behind a blank page. Never more than SETTLE_MS: the
-  // open-port check reads the firewall and can take seconds, and rows the operator can already
-  // use are worth a notice that moves them once.
-  const settling = (policies.isPending || exposure.isPending) && list.data !== undefined && !settleExpired;
-  const loading = list.isPending || settling || owner.loading;
+  const count = filtered ? t("databases.list.countFiltered", { shown: shown.length, total: all.length }) : t("databases.list.count", { count: all.length });
+  const empty = !loading && all.length === 0;
 
-  if (!loading && all.length === 0 && problems.length > 0) {
-    return (
-      <>
-        <ListPage header={header} tabs={tabs} notice={notice} arrival={ANSWERED} footer={<CommandHint command="noust db list" label={t("common.words.fromTerminal")} />}>
-          {null}
-        </ListPage>
-        {dialogs}
-      </>
-    );
-  }
-
-  if (!loading && all.length === 0) {
-    return (
-      <>
-        <ListPage header={header} tabs={tabs} arrival={ANSWERED} footer={<CommandHint command="noust db list" label={t("common.words.fromTerminal")} />}>
+  const databasesPart = empty ? (
+    <EmptyState
+      variant="firstUse"
+      icon={<OBJECT_ICONS.database />}
+      title={t("databases.list.emptyTitle")}
+      description={running ? t("databases.list.emptyDescription") : t("databases.list.emptyNoEngine")}
+      action={
+        running ? (
+          <Button icon={<Add aria-hidden="true" />} onClick={openCreate}>
+            {t("databases.page.newDatabase")}
+          </Button>
+        ) : undefined
+      }
+      command={running ? "noust db create postgresql shop_production" : "noust db install postgresql"}
+    />
+  ) : (
+    <div className="flex min-w-0 flex-col gap-4">
+      {loading ? null : filterBar(count)}
+      <DatabasesTable
+        loading={loading}
+        databases={loading ? [] : shown}
+        servers={servers}
+        engines={engines.data?.engines}
+        owner={{ scope: owner.scope, labels: owner.labels }}
+        policies={byPolicy}
+        dumps={newest}
+        caption={filtered ? t("databases.list.captionFiltered") : t("databases.list.caption")}
+        rowActions={(database) => <DatabaseRowActions database={database} engines={engines.data?.engines} />}
+        empty={
           <EmptyState
-            variant="firstUse"
-            icon={<OBJECT_ICONS.database />}
-            title={t("databases.list.emptyTitle")}
-            description={running ? t("databases.list.emptyDescription") : t("databases.list.emptyNoEngine")}
+            variant="inline"
+            title={t("databases.list.noMatch")}
             action={
-              running ? (
-                <Button icon={<Add aria-hidden="true" />} onClick={openCreate}>
-                  {t("databases.page.newDatabase")}
-                </Button>
-              ) : undefined
+              <Button size="sm" variant="ghost" onClick={clear}>
+                {t("common.words.clearFilters")}
+              </Button>
             }
-            command={running ? "noust db create postgresql shop_production" : "noust db install postgresql"}
           />
-        </ListPage>
-        {dialogs}
-      </>
-    );
-  }
-
-  const count =
-    filtered ? t("databases.list.countFiltered", { shown: shown.length, total: all.length }) : t("databases.list.count", { count: all.length });
+        }
+      />
+    </div>
+  );
 
   return (
     <>
@@ -343,32 +269,25 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
         // drawn under a notice not yet known would only be pushed down the page when it came.
         arrival={loading ? WAITING : ANSWERED}
         {...(!loading && notice !== undefined ? { notice } : {})}
-        {...(loading ? {} : { filters: filterBar(count) })}
-        // Drawn with the rows, not before: under a list of unknown length it would only be pushed
-        // down the page when they arrive.
+        // Drawn with the rows, not before: under a list of unknown length it would only be pushed down the page when they arrive.
         {...(loading ? {} : { footer: <CommandHint command="noust db list" label={t("common.words.fromTerminal")} /> })}
       >
-        <DatabasesTable
-          loading={loading}
-          databases={loading ? [] : shown}
-          owner={{ scope: owner.scope, labels: owner.labels }}
-          engines={engines.data?.engines}
-          policies={byPolicy}
-          dumps={newest}
-          caption={filtered ? t("databases.list.captionFiltered") : t("databases.list.caption")}
-          rowActions={(database) => <DatabaseMenu database={database} engines={engines.data?.engines} t={t} />}
-          empty={
-            <EmptyState
-              variant="inline"
-              title={t("databases.list.noMatch")}
-              action={
-                <Button size="sm" variant="ghost" onClick={clear}>
-                  {t("common.words.clearFilters")}
-                </Button>
-              }
-            />
-          }
-        />
+        <Sections>
+          <Section title={t("dbServers.column.databases")} {...(loading || empty ? {} : { badge: <Badge>{all.length}</Badge> })}>
+            {databasesPart}
+          </Section>
+          <Section
+            title={t("dbServers.title")}
+            {...(serverList.older ? { description: t("dbServers.older") } : {})}
+            {...(servers === undefined ? {} : { badge: <Badge>{shownServers.length}</Badge> })}
+          >
+            {serverList.isError && servers === undefined ? (
+              <ErrorBlock compact error={serverList.error} title={t("dbServers.loadFailed")} onRetry={serverList.refetch} retrying={serverList.isRefetching} />
+            ) : (
+              <ServerSlabs servers={servers === undefined ? undefined : shownServers} machine={machine} actions={actions} />
+            )}
+          </Section>
+        </Sections>
       </ListPage>
       {dialogs}
     </>

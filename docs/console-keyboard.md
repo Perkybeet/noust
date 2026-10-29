@@ -11,7 +11,7 @@ Part of [The console, page by page](console.md).
 | `g` `b` | Go to Databases |
 | `g` `n` | Go to Domains |
 | `g` `k` | Go to Backups |
-| `g` `c` | Go to Cron |
+| `g` `c` | Go to scheduled tasks |
 | `g` `l` | Go to Logs |
 | `g` `y` | Go to Activity |
 | `g` `v` | Go to the server (on **All servers**, to the fleet's Servers) |

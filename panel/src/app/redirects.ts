@@ -29,6 +29,8 @@ export const REDIRECT_ROWS = [
   // The page of Alerts has no filters to carry: what the old address carried is dropped.
   { from: "/settings/alerts", to: "/alerts", state: "live", plain: true },
   { from: "/settings/probes", to: "/alerts/probes", state: "live", plain: true },
+  // 4.1: the engines are database servers, and the page that listed them is the section of that name.
+  { from: "/databases/engines", to: "/databases/servers", state: "live", plain: true },
 ] as const;
 
 /**

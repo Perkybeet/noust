@@ -114,7 +114,7 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
   "/integrations/gitlab/callback": "where GitLab sends the browser back after authorising the application",
   "/apps/$domain/deployments/$id": "one deployment, opened from the Deployments list (L4)",
   "/catalog/$name": "one recipe, opened from the catalog",
-  "/databases/engines/$engine/settings": "one engine's settings, opened from the Engines tab",
+  "/databases/engines/$engine/settings": "one database server's settings, opened from its menu in Database servers",
   "/domains/sites/$site": "one site's web server file, opened from the Sites tab",
   "/fleet/jobs/$id": "one fleet job, opened from the notice that started it",
   "/projects/$team/$project": "one project, opened from the Projects list",
@@ -128,7 +128,7 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
 export const EXCEPTION_CRUMBS: Readonly<Record<string, { from: string; name: { param: string; prefix?: string } | { key: PlainKey } }>> = {
   "/apps/$domain/deployments/$id": { from: "app.deployments", name: { param: "id", prefix: "#" } },
   "/catalog/$name": { from: "catalog", name: { param: "name" } },
-  "/databases/engines/$engine/settings": { from: "databases.engines", name: { param: "engine" } },
+  "/databases/engines/$engine/settings": { from: "databases.servers", name: { param: "engine" } },
   "/domains/sites/$site": { from: "domains.sites", name: { param: "site" } },
   "/fleet/jobs/$id": { from: "activity", name: { param: "id", prefix: "#" } },
   "/projects/$team/$project": { from: "apps.projects", name: { param: "project" } },

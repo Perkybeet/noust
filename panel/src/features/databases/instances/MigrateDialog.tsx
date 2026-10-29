@@ -18,6 +18,7 @@ import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { supportLine, supportOf } from "../servers";
 
 /** What a major-version move leaves from: an instance of Noust's, or the host's own engine. */
 export interface MigrationSource {
@@ -115,7 +116,8 @@ export function MigrateDialog({ source, onOpenChange, onQueued }: MigrateDialogP
   const [version, setVersion] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [memory, setMemory] = useState("");
-  const chosen = version ?? offered.at(-1)?.version ?? null;
+  // The project's recommended release when it is newer than what runs; else the newest there is.
+  const chosen = version ?? offered.find((entry) => entry.default)?.version ?? offered.at(-1)?.version ?? null;
   const memoryMb = memory.trim() === "" ? undefined : Number(memory.trim());
   const memoryValid = memoryMb === undefined || (Number.isInteger(memoryMb) && memoryMb >= 1);
   const body = { source: source.name, to_version: chosen ?? "", ...(name.trim() === "" ? {} : { name: name.trim() }), ...(memoryMb === undefined || !memoryValid ? {} : { memory_mb: memoryMb }) };
@@ -160,7 +162,16 @@ export function MigrateDialog({ source, onOpenChange, onQueued }: MigrateDialogP
         {offered.length > 0 ? (
           <>
             <Field label={t("databases.migrate.version")} nativeLabel={false} description={t("databases.migrate.versionHelp", { current: source.version ?? "?" })}>
-              <Select value={chosen} onValueChange={setVersion} options={offered.map((entry) => ({ value: entry.version, label: entry.version }))} />
+              <Select
+                value={chosen}
+                onValueChange={setVersion}
+                options={offered.map((entry) => {
+                  // Where each version stands in its project's support is said beside its number, where it is chosen.
+                  const line = supportLine(t, supportOf({ support: entry.support, end_of_life: entry.end_of_life ?? null, runs_in: "noust_container" }, new Date()));
+                  const base = entry.default ? t("dbServers.other.versionDefault", { version: entry.version }) : entry.version;
+                  return { value: entry.version, label: line === null ? base : t("dbServers.other.versionWith", { version: base, support: line }) };
+                })}
+              />
             </Field>
             <div className="flex flex-wrap gap-4">
               <Field label={t("databases.migrate.name")} optional description={t("databases.migrate.nameHelp")} className="w-56">

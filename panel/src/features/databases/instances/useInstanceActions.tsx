@@ -14,9 +14,9 @@ import type { DbInstance } from "../../../api/queries/databaseInstances";
 import { jobKeys, useFollowedJob } from "../../../api/queries/jobs";
 import { useT } from "../../../i18n";
 import { DatabaseJobProgress } from "../jobs";
-import { CreateInstanceDialog } from "./CreateInstanceDialog";
 import { MigrateDialog } from "./MigrateDialog";
 import type { MigrationSource } from "./MigrateDialog";
+import { OtherVersionDialog } from "../servers/OtherVersionDialog";
 import { TlsDialog } from "./TlsDialog";
 import { TuningDialog } from "./TuningDialog";
 
@@ -33,7 +33,8 @@ export interface InstanceActions {
   dialogs: ReactNode;
   /** Whether a job is being followed: another is not offered until it is dismissed. */
   busy: boolean;
-  openCreate: () => void;
+  /** "Another version": the dialog that makes a database server of another version, on the engine given when a server's menu opened it. */
+  openCreate: (flavour?: string) => void;
   openMigrate: (source: MigrationSource) => void;
   openTls: (instance: DbInstance) => void;
   openTuning: (instance: DbInstance) => void;
@@ -46,13 +47,15 @@ export function useInstanceActions(): InstanceActions {
   const queryClient = useQueryClient();
   const followed = useFollowedJob();
   const [words, setWords] = useState<InstanceJobWords | null>(null);
-  const [creating, setCreating] = useState(false);
+  // `null`: closed; otherwise open, on the engine of the server whose menu opened it (none from the header).
+  const [creating, setCreating] = useState<{ flavour?: string } | null>(null);
   const [migrating, setMigrating] = useState<MigrationSource | null>(null);
   const [securing, setSecuring] = useState<DbInstance | null>(null);
   const [tuning, setTuning] = useState<DbInstance | null>(null);
 
   const refresh = (): void => {
     void queryClient.invalidateQueries({ queryKey: instanceKeys.all });
+    void queryClient.invalidateQueries({ queryKey: databaseKeys.servers });
     void queryClient.invalidateQueries({ queryKey: databaseKeys.engines });
     void queryClient.invalidateQueries({ queryKey: databaseKeys.lists });
   };
@@ -78,17 +81,20 @@ export function useInstanceActions(): InstanceActions {
 
   const dialogs = (
     <>
-      <CreateInstanceDialog
-        open={creating}
-        onOpenChange={setCreating}
-        onQueued={(jobId, name) =>
-          follow(jobId, {
-            running: t("databases.newInstance.making", { name }),
-            succeeded: t("databases.newInstance.made", { name }),
-            failed: t("databases.newInstance.makeFailed", { name }),
-          })
-        }
-      />
+      {creating !== null ? (
+        <OtherVersionDialog
+          open
+          onOpenChange={(open) => (open ? undefined : setCreating(null))}
+          {...(creating.flavour !== undefined ? { flavour: creating.flavour } : {})}
+          onQueued={(jobId, name) =>
+            follow(jobId, {
+              running: t("dbServers.other.making", { name }),
+              succeeded: t("dbServers.other.made", { name }),
+              failed: t("dbServers.other.makeFailed", { name }),
+            })
+          }
+        />
+      ) : null}
       {migrating !== null ? (
         <MigrateDialog
           source={migrating}
@@ -107,5 +113,5 @@ export function useInstanceActions(): InstanceActions {
     </>
   );
 
-  return { notice, dialogs, busy: job !== null && words !== null, openCreate: () => setCreating(true), openMigrate: setMigrating, openTls: setSecuring, openTuning: setTuning, follow };
+  return { notice, dialogs, busy: job !== null && words !== null, openCreate: (flavour) => setCreating(flavour === undefined ? {} : { flavour }), openMigrate: setMigrating, openTls: setSecuring, openTuning: setTuning, follow };
 }

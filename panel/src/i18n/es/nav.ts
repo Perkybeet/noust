@@ -191,6 +191,7 @@ export const nav: Catalog<typeof en> = {
   renamed: {
     overview: "Resumen",
     cron: "Cron",
+    engines: "Motores",
     backups: "Copias de seguridad",
     server: "Servidor",
     recipes: "Recetas",
