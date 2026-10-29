@@ -520,16 +520,20 @@ jobs:
             exit 1
           fi
 
-  # The documentation site (checklist N-17, N-22): built from docs/ on every push, and the build
+  # The documentation (checklist N-17, N-22): built from docs/ on every push, and the build
   # fails on a link or an anchor that leads nowhere, a Markdown file nobody listed in
-  # docs/site.yaml, or a generated reference (the command line, the API, the configuration keys)
-  # that no longer matches the code. The site is kept as an artifact for the day the owner decides
-  # to publish it; nothing here uploads it anywhere else.
+  # docs/site.yaml, an alert or a code block a site cannot draw, or a generated reference (the
+  # command line, the API, the configuration keys) that no longer matches the code. The package a
+  # website paints (scripts/build_docs.py --emit) and a preview are kept as artifacts; nothing here
+  # uploads them anywhere else.
   docs:
     name: Documentation site
     runs-on: ubuntu-latest
     steps:
+      # The whole history: each page of the package carries the date of its last commit.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v7
         with:
@@ -549,13 +553,19 @@ jobs:
           pip install "mypy==${MYPY_VERSION}"
           cd sdk/python && mypy --no-incremental noust_sdk
 
-      - name: Build the site and check every link
-        run: python scripts/build_docs.py --out build/docs-site
+      - name: Build the package and the preview, and check every link
+        run: python scripts/build_docs.py --out build/docs-site --emit build/docs-package
 
       # Every picture of the console is recorded with the release it shows and its hash. Pictures
       # of an earlier minor release are a note here and a failure when a tag publishes.
       - name: Check the documentation's pictures are recorded
         run: python scripts/docs_screens.py check
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: docs-package
+          path: build/docs-package
+          retention-days: 14
 
       - uses: actions/upload-artifact@v7
         with:

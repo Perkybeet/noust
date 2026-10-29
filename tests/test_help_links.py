@@ -66,4 +66,4 @@ def test_a_route_is_a_path_of_the_console() -> None:
 
 
 def test_the_default_is_the_documentation_of_the_console_itself() -> None:
-    assert TABLE["default"] == {"slug": "console", "source": "docs/console.md"}
+    assert TABLE["default"] == {"slug": "reference/console", "source": "docs/console.md"}

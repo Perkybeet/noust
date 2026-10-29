@@ -113,7 +113,7 @@ def anchor_of(path: tuple[str, ...]) -> str:
         path: A command path.
 
     Returns:
-        The heading anchor GitHub gives ``### noust a b``.
+        The heading anchor GitHub gives the command's heading (``## noust a``, ``### noust a b``).
     """
     return "-".join(path)
 
@@ -131,7 +131,10 @@ def command_section(path: tuple[str, ...], command: click.Command) -> list[str]:
     """
     context = click.Context(command, info_name=" ".join(path))
     text = (command.help or command.short_help or "").strip()
-    lines = [f"### {' '.join(path)}", ""]
+    # A command of the root is a heading of its own level, so a site can publish each one, and the
+    # commands below it, as a page (docs/site.yaml, ``split: 2``).
+    level = "##" if len(path) == 2 else "###"
+    lines = [f"{level} {' '.join(path)}", ""]
     if text:
         # Whitespace collapsed, as cell() does: a docstring keeps its indentation before Python
         # 3.13 and loses it from 3.13 on, and the page must read the same from either.

@@ -6,7 +6,7 @@ Every command of `noust`, with its options. Global options (`--verbose`, `--dry-
 
 Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compliance`](#noust-compliance), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`deploy`](#noust-deploy), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`log`](#noust-log), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`map`](#noust-map), [`mcp`](#noust-mcp), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`push`](#noust-push), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`self-update`](#noust-self-update), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`upload`](#noust-upload), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
 
-### noust 2fa
+## noust 2fa
 
 Enrol, confirm, disable or recover two-factor authentication for logins.
 
@@ -82,7 +82,7 @@ noust 2fa status [OPTIONS]
 | `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust access
+## noust access
 
 Roles, and where each person holds them.
 
@@ -286,7 +286,7 @@ Arguments: `name`
 | `--json` | Print the role as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust alert
+## noust alert
 
 Alert rules on CPU, memory, disk, load and traffic.
 
@@ -443,7 +443,7 @@ Arguments: `name`
 | `--app` | The application the alert is about; leave out for the server's. | `` |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust app
+## noust app
 
 Change how a deployed application is laid out and what it may use.
 
@@ -2984,7 +2984,7 @@ Arguments: `domain`, `mode`
 | `--json` | Print the mode (or what was changed) as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust approval
+## noust approval
 
 Four-eyes requests: list them, and approve or reject them as root.
 
@@ -3053,7 +3053,7 @@ Arguments: `approval_id`
 | `--json` | Print the request as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust audit
+## noust audit
 
 Read, verify, export and review the audit log.
 
@@ -3230,7 +3230,7 @@ noust audit verify [OPTIONS]
 | `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust auth
+## noust auth
 
 How people sign in to the console besides a password.
 
@@ -3814,7 +3814,7 @@ Arguments: `name`
 | `--json` | Print the roster as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust backup
+## noust backup
 
 Create, inspect and restore application backups.
 
@@ -4665,7 +4665,7 @@ Arguments: `backup_id`
 | `--json` | Print the verdict as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust central
+## noust central
 
 Run and look after a central: the Noust that manages your servers.
 
@@ -4755,7 +4755,7 @@ noust central unseal [OPTIONS]
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust cert
+## noust cert
 
 Obtain, inspect and retire the SSL certificates of this server.
 
@@ -5092,7 +5092,7 @@ Arguments: `app_domain`
 | `--json` | Print the certificate as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust compliance
+## noust compliance
 
 Choose compliance frameworks (ENS, ISO 27001, NIS2, CIS, SOC 2, GDPR) and their controls.
 
@@ -5220,7 +5220,7 @@ noust compliance status [OPTIONS]
 | `--json` | Print the state as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust compose
+## noust compose
 
 Look at a Docker Compose document before it is deployed.
 
@@ -5265,7 +5265,7 @@ Arguments: `file`
 | `--json` | Print what was made as JSON (never the secrets). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust config
+## noust config
 
 Read, upgrade, clean and edit Noust's configuration file.
 
@@ -5396,7 +5396,7 @@ noust config upgrade [OPTIONS]
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust console
+## noust console
 
 Publish the console on a name of its own, over TLS, or take it off again.
 
@@ -5451,7 +5451,7 @@ noust console unexpose [OPTIONS]
 | `--json` | Print the outcome as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust context
+## noust context
 
 Save and choose the servers this machine operates through their API.
 
@@ -5549,7 +5549,7 @@ Arguments: `name`
 | `--json` | Print the answer as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust create
+## noust create
 
 Deploy a web application and put it online.
 
@@ -5611,7 +5611,7 @@ noust create [OPTIONS]
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust cron
+## noust cron
 
 Run commands on a schedule, as systemd timers.
 
@@ -5743,7 +5743,7 @@ Arguments: `name`
 | `--json` | Print the runs as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust db
+## noust db
 
 Install engines, and manage databases, users, backups and application links.
 
@@ -7974,7 +7974,7 @@ Arguments: `username`
 | `--force`, `-f`, `-y` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust delete
+## noust delete
 
 Delete an application and everything deployed with it.
 
@@ -7997,7 +7997,7 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust deploy
+## noust deploy
 
 Follow the deploy queue, cancel a build, and hold, freeze or release deploys.
 
@@ -8246,7 +8246,7 @@ Arguments: `domain`
 | `--json` | Print the freezes that were lifted as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust diagnose
+## noust diagnose
 
 Explain why an application is down.
 
@@ -8260,7 +8260,7 @@ Arguments: `domain`
 |---|---|---|
 | `--json` | Print the diagnosis as JSON. |  |
 
-### noust dns
+## noust dns
 
 DNS accounts, the records Noust manages in them, and the DNS-01 challenge.
 
@@ -8450,7 +8450,7 @@ noust dns sweep [OPTIONS]
 | `--json` | Print the outcomes as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust domain
+## noust domain
 
 Serve an application on more domains: aliases and redirects.
 
@@ -8606,7 +8606,7 @@ Arguments: `app_domain`
 | `--json` | Print the name as JSON (with --show). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust ens
+## noust ens
 
 Check this server against Spain's ENS (category MEDIUM) and write the evidence.
 
@@ -8740,7 +8740,7 @@ noust ens report [OPTIONS]
 | `--json` | Print the report itself as JSON instead of writing files. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust env
+## noust env
 
 Read and set the environment variables of a deployed application.
 
@@ -8926,7 +8926,7 @@ Arguments: `domain`, `names`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust environment
+## noust environment
 
 Manage the environments of the projects.
 
@@ -9001,7 +9001,7 @@ Arguments: `environment`, `name`
 | `--project` | The project. | `default` |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust fleet
+## noust fleet
 
 Enroll this server in a fleet, or see the fleet from its central.
 
@@ -9883,7 +9883,7 @@ noust fleet updates [OPTIONS]
 | `--json` | Print the view as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust github
+## noust github
 
 This server's GitHub App: private repositories, push and pull request events.
 
@@ -10012,7 +10012,7 @@ noust github status [OPTIONS]
 | `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust gitlab
+## noust gitlab
 
 GitLab connections: a project and branch picker, and private clones.
 
@@ -10167,7 +10167,7 @@ Arguments: `name`
 | `--json` | Print the connection as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust health
+## noust health
 
 Check the server and report anything that needs attention.
 
@@ -10179,7 +10179,7 @@ noust health [OPTIONS]
 |---|---|---|
 | `--json` | Print the report as JSON. |  |
 
-### noust import
+## noust import
 
 Read Vercel, Railway, Render or Heroku configuration from a repository, or a Coolify, Dokploy, CapRover or Dokku application from its server.
 
@@ -10207,7 +10207,7 @@ Arguments: `path`
 | `--json` | Print the proposal (or, with --deploy, what was done) as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust incident
+## noust incident
 
 Freeze the evidence of a security incident and lock the console down.
 
@@ -10260,7 +10260,7 @@ noust incident unfreeze [OPTIONS]
 | `--json` | Print the lockdown that was lifted as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust list
+## noust list
 
 List the applications deployed on this server.
 
@@ -10281,7 +10281,7 @@ noust list [OPTIONS]
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust log
+## noust log
 
 Search the logs of every application, and set how long the journal keeps them.
 
@@ -10368,7 +10368,7 @@ Arguments: `words`
 | `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust logdrain
+## noust logdrain
 
 Ship the logs of applications to Loki, Axiom, Fluent Bit, OTLP or a remote syslog.
 
@@ -10540,7 +10540,7 @@ Arguments: `name`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust logs
+## noust logs
 
 Show what an application has been writing to its log.
 
@@ -10561,7 +10561,7 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust manifest
+## noust manifest
 
 Write a server down, preview what would change, and apply it.
 
@@ -10634,7 +10634,7 @@ Arguments: `file`
 | `--json` | Print what the manifest holds as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust map
+## noust map
 
 Show how this server fits together: names, applications, databases, scheduled work and data.
 
@@ -10650,7 +10650,7 @@ noust map [OPTIONS]
 | `--json` | Print the graph as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust mcp
+## noust mcp
 
 Let clients inspect, deploy and control applications through MCP.
 
@@ -10744,7 +10744,7 @@ noust mcp tools [OPTIONS]
 | `--json` | Print the tools as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust monitor
+## noust monitor
 
 Watch this server and write down what stands out.
 
@@ -10892,7 +10892,7 @@ noust monitor uninstall [OPTIONS]
 | `-y`, `--yes` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust node
+## noust node
 
 Manage the servers this central manages, through their API over SSH tunnels.
 
@@ -11244,7 +11244,7 @@ Arguments: `name`
 | `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust notify
+## noust notify
 
 Notification channels: what Noust tells you, and where.
 
@@ -11416,7 +11416,7 @@ Arguments: `channel`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust passkey
+## noust passkey
 
 List and remove the passkeys that sign in to the console; recover when all are lost.
 
@@ -11473,7 +11473,7 @@ Arguments: `username`
 | `-f`, `--force` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust preview
+## noust preview
 
 Pull request previews: a short-lived copy of an application per pull request.
 
@@ -11793,7 +11793,7 @@ Arguments: `domain`, `names`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust probe
+## noust probe
 
 Probes of an address from outside the application, and the public status page.
 
@@ -11973,7 +11973,7 @@ noust probe status-page write [OPTIONS]
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust project
+## noust project
 
 Manage the projects of the teams.
 
@@ -12044,7 +12044,7 @@ Arguments: `project`, `name`
 | `--team` | The team it belongs to (default: the default team). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust push
+## noust push
 
 Deploy an application with git push, to a repository on this server.
 
@@ -12217,7 +12217,7 @@ noust push status [OPTIONS]
 | `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust recipe
+## noust recipe
 
 The recipe catalogue: browse it, install from it and keep what you installed up to date.
 
@@ -12476,7 +12476,7 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust registry
+## noust registry
 
 The container registry accounts used to pull and build private images.
 
@@ -12597,7 +12597,7 @@ Arguments: `name`
 | `--json` | Print the account as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust releases
+## noust releases
 
 List an application's releases and go back to one instantly.
 
@@ -12709,7 +12709,7 @@ Arguments: `domain`, `release`
 | `--schema-changed-ok` | Go back even past deployments that changed the database schema. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust restart
+## noust restart
 
 Restart an application, picking up its current build and environment.
 
@@ -12726,7 +12726,7 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust restore-server
+## noust restore-server
 
 Bring a whole server back from a bundle of Noust's own state.
 
@@ -12753,7 +12753,7 @@ noust restore-server [OPTIONS]
 | `--json` | Print the report as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust rollback
+## noust rollback
 
 Return an application to its most recent backup.
 
@@ -12769,7 +12769,7 @@ Arguments: `domain`, `backup_id`
 | `--schema-changed-ok` | Go back even past deployments that changed the database schema. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust runtime
+## noust runtime
 
 The language runtimes (Node, Python, PHP) applications can be pinned to.
 
@@ -12821,7 +12821,7 @@ Arguments: `spec`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust secrets
+## noust secrets
 
 Secret managers (Vault, Doppler, Infisical) that variables refer to.
 
@@ -12905,7 +12905,7 @@ Arguments: `name`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust self-backup
+## noust self-backup
 
 Back up Noust's own state (store, configuration, secrets, keys, certificates, units).
 
@@ -13112,7 +13112,7 @@ Arguments: `bundle`
 | `--json` | Print the verdict as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust self-update
+## noust self-update
 
 Let this server install Noust's own new releases: when, which, and what it did.
 
@@ -13166,7 +13166,7 @@ noust self-update show [OPTIONS]
 | `--json` | Print the settings and the last run as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust server
+## noust server
 
 Manage this server: updates, reboots, disks, swap, the clock and the journal.
 
@@ -14179,7 +14179,7 @@ Arguments: `units`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust service
+## noust service
 
 Manage the systemd services Noust owns.
 
@@ -14378,7 +14378,7 @@ Arguments: `name`, `tags`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust sessions
+## noust sessions
 
 Manage active panel sessions.
 
@@ -14428,7 +14428,7 @@ noust sessions revoke-others [OPTIONS]
 | `-f`, `--force` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust setup
+## noust setup
 
 Prepare this server, and check that it stayed prepared.
 
@@ -14573,7 +14573,7 @@ noust setup ssh [OPTIONS]
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust site
+## noust site
 
 Manage the nginx and apache virtual hosts on this server.
 
@@ -14797,7 +14797,7 @@ noust site unknown-hosts show [OPTIONS]
 | `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust start
+## noust start
 
 Start an application that is stopped.
 
@@ -14814,7 +14814,7 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust status
+## noust status
 
 Show how an application is configured and whether it is running.
 
@@ -14833,7 +14833,7 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust stop
+## noust stop
 
 Stop an application and leave it stopped.
 
@@ -14850,7 +14850,7 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust store
+## noust store
 
 Inspect and maintain the database Noust records deployments in.
 
@@ -14949,7 +14949,7 @@ noust store sync [OPTIONS]
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust stream
+## noust stream
 
 Publish a TCP or UDP port in front of a backend, through nginx and the firewall.
 
@@ -15034,7 +15034,7 @@ noust stream repair [OPTIONS]
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust support
+## noust support
 
 Collect what a maintainer needs to help you, with the secrets masked.
 
@@ -15061,7 +15061,7 @@ noust support report [OPTIONS]
 | `--json` | Print the report as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust team
+## noust team
 
 Manage teams, and the people in them.
 
@@ -15172,7 +15172,7 @@ Arguments: `team`, `name`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust token
+## noust token
 
 Manage API tokens: named, scoped credentials for scripts and automation.
 
@@ -15248,7 +15248,7 @@ Arguments: `token_id`
 | `--any-ip` | Accept the token from anywhere again. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust tunnel
+## noust tunnel
 
 Reach an application through a Cloudflare Tunnel: no public address, no open port.
 
@@ -15386,7 +15386,7 @@ Arguments: `tunnel`, `hostname`
 | `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust update
+## noust update
 
 Pull the latest code, rebuild and restart an application.
 
@@ -15413,7 +15413,7 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust upload
+## noust upload
 
 Give Noust the code of an application as an archive.
 
@@ -15478,7 +15478,7 @@ Arguments: `upload_id`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust user
+## noust user
 
 Manage the accounts that sign in to the console, each with its roles.
 
@@ -15709,7 +15709,7 @@ Arguments: `username`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust variables
+## noust variables
 
 Variables shared by the server, a team, a project or an environment.
 
@@ -15796,7 +15796,7 @@ Arguments: `scope`, `name`
 | `--json` | Print the applications as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust web
+## noust web
 
 Run the browser panel for this server.
 
@@ -16005,7 +16005,7 @@ noust web token [OPTIONS]
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust workspace
+## noust workspace
 
 A monorepo as one application per workspace.
 
