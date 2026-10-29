@@ -34393,6 +34393,33 @@ export interface components {
             count: number;
         };
         /**
+         * CentralCallOut
+         * @description One central that calls this server, and when it last did.
+         *
+         *     Attributes:
+         *         central: The central, as its fleet token names it.
+         *         first_call_at: When this server first noted a call of it.
+         *         last_call_at: When it last did (noted to the minute).
+         *         quiet_for_s: Seconds since then.
+         *         keeps_watch: It said it keeps watch (its monitor probes every server every half minute),
+         *             so this server expects to hear from it again and says so when it does not.
+         *         heartbeat_s: How often it said it calls, when it did.
+         */
+        CentralCallOut: {
+            /** Central */
+            central: string;
+            /** First Call At */
+            first_call_at: string;
+            /** Heartbeat S */
+            heartbeat_s?: number | null;
+            /** Keeps Watch */
+            keeps_watch: boolean;
+            /** Last Call At */
+            last_call_at: string;
+            /** Quiet For S */
+            quiet_for_s: number;
+        };
+        /**
          * CentralInfo
          * @description What the console needs to know about the central it is signed in to.
          *
@@ -46049,8 +46076,11 @@ export interface components {
          *     Attributes:
          *         items: Them, by kind and name, after looking at what this server holds.
          *         kinds: The kinds of setting this server can be managed for.
+         *         centrals: The centrals that call this server, with when each last did.
          */
         ManagedSettingsOut: {
+            /** Centrals */
+            centrals?: components["schemas"]["CentralCallOut"][];
             /** Items */
             items: components["schemas"]["ManagedSettingOut"][];
             /** Kinds */

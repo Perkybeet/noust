@@ -205,6 +205,40 @@ class TestWhatTheServerNotes:
         assert response.status_code == 401
         assert CentralCalls(store).list() == []
 
+    def test_the_server_says_when_each_central_last_called_and_whether_it_keeps_watch(
+        self, app: Any, fleet_token: str
+    ) -> None:
+        call(app, fleet_token, **{HEARTBEAT_HEADER: "30"})
+
+        response = client_from(app).get("/api/managed-settings", headers=fleet_headers(fleet_token))
+
+        assert response.status_code == 200, response.text
+        [central] = response.json()["centrals"]
+        assert central["central"] == "nas"
+        assert central["keeps_watch"] is True and central["heartbeat_s"] == 30
+        assert central["last_call_at"].endswith("+00:00")
+        assert 0 <= central["quiet_for_s"] < 60
+
+    def test_a_central_that_did_not_say_it_keeps_watch_is_listed_as_not_doing_so(
+        self, app: Any, fleet_token: str
+    ) -> None:
+        call(app, fleet_token)
+
+        response = client_from(app).get("/api/managed-settings", headers=fleet_headers(fleet_token))
+
+        [central] = response.json()["centrals"]
+        assert central["keeps_watch"] is False and central["heartbeat_s"] is None
+
+    def test_a_server_that_has_not_been_called_lists_no_central(self, app: Any) -> None:
+        token = str(get_token_manager().create_api_token("reader", "read")["token"])
+
+        response = client_from(app).get(
+            "/api/managed-settings", headers={"Authorization": f"Bearer {token}"}
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["centrals"] == []
+
     def test_a_central_that_revokes_itself_is_forgotten_with_what_it_managed(
         self, app: Any, fleet_token: str, store: NoustStore
     ) -> None:

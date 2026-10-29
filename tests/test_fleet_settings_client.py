@@ -96,6 +96,7 @@ def test_an_asker_for_a_push_speaks_for_the_person_and_the_change() -> None:
         "actor_scope": "admin",
         "actor_role": None,
         "elevated": SIGNATURE.elevation,
+        "heartbeat": None,
     }
 
 
@@ -105,6 +106,8 @@ def test_an_asker_without_a_signature_speaks_as_before() -> None:
         "actor_scope": "read",
         "actor_role": "viewer",
         "elevated": False,
+        "actor_permissions": None,
+        "heartbeat": None,
     }
 
 

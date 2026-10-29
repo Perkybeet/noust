@@ -8,6 +8,8 @@ A thin layer over :class:`~noust.fleet.settings.managed.ManagedSettings` (rule 3
 central manages keeps, for each setting the central pushed, which version it applied and a
 fingerprint of what it held then; whenever it is asked, it looks at what it holds and says which
 settings are still the fleet's (``managed``) and which its own operator changed (``overridden``).
+It also says which centrals call it and when each last did (:mod:`noust.fleet.central_calls`), so
+its console can show whether the central that manages it is still there.
 Nothing here carries a value: a setting is read where it lives - the channels, the rules, the
 destinations, the registries and the variables - and its credentials are never read back.
 
@@ -19,6 +21,8 @@ call its central, so the request waits for the next time the central applies the
 
 from __future__ import annotations
 
+import time
+from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -26,7 +30,7 @@ from pydantic import BaseModel, Field
 
 from noust.core import audit
 from noust.core.server_text import ServerText, say
-from noust.fleet.central_calls import central_of_token
+from noust.fleet.central_calls import CentralCalls, central_of_token
 from noust.fleet.settings.kinds import AVAILABLE, kind_of
 from noust.fleet.settings.managed import ManagedRow, ManagedSettings
 from noust.fleet.settings.signature import SyncSignature
@@ -71,6 +75,28 @@ class ManagedSettingOut(BaseModel):
     restore_requested_at: str | None = None
 
 
+class CentralCallOut(BaseModel):
+    """
+    One central that calls this server, and when it last did.
+
+    Attributes:
+        central: The central, as its fleet token names it.
+        first_call_at: When this server first noted a call of it.
+        last_call_at: When it last did (noted to the minute).
+        quiet_for_s: Seconds since then.
+        keeps_watch: It said it keeps watch (its monitor probes every server every half minute),
+            so this server expects to hear from it again and says so when it does not.
+        heartbeat_s: How often it said it calls, when it did.
+    """
+
+    central: str
+    first_call_at: str
+    last_call_at: str
+    quiet_for_s: float
+    keeps_watch: bool
+    heartbeat_s: int | None = None
+
+
 class ManagedSettingsOut(BaseModel):
     """
     Every setting a central manages here.
@@ -78,10 +104,12 @@ class ManagedSettingsOut(BaseModel):
     Attributes:
         items: Them, by kind and name, after looking at what this server holds.
         kinds: The kinds of setting this server can be managed for.
+        centrals: The centrals that call this server, with when each last did.
     """
 
     items: list[ManagedSettingOut]
     kinds: list[str]
+    centrals: list[CentralCallOut] = Field(default_factory=list)
 
 
 class ManagedSettingAppliedIn(BaseModel):
@@ -104,6 +132,25 @@ class ManagedSettingReleasedOut(BaseModel):
     """
 
     released: bool
+
+
+def _centrals() -> list[CentralCallOut]:
+    """
+    Returns:
+        The centrals that have called this server, and when.
+    """
+    now = time.time()
+    return [
+        CentralCallOut(
+            central=call.central,
+            first_call_at=datetime.fromtimestamp(call.first_call_at, timezone.utc).isoformat(),
+            last_call_at=datetime.fromtimestamp(call.last_call_at, timezone.utc).isoformat(),
+            quiet_for_s=max(now - call.last_call_at, 0.0),
+            keeps_watch=call.heartbeat_s is not None,
+            heartbeat_s=call.heartbeat_s,
+        )
+        for call in CentralCalls().list()
+    ]
 
 
 def _out(row: ManagedRow) -> ManagedSettingOut:
@@ -179,7 +226,9 @@ def list_managed(session: Session) -> ManagedSettingsOut:
         changed it.
     """
     return ManagedSettingsOut(
-        items=[_out(row) for row in ManagedSettings().verified()], kinds=list(AVAILABLE)
+        items=[_out(row) for row in ManagedSettings().verified()],
+        kinds=list(AVAILABLE),
+        centrals=_centrals(),
     )
 
 

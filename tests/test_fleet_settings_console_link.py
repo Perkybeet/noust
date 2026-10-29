@@ -268,6 +268,26 @@ class TestTheReconciliation:
         assert ("console_link", "console") not in nodes["web-1"].held
 
 
+def test_a_server_of_an_older_noust_is_said_not_to_take_it_and_the_rest_goes_on(
+    central: Central, nodes: dict[str, ManagedNode], settings: FleetSettings
+) -> None:
+    # 4.0 has no such route: what the fleet offers is offered by capability, never assumed.
+    central.nodes["web-1"].schema.pop("/api/notifications/console-url")
+    save(settings, "console", "console_link", value={"url": CENTRAL})
+    save(settings, "REGION", "variable", value={"value": "eu"})
+
+    snapshot = apply(central, "web-1", "web-2")
+
+    assert states(snapshot, "web-1") == [
+        ("console_link", "console", "unsupported"),
+        ("variable", "REGION", "created"),
+    ]
+    item = node_items(snapshot, "web-1")[0]
+    assert item["coded"]["code"] == "fleet_settings.item_unsupported"
+    assert ("console_link", "console") not in nodes["web-1"].held
+    assert states(snapshot, "web-2")[0] == ("console_link", "console", "created")
+
+
 def test_the_status_lists_it_like_any_setting(
     central: Central, nodes: dict[str, ManagedNode], settings: FleetSettings
 ) -> None:

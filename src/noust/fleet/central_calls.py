@@ -27,6 +27,7 @@ from __future__ import annotations
 import re
 import threading
 import time
+import weakref
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -54,6 +55,15 @@ _FLEET_TOKEN = re.compile(r"fleet-([a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?)(?:\.[0-
 
 #: What a heartbeat claim looks like: whole seconds, in ASCII.
 _HEARTBEAT = re.compile(r"[0-9]{1,4}")
+
+#: When each central was last noted by this process, and what it had said of itself: by store and
+#: central. The admission of a request makes a new :class:`CentralCalls` at every request, so the
+#: memory that stops a central that calls twice a second from being written twice a second is the
+#: store's and not the object's. It goes with the store, so a store that is made anew starts clean.
+_NOTED: weakref.WeakKeyDictionary[NoustStore, dict[str, tuple[float, int | None]]] = (
+    weakref.WeakKeyDictionary()
+)
+_NOTED_LOCK = threading.Lock()
 
 
 def central_of_token(token_name: str | None) -> str | None:
@@ -119,8 +129,6 @@ class CentralCalls:
     ) -> None:
         self._store = store
         self._clock = clock
-        self._lock = threading.Lock()
-        self._noted: dict[str, tuple[float, int | None]] = {}
 
     @property
     def store(self) -> NoustStore:
@@ -141,8 +149,10 @@ class CentralCalls:
             :data:`WRITE_EVERY` seconds ago and has nothing new to say.
         """
         now = self._clock()
-        with self._lock:
-            last, said = self._noted.get(central, (None, None))
+        store = self.store
+        with _NOTED_LOCK:
+            noted = _NOTED.setdefault(store, {})
+            last, said = noted.get(central, (None, None))
             news = heartbeat_s is not None and heartbeat_s != said
             if last is not None and now - last < WRITE_EVERY and not news:
                 return False
@@ -154,7 +164,7 @@ class CentralCalls:
                     "heartbeat_s = COALESCE(excluded.heartbeat_s, fleet_central_calls.heartbeat_s)",
                     (central, now, now, heartbeat_s),
                 )
-            self._noted[central] = (now, heartbeat_s if heartbeat_s is not None else said)
+            noted[central] = (now, heartbeat_s if heartbeat_s is not None else said)
         return True
 
     def list(self) -> list[CentralCall]:
@@ -183,8 +193,8 @@ class CentralCalls:
         Returns:
             Whether there was a note.
         """
-        with self._lock:
-            self._noted.pop(central, None)
+        with _NOTED_LOCK:
+            _NOTED.get(self.store, {}).pop(central, None)
             with self.store._transaction() as cursor:
                 cursor.execute("DELETE FROM fleet_central_calls WHERE central = ?", (central,))
                 return cursor.rowcount > 0

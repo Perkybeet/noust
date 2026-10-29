@@ -1342,6 +1342,15 @@ CategoryOut = TypedDict("CategoryOut", {
     "count": Required[int],
 })
 
+CentralCallOut = TypedDict("CentralCallOut", {
+    "central": Required[str],
+    "first_call_at": Required[str],
+    "heartbeat_s": NotRequired[Union[int, None]],
+    "keeps_watch": Required[bool],
+    "last_call_at": Required[str],
+    "quiet_for_s": Required[float],
+})
+
 CentralInfo = TypedDict("CentralInfo", {
     "locked": Required[bool],
     "role": Required[str],
@@ -5085,6 +5094,7 @@ ManagedSettingReleasedOut = TypedDict("ManagedSettingReleasedOut", {
 })
 
 ManagedSettingsOut = TypedDict("ManagedSettingsOut", {
+    "centrals": NotRequired[list["CentralCallOut"]],
     "items": Required[list["ManagedSettingOut"]],
     "kinds": Required[list[str]],
 })

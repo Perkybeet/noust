@@ -116,6 +116,34 @@ class TestNotingACall:
         assert {c.central: c.heartbeat_s for c in calls.list()} == {"backup": None, "nas": 30}
         assert [c.central for c in calls.list()] == ["backup", "nas"]
 
+    def test_the_throttle_is_the_servers_and_not_the_object_that_asks(
+        self, store: NoustStore, clock: Clock
+    ) -> None:
+        # The admission of a request makes a new one at every request: if the memory of the last
+        # note were the object's, a central that calls twice a second would be written twice a
+        # second.
+        assert CentralCalls(store, clock=clock).note("nas", heartbeat_s=30) is True
+        clock.now += 1
+
+        assert CentralCalls(store, clock=clock).note("nas", heartbeat_s=30) is False
+        assert CentralCalls(store, clock=clock).note("nas") is False
+
+        clock.now += WRITE_EVERY
+        assert CentralCalls(store, clock=clock).note("nas") is True
+
+    def test_two_servers_that_share_a_name_for_their_central_do_not_share_a_throttle(
+        self, tmp_path: Path, clock: Clock
+    ) -> None:
+        NoustStore.reset_instance()
+        first = NoustStore(tmp_path / "a.db")
+        assert CentralCalls(first, clock=clock).note("nas") is True
+        NoustStore.reset_instance()
+        second = NoustStore(tmp_path / "b.db")
+
+        assert CentralCalls(second, clock=clock).note("nas") is True
+        assert [c.central for c in CentralCalls(second, clock=clock).list()] == ["nas"]
+        NoustStore.reset_instance()
+
     def test_it_is_kept_across_processes_because_it_is_in_the_store(
         self, store: NoustStore, clock: Clock
     ) -> None:

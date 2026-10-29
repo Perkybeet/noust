@@ -875,7 +875,9 @@ said of itself. When a central that said it keeps watch has not called for
 `notifications.central_silent_minutes` (15 by default, 0 turns it off; never less than three of the
 calls it promised), the server says it through **its own channels**, once, as `central_silent`:
 *"The central that manages this server has not called it for 17 minutes. This server goes on
-delivering its own notifications."* The first call after that closes it.
+delivering its own notifications."* The first call after that closes it. `GET /api/managed-settings` on the server lists the centrals
+that call it with `last_call_at`, `quiet_for_s` and `keeps_watch`, so its console can show whether
+the central that manages it is still there.
 
 Only a central that said it keeps watch is missed. A central whose monitor does not run probes only
 while somebody has its console open, and nobody promised to call again, so a server does not say
