@@ -438,6 +438,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "drop_database"): ("DELETE", "/api/databases/databases/{engine}/{name}", "databases.manage", True),
     ("databases", "list_access"): ("GET", "/api/databases/databases/{engine}/{name}/access", "databases.read", False),
     ("databases", "set_profile"): ("PUT", "/api/databases/databases/{engine}/{name}/access/{username}", "databases.write", False),
+    ("databases", "adopt_database_route"): ("POST", "/api/databases/databases/{engine}/{name}/adopt", "databases.manage", False),
     ("databases", "get_connect"): ("GET", "/api/databases/databases/{engine}/{name}/connect", "databases.read", False),
     ("databases", "list_extensions"): ("GET", "/api/databases/databases/{engine}/{name}/extensions", "databases.read", False),
     ("databases", "add_extension"): ("POST", "/api/databases/databases/{engine}/{name}/extensions", "databases.manage", True),
@@ -549,6 +550,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "promote"): ("POST", "/api/databases/replicas/{engine}/promote", "databases.manage", True),
     ("databases", "remove"): ("DELETE", "/api/databases/replicas/{engine}/{name}", "databases.manage", True),
     ("databases", "show_token"): ("POST", "/api/databases/replicas/{engine}/{name}/token", "databases.manage", True),
+    ("databases", "list_servers"): ("GET", "/api/databases/servers", "databases.read", False),
+    ("databases", "get_server"): ("GET", "/api/databases/servers/{key}", "databases.read", False),
+    ("databases", "set_default_server"): ("PUT", "/api/databases/servers/{key}/default", "databases.manage", False),
+    ("databases", "clear_default_server"): ("DELETE", "/api/databases/servers/{key}/default", "databases.manage", False),
     ("databases", "create_user"): ("POST", "/api/databases/users", "databases.write", False),
     ("databases", "grant_privileges"): ("POST", "/api/databases/users/grant", "databases.write", False),
     ("databases", "revoke_privileges"): ("POST", "/api/databases/users/revoke", "databases.write", False),
@@ -4218,7 +4223,7 @@ class DNS:
 
 
 class Databases:
-    """Databases: 154 operations."""
+    """Databases: 159 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4510,6 +4515,14 @@ class Databases:
 
         Needs: permission `databases.write`."""
         return self._call("PUT", f"/api/databases/databases/{quote(str(engine), safe='')}/{quote(str(name), safe='')}/access/{quote(str(username), safe='')}", query=None, body=body)
+
+    def adopt_database_route(self, engine: str, name: str) -> "DatabaseInfoResponse":
+        """POST /api/databases/databases/{engine}/{name}/adopt
+
+        Adopt Database Route
+
+        Needs: permission `databases.manage`."""
+        return self._call("POST", f"/api/databases/databases/{quote(str(engine), safe='')}/{quote(str(name), safe='')}/adopt", query=None, body=None)
 
     def get_connect(self, engine: str, name: str, *, username: Union[str, None] = None, server: Union[str, None] = None, ssh_user: Union[str, None] = None, local_port: Union[int, None] = None) -> "ConnectResponse":
         """GET /api/databases/databases/{engine}/{name}/connect
@@ -4967,13 +4980,13 @@ class Databases:
         Needs: permission `databases.manage`, sudo mode."""
         return self._call("POST", "/api/databases/instances", query=None, body=body)
 
-    def instance_catalog(self) -> "NoustWebApiDatabasesInstancesCatalogResponse":
+    def instance_catalog(self, *, engine: Union[str, None] = None) -> "NoustWebApiDatabasesInstancesCatalogResponse":
         """GET /api/databases/instances/catalog
 
         Instance Catalog
 
         Needs: permission `databases.read`."""
-        return self._call("GET", "/api/databases/instances/catalog", query=None, body=None)
+        return self._call("GET", "/api/databases/instances/catalog", query={"engine": engine}, body=None)
 
     def migrate_engine(self, body: "NoustWebApiDatabasesMigrationsMigrateRequest") -> "JobAcceptedResponse":
         """POST /api/databases/instances/migrate
@@ -5398,6 +5411,38 @@ class Databases:
 
         Needs: permission `databases.manage`, sudo mode."""
         return self._call("POST", f"/api/databases/replicas/{quote(str(engine), safe='')}/{quote(str(name), safe='')}/token", query=None, body=None)
+
+    def list_servers(self, *, engine: Union[str, None] = None) -> "ServerListResponse":
+        """GET /api/databases/servers
+
+        List Servers
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", "/api/databases/servers", query={"engine": engine}, body=None)
+
+    def get_server(self, key: str) -> "ServerResponse":
+        """GET /api/databases/servers/{key}
+
+        Get Server
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", f"/api/databases/servers/{quote(str(key), safe='')}", query=None, body=None)
+
+    def set_default_server(self, key: str) -> "ServerResponse":
+        """PUT /api/databases/servers/{key}/default
+
+        Set Default Server
+
+        Needs: permission `databases.manage`."""
+        return self._call("PUT", f"/api/databases/servers/{quote(str(key), safe='')}/default", query=None, body=None)
+
+    def clear_default_server(self, key: str) -> "ServerResponse":
+        """DELETE /api/databases/servers/{key}/default
+
+        Clear Default Server
+
+        Needs: permission `databases.manage`."""
+        return self._call("DELETE", f"/api/databases/servers/{quote(str(key), safe='')}/default", query=None, body=None)
 
     def create_user(self, body: "CreateUserRequest") -> "CreateUserResponse":
         """POST /api/databases/users

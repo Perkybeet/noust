@@ -1322,7 +1322,9 @@ CatalogVariantVersionResponse = TypedDict("CatalogVariantVersionResponse", {
     "default": Required[bool],
     "digest": Required[str],
     "end_of_life": NotRequired[Union[str, None]],
+    "support": NotRequired[str],
     "tag": Required[str],
+    "unsupported": NotRequired[bool],
     "version": Required[str],
 })
 
@@ -1330,6 +1332,9 @@ CatalogVersionResponse = TypedDict("CatalogVersionResponse", {
     "default": Required[bool],
     "digest": Required[str],
     "end_of_life": NotRequired[Union[str, None]],
+    "platforms": NotRequired[list[str]],
+    "support": NotRequired[str],
+    "unsupported": NotRequired[bool],
     "version": Required[str],
 })
 
@@ -2389,6 +2394,7 @@ CronRunsResponse = TypedDict("CronRunsResponse", {
 })
 
 DatabaseInfoResponse = TypedDict("DatabaseInfoResponse", {
+    "actions": NotRequired[list[str]],
     "app": NotRequired[Union[str, None]],
     "apps": NotRequired[list[str]],
     "detected_apps": NotRequired[list[str]],
@@ -2400,6 +2406,7 @@ DatabaseInfoResponse = TypedDict("DatabaseInfoResponse", {
     "last_backup": NotRequired[Union[str, None]],
     "missing": NotRequired[bool],
     "name": Required[str],
+    "noust_state": NotRequired[str],
     "owner": NotRequired[Union[str, None]],
     "project": NotRequired[Union[str, None]],
     "size": NotRequired[Union[str, None]],
@@ -4432,6 +4439,7 @@ InstanceRequest = TypedDict("InstanceRequest", {
     "memory_mb": NotRequired[Union[int, None]],
     "name": Required[str],
     "port": NotRequired[Union[int, None]],
+    "unsupported_ok": NotRequired[bool],
     "variant": NotRequired[Union[str, None]],
     "version": NotRequired[Union[str, None]],
 })
@@ -8301,6 +8309,36 @@ ServerKeyResponse = TypedDict("ServerKeyResponse", {
     "public_key": NotRequired[Union[str, None]],
 })
 
+ServerListResponse = TypedDict("ServerListResponse", {
+    "problems": NotRequired[list["ListingProblemResponse"]],
+    "servers": Required[list["ServerResponse"]],
+})
+
+ServerResponse = TypedDict("ServerResponse", {
+    "actions": NotRequired[list[str]],
+    "app": NotRequired[Union[str, None]],
+    "created_at": NotRequired[Union[str, None]],
+    "custom_image": NotRequired[bool],
+    "databases": NotRequired[Union[int, None]],
+    "default": NotRequired[bool],
+    "default_source": NotRequired[Union[str, None]],
+    "digest": NotRequired[Union[str, None]],
+    "display_name": Required[str],
+    "end_of_life": NotRequired[Union[str, None]],
+    "engine": Required[str],
+    "flavour": Required[str],
+    "image": NotRequired[Union[str, None]],
+    "key": Required[str],
+    "memory_limit_mb": NotRequired[Union[int, None]],
+    "name": NotRequired[Union[str, None]],
+    "port": NotRequired[Union[int, None]],
+    "running": Required[bool],
+    "runs_in": Required[str],
+    "state": Required[str],
+    "support": NotRequired[Union[str, None]],
+    "version": NotRequired[Union[str, None]],
+})
+
 ServerRoleCreate = TypedDict("ServerRoleCreate", {
     "description": NotRequired[Union[str, None]],
     "label": NotRequired[Union[str, None]],
@@ -10955,7 +10993,9 @@ NoustWebApiDatabasesInstancesPlanResponse = TypedDict("NoustWebApiDatabasesInsta
     "command": NotRequired[list[str]],
     "custom": NotRequired[bool],
     "digest": Required[str],
+    "digest_pending": NotRequired[bool],
     "display_name": Required[str],
+    "end_of_life": NotRequired[Union[str, None]],
     "engine": Required[str],
     "flavour": Required[str],
     "host_port": Required[int],
@@ -10966,7 +11006,11 @@ NoustWebApiDatabasesInstancesPlanResponse = TypedDict("NoustWebApiDatabasesInsta
     "name": Required[str],
     "reference": Required[str],
     "requires_confirmation": NotRequired[bool],
+    "requires_unsupported_ok": NotRequired[bool],
+    "support": NotRequired[Union[str, None]],
     "tag": NotRequired[Union[str, None]],
+    "unsupported": NotRequired[bool],
+    "unsupported_coded": NotRequired[Union["CodedText", None]],
     "variant": NotRequired[Union[str, None]],
     "version": Required[str],
     "warnings": Required[list[str]],
