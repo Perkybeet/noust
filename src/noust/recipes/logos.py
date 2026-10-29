@@ -16,7 +16,7 @@ list of what is dangerous is never complete.
 The logo is never fetched: it is a file in ``recipes/assets/<recipe>/`` that a
 person committed. A logo that is the project's own mark is the project's
 trademark, so the ones this release ships are plain monograms drawn for Noust;
-``docs/recipes.md`` says what a contributor may add.
+``docs/recipes-format.md`` says what a contributor may add.
 """
 
 from __future__ import annotations

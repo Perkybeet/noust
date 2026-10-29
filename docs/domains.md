@@ -52,7 +52,7 @@ noust domain add shop.example.com api.example.com --own-certificate
   of the site is unchanged. The port is checked against what the application can honour: a Docker
   Compose stack may send a name to a port the stack publishes on the host (read from its `.env`, as
   Compose reads it, so a recipe that gives a service an address of its own works this way,
-  [recipes.md](recipes.md#several-public-addresses)) and to no other, and routes by path with
+  [recipes.md](recipes-format.md#several-public-addresses)) and to no other, and routes by path with
   `noust.nginx.yaml`, where each route names its port.
 - **Another site already answers on the name.** Adding it is refused, naming the site, unless
   `--force` says it is meant (a wildcard that covers the name counts). In the console it is a

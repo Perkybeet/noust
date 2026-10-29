@@ -256,8 +256,13 @@ tabs:
             summary: The databases of a stack, dumped before every update, and how they are restored.
           - source: docs/recipes.md
             slug: guides/recipes
+            title: Install and update a recipe
             type: guide
-            summary: The catalog of ready-made services and how a recipe becomes an application.
+            summary: Installing a ready-made application from the catalogue, updating it, what it needs from the server, its first backups, and a Compose document you paste.
+          - source: docs/recipes-own.md
+            slug: guides/recipes/own
+            type: guide
+            summary: Add your own recipes beside the catalogue, grow it with signed packages, and how its versions are kept current.
           - source: docs/adopting.md
             slug: guides/adopting
             type: guide
@@ -617,6 +622,17 @@ tabs:
             slug: reference/console/accessibility
             type: reference
             summary: What the console does for keyboard, screen reader and low-vision users, and how it is checked.
+      - title: Recipes
+        pages:
+          - source: docs/recipes-catalog.md
+            slug: reference/recipes
+            title: The recipe catalog
+            type: reference
+            summary: Every recipe that ships, with its version, kind and what it runs, and the ones listed with the reason they cannot be installed.
+          - source: docs/recipes-format.md
+            slug: reference/recipes/format
+            type: reference
+            summary: "A recipe's file: the format of both kinds, variables, pinning, logos, other projects' names and licences, and how to contribute one."
 
   - title: Releases
     slug: releases
