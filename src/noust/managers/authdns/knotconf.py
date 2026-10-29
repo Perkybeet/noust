@@ -46,7 +46,7 @@ from noust.validators.dns_zone import check_zone_name
 __all__ = ["CONFIG_MARKER", "KnotSettings", "ZoneEntry", "render_config", "storage_path"]
 
 #: What the first line says; the engine overwrites a file only when it finds it.
-CONFIG_MARKER = f"{paths.UNIT_MARKER} (noust dns): changes made here are overwritten"
+CONFIG_MARKER = f"{paths.UNIT_MARKER} for Noust DNS: changes made here are overwritten"
 
 #: UDP responses per second a single address may get, and how many of the ones over it are
 #: answered truncated (``2`` is every other one) instead of dropped.

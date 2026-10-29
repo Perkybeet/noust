@@ -523,6 +523,25 @@ def isolated_home(
 
 
 @pytest.fixture(autouse=True)
+def isolated_metrics_store(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Start every test without the console's metrics store an earlier one opened.
+
+    ``web.metrics_collector`` keeps one store for the process, opened on the first read under
+    whatever ``HOME`` that test had. The next test on the same worker inherited it, and once
+    that home was removed a read of ``/api/fleet/metrics`` failed with "unable to open database
+    file" depending on which file the worker had run before. Only a module already imported can
+    hold one, so the console is not imported for the tests that never touch it.
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    module = sys.modules.get("noust.web.metrics_collector")
+    if module is not None:
+        monkeypatch.setattr(module, "_store", None)
+
+
+@pytest.fixture(autouse=True)
 def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """
     Point the store's default locations inside the test's own directory.

@@ -28,7 +28,7 @@ from noust.core.authdns_store import AuthDnsRecord, AuthDnsZone
 __all__ = ["ZONE_FILE_MARKER", "render_txt", "render_zone", "soa_contact"]
 
 #: The first line of every zone file Noust writes.
-ZONE_FILE_MARKER = f"{paths.UNIT_MARKER} (noust dns zone): changes made here are overwritten"
+ZONE_FILE_MARKER = f"{paths.UNIT_MARKER} as a zone of Noust DNS: changes made here are overwritten"
 
 #: The timers of the SOA, in seconds: how often a secondary asks when it was not notified, how
 #: long before it asks again after a failure, how long it serves a zone it cannot refresh, and

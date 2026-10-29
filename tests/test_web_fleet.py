@@ -149,6 +149,7 @@ class TestActions:
             "placement_ship",
             "database_transfer",
             "settings_apply",
+            "dns_cluster",
         }
 
     def test_a_plan_runs_nothing(self, client, central):

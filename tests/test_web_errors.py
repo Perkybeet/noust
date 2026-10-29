@@ -250,8 +250,21 @@ class TestHtmlRoutesAreUntouched:
         assert "text/html" in response.headers["content-type"]
 
 
+#: The route classes a router may install: the boundary itself, and the ones built on it that
+#: answer a refusal of their own first and hand everything else to it.
+ERROR_ROUTES = frozenset({"NoustErrorRoute", "ServerRoute"})
+
+
 class TestErrorRouteGuard:
     """Every router under ``noust.web.api`` must install the error boundary."""
+
+    def test_each_accepted_route_class_is_the_boundary(self) -> None:
+        from noust.web.api import deps
+        from noust.web.api.server import common
+
+        for name in ERROR_ROUTES:
+            route = getattr(deps, name, None) or getattr(common, name)
+            assert issubclass(route, deps.NoustErrorRoute), name
 
     def test_every_api_router_uses_the_error_route(self) -> None:
         """
@@ -279,7 +292,7 @@ class TestErrorRouteGuard:
                 has_error_route = any(
                     keyword.arg == "route_class"
                     and isinstance(keyword.value, ast.Name)
-                    and keyword.value.id == "NoustErrorRoute"
+                    and keyword.value.id in ERROR_ROUTES
                     for keyword in node.keywords
                 )
                 if not has_error_route:
