@@ -41,6 +41,9 @@ from noust.web.api.deps import NoustErrorRoute, require_elevated
 
 router = APIRouter(route_class=NoustErrorRoute)
 
+#: The setting the address of the console is kept in.
+CONSOLE_URL_KEY = "notifications.console_url"
+
 Session = Annotated[dict[str, Any], Depends(get_current_session)]
 Elevated = Annotated[dict[str, Any], Depends(require_elevated)]
 
@@ -383,6 +386,65 @@ def remove_channel(name: str, request: Request, session: Elevated) -> None:
         raise HTTPException(status_code=404, detail=f"No notification channel named {name!r}")
     persist(admin.config)
     audit.record("notify.channel.remove", actor=session_actor(session), target=f"channel:{name}")
+
+
+class ConsoleUrlModel(BaseModel):
+    """
+    Where the links of this server's notifications open.
+
+    Attributes:
+        url: This server's address inside the console of the central that manages it,
+            ``https://<central>/n/<server>``; empty when none is set, and the links are built
+            from ``web.public_url``.
+    """
+
+    url: str = ""
+
+
+@router.get("/console-url", response_model=ConsoleUrlModel)
+def get_console_url(session: Session) -> ConsoleUrlModel:
+    """
+    Read where the links of this server's notifications open.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        The address, empty when none is set.
+    """
+    admin = ChannelAdmin()
+    return ConsoleUrlModel(url=str(admin.config.get(CONSOLE_URL_KEY) or ""))
+
+
+@router.put("/console-url", response_model=ConsoleUrlModel)
+def set_console_url(body: ConsoleUrlModel, session: Elevated) -> ConsoleUrlModel:
+    """
+    Set where the links of this server's notifications open.
+
+    A central that manages this server sets it (``notifications.console_url``), through the
+    settings of the fleet; it can also be set by hand, and an empty address clears it.
+
+    Args:
+        body: The address.
+        session: The elevated session.
+
+    Returns:
+        The address as it is stored.
+
+    Raises:
+        ConfigError: 400 for an address that is not an absolute https one, naming the setting.
+    """
+    admin = ChannelAdmin()
+    admin.config.set(CONSOLE_URL_KEY, body.url)
+    persist(admin.config)
+    stored = str(admin.config.get(CONSOLE_URL_KEY) or "")
+    audit.record(
+        "notify.console_url.set",
+        actor=session_actor(session),
+        target="notifications:console_url",
+        details={"url": stored},
+    )
+    return ConsoleUrlModel(url=stored)
 
 
 @router.get("/events", response_model=EventListResponse)

@@ -78,6 +78,10 @@ _LISTS: dict[str, tuple[str, str]] = {
 }
 
 
+#: The route that says where a node's notification links open.
+CONSOLE_URL_PATH = "/api/notifications/console-url"
+
+
 def find(node: PushTarget, resource: str, name: str) -> dict[str, Any] | None:
     """
     Ask a node whether it has a setting.
@@ -89,8 +93,12 @@ def find(node: PushTarget, resource: str, name: str) -> dict[str, Any] | None:
 
     Returns:
         The node's own listing of it; None when it has none. The empty default of a channel
-        type is not a channel its operator has.
+        type is not a channel its operator has, and a console address that is empty is not one.
     """
+    if resource == "console_link":
+        answer = node.call("GET", CONSOLE_URL_PATH)
+        url = answer.get("url") if isinstance(answer, Mapping) else None
+        return {"name": name, "url": url} if isinstance(url, str) and url else None
     path, key = _LISTS[resource]
     for item in _listed(node, path, key):
         if item.get("name") != name:
@@ -145,6 +153,23 @@ def _channel(
             if block not in body and found.get(block):
                 body[block] = {}
     node.call("PUT", f"/api/notifications/channels/{quote(name, safe='')}", body=body)
+    return "updated" if found is not None else "created"
+
+
+def _console_link(
+    node: PushTarget, name: str, value: dict[str, Any], found: dict[str, Any] | None
+) -> str:
+    """
+    Args:
+        node: The node.
+        name: The console link.
+        value: The address this node is sent.
+        found: The node's own listing of it, when it has one.
+
+    Returns:
+        ``created`` or ``updated``.
+    """
+    node.call("PUT", CONSOLE_URL_PATH, body={"url": value["url"]})
     return "updated" if found is not None else "created"
 
 
@@ -208,6 +233,7 @@ _WRITERS: dict[str, Callable[[PushTarget, str, dict[str, Any], dict[str, Any] | 
     "backup_destination": _destination,
     "registry": _registry,
     "variable": _put("/api/variables/server/{name}"),
+    "console_link": _console_link,
 }
 
 

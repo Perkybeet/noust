@@ -24,6 +24,7 @@ import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 
 from noust.core.config import REDACTED, is_secret_key
 from noust.core.exceptions import NoustError, ValidationError
@@ -33,6 +34,7 @@ from noust.fleet.settings.reach import check_route
 
 __all__ = [
     "AVAILABLE",
+    "CONSOLE_LINK_NAME",
     "KINDS",
     "MAX_VALUE_BYTES",
     "NODE_SCOPE_PREFIX",
@@ -54,6 +56,9 @@ PLANNED: tuple[str, ...] = ("secret_manager", "dns_provider", "source_integratio
 
 #: Where a setting is set for one server: ``node:`` and the server's name.
 NODE_SCOPE_PREFIX = "node:"
+
+#: The one name of the console link: there is one for the fleet.
+CONSOLE_LINK_NAME = "console"
 
 
 class PlannedKind(ValidationError):
@@ -196,8 +201,56 @@ def _variable_secrets(name: str, value: Mapping[str, Any]) -> tuple[str, ...]:
 
 
 def _no_secrets(name: str, value: Mapping[str, Any]) -> tuple[str, ...]:
-    """Returns: Nothing: an alert rule holds no credential."""
+    """Returns: Nothing: an alert rule or an address holds no credential."""
     return ()
+
+
+def _console_link_name(name: str) -> str:
+    """
+    Args:
+        name: What the console link is called.
+
+    Returns:
+        The name, when it is the one name there is.
+
+    Raises:
+        ValidationError: When it is any other.
+    """
+    if name != CONSOLE_LINK_NAME:
+        raise ValidationError.from_text(
+            say("fleet_settings.single_name", kind="console_link", name=CONSOLE_LINK_NAME),
+            field="name",
+        )
+    return name
+
+
+def _console_link_check(value: Mapping[str, Any]) -> None:
+    """
+    Args:
+        value: The console link's value.
+
+    Raises:
+        ValidationError: The address is not text. Whether it is an address a server accepts is
+            the server's to judge.
+    """
+    if not isinstance(value.get("url"), str):
+        raise ValidationError.from_text(
+            say("fleet_settings.field_not_text", kind="console_link", field="url"), field="url"
+        )
+
+
+def _console_link_for(value: Mapping[str, Any], node: str) -> dict[str, Any]:
+    """
+    Args:
+        value: The central's own address.
+        node: The server, as the central's registry names it.
+
+    Returns:
+        The address of that server inside the central's console, which is what its links open:
+        only the central knows the server by that name.
+    """
+    base = str(value["url"]).strip().rstrip("/")
+    return {**value, "url": f"{base}/n/{quote(node, safe='')}"}
 
 
 @dataclass(frozen=True)
@@ -218,6 +271,9 @@ class SettingKind:
         secrets: Which paths of a value hold a credential.
         check: A judgement of the whole value beyond its shape, for what the central itself reads
             of it (a channel's route decides which servers it is sent to); None for none.
+        per_node: Makes the value one server is sent from the one the central keeps, when it
+            says something only the central knows (the server's name in its console); None when
+            every server is sent the value as it is.
     """
 
     key: str
@@ -229,6 +285,7 @@ class SettingKind:
     name_check: Callable[[str], str]
     secrets: Callable[[str, Mapping[str, Any]], tuple[str, ...]]
     check: Callable[[Mapping[str, Any]], None] | None = None
+    per_node: Callable[[Mapping[str, Any], str], dict[str, Any]] | None = None
 
     def check_name(self, name: str) -> str:
         """
@@ -291,6 +348,17 @@ class SettingKind:
         if self.check is not None:
             self.check(value)
         return value
+
+    def for_node(self, value: Mapping[str, Any], node: str) -> dict[str, Any]:
+        """
+        Args:
+            value: The value the central keeps, with its credentials in it.
+            node: The server it is sent to.
+
+        Returns:
+            The value that server is sent. The one given is not changed.
+        """
+        return self.per_node(value, node) if self.per_node is not None else dict(value)
 
     def secret_paths(self, name: str, value: Mapping[str, Any]) -> tuple[str, ...]:
         """
@@ -531,6 +599,21 @@ KINDS: dict[str, SettingKind] = {
             ),
             name_check=_variable_name,
             secrets=_variable_secrets,
+        ),
+        SettingKind(
+            key="console_link",
+            title="Console link",
+            fields=frozenset({"url"}),
+            required=("url",),
+            permission="settings.manage",
+            operations=(
+                ("GET", "/api/notifications/console-url"),
+                ("PUT", "/api/notifications/console-url"),
+            ),
+            name_check=_console_link_name,
+            secrets=_no_secrets,
+            check=_console_link_check,
+            per_node=_console_link_for,
         ),
     )
 }

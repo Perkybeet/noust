@@ -40,13 +40,14 @@ CHANNEL: dict[str, Any] = {
 
 
 class TestTheClosedList:
-    def test_the_five_of_this_release_are_available(self) -> None:
+    def test_the_six_of_this_release_are_available(self) -> None:
         assert set(AVAILABLE) == {
             "channel",
             "alert_rule",
             "backup_destination",
             "registry",
             "variable",
+            "console_link",
         }
 
     def test_the_ones_that_wait_say_so_instead_of_being_unknown(self) -> None:

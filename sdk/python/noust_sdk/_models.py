@@ -1997,6 +1997,10 @@ ConnectionUrlResponse = TypedDict("ConnectionUrlResponse", {
     "url": Required[str],
 })
 
+ConsoleUrlModel = TypedDict("ConsoleUrlModel", {
+    "url": NotRequired[str],
+})
+
 ConstraintResponse = TypedDict("ConstraintResponse", {
     "definition": NotRequired[Union[str, None]],
     "name": Required[str],

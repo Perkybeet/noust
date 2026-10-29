@@ -18,6 +18,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/notifications/channels"): Permission.SETTINGS_READ,
     ("PUT", "/api/notifications/channels/{name}"): Permission.SETTINGS_MANAGE,
     ("DELETE", "/api/notifications/channels/{name}"): Permission.SETTINGS_MANAGE,
+    ("GET", "/api/notifications/console-url"): Permission.SETTINGS_READ,
+    ("PUT", "/api/notifications/console-url"): Permission.SETTINGS_MANAGE,
     ("GET", "/api/notifications/events"): Permission.SETTINGS_READ,
     ("GET", "/api/notifications/deliveries"): Permission.SETTINGS_READ,
     ("POST", "/api/notifications/deliveries/sweep"): Permission.SETTINGS_MANAGE,

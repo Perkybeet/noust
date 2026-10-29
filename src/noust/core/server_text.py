@@ -319,8 +319,12 @@ CATALOG: dict[str, str] = {
     "fleet_settings.sync_route": "A push of the fleet's settings cannot {method} {path}",
     "fleet_settings.sync_route.hint": (
         "It may only write the settings the fleet manages: channels, alert rules, backup "
-        "destinations, registry logins and shared variables."
+        "destinations, registry logins, shared variables and the address of the central's console."
     ),
+    "fleet_settings.single_name": "There is one {kind} for the fleet and it is called {name}",
+    "fleet_settings.single_name.hint": "Set it as {name}.",
+    "fleet_settings.field_not_text": "The {field} of a {kind} must be text",
+    "fleet_settings.field_not_text.hint": "Send it as a string, such as https://central.example.com.",
     "fleet_settings.sync_required": (
         "Only the central that manages this server can record a setting as the fleet's"
     ),

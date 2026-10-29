@@ -246,6 +246,7 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `monitor.max_observations` | `5000` | Row cap of the observations table. Not in the defaults. |
 | `notifications.enabled` | `false` | Master switch of multi-channel notifications. |
 | `notifications.language` | `en` | `en` or `es`: the language of Noust's own words in a notification. The evidence they carry (a probe, rclone's or certbot's output) is never translated. |
+| `notifications.console_url` | empty | Where the links of this server's notifications open: its own pages inside the console of the central that manages it (`https://central.example.com/n/web-2`), https only. A central sets it on the servers it manages (the *console link* of [the settings of the fleet](CENTRAL.md#settings-of-the-fleet)); unset, the links are built from `web.public_url`. |
 | `notifications.allow_private_hosts` | none | Hosts a webhook channel may deliver to although they resolve to a private address. Not in the defaults. |
 | `notifications.events.deploy_started` | `false` | Notify when a deployment starts. Off: it fires once per attempt with no outcome, and would double the volume of every deploy that also succeeds or fails. |
 | `notifications.events.deploy_success` | `true` | Notify when a deployment succeeds. |

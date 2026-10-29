@@ -18896,9 +18896,9 @@ export interface paths {
          *
          *     Returns:
          *         ``servers`` (how each answered, its mode, whether a look is waiting), ``settings`` (each
-         *         with its fleet row, its exceptions and a cell per server: ``origin`` and ``sync``),
-         *         ``released`` (what a server still manages that the fleet no longer wants), and
-         *         ``partial``.
+         *         with its fleet row, its exceptions and a cell per server: ``origin``, ``sync`` and
+         *         ``reach``, whether a channel's route can match anything on that server), ``released``
+         *         (what a server still manages that the fleet no longer wants), and ``partial``.
          */
         get: operations["settings_status_api_fleet_settings_status_get"];
         put?: never;
@@ -21671,6 +21671,49 @@ export interface paths {
          *         HTTPException: 404 when there is no such channel or nothing to remove.
          */
         delete: operations["remove_channel_api_notifications_channels__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/console-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Console Url
+         * @description Read where the links of this server's notifications open.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The address, empty when none is set.
+         */
+        get: operations["get_console_url_api_notifications_console_url_get"];
+        /**
+         * Set Console Url
+         * @description Set where the links of this server's notifications open.
+         *
+         *     A central that manages this server sets it (``notifications.console_url``), through the
+         *     settings of the fleet; it can also be set by hand, and an empty address clears it.
+         *
+         *     Args:
+         *         body: The address.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The address as it is stored.
+         *
+         *     Raises:
+         *         ConfigError: 400 for an address that is not an absolute https one, naming the setting.
+         */
+        put: operations["set_console_url_api_notifications_console_url_put"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -36358,6 +36401,22 @@ export interface components {
             /** Engine */
             engine: string;
             /** Url */
+            url: string;
+        };
+        /**
+         * ConsoleUrlModel
+         * @description Where the links of this server's notifications open.
+         *
+         *     Attributes:
+         *         url: This server's address inside the console of the central that manages it,
+         *             ``https://<central>/n/<server>``; empty when none is set, and the links are built
+         *             from ``web.public_url``.
+         */
+        ConsoleUrlModel: {
+            /**
+             * Url
+             * @default
+             */
             url: string;
         };
         /**
@@ -88711,6 +88770,59 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_console_url_api_notifications_console_url_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleUrlModel"];
+                };
+            };
+        };
+    };
+    set_console_url_api_notifications_console_url_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleUrlModel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleUrlModel"];
+                };
             };
             /** @description Validation Error */
             422: {

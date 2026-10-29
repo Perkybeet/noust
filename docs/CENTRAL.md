@@ -715,8 +715,10 @@ server is `noust db move` ([databases.md](databases.md#moving-a-database-or-an-e
 ## Settings of the fleet
 
 Some settings are the fleet's: you write them once, on the central, and every server it manages has
-them. Five kinds are managed this way: **notification channels**, **alert rules**, **backup
-destinations**, **registry logins** and **shared variables** of the server. (Secret managers, DNS and
+them. Six kinds are managed this way: **notification channels**, **alert rules**, **backup
+destinations**, **registry logins**, **shared variables** of the server and **the address of the
+central's console** that the links of their notifications open ([below](#where-the-links-of-a-notification-open)).
+(Secret managers, DNS and
 cloud providers and source integrations are named by the design and are not managed from the central
 yet: set them on each server.) What belongs to the machine - the web server, the firewall, SSH,
 ports, runtimes, database engines, updates of the system, a server's own console and its security,
@@ -753,7 +755,7 @@ recorded with an id and the person who approved it. The pushes that apply it - a
 later, when a server comes back, with nobody in front of the console - carry
 `X-Noust-Actor: fleet-sync on behalf of <person> (change <id>)` and `X-Noust-Elevated:
 change:<id>`. A server takes that as the confirmation of sudo mode **only** for the routes of these
-five kinds and the routes that record what was applied, and **only** when its ceiling is `admin`;
+six kinds and the routes that record what was applied, and **only** when its ceiling is `admin`;
 anything else signed that way is refused (`fleet_sync_refused`, `fleet_sync_ceiling`), and its audit
 trail names the person and the change.
 
@@ -858,7 +860,23 @@ announced, and the fleet still shows what it last answered, with the reason besi
 A central sends `node_unreachable` when a server stops answering, `node_recovered` when it
 answers again, and `node_host_key_changed` when a server's SSH host key changed and the tunnel
 was closed, through the central's own notification channels. `server.name` names each server in
-every message.
+every message. These three are the central's own and the only things it says: a server's deploys,
+its disk, its certificates and its alerts are said by that server, through its own channels (the
+ones the fleet sent it, [above](#where-a-channel-is-heard), and any of its own), so they keep
+arriving when the central is down or the line between them is cut.
+
+### Where the links of a notification open
+
+A server's own console is normally reachable only through the central's tunnel, so a link built from
+its `web.public_url` opens nowhere. Save **the address of the central's console** as a setting of the
+fleet (kind `console_link`, name `console`, value `{"url": "https://central.example.com"}`) and each
+server is sent that address with its own name in it, as `notifications.console_url`
+(`https://central.example.com/n/web-2`): the link of every notification the server raises opens that
+page inside the central's console. It is https only, a server's operator can change it there
+(and it then shows as the server's own exception), and a server without it builds its links from
+`web.public_url` as before. A link to a page of the central's own (`/settings/...`) is read by the
+console as the central's page, so the server never needs to know which pages those are. The link to
+the whole output of a failure stays the server's own address: it is a page of that server's API.
 
 ## Rotating a server's key
 

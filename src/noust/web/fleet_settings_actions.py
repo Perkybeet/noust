@@ -393,7 +393,8 @@ def _apply(
                     say("fleet_settings.item_conflict", kind=setting.resource, name=setting.name)
                 ),
             )
-        how = push(signed, setting.resource, setting.name, store.whole_value(setting), found)
+        value = KINDS[setting.resource].for_node(store.whole_value(setting), run.name)
+        how = push(signed, setting.resource, setting.name, value, found)
         signed.call(
             "PUT",
             MANAGED_ITEM.format(resource=setting.resource, name=quote(setting.name, safe="")),

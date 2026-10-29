@@ -262,6 +262,10 @@ export const serverText = {
       text: "{scope} is not a place a setting of the fleet can be set",
       hint: "Use 'fleet' for every server, or 'node:<server>' for one.",
     },
+    field_not_text: {
+      text: "The {field} of a {kind} must be text",
+      hint: "Send it as a string, such as https://central.example.com.",
+    },
     item_conflict: {
       text: "The {kind} {name} already exists on this server and is not the fleet's",
       hint: "Apply again letting the fleet take it over, or give the fleet's setting another name.",
@@ -324,6 +328,10 @@ export const serverText = {
       text: "{field} is hidden and nothing is stored for it yet",
       hint: "Type the secret again: it is only shown as {redacted} when one is stored.",
     },
+    single_name: {
+      text: "There is one {kind} for the fleet and it is called {name}",
+      hint: "Set it as {name}.",
+    },
     sync_ceiling: {
       text: "This server lets its central do at most '{level}', and applying the fleet's settings needs 'admin'",
       hint: "Raise it on this server, as root:\n  {command}",
@@ -334,7 +342,7 @@ export const serverText = {
     },
     sync_route: {
       text: "A push of the fleet's settings cannot {method} {path}",
-      hint: "It may only write the settings the fleet manages: channels, alert rules, backup destinations, registry logins and shared variables.",
+      hint: "It may only write the settings the fleet manages: channels, alert rules, backup destinations, registry logins, shared variables and the address of the central's console.",
     },
     unknown_field: {
       text: "A {kind} has no field called {field}",

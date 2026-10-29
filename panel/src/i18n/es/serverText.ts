@@ -256,6 +256,10 @@ export const serverText: Catalog<typeof en> = {
       text: "{scope} no es un lugar donde se pueda fijar un ajuste de la flota",
       hint: "Usa 'fleet' para todos los servidores o 'node:<servidor>' para uno.",
     },
+    field_not_text: {
+      text: "El campo {field} de un {kind} debe ser texto",
+      hint: "Envíalo como cadena de texto, por ejemplo https://central.example.com.",
+    },
     item_conflict: {
       text: "El {kind} {name} ya existe en este servidor y no es de la flota",
       hint: "Aplica de nuevo dejando que la flota lo asuma, o ponle otro nombre al ajuste de la flota.",
@@ -318,6 +322,10 @@ export const serverText: Catalog<typeof en> = {
       text: "{field} está oculto y todavía no hay nada guardado",
       hint: "Escribe el secreto otra vez: solo se muestra como {redacted} cuando hay uno guardado.",
     },
+    single_name: {
+      text: "Solo hay un {kind} para la flota y se llama {name}",
+      hint: "Fíjalo como {name}.",
+    },
     sync_ceiling: {
       text: "Este servidor deja a su central hacer como mucho '{level}', y aplicar los ajustes de la flota necesita 'admin'",
       hint: "Súbelo en este servidor, como root:\n  {command}",
@@ -328,7 +336,7 @@ export const serverText: Catalog<typeof en> = {
     },
     sync_route: {
       text: "Un empuje de los ajustes de la flota no puede hacer {method} {path}",
-      hint: "Solo puede escribir los ajustes que gestiona la flota: canales, reglas de alerta, destinos de copia, accesos a registros y variables compartidas.",
+      hint: "Solo puede escribir los ajustes que gestiona la flota: canales, reglas de alerta, destinos de copia, accesos a registros, variables compartidas y la dirección de la consola de la central.",
     },
     unknown_field: {
       text: "Un {kind} no tiene ningún campo llamado {field}",

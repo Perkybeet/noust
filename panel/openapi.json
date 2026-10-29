@@ -11546,6 +11546,18 @@
         "title": "ConnectionUrlResponse",
         "type": "object"
       },
+      "ConsoleUrlModel": {
+        "description": "Where the links of this server's notifications open.\n\nAttributes:\n    url: This server's address inside the console of the central that manages it,\n        ``https://<central>/n/<server>``; empty when none is set, and the links are built\n        from ``web.public_url``.",
+        "properties": {
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "title": "ConsoleUrlModel",
+        "type": "object"
+      },
       "ConstraintResponse": {
         "description": "One constraint.\n\nAttributes:\n    type: ``primary_key``, ``foreign_key``, ``unique``, ``check``,\n        ``exclusion``, ``trigger`` or ``other``.",
         "properties": {
@@ -97483,7 +97495,7 @@
     },
     "/api/fleet/settings/status": {
       "get": {
-        "description": "Say, for each setting, where each server stands.\n\nEvery server is asked what it manages (it looks at what it holds first, so a setting its own\noperator changed shows as such). A server that cannot be read is said so with the reason, not\nguessed at. Nothing secret is read.\n\nArgs:\n    session: The authenticated session.\n    refresh: Ask even a server whose answer is a few seconds old.\n\nReturns:\n    ``servers`` (how each answered, its mode, whether a look is waiting), ``settings`` (each\n    with its fleet row, its exceptions and a cell per server: ``origin`` and ``sync``),\n    ``released`` (what a server still manages that the fleet no longer wants), and\n    ``partial``.",
+        "description": "Say, for each setting, where each server stands.\n\nEvery server is asked what it manages (it looks at what it holds first, so a setting its own\noperator changed shows as such). A server that cannot be read is said so with the reason, not\nguessed at. Nothing secret is read.\n\nArgs:\n    session: The authenticated session.\n    refresh: Ask even a server whose answer is a few seconds old.\n\nReturns:\n    ``servers`` (how each answered, its mode, whether a look is waiting), ``settings`` (each\n    with its fleet row, its exceptions and a cell per server: ``origin``, ``sync`` and\n    ``reach``, whether a channel's route can match anything on that server), ``released``\n    (what a server still manages that the fleet no longer wants), and ``partial``.",
         "operationId": "settings_status_api_fleet_settings_status_get",
         "parameters": [
           {
@@ -101806,6 +101818,71 @@
           }
         },
         "summary": "Save Channel",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/notifications/console-url": {
+      "get": {
+        "description": "Read where the links of this server's notifications open.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The address, empty when none is set.",
+        "operationId": "get_console_url_api_notifications_console_url_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleUrlModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Console Url",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.read"
+      },
+      "put": {
+        "description": "Set where the links of this server's notifications open.\n\nA central that manages this server sets it (``notifications.console_url``), through the\nsettings of the fleet; it can also be set by hand, and an empty address clears it.\n\nArgs:\n    body: The address.\n    session: The elevated session.\n\nReturns:\n    The address as it is stored.\n\nRaises:\n    ConfigError: 400 for an address that is not an absolute https one, naming the setting.",
+        "operationId": "set_console_url_api_notifications_console_url_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsoleUrlModel"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleUrlModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Console Url",
         "tags": [
           "Notifications"
         ],
