@@ -52,8 +52,8 @@ administrator.
 
    Leave it running and open <http://127.0.0.1:8080/login?with=token> in your browser.
 
-5. **Sign in with the access token, and create your account.** Paste the access token the
-   installer printed in a box, and press **Sign in**. The console then asks for the first
+5. **Sign in with the access token, and create your account.** Paste the access token (the
+   installer printed it once, in a box) and press **Sign in**. The console then asks for the first
    administrator: a username and a password. A second factor is offered next; you can set it up
    later, but do it before you publish the console or add a second server.
 
@@ -79,7 +79,7 @@ On the server, `noust setup doctor` lists what deployments need, each line green
 noust setup doctor
 ```
 
-In the console, a new server opens on one card, **Deploy your first app**.
+In the console, the overview of a new server is one card: **Deploy your first app**.
 
 ## Other ways to install
 
@@ -140,7 +140,7 @@ docker run -d --name noust --restart unless-stopped \
 docker logs noust    # the sign-in token, once, and the certificate's fingerprint
 ```
 
-[Running a central](CENTRAL.md) covers it, including a NAS running UGOS Pro.
+[Run a central](CENTRAL.md) covers it, including a NAS running UGOS Pro.
 
 ### Without logging in
 
@@ -155,7 +155,7 @@ see [Install without logging in](cloud-init.md).
   there. [Platforms](PLATFORMS.md#when-the-repository-key-is-rotated) says how to tell a rotated key
   from a wrong one.
 - **The browser cannot reach `127.0.0.1:8080`**: the tunnel is not open, or the console is not
-  running. On the server, `noust web status` says which.
+  running. On the server, `noust web status` says whether it runs.
 - **You lost the access token**: on the server, `noust web token --new` prints a new one. The old one
   stops working.
 

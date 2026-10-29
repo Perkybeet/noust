@@ -60,7 +60,7 @@ nobody else's.
 
 With `--automatic` an account makes the records of a domain when it is added (`noust domain add`);
 otherwise the console's DNS section and `noust dns ensure` do it when you say so. Records nobody
-has used for an hour are swept by an hourly pass (see Upkeep below).
+has used for an hour are swept by an hourly pass (see [Upkeep](network.md#upkeep)).
 
 ## A private network: Tailscale, WireGuard
 

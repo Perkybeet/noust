@@ -4,7 +4,7 @@ How Noust deploys, updates and looks after a Docker Compose stack, and the 3.2 f
 a stack gets first: deploy hooks and migrations, going back past a migration, updates without a
 cut, adopting a stack that already runs, copies of its databases, deploying by tag and workers
 that publish no port. Hooks, the rollback check, the site you wrote yourself and deploying by
-tag also apply to other application types where this page says so.
+tag also apply to other application types where this guide says so.
 
 The rest of this guide is on pages of its own:
 

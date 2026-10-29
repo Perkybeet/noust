@@ -4,8 +4,8 @@ Part of [The network of an application and of the server](network.md).
 
 ## Routes: what happens at a prefix
 
-A route is a prefix of the site (`/admin`, `/api/v2`) with its own rule. It is part of the policy
-above, so it is kept in the store, rendered by whoever writes the site, and still there after a
+A route is a prefix of the site (`/admin`, `/api/v2`) with its own rule. It is part of the
+[policy](network.md#access-a-password-addresses-limits-and-headers), so it is kept in the store, rendered by whoever writes the site, and still there after a
 deploy, a new alias or a certificate order. A route matches the prefix and everything under it,
 never a longer name that only starts the same (`/admin` is not `/administrator`).
 

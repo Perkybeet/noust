@@ -64,7 +64,8 @@ unavailable_reason: Why, in a sentence that says what it waits for.
 ```
 
 It carries only the catalogue fields above, and `noust recipe show` and the console print the
-reason. Excalidraw, PocketBase, Vault and others are listed this way (see the end of this page).
+reason. Excalidraw, PocketBase, Vault and others are listed this way (see the end of
+[the catalog](recipes-catalog.md)).
 
 ### `kind: compose`
 

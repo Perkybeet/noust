@@ -28,7 +28,8 @@ What an instance is, exactly:
   you give with `--port`. Docker publishes on every interface unless told otherwise and goes around
   the host's firewall when it does, so Noust never asks it to. To reach an instance from your own
   computer, use the SSH tunnel `noust db connect-info` prints, or make one of its databases public
-  (`noust db public`, below), which forwards a port you choose to the instance's loopback port.
+  (`noust db public`, [Making a database public](databases-settings.md#making-a-database-public-on-purpose)),
+  which forwards a port you choose to the instance's loopback port.
 - **A memory limit, always** (`--memory 512m`, `2g`). The container is held to it by the kernel, and
   the engine is told to size itself to it (PostgreSQL's `shared_buffers`, InnoDB's buffer pool,
   Redis's and Valkey's `maxmemory`, MongoDB's WiredTiger cache), so it is not killed for growing

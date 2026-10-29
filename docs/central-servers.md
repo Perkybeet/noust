@@ -27,7 +27,8 @@ Manually:
    - creates `noust-tunnel` and its sshd block, and installs the key for it;
    - creates a `fleet` token and prints a **join code** on one line.
 
-   Options: `--access read|deploy|admin` and `--allow-host-access` set the ceiling (below);
+   Options: `--access read|deploy|admin` and `--allow-host-access` set the ceiling
+   ([How far a central may go](fleet-model.md#how-far-a-central-may-go-on-a-server));
    `--ssh-user root --i-understand` installs the key for root as 3.0 did, with a warning.
    Run by mistake on the central that issued the key (the key names it, or it holds that
    very key), `authorize` refuses and says so.

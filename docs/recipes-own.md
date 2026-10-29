@@ -81,7 +81,7 @@ never by a prune, the loopback port it asks for must be free, and a run stopped 
 sends it) still removes what it made. A container that finished with an error is a problem, not only
 one that restarts.
 
-`scripts/recipe_docs.py` writes the table at the end of this page from the recipes, and `--check`
+`scripts/recipe_docs.py` writes the table of [the catalog](recipes-catalog.md) from the recipes, and `--check`
 fails if it is out of date.
 
 `check` resolves each image's tag in its registry and compares the digest, reads the

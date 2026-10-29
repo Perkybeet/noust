@@ -144,7 +144,8 @@ API: `GET|PUT|DELETE /api/unknown-hosts`; changing it needs sudo mode. Console: 
 ## When an application is deleted
 
 `noust delete` lets go of everything made for it elsewhere: the tunnel routes (taken out of the
-ingress), the published ports that were for it, its DNS records (by the ownership model above),
+ingress), the published ports that were for it, its DNS records (by the
+[ownership model](network-dns.md#dns-accounts-and-the-records-noust-owns)),
 its policy and accounts, its client certificates and their authority, and its certificate choice. Each step is attempted whatever the one
 before it did, and what failed is returned as a warning.
 

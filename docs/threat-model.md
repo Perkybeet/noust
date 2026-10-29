@@ -14,8 +14,8 @@ Part of [Security](security.md).
   afterwards.
 - Accounts with the `admin` role, and tokens that hold `root_equivalent`: they can write units,
   cron commands and site configuration that run as root, and an application's deploy hooks, code
-  that runs with its identity and its secrets on every deploy. Four-eyes approvals (below) put a
-  second person in front of exactly those changes.
+  that runs with its identity and its secrets on every deploy. [Four-eyes approvals](security-approvals.md#four-eyes-approvals)
+  put a second person in front of exactly those changes.
 
 **Defended against**
 

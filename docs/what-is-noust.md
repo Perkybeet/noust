@@ -13,9 +13,9 @@ does.
 
 ## What you get
 
-- **Deploys that do not take a site down.** Each deploy builds next to the one that serves. It only
-  replaces it once it answers its health check; if it does not, the old release keeps serving and
-  you get the error, the probes and the application's own log.
+- **Deploys that do not take a site down.** Each deploy builds a new release next to the one that
+  serves, and only replaces it once it answers its health check. If it does not, the old release
+  keeps serving and you get the error, the probes and the application's own log.
 - **A way back.** `noust releases rollback` puts the previous release back without rebuilding.
 - **HTTPS by default.** Each domain gets a Let's Encrypt certificate, renewed before it expires.
 - **Databases and backups.** PostgreSQL, MySQL, MariaDB, Redis, Valkey and MongoDB, each database
@@ -23,8 +23,8 @@ does.
   encrypted, to another place.
 - **A console for a team.** Accounts and roles, passkeys and two-factor sign-in, approvals by a
   second person and an audit log that shows if anyone tampers with it.
-- **Several servers from one place.** One Noust can manage the others over SSH tunnels, without a
-  shell on any of them.
+- **Several servers from one place.** One Noust server can manage your others over SSH tunnels,
+  with no shell on any of them.
 - **The server itself.** Operating-system updates, the firewall, SSH, disks and swap, from the same
   console.
 
@@ -52,8 +52,8 @@ applications keep running: [Taking Noust away](concepts.md#taking-noust-away) sa
   Kubernetes or Nomad.
 - **You do not want to run a server at all.** Noust gives you the tools to look after one, but the
   server is still yours: its disk, its updates, its bill. A managed platform takes that away.
-- **You host code you do not trust.** Each application runs as its own account and cannot read
-  another's files, but they share the kernel and the machine. Noust is not a sandbox between
+- **You host code you do not trust.** Each new application runs as an account of its own and cannot
+  read another's files, but they share the kernel and the machine. Noust is not a sandbox between
   tenants: deploy only code you would run on a server you administer.
 - **Your servers run Windows or macOS,** or a Linux that is not on [the list](PLATFORMS.md).
 
