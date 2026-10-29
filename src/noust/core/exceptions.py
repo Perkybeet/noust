@@ -100,6 +100,16 @@ class WebserverInUseError(ConfigError):
     """
 
 
+class WebserverMoveError(NoustError):
+    """
+    Moving sites to the other web server was refused, or failed and was put back.
+
+    A conflict with the state of the server, not a bad value: what stops it (a site that cannot be
+    translated, a server that is not installed, a site that did not answer) is in ``details``,
+    and when it failed after something was changed, everything was put back first.
+    """
+
+
 class ValidationError(NoustError):
     """Raised when input validation fails."""
 

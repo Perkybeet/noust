@@ -84,6 +84,7 @@ from noust.core.exceptions import (
     SourceError,
     ValidationError,
     WebserverInUseError,
+    WebserverMoveError,
 )
 from noust.core.exceptions import (
     PermissionError as NoustPermissionError,
@@ -178,6 +179,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (PrerequisiteError, 409),
     # The web server of new applications, while the other one still serves sites.
     (WebserverInUseError, 409),
+    # Moving sites to the other web server, refused or put back: a state of the server.
+    (WebserverMoveError, 409),
     (AppBusyError, 409),
     # Nothing to cancel, or too late to: a state of the deployment, not a fault.
     (CancelRefused, 409),
@@ -251,6 +254,7 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     (DeploysFrozenError, "deploys_frozen"),
     (DeploysPausedError, "deploys_paused"),
     (WebserverInUseError, "webserver_in_use"),
+    (WebserverMoveError, "webserver_move"),
     # The console branches on these: a button that finds nothing to cancel, a
     # request that waits for the queue to shrink.
     (CancelRefused, "cancel_refused"),

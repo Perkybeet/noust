@@ -342,6 +342,8 @@ EVENTS: dict[str, EventSpec] = {
             "services.stop": "A service was stopped.",
             "services.restart": "A service was restarted.",
             "sites.create": "A web server site was created.",
+            "sites.webserver": "A site was translated and moved to the other web server.",
+            "sites.webserver_handover": "Ports 80 and 443 were handed from one web server to the other.",
             "sites.update": "A web server site was changed.",
             "sites.delete": "A web server site was deleted.",
             "sites.enable": "A web server site was enabled.",

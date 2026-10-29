@@ -1,0 +1,563 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""
+Moving applications to the other web server (backlog item 105, wave 4).
+
+A machine has one pair of ports and one web server holding them, so these tests are about what
+that means: a move to a server that is not serving is a handover of the ports and only possible
+for every site at once; a move to one that is serving is per site; and in both, nothing is
+changed for good until the new server has answered for every site. The machine is
+:class:`tests.support.web_host.FakeHost`: units, modules and links are remembered, nothing runs.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+from pathlib import Path
+
+import pytest
+
+from noust.core import audit
+from noust.core.exceptions import (
+    ConfirmationRequired,
+    ValidationError,
+    WebserverMoveError,
+)
+from noust.core.store import App, Site, get_store
+from noust.deployers.webserver_move import MoveResult, move, require_ready
+from noust.deployers.webserver_move_plan import Managers, MovePlan, plan_move
+from noust.managers.server_provision import ProvisionStep
+from tests.support.web_host import TwoServers, two_servers
+
+STATIC = "docs.example.com"
+NODE = "api.example.com"
+PHP = "blog.example.com"
+
+PHP_CONTEXT = {
+    "document_root": "/var/www/apps/blog-example-com/current/public",
+    "fastcgi_socket": "/run/php/php8.3-fpm.sock",
+    "max_upload": "64m",
+    "max_upload_bytes": 67108864,
+    "deny_paths": [],
+    "deny_patterns": [],
+}
+
+
+class Provisioner:
+    """Says Apache is installed, and how to install it when a test says it is not."""
+
+    def __init__(self, installed: bool = True) -> None:
+        self.installed = installed
+
+    def check_webserver(self, name: str) -> ProvisionStep:
+        if self.installed:
+            return ProvisionStep(name, "present", f"{name} is installed")
+        return ProvisionStep(
+            name, "missing", f"{name} is not installed", "apt-get install -y apache2"
+        )
+
+
+@pytest.fixture
+def servers(tmp_path: Path) -> Iterator[TwoServers]:
+    """nginx serving three applications, Apache installed and stopped."""
+    two = two_servers(tmp_path)
+    store = get_store()
+    for domain, app_type, static in (
+        (STATIC, "static", True),
+        (NODE, "node", False),
+        (PHP, "php", False),
+    ):
+        store.create_app(
+            App(
+                domain=domain,
+                app_type=app_type,
+                app_path=f"/var/www/apps/{domain.replace('.', '-')}",
+                port=None if static else 3000,
+                is_static=static,
+                webserver="nginx",
+            )
+        )
+    two.nginx.create_site(
+        STATIC, "static", {"static_dir": "/var/www/apps/docs-example-com/current"}
+    )
+    two.nginx.create_site(NODE, "proxy", {"port": 3000})
+    two.nginx.create_site(PHP, "fastcgi", PHP_CONTEXT)
+    for domain in (STATIC, NODE, PHP):
+        two.nginx.enable_site(domain)
+        # The registration of a deploy links the site to its application.
+        row, app = store.get_site(domain), store.get_app(domain)
+        assert row is not None and app is not None
+        row.app_id = app.id
+        store.update_site(row)
+    yield two
+
+
+def managers(two: TwoServers) -> Managers:
+    return Managers(two.nginx, two.apache)
+
+
+def plan(two: TwoServers, domains: list[str] | None = None, **kwargs: object) -> MovePlan:
+    return plan_move(
+        "apache",
+        domains,
+        managers=managers(two),
+        provisioner=Provisioner(**kwargs),  # type: ignore[arg-type]
+    )
+
+
+def go(two: TwoServers, the_plan: MovePlan, **kwargs: object) -> MoveResult:
+    return move(
+        the_plan,
+        accept_losses=True,
+        confirm=True,
+        managers=managers(two),
+        probe=two.probe,
+        tls=two.tls,
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+def webserver_of(domain: str) -> str:
+    app = get_store().get_app(domain)
+    assert app is not None
+    return app.webserver
+
+
+class TestThePlan:
+    def test_a_machine_whose_other_server_is_stopped_needs_a_handover(
+        self, servers: TwoServers
+    ) -> None:
+        the_plan = plan(servers)
+
+        assert the_plan.mode == "handover"
+        assert (the_plan.source, the_plan.target) == ("nginx", "apache")
+        assert [site.domain for site in the_plan.sites] == sorted([STATIC, NODE, PHP])
+        assert not the_plan.blocked
+        assert {"proxy", "proxy_fcgi", "headers", "rewrite"} <= set(the_plan.modules)
+
+    def test_each_site_comes_with_its_translation_and_where_it_would_go(
+        self, servers: TwoServers
+    ) -> None:
+        site = next(item for item in plan(servers).sites if item.domain == NODE)
+
+        assert site.source_path.endswith(f"nginx/sites-available/{NODE}")
+        assert site.target_path.endswith(f"apache2/sites-available/{NODE}.conf")
+        assert "ProxyPass / http://127.0.0.1:3000/" in site.text
+        assert "Generated by Noust" in site.text
+        assert site.movable and site.losses == ()
+
+    def test_moving_some_of_the_sites_to_a_server_that_is_not_serving_is_refused(
+        self, servers: TwoServers
+    ) -> None:
+        the_plan = plan(servers, [NODE])
+
+        assert the_plan.blocked
+        (blocker,) = the_plan.blockers
+        assert blocker.code == "webserver_move.partial_handover"
+        assert blocker.params["count"] == 1 and blocker.params["total"] == 3
+        assert blocker.params["command"] == "noust webserver migrate --to apache --all"
+
+    def test_one_site_moves_on_its_own_when_the_other_server_is_serving(
+        self, servers: TwoServers
+    ) -> None:
+        servers.host.active["apache2"] = True
+
+        the_plan = plan(servers, [NODE])
+
+        assert the_plan.mode == "live" and not the_plan.blocked
+        assert [site.domain for site in the_plan.sites] == [NODE]
+
+    def test_a_site_already_behind_the_target_is_skipped_not_an_error(
+        self, servers: TwoServers
+    ) -> None:
+        servers.host.active["apache2"] = True
+        app = get_store().get_app(NODE)
+        assert app is not None
+        app.webserver = "apache"
+        get_store().update_app(app)
+
+        the_plan = plan(servers, [NODE, PHP])
+
+        assert the_plan.skipped == (NODE,)
+        assert [site.domain for site in the_plan.sites] == [PHP]
+
+    def test_a_name_that_is_not_a_site_is_refused_with_the_command_that_lists_them(
+        self, servers: TwoServers
+    ) -> None:
+        with pytest.raises(ValidationError) as refused:
+            plan(servers, ["nope.example.com"])
+
+        assert "nope.example.com" in refused.value.message
+        assert "noust webserver status" in (refused.value.details or "")
+
+    def test_a_server_that_is_not_installed_blocks_with_the_command_that_installs_it(
+        self, servers: TwoServers
+    ) -> None:
+        servers.host.only_knows("nginx")
+        servers.host.installed["apache2"] = False
+
+        the_plan = plan(servers, installed=False)
+
+        (blocker,) = the_plan.blockers
+        assert blocker.code == "webserver_move.target_missing"
+        assert blocker.params["command"] == "apt-get install -y apache2"
+
+    def test_an_operator_site_without_an_equivalent_blocks_and_is_never_touched(
+        self, servers: TwoServers
+    ) -> None:
+        path = servers.nginx.config_path(NODE)
+        path.write_text("server { listen 80; server_name api.example.com; }\n")
+
+        the_plan = plan(servers)
+
+        site = next(item for item in the_plan.sites if item.domain == NODE)
+        assert site.operator_site and not site.movable
+        (blocker,) = site.blockers
+        assert blocker.code == "webserver_move.operator_site"
+        assert blocker.params["target_path"].endswith(f"apache2/sites-available/{NODE}.conf")
+        assert path.read_text().startswith("server {")
+
+    def test_an_operator_site_with_the_operators_own_equivalent_moves_untouched(
+        self, servers: TwoServers
+    ) -> None:
+        servers.nginx.config_path(NODE).write_text(
+            "server { listen 80; server_name api.example.com; }\n"
+        )
+        servers.apache.sites_available.mkdir(parents=True, exist_ok=True)
+        servers.apache.config_path(NODE).write_text(
+            "<VirtualHost *:80>\n    ServerName api.example.com\n</VirtualHost>\n"
+        )
+
+        site = next(item for item in plan(servers).sites if item.domain == NODE)
+
+        assert site.movable and site.keeps_operator_site and not site.writes
+
+    def test_a_compose_application_cannot_go_to_apache(self, servers: TwoServers) -> None:
+        app = get_store().get_app(NODE)
+        assert app is not None
+        app.app_type = "docker-compose"
+        get_store().update_app(app)
+
+        site = next(item for item in plan(servers).sites if item.domain == NODE)
+
+        assert [item.code for item in site.blockers] == ["webserver_move.compose_only"]
+
+    def test_zero_downtime_blocks_with_the_command_that_turns_it_off(
+        self, servers: TwoServers
+    ) -> None:
+        get_store().set_zero_downtime(NODE, True)
+
+        site = next(item for item in plan(servers).sites if item.domain == NODE)
+
+        (blocker,) = site.blockers
+        assert blocker.code == "webserver_move.zero_downtime"
+        assert blocker.params["command"] == f"noust app zero-downtime {NODE} off"
+
+    def test_what_nginx_would_stop_serving_is_named(self, servers: TwoServers) -> None:
+        servers.nginx.sites_available.joinpath("legacy.example.org").write_text(
+            "server { listen 80; server_name legacy.example.org; }\n"
+        )
+        servers.nginx.sites_enabled.joinpath("legacy.example.org").symlink_to(
+            servers.nginx.sites_available / "legacy.example.org"
+        )
+
+        the_plan = plan(servers)
+
+        assert the_plan.left_behind == ("legacy.example.org",)
+        assert [item.code for item in the_plan.blockers] == ["webserver_move.left_behind"]
+
+    def test_a_protection_that_is_lost_is_in_the_plan_before_anything_is_written(
+        self, servers: TwoServers
+    ) -> None:
+        text = servers.nginx.config_path(NODE).read_text()
+        servers.nginx.config_path(NODE).write_text(
+            text.replace(
+                "server_tokens off;", "server_tokens off;\n    limit_req zone=z burst=5;", 1
+            )
+        )
+
+        the_plan = plan(servers)
+
+        ((domain, loss),) = the_plan.losses
+        assert domain == NODE and loss.protection
+        assert not servers.apache.sites_available.exists() or not list(
+            servers.apache.sites_available.iterdir()
+        )
+
+    def test_the_plan_as_data_names_everything_a_screen_needs(self, servers: TwoServers) -> None:
+        data = plan(servers).to_dict()
+
+        assert data["mode"] == "handover" and data["blocked"] is False
+        assert data["confirmation"]["code"] == "webserver_move.confirm_handover"
+        site = next(item for item in data["sites"] if item["domain"] == NODE)
+        assert {"findings", "blockers", "modules", "source_path", "target_path"} <= set(site)
+        assert all({"code", "params", "text", "severity"} <= set(f) for f in site["findings"])
+
+
+class TestRequiringAgreement:
+    def test_the_move_itself_must_be_confirmed(self, servers: TwoServers) -> None:
+        with pytest.raises(ConfirmationRequired) as asked:
+            require_ready(plan(servers), accept_losses=True, confirm=False)
+
+        assert asked.value.field == "confirm"
+        assert asked.value.coded is not None
+        assert asked.value.coded.code == "webserver_move.confirm_handover"
+
+    def test_losses_must_be_accepted_before_the_move_is_confirmed(
+        self, servers: TwoServers
+    ) -> None:
+        path = servers.nginx.config_path(NODE)
+        path.write_text(
+            path.read_text().replace(
+                "server_tokens off;", "server_tokens off;\n    sub_filter a b;", 1
+            )
+        )
+
+        with pytest.raises(ConfirmationRequired) as asked:
+            require_ready(plan(servers), accept_losses=False, confirm=True)
+
+        assert asked.value.field == "accept_losses"
+        assert any("sub_filter" in warning for warning in asked.value.warnings)
+
+    def test_a_blocked_plan_says_every_reason(self, servers: TwoServers) -> None:
+        with pytest.raises(WebserverMoveError) as refused:
+            require_ready(plan(servers, [NODE]), accept_losses=True, confirm=True)
+
+        assert "1 of the 3 sites" in refused.value.message
+        assert "noust webserver migrate --to apache --all" in (refused.value.details or "")
+
+    def test_nothing_to_move_is_an_error_that_says_so(self, servers: TwoServers) -> None:
+        for domain in (STATIC, NODE, PHP):
+            app = get_store().get_app(domain)
+            assert app is not None
+            app.webserver = "apache"
+            get_store().update_app(app)
+
+        with pytest.raises(ValidationError):
+            require_ready(plan(servers), accept_losses=True, confirm=True)
+
+
+class TestAHandover:
+    def test_the_ports_pass_to_the_new_server_and_every_site_goes_with_them(
+        self, servers: TwoServers
+    ) -> None:
+        result = go(servers, plan(servers))
+
+        assert result.mode == "handover" and result.rehearsed is False
+        assert {site.domain for site in result.sites} == {STATIC, NODE, PHP}
+        assert servers.host.active == {"nginx": False, "apache2": True}
+        assert servers.host.boot == {"nginx": False, "apache2": True}
+        for domain in (STATIC, NODE, PHP):
+            assert webserver_of(domain) == "apache"
+            assert servers.apache.site_enabled(domain)
+            assert not servers.nginx.config_path(domain).exists()
+            assert not servers.nginx.site_enabled(domain)
+            row = get_store().get_site(domain)
+            assert row is not None
+            assert row.webserver == "apache" and row.config_path.endswith(f"{domain}.conf")
+
+    def test_the_new_sites_are_noust_sites_and_the_modules_they_need_are_on(
+        self, servers: TwoServers
+    ) -> None:
+        go(servers, plan(servers))
+
+        assert servers.apache.site_is_noust(NODE)
+        assert "ProxyPass / http://127.0.0.1:3000/" in servers.apache.get_site_config(NODE)
+        assert {"proxy", "proxy_http", "proxy_fcgi", "headers", "rewrite"} <= set(
+            servers.host.modules
+        )
+
+    def test_every_site_is_asked_through_the_new_server_with_its_own_name(
+        self, servers: TwoServers
+    ) -> None:
+        go(servers, plan(servers))
+
+        asked = {host for _, host in servers.probes}
+        assert asked == {STATIC, NODE, PHP}
+        assert all(url.startswith("http://127.0.0.1:80/") for url, _ in servers.probes)
+
+    def test_it_is_audited_per_site_and_for_the_swap(self, servers: TwoServers) -> None:
+        go(servers, plan(servers))
+
+        events = audit.get_log().read(limit=100)
+        moved = [e for e in events if e["action"] == "sites.webserver"]
+        assert {e["resource"] for e in moved} == {f"app:{d}" for d in (STATIC, NODE, PHP)}
+        assert all(e["result"] == "ok" and e["details"]["to"] == "apache" for e in moved)
+        assert [e for e in events if e["action"] == "sites.webserver_handover"]
+
+    def test_the_new_server_refusing_a_site_ends_it_before_anything_is_written(
+        self, servers: TwoServers
+    ) -> None:
+        servers.host.rejects["apache"] = "AH00526: Invalid command 'Nonsense'"
+
+        with pytest.raises(WebserverMoveError) as refused:
+            go(servers, plan(servers))
+
+        assert refused.value.output is not None and "Invalid command" in refused.value.output
+        assert (
+            refused.value.coded is not None
+            and refused.value.coded.code == "webserver_move.rejected"
+        )
+        assert servers.host.active == {"nginx": True, "apache2": False}
+        assert not servers.apache.sites_available.exists() or not list(
+            servers.apache.sites_available.iterdir()
+        )
+        assert webserver_of(NODE) == "nginx" and servers.nginx.config_path(NODE).exists()
+
+    def test_a_site_that_does_not_answer_puts_everything_back(self, servers: TwoServers) -> None:
+        before = {d: servers.nginx.config_path(d).read_text() for d in (STATIC, NODE, PHP)}
+        servers.unanswered.add(PHP)
+
+        with pytest.raises(WebserverMoveError) as refused:
+            go(servers, plan(servers))
+
+        assert (
+            refused.value.coded is not None
+            and refused.value.coded.code == "webserver_move.unanswered"
+        )
+        assert refused.value.coded.params["domain"] == PHP
+        # nginx serves again, Apache does not, and nothing of Apache's is left.
+        assert servers.host.active == {"nginx": True, "apache2": False}
+        assert servers.host.boot == {"nginx": True, "apache2": False}
+        for domain in (STATIC, NODE, PHP):
+            assert webserver_of(domain) == "nginx"
+            assert servers.nginx.config_path(domain).read_text() == before[domain]
+            assert servers.nginx.site_enabled(domain)
+            assert not servers.apache.config_path(domain).exists()
+            assert not servers.apache.site_enabled(domain)
+            row = get_store().get_site(domain)
+            assert row is not None and row.webserver == "nginx" and row.enabled
+
+    def test_a_new_server_that_will_not_start_puts_nginx_back(self, servers: TwoServers) -> None:
+        servers.host.refuse[("restart", "apache2")] = "bind: address already in use"
+        servers.host.refuse[("start", "apache2")] = "bind: address already in use"
+
+        with pytest.raises(WebserverMoveError) as refused:
+            go(servers, plan(servers))
+
+        assert (
+            refused.value.coded is not None
+            and refused.value.coded.code == "webserver_move.not_serving"
+        )
+        assert servers.host.active == {"nginx": True, "apache2": False}
+        assert all(webserver_of(d) == "nginx" for d in (STATIC, NODE, PHP))
+
+    def test_what_could_not_be_put_back_is_said(self, servers: TwoServers) -> None:
+        servers.unanswered.add(NODE)
+        servers.host.refuse[("start", "nginx")] = "Job for nginx.service failed"
+
+        with pytest.raises(WebserverMoveError) as refused:
+            go(servers, plan(servers))
+
+        assert "nginx" in (refused.value.details or "")
+        assert "Job for nginx.service failed" in (refused.value.details or "")
+
+    def test_a_plan_that_no_longer_matches_the_sites_is_not_carried_out(
+        self, servers: TwoServers
+    ) -> None:
+        the_plan = plan(servers)
+        path = servers.nginx.config_path(NODE)
+        path.write_text(path.read_text().replace("3000", "3999"))
+
+        with pytest.raises(WebserverMoveError, match="changed"):
+            go(servers, the_plan)
+
+        assert servers.host.active["nginx"] is True
+
+    def test_a_rehearsal_changes_nothing(
+        self, servers: TwoServers, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("noust.deployers.webserver_move.is_rehearsal", lambda: True)
+
+        result = go(servers, plan(servers))
+
+        assert result.rehearsed
+        assert servers.host.calls == [
+            c
+            for c in servers.host.calls
+            if c[0] != "systemctl" or c[1] in ("show", "is-active", "is-enabled")
+        ]
+        assert webserver_of(NODE) == "nginx"
+
+
+class TestOneSiteWhileTheNewServerServes:
+    def test_the_site_moves_and_the_old_server_keeps_the_others(self, servers: TwoServers) -> None:
+        servers.host.active["apache2"] = True
+
+        result = go(servers, plan(servers, [NODE]))
+
+        assert result.mode == "live" and [site.domain for site in result.sites] == [NODE]
+        assert webserver_of(NODE) == "apache" and webserver_of(PHP) == "nginx"
+        assert servers.apache.site_enabled(NODE) and not servers.nginx.site_enabled(NODE)
+        assert servers.nginx.site_enabled(PHP)
+        assert servers.host.active == {"nginx": True, "apache2": True}
+        assert servers.host.called("systemctl", "stop") == []
+
+    def test_a_site_that_does_not_answer_is_put_back_and_the_old_site_never_left(
+        self, servers: TwoServers
+    ) -> None:
+        servers.host.active["apache2"] = True
+        servers.unanswered.add(NODE)
+
+        with pytest.raises(WebserverMoveError):
+            go(servers, plan(servers, [NODE]))
+
+        assert webserver_of(NODE) == "nginx"
+        assert servers.nginx.site_enabled(NODE) and servers.nginx.config_path(NODE).exists()
+        assert not servers.apache.site_enabled(NODE)
+        assert not servers.apache.config_path(NODE).exists()
+
+    def test_an_operators_site_is_disabled_not_deleted(self, servers: TwoServers) -> None:
+        servers.host.active["apache2"] = True
+        mine = servers.nginx.config_path(NODE)
+        mine.write_text("server { listen 80; server_name api.example.com; }\n")
+        servers.apache.sites_available.mkdir(parents=True, exist_ok=True)
+        theirs = servers.apache.config_path(NODE)
+        theirs.write_text("<VirtualHost *:80>\n    ServerName api.example.com\n</VirtualHost>\n")
+
+        result = go(servers, plan(servers, [NODE]))
+
+        assert result.sites[0].written is False and result.sites[0].retired is False
+        assert mine.read_text().startswith("server {")
+        assert theirs.read_text().startswith("<VirtualHost")
+        assert not servers.nginx.site_enabled(NODE) and servers.apache.site_enabled(NODE)
+
+
+class TestAndBack:
+    def test_the_sites_come_back_to_nginx_as_they_went(self, servers: TwoServers) -> None:
+        go(servers, plan(servers))
+
+        back = plan_move(
+            "nginx", managers=Managers(servers.apache, servers.nginx), provisioner=Provisioner()
+        )
+        assert back.mode == "handover" and not back.blocked
+
+        result = move(
+            back,
+            accept_losses=True,
+            confirm=True,
+            managers=Managers(servers.apache, servers.nginx),
+            probe=servers.probe,
+            tls=servers.tls,
+        )
+
+        assert {site.domain for site in result.sites} == {STATIC, NODE, PHP}
+        assert servers.host.active == {"nginx": True, "apache2": False}
+        assert servers.host.boot == {"nginx": True, "apache2": False}
+        for domain in (STATIC, NODE, PHP):
+            assert webserver_of(domain) == "nginx"
+            assert (
+                servers.nginx.site_enabled(domain)
+                and not servers.apache.config_path(domain).exists()
+            )
+        assert "proxy_pass http://127.0.0.1:3000;" in servers.nginx.get_site_config(NODE)
+
+
+def test_the_site_records_what_the_move_replaced(servers: TwoServers) -> None:
+    go(servers, plan(servers))
+
+    versions = servers.apache.history.versions(NODE)
+
+    assert [version.source for version in versions] == ["generated"]
+    assert Site is not None

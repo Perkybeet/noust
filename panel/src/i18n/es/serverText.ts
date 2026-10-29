@@ -574,4 +574,100 @@ export const serverText: Catalog<typeof en> = {
       hint: "El conector de un túnel lee su token al arrancar, sin nadie que escriba una frase de paso. Usa los túneles en un servidor, no en una central sellada.",
     },
   },
+  webserver_move: {
+    approximate: {
+      text: "{directive} (línea {line}) pasa como {result}",
+    },
+    compose_only: {
+      text: "{domain} es una aplicación de Docker Compose, y esas solo las sirve nginx",
+      hint: "Déjala detrás de nginx.",
+    },
+    confirm_handover: {
+      text: "{target} tomará los puertos 80 y 443 de {source} para {count} sitio(s)",
+      hint: "Todos los sitios quedan sin servicio los segundos que dura el cambio, y todo se deja como estaba si alguno no responde. Para seguir: confirma en la API, --yes en la línea de órdenes.",
+    },
+    confirm_live: {
+      text: "{count} sitio(s) pasarán de {source} a {target}, que está sirviendo",
+      hint: "{target} prueba cada sitio antes de activarlo, y se deja como estaba si no responde. Para seguir: confirma en la API, --yes en la línea de órdenes.",
+    },
+    console_site: {
+      text: "{domain} es el nombre público de la consola, que Noust solo monta detrás de nginx",
+      hint: "Quítalo antes con {command}, o deja el servidor web como está.",
+    },
+    included: {
+      text: "La línea {line} incluye {path}, que no se traslada",
+      hint: "La traducción no lee los ficheros que un sitio incluye. Copia a mano lo que contiene ese fichero al sitio nuevo, o deja la aplicación donde está.",
+    },
+    left_behind: {
+      text: "{name} es un sitio de {source} que Noust no puede mover",
+      hint: "{source} dejaría de servirlo. Escribe tú su equivalente para {target} en {target_path}, o deja el servidor web como está.",
+    },
+    losses_to_accept: {
+      text: "Los sitios nuevos no harán {count} cosa(s) que hacían los antiguos",
+      hint: "Léelas en el plan. Para seguir de todos modos, acéptalas: accept_losses en la API, --accept-losses en la línea de órdenes.",
+    },
+    no_site: {
+      text: "{domain} no tiene fichero de sitio en {source}",
+      hint: "No hay nada que traducir. Despliega la aplicación otra vez para que tenga un sitio y planifica el cambio de nuevo.",
+    },
+    not_restored: {
+      text: "No se pudo dejar todo como estaba",
+      hint: "Lo que sigue dice qué quedó y dónde está. El registro de auditoría dice qué se movió.",
+    },
+    not_serving: {
+      text: "{target} no arrancó",
+      hint: "Su propio mensaje se muestra tal cual. {source} volvió a arrancar y los sitios están como estaban.",
+    },
+    operator_site: {
+      text: "El sitio de {domain} es tuyo, no de Noust ({path})",
+      hint: "Noust nunca reescribe un sitio que escribiste tú. Escribe tú su equivalente para {target} en {target_path} y planifica el cambio de nuevo: los dos ficheros se dejan como están y solo se mueve la aplicación.",
+    },
+    partial_handover: {
+      text: "{target} no está sirviendo: mover {count} de los {total} sitios dejaría a los demás sin servidor web",
+      hint: "Los puertos 80 y 443 son de un solo servidor web a la vez. Mueve todos los sitios juntos: {command}",
+    },
+    protection: {
+      text: "{directive} (línea {line}) protege el sitio, y {target} no tiene nada equivalente",
+      hint: "El sitio nuevo no quedaría protegido así. Pon antes otra protección delante, o deja la aplicación donde está.",
+    },
+    rejected: {
+      text: "{target} no aceptó el sitio traducido de {domain}",
+      hint: "Su propio mensaje se muestra tal cual. No se cambió nada: corrige lo que nombra en el sitio de {source}, o deja la aplicación donde está.",
+    },
+    status_site: {
+      text: "{domain} es el nombre público de la página de estado, que Noust solo monta detrás de nginx",
+      hint: "Quítalo antes con {command}, o deja el servidor web como está.",
+    },
+    target_missing: {
+      text: "{target} no está instalado en este servidor",
+      hint: "Instálalo primero y planifica el cambio de nuevo: {command}",
+    },
+    tuning: {
+      text: "{directive} (línea {line}) ajusta {source} y se deja fuera",
+    },
+    unanswered: {
+      text: "{domain} no respondió a través de {target}",
+      hint: "Lo que se probó y lo que dijo la unidad de la aplicación se muestra tal cual. Todo se dejó como estaba: {source} vuelve a servir los sitios.",
+    },
+    unknown: {
+      text: "{domain} no es ni una aplicación ni un sitio detrás de {source}",
+      hint: "Mira qué hay detrás de cada servidor web con: {command}",
+    },
+    unreadable: {
+      text: "{source} no leería este sitio: {problem} (línea {line})",
+      hint: "Corrige el sitio donde está, con el editor de su página, y planifica el cambio de nuevo.",
+    },
+    unsupported: {
+      text: "{directive} (línea {line}) no tiene equivalente en {target}",
+      hint: "El sitio nuevo no hará lo que hacía esa línea. Revisa el sitio después del cambio, o deja la aplicación donde está.",
+    },
+    variable: {
+      text: "{directive} (línea {line}) lee {variable}, que {target} no puede dar",
+      hint: "El sitio nuevo enviaría otra cosa en su lugar. Revísalo después del cambio, o deja la aplicación donde está.",
+    },
+    zero_downtime: {
+      text: "{domain} funciona en modo sin cortes, que solo admite nginx",
+      hint: "Apaga antes el modo y planifica el cambio de nuevo: {command}",
+    },
+  },
 };
