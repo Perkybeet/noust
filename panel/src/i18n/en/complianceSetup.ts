@@ -79,6 +79,9 @@ export const complianceSetup = {
     change: "Change…",
     noPermission: "Your role cannot change security settings.",
     checkOnly: "Judged by the compliance check: nothing refuses it",
+    groupSummary: "{on} of {total} strict",
+    ownNotCounted: "Nobody chose this number: it is the default, and it limits nothing until a framework asks for it or you choose one.",
+    choose: "Choose",
     changed: "{name} changed",
     group: {
       access: "Access and accounts",

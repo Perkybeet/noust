@@ -4,15 +4,15 @@ import type { Catalog } from "../types";
 export const complianceSetup: Catalog<typeof en> = {
   title: "Cumplimiento",
   description:
-    "Los marcos activan los controles que ayudan con una norma. Nada está activo hasta que lo eliges, y pueden estar varios a la vez: cada control toma el valor más estricto que pida cualquiera de ellos.",
+    "Las normativas activan los controles que ayudan a cumplir una norma. Nada está activo hasta que la eliges, y pueden estar varias a la vez: cada control toma el valor más estricto que pida cualquiera de ellas.",
   honest:
-    "Un marco activa controles técnicos. No hace que un servidor cumpla: lo organizativo es tuyo, y solo un auditor puede decir el resto.",
+    "Una normativa activa controles técnicos. No hace que un servidor cumpla: lo organizativo es tuyo, y solo un auditor puede decir el resto.",
   loadFailed: "No se pudo leer la configuración de cumplimiento",
   loading: "Cargando la configuración de cumplimiento",
   frameworks: {
-    title: "Marcos",
+    title: "Normativas",
     description:
-      "Activa uno para encender los controles que nombra. Antes de confirmar ves qué cambia y qué cláusula cumple cada control.",
+      "Activa una para encender los controles que nombra. Antes de confirmar ves qué cambia y qué cláusula cumple cada control.",
     on: "Activado",
     off: "Desactivado",
     viaProfile: "Activo por security.profile",
@@ -52,7 +52,7 @@ export const complianceSetup: Catalog<typeof en> = {
     disableTitle: "Desactivar {name}",
     enableLead: "Esto es lo que cambia en este servidor.",
     disableLead:
-      "La protección baja. Lo que este marco forzaba vuelve al valor por defecto, o a lo que otro marco o tu propio ajuste sigan pidiendo.",
+      "La protección baja. Lo que esta normativa forzaba vuelve al valor por defecto, o a lo que otra normativa o tu propio ajuste sigan pidiendo.",
     nothing: "Ningún control cambia de valor.",
     planning: "Calculando qué cambia",
     planFailed: "No se pudo calcular qué cambia",
@@ -79,11 +79,14 @@ export const complianceSetup: Catalog<typeof en> = {
   controls: {
     title: "Controles",
     description:
-      "Cada control tiene su propio ajuste. Un marco activo bloquea los controles que pide en su valor o en uno más estricto; siempre puedes endurecer uno más.",
+      "Cada control tiene su propio ajuste. Una normativa activa bloquea los controles que pide en su valor o en uno más estricto; siempre puedes endurecer uno más.",
     lockedBy: "Lo exige {names}",
     change: "Cambiar…",
     noPermission: "Tu rol no puede cambiar los ajustes de seguridad.",
     checkOnly: "Lo juzga la comprobación de cumplimiento: nada lo rechaza",
+    groupSummary: "{on} de {total} estrictos",
+    ownNotCounted: "Nadie eligió este número: es el valor por defecto y no limita nada hasta que lo pida una normativa o elijas uno.",
+    choose: "Elegir",
     changed: "{name} cambiado",
     group: {
       access: "Acceso y cuentas",
@@ -95,7 +98,7 @@ export const complianceSetup: Catalog<typeof en> = {
       title: "Cambiar {name}",
       value: "Valor",
       noLimit: "Sin límite",
-      stricter: "Un marco pide {floor} o más estricto.",
+      stricter: "Una normativa pide {floor} o más estricto.",
       failed: "No se pudo cambiar el control",
     },
   },

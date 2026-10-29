@@ -9,7 +9,7 @@ export const compliance: Catalog<typeof en> = {
     na: "No aplica",
   },
   families: {
-    org: "Marco organizativo",
+    org: "Medidas organizativas",
     opPl: "Planificación",
     opAcc: "Control de acceso",
     opExp: "Explotación",

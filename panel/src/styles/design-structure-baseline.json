@@ -35,7 +35,7 @@
       "features/cron/CronJobDialog.tsx": 2,
       "features/promotion/CloneDialog.tsx": 1,
       "features/server/storage/CleanupScheduleCard.tsx": 2,
-      "features/settings/accounts/InviteDialog.tsx": 3,
+      "features/settings/accounts/InviteDialog.tsx": 2,
       "features/settings/AutoUpdateSection.tsx": 1,
       "features/settings/CreateTokenDialog.tsx": 1
     },
@@ -73,8 +73,7 @@
       "features/app/diagnose/DiagnoseTab.tsx": 2
     },
     "notice-info-bare": {
-      "features/activity/ActivityPage.tsx": 1,
-      "features/auth/ResetPasswordPage.tsx": 1
+      "features/activity/ActivityPage.tsx": 1
     },
     "notice-long": {
       "features/catalog/RecipeUpdateDialog.tsx": 1
@@ -83,16 +82,12 @@
       "features/app/AppBanner.tsx": 1,
       "features/app/deployments/DeploymentPage.tsx": 1,
       "features/app/upload/ArchiveUpload.tsx": 1,
-      "features/auth/LoginForm.tsx": 1,
-      "features/auth/PasskeysSection.tsx": 1,
-      "features/auth/ResetPasswordPage.tsx": 1
+      "features/auth/PasskeysSection.tsx": 1
     },
     "notice-success": {
       "features/app/deployments/DeploymentActions.tsx": 1,
       "features/app/upload/ArchiveUpload.tsx": 1,
       "features/app/upload/PasteDockerfile.tsx": 1,
-      "features/auth/ResetPasswordPage.tsx": 2,
-      "features/new-app/RemoteImport.tsx": 1,
       "features/settings/accounts/InviteDialog.tsx": 1
     },
     "own-back-link": {},
@@ -174,8 +169,6 @@
       "features/services/useServiceActions.ts": 2,
       "features/settings/access/GrantDialog.tsx": 1,
       "features/settings/access/GrantsSection.tsx": 1,
-      "features/settings/access/RoleDrawer.tsx": 1,
-      "features/settings/access/RolesSection.tsx": 1,
       "features/settings/accounts/AccessReview.tsx": 1,
       "features/settings/accounts/AccountDialogs.tsx": 3,
       "features/settings/accounts/AccountsSettings.tsx": 1,

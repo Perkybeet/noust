@@ -2,7 +2,6 @@
 export const settings = {
   page: {
     title: "Settings",
-    description: "How Noust runs on this machine and who can reach the console.",
   },
   shared: {
     required: "Required",
@@ -418,6 +417,7 @@ export const settings = {
       },
     },
     email: {
+      removeDescription: "Alerts stop arriving by email, and so do invitations and password-reset links, which are mailed through this account. Its password is deleted from this server.",
       label: "Email",
       description: "Sent through your SMTP server. The resource monitor's reports use the same account.",
       noun: "the email settings",

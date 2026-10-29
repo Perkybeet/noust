@@ -86,7 +86,6 @@ function FrameworkRow({ framework, state, canManage, onChange }: FrameworkRowPro
       as="section"
       title={framework.name}
       status={<StatusPill state={framework.enabled ? "running" : "stopped"} label={stateLabel(t, framework)} size="sm" />}
-      description={frameworkSummary(t, framework)}
       actions={
         canManage ? (
           <Button
@@ -114,6 +113,8 @@ function FrameworkRow({ framework, state, canManage, onChange }: FrameworkRowPro
           <span className="text-12 text-fg-faint">{framework.reference}</span>
         </div>
         <Disclosure label={t("complianceSetup.frameworks.show")}>
+          {/* What the framework is, said when it is opened: nine cards with a paragraph each were a page of reading (word budget). */}
+          <p className="mb-3 max-w-measure text-13 text-pretty text-fg-muted">{frameworkSummary(t, framework)}</p>
           <WhatItTurnsOn framework={framework} state={state} />
         </Disclosure>
       </div>

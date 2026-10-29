@@ -32,6 +32,19 @@ function approversOf(t: T, approvers: readonly string[] | undefined): string {
   return (approvers ?? ["security"]).map((role) => roleLabel(t, role)).join(", ");
 }
 
+/**
+ * Which control asks for a second person and where it is turned off: the owner, who holds every permission,
+ * reads a request for approval as a problem with their permissions, and it is not: a control that applies to
+ * everyone asks (item 96 of the 4.1 review).
+ */
+function WhyAsked() {
+  const t = useT();
+  return (
+    // Words and not a link: this dialog is mounted above the router, which a link needs.
+    <p className="text-12 text-pretty text-fg-muted">{t("approvals.dialog.whyAsked", { where: `${t("nav.settings.label")} > ${t("nav.screens.controls.label")}` })}</p>
+  );
+}
+
 /** Asking why: the server files nothing without a reason. */
 function ReasonStep({ prompt }: { prompt: Extract<ApprovalPrompt, { kind: "reason" }> }) {
   const t = useT();
@@ -73,6 +86,7 @@ function ReasonStep({ prompt }: { prompt: Extract<ApprovalPrompt, { kind: "reaso
         <p className="text-13 text-fg-muted">
           {t.rich("approvals.dialog.theCall", { call: <CallLine key="call" method={prompt.call.method} target={prompt.call.target} /> })}
         </p>
+        <WhyAsked />
         <Field label={t("approvals.dialog.reasonLabel")} description={t("approvals.dialog.reasonHint")} error={missing ? t("approvals.dialog.reasonMissing") : null}>
           <Textarea
             rows={3}
@@ -166,6 +180,7 @@ function RequestedStep({ prompt }: { prompt: Extract<ApprovalPrompt, { kind: "re
           </div>
         ) : null}
         {state === "requested" ? <p className="text-13 text-fg-muted">{t("approvals.dialog.leaveNote")}</p> : null}
+        {state === "requested" ? <WhyAsked /> : null}
         {query.isError ? <ErrorBlock compact error={query.error} title={t("approvals.dialog.loadFailed")} onRetry={() => void query.refetch()} /> : null}
       </div>
     </Dialog>

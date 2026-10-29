@@ -7,10 +7,11 @@ import { changeCompliance, complianceKeys, planCompliance } from "../../../api/q
 import type { ComplianceChange, ComplianceControl, CompliancePlan, ComplianceState } from "../../../api/queries/compliance";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section } from "../../../components/page/Section";
-import { SettingsGroup } from "../../../components/page/SettingsGroup";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
+import { Disclosure } from "../../../components/ui/Disclosure";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Select } from "../../../components/ui/Select";
 import { Setting } from "../../../components/ui/Setting";
@@ -175,7 +176,7 @@ function ControlRow({ control, state, canManage, busy, onFlag, onEdit }: Control
                 onEdit(control);
               }}
             >
-              {t("complianceSetup.controls.change")}
+              {control.own_counts || control.locked ? t("complianceSetup.controls.change") : t("complianceSetup.controls.choose")}
             </Button>
           ) : null}
         </span>
@@ -186,6 +187,9 @@ function ControlRow({ control, state, canManage, busy, onFlag, onEdit }: Control
           <LockedMark />
           {t("complianceSetup.controls.lockedBy", { names: lockedBy(state.frameworks, control) })}
         </p>
+      ) : !control.own_counts ? (
+        // A `when_forced` number holds a default in every file: it is not a choice until somebody makes one.
+        <InlineMessage tone="info">{t("complianceSetup.controls.ownNotCounted")}</InlineMessage>
       ) : undefined}
     </Setting>
   );
@@ -228,7 +232,16 @@ export function ControlsSection({ state, canManage }: { state: ComplianceState; 
         const rows = inGroup(state.controls, group);
         if (rows.length === 0) return null;
         return (
-          <SettingsGroup key={group} level={4} title={t(`complianceSetup.controls.group.${group}` as PlainKey)}>
+          // Each group is folded to a line that says how many of its controls are strict: the page was five thousand
+          // pixels of rows nobody scans (NV-9); a group with a control being changed stays open.
+          <Disclosure
+            key={group}
+            variant="card"
+            label={t(`complianceSetup.controls.group.${group}` as PlainKey)}
+            summary={t("complianceSetup.controls.groupSummary", { on: rows.filter((control) => control.enabled).length, total: rows.length })}
+            defaultOpen={flip.isPending && rows.some((control) => control.id === flip.variables.control.id)}
+          >
+            <div className="-mx-4 flex flex-col divide-y divide-border">
             {rows.map((control) => (
               <ControlRow
                 key={control.id}
@@ -242,7 +255,8 @@ export function ControlsSection({ state, canManage }: { state: ComplianceState; 
                 onEdit={setEditing}
               />
             ))}
-          </SettingsGroup>
+            </div>
+          </Disclosure>
         );
       })}
       {editing !== null ? (
