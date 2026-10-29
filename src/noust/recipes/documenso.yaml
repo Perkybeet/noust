@@ -1,0 +1,198 @@
+# Documenso: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/documenso.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: documenso
+kind: compose
+title: "Documenso"
+slogan: "Document signing, finally open source"
+description: "Documenso is the open source alternative to DocuSign for signing documents digitally"
+category: files
+tags: [signing, opensource, document, pdf, e-signature, digital-signature, document-signing, pdf-signing]
+logo: logo.svg
+version: "1.12.10"
+revision: 1
+updated: 2026-10-28
+homepage: https://documenso.com
+docs: https://docs.documenso.com/
+repository: https://github.com/documenso/documenso
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_DOCUMENSO:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_BASE64_AUTHSECRET:
+    generate: "base64_32"
+    secret: true
+    description: "The secret Noust generated for authsecret."
+  SERVICE_BASE64_ENCRYPTIONKEY:
+    generate: "base64_32"
+    secret: true
+    description: "The secret Noust generated for encryptionkey."
+  SERVICE_BASE64_SECONDARYENCRYPTIONKEY:
+    generate: "base64_32"
+    secret: true
+    description: "The secret Noust generated for secondaryencryptionkey."
+  NEXT_PRIVATE_RESEND_API_KEY:
+    default: ""
+    secret: true
+    description: "Setting NEXT_PRIVATE_RESEND_API_KEY of the application; the template leaves it to the operator."
+  NEXT_PRIVATE_SMTP_TRANSPORT:
+    default: ""
+    description: "Setting NEXT_PRIVATE_SMTP_TRANSPORT of the application; the template leaves it to the operator."
+  NEXT_PRIVATE_SMTP_HOST:
+    default: ""
+    description: "Setting NEXT_PRIVATE_SMTP_HOST of the application; the template leaves it to the operator."
+  NEXT_PRIVATE_SMTP_PORT:
+    default: ""
+    description: "Setting NEXT_PRIVATE_SMTP_PORT of the application; the template leaves it to the operator."
+  NEXT_PRIVATE_SMTP_USERNAME:
+    default: ""
+    description: "Setting NEXT_PRIVATE_SMTP_USERNAME of the application; the template leaves it to the operator."
+  NEXT_PRIVATE_SMTP_PASSWORD:
+    default: ""
+    secret: true
+    description: "Setting NEXT_PRIVATE_SMTP_PASSWORD of the application; the template leaves it to the operator."
+  NEXT_PRIVATE_SMTP_FROM_NAME:
+    default: ""
+    description: "Setting NEXT_PRIVATE_SMTP_FROM_NAME of the application; the template leaves it to the operator."
+  NEXT_PRIVATE_SMTP_FROM_ADDRESS:
+    default: ""
+    description: "Setting NEXT_PRIVATE_SMTP_FROM_ADDRESS of the application; the template leaves it to the operator."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_PASSWORD_DOCUMENSO:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for documenso."
+  CERT_INFO_COUNTRY_NAME:
+    default: "DO"
+    description: "Setting CERT_INFO_COUNTRY_NAME of the application; the template leaves it to the operator."
+  CERT_INFO_STATE_OR_PROVIDENCE:
+    default: "Santiago"
+    description: "Setting CERT_INFO_STATE_OR_PROVIDENCE of the application; the template leaves it to the operator."
+  CERT_INFO_LOCALITY_NAME:
+    default: "Santiago"
+    description: "Setting CERT_INFO_LOCALITY_NAME of the application; the template leaves it to the operator."
+  CERT_INFO_EMAIL:
+    default: "example@gmail.com"
+    description: "Setting CERT_INFO_EMAIL of the application; the template leaves it to the operator."
+  CERT_INFO_ORGANIZATION_NAME:
+    default: ""
+    description: "Setting CERT_INFO_ORGANIZATION_NAME of the application; the template leaves it to the operator."
+  CERT_INFO_ORGANIZATIONAL_UNIT:
+    default: ""
+    description: "Setting CERT_INFO_ORGANIZATIONAL_UNIT of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    documenso:
+      image: documenso/documenso:v1.12.10@sha256:6fbacc87991ff8f4294980f3c6b3913c1f3a042e2a12834606e9fed63870b68a
+      depends_on:
+        database:
+          condition: service_healthy
+      environment:
+        SERVICE_URL_DOCUMENSO: ${SERVICE_URL_DOCUMENSO}
+        NEXTAUTH_URL: ${SERVICE_URL_DOCUMENSO}
+        NEXTAUTH_SECRET: ${SERVICE_BASE64_AUTHSECRET}
+        NEXT_PRIVATE_ENCRYPTION_KEY: ${SERVICE_BASE64_ENCRYPTIONKEY}
+        NEXT_PRIVATE_ENCRYPTION_SECONDARY_KEY: ${SERVICE_BASE64_SECONDARYENCRYPTIONKEY}
+        NEXT_PUBLIC_WEBAPP_URL: ${SERVICE_URL_DOCUMENSO}
+        NEXT_PRIVATE_RESEND_API_KEY: ${NEXT_PRIVATE_RESEND_API_KEY}
+        NEXT_PRIVATE_SMTP_TRANSPORT: ${NEXT_PRIVATE_SMTP_TRANSPORT}
+        NEXT_PRIVATE_SMTP_HOST: ${NEXT_PRIVATE_SMTP_HOST}
+        NEXT_PRIVATE_SMTP_PORT: ${NEXT_PRIVATE_SMTP_PORT}
+        NEXT_PRIVATE_SMTP_USERNAME: ${NEXT_PRIVATE_SMTP_USERNAME}
+        NEXT_PRIVATE_SMTP_PASSWORD: ${NEXT_PRIVATE_SMTP_PASSWORD}
+        NEXT_PRIVATE_SMTP_FROM_NAME: ${NEXT_PRIVATE_SMTP_FROM_NAME}
+        NEXT_PRIVATE_SMTP_FROM_ADDRESS: ${NEXT_PRIVATE_SMTP_FROM_ADDRESS}
+        NEXT_PRIVATE_DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@database/${POSTGRES_DB:-documenso-db}?schema=public
+        NEXT_PRIVATE_DIRECT_DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@database/${POSTGRES_DB:-documenso-db}?schema=public
+        NEXT_PRIVATE_SIGNING_LOCAL_FILE_PATH: /app/certs/cert.p12
+        NEXT_PRIVATE_SIGNING_PASSPHRASE: ${SERVICE_PASSWORD_DOCUMENSO}
+        NEXT_PRIVATE_SIGNING_TRANSPORT: local
+        NEXT_PRIVATE_SIGNING_LOCAL_FILE_PASSPHRASE: ${SERVICE_PASSWORD_DOCUMENSO}
+        CERT_VALID_DAYS: ${CERT_VALID_DAYS:-365}
+        CERT_INFO_COUNTRY_NAME: ${CERT_INFO_COUNTRY_NAME:-DO}
+        CERT_INFO_STATE_OR_PROVIDENCE: ${CERT_INFO_STATE_OR_PROVIDENCE:-Santiago}
+        CERT_INFO_LOCALITY_NAME: ${CERT_INFO_LOCALITY_NAME:-Santiago}
+        CERT_INFO_ORGANIZATION_NAME: ${CERT_INFO_ORGANIZATION_NAME:-Example INC}
+        CERT_INFO_ORGANIZATIONAL_UNIT: ${CERT_INFO_ORGANIZATIONAL_UNIT:-IT Department}
+        CERT_INFO_EMAIL: ${CERT_INFO_EMAIL:-example@gmail.com}
+        NEXT_PUBLIC_DISABLE_SIGNUP: ${DISABLE_LOGIN:-false}
+        SERVICE_PASSWORD_DOCUMENSO: ${SERVICE_PASSWORD_DOCUMENSO:-}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - wget -q -O - http://documenso:3000/ | grep -q 'Sign in to your account'
+        interval: 2s
+        timeout: 10s
+        retries: 20
+      entrypoint:
+        - /bin/sh
+        - -c
+        - "CERT_PASSPHRASE=\"$${NEXT_PRIVATE_SIGNING_LOCAL_FILE_PASSPHRASE}\"\nPASSPHRASE_FILE=\"/tmp/cert_passphrase\"\
+          \n\n# Save original working directory\nORIGINAL_DIR=\"$$(pwd)\"\n\n# Find openssl binary (should\
+          \ be available in v1.12.10+)\nOPENSSL_CMD=\"$$(which openssl 2>/dev/null || command -v openssl\
+          \ 2>/dev/null || echo '/usr/bin/openssl')\"\n\n# Verify openssl is available\nif ! $$OPENSSL_CMD\
+          \ version >/dev/null 2>&1; then\n  echo \"Error: OpenSSL not found. Please use Documenso image\
+          \ v1.12.10 or later.\"\n  exit 1\nfi\n\n# Create certificate directory - use /app/certs (writable\
+          \ by user 1001)\nCERT_DIR=\"/app/certs\"\nmkdir -p \"$$CERT_DIR\" || {\n  # Fallback to tmp if\
+          \ app directory not writable\n  CERT_DIR=\"/tmp/certs\"\n  mkdir -p \"$$CERT_DIR\"\n  echo \"\
+          Warning: Using fallback directory: $$CERT_DIR\"\n}\n\n# Create passphrase file for secure handling\
+          \ (prevents exposure in process list)\n# This avoids shell word-splitting issues and prevents\
+          \ passphrase from appearing in ps/process list\necho -n \"$$CERT_PASSPHRASE\" > \"$$PASSPHRASE_FILE\"\
+          \nchmod 600 \"$$PASSPHRASE_FILE\"\n\ntouch /tmp/cert_info_path\ncat <<EOF > /tmp/cert_info_path\n\
+          [ req ]\ndistinguished_name = req_distinguished_name\nprompt = no\n[ req_distinguished_name ]\n\
+          C            = ${CERT_INFO_COUNTRY_NAME}\nST           = ${CERT_INFO_STATE_OR_PROVIDENCE}\nL \
+          \           = ${CERT_INFO_LOCALITY_NAME}\nO            = ${CERT_INFO_ORGANIZATION_NAME}\nOU  \
+          \         = ${CERT_INFO_ORGANIZATIONAL_UNIT}\nCN           = ${SERVICE_URL_DOCUMENSO}\nemailAddress\
+          \ = ${CERT_INFO_EMAIL}\nEOF\n\ncd \"$$CERT_DIR\"\n\n$$OPENSSL_CMD genrsa -out private.key 2048\n\
+          \n$$OPENSSL_CMD req \\\n  -new \\\n  -x509 \\\n  -key private.key \\\n  -out certificate.crt \\\
+          \n  -days $${CERT_VALID_DAYS} \\\n  -config /tmp/cert_info_path\n\n# Create P12 certificate using\
+          \ file-based passphrase (prevents exposure in process list)\n# Private key is not encrypted, so\
+          \ we only need -passout (not -passin)\n$$OPENSSL_CMD pkcs12 \\\n  -export \\\n  -out cert.p12\
+          \ \\\n  -inkey private.key \\\n  -in certificate.crt \\\n  -legacy \\\n  -passout file:\"$$PASSPHRASE_FILE\"\
+          \n\n# Clean up passphrase file immediately after use\nrm -f \"$$PASSPHRASE_FILE\"\n\n# Set permissions\
+          \ (may fail if not root, but will work in Coolify)\nchown 1001:1001 cert.p12 private.key certificate.crt\
+          \ 2>/dev/null || true\nchmod 400 cert.p12 private.key certificate.crt\n\n# Update environment\
+          \ variable if directory changed\nif [ \"$$CERT_DIR\" != \"/app/certs\" ]; then\n  export NEXT_PRIVATE_SIGNING_LOCAL_FILE_PATH=\"\
+          $$CERT_DIR/cert.p12\"\nfi\n\n# Return to original directory before starting application\ncd \"\
+          $$ORIGINAL_DIR\"\n\n./start.sh\n"
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    database:
+      image: postgres:17@sha256:31ba9c94a03ada9988f2bb493a22a75eef3a185884533e5cdbcd498ea835b08f
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-documenso-db}
+      volumes:
+        - documenso_postgresql_data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    documenso_postgresql_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES and SERVICE_PASSWORD_DOCUMENSO in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume documenso_postgresql_data of this application: back it up before updating."

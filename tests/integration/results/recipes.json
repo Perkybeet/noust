@@ -1,10 +1,10 @@
 {
   "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
   "harness": "Ubuntu 24.04 with systemd and a Docker of its own (Dockerfile.systemd)",
-  "updated": "2026-10-29T03:19:56Z",
+  "updated": "2026-10-29T03:59:00Z",
   "totals": {
-    "pass": 192,
-    "fail": 10
+    "pass": 200,
+    "fail": 15
   },
   "results": [
     {
@@ -60,6 +60,25 @@
       "images_removed": 1,
       "attempts": 2,
       "first_attempt": "the health gate's request to / got conn:ConnectionResetError, the recipe expects 200-399"
+    },
+    {
+      "recipe": "anubis",
+      "version": "1.28.2",
+      "date": "2026-10-29T03:22:38Z",
+      "source": "dokploy",
+      "seconds": 187,
+      "result": "fail",
+      "gate": "/ -> 500 after 181s",
+      "gate_status": "500",
+      "unsteady": false,
+      "problems": [
+        "the health gate's request to / got 500, the recipe expects 200-399"
+      ],
+      "log_tail": ",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\nanubis-1  | {\"time\":\"2026-10-29T03:25:29.550103538Z\",\"level\":\"ERROR\",\"source\":{\"function\":\"github.com/TecharoHQ/anubis/lib.(*Server).maybeReverseProxy\",\"file\":\"github.com/TecharoHQ/anubis/lib/anubis.go\",\"line\":339},\"msg\":\"check failed\",\"subsystem\":\"anubis\",\"host\":\"127.0.0.1:18080\",\"method\":\"GET\",\"path\":\"/\",\"user_agent\":\"Python-urllib/3.12\",\"accept_language\":\"\",\"priority\":\"\",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\nanubis-1  | {\"time\":\"2026-10-29T03:25:34.564974408Z\",\"level\":\"ERROR\",\"source\":{\"function\":\"github.com/TecharoHQ/anubis/lib.(*Server).maybeReverseProxy\",\"file\":\"github.com/TecharoHQ/anubis/lib/anubis.go\",\"line\":339},\"msg\":\"check failed\",\"subsystem\":\"anubis\",\"host\":\"127.0.0.1:18080\",\"method\":\"GET\",\"path\":\"/\",\"user_agent\":\"Python-urllib/3.12\",\"accept_language\":\"\",\"priority\":\"\",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\nanubis-1  | {\"time\":\"2026-10-29T03:25:39.579342984Z\",\"level\":\"ERROR\",\"source\":{\"function\":\"github.com/TecharoHQ/anubis/lib.(*Server).maybeReverseProxy\",\"file\":\"github.com/TecharoHQ/anubis/lib/anubis.go\",\"line\":339},\"msg\":\"check failed\",\"subsystem\":\"anubis\",\"host\":\"127.0.0.1:18080\",\"method\":\"GET\",\"path\":\"/\",\"user_agent\":\"Python-urllib/3.12\",\"accept_language\":\"\",\"priority\":\"\",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\n",
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
     },
     {
       "recipe": "anythingllm",
@@ -237,6 +256,25 @@
       "first_attempt": "the health gate's request to / got 401, the recipe expects 200-399"
     },
     {
+      "recipe": "calibre-web",
+      "version": "2021.12.16",
+      "date": "2026-10-29T03:25:46Z",
+      "source": "coolify",
+      "seconds": 206,
+      "result": "fail",
+      "gate": "/ -> conn:ConnectionResetError after 181s",
+      "gate_status": "conn:ConnectionResetError",
+      "unsteady": true,
+      "problems": [
+        "the health gate's request to / got conn:ConnectionResetError, the recipe expects 200-399"
+      ],
+      "log_tail": "pm1 = ProxyGenerator()\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/scholarly/_proxy_generator.py\", line 54, in __init__\ncalibre-web-1  |     self._new_session()\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/scholarly/_proxy_generator.py\", line 417, in _new_session\ncalibre-web-1  |     'User-Agent': UserAgent().random,\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/fake_useragent/fake.py\", line 69, in __init__\ncalibre-web-1  |     self.load()\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/fake_useragent/fake.py\", line 75, in load\ncalibre-web-1  |     self.data = load_cached(\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/fake_useragent/utils.py\", line 250, in load_cached\ncalibre-web-1  |     update(path, use_cache_server=use_cache_server, verify_ssl=verify_ssl)\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/fake_useragent/utils.py\", line 245, in update\ncalibre-web-1  |     write(path, load(use_cache_server=use_cache_server, verify_ssl=verify_ssl))\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/fake_useragent/utils.py\", line 187, in load\ncalibre-web-1  |     ret = json.loads(get(\ncalibre-web-1  |   File \"/usr/local/lib/python3.8/dist-packages/fake_useragent/utils.py\", line 84, in get\ncalibre-web-1  |     raise FakeUserAgentError('Maximum amount of retries reached')\ncalibre-web-1  | fake_useragent.errors.FakeUserAgentError: Maximum amount of retries reached\n",
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "certmate",
       "version": "2.21.3",
       "date": "2026-10-29T03:02:24Z",
@@ -291,6 +329,23 @@
       "error_lines": 2,
       "rate_limited": false,
       "images_removed": 2
+    },
+    {
+      "recipe": "chroma",
+      "version": "1.0.15",
+      "date": "2026-10-29T03:32:32Z",
+      "source": "coolify",
+      "seconds": 44,
+      "result": "pass",
+      "gate": "/api/v2/heartbeat -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 404, the recipe expects 200-399"
     },
     {
       "recipe": "clickhouse",
@@ -592,6 +647,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "documenso",
+      "version": "1.12.10",
+      "date": "2026-10-29T03:45:33Z",
+      "source": "coolify",
+      "seconds": 116,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -931,6 +1001,23 @@
       "images_removed": 1
     },
     {
+      "recipe": "gel",
+      "version": "6",
+      "date": "2026-10-29T03:36:35Z",
+      "source": "dokploy",
+      "seconds": 60,
+      "result": "pass",
+      "gate": "/server/status/ready -> 200 after 20s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 404, the recipe expects 200-399"
+    },
+    {
       "recipe": "ghost",
       "version": "6.67.0",
       "date": "2026-10-28T22:51:50Z",
@@ -1235,6 +1322,26 @@
       "images_removed": 1
     },
     {
+      "recipe": "imgproxy",
+      "version": "1.28.2-alpine",
+      "date": "2026-10-29T03:56:48Z",
+      "source": "dokploy",
+      "seconds": 131,
+      "result": "fail",
+      "gate": "/ -> 502 after 46s",
+      "gate_status": "502",
+      "unsteady": true,
+      "problems": [
+        "noust-test-recetas-imgproxy-imgproxy-1 restarted 9 times",
+        "the health gate's request to / got 502, the recipe expects 200-399"
+      ],
+      "log_tail": " Invalid: 1fCbQzI5ny3JjBzcQKuhKkCK0PHR3pn7hv6k6hxme4lVgWsRmGNWH3WNo39SxbWl \nimgproxy-1  | \u001b[31mFATAL  \u001b[0m [2026-10-29T03:56:57Z] IMGPROXY_KEY expected to be hex-encoded strings. Invalid: 1fCbQzI5ny3JjBzcQKuhKkCK0PHR3pn7hv6k6hxme4lVgWsRmGNWH3WNo39SxbWl \nimgproxy-1  | \u001b[31mFATAL  \u001b[0m [2026-10-29T03:56:58Z] IMGPROXY_KEY expected to be hex-encoded strings. Invalid: 1fCbQzI5ny3JjBzcQKuhKkCK0PHR3pn7hv6k6hxme4lVgWsRmGNWH3WNo39SxbWl \nimgproxy-1  | \u001b[31mFATAL  \u001b[0m [2026-10-29T03:56:58Z] IMGPROXY_KEY expected to be hex-encoded strings. Invalid: 1fCbQzI5ny3JjBzcQKuhKkCK0PHR3pn7hv6k6hxme4lVgWsRmGNWH3WNo39SxbWl \nimgproxy-1  | \u001b[31mFATAL  \u001b[0m [2026-10-29T03:56:59Z] IMGPROXY_KEY expected to be hex-encoded strings. Invalid: 1fCbQzI5ny3JjBzcQKuhKkCK0PHR3pn7hv6k6hxme4lVgWsRmGNWH3WNo39SxbWl \nimgproxy-1  | \u001b[31mFATAL  \u001b[0m [2026-10-29T03:57:01Z] IMGPROXY_KEY expected to be hex-encoded strings. Invalid: 1fCbQzI5ny3JjBzcQKuhKkCK0PHR3pn7hv6k6hxme4lVgWsRmGNWH3WNo39SxbWl \nimgproxy-1  | \u001b[31mFATAL  \u001b[0m [2026-10-29T03:57:05Z] IMGPROXY_KEY expected to be hex-encoded strings. Invalid: 1fCbQzI5ny3JjBzcQKuhKkCK0PHR3pn7hv6k6hxme4lVgWsRmGNWH3WNo39SxbWl \nimgproxy-1  | \u001b[31mFATAL  \u001b[0m [2026-10-29T03:57:11Z] IMGPROXY_KEY expected to be hex-encoded strings. Invalid: 1fCbQzI5ny3JjBzcQKuhKkCK0PHR3pn7hv6k6hxme4lVgWsRmGNWH3WNo39SxbWl \nimgproxy-1  | \u001b[31mFATAL  \u001b[0m [2026-10-29T03:57:24Z] IMGPROXY_KEY expected to be hex-encoded strings. Invalid: 1fCbQzI5ny3JjBzcQKuhKkCK0PHR3pn7hv6k6hxme4lVgWsRmGNWH3WNo39SxbWl \n",
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
+    },
+    {
       "recipe": "immich",
       "version": "3.2.4",
       "date": "2026-10-28T23:10:08Z",
@@ -1418,6 +1525,23 @@
       "error_lines": 1,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "languagetool",
+      "version": "6.6",
+      "date": "2026-10-29T03:41:14Z",
+      "source": "dokploy",
+      "seconds": 66,
+      "result": "pass",
+      "gate": "/v2/languages -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 400, the recipe expects 200-399"
     },
     {
       "recipe": "leantime",
@@ -1904,6 +2028,21 @@
       "gate_status": "302",
       "unsteady": false,
       "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "onedev",
+      "version": "17.0.0",
+      "date": "2026-10-29T03:48:21Z",
+      "source": "coolify",
+      "seconds": 74,
+      "result": "pass",
+      "gate": "/ -> 200 after 15s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 9,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -2548,6 +2687,25 @@
       "images_removed": 1
     },
     {
+      "recipe": "silo",
+      "version": "RELEASE.2026-08-06T00-00-00Z",
+      "date": "2026-10-29T03:42:20Z",
+      "source": "dokploy",
+      "seconds": 192,
+      "result": "fail",
+      "gate": "/ -> 403 after 180s",
+      "gate_status": "403",
+      "unsteady": false,
+      "problems": [
+        "the health gate's request to / got 403, the recipe expects 200-399"
+      ],
+      "log_tail": "silo-1  | INFO: Formatting 1st pool, 1 set(s), 1 drives per set.\nsilo-1  | INFO: WARNING: Host local has more than 0 drives of set. A host failure will result in data becoming unavailable.\nsilo-1  | Silo Object Storage Server\nsilo-1  | Copyright: 2015-2025 MinIO, Inc.\nsilo-1  | Modifications: Copyright 2025-2026 PGSTY\nsilo-1  | License: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html\nsilo-1  | Version: RELEASE.2026-08-06T00-00-00Z (go1.26.5 linux/amd64)\nsilo-1  | \nsilo-1  | API: http://172.19.0.2:9000  http://127.0.0.1:9000 \nsilo-1  | WebUI: http://172.19.0.2:9001 http://127.0.0.1:9001  \nsilo-1  | \nsilo-1  | Docs: https://silo.pgsty.com/docs/\n",
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "silverbullet",
       "version": "2.12.1",
       "date": "2026-10-29T00:34:12Z",
@@ -2572,6 +2730,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "snipe-it",
+      "version": "8.7.1",
+      "date": "2026-10-29T03:49:36Z",
+      "source": "coolify",
+      "seconds": 91,
+      "result": "pass",
+      "gate": "/ -> 302 after 20s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -2788,6 +2961,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "unleash",
+      "version": "7.4.0",
+      "date": "2026-10-29T03:51:09Z",
+      "source": "dokploy",
+      "seconds": 54,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "upsnap",
       "version": "5",
       "date": "2026-10-29T02:18:22Z",
@@ -2923,6 +3111,23 @@
       "images_removed": 1
     },
     {
+      "recipe": "yourls",
+      "version": "1.9.2",
+      "date": "2026-10-29T03:55:40Z",
+      "source": "dokploy",
+      "seconds": 66,
+      "result": "pass",
+      "gate": "/health -> 307 after 5s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 403, the recipe expects 200-399"
+    },
+    {
       "recipe": "yuvomi",
       "version": "1.85.0",
       "date": "2026-10-29T02:47:52Z",
@@ -2932,6 +3137,26 @@
       "gate": "/ -> 200 after 5s",
       "gate_status": "200",
       "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "zitadel",
+      "version": "4.16.0",
+      "date": "2026-10-29T03:47:30Z",
+      "source": "dokploy",
+      "seconds": 50,
+      "result": "fail",
+      "gate": "/ -> conn:ConnectionResetError after 30s",
+      "gate_status": "conn:ConnectionResetError",
+      "unsteady": true,
+      "problems": [
+        "noust-test-recetas-zitadel-zitadel-1 restarted 9 times",
+        "the health gate's request to / got conn:ConnectionResetError, the recipe expects 200-399"
+      ],
+      "log_tail": "adel-1  | time=2026-10-29T03:48:20.165Z level=ERROR msg=\"migration failed\" stream=runtime version=v4.16.0 name=03_default_instance err.kind=InvalidArgument err.message=Errors.Instance.Domain.InvalidCharacter err.id=INST-S3v3w err.reportLocation.filePath=/home/runner/work/zitadel/zitadel/internal/command/instance_domain.go err.reportLocation.lineNumber=95 err.reportLocation.functionName=github.com/zitadel/zitadel/internal/command.setUpInstance.setupCustomDomain.(*Commands).addInstanceDomain.func2\nzitadel-1  | time=2026-10-29T03:48:20.168Z level=ERROR msg=\"migration failed\" stream=runtime version=v4.16.0 err.kind=InvalidArgument err.message=Errors.Instance.Domain.InvalidCharacter err.id=INST-S3v3w err.reportLocation.filePath=/home/runner/work/zitadel/zitadel/internal/command/instance_domain.go err.reportLocation.lineNumber=95 err.reportLocation.functionName=github.com/zitadel/zitadel/internal/command.setUpInstance.setupCustomDomain.(*Commands).addInstanceDomain.func2 name=03_default_instance\nzitadel-1  | time=2026-10-29T03:48:20.168Z level=ERROR+6 msg=\"setup failed, skipping cleanup\" stream=runtime version=v4.16.0 err.kind=InvalidArgument err.message=Errors.Instance.Domain.InvalidCharacter err.id=INST-S3v3w err.reportLocation.filePath=/home/runner/work/zitadel/zitadel/internal/command/instance_domain.go err.reportLocation.lineNumber=95 err.reportLocation.functionName=github.com/zitadel/zitadel/internal/command.setUpInstance.setupCustomDomain.(*Commands).addInstanceDomain.func2\n",
       "error_lines": 0,
       "transient": false,
       "rate_limited": false,

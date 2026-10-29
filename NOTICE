@@ -14,8 +14,10 @@ header which template it comes from and what was changed:
   src/noust/recipes/affine.yaml
   src/noust/recipes/anythingllm.yaml
   src/noust/recipes/babybuddy.yaml
+  src/noust/recipes/chroma.yaml
   src/noust/recipes/databasus.yaml
   src/noust/recipes/docling.yaml
+  src/noust/recipes/documenso.yaml
   src/noust/recipes/docuseal.yaml
   src/noust/recipes/dokuwiki.yaml
   src/noust/recipes/dozzle.yaml
@@ -40,6 +42,7 @@ header which template it comes from and what was changed:
   src/noust/recipes/marimo.yaml
   src/noust/recipes/mealie.yaml
   src/noust/recipes/once-campfire.yaml
+  src/noust/recipes/onedev.yaml
   src/noust/recipes/openobserve.yaml
   src/noust/recipes/outline.yaml
   src/noust/recipes/penpot.yaml
@@ -51,6 +54,7 @@ header which template it comes from and what was changed:
   src/noust/recipes/rabbitmq.yaml
   src/noust/recipes/rivet-engine.yaml
   src/noust/recipes/silverbullet.yaml
+  src/noust/recipes/snipe-it.yaml
   src/noust/recipes/weaviate.yaml
 
 Plausible Community Edition
@@ -114,10 +118,12 @@ and what was changed:
   src/noust/recipes/flaresolverr.yaml
   src/noust/recipes/flarum.yaml
   src/noust/recipes/flatnotes.yaml
+  src/noust/recipes/gel.yaml
   src/noust/recipes/go2rtc.yaml
   src/noust/recipes/grimoire.yaml
   src/noust/recipes/jellyseerr.yaml
   src/noust/recipes/komari-monitor.yaml
+  src/noust/recipes/languagetool.yaml
   src/noust/recipes/libredb-studio.yaml
   src/noust/recipes/lubelogger.yaml
   src/noust/recipes/mazanoke.yaml
@@ -140,9 +146,11 @@ and what was changed:
   src/noust/recipes/speedtest-tracker.yaml
   src/noust/recipes/steedos.yaml
   src/noust/recipes/trek.yaml
+  src/noust/recipes/unleash.yaml
   src/noust/recipes/upsnap.yaml
   src/noust/recipes/versitygw.yaml
   src/noust/recipes/victoriametrics.yaml
+  src/noust/recipes/yourls.yaml
   src/noust/recipes/yuvomi.yaml
 
 The tests of the Dokploy template converter also quote parts of templates. The licence:

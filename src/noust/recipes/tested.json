@@ -96,6 +96,11 @@
    "seconds": 110,
    "version": "4.18.0"
   },
+  "chroma": {
+   "date": "2026-10-29",
+   "seconds": 44,
+   "version": "1.0.15"
+  },
   "cloudbeaver": {
    "date": "2026-10-28",
    "seconds": 54,
@@ -191,6 +196,11 @@
    "seconds": 100,
    "version": "0.96.0"
   },
+  "documenso": {
+   "date": "2026-10-29",
+   "seconds": 116,
+   "version": "1.12.10"
+  },
   "docuseal": {
    "date": "2026-10-28",
    "seconds": 50,
@@ -285,6 +295,11 @@
    "date": "2026-10-28",
    "seconds": 35,
    "version": "5.37.0"
+  },
+  "gel": {
+   "date": "2026-10-29",
+   "seconds": 60,
+   "version": "6"
   },
   "ghost": {
    "date": "2026-10-28",
@@ -456,6 +471,11 @@
    "seconds": 138,
    "version": "1.12.5"
   },
+  "languagetool": {
+   "date": "2026-10-29",
+   "seconds": 66,
+   "version": "6.6"
+  },
   "leantime": {
    "date": "2026-10-28",
    "seconds": 77,
@@ -625,6 +645,11 @@
    "date": "2026-10-29",
    "seconds": 61,
    "version": "1.5.6"
+  },
+  "onedev": {
+   "date": "2026-10-29",
+   "seconds": 74,
+   "version": "17.0.0"
   },
   "open-design": {
    "date": "2026-10-28",
@@ -841,6 +866,11 @@
    "seconds": 46,
    "version": "3.8.7"
   },
+  "snipe-it": {
+   "date": "2026-10-29",
+   "seconds": 91,
+   "version": "8.7.1"
+  },
   "sonarr": {
    "date": "2026-10-29",
    "seconds": 43,
@@ -906,6 +936,11 @@
    "seconds": 53,
    "version": "30.2"
   },
+  "unleash": {
+   "date": "2026-10-29",
+   "seconds": 54,
+   "version": "7.4.0"
+  },
   "upsnap": {
    "date": "2026-10-29",
    "seconds": 36,
@@ -950,6 +985,11 @@
    "date": "2026-10-29",
    "seconds": 64,
    "version": "2.5.315"
+  },
+  "yourls": {
+   "date": "2026-10-29",
+   "seconds": 66,
+   "version": "1.9.2"
   },
   "yuvomi": {
    "date": "2026-10-29",

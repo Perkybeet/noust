@@ -1,0 +1,98 @@
+# Onedev: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/onedev.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: onedev
+kind: compose
+title: "Onedev"
+slogan: "Git server with CI/CD, kanban, and packages. Seamless integration. Unparalleled experience."
+description: "Git server with CI/CD, kanban, and packages. Seamless integration. Unparalleled experience."
+category: development
+tags: [git, scm, ci, cd, kanban, packages, devops, collaboration]
+logo: logo.svg
+version: "17.0.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://onedev.io
+docs: https://docs.onedev.io/
+repository: https://github.com/theonedev/onedev
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_ONEDEV:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_DATABASE:
+    generate: "user"
+    description: "The user name Noust generated for database."
+  SERVICE_PASSWORD_64_DATABASE:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for database."
+  SERVICE_USER_ONEDEV:
+    generate: "user"
+    description: "The user name Noust generated for onedev."
+  SERVICE_PASSWORD_ONEDEV:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for onedev."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    onedev:
+      image: 1dev/server:17.0.0@sha256:ab2541879d363857d2a5f6dae30d96d6be3a6dd2ea94924a1fe002c7a2ff8991
+      volumes:
+        - onedev-docker-sock:/var/run/docker.sock
+        - onedev-data:/opt/onedev
+      environment:
+        SERVICE_URL_ONEDEV: ${SERVICE_URL_ONEDEV}
+        hibernate_dialect: io.onedev.server.persistence.PostgreSQLDialect
+        hibernate_connection_driver_class: org.postgresql.Driver
+        hibernate_connection_url: jdbc:postgresql://postgres:5432/${POSTGRESQL_DATABASE:-onedev}
+        hibernate_connection_username: ${SERVICE_USER_DATABASE}
+        hibernate_connection_password: ${SERVICE_PASSWORD_64_DATABASE}
+        initial_user: ${SERVICE_USER_ONEDEV}
+        initial_password: ${SERVICE_PASSWORD_ONEDEV}
+        initial_email: ${ONEDEV_EMAIL:-mail@example.com}
+        initial_server_url: ${SERVICE_URL_ONEDEV}
+        initial_ssh_root_url: ${SSH_ROOT_URL:-ssh://changeme:22}
+      depends_on:
+        postgres:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - 'true'
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:6610
+    postgres:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      volumes:
+        - onedev-postgresql-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_DATABASE}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_DATABASE}
+        POSTGRES_DB: ${POSTGRESQL_DATABASE:-onedev}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    onedev-docker-sock:
+    onedev-data:
+    onedev-postgresql-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_DATABASE and SERVICE_PASSWORD_64_DATABASE and SERVICE_USER_ONEDEV and SERVICE_PASSWORD_ONEDEV in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes onedev-docker-sock, onedev-data, onedev-postgresql-data of this application: back them up before updating."

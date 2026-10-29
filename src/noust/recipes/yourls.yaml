@@ -1,0 +1,94 @@
+# YOURLS: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/yourls
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: yourls
+kind: compose
+title: "YOURLS"
+slogan: "🔗 The 𝘥𝘦 𝘧𝘢𝘤𝘵𝘰 standard, self hosted, powerful and customizable, URL shortener in PHP"
+description: "YOURLS (Your Own URL Shortener) is a set of PHP scripts that will allow you to run your own URL shortening service (a la TinyURL or Bitly)."
+category: utilities
+tags: [url-shortener, php, utilities]
+logo: logo.svg
+version: "1.9.2"
+revision: 1
+updated: 2026-10-28
+homepage: https://yourls.org
+docs: https://yourls.org/#documentation
+repository: https://github.com/YOURLS/YOURLS
+license: MIT
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  YOURLS_HOST:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  YOURLS_ADMIN_USER:
+    default: "admin"
+    description: "Setting YOURLS_ADMIN_USER of the application; the template leaves it to the operator."
+  YOURLS_ADMIN_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for yourls admin password."
+  MYSQL_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql password."
+  MYSQL_ROOT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql root password."
+health: {path: /health, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    yourls-app:
+      image: yourls:1.9.2@sha256:e55d4b812c0833a7529d267a43844957a9f8e6a9fedfd01d6d3ec4fa0eda61ec
+      environment:
+        YOURLS_SITE: https://${YOURLS_HOST}
+        YOURLS_USER: ${YOURLS_ADMIN_USER}
+        YOURLS_PASS: ${YOURLS_ADMIN_PASSWORD}
+        YOURLS_DB_HOST: yourls-mysql
+        YOURLS_DB_USER: yourls
+        YOURLS_DB_PASS: ${MYSQL_PASSWORD}
+        YOURLS_DB_NAME: yourls
+      volumes:
+        - yourls-data:/var/www/html
+      depends_on:
+        yourls-mysql:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+    yourls-mysql:
+      image: mysql:5.7@sha256:4bc6bc963e6d8443453676cae56536f4b8156d78bae03c0145cbe47c2aad73bb
+      environment:
+        MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+        MYSQL_DATABASE: yourls
+        MYSQL_USER: yourls
+        MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      volumes:
+        - yourls-mysql-data:/var/lib/mysql
+      healthcheck:
+        test:
+          - CMD
+          - mysqladmin
+          - ping
+          - -h
+          - localhost
+          - -u$$MYSQL_USER
+          - -p$$MYSQL_PASSWORD
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+  volumes:
+    yourls-data:
+    yourls-mysql-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes yourls-data, yourls-mysql-data of this application: back them up before updating."
