@@ -36,7 +36,6 @@ function brandColour(logo: LogoSlug): string {
  * The tile is not a button. A logo that is chosen sits inside what is (a recipe card).
  */
 export function LogoTile({ logo, size = "md", label = false, className }: LogoTileProps) {
-  const data = LOGOS[logo];
   const sizes = SIZES[size];
   return (
     <span
@@ -44,16 +43,38 @@ export function LogoTile({ logo, size = "md", label = false, className }: LogoTi
       data-logo={logo}
       className={cx("elev-carved-fine inline-flex shrink-0 items-center justify-center bg-bg-sunken", sizes.tile, className)}
     >
-      <svg
-        viewBox="0 0 24 24"
-        focusable="false"
-        className={sizes.mark}
-        // The brand's colour is data of the logo (logoData.ts), not a token: it is set through the CSSOM, which the policy allows.
-        style={{ color: brandColour(logo) }}
-        {...(label ? { role: "img", "aria-label": data.title } : { "aria-hidden": true })}
-      >
-        <path d={data.path} fill="currentColor" />
-      </svg>
+      <LogoMark logo={logo} label={label} className={sizes.mark} />
     </span>
+  );
+}
+
+export interface LogoMarkProps {
+  logo: LogoSlug;
+  /** Names the logo when it says what the thing is and no text beside it does. Without it the logo is decoration. */
+  label?: boolean;
+  /** The size: a `size-icon-*` utility, which a line of text or a list's rows are measured in. */
+  className?: string;
+}
+
+/**
+ * A real logo with no tile, in its brand's colour: for the line of a list that is about an engine or an
+ * application (the side column's engines), where a tile of 32px would be taller than its row. It is the
+ * mark of `LogoTile` and nothing else: an icon of the console's own is never drawn with this.
+ */
+export function LogoMark({ logo, label = false, className }: LogoMarkProps) {
+  const data = LOGOS[logo];
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      focusable="false"
+      data-slot="logo-mark"
+      data-logo={logo}
+      className={cx("shrink-0", className)}
+      // The brand's colour is data of the logo (logoData.ts), not a token: it is set through the CSSOM, which the policy allows.
+      style={{ color: brandColour(logo) }}
+      {...(label ? { role: "img", "aria-label": data.title } : { "aria-hidden": true })}
+    >
+      <path d={data.path} fill="currentColor" />
+    </svg>
   );
 }

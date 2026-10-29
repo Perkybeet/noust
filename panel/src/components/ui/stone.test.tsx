@@ -10,7 +10,7 @@ import { FleetCourses, isWell, planCourse } from "./FleetCourses";
 import type { FleetCourse, FleetCourseApp } from "./FleetCourses";
 import { HelpPopover } from "./HelpPopover";
 import { Illustration } from "./Illustration";
-import { LogoTile } from "./LogoTile";
+import { LogoMark, LogoTile } from "./LogoTile";
 import { LOGOS } from "./logos/logoData";
 import { SectionSwitch, SwitchedRegion } from "./SectionSwitch";
 import { StatusPill } from "./StatusPill";
@@ -130,6 +130,15 @@ describe("LogoTile", () => {
     expect(container.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     rerender(<LogoTile logo="ghost" label />);
     expect(screen.getByRole("img", { name: "Ghost" })).toBeInTheDocument();
+  });
+
+  it("has a mark with no tile for the line of a list, the same packaged logo", () => {
+    const { container } = render(<LogoMark logo="mariadb" className="size-icon-md" />);
+    const svg = container.querySelector("svg");
+    expect(svg).toHaveAttribute("aria-hidden", "true");
+    expect(svg).toHaveClass("size-icon-md");
+    expect(container.querySelector("path")?.getAttribute("d")).toBe(LOGOS.mariadb.path);
+    expect(container.querySelector("[data-slot='logo-tile']")).toBeNull();
   });
 
   it("is carved, in three sizes, and is the only tile", () => {

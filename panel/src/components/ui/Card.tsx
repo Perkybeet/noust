@@ -36,8 +36,25 @@ export interface CardProps {
    * parts hold the placeholders.
    */
   loading?: boolean;
+  /**
+   * The state of what the card holds, when it is not well: its ground and its edge take the
+   * state's (a database server whose support is ending is amber, one whose support ended is red).
+   * A card that is well stays stone, so the one that has colour is the one that is found. The
+   * state is also said in words and a glyph inside the card, never by the ground alone.
+   */
+  tone?: "warning" | "failed";
+  /**
+   * A real logo (`LogoTile`) at the start of the header, outside the text so it spans the title and the
+   * line under it. Only a logo goes here: the icon of an object is `icon`, and it stands bare.
+   */
+  leading?: ReactNode;
   className?: string;
 }
+
+const TONES = {
+  warning: "border-warn-border bg-warn-soft",
+  failed: "border-fail-border bg-fail-soft",
+} as const;
 
 const PADDING = {
   md: { alone: "p-5", underHeader: "px-5 pb-5", header: "px-5 pt-4 pb-3", footer: "px-5 py-3" },
@@ -63,6 +80,8 @@ export function Card({
   as: Element = "section",
   interactive = false,
   loading = false,
+  tone,
+  leading,
   className,
 }: CardProps) {
   const Heading = `h${level}` as const;
@@ -71,8 +90,10 @@ export function Card({
   return (
     <Element
       {...(loading ? { "aria-busy": true } : {})}
+      {...(tone !== undefined ? { "data-tone": tone } : {})}
       className={cx(
-        "elev-seated flex min-w-0 flex-col rounded-card border border-border bg-surface",
+        "elev-seated flex min-w-0 flex-col rounded-card border",
+        tone === undefined ? "border-border bg-surface" : TONES[tone],
         // A panel that is read does not move. One that opens something changes its tone, flat.
         interactive && "transition-colors duration-(--duration-press) ease-out hover:bg-surface-hover",
         className,
@@ -80,7 +101,8 @@ export function Card({
     >
       {hasHeader ? (
         <header className={cx("flex items-start justify-between gap-4", space.header)}>
-          <div className="min-w-0">
+          {leading}
+          <div className="min-w-0 flex-1">
             {status !== undefined ? (
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 {Icon !== undefined ? <Icon aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" /> : null}

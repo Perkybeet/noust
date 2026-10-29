@@ -40,6 +40,39 @@ describe("Card", () => {
     expect(screen.getByRole("contentinfo")).toContainElement(screen.getByRole("button", { name: "Save" }));
   });
 
+  it("tints its surface with the state of what it holds only when that is not well", () => {
+    const { container, rerender } = render(<Card title="MySQL 8.0">x</Card>);
+    expect(container.firstElementChild).toHaveClass("bg-surface", "border-border");
+    expect(container.firstElementChild).not.toHaveAttribute("data-tone");
+    rerender(
+      <Card title="MySQL 8.0" tone="warning">
+        x
+      </Card>,
+    );
+    expect(container.firstElementChild).toHaveClass("bg-warn-soft", "border-warn-border");
+    expect(container.firstElementChild).not.toHaveClass("bg-surface");
+    expect(container.firstElementChild).toHaveAttribute("data-tone", "warning");
+    rerender(
+      <Card title="MySQL 8.0" tone="failed">
+        x
+      </Card>,
+    );
+    expect(container.firstElementChild).toHaveClass("bg-fail-soft", "border-fail-border");
+  });
+
+  it("draws a real logo before the title and its description, outside the text, so it spans both lines", () => {
+    render(
+      <Card title="PostgreSQL 17" description="Support until Nov 2029" leading={<span data-testid="logo" />}>
+        x
+      </Card>,
+    );
+    const header = screen.getByRole("banner");
+    const logo = screen.getByTestId("logo");
+    expect(header.firstElementChild).toBe(logo);
+    expect(logo.nextElementSibling).toContainElement(screen.getByRole("heading", { name: "PostgreSQL 17" }));
+    expect(logo.nextElementSibling).toContainElement(screen.getByText("Support until Nov 2029"));
+  });
+
   it("titles with the subsection role, never a loose semibold", () => {
     render(<Card title="Resources">x</Card>);
     const heading = screen.getByRole("heading", { name: "Resources" });
