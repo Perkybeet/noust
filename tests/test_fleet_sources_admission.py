@@ -117,6 +117,55 @@ class TestACentralLeases:
         assert TOKEN not in response.text
 
 
+class TestACentralForwardsAnEvent:
+    EVENT = {
+        "kind": "push",
+        "delivery": "d-1",
+        "host": "github.com",
+        "default_branch": "main",
+        "event": {
+            "forge": "github",
+            "repository": "you/app",
+            "clone_url": "https://github.com/you/app.git",
+            "branch": "main",
+            "head_sha": "a" * 40,
+        },
+    }
+
+    def forward(self, app: Any, headers: dict[str, str]) -> Any:
+        return client_from(app).post("/api/sources/events", json=self.EVENT, headers=headers)
+
+    def test_a_central_at_the_deploy_scope_is_heard_when_the_ceiling_allows(
+        self, app: Any, fleet_token: str, store: NoustStore
+    ) -> None:
+        policy.set_access(policy.FleetAccess("deploy"), store=store)
+
+        response = self.forward(app, speaking(fleet_token))
+
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "ignored"
+
+    def test_a_node_that_lets_its_central_only_read_does_not_deploy_for_it(
+        self, app: Any, fleet_token: str, store: NoustStore
+    ) -> None:
+        policy.set_access(policy.FleetAccess("read"), store=store)
+
+        assert self.forward(app, speaking(fleet_token)).status_code == 403
+
+    def test_a_central_speaking_at_the_read_scope_cannot_deploy(
+        self, app: Any, fleet_token: str
+    ) -> None:
+        assert self.forward(app, speaking(fleet_token, "read")).status_code == 403
+
+    def test_the_master_token_is_not_a_central(self, app: Any) -> None:
+        master = str(get_token_manager().create_api_token("owner", scope="admin")["token"])
+
+        response = self.forward(app, fleet_headers(master))
+
+        assert response.status_code == 403
+        assert response.json()["coded"]["code"] == "sources.central_only"
+
+
 class TestNobodyElse:
     def test_the_master_token_is_not_a_central_and_leases_nothing(self, app: Any) -> None:
         master = str(get_token_manager().create_api_token("owner", scope="admin")["token"])

@@ -33,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -113,8 +114,13 @@ def _note_webhook_works() -> None:
         write_meta(webhook_active=True, webhook_url=url)
 
 
-def _queue_updates(
-    push: PushEvent, default_branch: str | None, delivery: str | None
+def queue_updates(
+    push: PushEvent,
+    default_branch: str | None,
+    delivery: str | None,
+    *,
+    hosts: Sequence[str] | None = None,
+    through: str = "the GitHub App",
 ) -> tuple[list[dict[str, Any]], list[QueueFullError], list[dict[str, Any]]]:
     """
     Queue the update of every application that follows a push.
@@ -122,13 +128,17 @@ def _queue_updates(
     The one way a push is queued, the application's own webhook's
     (:func:`noust.web.api.hooks.queue_push_update`): behind a build that is
     running, merged into an update that already waits, or refused when the
-    queue has no room.
+    queue has no room. A push that a central forwarded (``/api/sources/events``) is queued by
+    this very function.
 
     Args:
         push: The push.
         default_branch: The repository's default branch.
         delivery: The repository's default branch, and GitHub's delivery id,
             for the job's metadata.
+        hosts: The hosts whose repositories count; this server's GitHub integration's by default
+            (a central names the host its App is on).
+        through: What the delivery log says delivered it.
 
     Returns:
         ``domain`` and ``job_id`` of each job queued (or joined), why the
@@ -139,7 +149,7 @@ def _queue_updates(
     queued: list[dict[str, Any]] = []
     refused: list[QueueFullError] = []
     declined: list[dict[str, Any]] = []
-    for app in webhooks.apps_following(push, default_branch):
+    for app in webhooks.apps_following(push, default_branch, hosts):
         pushed = queue_push_update(
             app,
             app.domain,
@@ -147,7 +157,7 @@ def _queue_updates(
             branch=push.branch,
             delivery=delivery,
             description=f"GitHub push to {push.repository}@{push.branch}",
-            started=f"push to {push.repository}@{push.branch} through the GitHub App",
+            started=f"push to {push.repository}@{push.branch} through {through}",
             commit=push.head_sha,
             change=push.change,
         )
@@ -166,8 +176,8 @@ def _queue_updates(
     return queued, refused, declined
 
 
-def _queue_tag_updates(
-    event: TagEvent, delivery: str | None
+def queue_tag_updates(
+    event: TagEvent, delivery: str | None, *, hosts: Sequence[str] | None = None
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """
     Decide, for every application that follows tags in a repository, what a tag means.
@@ -175,6 +185,7 @@ def _queue_tag_updates(
     Args:
         event: The release or tag push.
         delivery: GitHub's delivery id.
+        hosts: The hosts whose repositories count; this server's GitHub integration's by default.
 
     Returns:
         The ``domain`` and ``job_id`` of each job queued, and the ``domain``
@@ -182,7 +193,7 @@ def _queue_tag_updates(
     """
     queued: list[dict[str, Any]] = []
     ignored: list[dict[str, Any]] = []
-    for app in webhooks.apps_following_tags(event):
+    for app in webhooks.apps_following_tags(event, hosts):
         result = queue_tag_update(app, event, provider="github-app", delivery=delivery)
         if result.job_id is not None:
             queued.append({"domain": app.domain, "job_id": result.job_id})
@@ -267,7 +278,7 @@ async def deliver(request: Request) -> JSONResponse:
     if event in ("push", "release"):
         announced = parse_tag_event("github", event, payload)
         if announced is not None:
-            queued, ignored = await run_in_threadpool(_queue_tag_updates, announced, delivery)
+            queued, ignored = await run_in_threadpool(queue_tag_updates, announced, delivery)
             if queued:
                 domains = ", ".join(job["domain"] for job in queued)
                 _record(request, "accepted", f"{event} of {announced.tag}: {domains}")
@@ -295,7 +306,7 @@ async def deliver(request: Request) -> JSONResponse:
             )
         repository = payload.get("repository")
         default = repository.get("default_branch") if isinstance(repository, dict) else None
-        jobs, refused, declined = await run_in_threadpool(_queue_updates, push, default, delivery)
+        jobs, refused, declined = await run_in_threadpool(queue_updates, push, default, delivery)
         if not jobs and refused:
             _record(
                 request,

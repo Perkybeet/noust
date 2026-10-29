@@ -1144,3 +1144,127 @@ class TestTheRouteOfAChannelOfTheFleet:
             )
             for entry in read:
                 assert re.fullmatch(r"[A-Za-z0-9*?._:/@-]{1,253}", entry), (field, entry)
+
+
+# ---------------------------------------------------------------------------
+# An event of a code host that a central forwards to a server
+# ---------------------------------------------------------------------------
+
+
+class TestTheEventsACentralForwards:
+    """What a server acts on comes from a repository's text, through a central it trusts to deploy."""
+
+    SHA = "a" * 40
+    PUSH = {
+        "forge": "github",
+        "repository": "you/app",
+        "clone_url": "https://github.com/you/app.git",
+        "branch": "main",
+        "head_sha": SHA,
+    }
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_branch_that_is_accepted_is_inert_as_an_argument_and_as_a_path(
+        self, value: str
+    ) -> None:
+        from noust.validators.forge_event import parse_forwarded_event
+
+        accepted, event = verdict(parse_forwarded_event, "push", {**self.PUSH, "branch": value})
+
+        if accepted:
+            assert re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9._/+@-]{0,254}", event.branch)
+            assert ".." not in event.branch and "//" not in event.branch
+            assert not event.branch.endswith(("/", ".", ".lock"))
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_repository_that_is_accepted_is_one_segment_pair_of_a_request_path(
+        self, value: str
+    ) -> None:
+        from noust.validators.forge_event import parse_forwarded_event
+
+        accepted, event = verdict(parse_forwarded_event, "push", {**self.PUSH, "repository": value})
+
+        if accepted:
+            owner, _, name = event.repository.partition("/")
+            assert owner and name and "/" not in name
+            assert owner.strip(".") and name.strip(".")
+            assert not CONTROL.search(event.repository)
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_commit_and_an_address_that_are_accepted_carry_nothing_but_their_alphabet(
+        self, value: str
+    ) -> None:
+        from noust.validators.forge_event import parse_forwarded_event
+
+        accepted, event = verdict(parse_forwarded_event, "push", {**self.PUSH, "head_sha": value})
+        if accepted:
+            assert re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", event.head_sha)
+        accepted, event = verdict(parse_forwarded_event, "push", {**self.PUSH, "clone_url": value})
+        if accepted:
+            assert event.clone_url.startswith("https://") and "@" not in event.clone_url
+            assert not CONTROL.search(event.clone_url) and " " not in event.clone_url
+
+    @SETTINGS
+    @given(value=HOSTILE, field=st.sampled_from(["title", "author", "sender", "head_message"]))
+    def test_the_free_text_of_a_pull_request_has_no_control_character(
+        self, value: str, field: str
+    ) -> None:
+        from noust.core.forge_events import PullRequestAction, PullRequestEvent, event_to_dict
+        from noust.validators.forge_event import parse_forwarded_event
+
+        base = event_to_dict(
+            PullRequestEvent(
+                forge=source_forge(),
+                action=PullRequestAction.OPENED,
+                repository="you/app",
+                clone_url="https://github.com/you/app.git",
+                number=1,
+                title="t",
+                branch="b",
+                base_branch="main",
+                head_sha=self.SHA,
+            )
+        )
+
+        accepted, event = verdict(parse_forwarded_event, "pull_request", {**base, field: value})
+
+        if accepted:
+            text = getattr(event, field)
+            # A commit message keeps its line breaks and a tab; nothing else that can end a line.
+            assert not re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", text)
+            if field != "head_message":
+                assert "\n" not in text and "\r" not in text
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p])
+    def test_the_payloads_that_beat_other_validators_are_refused_in_every_name_of_an_event(
+        self, payload: str
+    ) -> None:
+        from noust.validators.forge_event import parse_forwarded_event
+
+        for field in ("branch", "repository", "head_sha"):
+            accepted, _ = verdict(parse_forwarded_event, "push", {**self.PUSH, field: payload})
+            assert not accepted, (field, payload)
+
+    @SETTINGS
+    @given(
+        data=st.recursive(
+            st.none() | st.booleans() | st.integers() | st.text(max_size=20),
+            lambda c: st.lists(c, max_size=3) | st.dictionaries(st.text(max_size=8), c, max_size=4),
+            max_leaves=12,
+        )
+    )
+    def test_whatever_arrives_is_read_or_refused_and_never_crashes(self, data: Any) -> None:
+        from noust.validators.forge_event import parse_forwarded_event
+
+        for kind in ("push", "tag", "pull_request"):
+            verdict(parse_forwarded_event, kind, data)
+
+
+def source_forge() -> Any:
+    """The code host the events of these tests come from."""
+    from noust.core.forge_events import Forge
+
+    return Forge.GITHUB

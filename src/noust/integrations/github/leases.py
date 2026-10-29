@@ -65,6 +65,7 @@ __all__ = [
     "MAX_REPOSITORIES",
     "Lease",
     "SourceLeases",
+    "checked_host",
     "expired_error",
     "expired_sentence",
     "target_of",
@@ -220,7 +221,7 @@ def _checked_repositories(value: object) -> tuple[str, ...]:
     return tuple(sorted(found))
 
 
-def _checked_host(value: object) -> str:
+def checked_host(value: object) -> str:
     """
     Args:
         value: The GitHub host the token is for.
@@ -367,7 +368,7 @@ class SourceLeases:
             raise ValidationError(
                 f"Not an installation: {installation_id!r}", field="installation_id"
             )
-        wanted_host = _checked_host(host)
+        wanted_host = checked_host(host)
         covered = _checked_repositories(repositories)
         allowed = _checked_permissions(permissions)
         lifetime = _checked_lifetime(expires_in)

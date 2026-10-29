@@ -14,7 +14,7 @@ everything after them - an update, a preview - reads only these.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from enum import Enum
 from typing import Any
 from urllib.parse import urlsplit
@@ -779,3 +779,50 @@ def _release_event(
         installation_id=installation_id,
         skip=skip,
     )
+
+
+# -- An event as a central hands it to a server --------------------------------------------------
+
+#: The name of each kind of event, as the route that takes a forwarded one names it.
+EVENT_KINDS = ("push", "tag", "pull_request")
+
+
+def event_kind(event: PushEvent | TagEvent | PullRequestEvent) -> str:
+    """
+    Args:
+        event: An event of a code host.
+
+    Returns:
+        ``push``, ``tag`` or ``pull_request``.
+    """
+    if isinstance(event, PushEvent):
+        return "push"
+    if isinstance(event, TagEvent):
+        return "tag"
+    return "pull_request"
+
+
+def event_to_dict(event: PushEvent | TagEvent | PullRequestEvent) -> dict[str, Any]:
+    """
+    Write an event as plain JSON: what a central sends a server that deploys the repository.
+
+    Args:
+        event: An event of a code host.
+
+    Returns:
+        Every field, enums as their values and tuples as lists. The server reads it back with
+        :func:`noust.validators.forge_event.parse_forwarded_event`.
+    """
+    out: dict[str, Any] = {}
+    for item in fields(event):
+        value = getattr(event, item.name)
+        if isinstance(value, Enum):
+            value = value.value
+        elif isinstance(value, PushChange):
+            value = {
+                "messages": list(value.messages),
+                "files": None if value.files is None else list(value.files),
+                "messages_complete": value.messages_complete,
+            }
+        out[item.name] = value
+    return out

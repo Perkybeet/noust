@@ -153,7 +153,7 @@ def lease_out(lease: Lease, now: float | None = None) -> LeaseOut:
     )
 
 
-def _central_only(session: dict[str, Any]) -> str:
+def central_only(session: dict[str, Any]) -> str:
     """
     Args:
         session: The authenticated payload.
@@ -212,7 +212,7 @@ def hold_lease(body: LeaseIn, session: Session) -> LeaseOut:
         HTTPException: 403 ``central_only`` for anyone but a central.
         ValidationError: 400 when it is not a lease this server will keep.
     """
-    central = _central_only(session)
+    central = central_only(session)
     lease = SourceLeases().hold(
         central=central,
         key=body.key,
@@ -256,7 +256,7 @@ def drop_leases(
     Raises:
         HTTPException: 403 ``central_only`` for anyone but a central.
     """
-    central = _central_only(session)
+    central = central_only(session)
     dropped = SourceLeases().drop(central, key)
     if dropped:
         audit.record(

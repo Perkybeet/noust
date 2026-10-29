@@ -23,4 +23,5 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/sources/leases"): Permission.APPS_READ,
     ("PUT", "/api/sources/leases"): Permission.APPS_DEPLOY,
     ("DELETE", "/api/sources/leases"): Permission.APPS_DEPLOY,
+    ("POST", "/api/sources/events"): Permission.APPS_DEPLOY,
 }
