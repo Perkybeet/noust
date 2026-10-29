@@ -278,7 +278,12 @@ def seed_backup_destinations(sandbox: Sandbox, store: Any) -> None:
 
 
 def _destinations_copy_backups(
-    sandbox: Sandbox, domain: str, root: Path, *, remote_only_days: int | None = None
+    sandbox: Sandbox,
+    domain: str,
+    root: Path,
+    *,
+    remote_only_days: int | None = None,
+    link: bool = False,
 ) -> None:
     """
     Put copies of an application's local backups on a modelled remote.
@@ -289,6 +294,8 @@ def _destinations_copy_backups(
         root: The remote folder; the application's directory goes under it.
         remote_only_days: Instead of copying every local backup, write one more,
             this many days old, that exists nowhere but on the remote.
+        link: Link each archive instead of copying it: the product video's archives are
+            sparse files of a few hundred megabytes, and a copy would write every byte.
     """
     from noust.core.utils import domain_to_app_name
 
@@ -306,7 +313,10 @@ def _destinations_copy_backups(
             backup_id = f"{app_name}_{created.strftime('%Y%m%d_%H%M%S')}"
             metadata = {**metadata, "id": backup_id, "created_at": created.isoformat()}
             metadata["description"] = "Nightly backup"
-        shutil.copyfile(archive, target / f"{backup_id}.tar.gz")
+        if link:
+            os.link(archive, target / f"{backup_id}.tar.gz")
+        else:
+            shutil.copyfile(archive, target / f"{backup_id}.tar.gz")
         (target / f"{backup_id}.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
         stamp = created.timestamp()
         for name in (f"{backup_id}.tar.gz", f"{backup_id}.json"):

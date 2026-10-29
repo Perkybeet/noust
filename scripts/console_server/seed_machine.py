@@ -77,12 +77,37 @@ def seed_empty_machine(
     return units, {}, {}, []
 
 
+def _new_app_zones() -> tuple[str, ...]:
+    """
+    Returns:
+        The registrable domains of the applications the product video creates.
+    """
+    from tests.support.showcase_video import VIDEO_NEW_APPS
+
+    return tuple(sorted({".".join(domain.split(".")[-2:]) for domain in VIDEO_NEW_APPS}))
+
+
+def _has_due_certificate(state: Any) -> bool:
+    """
+    Args:
+        state: What the showcase seeded.
+
+    Returns:
+        Whether one of its certificates is meant to be close to expiry.
+    """
+    from tests.support.showcase_video import VIDEO_NODES
+
+    due = {app.domain for apps in VIDEO_NODES.values() for app in apps if app.cert_expires_soon}
+    return bool(due & set(state.cert_domains))
+
+
 def seed_machine(
     sandbox: Sandbox,
     *,
     expired_certificate: bool = False,
     showcase: bool = False,
     hostname: str | None = None,
+    profile: str = "docs",
 ) -> tuple[dict[str, Unit], dict[str, int], dict[str, str], list[str]]:
     """
     Seed the store, then the files and units that live beside it.
@@ -102,6 +127,10 @@ def seed_machine(
         hostname: With ``showcase``, which of :data:`tests.support.showcase.NODES` to seed
             (``--hostname``); the agency's main server when None, matching
             :func:`tests.support.showcase.seed_showcase_state`'s own default. Ignored otherwise.
+        profile: With ``showcase``, which of its datasets (``--profile``): "video" puts the
+            applications under the sandbox, on disk, so the video's deploys and updates run
+            (:mod:`scripts.console_server.video`), and seeds its nightly backups instead of the
+            default machine's two.
 
     Returns:
         The unit model, each unit's port, each unit's domain, and the domains
@@ -113,11 +142,17 @@ def seed_machine(
     store = get_store(sandbox.store_file)
     tabs_history: dict[str, _TabsApp] = {}
     showcase_cert_alt_names: dict[str, str] | None = None
+    video = showcase and profile == "video"
     if showcase:
         from tests.support.showcase import cert_alt_names, seed_showcase_state
 
-        state: Any = seed_showcase_state(store, node=hostname or "fra-1")
-        showcase_cert_alt_names = cert_alt_names(hostname or "fra-1")
+        state: Any = seed_showcase_state(
+            store,
+            node=hostname or "fra-1",
+            profile=profile,
+            apps_root=sandbox.apps_dir if video else "/var/www/apps",
+        )
+        showcase_cert_alt_names = cert_alt_names(hostname or "fra-1", profile=profile)
     else:
         from tests.support.panel_factory import seed_console_state
 
@@ -168,14 +203,23 @@ def seed_machine(
             active=active, pid=900 + len(engine) if active == "active" else 0, managed=False
         )
 
-    seed_backups(sandbox, state.backup_domains + state.static_domains[:1])
+    if video:
+        from tests.support.showcase_video import backed_up
+
+        from .video import seed_nightly_backups, seed_release_trees
+
+        seed_release_trees(sandbox, store)
+        seed_nightly_backups(sandbox, store, backed_up(hostname or "fra-1"))
+    else:
+        seed_backups(sandbox, state.backup_domains + state.static_domains[:1])
     seed_cron(state.domains[0])
     # Only the agency's main server carries the standalone failed worker and the one
     # benign monitor notice: "ams-3" (a couple of healthy client sites) and "lon-2" (a
     # staging server, everything green) are calmer servers by design (coordinator review),
-    # not "fra-1" with its own findings copied onto every node in the fleet.
+    # not "fra-1" with its own findings copied onto every node in the fleet. On the
+    # morning the video films, nothing is wrong yet anywhere: the video makes it go wrong.
     node = hostname or "fra-1"
-    showcase_calm_node = showcase and node != "fra-1"
+    showcase_calm_node = showcase and (node != "fra-1" or video)
     if not showcase_calm_node:
         seed_overview_failed_worker(
             sandbox,
@@ -213,6 +257,10 @@ def seed_machine(
         else ("example.net", ("www", "shop", "status")),
         cert_alt_names=showcase_cert_alt_names,
         proggest=not showcase,
+        # The names the video creates applications on point at this server too.
+        extra_zones=_new_app_zones() if video else (),
+        # On the video's servers only a certificate the data says is due is near its end.
+        soonest_certificate_days=12 if not video or _has_due_certificate(state) else 47,
     )
     if not showcase:
         seed_release_22(sandbox, store, units, ports, domains)

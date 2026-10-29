@@ -270,6 +270,7 @@ class _DomainsWebTools:
         *,
         first_expired: bool = False,
         alt_names: dict[str, str] | None = None,
+        soonest_days: int = 12,
     ) -> None:
         """
         Issue the seeded certificates: the name and its www, the expiry
@@ -279,6 +280,8 @@ class _DomainsWebTools:
             names: Certificate names, in the order the store seeded them.
             first_expired: Make the first one expired three days ago instead
                 (``--expired-certificate``), for a health report that is critical.
+            soonest_days: Days the first one has left, the others 17 more each: the product
+                video's servers with no certificate due start well past the renewal window.
             alt_names: A name's own alias, for the extra SAN it shows instead of
                 "www.<name>" (``--showcase`` only). A bare, two-label domain still gets
                 "www.<name>" regardless - that is a real certificate's own shape - but
@@ -289,7 +292,7 @@ class _DomainsWebTools:
                 is.
         """
         for offset, name in enumerate(names):
-            days = -3 if first_expired and offset == 0 else 12 + offset * 17
+            days = -3 if first_expired and offset == 0 else soonest_days + offset * 17
             if alt_names is None or name.count(".") == 1:
                 domains = [name, f"www.{name}"]
             elif name in alt_names:
@@ -974,6 +977,7 @@ def seed_domains_and_sources(
     cert_alt_names: dict[str, str] | None = None,
     proggest: bool = True,
     extra_zones: Sequence[str] = (),
+    soonest_certificate_days: int = 12,
 ) -> None:
     """
     Seed the web server, certificates, DNS and sources the domain pages and the wizard need.
@@ -1001,6 +1005,7 @@ def seed_domains_and_sources(
         extra_zones: Registrable domains the modelled DNS answers for besides those of the
             seeded applications: ``--empty`` has none, and answers for ``sslip.io`` as the real
             service does, so a temporary address resolves and its certificate is issued.
+        soonest_certificate_days: See :meth:`_DomainsWebTools.seed`'s ``soonest_days``.
     """
     import functools
     import socket as socket_module
@@ -1019,7 +1024,12 @@ def seed_domains_and_sources(
         [*(".".join(app.domain.split(".")[-2:]) for app in store.list_apps()), *extra_zones]
     )
     tools = _DomainsWebTools(sandbox, zones)
-    tools.seed(cert_domains, first_expired=expired_certificate, alt_names=cert_alt_names)
+    tools.seed(
+        cert_domains,
+        first_expired=expired_certificate,
+        alt_names=cert_alt_names,
+        soonest_days=soonest_certificate_days,
+    )
 
     runner = get_runner()
     original = runner.run

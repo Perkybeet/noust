@@ -12,7 +12,8 @@ import re
 import shutil
 import sys
 import threading
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -360,7 +361,41 @@ def _code_host_tree(repository: str, branch: str, destination: Path) -> None:
     (destination / "BRANCH").write_text(f"{branch}\n{commit}\n", encoding="utf-8")
 
 
-def model_code_host(sandbox: Sandbox) -> None:
+def _always_starts(unit: str) -> bool:
+    """Args: unit: A unit. Returns: True: the default host's applications always start."""
+    return True
+
+
+@dataclass(frozen=True)
+class CodeHost:
+    """
+    What :func:`model_code_host` answers for, and how.
+
+    The default is the code host the clients that deploy for real use
+    (:data:`CODE_HOST_NAME`, every repository a small Node service or a static site). The
+    product video's machine gives its own: the agency's repositories on GitHub, each with the
+    project and the commit the video needs, and a release that does not start.
+
+    Attributes:
+        name: The host the URLs name.
+        branches: The branches every repository has.
+        tree: Writes the project a repository holds: ``(repository, branch, destination)``.
+        commit: The full commit a branch points at: ``(repository, branch)``.
+        subject: The subject line of that commit, for ``git log -1 --format=%s``; None leaves
+            the question to the runner.
+        starts: Whether the process of a unit that was just started keeps running, read from
+            the unit's name; when it does not, nothing listens on its port.
+    """
+
+    name: str = CODE_HOST_NAME
+    branches: tuple[str, ...] = CODE_HOST_BRANCHES
+    tree: Callable[[str, str, Path], None] = _code_host_tree
+    commit: Callable[[str, str], str] = _code_host_commit
+    subject: Callable[[str, str], str] | None = None
+    starts: Callable[[str], bool] = _always_starts
+
+
+def model_code_host(sandbox: Sandbox, code_host: CodeHost | None = None) -> None:
     """
     Model a code host, and an application that listens once it is started.
 
@@ -380,15 +415,17 @@ def model_code_host(sandbox: Sandbox) -> None:
 
     Args:
         sandbox: The sandbox, whose unit directory the listeners are read from.
+        code_host: The host and its repositories; :class:`CodeHost`'s defaults when None.
     """
     import tarfile
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
     from noust.core.runner import CommandResult, get_runner
 
+    spec = code_host or CodeHost()
     runner = get_runner()
     original = runner.run
-    host = re.escape(CODE_HOST_NAME)
+    host = re.escape(spec.name)
     pattern = re.compile(
         rf"(?:https://{host}/|git@{host}:|ssh://git@{host}/)([\w.-]+/[\w.-]+?)(?:\.git)?/?"
     )
@@ -441,6 +478,10 @@ def model_code_host(sandbox: Sandbox) -> None:
 
     def listen_on(unit: str) -> None:
         port = port_of(unit)
+        if port is not None and not spec.starts(unit):
+            # The process exits as soon as it starts: what listened before it is gone too.
+            stop_listening(unit)
+            return
         if port is None or port in listeners:
             return
         try:
@@ -489,7 +530,7 @@ def model_code_host(sandbox: Sandbox) -> None:
             found = pattern.fullmatch(url)
             if found is not None:
                 branch = verb[verb.index("--branch") + 1] if "--branch" in verb else "main"
-                if branch not in CODE_HOST_BRANCHES:
+                if branch not in spec.branches:
                     return done(
                         args,
                         "",
@@ -498,7 +539,7 @@ def model_code_host(sandbox: Sandbox) -> None:
                     )
                 target = Path(destination)
                 (target / ".git").mkdir(parents=True, exist_ok=True)
-                _code_host_tree(found.group(1), branch, target)
+                spec.tree(found.group(1), branch, target)
                 checkouts[os.path.abspath(destination)] = [found.group(1), branch, url]
                 return done(args, "", 0, f"Cloning into '{destination}'...\n")
         if verb[0] == "ls-remote" and "--" in verb:
@@ -509,10 +550,10 @@ def model_code_host(sandbox: Sandbox) -> None:
                 wanted = [r for r in verb[verb.index("--") + 2 :] if r.startswith("refs/heads/")]
                 if wanted:
                     branch = wanted[0].removeprefix("refs/heads/")
-                    if branch not in CODE_HOST_BRANCHES:
+                    if branch not in spec.branches:
                         return done(args, "", 2)
-                    return done(args, f"{_code_host_commit(repository, branch)}\t{wanted[0]}\n")
-                head = _code_host_commit(repository, "main")
+                    return done(args, f"{spec.commit(repository, branch)}\t{wanted[0]}\n")
+                head = spec.commit(repository, "main")
                 return done(args, f"ref: refs/heads/main\tHEAD\n{head}\tHEAD\n")
         if verb[0] == "ls-remote" and any(pattern.fullmatch(a) for a in verb):
             # --exit-code with the URL before any "--": the preflight's probe.
@@ -522,22 +563,24 @@ def model_code_host(sandbox: Sandbox) -> None:
 
         repository, branch, url = here
         if verb[:2] == ("rev-parse", "HEAD"):
-            return done(args, _code_host_commit(repository, branch) + "\n")
+            return done(args, spec.commit(repository, branch) + "\n")
         if verb[:3] == ("rev-parse", "--abbrev-ref", "HEAD"):
             return done(args, branch + "\n")
         if verb[:3] == ("remote", "get-url", "origin"):
             return done(args, url + "\n")
+        if verb[:3] == ("log", "-1", "--format=%s") and spec.subject is not None:
+            return done(args, spec.subject(repository, branch) + "\n")
         if verb[:2] == ("cat-file", "-e"):
             # No submodules, so a release is exported with git archive.
             return done(args, "", 1)
         if verb[0] == "reset" and "--hard" in verb:
             target = verb[-1].removeprefix("origin/")
-            if target in CODE_HOST_BRANCHES:
+            if target in spec.branches:
                 here[1] = target
-                _code_host_tree(repository, target, Path(cwd))
+                spec.tree(repository, target, Path(cwd))
         if verb[:2] == ("checkout", "--force") and "-B" in verb:
             target = verb[verb.index("-B") + 1]
-            if target in CODE_HOST_BRANCHES:
+            if target in spec.branches:
                 here[1] = target
         if verb[0] == "archive":
             output = next(a for a in verb if a.startswith("--output=")).removeprefix("--output=")

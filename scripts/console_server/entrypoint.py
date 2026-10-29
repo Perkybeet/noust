@@ -84,6 +84,8 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     from noust.web.server import create_app, get_token_manager
 
     redirect_system_paths(sandbox)
+    video = args.showcase and args.profile == "video"
+    operator: Any = None
     if args.showcase:
         from tests.support.showcase import AGENCY_DOMAIN
 
@@ -133,20 +135,43 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
                 expired_certificate=args.expired_certificate,
                 showcase=args.showcase,
                 hostname=args.hostname,
+                profile=args.profile,
             )
             if args.misplaced_backups:
                 seed_misplaced_backups(sandbox)
-            if args.showcase:
+            if args.showcase and not video:
                 seed_showcase_backup_destination()
+            if video and (args.hostname or "fra-1") == "fra-1":
+                # The central is where the agency's people sign in.
+                from noust.core.store import get_store
+                from tests.support.showcase_video import seed_video_people
+
+                operator = seed_video_people(get_store(sandbox.store_file))
     model_telegram_bot_api()
-    if os.environ.get(CODE_HOST_ENV):
+    if video:
+        from .video import (
+            model_agency_code_host,
+            model_agency_databases,
+            show_server_paths,
+            stream_npm_output,
+        )
+
+        model_agency_databases(args.hostname or "fra-1")
+        model_agency_code_host(sandbox, units)
+        stream_npm_output(sandbox)
+        show_server_paths(sandbox)
+    elif os.environ.get(CODE_HOST_ENV):
         model_code_host(sandbox)
     units.update(seeded_units)
     ports.update(seeded_ports)
     domains.update(seeded_domains)
     certs.extend(seeded_certs)
     # The VPS the Server area manages (/api/server): see model_server_host.
-    model_server_host(sandbox, args.hostname or socket.gethostname(), units)
+    host = model_server_host(sandbox, args.hostname or socket.gethostname(), units)
+    if video:
+        from .video import settle_server_host
+
+        settle_server_host(host.root)
     with contextlib.redirect_stdout(sys.stderr):
         seed_server_analysis()
     if args.central_role != "hub" and not args.showcase and not args.empty:
@@ -188,9 +213,11 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
         use_fixed_hostname(args.hostname)
     if args.showcase:
         from tests.support.showcase import NODE_READINGS
+        from tests.support.showcase_video import VIDEO_READINGS
 
-        cpu_percent, memory_percent, disk_percent, uptime_s = NODE_READINGS.get(
-            args.hostname or "", NODE_READINGS["fra-1"]
+        readings = VIDEO_READINGS if video else NODE_READINGS
+        cpu_percent, memory_percent, disk_percent, uptime_s = readings.get(
+            args.hostname or "", readings["fra-1"]
         )
         use_fixed_machine_stats(
             cpu_percent=cpu_percent,
@@ -202,7 +229,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     token = get_token_manager().generate_master_token()
     totp_secret, backup_codes = enable_totp(args.backup_codes) if args.totp else (None, [])
     seed_settings_api_tokens()
-    pin_settings_update_check()
+    pin_settings_update_check(up_to_date=args.shown_version is not None)
     warm_recipe_library()
 
     sock = bind(args.host, args.port)
@@ -217,8 +244,9 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
         display_hosts = None
         if args.showcase:
             from tests.support.showcase import NODE_SSH_HOSTS
+            from tests.support.showcase_video import VIDEO_SSH_HOSTS
 
-            display_hosts = NODE_SSH_HOSTS
+            display_hosts = VIDEO_SSH_HOSTS if video else NODE_SSH_HOSTS
         join_fleet_node(args.fleet_node, display_hosts=display_hosts)
     server = uvicorn.Server(
         uvicorn.Config(
@@ -244,6 +272,17 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
                 line["backup_codes"] = backup_codes
             if args.keep:
                 line["sandbox"] = str(sandbox.root)
+            if operator is not None:
+                # How the product video's operator signs in, and the secret Iker's push is
+                # signed with: the sandbox's own, like the token above.
+                from tests.support.showcase_video import VIDEO_WEBHOOK_SECRET
+
+                line["operator"] = {
+                    "username": operator.username,
+                    "password": operator.password,
+                    "totp_secret": operator.totp_secret,
+                }
+                line["webhook_secret"] = VIDEO_WEBHOOK_SECRET
             print(json.dumps(line), flush=True)
 
     threading.Thread(target=announce, name="announce", daemon=True).start()
@@ -265,6 +304,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         The exit status.
     """
     args = parse_args(argv)
+    if args.shown_version is not None:
+        # Before anything reads it: every module that shows the version imports it by name.
+        import noust
+
+        noust.__version__ = args.shown_version
     if args.internal_seal is not None:
         return run_internal_seal(Path(args.internal_seal))
     sandbox = Sandbox(Path(tempfile.mkdtemp(prefix="noust-console-")).resolve())
