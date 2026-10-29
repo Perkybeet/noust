@@ -48,13 +48,14 @@ log. The previous releases stay on disk, so going back rebuilds nothing.
    answers. It takes seconds: nothing is built. In the console: **Roll back**, on the application's
    page.
 
-4. **Go forward again, when the fix is ready.** Name the release:
+4. **Serve any other release on disk.** `noust releases rollback` takes a release's id, newer or
+   older than the one that serves:
 
    ```bash
    noust releases rollback wrenfield.io 20261029-181502-a1c4f92
    ```
 
-   Or push the fix and run `noust update wrenfield.io` again.
+   When the fix is ready, push it and run `noust update wrenfield.io` again.
 
 5. **Deploy on every push.** Your Git host has to reach the server, and the console listens only
    on `127.0.0.1`. Give webhooks a public name of their own, once per server: it forwards

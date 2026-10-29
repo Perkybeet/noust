@@ -38,8 +38,8 @@ provider, the security group.
    Noust asks the public resolvers, as Let's Encrypt will, rather than the server's own cache.
    Wait until it says `points at this server`.
 
-3. **Add the name to the application.** If you created the application on `wrenfield.io`, skip
-   this step: the name is already its own.
+3. **Add the name to the application.** The first argument is the application's name, the second
+   the name to add:
 
    ```bash
    noust domain add wrenfield-site.203-0-113-10.sslip.io wrenfield.io
@@ -48,15 +48,18 @@ provider, the security group.
    Noust adds the name to the site, tests the configuration before nginx reloads it, and extends
    the certificate to cover it. In the console: the application's **Domains** tab, **Add domain**.
 
-4. **Send `www` to it.**
+   If you created the application on `wrenfield.io`, the name is already its own. Run
+   `noust domain add wrenfield.io wrenfield.io` only if its certificate was refused at the first
+   deploy: adding a name the application already has asks for the certificate again.
+
+4. **Send `www` to it.** Create the `A` record for `www.wrenfield.io` first, as in step 1, then,
+   with the application's name first as in step 3:
 
    ```bash
    noust domain add wrenfield.io www.wrenfield.io --kind redirect
    ```
 
-   A redirect answers with a permanent redirect to the primary name, keeping the path. Create the
-   `A` record for `www.wrenfield.io` first, as in step 1. (Use the application's name, as in
-   step 3, if it is not `wrenfield.io`.)
+   A redirect answers with a permanent redirect to the primary name, keeping the path.
 
 5. **Check the certificate.**
 

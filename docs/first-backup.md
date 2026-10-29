@@ -86,7 +86,7 @@ each backup, **Restore**.
 ## What you should see
 
 - `noust backup list wrenfield.io` shows your backup with its size and description.
-- `noust backup schedule list` shows the schedule, when it last ran and when it runs next.
+- `noust backup schedule list` shows the schedule and when it last ran.
 - `noust backup drill wrenfield.io` ends without an error and keeps its report:
   `noust backup drills` lists every drill.
 
@@ -100,10 +100,11 @@ It replaces the application's files with the ones in the backup, after asking. T
 copy off the server, on this server or a new one, add `--from offsite`. To bring back a whole
 server, see [Bringing a whole server back](disaster-recovery.md#bringing-a-whole-server-back).
 
-A restore puts the application's files back. The database dumps inside the archive are there for a
-server that has nothing; on this one, a database comes back on its own, with `noust db restore`
-([Databases](disaster-recovery.md#databases)), because putting an older database under newer code
-is a decision. [Ship a change, and roll it back](first-rollback.md) says how Noust guards it.
+A restore puts the application's files back, not its database: the dumps in the archive are loaded
+with their own command, `noust db import` ([Databases](disaster-recovery.md#databases)), because
+putting an older database under newer code is a decision. (A Docker Compose stack is the
+exception: its databases come back with its files.) [Ship a change, and roll it
+back](first-rollback.md) says how Noust guards the code side.
 
 ## If it fails
 
