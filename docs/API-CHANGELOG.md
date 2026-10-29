@@ -129,7 +129,7 @@ before 4.0 is still accepted, it is accepted until 5.0 and never written.
   that the server lacks, which needs sudo mode and the server's permission). `GET /api/apps` takes
   `team`, `project`, `environment` and `tag` filters, and an application answers `team`, `project`,
   `environment` and `tags`.
-- The deploy queue ([releases.md](releases.md#the-deploy-queue)): `GET /api/jobs/queue` (`apps.read`)
+- The deploy queue ([releases.md](releases-deploys.md#the-deploy-queue)): `GET /api/jobs/queue` (`apps.read`)
   says what is building and what waits, in order, and the limits (`deploy.max_concurrent_builds`,
   `deploy.queue_limit`). One application builds one thing at a time, an update that is already waiting
   absorbs the same request, and one the queue has no room for is `429`. A job answers `queue_position`,

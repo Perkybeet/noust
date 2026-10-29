@@ -255,8 +255,33 @@ tabs:
             summary: Pausing what deploys by itself, freezing deploys, history and stop policy, scheduled updates, building now and serving later.
           - source: docs/releases.md
             slug: guides/releases
+            title: Roll back to a release or a deployment
             type: guide
-            summary: The release layout, the health gate, instant rollback, migrating an application to releases.
+            summary: What happens when a release fails its gate, going back to any release still on disk in seconds, and to an earlier deployment.
+          - source: docs/releases-deploys.md
+            slug: guides/releases/deploys
+            type: guide
+            summary: Zero downtime by default, the deploy queue, cancelling a build, rebuilding a commit, which branch an update builds, and the deploy history.
+          - source: docs/releases-health-check.md
+            slug: guides/releases/health-check
+            type: guide
+            summary: "Tell Noust how to know the application is up: the path, the status it must answer, and how long it may take."
+          - source: docs/releases-hooks.md
+            slug: guides/releases/hooks
+            type: guide
+            summary: Deploy hooks, Prisma migrations, what the history records of a schema change, and going back past one.
+          - source: docs/releases-migrate.md
+            slug: guides/releases/migrate
+            type: guide
+            summary: Move an application deployed in place onto releases, explicitly, and undone exactly if it fails.
+          - source: docs/releases-build-elsewhere.md
+            slug: guides/releases/build-elsewhere
+            type: guide
+            summary: "Build a release on one server and run it on others, behind each one's health gate."
+          - source: docs/releases-compose.md
+            slug: guides/releases/compose-and-monorepos
+            type: guide
+            summary: What releases, rollback and the gate mean for a Docker Compose stack and for a monorepo.
           - source: docs/runtime.md
             slug: guides/runtime
             type: guide
@@ -443,6 +468,16 @@ tabs:
     slug: concepts
     summary: Why Noust works the way it does. Explanation, no steps.
     groups:
+      - title: How it works
+        pages:
+          - source: docs/how-releases-work.md
+            slug: concepts/releases
+            type: explanation
+            summary: The two layouts, what is on disk, what a deploy does step by step, the health gate, shared paths and how many releases are kept.
+          - source: docs/builds-and-accounts.md
+            slug: concepts/builds-and-accounts
+            type: explanation
+            summary: Why a build runs as an unprivileged account in a systemd sandbox, and which account each application runs as.
       - title: Security
         pages:
           - source: docs/threat-model.md

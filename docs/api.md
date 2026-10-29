@@ -326,7 +326,7 @@ plus `deployments`, the ids of those deployments, oldest first, and `fields` nam
 `schema_changed_ok`. Repeat the call with `schema_changed_ok` set to confirm (a query parameter
 on `POST /api/apps/{domain}/releases/{release_id}/activate`, a body field everywhere else), or
 restore the database from the backup taken before the first of them. See
-[releases.md](releases.md#going-back-past-a-schema-change).
+[releases.md](releases-hooks.md#going-back-past-a-schema-change).
 
 | Status | When |
 |---|---|

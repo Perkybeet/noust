@@ -13,7 +13,7 @@ containers write next to the code. It runs under one systemd unit, `<app>.servic
 `docker compose up -d` and `down`, and an update rebuilds the images, recreates the
 containers, judges the result with the same health gate as any other application and puts back
 the images that served when it does not pass. That part is unchanged since 2.1 and is
-described in [releases.md](releases.md#docker-compose-and-monorepo-applications). A stack that
+described in [releases.md](releases-compose.md#docker-compose-and-monorepo-applications). A stack that
 publishes no port is a worker: no site, no certificate, judged by its containers.
 
 What 3.2 adds, each described below:
@@ -89,7 +89,7 @@ A `noust.yaml` is input from the repository, like the rest of it, so it is read 
 | Type | Where |
 |---|---|
 | Docker Compose | `docker compose run --rm --no-deps [-w WORKDIR] --entrypoint "" SERVICE COMMAND...`: a one-off container of the image the deployment just built, with the service's environment, networks and volumes, before any container is recreated. On the first deploy, where nothing serves yet, `--no-deps` is left out so Compose starts what the service depends on (the database a migration needs). |
-| Applications on releases or in place | The release phase of the build, in the tree being built (the new release, or the tree in place), before the release is activated: as the application's own account, with its `.env`, when it builds in the sandbox, and as Noust itself (root) while it still builds as root, as its migrations always did. See [releases.md](releases.md#builds-in-the-sandbox). |
+| Applications on releases or in place | The release phase of the build, in the tree being built (the new release, or the tree in place), before the release is activated: as the application's own account, with its `.env`, when it builds in the sandbox, and as Noust itself (root) while it still builds as root, as its migrations always did. See [releases.md](builds-and-accounts.md#builds-in-the-sandbox). |
 | Monorepo | The same, at the repository's root, after the build and before any unit restarts. |
 | Static sites and Vite builds without a server | None. Declaring hooks for them is refused, saying why: nothing of such a site runs. |
 
@@ -362,7 +362,7 @@ sometimes not, so since 3.2 that is a decision and not a click.
   relay](#zero-downtime-updates-the-relay) the usual failure, an image that does not start,
   never touches what serves.
 
-See [releases.md](releases.md#hooks-and-schema-aware-rollback) for how this fits the other
+See [releases.md](releases-hooks.md#hooks-and-schema-aware-rollback) for how this fits the other
 ways back.
 
 ## Zero-downtime updates (the relay)
@@ -968,13 +968,13 @@ routes:
 - **The build sandbox and the compose file check** are unchanged: Compose builds run inside the
   Docker daemon, a new stack with `privileged` containers or the Docker socket mounted is
   refused unless the application has an exception, and an existing one is warned. See
-  [releases.md](releases.md#builds-in-the-sandbox).
+  [releases.md](builds-and-accounts.md#builds-in-the-sandbox).
 - **Deleting an adopted application keeps its directory** (see [above](#deleting-an-adopted-stack)).
 - **Ignored webhook deliveries** carry the `ignored_tag` reason for applications that follow
   tags.
 - **Images of the releases are kept**, so going back to one is instant instead of a rebuild
   (`noust releases list|rollback|keep` work on a stack): see
-  [releases.md](releases.md#kept-images-and-instant-rollback).
+  [releases.md](releases-compose.md#kept-images-and-instant-rollback).
 
 See also: [releases.md](releases.md) for releases, the health gate and rolling back,
 [domains.md](domains.md) for domains and certificates, [console.md](console.md) for the console,

@@ -78,11 +78,11 @@ noust app replicas shop.example.com 1          # alone again
 
 nginx shares the traffic among the copies (`least_conn`, and a copy that fails twice is left out
 for a few seconds). A new copy has to answer the application's [health
-check](releases.md#configuring-the-health-check) on its own port before nginx is told about it;
+check](releases-health-check.md#configuring-the-health-check) on its own port before nginx is told about it;
 one that does not leaves everything as it was. A release reaches the copies the way it reaches
 the unit: they are restarted one after another behind the same gate.
 
-Scaling out is one release in several copies; [zero-downtime mode](releases.md#zero-downtime-by-default)
+Scaling out is one release in several copies; [zero-downtime mode](releases-deploys.md#zero-downtime-by-default)
 is two releases side by side. They exclude each other. What cannot run twice (a static site, a
 Compose stack, a monorepo, a site with routes of its own, Apache) is refused with the reason.
 The ports are Noust's to pick and keep, so scaling down and up brings the same ones back.
@@ -125,7 +125,7 @@ Moving an application to an account of its own is the other half of this:
 `noust app identity migrate --all` moves every application that can have one, one after the
 other, and reports the ones that fail without stopping. While an application still runs as the
 shared account, the server health card says so under **Application accounts**.
-See [releases.md](releases.md#the-account-an-application-runs-as).
+See [releases.md](builds-and-accounts.md#the-account-an-application-runs-as).
 
 Over the API: `GET /api/apps/{domain}/hardening` (`apps.read`) and `PUT` (`apps.manage`). In the
 console it is **Service security** in the application's settings.

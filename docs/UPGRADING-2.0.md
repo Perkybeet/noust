@@ -414,7 +414,7 @@ leaves everything else where it is.
   rolled back. From 2.1 an update of either goes back automatically: a stack's containers are
   recreated from the images they ran and its compose file checked out at the previous commit
   (volumes are never touched), and a monorepo is rebuilt from its previous commit; see
-  [releases.md](releases.md#docker-compose-and-monorepo-applications). A first deploy of either
+  [releases.md](releases-compose.md#docker-compose-and-monorepo-applications). A first deploy of either
   that does not answer is still only reported. They are fronted by nginx only: Compose ignores
   `--webserver apache`, and a monorepo created with `--webserver apache` gets no site
   configuration.
@@ -424,12 +424,12 @@ leaves everything else where it is.
   30 seconds. In 2.0 it is not configurable, so an application whose `/` answers 5xx cannot
   pass it. From 2.1, `wasm app health DOMAIN --path /healthz --expect 200-399 --timeout 120`
   (or `PATCH /api/apps/{domain}/health`) sets the path, the accepted statuses and the wait;
-  see [releases.md](releases.md#configuring-the-health-check).
+  see [releases.md](releases-health-check.md#configuring-the-health-check).
 - Activating a release restarts the unit: expect the restart's worth of downtime.
   Blue/green activation is not in 2.0.
 - Release retention is five per application and cannot be changed in 2.0. From 2.1, `wasm
   releases keep DOMAIN N` (1 to 50, or `PATCH /api/apps/{domain}/releases/retention`) changes
-  it and prunes at once; see [releases.md](releases.md#retention).
+  it and prunes at once; see [releases.md](how-releases-work.md#retention).
 - An application in place keeps 1.x behaviour (Docker Compose and monorepo excepted from
   2.1, as above): it is built over the live tree, and a failed
   health check after the restart is reported, not rolled back.

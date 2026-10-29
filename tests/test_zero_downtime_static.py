@@ -8,7 +8,7 @@ A static site has no process, so there is nothing to start twice and no unit
 to restart. Its web server serves ``current/...``, and activating a release is
 one rename of that link over the old one: every request resolves it to the old
 release before the rename and to the new one after, and never to nothing.
-These tests hold the claim (documented in ``docs/releases.md``) to the code, so
+These tests hold the claim (documented in ``docs/releases-deploys.md``) to the code, so
 the day an update of a static site restarts, stops or reloads something, one of
 them says so before an operator's site goes dark for it.
 """

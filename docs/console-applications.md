@@ -143,7 +143,7 @@ text, a switch for the times, and **Copy to share**, which masks anything that l
 credential), and on failure a link
 to Diagnose plus Roll back and Redeploy.
 
-A deployment that ran [deploy hooks](releases.md#hooks-and-schema-aware-rollback) lists them
+A deployment that ran [deploy hooks](releases-hooks.md#hooks-and-schema-aware-rollback) lists them
 under **Deploy hooks**, in the order they ran, before the new version served and after it did.
 Each shows how it ended (succeeded, exited with a code, ran out of time, did not run), how long it
 took, the service it ran in on a Compose stack, and the end of its output verbatim; Prisma's
@@ -168,7 +168,7 @@ migrations each one ran, names the backup taken before the first of them and the
 `noust backup restore` command that puts the database back (for a Compose stack,
 `--databases-only`), and **Go back anyway** repeats the request confirmed. A failed health gate
 still puts back what served before, whatever the attempt changed. See
-[releases.md](releases.md#hooks-and-schema-aware-rollback).
+[releases.md](releases-hooks.md#hooks-and-schema-aware-rollback).
 
 **Settings** has a side navigation, a URL per subsection, and a save bar ("N unsaved changes ·
 Discard · Save"):
@@ -198,7 +198,7 @@ Discard · Save"):
 
 Builds of different applications run side by side, up to the server's limit (`deploy.max_concurrent_builds`);
 one application builds one thing at a time, so what is asked meanwhile waits its turn and nothing is lost
-(see [releases.md](releases.md#the-deploy-queue)). The queue is on **Activity** when something builds or
+(see [releases.md](releases-deploys.md#the-deploy-queue)). The queue is on **Activity** when something builds or
 waits, and on an application's **Deployments** tab for what is its own:
 
 - every job is a row with its state (queued, in progress, stopping), its **place in line** ("Next in line",
