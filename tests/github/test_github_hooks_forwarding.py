@@ -32,14 +32,15 @@ from noust.core.forge_events import (
 )
 from noust.core.store import App, NoustStore
 from noust.fleet.sources.worker import set_worker
-from tests.github.test_github_hooks import pr_payload, queued  # noqa: F401
 from tests.support.github_hooks import (  # noqa: F401
     SECRET,
     app,
     client,
     deliver,
     fresh_deliveries,
+    pr_payload,
     push_payload,
+    queued,
 )
 
 # A fixture imported from the support module is found by pytest in this module's namespace, and a

@@ -50,6 +50,7 @@ class DeployerRegistry:
         Returns:
             Deployer class or None.
         """
+        _import_deployers()
         return cls._deployers.get(app_type.lower())
 
     @classmethod
@@ -60,6 +61,7 @@ class DeployerRegistry:
         Returns:
             List of application type names.
         """
+        _import_deployers()
         return list(cls._deployers.keys())
 
     @classmethod
@@ -92,6 +94,10 @@ class DeployerRegistry:
         Returns:
             The deployer classes, most specific first.
         """
+        # The registry is filled by importing each deployer module, and since start-up became
+        # lazy nothing else guarantees that has happened by the time a caller asks: the
+        # registry loads them itself, so detection never misses a type (rule 4).
+        _import_deployers()
         return sorted(
             cls._deployers.values(),
             key=lambda d: (-d.DETECTION_PRIORITY, d.APP_TYPE),

@@ -94,6 +94,10 @@ CI = "a release gate run by the project's CI, never by an installation"
 
 #: Every module that imports an outbound client, and for whom it speaks. Keep it sorted by path.
 CLIENTS: dict[str, tuple[str, str]] = {
+    "deployers/helpers/served_probe.py": (
+        OWN,
+        "the server's own sites on this machine, asked through the web server a move is going to",
+    ),
     "client/api.py": (OPERATOR, "the remote command line, to the console named by --context"),
     "core/accounts/oidc_client.py": (OPERATOR, "the identity provider set up for single sign-on"),
     "core/email_api.py": (
@@ -152,6 +156,10 @@ UNASKED_READERS: dict[str, str] = {
 
 #: Files that connect a socket by hand, and where to.
 CONNECTORS: dict[str, tuple[str, str]] = {
+    "deployers/helpers/served_probe.py": (
+        OWN,
+        "the server's own sites on this machine, asked through the web server a move is going to",
+    ),
     "core/accounts/ldap_client.py": (
         OPERATOR,
         "the directory (LDAP, Active Directory) set up for sign-in",

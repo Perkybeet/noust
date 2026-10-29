@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 
 from noust.core.store import NoustStore
 from noust.web.api import github_hooks
+from noust.web.api import hooks as hooks_module
 from noust.web.auth import SecurityConfig
 from noust.web.server import create_app as build_app
 from tests.github.fakes import INSTALLATION_ID
@@ -130,3 +131,61 @@ def push_payload(
         },
         "installation": {"id": INSTALLATION_ID},
     }
+
+
+@pytest.fixture
+def queued(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    """
+    Capture the update jobs instead of running them.
+
+    Returns:
+        Each job description.
+    """
+    captured: list[dict[str, Any]] = []
+
+    class Jobs:
+        def create_job(self, **kwargs: Any) -> Any:
+            captured.append(kwargs)
+            return type("Job", (), {"id": f"job-{len(captured)}"})()
+
+    monkeypatch.setattr(hooks_module, "get_job_manager", lambda: Jobs())
+    return captured
+
+
+def pr_payload(action: str, *, head_repo: str = "you/app", number: int = 7) -> dict[str, Any]:
+    """
+    Build a pull_request payload.
+
+    Args:
+        action: GitHub's action.
+        head_repo: Where the branch lives.
+        number: The pull request's number.
+
+    Returns:
+        The payload.
+    """
+    return {
+        "action": action,
+        "number": number,
+        "pull_request": {
+            "number": number,
+            "title": "Add things",
+            "head": {
+                "ref": "feature",
+                "sha": "beef",
+                "repo": {
+                    "full_name": head_repo,
+                    "clone_url": f"https://github.com/{head_repo}.git",
+                },
+            },
+            "base": {
+                "ref": "main",
+                "repo": {"full_name": "you/app", "clone_url": "https://github.com/you/app.git"},
+            },
+        },
+        "repository": {"full_name": "you/app"},
+        "installation": {"id": INSTALLATION_ID},
+    }
+
+
+# -- Refusals ------------------------------------------------------------------

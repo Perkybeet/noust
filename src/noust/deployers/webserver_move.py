@@ -463,18 +463,19 @@ class _Move:
 
     def _stage(self, site: SitePlan) -> None:
         target = self.target
+        fs = target.fs
         domain = site.domain
         path = Path(site.target_path)
         if site.writes:
             existing = path.read_text(encoding="utf-8", errors="replace") if path.exists() else None
             if existing is not None:
                 target.history.about_to_overwrite(domain, existing)
-            target.fs.write_text(path, site.text, mode=_SITE_MODE)
+            fs.write_text(path, site.text, mode=_SITE_MODE)
             self.undo.record(
                 f"wrote {path}",
-                partial(target.fs.remove, path, missing_ok=True)
+                partial(fs.remove, path, missing_ok=True)
                 if existing is None
-                else partial(target.fs.write_text, path, existing, mode=_SITE_MODE),
+                else partial(fs.write_text, path, existing, mode=_SITE_MODE),
             )
             target.history.written(domain, site.text, source="generated")
             self._accounts(site)
