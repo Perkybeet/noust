@@ -288,7 +288,31 @@ tabs:
           - source: docs/databases.md
             slug: guides/databases
             type: guide
-            summary: Databases on the host and in containers, credentials, detected links, versions and settings.
+            summary: Where a database lives (the host, a container, an instance), how Noust gets in, which application uses which, and SQLite files.
+          - source: docs/databases-engines.md
+            slug: guides/databases/engines
+            type: guide
+            summary: Install PostgreSQL, MySQL, MariaDB, Redis, Valkey or MongoDB on the host, and create a database on the engine and version you choose.
+          - source: docs/databases-instances.md
+            slug: guides/databases/instances
+            type: guide
+            summary: "Run another version of an engine, or one the host lacks, in a container Noust owns, pinned by digest, beside the host's."
+          - source: docs/databases-import.md
+            slug: guides/databases/import
+            type: guide
+            summary: Load and unload PostgreSQL extensions, and bring in a dump made elsewhere or every database of another server.
+          - source: docs/databases-move.md
+            slug: guides/databases/move
+            type: guide
+            summary: Move a database to another engine, version or server, upgrade an engine, and recover PostgreSQL to an instant.
+          - source: docs/databases-tls.md
+            slug: guides/databases/tls-and-replicas
+            type: guide
+            summary: "Certificates clients can verify, for an instance, a link and the host's engine, and read replicas over TLS."
+          - source: docs/databases-settings.md
+            slug: guides/databases/settings
+            type: guide
+            summary: "An engine's settings and limits on the host, making a database public on purpose, and the ports open beyond the machine."
           - source: docs/disaster-recovery.md
             slug: guides/backups
             type: guide

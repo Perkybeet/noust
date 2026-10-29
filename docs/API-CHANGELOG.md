@@ -325,7 +325,7 @@ before 4.0 is still accepted, it is accepted until 5.0 and never written.
 - `POST /api/apps/{domain}/databases` and `POST /api/apps` (`database`): `instance`, the name of
   an instance to make the database on. A `version` the host does not run is answered by the
   instance that runs it, when exactly one does.
-- Point-in-time recovery of the host's PostgreSQL ([databases.md](databases.md#recovering-postgresql-to-an-instant)):
+- Point-in-time recovery of the host's PostgreSQL ([databases.md](databases-move.md#recovering-postgresql-to-an-instant)):
   `GET /api/databases/pitr` (the window that can be recovered, the base backups, the archiver, the
   timer, warnings), `POST .../pitr/enable/plan` and `.../pitr/restore/plan` (read-only), and, as jobs
   with sudo mode, `POST .../pitr/enable`, `.../disable`, `.../base`, `.../sync`, `.../fetch` and

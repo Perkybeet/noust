@@ -1270,7 +1270,11 @@ def rewrite_links(markdown: str, tokens: list[Token], turn: Callable[[str], str]
         return match.group("lead") + turn(bare)
 
     def attribute(match: re.Match[str]) -> str:
-        url = turn(html.unescape(match.group("url")))
+        written = html.unescape(match.group("url"))
+        url = turn(written)
+        if url == written:
+            # Left as written, entities and all: the text is the author's, not ours to re-escape.
+            return match.group(0)
         return f"{match.group('attr')}={match.group('quote')}{html.escape(url, quote=True)}{match.group('quote')}"
 
     for number, line in enumerate(lines):

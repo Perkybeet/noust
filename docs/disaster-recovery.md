@@ -45,7 +45,7 @@ noust db import app_db /srv/dumps/app.sql.gz -e postgresql --replace   # drop th
 A PostgreSQL dump from outside is loaded as the database's owner, not as the server's superuser, so a
 dump that runs `COPY ... FROM PROGRAM` is refused by the server itself; `--as-superuser` is the explicit
 way for a dump you trust, and `noust db import-all` brings a whole `pg_dumpall`
-([details](databases.md#a-dump-from-elsewhere-and-a-whole-servers-databases)).
+([details](databases-import.md#a-dump-from-elsewhere-and-a-whole-servers-databases)).
 
 The format is read from the file's bytes (SQL, custom and tar PostgreSQL dumps, MongoDB
 archives, gzip, bzip2, xz, zip), never from its name. A server path must be under
@@ -219,7 +219,7 @@ From then on every backup this server makes is written as an encrypted, authenti
 (scrypt, AES-256-CBC through openssl, HMAC-SHA256 over the whole file: the construction of
 [Noust's own state](#nousts-own-state)) **under the same name**: an application's archive, an
 application's data, a database dump (whichever engine, a safety copy included) and the base backups
-of [point-in-time recovery](databases.md#recovering-postgresql-to-an-instant). Sidecars stay
+of [point-in-time recovery](databases-move.md#recovering-postgresql-to-an-instant). Sidecars stay
 readable: they hold ids, sizes and digests, never the data.
 
 - **One door.** Every reader of a backup file (verification, restore, the restore test, the drill,

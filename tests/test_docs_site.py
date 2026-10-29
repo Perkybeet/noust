@@ -734,6 +734,15 @@ def test_reference_definitions_and_raw_html_are_resolved(tmp_path: Path) -> None
     assert '<a href="/docs/more/extra/">x</a>' in text
 
 
+def test_an_address_that_is_not_rewritten_is_left_byte_for_byte(tmp_path: Path) -> None:
+    badge = '<img src="https://img.shields.io/pypi/v/noust?color=blue&logo=pypi" alt="Version">'
+    root = project(tmp_path, {"README.md": f"# O\n\n<p>{badge}</p>\n"})
+
+    package, _site = emitted(root)
+
+    assert badge in (package / "pages" / "start" / "overview.md").read_text()
+
+
 def test_a_split_reference_is_a_page_per_section_below_its_route(tmp_path: Path) -> None:
     root = project(tmp_path, {"docs/commands.md": COMMANDS}, SPLIT_MANIFEST)
 

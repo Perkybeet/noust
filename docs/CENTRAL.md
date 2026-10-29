@@ -678,7 +678,7 @@ noust db transfer shop_db --from db-1 --to db-2 --drop-source --replace
 
 In the API it is `POST /api/fleet/databases/transfer` (see [api.md](api.md)), and any client of `POST
 /api/fleet/actions` can name the action `database_transfer`. Moving a database between engines of one
-server is `noust db move` ([databases.md](databases.md#moving-a-database-or-an-engine-to-a-newer-version)).
+server is `noust db move` ([databases.md](databases-move.md#moving-a-database-or-an-engine-to-a-newer-version)).
 
 - **The source dumps, the target loads, the central only carries.** The source takes the dump with its own
   backups (checked and hashed there), the central reads it by ranges and writes it to the target as an upload
