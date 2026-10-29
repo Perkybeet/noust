@@ -91,6 +91,10 @@ NOT_SECRET: dict[tuple[str, str], str] = {
     ("database_accounts", "password_changed_at"): "a time",
     ("database_links", "env_var"): "the name of a variable",
     (
+        "fleet_desired",
+        "secret_paths",
+    ): "which fields of a fleet setting are secret; their values are in the secret store",
+    (
         "db_instance_migrations",
         "source_key",
     ): "an instance's key (postgresql@pg16), not a credential",
