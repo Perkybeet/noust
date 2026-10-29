@@ -200,7 +200,8 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
         className={cx(
           "flex min-w-0 cursor-pointer items-center gap-2 rounded-control bg-bg-sunken text-13 text-fg elev-carved",
           "transition-colors duration-(--duration-fast) ease-out hover:bg-surface-hover",
-          side ? "min-h-control-lg w-full py-1 pr-2 pl-2.5" : "h-control-md max-w-60 shrink gap-1.5 pr-1.5 pl-2.5",
+          // In the top bar the trail and the machine's readout give way first: shrinking with them left "f…" for fra-1.
+          side ? "min-h-control-lg w-full py-1 pr-2 pl-2.5" : "h-control-md max-w-60 shrink-0 gap-1.5 pr-1.5 pl-2.5",
           className,
         )}
       >
