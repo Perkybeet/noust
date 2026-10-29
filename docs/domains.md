@@ -60,7 +60,7 @@ noust domain add shop.example.com api.example.com --own-certificate
 - **`www` or the bare name.** `noust domain canonical` serves one spelling and redirects the other
   to it, over TLS too: both are recorded, so the certificate covers both. `none` serves both as
   recorded.
-- **DNS.** When a [DNS account](network.md#dns-accounts-and-the-records-noust-owns) that makes
+- **DNS.** When a [DNS account](network-dns.md#dns-accounts-and-the-records-noust-owns) that makes
   records without asking holds the name's zone, adding the name makes its record, and removing the
   name lets go of it (it is deleted only if Noust made it and nothing else uses it). `--no-dns`
   leaves DNS alone.

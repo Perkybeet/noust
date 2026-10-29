@@ -101,7 +101,7 @@ command palette (`Ctrl K`) too.
   no network to choose.
 - **No tunnel as the way a server is reached.** A server is reached by its address and a CDN in
   front of it is fine; the DNS check says when it hides the server's address. A Cloudflare Tunnel
-  for a name that should not open a port is optional and managed in **Domains > Tunnels** ([network.md](network.md#cloudflare-tunnel)).
+  for a name that should not open a port is optional and managed in **Domains > Tunnels** ([network.md](network-dns.md#cloudflare-tunnel)).
 - **No agent beside the server (Sentinel).** The monitor, the metrics and the alerts run inside Noust and
   report what they saw; none of them signals a process or changes a file ([MONITOR.md](MONITOR.md)).
 - **No GitHub self-hosted runners.** Noust builds on the server it deploys to, as an unprivileged

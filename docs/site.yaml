@@ -328,8 +328,21 @@ tabs:
             summary: "Where certificates come from, how a name is proven, uploaded certificates and what warns before one expires."
           - source: docs/network.md
             slug: guides/network
+            title: Who may reach a site
             type: guide
-            summary: "Access control of a site, real client addresses, managed DNS, tunnels and published TCP and UDP ports."
+            summary: "A site's access: a password, addresses, limits and headers, client certificates, names no site serves, and what is kept tidy."
+          - source: docs/network-routes.md
+            slug: guides/network/routes
+            type: guide
+            summary: What happens at a path prefix of a site (another port, a redirect, nothing), and signing in with a service of your own in front of it.
+          - source: docs/network-http3-waf.md
+            slug: guides/network/http3-and-waf
+            type: guide
+            summary: HTTP/3 on a site, and ModSecurity with the Core Rule Set in front of it.
+          - source: docs/network-dns.md
+            slug: guides/network/dns-tunnels-and-ports
+            type: guide
+            summary: DNS accounts and the records Noust keeps, a private network, a Cloudflare Tunnel, and TCP and UDP ports published on purpose.
       - title: Databases and backups
         pages:
           - source: docs/databases.md
