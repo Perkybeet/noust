@@ -31,8 +31,9 @@ describe("helpFor", () => {
   });
 
   it("answers a path of no area with the documentation of the console", () => {
-    expect(helpFor("/nowhere/at/all").slug).toBe("reference/console");
-    expect(helpFor("/").anchor).toBe("overview");
+    // The entry of "/" is a prefix of every path, so it answers one nobody wrote an entry for.
+    expect(helpFor("/nowhere/at/all")).toEqual(helpFor("/"));
+    expect(helpFor("/")).toMatchObject({ source: "docs/console-overview.md", anchor: "overview" });
   });
 
   it("does not take a static segment for a parameter", () => {

@@ -48,7 +48,7 @@ describe("documentation for this page", () => {
 
     expect(within(menu).getByRole("link", { name: /Documentation for this page/ })).toHaveAttribute(
       "href",
-      "https://github.com/Perkybeet/noust/blob/main/README.md#cron",
+      "https://github.com/Perkybeet/noust/blob/main/docs/runtime.md#scheduled-tasks-what-ran-and-what-did-not",
     );
   });
 
