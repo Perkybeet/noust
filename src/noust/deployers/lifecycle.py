@@ -1921,7 +1921,7 @@ def _activate_release(
         git_info=lambda: (target.commit, _cache_branch(root, app.branch)),
         operation="rollback" if went_back else "activate",
     )
-    with recording(recorder, git_branch=app.branch):
+    with recording(recorder, git_branch=app.branch, source_known=True):
         if app.zero_downtime:
             # The processes the target declares are recorded and their units written before the
             # idle instance starts: the switch restarts them on the target and proves they stay up
@@ -2204,7 +2204,7 @@ def _activate_image_release(
         release_id=lambda: target.id,
         operation="rollback" if went_back else "activate",
     )
-    with recording(recorder, git_branch=app.branch):
+    with recording(recorder, git_branch=app.branch, source_known=True):
         deployer.activate_release(target.id, went_back=went_back)
         if went_back:
             recorder.mark_previous_success_rolled_back()

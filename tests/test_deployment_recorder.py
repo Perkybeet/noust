@@ -32,7 +32,7 @@ from noust.core.runner import FakeRunner
 from noust.core.store import DeploymentStatus, NoustStore, StoreError
 from noust.deployers.helpers.target import DeployTarget
 from noust.deployers.nodejs import NodeJSDeployer
-from noust.deployers.recorder import CapturingLogger, DeploymentRecorder
+from noust.deployers.recorder import CapturingLogger, DeploymentRecorder, note_source, recording
 from noust.managers.backup_manager import BackupMetadata
 from noust.managers.rollback_manager import RollbackManager
 from tests.support.deployers import build_deployer
@@ -206,6 +206,82 @@ def test_deploy_records_git_commit_and_branch(
     record = store.list_deployments(DOMAIN)[0]
     assert record.git_commit == "abc1234"
     assert record.git_branch == "main"
+
+
+def test_the_commit_is_on_the_row_while_an_in_place_deployment_builds(
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
+) -> None:
+    """
+    The commit was written when the deployment ended, so the page of a running one said
+    "Not a git checkout". It is known when the source is fetched and is recorded then.
+    """
+    runner.script([*READ, "rev-parse", "--abbrev-ref", "HEAD"], stdout="main\n")
+    runner.script([*READ, "rev-parse", "--short", "HEAD"], stdout="abc1234\n")
+
+    deployer = happy_deployer(tmp_path)
+    (tmp_path / "app" / ".git").mkdir(parents=True)
+    seen: list[tuple[str, str | None, str | None]] = []
+
+    def build() -> bool:
+        row = store.list_deployments(DOMAIN)[0]
+        seen.append((row.status, row.git_commit, row.git_branch))
+        return True
+
+    deployer.build = build
+
+    assert deployer.deploy() is True
+
+    assert seen == [("running", "abc1234", "main")]
+
+
+def test_a_source_that_is_not_git_leaves_the_row_without_a_commit_while_it_runs(
+    tmp_path: Path, store: NoustStore
+) -> None:
+    """Nothing is made up for a tree that has no commit."""
+    deployer = happy_deployer(tmp_path)
+    seen: list[tuple[str | None, str | None]] = []
+
+    def build() -> bool:
+        row = store.list_deployments(DOMAIN)[0]
+        seen.append((row.git_commit, row.commit_message))
+        return True
+
+    deployer.build = build
+
+    assert deployer.deploy() is True
+
+    assert seen == [(None, None)]
+
+
+def test_an_operation_on_a_release_that_exists_has_its_commit_from_the_first_moment(
+    tmp_path: Path, store: NoustStore
+) -> None:
+    """A rollback or a promotion fetches nothing: the commit it is about is known before it starts."""
+    recorder = DeploymentRecorder(
+        store,
+        DOMAIN,
+        "cli",
+        logger=CapturingLogger(),
+        log_root=tmp_path / "deploy-logs",
+        git_info=lambda: ("abc1234", "main"),
+        release_id=lambda: "20261029-120000-abc1234",
+        operation="rollback",
+    )
+    seen: list[tuple[str | None, str | None]] = []
+
+    with recording(recorder, git_branch="main", source_known=True):
+        row = store.get_deployment(recorder.deployment_id)
+        assert row is not None
+        seen.append((row.git_commit, row.release_id))
+
+    assert seen == [("abc1234", "20261029-120000-abc1234")]
+
+
+def test_telling_the_source_outside_a_recording_does_nothing(store: NoustStore) -> None:
+    """A deployer run by a test, or by a rehearsal, has no row to tell."""
+    note_source()
+
+    assert store.list_deployments(DOMAIN) == []
 
 
 def test_job_id_is_recorded_when_a_job_started_the_deploy(

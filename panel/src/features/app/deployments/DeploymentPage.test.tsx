@@ -413,6 +413,22 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
     expect(screen.queryByRole("button", { name: "Rebuild this commit" })).not.toBeInTheDocument();
   });
 
+  it("never calls a running deploy that has no commit yet a non-git source", async () => {
+    // The commit is on the row once the source is fetched; until then the page has nothing to say
+    // about it, and "Not a git checkout" reads like an error and is not true.
+    const running = { ...FAILED, id: 21, status: "running", git_commit: null, git_branch: null, finished_at: null, duration_s: null, error: null };
+    await pageAt(21, { "GET /api/deployments/21": () => json(200, running), "GET /api/deployments/21/log": () => json(200, { content: "", truncated: false, missing_reason: null }) });
+    const commit = (await screen.findByText("Commit", { selector: "dt" })).parentElement;
+    expect(commit).not.toBeNull();
+    expect(commit).not.toHaveTextContent(/git checkout/i);
+    expect(commit).toHaveTextContent("Not known yet");
+  });
+
+  it("says a finished deploy with no commit is not a git checkout", async () => {
+    await pageAt(20, { [`GET /api/deployments/${String(FAILED.id)}`]: () => json(200, { ...FAILED, git_commit: null }) });
+    expect(await screen.findByText("Not a git checkout")).toBeInTheDocument();
+  });
+
   it("shows the commit's message beside its hash and branch", async () => {
     await pageAt(20, {
       [`GET /api/deployments/${String(FAILED.id)}`]: () => json(200, { ...FAILED, commit_message: "Fix checkout total rounding" }),

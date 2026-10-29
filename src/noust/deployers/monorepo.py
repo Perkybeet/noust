@@ -121,6 +121,7 @@ from noust.deployers.recorder import (
     DeploymentRecorder,
     GitInfo,
     checkout_git_info,
+    note_source,
     recorder_for,
     recording,
 )
@@ -815,6 +816,7 @@ class MonorepoDeployer(AppDeployer):
             # Step 1: Fetch source
             self.logger.step(1, total_steps, "Fetching source code", Icons.DOWNLOAD)
             self._fetch_source()
+            note_source()
 
             # Step 2: Discover workspaces
             self.logger.step(2, total_steps, "Discovering workspaces", Icons.SEARCH)

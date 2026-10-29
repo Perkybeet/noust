@@ -44,7 +44,7 @@ from noust.deployers.helpers.release_build import (
 from noust.deployers.helpers.sandbox import BuildPhase
 from noust.deployers.helpers.seed_files import seed_files
 from noust.deployers.pipeline import DeployStep
-from noust.deployers.recorder import DeploymentRecorder, recorder_for
+from noust.deployers.recorder import DeploymentRecorder, note_source, recorder_for
 from noust.managers.app_processes import Declaration, ProcessManager
 from noust.managers.source_manager import git_tree_owner
 
@@ -276,6 +276,7 @@ class ReleaseMixin(SiteServiceMixin):
         self._prepare_env()
         self._refresh_variables()
         self._announce_detection()
+        note_source()
 
         self._seed_shared_files()
         links = staged.manager.link_shared(staged.path, self._persistent_paths())
@@ -669,6 +670,7 @@ class ReleaseMixin(SiteServiceMixin):
         self._prepare_env()
         self._refresh_variables()
         self._announce_detection()
+        note_source()
 
     def _announce_detection(self) -> None:
         """

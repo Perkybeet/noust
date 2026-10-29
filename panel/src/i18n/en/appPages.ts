@@ -331,6 +331,7 @@ export const appPages = {
       },
       runningFor: "Running for {duration}",
       notGitCheckout: "Not a git checkout",
+      commitPending: "Not known yet",
       copyCommit: "Copy commit",
       buildLogTitle: "Build log",
       buildLogFollowing: "Follows the deploy as it writes. Scrolling up pauses; Follow resumes.",

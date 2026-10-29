@@ -1168,7 +1168,7 @@ def _migrate(domain: str, plan: MigrationPlan, *, trigger: str, log: Logger) -> 
             error.details = "\n\n".join([error.details or "", journal.report()]).strip()
 
     try:
-        with recording(recorder, git_branch=app.branch, on_failure=put_back):
+        with recording(recorder, git_branch=app.branch, on_failure=put_back, source_known=True):
             # Before the first rename: a process running from the tree
             # writes into it while it moves (Next.js recreates .next), and
             # the undo of a rename whose source was recreated cannot run.

@@ -190,6 +190,10 @@ function Facts({ deployment, t }: { deployment: Deployment; t: T }) {
               </p>
             ) : null}
           </div>
+        ) : RUNNING.has(deployment.status) ? (
+          // The commit is on the row once the source is fetched. Until then nothing is known,
+          // which is not the same as the source not being a git checkout.
+          <EmptyCell reason={t("appPages.deployments.page.commitPending")} />
         ) : (
           <span className="text-fg-faint">
             {t("appPages.deployments.page.notGitCheckout")}
