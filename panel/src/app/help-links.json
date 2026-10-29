@@ -3,7 +3,7 @@
   "default": { "slug": "reference/console", "source": "docs/console.md" },
   "pages": [
     { "route": "/", "slug": "reference/console", "source": "docs/console.md", "anchor": "overview" },
-    { "route": "/account", "slug": "guides/security", "source": "docs/security.md", "anchor": "authentication" },
+    { "route": "/account", "slug": "guides/security/sign-in", "source": "docs/security-sign-in.md", "anchor": "authentication" },
     { "route": "/projects","slug": "guides/teams", "source": "docs/teams.md" },
     { "route": "/projects/$team/$project", "slug": "guides/teams", "source": "docs/teams.md" },
     { "route": "/teams", "slug": "guides/teams", "source": "docs/teams.md" },
@@ -86,15 +86,15 @@
     { "route": "/alerts/probes", "slug": "guides/probes", "source": "docs/probes.md" },
     { "route": "/settings", "slug": "reference/console", "source": "docs/console.md", "anchor": "settings" },
     { "route": "/settings/about", "slug": "releases/policy", "source": "docs/release-policy.md" },
-    { "route": "/settings/accounts", "slug": "guides/security", "source": "docs/security.md", "anchor": "authentication" },
-    { "route": "/settings/approvals", "slug": "guides/security", "source": "docs/security.md", "anchor": "four-eyes-approvals" },
-    { "route": "/settings/audit", "slug": "guides/security", "source": "docs/security.md", "anchor": "audit-log" },
+    { "route": "/settings/accounts", "slug": "guides/security/sign-in", "source": "docs/security-sign-in.md", "anchor": "authentication" },
+    { "route": "/settings/approvals", "slug": "guides/security/approvals", "source": "docs/security-approvals.md", "anchor": "four-eyes-approvals" },
+    { "route": "/settings/audit", "slug": "guides/security/audit", "source": "docs/security-audit.md", "anchor": "audit-log" },
     { "route": "/settings/central", "slug": "guides/fleet", "source": "docs/CENTRAL.md" },
     { "route": "/settings/compliance", "slug": "guides/ens", "source": "docs/ENS.md" },
     { "route": "/settings/console", "slug": "reference/console", "source": "docs/console.md", "anchor": "reaching-it" },
     { "route": "/settings/integrations", "slug": "guides/sources", "source": "docs/sources.md", "anchor": "github-and-github-enterprise" },
     { "route": "/settings/notifications", "slug": "guides/notifications", "source": "docs/notifications.md" },
-    { "route": "/settings/security", "slug": "guides/security", "source": "docs/security.md", "anchor": "authentication" },
+    { "route": "/settings/security", "slug": "guides/security/sign-in", "source": "docs/security-sign-in.md", "anchor": "authentication" },
     { "route": "/settings/servers", "slug": "guides/fleet", "source": "docs/CENTRAL.md" },
     { "route": "/settings/tokens", "slug": "reference/api", "source": "docs/api.md", "anchor": "bearer-tokens-for-scripts" }
   ]

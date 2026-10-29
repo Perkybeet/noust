@@ -109,7 +109,7 @@ long as it has to.
 Tokens issued before the server had accounts keep their 3.0 scope and are never asked for sudo
 mode. The first `admin` account adopts them. The master access token is also accepted as a
 bearer credential: the whole console while no account exists, break-glass afterwards (see
-[security.md](security.md#authentication)).
+[security.md](security-sign-in.md#authentication)).
 
 A token carries no session, so it needs no CSRF token. A *session* token presented as a Bearer
 credential (see `bearer` below) is still a session: it needs the CSRF header and sudo mode
@@ -198,7 +198,7 @@ own session, tokens, second factor and passkeys), or one of `apps.read`, `apps.o
 `backups.read`, `backups.run`, `backups.manage`, `fleet.read`, `fleet.manage`, `settings.read`,
 `settings.manage`, `security.manage`, `accounts.read`, `accounts.manage`, `audit.read`,
 `audit.manage`, `compliance.read`, `teams.read`, `teams.manage`. `GET /api/auth/roles` lists
-what each role holds; the table is in [security.md](security.md#roles-and-permissions).
+what each role holds; the table is in [security.md](security-roles.md#roles-and-permissions).
 
 Since 4.0 an account also belongs to **teams** ([teams.md](teams.md)), and the permission of a route
 that names a resource is held *in the resource's team*: a principal that does not see the resource
@@ -228,7 +228,7 @@ Application reads show a credential stored inside a clone URL as `***`.
 Routes that need a session to confirm its operator are marked in the schema with
 `x-noust-requires-elevation`: deleting things, restoring, revealing secrets, writing an `.env`,
 raw units and site configuration, server changes, account management, issuing tokens, and
-the rest listed in [security.md](security.md#sudo-mode). Without a recent confirmation they
+the rest listed in [security.md](security-approvals.md#sudo-mode). Without a recent confirmation they
 answer:
 
 ```json

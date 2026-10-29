@@ -131,7 +131,7 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "`privileged`, the Docker socket and a bind mount of Noust's state or of another "
         "application's files unless an exception is recorded.",
         "`noust.core.runner.SandboxSpec` and `deployers/helpers/sandbox.py`; "
-        "`deployers/helpers/compose_guard.py` for Compose; `docs/security.md#builds`.",
+        "`deployers/helpers/compose_guard.py` for Compose; `docs/threat-model.md#builds`.",
         (
             "tests/test_build_sandbox.py::test_the_sandbox_failing_its_self_test_stops_the_build_instead_of_running_as_root",
             "tests/test_build_sandbox.py::test_building_as_root_needs_a_reason_where_the_server_asks_for_one",
@@ -300,7 +300,7 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "with a session carries a CSRF token. The end-to-end suite fails on any CSP violation "
         "and runs axe in both themes.",
         "`web/server.py` (`HARDENING_HEADERS`, `CONTENT_SECURITY_POLICY`), "
-        "`panel/e2e/` (the gate), `docs/security.md#the-browser`.",
+        "`panel/e2e/` (the gate), `docs/security-console.md#the-browser`.",
         (
             "tests/test_console_headers.py::TestEveryKindOfAnswer",
             "tests/test_console_headers.py::TestTheTransport",
@@ -334,7 +334,7 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "being recorded), the failure is kept, and `noust health` and the console report it as "
         "an *issue*, not a warning: under the ENS profile an action that leaves no record is a "
         "failure of its own.",
-        "`core/audit/` (`record`, `chain`, `catalog`, `sinks`, `status`); `docs/security.md#audit-log`.",
+        "`core/audit/` (`record`, `chain`, `catalog`, `sinks`, `status`); `docs/security-audit.md#audit-log`.",
         (
             "tests/test_audit_catalog.py::test_every_event_the_code_records_is_in_the_catalog",
             "tests/test_audit_chain.py::TestWriting::test_two_writers_on_one_file_extend_one_chain",

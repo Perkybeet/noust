@@ -199,7 +199,7 @@ What happens when the first `admin` account exists:
 - **Roles apply.** `admin` does not manage accounts or read the whole audit log; `security` does.
   If one person must hold both, record why: `noust user exception add PERSON --reason '...'`.
 
-Choose the roles from the table in [security.md](security.md#roles-and-permissions).
+Choose the roles from the table in [security.md](security-roles.md#roles-and-permissions).
 
 ### 7. Builds without root
 

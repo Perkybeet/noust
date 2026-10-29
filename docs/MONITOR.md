@@ -370,7 +370,7 @@ The password never has to be typed into the command line: `--stdin` reads it fro
 input (a single trailing newline is stripped), and `noust config set monitor.smtp.password
 --prompt` asks for it interactively without echoing it back. Typing a secret straight into
 `VALUE` on a real terminal prints a warning suggesting one of the two - see
-[Secrets via `--stdin`](security.md#secrets-via---stdin). `monitor.email_recipients` takes a
+[Secrets via `--stdin`](threat-model.md#secrets-via---stdin). `monitor.email_recipients` takes a
 comma-separated list directly, the same as `--list`, because it already defaults to a list.
 
 Mail can go through a provider's HTTP API instead (Resend, Postmark, Brevo or Amazon SES), for a host

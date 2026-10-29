@@ -57,7 +57,7 @@ central that has been compromised, an application that has been compromised.
 
 **The guarantee.** Installing dependencies, building and running a deploy hook happen as `noust-build` (or the application's own account) in a transient systemd unit with a read-only system, no access to Noust's configuration or store, and no new privileges. Before the first sandboxed build a canary proves the sandbox holds, and the build stops, instead of running as root, when it does not (failing closed). Building as root is a per-application decision recorded with a name and a reason. A Compose stack is refused `privileged`, the Docker socket and a bind mount of Noust's state or of another application's files unless an exception is recorded.
 
-**How it is enforced.** `noust.core.runner.SandboxSpec` and `deployers/helpers/sandbox.py`; `deployers/helpers/compose_guard.py` for Compose; `docs/security.md#builds`.
+**How it is enforced.** `noust.core.runner.SandboxSpec` and `deployers/helpers/sandbox.py`; `deployers/helpers/compose_guard.py` for Compose; `docs/threat-model.md#builds`.
 
 **What fails if it stops holding.**
 
@@ -173,7 +173,7 @@ central that has been compromised, an application that has been compromised.
 
 **The guarantee.** The console loads nothing from any other origin and runs under a Content Security Policy with no inline script or style and Trusted Types. Every response, including those refused before routing, carries the same hardening headers (printed below). Session cookies are `HttpOnly`, `SameSite=Strict`, and `Secure` over TLS; every mutation made with a session carries a CSRF token. The end-to-end suite fails on any CSP violation and runs axe in both themes.
 
-**How it is enforced.** `web/server.py` (`HARDENING_HEADERS`, `CONTENT_SECURITY_POLICY`), `panel/e2e/` (the gate), `docs/security.md#the-browser`.
+**How it is enforced.** `web/server.py` (`HARDENING_HEADERS`, `CONTENT_SECURITY_POLICY`), `panel/e2e/` (the gate), `docs/security-console.md#the-browser`.
 
 **What fails if it stops holding.**
 
@@ -196,7 +196,7 @@ central that has been compromised, an application that has been compromised.
 
 **The guarantee.** Every change made through the API and every command that changes something is an event from a closed catalogue (a test scans the code for undeclared ones). Each line carries the MAC of the previous one; `noust audit verify` finds the first broken link; lines are shipped to journald, syslog or standard output as they are written. **When the log cannot be written the action still happens** (an action must not fail for being recorded), the failure is kept, and `noust health` and the console report it as an *issue*, not a warning: under the ENS profile an action that leaves no record is a failure of its own.
 
-**How it is enforced.** `core/audit/` (`record`, `chain`, `catalog`, `sinks`, `status`); `docs/security.md#audit-log`.
+**How it is enforced.** `core/audit/` (`record`, `chain`, `catalog`, `sinks`, `status`); `docs/security-audit.md#audit-log`.
 
 **What fails if it stops holding.**
 
@@ -550,7 +550,7 @@ These are the limits, stated before you find them.
   notification secrets in clear, `0600`, and the central can be sealed with `noust central seal`; neither
   helps if the attacker is root on the same machine. What is guaranteed is about the copies: no read of the
   API, no `noust store export` and no incident package carries a secret value unless it was asked for and is
-  audited ([docs/security.md](security.md#secrets-at-rest)).
+  audited ([docs/security.md](security-secrets.md#secrets-at-rest)).
 - **`security.profile: ens-medium` is a mapping, not a certification.**
 - **Dated.** The counts of other products' advisories are those of 2026-10-13, read from GitHub's
   published advisories of each repository. Nothing here is a ranking: advisories count attention as

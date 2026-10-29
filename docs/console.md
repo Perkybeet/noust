@@ -27,7 +27,7 @@ failure, after an upgrade) issues none: it keeps serving the token `noust web en
 printed. `noust web token` without options only reports whether a token is issued: the token
 itself is stored as a salted hash and cannot be shown again. A running console reads the
 token from disk on every request, so issuing a new one with `noust web token --new` retires
-the old one at once, with no restart needed; see [security.md](security.md#authentication)
+the old one at once, with no restart needed; see [security.md](security-sign-in.md#authentication)
 for more, including what `--regenerate` invalidates beyond the token itself.
 
 A foreground console runs until you press Ctrl+C or close the SSH session it was started

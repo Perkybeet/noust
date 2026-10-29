@@ -365,8 +365,34 @@ tabs:
         pages:
           - source: docs/security.md
             slug: guides/security
+            title: Security of the console and the server
             type: guide
-            summary: The threat model, roles and permissions, controls, and how to report a vulnerability.
+            summary: Where each control of the console is documented, the ENS profile, and how to report a vulnerability.
+          - source: docs/security-console.md
+            slug: guides/security/console
+            type: guide
+            summary: "Publishing the console on a name of its own or keeping it on loopback, the browser's protections, and the streams that stay open."
+          - source: docs/security-sign-in.md
+            slug: guides/security/sign-in
+            title: "Sign-in: passwords, second factors and passkeys"
+            type: guide
+            summary: Accounts and passwords, authenticator apps and passkeys, the access token as break-glass, sessions, lockouts and API tokens.
+          - source: docs/security-roles.md
+            slug: guides/security/roles
+            type: guide
+            summary: The roles and the permissions they hold, teams, why there is no signing in as another person, and how far a central may act.
+          - source: docs/security-approvals.md
+            slug: guides/security/approvals
+            type: guide
+            summary: "Sudo mode before a destructive action, and a second person's approval for the root-equivalent ones."
+          - source: docs/security-audit.md
+            slug: guides/security/audit
+            type: guide
+            summary: The audit log, its chain and where it is shipped, and freezing the evidence of an incident.
+          - source: docs/security-secrets.md
+            slug: guides/security/secrets
+            type: guide
+            summary: "Secrets at rest, the database console's read-only account, and backups as the secrets they hold."
           - source: docs/teams.md
             slug: guides/teams
             type: guide
@@ -419,6 +445,10 @@ tabs:
     groups:
       - title: Security
         pages:
+          - source: docs/threat-model.md
+            slug: concepts/threat-model
+            type: explanation
+            summary: "What Noust defends against and what it does not: processes, builds and hooks, repositories as untrusted input, outbound requests and the files it keeps."
           - source: docs/SECURITY-MODEL.md
             slug: concepts/promises
             type: reference

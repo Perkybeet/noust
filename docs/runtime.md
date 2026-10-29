@@ -8,7 +8,7 @@ changed but not applied yet. Deploying and going back are in [releases.md](relea
 Every command here takes `--reason` (recorded in the audit log, required under the ENS
 profile) and, where it changes something, `--dry-run`. Every one has a route in the API
 ([api.md](api.md)) and a place in the console, which is a client of that API. Over the API
-and in the console every change needs [sudo mode](security.md#sudo-mode), and so does reading
+and in the console every change needs [sudo mode](security-approvals.md#sudo-mode), and so does reading
 what may be a secret: the text of a file, of a mount, or a download.
 
 - [Processes](#processes)
