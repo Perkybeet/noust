@@ -84,17 +84,19 @@ class Warning:
     Attributes:
         id: What it is; the console words it.
         count: How many accounts or settings it concerns, when it counts them.
+        items: Which, when it names them (the roles that join duties a framework keeps apart).
     """
 
     id: str
     count: int | None = None
+    items: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
             The warning, JSON-ready.
         """
-        return {"id": self.id, "count": self.count}
+        return {"id": self.id, "count": self.count, "items": list(self.items)}
 
 
 @dataclass(frozen=True)
@@ -430,7 +432,29 @@ class ComplianceManager:
             conflicts = self._conflicts()
             if conflicts:
                 found.append(Warning("separation_conflicts", conflicts))
+        if tightened & {"roles_split", "separation_of_duties"}:
+            # A framework no longer cuts a role behind the operator's back: it judges the roles as
+            # they are, so what it would find wrong is told before it is turned on.
+            joining = self._roles_that_join_duties()
+            if joining:
+                found.append(Warning("roles_join_duties", len(joining), tuple(joining)))
         return found
+
+    def _roles_that_join_duties(self) -> list[str]:
+        """
+        Returns:
+            The roles that join governing the server with running it and that an account holds,
+            by name: the ones a framework that keeps them apart would find wrong. The owner holds
+            everything by design and is not among them.
+        """
+        from noust.core.accounts.role_review import review
+
+        try:
+            judged = review(self._store)
+        except (StoreError, sqlite3.Error) as exc:
+            logger.warning("Could not judge the roles for a compliance change: %s", exc)
+            return []
+        return [role.name for role in judged.joining if role.holders]
 
     def _accounts(self) -> list[Any] | None:
         """

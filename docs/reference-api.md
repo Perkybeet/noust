@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1061 operations.
+1071 operations.
 
 ## Access
 
@@ -18,6 +18,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/access/roles/{role}` | Get Role | `teams.read` |  |  |
 | PATCH | `/api/access/roles/{role}` | Update Role | `accounts.manage` | yes |  |
 | DELETE | `/api/access/roles/{role}` | Delete Role | `accounts.manage` | yes |  |
+| GET | `/api/roles` | List Roles | `accounts.read` |  |  |
+| POST | `/api/roles` | Create Role | `accounts.manage` | yes |  |
+| GET | `/api/roles/review` | Review | `accounts.read` |  |  |
+| GET | `/api/roles/{name}` | Get Role | `accounts.read` |  |  |
+| PATCH | `/api/roles/{name}` | Update Role | `accounts.manage` | yes |  |
+| DELETE | `/api/roles/{name}` | Delete Role | `accounts.manage` | yes |  |
+| POST | `/api/roles/{name}/duplicate` | Duplicate Role | `accounts.manage` | yes |  |
+| POST | `/api/roles/{name}/offers` | Settle Offers | `accounts.manage` | yes |  |
+| POST | `/api/roles/{name}/reset` | Reset Role | `accounts.manage` | yes |  |
 | GET | `/api/teams/{team}/access` | List Team Access | `teams.read` |  |  |
 | POST | `/api/teams/{team}/access` | Bind In Team | `teams.manage` | yes |  |
 | DELETE | `/api/teams/{team}/access/{binding_id}` | Unbind In Team | `teams.manage` | yes |  |
@@ -246,6 +255,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/auth/accounts/{username}/disable` | Disable Account | `accounts.manage` | yes |  |
 | POST | `/api/auth/accounts/{username}/enable` | Enable Account | `accounts.manage` | yes |  |
 | POST | `/api/auth/accounts/{username}/reset-mfa` | Reset Account Mfa | `accounts.manage` | yes |  |
+| PUT | `/api/auth/accounts/{username}/roles` | Set Account Roles | `accounts.manage` | yes |  |
 | POST | `/api/auth/accounts/{username}/unlock` | Unlock Account | `accounts.manage` | yes |  |
 | POST | `/api/auth/elevate` | Elevate | `self` |  |  |
 | GET | `/api/auth/exceptions` | List Exceptions | `accounts.read` |  |  |

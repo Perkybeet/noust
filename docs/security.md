@@ -729,9 +729,12 @@ What limits it is enforced on the server, not trusted from the central:
 - **Fleet tokens are accepted only from loopback**, the tunnel's end.
 - **A ceiling per server**: `read`, `deploy` or `admin`, and `host access` (off by default),
   which a central needs to reach SSH, the firewall, system accounts or root-equivalent changes.
-  The server grants the intersection of its ceiling and what its own table gives the role the
-  central names for its operator (`X-Noust-Actor`, `X-Noust-Actor-Role`); a role it does not know
-  is a viewer. It is changed only on the server (`noust fleet access`); no API raises it.
+  The server grants the intersection of its ceiling and what the central says its operator may
+  do (`X-Noust-Actor`, `X-Noust-Actor-Permissions`, from 4.1: roles are editable, so a name does
+  not mean the same on two servers); a permission it does not know is left out, and what no
+  central may have is never granted. From a central before 4.1 it reads the role's name
+  (`X-Noust-Actor-Role`) in its own table; a role it does not know is a viewer. It is changed only
+  on the server (`noust fleet access`); no API raises it.
 - **Sudo mode and approvals are the server's call.** The central asks its own operator and
   vouches for it (`X-Noust-Elevated`, `X-Noust-Approval`, `X-Noust-Approved-By`); the server
   refuses the call if it did not, and refuses an approval whose approver is the requester.

@@ -88,7 +88,8 @@ AccountCreate = TypedDict("AccountCreate", {
     "display_name": NotRequired[Union[str, None]],
     "password": Required[str],
     "person_ref": NotRequired[Union[str, None]],
-    "role": Required[str],
+    "role": NotRequired[Union[str, None]],
+    "roles": NotRequired[Union[list[str], None]],
     "username": Required[str],
 })
 
@@ -111,10 +112,13 @@ AccountInfo = TypedDict("AccountInfo", {
     "locked_until": NotRequired[Union[float, None]],
     "mfa_enabled": Required[bool],
     "notice_accepted_at": NotRequired[Union[float, None]],
+    "owner": NotRequired[bool],
     "passkeys": NotRequired[int],
     "password_changed_at": NotRequired[Union[float, None]],
+    "permissions": NotRequired[list[str]],
     "person_ref": NotRequired[Union[str, None]],
     "role": Required[str],
+    "roles": NotRequired[list[str]],
     "status": Required[str],
     "username": Required[str],
 })
@@ -141,11 +145,16 @@ AccountOut = TypedDict("AccountOut", {
     "verified_at": NotRequired[Union[str, None]],
 })
 
+AccountRolesRequest = TypedDict("AccountRolesRequest", {
+    "roles": Required[list[str]],
+})
+
 AccountUpdate = TypedDict("AccountUpdate", {
     "display_name": NotRequired[Union[str, None]],
     "email": NotRequired[Union[str, None]],
     "person_ref": NotRequired[Union[str, None]],
     "role": NotRequired[Union[str, None]],
+    "roles": NotRequired[Union[list[str], None]],
 })
 
 AccountsResponse = TypedDict("AccountsResponse", {
@@ -4454,6 +4463,7 @@ InvitationCreate = TypedDict("InvitationCreate", {
     "expires_hours": NotRequired[int],
     "person_ref": NotRequired[Union[str, None]],
     "role": NotRequired[Union[str, None]],
+    "roles": NotRequired[Union[list[str], None]],
     "team": NotRequired[Union[str, None]],
     "team_role": NotRequired[Union[str, None]],
     "username": Required[str],
@@ -7483,6 +7493,10 @@ RevokedResponse = TypedDict("RevokedResponse", {
     "success": Required[bool],
 })
 
+RoleActionResponse = TypedDict("RoleActionResponse", {
+    "message": Required[str],
+})
+
 RoleOut = TypedDict("RoleOut", {
     "built_in": Required[bool],
     "created_at": NotRequired[Union[float, None]],
@@ -7495,6 +7509,31 @@ RoleOut = TypedDict("RoleOut", {
     "scopes": NotRequired[list[str]],
     "updated_at": NotRequired[Union[float, None]],
     "updated_by": NotRequired[Union[str, None]],
+})
+
+RolesReviewAccount = TypedDict("RolesReviewAccount", {
+    "governing": Required[list[str]],
+    "roles": Required[list[str]],
+    "running": Required[list[str]],
+    "username": Required[str],
+})
+
+RolesReviewResponse = TypedDict("RolesReviewResponse", {
+    "accounts": Required[list["RolesReviewAccount"]],
+    "controls": Required[list[str]],
+    "duties_apart": Required[bool],
+    "owners": Required[int],
+    "roles": Required[list["RolesReviewRole"]],
+    "suggestion": NotRequired[Union[str, None]],
+})
+
+RolesReviewRole = TypedDict("RolesReviewRole", {
+    "governing": NotRequired[list[str]],
+    "holders": Required[int],
+    "joins_duties": Required[bool],
+    "name": Required[str],
+    "protected": Required[bool],
+    "running": NotRequired[list[str]],
 })
 
 RollbackPointOut = TypedDict("RollbackPointOut", {
@@ -8115,6 +8154,63 @@ ServerKeyResponse = TypedDict("ServerKeyResponse", {
     "public_key": NotRequired[Union[str, None]],
 })
 
+ServerRoleCreate = TypedDict("ServerRoleCreate", {
+    "description": NotRequired[Union[str, None]],
+    "label": NotRequired[Union[str, None]],
+    "name": Required[str],
+    "permissions": Required[list[str]],
+})
+
+ServerRoleDuplicate = TypedDict("ServerRoleDuplicate", {
+    "label": NotRequired[Union[str, None]],
+    "name": Required[str],
+})
+
+ServerRoleOffers = TypedDict("ServerRoleOffers", {
+    "accept": NotRequired[list[str]],
+    "dismiss": NotRequired[list[str]],
+})
+
+ServerRoleOut = TypedDict("ServerRoleOut", {
+    "bindings": NotRequired[int],
+    "can_delete": Required[bool],
+    "can_duplicate": Required[bool],
+    "can_edit": Required[bool],
+    "can_reset": Required[bool],
+    "created_at": Required[float],
+    "created_by": NotRequired[Union[str, None]],
+    "description": NotRequired[str],
+    "edited": Required[bool],
+    "follows_noust": Required[bool],
+    "governing": NotRequired[list[str]],
+    "holder_count": NotRequired[int],
+    "holders": NotRequired[list[str]],
+    "joins_duties": NotRequired[bool],
+    "kind": Required[str],
+    "label": Required[str],
+    "name": Required[str],
+    "offers": NotRequired[list[str]],
+    "permissions": Required[list[str]],
+    "protected": Required[bool],
+    "running": NotRequired[list[str]],
+    "shipped_permissions": NotRequired[Union[list[str], None]],
+    "updated_at": Required[float],
+    "updated_by": NotRequired[Union[str, None]],
+})
+
+ServerRoleUpdate = TypedDict("ServerRoleUpdate", {
+    "description": NotRequired[Union[str, None]],
+    "label": NotRequired[Union[str, None]],
+    "permissions": NotRequired[Union[list[str], None]],
+})
+
+ServerRolesResponse = TypedDict("ServerRolesResponse", {
+    "duties_apart": Required[bool],
+    "owners": Required[int],
+    "permissions": Required[dict[str, str]],
+    "roles": Required[list["ServerRoleOut"]],
+})
+
 ServerShellModel = TypedDict("ServerShellModel", {
     "allowed": Required[bool],
     "coded": NotRequired[Union["CodedText", None]],
@@ -8220,6 +8316,7 @@ SessionInfo = TypedDict("SessionInfo", {
     "notice": NotRequired[Union["NoticeInfo", None]],
     "permissions": NotRequired[list[str]],
     "role": NotRequired[Union[str, None]],
+    "roles": NotRequired[list[str]],
     "scope": NotRequired[Union[str, None]],
     "security_profile": NotRequired[Union[str, None]],
     "totp_enabled": Required[bool],
@@ -10244,6 +10341,7 @@ WafModel = TypedDict("WafModel", {
 WarningInfo = TypedDict("WarningInfo", {
     "count": NotRequired[Union[int, None]],
     "id": Required[str],
+    "items": NotRequired[list[str]],
 })
 
 WebConfig = TypedDict("WebConfig", {

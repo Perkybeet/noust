@@ -38,6 +38,7 @@ it in as a local :class:`Source` that answers through the central's own API.
 from __future__ import annotations
 
 import builtins
+import hashlib
 import json
 import logging
 import threading
@@ -277,17 +278,28 @@ class Asker:
         scope: ``read``, ``deploy`` or ``admin``.
         role: The operator's account role on the central, when an account.
         elevated: Whether the central vouches for the operator's sudo mode.
+        permissions: What the operator may do on the central, when an account (4.1): a node
+            that reads them grants these, cut by its ceiling, and its answer depends on them.
     """
 
     actor: str
     scope: str = "read"
     role: str | None = None
     elevated: bool = False
+    permissions: tuple[str, ...] | None = None
+
+    def __post_init__(self) -> None:
+        # A job keeps its asker as JSON, which hands a list back.
+        if self.permissions is not None and not isinstance(self.permissions, tuple):
+            object.__setattr__(self, "permissions", tuple(self.permissions))
 
     @property
     def audience(self) -> str:
-        """What a node's answer depends on besides the node: role and scope."""
-        return f"{self.role or '-'}/{self.scope}"
+        """What a node's answer depends on besides the node: role, scope and permissions."""
+        if self.permissions is None:
+            return f"{self.role or '-'}/{self.scope}"
+        digest = hashlib.sha256(",".join(sorted(self.permissions)).encode()).hexdigest()[:12]
+        return f"{self.role or '-'}/{self.scope}/{digest}"
 
     def headers(self) -> dict[str, Any]:
         """
@@ -300,6 +312,7 @@ class Asker:
             "actor_scope": self.scope,
             "actor_role": self.role,
             "elevated": self.elevated,
+            "actor_permissions": self.permissions,
         }
 
 

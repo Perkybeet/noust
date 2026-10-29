@@ -169,6 +169,86 @@ class TestRoles:
         assert "apps.deploy" in body["permissions"]
 
 
+class TestTheOneListOfRoles:
+    """4.1: the roles Noust ships are rows the operator edits, copies and puts back."""
+
+    def test_the_list_has_the_six_roles_and_says_how_each_stands(self, cli: CliRunner) -> None:
+        listed = as_json(cli, "access", "role", "list")
+
+        names = [role["name"] for role in listed["roles"]]
+        assert names == ["viewer", "operator", "admin", "security", "auditor", "owner"]
+        assert listed["built_in"] and "custom" in listed
+        table = run(cli, "access", "role", "list")
+        assert "follows Noust" in table and "protected" in table
+
+    def test_a_role_noust_ships_is_edited_and_put_back(self, cli: CliRunner) -> None:
+        run(cli, "access", "role", "set", "operator", "--permission", "apps.read")
+        edited = as_json(cli, "access", "role", "show", "operator")
+        assert edited["edited"] is True and edited["permissions"] == ["apps.read", "self"]
+
+        run(cli, "access", "role", "reset", "operator")
+
+        assert as_json(cli, "access", "role", "show", "operator")["follows_noust"] is True
+
+    def test_the_owner_cannot_be_changed(self, cli: CliRunner) -> None:
+        out = run(cli, "access", "role", "set", "owner", "--permission", "apps.read", code=1)
+
+        assert "owner role cannot be changed or deleted" in out
+
+    def test_a_role_is_copied_into_one_of_the_operators_own(self, cli: CliRunner) -> None:
+        run(cli, "access", "role", "duplicate", "operator", "night-shift")
+
+        copy = as_json(cli, "access", "role", "show", "night-shift")
+        assert copy["kind"] == "custom" and copy["label"] == "Operator (copy)"
+
+    def test_what_a_newer_release_offers_is_listed_and_settled(
+        self, cli: CliRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from noust.core.access import builtin
+
+        run(cli, "access", "role", "set", "operator", "--permission", "apps.read")
+        shipped = builtin.SHIPPED["operator"]
+        monkeypatch.setitem(
+            builtin.SHIPPED,
+            "operator",
+            builtin.Shipped(
+                "operator",
+                shipped.label,
+                shipped.description,
+                shipped.permissions | {"backups.manage"},
+            ),
+        )
+
+        assert as_json(cli, "access", "role", "offers", "operator")["offers"] == ["backups.manage"]
+        run(cli, "access", "role", "offers", "operator", "--accept", "backups.manage")
+        assert as_json(cli, "access", "role", "offers", "operator")["offers"] == []
+        assert "backups.manage" in as_json(cli, "access", "role", "show", "operator")["permissions"]
+
+    def test_the_command_the_review_suggests_splits_the_administrator(self, cli: CliRunner) -> None:
+        # The ENS check and the compliance plan print this line: it has to work as printed.
+        import shlex
+
+        from noust.core.accounts.role_review import review
+
+        suggestion = review().suggestion
+        assert suggestion is not None
+
+        run(cli, *shlex.split(suggestion)[1:])
+
+        admin = as_json(cli, "access", "role", "show", "admin")
+        assert admin["edited"] is True and "accounts.manage" not in admin["permissions"]
+        assert review().suggestion is None
+
+    def test_a_role_on_the_whole_server_is_one_more_role_of_the_account(
+        self, cli: CliRunner
+    ) -> None:
+        run(cli, "access", "role", "create", "db-reader", "--permission", "databases.write")
+
+        run(cli, "access", "grant", "maria", "--role", "db-reader", "--scope", "instance")
+
+        assert AccountManager().require("maria").roles == ("viewer", "db-reader")
+
+
 class TestGrants:
     def test_a_role_is_given_on_a_project_and_listed(self, cli: CliRunner) -> None:
         output = run(
@@ -250,7 +330,7 @@ class TestGrants:
 
         output = run(cli, "access", "role", "remove", "ci", "--yes", code=1)
 
-        assert "held by 1" in output
+        assert "still given to 1" in output
 
 
 class TestBoundTokens:

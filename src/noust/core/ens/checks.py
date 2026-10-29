@@ -160,6 +160,8 @@ class Facts:
         accounts: Every account (``Account.to_dict``).
         sod_conflicts: People holding incompatible roles.
         sod_exceptions: Separation-of-duties exceptions in force.
+        roles_review: What the frameworks in force make of the roles
+            (:mod:`noust.core.accounts.role_review`): which join governing and running.
         tokens: API token records, no hash.
         master_token_exists: Whether a master token was ever issued.
         audit_verify: The chain's verification.
@@ -196,6 +198,7 @@ class Facts:
     accounts: list[dict[str, Any]] | None = None
     sod_conflicts: list[dict[str, Any]] = field(default_factory=list)
     sod_exceptions: list[dict[str, Any]] = field(default_factory=list)
+    roles_review: dict[str, Any] | None = None
     tokens: list[dict[str, Any]] | None = None
     master_token_exists: bool | None = None
     audit_verify: dict[str, Any] | None = None
@@ -592,6 +595,9 @@ def gather(sources: Sources | None = None) -> Facts:
         facts.sod_conflicts = manager.separation_conflicts(always=True)
         facts.sod_exceptions = [asdict(item) for item in manager.list_exceptions()]
         facts.totp_plaintext = manager.plaintext_totp_secrets()
+        from noust.core.accounts.role_review import review
+
+        facts.roles_review = review(store()).to_dict()
 
     def tokens() -> None:
         manager = sources.token_manager
@@ -869,12 +875,25 @@ def check_roles(facts: Facts) -> Finding:
     if managed is not None:
         return managed
     active = [a for a in facts.accounts if a.get("status") == "active"]
-    roles = {str(a.get("role")) for a in active}
-    evidence = [
-        f"{role}: {sum(1 for a in active if a.get('role') == role)}" for role in sorted(roles)
-    ]
+
+    def held_by(account: dict[str, Any]) -> list[str]:
+        return [str(name) for name in account.get("roles") or [account.get("role")]]
+
+    roles = {name for a in active for name in held_by(a)}
+    evidence = [f"{role}: {sum(1 for a in active if role in held_by(a))}" for role in sorted(roles)]
     missing = [role for role in ("security", "admin") if role not in roles]
     unexcused = [c for c in facts.sod_conflicts if not c.get("exception")]
+    judged = facts.roles_review or {}
+    joining = [r["name"] for r in judged.get("roles", []) if r.get("joins_duties") and r["holders"]]
+    together = [a["username"] for a in judged.get("accounts", [])]
+    for name in joining:
+        evidence.append(f"role {name}: holds both governing the server and running it")
+    for username in together:
+        evidence.append(f"account {username}: its roles together govern and run the server")
+    if judged.get("owners"):
+        evidence.append(
+            f"owner: {judged['owners']} account(s) hold every permission by design (protected)"
+        )
     for conflict in facts.sod_conflicts:
         names = ", ".join(f"{a['username']} ({a['role']})" for a in conflict.get("accounts", []))
         state = "exception in force" if conflict.get("exception") else "no exception"
@@ -889,12 +908,22 @@ def check_roles(facts: Facts) -> Finding:
             tuple(evidence),
             "Create the first accounts: noust user create <name> --role security, then an admin.",
         )
-    if missing or unexcused:
+    if missing or unexcused or joining or together:
         problems = []
         if missing:
             problems.append(f"no active {' or '.join(missing)} account")
         if unexcused:
             problems.append(f"{len(unexcused)} person(s) hold incompatible roles")
+        if joining:
+            problems.append(f"the role {', '.join(joining)} joins governing with running")
+        if together:
+            problems.append(f"{len(together)} account(s) hold roles that together join them")
+        fix = (
+            "Give each function its own account and person (noust user invite); where one person "
+            "must hold both, record the exception: noust user exception add."
+        )
+        if joining and (judged.get("suggestion") or ""):
+            fix += f" To split the administrator: {judged['suggestion']}"
         return Finding(
             "ENS-ACC-01",
             title,
@@ -902,8 +931,7 @@ def check_roles(facts: Facts) -> Finding:
             measures,
             "Separation of duties is not in place: " + "; ".join(problems) + ".",
             tuple(evidence),
-            "Give each function its own account and person (noust user invite); where one person "
-            "must hold both, record the exception: noust user exception add.",
+            fix,
         )
     return Finding(
         "ENS-ACC-01",

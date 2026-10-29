@@ -75,9 +75,10 @@ from noust.web.permissions.roles import (
     GRANT_RECOVERY,
     LEGACY_SCOPES,
     TOKEN_SCOPES,
+    instance_role_of,
     legacy_scope,
-    permissions_for_role,
     permissions_for_scope,
+    permissions_of_account,
 )
 from noust.web.permissions.team_roles import (
     BOUND_KINDS,
@@ -226,7 +227,10 @@ class TokenManager:
         # the payload carries both so a route is held to the ceiling first and
         # to the resource's own team after (noust.web.permissions.team_roles).
         teams = team_fields(
-            account.id, account.role, permissions_for_role(account.role), self.accounts.store
+            account.id,
+            instance_role_of(account),
+            permissions_of_account(account, self.accounts.store),
+            self.accounts.store,
         )
         permissions = teams["permissions"]
         policy = self.policy()
@@ -240,6 +244,7 @@ class TokenManager:
             "account_id": account.id,
             "username": account.username,
             "role": account.role,
+            "roles": list(account.roles),
             **teams,
             "scope": legacy_scope(permissions),
             "mfa_pending": not account.has_mfa and mfa_required,
@@ -968,7 +973,10 @@ class TokenManager:
             # permissions and what the owner's team roles add - and, bound to a
             # scope, only what the owner holds there.
             owned = team_fields(
-                owner.id, owner.role, permissions_for_role(owner.role), self.accounts.store
+                owner.id,
+                instance_role_of(owner),
+                permissions_of_account(owner, self.accounts.store),
+                self.accounts.store,
             )
             if bound is not None:
                 kind, bound_id = bound
@@ -1423,7 +1431,10 @@ class TokenManager:
                 )
             role = owner.role
             teams = team_fields(
-                owner.id, owner.role, permissions_for_role(owner.role), self.accounts.store
+                owner.id,
+                instance_role_of(owner),
+                permissions_of_account(owner, self.accounts.store),
+                self.accounts.store,
             )
             if bound_kind and record.get("bound_id") is not None:
                 teams = {
@@ -1444,6 +1455,7 @@ class TokenManager:
             "permissions": frozenset(permissions),
             "scope": legacy_scope(permissions),
             "role": role,
+            "roles": list(owner.roles) if owner is not None else None,
             "owner_account_id": owner_id,
             "elevation_exempt": (allow_elevated is None or bool(allow_elevated))
             and not restricted_tokens,

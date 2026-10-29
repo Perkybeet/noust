@@ -21,10 +21,13 @@ from noust.web.auth.constants import (
     API_TOKEN_SCOPES,
     FLEET_ACTOR_HEADER,
     FLEET_ACTOR_PATTERN,
+    FLEET_ACTOR_PERMISSIONS_HEADER,
     FLEET_ACTOR_ROLE_HEADER,
     FLEET_ACTOR_SCOPE_HEADER,
     FLEET_AUTH_PATHS,
     FLEET_ELEVATED_HEADER,
+    FLEET_PERMISSION_PATTERN,
+    FLEET_PERMISSIONS_MAX,
     FLEET_PROTECTED_CONFIG_SECTIONS,
     FLEET_REFUSED_PREFIXES,
     FLEET_REFUSED_WRITES,
@@ -33,6 +36,7 @@ from noust.web.auth.constants import (
     SCOPE_RANK,
 )
 from noust.web.auth.payload import FleetCredentialRefused, actor_label, is_fleet
+from noust.web.permissions import ALL_PERMISSIONS, Permission
 from noust.web.permissions.enforce import patched_config_key
 from noust.web.permissions.roles import (
     ROLE_PERMISSIONS,
@@ -157,6 +161,13 @@ def admit_fleet(payload: dict[str, Any], connection: HTTPConnection | None) -> d
             )
         role = actor_role if actor_role in ROLE_PERMISSIONS else "viewer"
         base = permissions_for_role(role)
+    # A 4.1 central says what the person may do, which is what a role the operator edited means:
+    # the name alone would be read in this node's table. Whatever it says is cut by the ceiling
+    # below, which never gives what no central may have.
+    claimed = fleet_claimed_permissions(connection.headers.get(FLEET_ACTOR_PERMISSIONS_HEADER))
+    if claimed is not None:
+        base = claimed
+        payload["fleet_claimed"] = claimed
     permits = fleet_ceiling()
     permissions = frozenset(permission for permission in base if permits(permission))
 
@@ -167,6 +178,39 @@ def admit_fleet(payload: dict[str, Any], connection: HTTPConnection | None) -> d
     payload["on_behalf_of"] = actor
     payload["elevation_attested"] = connection.headers.get(FLEET_ELEVATED_HEADER) == "1"
     return payload
+
+
+def fleet_claimed_permissions(header: str | None) -> frozenset[str] | None:
+    """
+    Read the permissions a central says its operator holds.
+
+    Args:
+        header: The value of ``X-Noust-Actor-Permissions``, or None when it was not sent (a central
+            before 4.1, or a call with no person behind it).
+
+    Returns:
+        The permissions this release knows among those named, or None when none was sent. A name
+        this release does not know is dropped, so a central newer than this node never grants
+        what the node cannot judge.
+
+    Raises:
+        FleetCredentialRefused: 400 when the header is not a list of permission names.
+    """
+    if header is None:
+        return None
+    names = [item.strip() for item in header.split(",") if item.strip()]
+    if len(names) > FLEET_PERMISSIONS_MAX or not all(
+        FLEET_PERMISSION_PATTERN.fullmatch(name) for name in names
+    ):
+        raise FleetCredentialRefused(
+            400,
+            "validation_error",
+            f"{FLEET_ACTOR_PERMISSIONS_HEADER} must list permission names separated by commas.",
+            "The central sends its operator's permissions; check the central's version.",
+        )
+    # Its own credential is never a thing a ceiling withholds: a central that names nothing still
+    # checks and revokes its token (the same "self" every fleet principal holds).
+    return (frozenset(names) & ALL_PERMISSIONS) | {Permission.SELF}
 
 
 def fleet_ceiling() -> Callable[[str], bool]:

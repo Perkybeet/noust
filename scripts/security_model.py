@@ -744,17 +744,21 @@ def block_headers() -> str:
 
 
 def block_roles() -> str:
-    """The matrix of roles and permissions, from ``roles.py``."""
-    from noust.web.permissions import DESCRIPTIONS
-    from noust.web.permissions.roles import ROLE_PERMISSIONS, STANDARD_ROLE_PERMISSIONS
+    """The roles Noust ships and what each holds, from ``core/access/builtin.py``."""
+    from noust.core.access.builtin import SHIPPED
+    from noust.web.permissions import ALL_PERMISSIONS, DESCRIPTIONS
+    from noust.web.permissions.roles import ROLE_PERMISSIONS
 
-    # The matrix the ENS review decided (the roles split), and beside it the one column that
-    # differs by default: one person running their own servers needs one account (item 83).
+    # What a server is seeded with (the administrator holds the three duties: one person running
+    # their own servers needs one account, item 83), the administrator as the ENS review decided it
+    # (what a framework that keeps duties apart asks of it, and what a server that ran the
+    # roles_split control saved it as when it moved to editable roles), and the protected owner.
     columns = {
-        **{role: ROLE_PERMISSIONS[role] for role in ROLE_PERMISSIONS},
-        "admin (default)": STANDARD_ROLE_PERMISSIONS["admin"],
+        **{role: SHIPPED[role].permissions for role in SHIPPED},
+        "admin (ENS review)": ROLE_PERMISSIONS["admin"],
+        "owner": ALL_PERMISSIONS,
     }
-    headers = {"admin": "admin (roles split)"}
+    headers = {"admin": "admin (ships)"}
     names = [headers.get(name, name) for name in columns]
     rows = [
         "| Permission | What it allows | " + " | ".join(names) + " |",

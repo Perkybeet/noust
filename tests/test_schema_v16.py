@@ -108,3 +108,24 @@ def test_a_column_written_later_is_added_and_a_complete_store_is_left_alone(
     finally:
         conn.close()
     assert "v16_probe_column" in columns
+
+
+def test_a_store_that_climbs_from_v15_has_the_tables_of_v16_the_first_time_it_opens(
+    tmp_path: Path, fresh: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "noust.db"
+    NoustStore(path)
+    NoustStore.reset_instance()
+    conn = sqlite3.connect(path)
+    conn.execute("DELETE FROM schema_version")
+    conn.execute("INSERT INTO schema_version (version) VALUES (15)")
+    conn.commit()
+    conn.close()
+    monkeypatch.setattr(schema_v16, "ROLES_SQL", LATE_TABLE)
+
+    NoustStore(path)
+
+    # The climb itself adds them: waiting for the next opening leaves a process that has just
+    # upgraded a server running on a store without the tables its own code reads.
+    assert "v16_probe" in tables_of(path)
+    assert version_of(path) == 16

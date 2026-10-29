@@ -380,7 +380,7 @@
         "type": "object"
       },
       "AccountCreate": {
-        "description": "A new account with a password.\n\nAttributes:\n    username: Sign-in name.\n    role: Its role.\n    password: Its first password, checked against the policy.\n    display_name: How the console greets them.\n    person_ref: Who it belongs to, such as an e-mail address.",
+        "description": "A new account with a password.\n\nAttributes:\n    username: Sign-in name.\n    role: Its role; or ``roles``, when it holds several.\n    roles: Every role it is to hold, the one it is known by first. The first account a server\n        has is made its owner as well, unless a framework keeps duties apart.\n    password: Its first password, checked against the policy.\n    display_name: How the console greets them.\n    person_ref: Who it belongs to, such as an e-mail address.",
         "properties": {
           "display_name": {
             "anyOf": [
@@ -412,8 +412,30 @@
             "title": "Person Ref"
           },
           "role": {
-            "title": "Role",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "roles": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 32,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roles"
           },
           "username": {
             "maxLength": 64,
@@ -424,7 +446,6 @@
         },
         "required": [
           "username",
-          "role",
           "password"
         ],
         "title": "AccountCreate",
@@ -450,7 +471,7 @@
         "type": "object"
       },
       "AccountInfo": {
-        "description": "One account, with no secret in it.\n\nAttributes:\n    id: Store id.\n    username: Sign-in name.\n    display_name: How the console greets them.\n    role: ``viewer``, ``operator``, ``admin``, ``security`` or ``auditor``.\n    status: ``active``, ``disabled``, ``locked`` or ``invited``.\n    person_ref: Who the account belongs to, for separation of duties.\n    email: Where its invitations and password resets are mailed.\n    mfa_enabled: Whether a second factor is enrolled: an authenticator\n        or a passkey.\n    passkeys: How many passkeys it has.\n    backup_codes_remaining: Unused recovery codes.\n    last_login_at: Last successful sign-in, UNIX seconds.\n    last_login_ip: Where it came from.\n    failures_since_login: Refused attempts since then.\n    locked_until: End of a lockout in force, UNIX seconds.\n    notice_accepted_at: When the usage notice was last accepted.\n    password_changed_at: When the password was last set.\n    created_at: When the account was created.\n    created_by: Who created it.\n    disabled_at: When it was disabled.\n    disabled_reason: Why.",
+        "description": "One account, with no secret in it.\n\nAttributes:\n    id: Store id.\n    username: Sign-in name.\n    display_name: How the console greets them.\n    role: The first of the five roles of 3.1 among its roles (``viewer`` when none is): what\n        a client written before 4.1 reads. What the account may do is ``roles``.\n    roles: Every role it holds, in order (the list is ``GET /api/roles``).\n    permissions: What the roles hold together, sorted: the account's effective permissions\n        outside any team.\n    owner: Whether it holds the owner role.\n    status: ``active``, ``disabled``, ``locked`` or ``invited``.\n    person_ref: Who the account belongs to, for separation of duties.\n    email: Where its invitations and password resets are mailed.\n    mfa_enabled: Whether a second factor is enrolled: an authenticator\n        or a passkey.\n    passkeys: How many passkeys it has.\n    backup_codes_remaining: Unused recovery codes.\n    last_login_at: Last successful sign-in, UNIX seconds.\n    last_login_ip: Where it came from.\n    failures_since_login: Refused attempts since then.\n    locked_until: End of a lockout in force, UNIX seconds.\n    notice_accepted_at: When the usage notice was last accepted.\n    password_changed_at: When the password was last set.\n    created_at: When the account was created.\n    created_by: Who created it.\n    disabled_at: When it was disabled.\n    disabled_reason: Why.",
         "properties": {
           "backup_codes_remaining": {
             "title": "Backup Codes Remaining",
@@ -565,6 +586,11 @@
             ],
             "title": "Notice Accepted At"
           },
+          "owner": {
+            "default": false,
+            "title": "Owner",
+            "type": "boolean"
+          },
           "passkeys": {
             "default": 0,
             "title": "Passkeys",
@@ -581,6 +607,13 @@
             ],
             "title": "Password Changed At"
           },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
           "person_ref": {
             "anyOf": [
               {
@@ -595,6 +628,13 @@
           "role": {
             "title": "Role",
             "type": "string"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
           },
           "status": {
             "title": "Status",
@@ -743,8 +783,27 @@
         "title": "AccountOut",
         "type": "object"
       },
+      "AccountRolesRequest": {
+        "description": "Every role an account is to hold.\n\nAttributes:\n    roles: The roles, the one the account is known by first; at least one, each a role of the\n        list (``GET /api/roles``).",
+        "properties": {
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles"
+        ],
+        "title": "AccountRolesRequest",
+        "type": "object"
+      },
       "AccountUpdate": {
-        "description": "Changes to an account; a field left out is kept.\n\nAttributes:\n    role: A new role.\n    display_name: A new display name.\n    person_ref: A new person reference; empty clears it.\n    email: A new address for invitations and password resets; empty clears it.",
+        "description": "Changes to an account; a field left out is kept.\n\nAttributes:\n    role: A new role, which takes the place of the first one the account holds.\n    roles: Every role it is to hold from now on; set instead of ``role`` to change several.\n    display_name: A new display name.\n    person_ref: A new person reference; empty clears it.\n    email: A new address for invitations and password resets; empty clears it.",
         "properties": {
           "display_name": {
             "anyOf": [
@@ -792,6 +851,21 @@
               }
             ],
             "title": "Role"
+          },
+          "roles": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 32,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roles"
           }
         },
         "title": "AccountUpdate",
@@ -26032,7 +26106,7 @@
         "type": "object"
       },
       "InvitationCreate": {
-        "description": "An invitation: a new account, or a recovery for an existing one.\n\nAttributes:\n    username: The account's name.\n    role: The role of a new account; ignored for an existing one.\n    display_name: Display name of a new account.\n    person_ref: Person reference of a new account. Optional: the e-mail address stands\n        for it when it is not given, so the invitation needs one address, not two.\n    expires_hours: How long the code is valid.\n    team: The team a new account joins, instead of the default one.\n    team_role: Its role there (``viewer``, ``operator``, ``admin`` or\n        ``owner``); ``viewer`` when only ``team`` is given.\n    email: Where to mail the invitation, and who the person is unless ``person_ref`` says.\n        The account keeps the address, and the code is returned whether the mail goes or\n        not. A ``person_ref`` alone, as before, names the person and mails nothing.",
+        "description": "An invitation: a new account, or a recovery for an existing one.\n\nAttributes:\n    username: The account's name.\n    role: The role of a new account; ignored for an existing one.\n    roles: Several roles for a new account, instead of ``role``.\n    display_name: Display name of a new account.\n    person_ref: Person reference of a new account. Optional: the e-mail address stands\n        for it when it is not given, so the invitation needs one address, not two.\n    expires_hours: How long the code is valid.\n    team: The team a new account joins, instead of the default one.\n    team_role: Its role there (``viewer``, ``operator``, ``admin`` or\n        ``owner``); ``viewer`` when only ``team`` is given.\n    email: Where to mail the invitation, and who the person is unless ``person_ref`` says.\n        The account keeps the address, and the code is returned whether the mail goes or\n        not. A ``person_ref`` alone, as before, names the person and mails nothing.",
         "properties": {
           "display_name": {
             "anyOf": [
@@ -26087,6 +26161,21 @@
               }
             ],
             "title": "Role"
+          },
+          "roles": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 32,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roles"
           },
           "team": {
             "anyOf": [
@@ -43377,6 +43466,20 @@
         "title": "RevokedResponse",
         "type": "object"
       },
+      "RoleActionResponse": {
+        "description": "The answer to a change that has nothing else to say.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "RoleActionResponse",
+        "type": "object"
+      },
       "RoleOut": {
         "description": "A role, built in or defined here.\n\nAttributes:\n    name: Its name.\n    label: What the console shows (the name for a built-in role).\n    description: What it is for.\n    permissions: What it holds.\n    built_in: Whether it ships with Noust and cannot be changed.\n    kind: ``team`` for the roles of a team, ``custom`` for the others.\n    scopes: Where it can be held: ``team``, ``project``, ``environment``,\n        ``instance``.\n    created_at: When it was defined, for a custom role.\n    created_by: Who defined it.\n    updated_at: When it last changed.\n    updated_by: Who changed it.",
         "properties": {
@@ -43468,6 +43571,141 @@
           "kind"
         ],
         "title": "RoleOut",
+        "type": "object"
+      },
+      "RolesReviewAccount": {
+        "description": "An account whose roles together join the duties, though none of them does alone.\n\nAttributes:\n    username: The account.\n    roles: Its roles.\n    governing: What it holds that governs.\n    running: What it holds that runs.",
+        "properties": {
+          "governing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Governing",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "running": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Running",
+            "type": "array"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "roles",
+          "governing",
+          "running"
+        ],
+        "title": "RolesReviewAccount",
+        "type": "object"
+      },
+      "RolesReviewResponse": {
+        "description": "What the frameworks in force make of the server's roles.\n\nAttributes:\n    duties_apart: Whether a control keeps governing and running apart.\n    controls: Which controls do (``roles_split``, ``separation_of_duties``,\n        ``single_role_per_account``).\n    owners: Accounts that hold the owner role and can sign in.\n    suggestion: A command that splits the administrator the way the ENS review decided it,\n        when the administrator joins the duties; null otherwise.\n    roles: Every role, judged.\n    accounts: The accounts whose roles together join the duties.",
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/RolesReviewAccount"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "controls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
+          "duties_apart": {
+            "title": "Duties Apart",
+            "type": "boolean"
+          },
+          "owners": {
+            "title": "Owners",
+            "type": "integer"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RolesReviewRole"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "suggestion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion"
+          }
+        },
+        "required": [
+          "duties_apart",
+          "controls",
+          "owners",
+          "roles",
+          "accounts"
+        ],
+        "title": "RolesReviewResponse",
+        "type": "object"
+      },
+      "RolesReviewRole": {
+        "description": "One role as the frameworks judge it.\n\nAttributes:\n    name: The role.\n    protected: The owner, which holds everything by design and is not counted as a defect.\n    holders: How many accounts hold it.\n    joins_duties: Whether it joins governing the server with running it.\n    governing: What it holds that governs, when it joins them.\n    running: What it holds that runs, when it joins them.",
+        "properties": {
+          "governing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Governing",
+            "type": "array"
+          },
+          "holders": {
+            "title": "Holders",
+            "type": "integer"
+          },
+          "joins_duties": {
+            "title": "Joins Duties",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "protected": {
+            "title": "Protected",
+            "type": "boolean"
+          },
+          "running": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Running",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "protected",
+          "holders",
+          "joins_duties"
+        ],
+        "title": "RolesReviewRole",
         "type": "object"
       },
       "RollbackPointOut": {
@@ -47165,6 +47403,344 @@
         "title": "ServerKeyResponse",
         "type": "object"
       },
+      "ServerRoleCreate": {
+        "description": "Request to define a role of one's own.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What it is for",
+            "title": "Description"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the console shows",
+            "title": "Label"
+          },
+          "name": {
+            "description": "Its slug, such as release-manager",
+            "title": "Name",
+            "type": "string"
+          },
+          "permissions": {
+            "description": "What it holds",
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "permissions"
+        ],
+        "title": "ServerRoleCreate",
+        "type": "object"
+      },
+      "ServerRoleDuplicate": {
+        "description": "Request to copy a role into a role of one's own.",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its label; the original's by default",
+            "title": "Label"
+          },
+          "name": {
+            "description": "The copy's slug",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ServerRoleDuplicate",
+        "type": "object"
+      },
+      "ServerRoleOffers": {
+        "description": "Request to take or leave the permissions a newer release offers a role.",
+        "properties": {
+          "accept": {
+            "description": "Offered permissions to add",
+            "items": {
+              "type": "string"
+            },
+            "title": "Accept",
+            "type": "array"
+          },
+          "dismiss": {
+            "description": "Offered permissions to leave out, for good",
+            "items": {
+              "type": "string"
+            },
+            "title": "Dismiss",
+            "type": "array"
+          }
+        },
+        "title": "ServerRoleOffers",
+        "type": "object"
+      },
+      "ServerRoleOut": {
+        "description": "One role of the list.\n\nAttributes:\n    name: Its slug; the key everything refers to it by.\n    kind: ``seeded`` (one of the five Noust ships), ``protected`` (the owner) or ``custom``.\n    label: What the console shows. For a role Noust ships and the operator has not\n        renamed, the console shows its own translation of the name.\n    description: What it is for.\n    permissions: What it holds now.\n    shipped_permissions: What the running release ships for it, to show how it differs; null\n        for a role of the operator's own.\n    edited: Whether the operator has taken a role Noust ships over.\n    follows_noust: Whether a permission a newer release adds reaches it by itself.\n    protected: The owner: it is neither edited nor deleted.\n    offers: Permissions a newer release ships for an edited role that it does not hold yet.\n    holders: The accounts that hold it.\n    holder_count: How many.\n    bindings: How many bindings at a team, a project or an environment name it.\n    joins_duties: Whether it holds both governing the server and running it.\n    governing: The permissions that govern, when it joins them.\n    running: The permissions that run the server, when it joins them.\n    can_edit: Whether ``PATCH`` is admitted.\n    can_delete: Whether ``DELETE`` is admitted (while nobody holds it).\n    can_reset: Whether ``POST .../reset`` is admitted.\n    can_duplicate: Whether ``POST .../duplicate`` is admitted.\n    created_at: When it was made, UNIX seconds.\n    created_by: Who made it.\n    updated_at: When it last changed.\n    updated_by: Who changed it.",
+        "properties": {
+          "bindings": {
+            "default": 0,
+            "title": "Bindings",
+            "type": "integer"
+          },
+          "can_delete": {
+            "title": "Can Delete",
+            "type": "boolean"
+          },
+          "can_duplicate": {
+            "title": "Can Duplicate",
+            "type": "boolean"
+          },
+          "can_edit": {
+            "title": "Can Edit",
+            "type": "boolean"
+          },
+          "can_reset": {
+            "title": "Can Reset",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "edited": {
+            "title": "Edited",
+            "type": "boolean"
+          },
+          "follows_noust": {
+            "title": "Follows Noust",
+            "type": "boolean"
+          },
+          "governing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Governing",
+            "type": "array"
+          },
+          "holder_count": {
+            "default": 0,
+            "title": "Holder Count",
+            "type": "integer"
+          },
+          "holders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Holders",
+            "type": "array"
+          },
+          "joins_duties": {
+            "default": false,
+            "title": "Joins Duties",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "offers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Offers",
+            "type": "array"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "protected": {
+            "title": "Protected",
+            "type": "boolean"
+          },
+          "running": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Running",
+            "type": "array"
+          },
+          "shipped_permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shipped Permissions"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "number"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "label",
+          "permissions",
+          "edited",
+          "follows_noust",
+          "protected",
+          "can_edit",
+          "can_delete",
+          "can_reset",
+          "can_duplicate",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ServerRoleOut",
+        "type": "object"
+      },
+      "ServerRoleUpdate": {
+        "description": "Request to change a role; what is left out stays.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its new permissions",
+            "title": "Permissions"
+          }
+        },
+        "title": "ServerRoleUpdate",
+        "type": "object"
+      },
+      "ServerRolesResponse": {
+        "description": "The list of roles, and what a screen needs beside it.\n\nAttributes:\n    roles: Every role: the ones Noust ships and the owner first, then the operator's by name.\n    permissions: Every permission there is with what it allows.\n    owners: How many accounts hold the owner role and can sign in.\n    duties_apart: Whether a framework (or the operator's own setting) keeps governing the\n        server apart from running it, which is what makes ``joins_duties`` matter.",
+        "properties": {
+          "duties_apart": {
+            "title": "Duties Apart",
+            "type": "boolean"
+          },
+          "owners": {
+            "title": "Owners",
+            "type": "integer"
+          },
+          "permissions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "object"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/ServerRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "permissions",
+          "owners",
+          "duties_apart"
+        ],
+        "title": "ServerRolesResponse",
+        "type": "object"
+      },
       "ServerShellModel": {
         "description": "Whether the server's own shell may be opened, and what to do when it may not.",
         "properties": {
@@ -47640,7 +48216,7 @@
         "type": "object"
       },
       "SessionInfo": {
-        "description": "Bootstrap information the console reads before it knows anything else.\n\nAnswered for an anonymous caller too, with ``authenticated=False``, so the\nconsole can decide between the sign-in screen and the shell from one\nrequest instead of treating a 401 as \"maybe not logged in yet\". An\nanonymous caller learns nothing about the server (ENS op.acc.6.7, G10):\nno hostname, no version, not whether a second factor is on - only the\nlabel the operator chose for the sign-in page.\n\nAttributes:\n    authenticated: Whether a usable credential was presented.\n    scope: The credential's 3.0 scope, or None when unauthenticated.\n    expires_at: Session expiry, ISO 8601, or None.\n    elevated_until: End of the sudo-mode confirmation window, ISO 8601,\n        or None when the session is not currently elevated.\n    totp_enabled: Whether this credential's sign-in asks for a second\n        factor: the account's own authenticator, or the console's for the\n        master token. False for an anonymous caller.\n    hostname: This machine's hostname, so an operator with several panels\n        open can tell them apart; the operator's sign-in label (empty by\n        default) for an anonymous caller.\n    version: The installed Noust version; empty for an anonymous caller.\n    csrf_header: Header name a mutation must echo the CSRF cookie in.\n    csrf_cookie: Name of the readable CSRF cookie.\n    central: This server's role and whether its sealed secrets are\n        locked, so the console hides what a hub does not do and offers\n        the unlock form; None for an anonymous caller.\n    login_label: What the operator chose to show on the sign-in page.\n    account: The account signed in, or None.\n    role: Its role, or the role a central forwarded.\n    grant: For the master token, how it holds the console.\n    permissions: Everything the credential may do.\n    mfa_required: The account must enrol an authenticator first.\n    notice: The usage notice to accept first, when one is pending.\n    accounts_exist: Whether this server has accounts; while it has none\n        the console offers to create the first.\n    security_profile: ``standard`` or ``ens-medium``.\n    idle_minutes: How long the session may go unused.\n    elevation_factors: What the credential can confirm sudo mode with:\n        ``totp``, ``passkey`` and ``backup_code`` for an account, those it\n        has; for the master token ``totp`` and ``passkey`` when it has them,\n        ``master_token`` while it has neither. Empty for an anonymous\n        caller and for an account with no second factor, which cannot\n        enter sudo mode.\n    elevation_requires_password: Whether confirming with a code also asks\n        for the account's password (``auth.sudo.require_password``, always\n        under ENS). A passkey confirms on its own either way.\n    elevation_idle_minutes: How long sudo mode stays open after the last\n        elevated action.\n    elevation_max_minutes: The longest it lasts from the confirmation.",
+        "description": "Bootstrap information the console reads before it knows anything else.\n\nAnswered for an anonymous caller too, with ``authenticated=False``, so the\nconsole can decide between the sign-in screen and the shell from one\nrequest instead of treating a 401 as \"maybe not logged in yet\". An\nanonymous caller learns nothing about the server (ENS op.acc.6.7, G10):\nno hostname, no version, not whether a second factor is on - only the\nlabel the operator chose for the sign-in page.\n\nAttributes:\n    authenticated: Whether a usable credential was presented.\n    scope: The credential's 3.0 scope, or None when unauthenticated.\n    expires_at: Session expiry, ISO 8601, or None.\n    elevated_until: End of the sudo-mode confirmation window, ISO 8601,\n        or None when the session is not currently elevated.\n    totp_enabled: Whether this credential's sign-in asks for a second\n        factor: the account's own authenticator, or the console's for the\n        master token. False for an anonymous caller.\n    hostname: This machine's hostname, so an operator with several panels\n        open can tell them apart; the operator's sign-in label (empty by\n        default) for an anonymous caller.\n    version: The installed Noust version; empty for an anonymous caller.\n    csrf_header: Header name a mutation must echo the CSRF cookie in.\n    csrf_cookie: Name of the readable CSRF cookie.\n    central: This server's role and whether its sealed secrets are\n        locked, so the console hides what a hub does not do and offers\n        the unlock form; None for an anonymous caller.\n    login_label: What the operator chose to show on the sign-in page.\n    account: The account signed in, or None.\n    role: Its role, or the role a central forwarded.\n    roles: Every role the account holds, in order; empty for a credential that is no account.\n    grant: For the master token, how it holds the console.\n    permissions: Everything the credential may do.\n    mfa_required: The account must enrol an authenticator first.\n    notice: The usage notice to accept first, when one is pending.\n    accounts_exist: Whether this server has accounts; while it has none\n        the console offers to create the first.\n    security_profile: ``standard`` or ``ens-medium``.\n    idle_minutes: How long the session may go unused.\n    elevation_factors: What the credential can confirm sudo mode with:\n        ``totp``, ``passkey`` and ``backup_code`` for an account, those it\n        has; for the master token ``totp`` and ``passkey`` when it has them,\n        ``master_token`` while it has neither. Empty for an anonymous\n        caller and for an account with no second factor, which cannot\n        enter sudo mode.\n    elevation_requires_password: Whether confirming with a code also asks\n        for the account's password (``auth.sudo.require_password``, always\n        under ENS). A passkey confirms on its own either way.\n    elevation_idle_minutes: How long sudo mode stays open after the last\n        elevated action.\n    elevation_max_minutes: The longest it lasts from the confirmation.",
         "properties": {
           "account": {
             "anyOf": [
@@ -47812,6 +48388,13 @@
               }
             ],
             "title": "Role"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
           },
           "scope": {
             "anyOf": [
@@ -59646,7 +60229,7 @@
         "type": "object"
       },
       "WarningInfo": {
-        "description": "Something about this server a change would affect.\n\nAttributes:\n    id: What it is.\n    count: How many it concerns, when it counts.",
+        "description": "Something about this server a change would affect.\n\nAttributes:\n    id: What it is.\n    count: How many it concerns, when it counts.\n    items: Which, when it names them: for ``roles_join_duties``, the roles that join governing\n        the server with running it which an account holds (``noust access role set`` splits\n        them; ``GET /api/roles/review`` says what to).",
         "properties": {
           "count": {
             "anyOf": [
@@ -59662,6 +60245,13 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Items",
+            "type": "array"
           }
         },
         "required": [
@@ -77821,6 +78411,61 @@
           }
         },
         "summary": "Reset Account Mfa",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/auth/accounts/{username}/roles": {
+      "put": {
+        "description": "Set every role an account holds; what it may do is what they hold together.\n\nThe change applies to the account's sessions and tokens at their next request. The owner role\nis given and taken by an owner (or by root and the master token), and the last account that\ncan sign in and holds it keeps it.\n\nArgs:\n    username: The account's name.\n    request: The incoming request.\n    body: The roles, the one the account is known by first.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The account after the change, with its roles and its effective permissions.\n\nRaises:\n    AccountNotFoundError: 404 when no account has that name.\n    ValidationError: 400 (``roles.no_roles``, ``roles.unknown``).\n    AccessError: 400 (``roles.owner_by_owner``, ``roles.last_owner``,\n        ``roles.separation_role``, ``roles.separation_account``,\n        ``roles.auditor_exclusive``) when a rule of the roles an account holds refuses it.\n    AccountError: 400 for one's own account, or roles that clash with another account of the\n        same person.",
+        "operationId": "set_account_roles_api_auth_accounts__username__roles_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "username",
+            "required": true,
+            "schema": {
+              "title": "Username",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountRolesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Account Roles",
         "tags": [
           "Authentication"
         ],
@@ -101768,6 +102413,389 @@
           "Registries"
         ],
         "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/roles": {
+      "get": {
+        "description": "List the server's roles.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The roles with who holds each, what each joins and what is on offer, every permission\n    with its meaning, and how many owners the server has.",
+        "operationId": "list_roles_api_roles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRolesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Roles",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.read"
+      },
+      "post": {
+        "description": "Define a role of one's own.\n\nArgs:\n    body: Its name and permissions.\n    session: The authenticated, elevated session.\n\nReturns:\n    The role.\n\nRaises:\n    ValidationError: 400 (``roles.name_invalid``, ``roles.name_system``,\n        ``roles.permissions_unknown``, ``roles.permissions_none``) for a name or a permission\n        that is not valid.\n    AccessError: 400 (``roles.separation_role``) when the set joins governing with running\n        where a framework forbids it.\n    AccessConflictError: 409 (``roles.name_taken``, ``roles.too_many``).",
+        "operationId": "create_role_api_roles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerRoleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Role",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/roles/review": {
+      "get": {
+        "description": "Say what the frameworks in force make of the roles.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Which roles join governing the server with running it, which accounts do through\n    several, and how many owners the server has.",
+        "operationId": "review_api_roles_review_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolesReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Review",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.read"
+      }
+    },
+    "/api/roles/{name}": {
+      "delete": {
+        "description": "Remove a role of one's own that nobody holds.\n\nArgs:\n    name: The role's name.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was done.\n\nRaises:\n    AccessNotFoundError: 404 (``roles.unknown``) when there is none.\n    AccessError: 400 (``roles.owner_protected``, ``roles.seeded_kept``) for the owner and for\n        a role Noust ships, which are put back, not deleted.\n    AccessConflictError: 409 (``roles.in_use``) while an account holds it or a binding names it.",
+        "operationId": "delete_role_api_roles__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Role",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Read one role.\n\nArgs:\n    name: The role's name.\n    session: The authenticated session.\n\nReturns:\n    The role.\n\nRaises:\n    AccessNotFoundError: 404 (``roles.unknown``) when there is none.",
+        "operationId": "get_role_api_roles__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Role",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.read"
+      },
+      "patch": {
+        "description": "Change a role, one Noust ships included; every account that holds it holds the change.\n\nArgs:\n    name: The role's name.\n    body: What changes.\n    session: The authenticated, elevated session.\n\nReturns:\n    The role as it is now.\n\nRaises:\n    AccessNotFoundError: 404 (``roles.unknown``) when there is none.\n    AccessError: 400 (``roles.owner_protected``) for the owner; ``roles.separation_role`` or\n        ``roles.separation_account`` when the change would join duties for the role or for\n        an account that holds it.",
+        "operationId": "update_role_api_roles__name__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerRoleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Role",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/roles/{name}/duplicate": {
+      "post": {
+        "description": "Copy a role into a role of one's own.\n\nArgs:\n    name: The role to copy; any, the owner included.\n    body: The copy's name and, optionally, its label.\n    session: The authenticated, elevated session.\n\nReturns:\n    The copy.\n\nRaises:\n    AccessNotFoundError: 404 (``roles.unknown``) when there is no such role.\n    AccessConflictError: 409 (``roles.name_taken``, ``roles.too_many``).",
+        "operationId": "duplicate_role_api_roles__name__duplicate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerRoleDuplicate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Duplicate Role",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/roles/{name}/offers": {
+      "post": {
+        "description": "Take or leave the permissions a newer release ships for a role the operator edited.\n\nArgs:\n    name: The role's name.\n    body: The offered permissions to add and the ones to leave out for good.\n    session: The authenticated, elevated session.\n\nReturns:\n    The role as it is now.\n\nRaises:\n    AccessNotFoundError: 404 (``roles.unknown``) when there is none.\n    AccessError: 400 (``roles.offer_unknown``) for a permission that is not on offer;\n        ``roles.separation_role`` or ``roles.separation_account`` when taking them would join\n        duties.",
+        "operationId": "settle_offers_api_roles__name__offers_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerRoleOffers"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Settle Offers",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/roles/{name}/reset": {
+      "post": {
+        "description": "Put a role Noust ships back to how it comes: it follows Noust again.\n\nArgs:\n    name: The role's name.\n    session: The authenticated, elevated session.\n\nReturns:\n    The role as it is now.\n\nRaises:\n    AccessNotFoundError: 404 (``roles.unknown``) when there is none.\n    AccessError: 400 (``roles.owner_protected``, ``roles.reset_custom``) for the owner and\n        for a role of the operator's own; ``roles.separation_account`` when putting it back\n        would join duties for an account that holds it.",
+        "operationId": "reset_role_api_roles__name__reset_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reset Role",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.manage",
         "x-noust-requires-elevation": true
       }
     },

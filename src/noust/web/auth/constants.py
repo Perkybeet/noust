@@ -228,6 +228,15 @@ FLEET_ACTOR_SCOPE_HEADER = "X-Noust-Actor-Scope"
 #: unknown role reads, never more.
 FLEET_ACTOR_ROLE_HEADER = "X-Noust-Actor-Role"
 FLEET_ROLE_PATTERN = re.compile(r"[a-z][a-z_-]{0,31}")
+#: The permissions that operator holds on the central, comma separated (4.1). With roles the
+#: operator edits, a role's name does not mean the same on two servers, so a 4.1 central says what
+#: the person may do. The node crosses it with its ceiling for centrals and never grants what
+#: :data:`noust.fleet.policy.NEVER_FLEET_PERMISSIONS` names; a name it does not know is dropped.
+#: A node before 4.1 ignores it and reads :data:`FLEET_ACTOR_ROLE_HEADER`.
+FLEET_ACTOR_PERMISSIONS_HEADER = "X-Noust-Actor-Permissions"
+FLEET_PERMISSION_PATTERN = re.compile(r"[a-z][a-z0-9_.]{0,63}")
+#: Most permissions one header may name: the catalogue is thirty, so more is a malformed header.
+FLEET_PERMISSIONS_MAX = 64
 #: ``1`` when that operator's own credential on the central is inside sudo
 #: mode, or is one sudo mode does not ask (the master token, an API token).
 #: The node's sudo window cannot be opened by a token, so this is how an

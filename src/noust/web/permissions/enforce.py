@@ -175,7 +175,10 @@ def check_permission(payload: Mapping[str, Any], permission: str) -> None:
     if permission in permissions_of(payload):
         return
     role = payload.get("role")
-    if payload.get("fleet") and role and permission in permissions_for_role(str(role)):
+    claimed = payload.get("fleet_claimed") or ()
+    if payload.get("fleet") and (
+        permission in claimed or (role and permission in permissions_for_role(str(role)))
+    ):
         # The operator's role holds it; this node's ceiling for its centrals is what withheld
         # it, and asking a security officer for another role would change nothing.
         raise PermissionDenied(

@@ -33,6 +33,8 @@ Scenarios (see the module docstring of each ``@fleet_scenario`` function):
     7. host_key_change_detected
     8. central_image (packaging/container/Dockerfile; builds and runs its own
        second central, ``noust-fleet-central2``, against the same node)
+    9. edited_roles_reach_the_node (4.1, last: it makes accounts on the central; the same
+       steps run against a node of 4.0 in scenarios_fleet_mixed.py)
 
 Added in 3.1 (run between 5 and 6, while the enrollment is intact):
     - tunnel_account_contained: the node enrolls as ``noust-tunnel`` under
@@ -3215,6 +3217,262 @@ def scenario_views_refusals(env: FleetEnv) -> None:
             if entry.get("name") == f"{VIEWS_ACCOUNT}-token":
                 central.run(f"noust token revoke {entry['id']} --force", check=False, timeout=60)
         central.run(f"noust user remove {VIEWS_ACCOUNT} --force", check=False, timeout=60)
+
+
+# ---------------------------------------------------------------------------
+# Roles: a role the operator edited on the central, acting on a node (4.1, item 96).
+# ---------------------------------------------------------------------------
+
+#: The password of the accounts the roles scenario makes; they exist only in the harness.
+ROLES_PASSWORD = "correct horse battery staple"
+
+#: What no central may do on a node, whatever it claims (fleet/policy.py).
+NEVER_FOR_A_CENTRAL = frozenset({"security.manage", "accounts.manage", "audit.manage"})
+
+#: What reaches the host itself: a node grants it to a central only with host access on.
+THE_HOST = frozenset({"server.host_access", "root_equivalent", "server.terminal"})
+
+
+def issue_token(env: FleetEnv, name: str, owner: str, permissions: list[str] | None = None) -> str:
+    """
+    Issue an API token of an account on the central, keeping it out of the evidence.
+
+    Args:
+        env: The fleet.
+        name: The token's name.
+        owner: The account it acts for.
+        permissions: Narrow it to these, or leave it at the scope's.
+
+    Returns:
+        The token.
+    """
+    flags = "".join(f" --permission {permission}" for permission in permissions or [])
+    proc = docker_exec(
+        CENTRAL_NAME,
+        f"noust token create {name} --scope admin --owner {owner}{flags}",
+        timeout=60,
+    )
+    redact(env.central, f"noust token create {name} --scope admin --owner {owner}", "an API token")
+    found = re.search(r"Token:\s*(\S+)", proc.stdout)
+    if found is None:
+        raise HarnessError(f"no token in 'noust token create {name}' output:\n{proc.stderr}")
+    return found.group(1)
+
+
+def what_the_node_makes_of(env: FleetEnv, token: str, what: str) -> set[str]:
+    """
+    Ask a node, through the central, what it grants the person behind a token.
+
+    The node answers ``GET /api/auth/session`` for the fleet principal it admitted: its own
+    permissions for that call, after its own table and its own ceiling.
+
+    Args:
+        env: The fleet.
+        token: An API token of an account on the central.
+        what: Who it is, for the evidence.
+
+    Returns:
+        The permissions the node granted.
+    """
+    proxy = f"https://127.0.0.1:{CENTRAL_PORT}/api/nodes/{env.node_name}/api"
+    status, body, raw = api_call(CENTRAL_NAME, "GET", f"{proxy}/auth/session", token=token)
+    log_api(env.central, "GET", f"{proxy}/auth/session ({what})", status, raw[:200])
+    env.central.check(status == 200, f"the node's session for {what}: {status} {raw[:300]!r}")
+    return set((body or {}).get("permissions") or [])
+
+
+def edited_roles_reach_the_node(env: FleetEnv, *, node_reads_permissions: bool) -> None:
+    """
+    A person whose roles the operator edited on the central acts on a node, and the ceiling rules.
+
+    The central has an owner and a person, ``ana``, who holds ``viewer`` and a role of her own,
+    ``db-writer``, that no node has heard of. Through the central's proxy:
+
+    - the node grants what ana may do: on a 4.1 node ``databases.write`` (which its own ``viewer``
+      does not hold) comes with the permissions header; on a node before 4.1, which reads the name
+      of the widest role of 3.1 she holds all of (``viewer``), it does not. Neither ever grants her
+      more than she holds on the central;
+    - the owner is the widest role there is: the node grants everything its ceiling lets a central
+      do and never ``security.manage``, ``accounts.manage`` or ``audit.manage``, however the
+      central names the person;
+    - the ceiling manda: held to ``read`` the node grants only reading, and the host's permissions
+      come only when the node says so (``--host-access on``);
+    - a 4.1 node, asked directly with a fleet token, drops the governing permissions a forged
+      header claims.
+
+    Args:
+        env: The fleet.
+        node_reads_permissions: Whether the node is of 4.1 (reads
+            ``X-Noust-Actor-Permissions``) or of an earlier release (reads the role's name).
+    """
+    ensure_enrolled(env)
+    central, node = env.central, env.node
+    password = ROLES_PASSWORD + "\n"
+
+    # -- the central: an owner, a person, a role of her own, and the roles she holds together
+    for name, role in (("founder", "admin"), ("ana", "viewer")):
+        run_stdin(
+            central,
+            f"noust user create {name} --role {role} --stdin",
+            password,
+            check=False,
+            label=f"noust user create {name} --role {role} --stdin",
+        )
+    central.run(
+        "noust user roles founder admin owner", label="noust user roles founder admin owner"
+    )
+    central.run(
+        "noust access role create db-writer --permission apps.read --permission databases.write",
+        check=False,
+        label="noust access role create db-writer",
+    )
+    central.run(
+        "noust user roles ana viewer db-writer", label="noust user roles ana viewer db-writer"
+    )
+    shown = as_json(central.run("noust user list --json"), what="noust user list --json")
+    held = {a["username"]: a["roles"] for a in shown["accounts"]}
+    central.check(held.get("ana") == ["viewer", "db-writer"], f"ana's roles on the central: {held}")
+    central.check("owner" in held.get("founder", []), f"founder is not an owner: {held}")
+
+    every = list(
+        as_json(central.run("noust access permissions --json"), what="permissions")["permissions"]
+    )
+    owner_token = issue_token(env, "roles-owner", "founder", every)
+    ana_token = issue_token(env, "roles-ana", "ana")
+
+    # -- what the central itself believes of each
+    for token, who, must_hold, must_not in (
+        (ana_token, "ana", {"databases.write", "apps.read"}, {"apps.manage", "accounts.manage"}),
+        (owner_token, "the owner", set(every), set()),
+    ):
+        status, body, raw = api_call(
+            CENTRAL_NAME, "GET", f"https://127.0.0.1:{CENTRAL_PORT}/api/auth/session", token=token
+        )
+        central.check(status == 200, f"the central's session for {who}: {status} {raw[:200]!r}")
+        mine = set((body or {}).get("permissions") or [])
+        central.check(must_hold <= mine, f"{who} on the central lacks {sorted(must_hold - mine)}")
+        central.check(
+            not (must_not & mine), f"{who} on the central holds {sorted(must_not & mine)}"
+        )
+
+    # -- on the node, with its ceiling at admin and no host access (how it was enrolled)
+    on_node = what_the_node_makes_of(env, ana_token, "ana, edited roles")
+    status, body, raw = api_call(
+        CENTRAL_NAME, "GET", f"https://127.0.0.1:{CENTRAL_PORT}/api/auth/session", token=ana_token
+    )
+    on_central = set((body or {}).get("permissions") or [])
+    central.check(
+        on_node <= on_central | {"self"},
+        f"the node granted ana more than she holds on the central: {sorted(on_node - on_central)}",
+    )
+    if node_reads_permissions:
+        central.check(
+            "databases.write" in on_node,
+            "a 4.1 node did not grant what the central said ana may do (databases.write)",
+        )
+    else:
+        central.check(
+            "databases.write" not in on_node,
+            "a node before 4.1 granted databases.write, which no role of its own holds",
+        )
+    central.check(not (on_node & NEVER_FOR_A_CENTRAL), f"the node granted governing: {on_node}")
+
+    everything_a_central_may = set(every) - NEVER_FOR_A_CENTRAL - THE_HOST
+    owner_on_node = what_the_node_makes_of(env, owner_token, "the owner")
+    central.check(
+        owner_on_node == everything_a_central_may,
+        "the owner on the node holds "
+        f"{sorted(owner_on_node ^ everything_a_central_may)} apart from what a central may",
+    )
+
+    # -- what the node makes of its own roles is the node's to say (a framework is judged where it
+    #    runs): a 4.1 node answers its review through the central, a node before 4.1 has none
+    proxy = f"https://127.0.0.1:{CENTRAL_PORT}/api/nodes/{env.node_name}/api"
+    status, body, raw = api_call(CENTRAL_NAME, "GET", f"{proxy}/roles/review", token=owner_token)
+    log_api(central, "GET", f"{proxy}/roles/review (the owner)", status, raw[:200])
+    if node_reads_permissions:
+        central.check(
+            status == 200 and {"roles", "owners", "duties_apart"} <= set(body or {}),
+            f"a 4.1 node did not give its review of the roles: {status} {raw[:300]!r}",
+        )
+        central.check(
+            (body or {}).get("owners") == 0,
+            "the central's owner is not the node's: its own accounts are its own",
+        )
+    else:
+        central.check(
+            status == 404, f"a node before 4.1 answered a review it does not have: {status}"
+        )
+
+    # -- the ceiling decides: held to read, only reading; with host access, the host too
+    try:
+        node.run("noust fleet access --level read --json", label="noust fleet access --level read")
+        only_reading = what_the_node_makes_of(env, owner_token, "the owner, ceiling read")
+        central.check(
+            all(p.endswith(".read") or p == "self" for p in only_reading) and only_reading,
+            f"a node held to read granted {sorted(p for p in only_reading if not p.endswith('.read'))}",
+        )
+        ana_reading = what_the_node_makes_of(env, ana_token, "ana, ceiling read")
+        central.check(
+            "databases.write" not in ana_reading,
+            "a node held to read granted ana a write the central said she may do",
+        )
+        node.run(
+            "noust fleet access --level admin --host-access on --json",
+            label="noust fleet access --level admin --host-access on",
+        )
+        with_the_host = what_the_node_makes_of(env, owner_token, "the owner, host access on")
+        central.check(
+            THE_HOST <= with_the_host,
+            f"host access on did not grant {sorted(THE_HOST - with_the_host)}",
+        )
+        central.check(
+            not (with_the_host & NEVER_FOR_A_CENTRAL),
+            f"host access granted governing: {sorted(with_the_host & NEVER_FOR_A_CENTRAL)}",
+        )
+    finally:
+        node.run(
+            "noust fleet access --level admin --host-access off --json",
+            check=False,
+            label="noust fleet access --level admin --host-access off",
+        )
+
+    if node_reads_permissions:
+        # -- asked directly with the fleet token: a forged header cannot name what no central may do
+        fleet_token = docker_exec(
+            CENTRAL_NAME,
+            f"cat {env.secret_path('fleet', 'nodes', env.node_name, 'token')}",
+            timeout=15,
+        ).stdout.strip()
+        redact(central, f"cat the fleet token stored for {env.node_name}", "the fleet token itself")
+        status, body, raw = api_call(
+            NODE_NAME,
+            "GET",
+            f"http://127.0.0.1:{env.node_console_port}/api/auth/session",
+            token=fleet_token,
+            headers={
+                "X-Noust-Actor": "harness",
+                "X-Noust-Actor-Permissions": "apps.read,security.manage,accounts.manage,teleport",
+            },
+            max_time=10,
+        )
+        log_api(node, "GET", "/api/auth/session (a forged list of permissions)", status, raw[:200])
+        node.check(status == 200, f"the node refused a list of permissions: {status} {raw[:200]!r}")
+        forged = set((body or {}).get("permissions") or [])
+        node.check(
+            forged == {"apps.read", "self"},
+            f"the node granted {sorted(forged)} for a forged list; expected apps.read only",
+        )
+
+
+@fleet_scenario("edited_roles_reach_the_node")
+def scenario_edited_roles(env: FleetEnv) -> None:
+    """A person whose roles the operator edited on the central acts on a 4.1 node; the ceiling rules.
+
+    Runs last of the main list: it makes accounts on the central, after which the master token is
+    break-glass. The same steps run against a node of 4.0 in ``scenarios_fleet_mixed.py``.
+    """
+    edited_roles_reach_the_node(env, node_reads_permissions=True)
 
 
 # ---------------------------------------------------------------------------

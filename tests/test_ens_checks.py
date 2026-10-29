@@ -78,6 +78,46 @@ class TestFailures:
 
         assert by_id(evaluate(facts))["ENS-ACC-01"].status == "fail"
 
+    def test_a_role_that_joins_governing_and_running_fails_and_says_how_to_split_it(self) -> None:
+        facts = good_facts()
+        facts.roles_review = {
+            "duties_apart": True,
+            "controls": ["separation_of_duties"],
+            "owners": 1,
+            "suggestion": "noust access role set admin --permission apps.read",
+            "roles": [
+                {"name": "admin", "protected": False, "holders": 2, "joins_duties": True},
+                {"name": "owner", "protected": True, "holders": 1, "joins_duties": False},
+            ],
+            "accounts": [],
+        }
+
+        finding = by_id(evaluate(facts))["ENS-ACC-01"]
+
+        assert finding.status == "fail"
+        assert "the role admin joins governing with running" in finding.summary
+        assert "role admin: holds both governing the server and running it" in finding.evidence
+        assert "owner: 1 account(s) hold every permission by design (protected)" in finding.evidence
+        assert "noust access role set admin" in finding.remediation
+
+    def test_a_role_nobody_holds_is_not_a_finding(self) -> None:
+        facts = good_facts()
+        facts.roles_review = {
+            "owners": 0,
+            "roles": [{"name": "admin", "protected": False, "holders": 0, "joins_duties": True}],
+            "accounts": [],
+        }
+
+        assert by_id(evaluate(facts))["ENS-ACC-01"].status == "ok"
+
+    def test_an_account_with_several_roles_counts_for_each(self) -> None:
+        facts = good_facts()
+        facts.accounts = [account("sofia", "security", roles=["security", "admin"])]
+
+        evidence = by_id(evaluate(facts))["ENS-ACC-01"].evidence
+
+        assert "admin: 1" in evidence and "security: 1" in evidence
+
     def test_a_token_without_expiry_or_owner_fails(self) -> None:
         facts = good_facts()
         facts.tokens = [

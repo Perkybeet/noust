@@ -19,7 +19,11 @@ carried one of the old names. The two cases prove that, over a real tunnel, in b
   the node's export is its own (the old format name), which the central of 4.0 can carry on to
   another server;
 - a **node of 4.0** is reached by a **central of 3.3.1**: the central's requests (made with the
-  tokens, headers and export of 3.3.1) are understood.
+  tokens, headers and export of 3.3.1) are understood;
+- a **node of 4.0** under a **central of 4.1** (item 96): a person whose roles the operator edited
+  acts on a node that reads the role's name and not the permissions header, and the node never
+  grants more than the person holds nor what no central may do; the same steps run against a node of
+  this tree in ``fleet_run.py`` (``edited_roles_reach_the_node``).
 
 Docker: two containers at a time, named after ``NOUST_IT_PREFIX`` and labelled ``noust.test=1``,
 on a network of their own. Nothing is published on the host.
@@ -28,9 +32,11 @@ on a network of their own. Nothing is published on the host.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 import traceback
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -50,22 +56,25 @@ class Case:
     Attributes:
         label: What the evidence calls it.
         central_is_new: Whether the central runs this tree (else 3.3.1).
-        node_is_new: Whether the node runs this tree (else 3.3.1).
+        node_is_new: Whether the node runs this tree (else the release ``old_tag`` names).
+        old_tag: The release the old side runs.
     """
 
     label: str
     central_is_new: bool
     node_is_new: bool
+    old_tag: str = OLD_TAG
 
     @property
     def export_format(self) -> str:
-        """The format name the node's export carries: its own release's."""
-        return "noust-app" if self.node_is_new else "wasm-app"
+        """The format name the node's export carries: its own release's (3.3.1 is the last of the old)."""
+        return "noust-app" if self.node_is_new or self.old_tag != OLD_TAG else "wasm-app"
 
 
 CASES = (
     Case("central 4.0, node 3.3.1", central_is_new=True, node_is_new=False),
     Case("central 3.3.1, node 4.0", central_is_new=False, node_is_new=True),
+    Case("central 4.1, node 4.0", central_is_new=True, node_is_new=False, old_tag="v4.0.0"),
 )
 
 
@@ -153,14 +162,15 @@ def start_labelled(name: str, image: str, network: str) -> None:
     )
 
 
-def install(name: str, wheel: Path, *, new: bool) -> str:
+def install(name: str, wheel: Path, *, new: bool, tag: str = OLD_TAG) -> str:
     """
     Install the release a side of a case runs.
 
     Args:
         name: The container.
         wheel: This tree's wheel.
-        new: This tree (else the tag of 3.3.1).
+        new: This tree (else the tag).
+        tag: The release the old side runs.
 
     Returns:
         What it says it is, for the evidence.
@@ -168,7 +178,7 @@ def install(name: str, wheel: Path, *, new: bool) -> str:
     if new:
         run.install_noust(name, wheel)
     else:
-        scenarios_upgrade.install_from_git(name, OLD_TAG)
+        scenarios_upgrade.install_from_git(name, tag)
     return run.docker_exec(name, "noust --version", timeout=30).stdout.strip()
 
 
@@ -199,8 +209,8 @@ def run_case(case: Case, wheel: Path, image: str, *, keep: bool) -> int:
         start_labelled(central_name, image, network)
         run.wait_for_systemd(node_name)
         run.wait_for_systemd(central_name)
-        node_version = install(node_name, wheel, new=case.node_is_new)
-        central_version = install(central_name, wheel, new=case.central_is_new)
+        node_version = install(node_name, wheel, new=case.node_is_new, tag=case.old_tag)
+        central_version = install(central_name, wheel, new=case.central_is_new, tag=case.old_tag)
         print(f"[setup] node: {node_version}; central: {central_version}")
         run.install_fixtures(node_name)
         fleet_run.provision_ssh(node_name)
@@ -224,6 +234,7 @@ def run_case(case: Case, wheel: Path, image: str, *, keep: bool) -> int:
                 lambda: fleet_run.scenario_events_stream(env),
             ),
             ("the node's export has its own release's name", lambda: export_of_the_node(env, case)),
+            *roles_steps(env, case),
         ):
             print(f"--- {label}")
             central.evidence = []
@@ -258,6 +269,32 @@ def run_case(case: Case, wheel: Path, image: str, *, keep: bool) -> int:
                 ["docker", "network", "rm", network], capture_output=True, timeout=30
             )
     return failures
+
+
+def roles_steps(env: fleet_run.FleetEnv, case: Case) -> tuple[tuple[str, Callable[[], None]], ...]:
+    """
+    The step of a pairing whose central is of this tree: a role edited on it, acting on the node.
+
+    It is the last step, because it makes accounts on the central, after which the master token is
+    break-glass and the steps that deploy with it would be refused.
+
+    Args:
+        env: The fleet.
+        case: The pairing.
+
+    Returns:
+        The step, or none for a central of an earlier release (which has no editable roles).
+    """
+    if not case.central_is_new:
+        return ()
+    return (
+        (
+            "an edited role reaches the node as far as the node reads it",
+            lambda: fleet_run.edited_roles_reach_the_node(
+                env, node_reads_permissions=case.node_is_new
+            ),
+        ),
+    )
 
 
 def through_the_proxy(env: fleet_run.FleetEnv, case: Case) -> None:
@@ -336,10 +373,13 @@ def run_mixed_fleet_mode(wheel: Path, *, keep: bool) -> int:
     started_at = time.monotonic()
     image = build_images()
     failures = 0
-    for case in CASES:
+    # NOUST_IT_MIXED_CASE=<part of a label> runs only the pairings it names.
+    only = os.environ.get("NOUST_IT_MIXED_CASE")
+    chosen = [case for case in CASES if only is None or only in case.label]
+    for case in chosen:
         failures += run_case(case, wheel, image, keep=keep)
     elapsed = time.monotonic() - started_at
-    print(f"\n[summary] {len(CASES)} pairing(s) run, {failures} failure(s), {elapsed:.1f}s total")
+    print(f"\n[summary] {len(chosen)} pairing(s) run, {failures} failure(s), {elapsed:.1f}s total")
     return 1 if failures else 0
 
 

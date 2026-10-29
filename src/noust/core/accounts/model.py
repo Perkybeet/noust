@@ -16,13 +16,17 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
 from noust.core.exceptions import SecurityError, ValidationError
 
-#: One account, one role (ENS op.acc.1.2): a person with two duties holds two
-#: accounts. Weakest first, which is also the order the console lists them in.
+#: The five roles every release since 3.1 has shipped, weakest first, which is also the order
+#: the console lists them in. A server has more roles than these (the owner, and the ones its
+#: operator defines): the list is :class:`noust.core.access.roles.RoleStore`. These are the names
+#: ``accounts.role`` can hold, and what a person with two duties does under ENS op.acc.1.2 is
+#: judged on the roles' content (:mod:`noust.core.access.combination`), not on counting them.
 ROLE_VIEWER = "viewer"
 ROLE_OPERATOR = "operator"
 ROLE_ADMIN = "admin"
@@ -108,24 +112,27 @@ def validate_username(value: str) -> str:
     return name
 
 
-def validate_role(value: str) -> str:
+def validate_role(value: str, known: Iterable[str] | None = None) -> str:
     """
     Check a role name.
 
     Args:
         value: The role as typed.
+        known: The roles the server has (its list of roles); the five of :data:`ROLES` when the
+            caller has no store to ask.
 
     Returns:
         The role, lower-cased.
 
     Raises:
-        ValidationError: When it is not one of :data:`ROLES`.
+        ValidationError: When it is not one of them.
     """
     role = (value or "").strip().lower()
-    if role not in ROLES:
+    names = tuple(ROLES if known is None else known)
+    if role not in names:
         raise ValidationError(
             f"Unknown role: {value!r}",
-            details=f"Use one of: {', '.join(ROLES)}.",
+            details=f"Use one of: {', '.join(names)}.",
         )
     return role
 
@@ -261,7 +268,8 @@ class Account:
         id: Store id; sessions and tokens refer to the account by it.
         username: Unique, lower-case sign-in name.
         display_name: How the console greets them.
-        role: One of :data:`ROLES`.
+        role: The first of the five roles of 3.1 among its roles (``viewer`` when none is): what
+            still reads one role. What it may do is decided by :attr:`roles`.
         status: One of :data:`STATUSES`, as stored.
         person_ref: Who the account belongs to, for separation of duties.
         has_password: Whether a password is set.
@@ -284,6 +292,8 @@ class Account:
         disabled_at: When it was disabled.
         disabled_reason: Why.
         email: Where an invitation or a password reset is mailed; never a way to sign in.
+        listed_roles: Every role it holds, in order, as the store lists them; empty for an account
+            nothing was ever listed for, which holds the one role ``role`` says.
     """
 
     id: int
@@ -320,6 +330,18 @@ class Account:
     identities: int = 0
     #: Last, with a default, like the two above.
     email: str | None = None
+    #: Last, with a default: the roles the account holds (see :attr:`roles`).
+    listed_roles: tuple[str, ...] = ()
+
+    @property
+    def roles(self) -> tuple[str, ...]:
+        """
+        Every role the account holds, the one it is known by first.
+
+        Returns:
+            Its listed roles, or just ``role`` for an account with none listed.
+        """
+        return self.listed_roles or (self.role,)
 
     def is_locked(self, now: float | None = None) -> bool:
         """
@@ -386,6 +408,7 @@ class Account:
             "username": self.username,
             "display_name": self.display_name,
             "role": self.role,
+            "roles": list(self.roles),
             "status": self.effective_status(),
             "person_ref": self.person_ref,
             "email": self.email,

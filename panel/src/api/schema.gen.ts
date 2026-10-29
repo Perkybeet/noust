@@ -7681,6 +7681,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/accounts/{username}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Account Roles
+         * @description Set every role an account holds; what it may do is what they hold together.
+         *
+         *     The change applies to the account's sessions and tokens at their next request. The owner role
+         *     is given and taken by an owner (or by root and the master token), and the last account that
+         *     can sign in and holds it keeps it.
+         *
+         *     Args:
+         *         username: The account's name.
+         *         request: The incoming request.
+         *         body: The roles, the one the account is known by first.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The account after the change, with its roles and its effective permissions.
+         *
+         *     Raises:
+         *         AccountNotFoundError: 404 when no account has that name.
+         *         ValidationError: 400 (``roles.no_roles``, ``roles.unknown``).
+         *         AccessError: 400 (``roles.owner_by_owner``, ``roles.last_owner``,
+         *             ``roles.separation_role``, ``roles.separation_account``,
+         *             ``roles.auditor_exclusive``) when a rule of the roles an account holds refuses it.
+         *         AccountError: 400 for one's own account, or roles that clash with another account of the
+         *             same person.
+         */
+        put: operations["set_account_roles_api_auth_accounts__username__roles_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/accounts/{username}/unlock": {
         parameters: {
             query?: never;
@@ -22477,6 +22519,243 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Roles
+         * @description List the server's roles.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The roles with who holds each, what each joins and what is on offer, every permission
+         *         with its meaning, and how many owners the server has.
+         */
+        get: operations["list_roles_api_roles_get"];
+        put?: never;
+        /**
+         * Create Role
+         * @description Define a role of one's own.
+         *
+         *     Args:
+         *         body: Its name and permissions.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The role.
+         *
+         *     Raises:
+         *         ValidationError: 400 (``roles.name_invalid``, ``roles.name_system``,
+         *             ``roles.permissions_unknown``, ``roles.permissions_none``) for a name or a permission
+         *             that is not valid.
+         *         AccessError: 400 (``roles.separation_role``) when the set joins governing with running
+         *             where a framework forbids it.
+         *         AccessConflictError: 409 (``roles.name_taken``, ``roles.too_many``).
+         */
+        post: operations["create_role_api_roles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/roles/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Review
+         * @description Say what the frameworks in force make of the roles.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Which roles join governing the server with running it, which accounts do through
+         *         several, and how many owners the server has.
+         */
+        get: operations["review_api_roles_review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/roles/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Role
+         * @description Read one role.
+         *
+         *     Args:
+         *         name: The role's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The role.
+         *
+         *     Raises:
+         *         AccessNotFoundError: 404 (``roles.unknown``) when there is none.
+         */
+        get: operations["get_role_api_roles__name__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Role
+         * @description Remove a role of one's own that nobody holds.
+         *
+         *     Args:
+         *         name: The role's name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         AccessNotFoundError: 404 (``roles.unknown``) when there is none.
+         *         AccessError: 400 (``roles.owner_protected``, ``roles.seeded_kept``) for the owner and for
+         *             a role Noust ships, which are put back, not deleted.
+         *         AccessConflictError: 409 (``roles.in_use``) while an account holds it or a binding names it.
+         */
+        delete: operations["delete_role_api_roles__name__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Role
+         * @description Change a role, one Noust ships included; every account that holds it holds the change.
+         *
+         *     Args:
+         *         name: The role's name.
+         *         body: What changes.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The role as it is now.
+         *
+         *     Raises:
+         *         AccessNotFoundError: 404 (``roles.unknown``) when there is none.
+         *         AccessError: 400 (``roles.owner_protected``) for the owner; ``roles.separation_role`` or
+         *             ``roles.separation_account`` when the change would join duties for the role or for
+         *             an account that holds it.
+         */
+        patch: operations["update_role_api_roles__name__patch"];
+        trace?: never;
+    };
+    "/api/roles/{name}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duplicate Role
+         * @description Copy a role into a role of one's own.
+         *
+         *     Args:
+         *         name: The role to copy; any, the owner included.
+         *         body: The copy's name and, optionally, its label.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The copy.
+         *
+         *     Raises:
+         *         AccessNotFoundError: 404 (``roles.unknown``) when there is no such role.
+         *         AccessConflictError: 409 (``roles.name_taken``, ``roles.too_many``).
+         */
+        post: operations["duplicate_role_api_roles__name__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/roles/{name}/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settle Offers
+         * @description Take or leave the permissions a newer release ships for a role the operator edited.
+         *
+         *     Args:
+         *         name: The role's name.
+         *         body: The offered permissions to add and the ones to leave out for good.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The role as it is now.
+         *
+         *     Raises:
+         *         AccessNotFoundError: 404 (``roles.unknown``) when there is none.
+         *         AccessError: 400 (``roles.offer_unknown``) for a permission that is not on offer;
+         *             ``roles.separation_role`` or ``roles.separation_account`` when taking them would join
+         *             duties.
+         */
+        post: operations["settle_offers_api_roles__name__offers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/roles/{name}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Role
+         * @description Put a role Noust ships back to how it comes: it follows Noust again.
+         *
+         *     Args:
+         *         name: The role's name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The role as it is now.
+         *
+         *     Raises:
+         *         AccessNotFoundError: 404 (``roles.unknown``) when there is none.
+         *         AccessError: 400 (``roles.owner_protected``, ``roles.reset_custom``) for the owner and
+         *             for a role of the operator's own; ``roles.separation_account`` when putting it back
+         *             would join duties for an account that holds it.
+         */
+        post: operations["reset_role_api_roles__name__reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scim/v2/.search": {
         parameters: {
             query?: never;
@@ -29754,7 +30033,9 @@ export interface components {
          *
          *     Attributes:
          *         username: Sign-in name.
-         *         role: Its role.
+         *         role: Its role; or ``roles``, when it holds several.
+         *         roles: Every role it is to hold, the one it is known by first. The first account a server
+         *             has is made its owner as well, unless a framework keeps duties apart.
          *         password: Its first password, checked against the policy.
          *         display_name: How the console greets them.
          *         person_ref: Who it belongs to, such as an e-mail address.
@@ -29767,7 +30048,9 @@ export interface components {
             /** Person Ref */
             person_ref?: string | null;
             /** Role */
-            role: string;
+            role?: string | null;
+            /** Roles */
+            roles?: string[] | null;
             /** Username */
             username: string;
         };
@@ -29790,7 +30073,12 @@ export interface components {
          *         id: Store id.
          *         username: Sign-in name.
          *         display_name: How the console greets them.
-         *         role: ``viewer``, ``operator``, ``admin``, ``security`` or ``auditor``.
+         *         role: The first of the five roles of 3.1 among its roles (``viewer`` when none is): what
+         *             a client written before 4.1 reads. What the account may do is ``roles``.
+         *         roles: Every role it holds, in order (the list is ``GET /api/roles``).
+         *         permissions: What the roles hold together, sorted: the account's effective permissions
+         *             outside any team.
+         *         owner: Whether it holds the owner role.
          *         status: ``active``, ``disabled``, ``locked`` or ``invited``.
          *         person_ref: Who the account belongs to, for separation of duties.
          *         email: Where its invitations and password resets are mailed.
@@ -29842,16 +30130,25 @@ export interface components {
             /** Notice Accepted At */
             notice_accepted_at?: number | null;
             /**
+             * Owner
+             * @default false
+             */
+            owner: boolean;
+            /**
              * Passkeys
              * @default 0
              */
             passkeys: number;
             /** Password Changed At */
             password_changed_at?: number | null;
+            /** Permissions */
+            permissions?: string[];
             /** Person Ref */
             person_ref?: string | null;
             /** Role */
             role: string;
+            /** Roles */
+            roles?: string[];
             /** Status */
             status: string;
             /** Username */
@@ -29915,11 +30212,24 @@ export interface components {
             verified_at?: string | null;
         };
         /**
+         * AccountRolesRequest
+         * @description Every role an account is to hold.
+         *
+         *     Attributes:
+         *         roles: The roles, the one the account is known by first; at least one, each a role of the
+         *             list (``GET /api/roles``).
+         */
+        AccountRolesRequest: {
+            /** Roles */
+            roles: string[];
+        };
+        /**
          * AccountUpdate
          * @description Changes to an account; a field left out is kept.
          *
          *     Attributes:
-         *         role: A new role.
+         *         role: A new role, which takes the place of the first one the account holds.
+         *         roles: Every role it is to hold from now on; set instead of ``role`` to change several.
          *         display_name: A new display name.
          *         person_ref: A new person reference; empty clears it.
          *         email: A new address for invitations and password resets; empty clears it.
@@ -29933,6 +30243,8 @@ export interface components {
             person_ref?: string | null;
             /** Role */
             role?: string | null;
+            /** Roles */
+            roles?: string[] | null;
         };
         /**
          * AccountsResponse
@@ -43432,6 +43744,7 @@ export interface components {
          *     Attributes:
          *         username: The account's name.
          *         role: The role of a new account; ignored for an existing one.
+         *         roles: Several roles for a new account, instead of ``role``.
          *         display_name: Display name of a new account.
          *         person_ref: Person reference of a new account. Optional: the e-mail address stands
          *             for it when it is not given, so the invitation needs one address, not two.
@@ -43457,6 +43770,8 @@ export interface components {
             person_ref?: string | null;
             /** Role */
             role?: string | null;
+            /** Roles */
+            roles?: string[] | null;
             /** Team */
             team?: string | null;
             /** Team Role */
@@ -52767,6 +53082,14 @@ export interface components {
             success: boolean;
         };
         /**
+         * RoleActionResponse
+         * @description The answer to a change that has nothing else to say.
+         */
+        RoleActionResponse: {
+            /** Message */
+            message: string;
+        };
+        /**
          * RoleOut
          * @description A role, built in or defined here.
          *
@@ -52810,6 +53133,80 @@ export interface components {
             updated_at?: number | null;
             /** Updated By */
             updated_by?: string | null;
+        };
+        /**
+         * RolesReviewAccount
+         * @description An account whose roles together join the duties, though none of them does alone.
+         *
+         *     Attributes:
+         *         username: The account.
+         *         roles: Its roles.
+         *         governing: What it holds that governs.
+         *         running: What it holds that runs.
+         */
+        RolesReviewAccount: {
+            /** Governing */
+            governing: string[];
+            /** Roles */
+            roles: string[];
+            /** Running */
+            running: string[];
+            /** Username */
+            username: string;
+        };
+        /**
+         * RolesReviewResponse
+         * @description What the frameworks in force make of the server's roles.
+         *
+         *     Attributes:
+         *         duties_apart: Whether a control keeps governing and running apart.
+         *         controls: Which controls do (``roles_split``, ``separation_of_duties``,
+         *             ``single_role_per_account``).
+         *         owners: Accounts that hold the owner role and can sign in.
+         *         suggestion: A command that splits the administrator the way the ENS review decided it,
+         *             when the administrator joins the duties; null otherwise.
+         *         roles: Every role, judged.
+         *         accounts: The accounts whose roles together join the duties.
+         */
+        RolesReviewResponse: {
+            /** Accounts */
+            accounts: components["schemas"]["RolesReviewAccount"][];
+            /** Controls */
+            controls: string[];
+            /** Duties Apart */
+            duties_apart: boolean;
+            /** Owners */
+            owners: number;
+            /** Roles */
+            roles: components["schemas"]["RolesReviewRole"][];
+            /** Suggestion */
+            suggestion?: string | null;
+        };
+        /**
+         * RolesReviewRole
+         * @description One role as the frameworks judge it.
+         *
+         *     Attributes:
+         *         name: The role.
+         *         protected: The owner, which holds everything by design and is not counted as a defect.
+         *         holders: How many accounts hold it.
+         *         joins_duties: Whether it joins governing the server with running it.
+         *         governing: What it holds that governs, when it joins them.
+         *         running: What it holds that runs, when it joins them.
+         */
+        RolesReviewRole: {
+            /** Governing */
+            governing?: string[];
+            /** Holders */
+            holders: number;
+            /** Joins Duties */
+            joins_duties: boolean;
+            /** Name */
+            name: string;
+            /** Protected */
+            protected: boolean;
+            /** Running */
+            running?: string[];
         };
         /**
          * RollbackPointOut
@@ -54781,6 +55178,196 @@ export interface components {
             public_key?: string | null;
         };
         /**
+         * ServerRoleCreate
+         * @description Request to define a role of one's own.
+         */
+        ServerRoleCreate: {
+            /**
+             * Description
+             * @description What it is for
+             */
+            description?: string | null;
+            /**
+             * Label
+             * @description What the console shows
+             */
+            label?: string | null;
+            /**
+             * Name
+             * @description Its slug, such as release-manager
+             */
+            name: string;
+            /**
+             * Permissions
+             * @description What it holds
+             */
+            permissions: string[];
+        };
+        /**
+         * ServerRoleDuplicate
+         * @description Request to copy a role into a role of one's own.
+         */
+        ServerRoleDuplicate: {
+            /**
+             * Label
+             * @description Its label; the original's by default
+             */
+            label?: string | null;
+            /**
+             * Name
+             * @description The copy's slug
+             */
+            name: string;
+        };
+        /**
+         * ServerRoleOffers
+         * @description Request to take or leave the permissions a newer release offers a role.
+         */
+        ServerRoleOffers: {
+            /**
+             * Accept
+             * @description Offered permissions to add
+             */
+            accept?: string[];
+            /**
+             * Dismiss
+             * @description Offered permissions to leave out, for good
+             */
+            dismiss?: string[];
+        };
+        /**
+         * ServerRoleOut
+         * @description One role of the list.
+         *
+         *     Attributes:
+         *         name: Its slug; the key everything refers to it by.
+         *         kind: ``seeded`` (one of the five Noust ships), ``protected`` (the owner) or ``custom``.
+         *         label: What the console shows. For a role Noust ships and the operator has not
+         *             renamed, the console shows its own translation of the name.
+         *         description: What it is for.
+         *         permissions: What it holds now.
+         *         shipped_permissions: What the running release ships for it, to show how it differs; null
+         *             for a role of the operator's own.
+         *         edited: Whether the operator has taken a role Noust ships over.
+         *         follows_noust: Whether a permission a newer release adds reaches it by itself.
+         *         protected: The owner: it is neither edited nor deleted.
+         *         offers: Permissions a newer release ships for an edited role that it does not hold yet.
+         *         holders: The accounts that hold it.
+         *         holder_count: How many.
+         *         bindings: How many bindings at a team, a project or an environment name it.
+         *         joins_duties: Whether it holds both governing the server and running it.
+         *         governing: The permissions that govern, when it joins them.
+         *         running: The permissions that run the server, when it joins them.
+         *         can_edit: Whether ``PATCH`` is admitted.
+         *         can_delete: Whether ``DELETE`` is admitted (while nobody holds it).
+         *         can_reset: Whether ``POST .../reset`` is admitted.
+         *         can_duplicate: Whether ``POST .../duplicate`` is admitted.
+         *         created_at: When it was made, UNIX seconds.
+         *         created_by: Who made it.
+         *         updated_at: When it last changed.
+         *         updated_by: Who changed it.
+         */
+        ServerRoleOut: {
+            /**
+             * Bindings
+             * @default 0
+             */
+            bindings: number;
+            /** Can Delete */
+            can_delete: boolean;
+            /** Can Duplicate */
+            can_duplicate: boolean;
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Reset */
+            can_reset: boolean;
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Edited */
+            edited: boolean;
+            /** Follows Noust */
+            follows_noust: boolean;
+            /** Governing */
+            governing?: string[];
+            /**
+             * Holder Count
+             * @default 0
+             */
+            holder_count: number;
+            /** Holders */
+            holders?: string[];
+            /**
+             * Joins Duties
+             * @default false
+             */
+            joins_duties: boolean;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /** Offers */
+            offers?: string[];
+            /** Permissions */
+            permissions: string[];
+            /** Protected */
+            protected: boolean;
+            /** Running */
+            running?: string[];
+            /** Shipped Permissions */
+            shipped_permissions?: string[] | null;
+            /** Updated At */
+            updated_at: number;
+            /** Updated By */
+            updated_by?: string | null;
+        };
+        /**
+         * ServerRoleUpdate
+         * @description Request to change a role; what is left out stays.
+         */
+        ServerRoleUpdate: {
+            /** Description */
+            description?: string | null;
+            /** Label */
+            label?: string | null;
+            /**
+             * Permissions
+             * @description Its new permissions
+             */
+            permissions?: string[] | null;
+        };
+        /**
+         * ServerRolesResponse
+         * @description The list of roles, and what a screen needs beside it.
+         *
+         *     Attributes:
+         *         roles: Every role: the ones Noust ships and the owner first, then the operator's by name.
+         *         permissions: Every permission there is with what it allows.
+         *         owners: How many accounts hold the owner role and can sign in.
+         *         duties_apart: Whether a framework (or the operator's own setting) keeps governing the
+         *             server apart from running it, which is what makes ``joins_duties`` matter.
+         */
+        ServerRolesResponse: {
+            /** Duties Apart */
+            duties_apart: boolean;
+            /** Owners */
+            owners: number;
+            /** Permissions */
+            permissions: {
+                [key: string]: string;
+            };
+            /** Roles */
+            roles: components["schemas"]["ServerRoleOut"][];
+        };
+        /**
          * ServerShellModel
          * @description Whether the server's own shell may be opened, and what to do when it may not.
          */
@@ -55044,6 +55631,7 @@ export interface components {
          *         login_label: What the operator chose to show on the sign-in page.
          *         account: The account signed in, or None.
          *         role: Its role, or the role a central forwarded.
+         *         roles: Every role the account holds, in order; empty for a credential that is no account.
          *         grant: For the master token, how it holds the console.
          *         permissions: Everything the credential may do.
          *         mfa_required: The account must enrol an authenticator first.
@@ -55115,6 +55703,8 @@ export interface components {
             permissions?: string[];
             /** Role */
             role?: string | null;
+            /** Roles */
+            roles?: string[];
             /** Scope */
             scope?: string | null;
             /** Security Profile */
@@ -61225,12 +61815,17 @@ export interface components {
          *     Attributes:
          *         id: What it is.
          *         count: How many it concerns, when it counts.
+         *         items: Which, when it names them: for ``roles_join_duties``, the roles that join governing
+         *             the server with running it which an account holds (``noust access role set`` splits
+         *             them; ``GET /api/roles/review`` says what to).
          */
         WarningInfo: {
             /** Count */
             count?: number | null;
             /** Id */
             id: string;
+            /** Items */
+            items?: string[];
         };
         /**
          * WebConfig
@@ -72410,6 +73005,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccountActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_account_roles_api_auth_accounts__username__roles_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountRolesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountInfo"];
                 };
             };
             /** @description Validation Error */
@@ -88212,6 +88842,277 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegistryLoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_roles_api_roles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerRolesResponse"];
+                };
+            };
+        };
+    };
+    create_role_api_roles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServerRoleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerRoleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_api_roles_review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolesReviewResponse"];
+                };
+            };
+        };
+    };
+    get_role_api_roles__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerRoleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_role_api_roles__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_role_api_roles__name__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServerRoleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerRoleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    duplicate_role_api_roles__name__duplicate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServerRoleDuplicate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerRoleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    settle_offers_api_roles__name__offers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServerRoleOffers"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerRoleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_role_api_roles__name__reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerRoleOut"];
                 };
             };
             /** @description Validation Error */

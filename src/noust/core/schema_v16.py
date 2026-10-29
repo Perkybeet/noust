@@ -30,8 +30,37 @@ __all__ = ["VERSION", "apply_v16", "incomplete"]
 VERSION = 16
 
 # Owned by the roles lane: one editable list of roles, the protected owner, several roles per
-# account (item 96).
-ROLES_SQL = ""
+# account (item 96). ``roles`` holds the six every server has (kind ``seeded`` and ``protected``)
+# and the ones the operator defines (``custom``); ``edited`` and ``base`` are how a role that
+# follows Noust is told from one the operator has taken over, and what a new release may offer it.
+# ``account_roles`` is every role an account holds, in order; ``accounts.role`` cannot say it all
+# (its CHECK names the five roles of 3.1 and SQLite cannot lift one without rebuilding the table
+# everything references), so it stays the first of the five among them, for what still reads
+# one role. The data step that fills both is :mod:`noust.core.access.roles_backfill`.
+ROLES_SQL = """
+CREATE TABLE IF NOT EXISTS roles (
+    name TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('seeded', 'custom', 'protected')),
+    label TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    permissions TEXT NOT NULL DEFAULT '[]',
+    edited INTEGER NOT NULL DEFAULT 0,
+    base TEXT NOT NULL DEFAULT '[]',
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS account_roles (
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    PRIMARY KEY (account_id, role)
+);
+CREATE INDEX IF NOT EXISTS idx_account_roles_role ON account_roles(role);
+"""
 ROLES_COLUMNS: list[Column] = []
 
 # Owned by the fleet settings lane: the state a central wants (fleet_desired, on the central) and

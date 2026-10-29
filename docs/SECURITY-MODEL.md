@@ -317,56 +317,56 @@ server's own test: read it as you would read a site before deploying a repositor
 
 ### Who may do what
 
-Five roles, and the permissions each holds. The master token is not a role: while no account exists it
+The roles Noust ships, and the permissions each holds out of the box. A server has one list of roles, which its operator edits (`GET /api/roles`); the columns are what a server is seeded with, the administrator as the ENS review decided it, and the protected owner. The master token is not a role: while no account exists it
 holds every permission, afterwards (it is break-glass) all but `audit.manage`, and under the ENS profile
 only what recovering an account takes.
 
 <!-- generated:roles -->
-| Permission | What it allows | viewer | operator | admin (roles split) | security | auditor | admin (default) |
-|---|---|---|---|---|---|---|---|
-| `accounts.manage` | Create, change, lock and remove accounts; others' sessions |  |  |  | yes |  | yes |
-| `accounts.read` | See accounts and separation-of-duties exceptions |  |  |  | yes | yes | yes |
-| `apps.deploy` | Update, roll back, activate a release, rebuild |  | yes | yes |  |  | yes |
-| `apps.manage` | Create, configure and delete applications, sites and domains |  |  | yes |  |  | yes |
-| `apps.operate` | Start, stop and restart; renew certificates; run cron jobs |  | yes | yes |  |  | yes |
-| `apps.read` | See applications, sites, certificates, jobs, logs and deployments | yes | yes | yes | yes | yes | yes |
-| `apps.terminal` | A terminal and one-off commands as an application's own account, with its secrets |  |  | yes |  |  | yes |
-| `audit.manage` | Manage the audit log and activity history |  |  |  | yes |  | yes |
-| `audit.read` | Read the whole audit log |  |  |  | yes | yes | yes |
-| `backups.manage` | Restore, delete, and configure destinations |  |  | yes |  |  | yes |
-| `backups.read` | See backups, schedules and destinations | yes | yes | yes | yes | yes | yes |
-| `backups.run` | Create and verify backups |  | yes | yes |  |  | yes |
-| `compliance.read` | Read the ENS compliance check and its evidence report |  |  | yes | yes | yes | yes |
-| `databases.manage` | Install engines, drop databases, restore dumps |  |  | yes |  |  | yes |
-| `databases.read` | See database engines, databases and users | yes | yes | yes | yes | yes | yes |
-| `databases.write` | Create databases and users, run queries |  |  | yes |  |  | yes |
-| `fleet.manage` | Add and remove servers |  |  | yes |  |  | yes |
-| `fleet.read` | See the servers this central manages | yes | yes | yes | yes | yes | yes |
-| `root_equivalent` | Raw units, cron commands, backup hooks, raw site configuration |  |  | yes |  |  | yes |
-| `secrets.reveal` | Read secrets in clear: .env values, exports, keys |  |  | yes |  |  | yes |
-| `security.manage` | Change security settings: console access, sign-in policy |  |  |  | yes |  | yes |
-| `self` | Own session, second factor, password, tokens and usage notice | yes | yes | yes | yes | yes | yes |
-| `server.host_access` | Change the host itself: SSH, firewall, packages |  |  | yes |  |  | yes |
-| `server.manage` | Manage the server: services, the monitor |  |  | yes |  |  | yes |
-| `server.read` | See the server: system, services, metrics, monitor | yes | yes | yes | yes | yes | yes |
-| `server.terminal` | A root shell on the server itself, in the browser |  |  | yes |  |  | yes |
-| `settings.manage` | Change the configuration outside security settings |  |  | yes |  |  | yes |
-| `settings.read` | Read the configuration, secrets redacted | yes | yes | yes | yes | yes | yes |
-| `teams.manage` | Create and delete teams, projects and environments, and their members |  |  | yes |  |  | yes |
-| `teams.read` | See the teams, projects and environments one belongs to | yes | yes | yes | yes | yes | yes |
+| Permission | What it allows | viewer | operator | admin (ships) | security | auditor | admin (ENS review) | owner |
+|---|---|---|---|---|---|---|---|---|
+| `accounts.manage` | Create, change, lock and remove accounts; others' sessions |  |  | yes | yes |  |  | yes |
+| `accounts.read` | See accounts and separation-of-duties exceptions |  |  | yes | yes | yes |  | yes |
+| `apps.deploy` | Update, roll back, activate a release, rebuild |  | yes | yes |  |  | yes | yes |
+| `apps.manage` | Create, configure and delete applications, sites and domains |  |  | yes |  |  | yes | yes |
+| `apps.operate` | Start, stop and restart; renew certificates; run cron jobs |  | yes | yes |  |  | yes | yes |
+| `apps.read` | See applications, sites, certificates, jobs, logs and deployments | yes | yes | yes | yes | yes | yes | yes |
+| `apps.terminal` | A terminal and one-off commands as an application's own account, with its secrets |  |  | yes |  |  | yes | yes |
+| `audit.manage` | Manage the audit log and activity history |  |  | yes | yes |  |  | yes |
+| `audit.read` | Read the whole audit log |  |  | yes | yes | yes |  | yes |
+| `backups.manage` | Restore, delete, and configure destinations |  |  | yes |  |  | yes | yes |
+| `backups.read` | See backups, schedules and destinations | yes | yes | yes | yes | yes | yes | yes |
+| `backups.run` | Create and verify backups |  | yes | yes |  |  | yes | yes |
+| `compliance.read` | Read the ENS compliance check and its evidence report |  |  | yes | yes | yes | yes | yes |
+| `databases.manage` | Install engines, drop databases, restore dumps |  |  | yes |  |  | yes | yes |
+| `databases.read` | See database engines, databases and users | yes | yes | yes | yes | yes | yes | yes |
+| `databases.write` | Create databases and users, run queries |  |  | yes |  |  | yes | yes |
+| `fleet.manage` | Add and remove servers |  |  | yes |  |  | yes | yes |
+| `fleet.read` | See the servers this central manages | yes | yes | yes | yes | yes | yes | yes |
+| `root_equivalent` | Raw units, cron commands, backup hooks, raw site configuration |  |  | yes |  |  | yes | yes |
+| `secrets.reveal` | Read secrets in clear: .env values, exports, keys |  |  | yes |  |  | yes | yes |
+| `security.manage` | Change security settings: console access, sign-in policy |  |  | yes | yes |  |  | yes |
+| `self` | Own session, second factor, password, tokens and usage notice | yes | yes | yes | yes | yes | yes | yes |
+| `server.host_access` | Change the host itself: SSH, firewall, packages |  |  | yes |  |  | yes | yes |
+| `server.manage` | Manage the server: services, the monitor |  |  | yes |  |  | yes | yes |
+| `server.read` | See the server: system, services, metrics, monitor | yes | yes | yes | yes | yes | yes | yes |
+| `server.terminal` | A root shell on the server itself, in the browser |  |  | yes |  |  | yes | yes |
+| `settings.manage` | Change the configuration outside security settings |  |  | yes |  |  | yes | yes |
+| `settings.read` | Read the configuration, secrets redacted | yes | yes | yes | yes | yes | yes | yes |
+| `teams.manage` | Create and delete teams, projects and environments, and their members |  |  | yes |  |  | yes | yes |
+| `teams.read` | See the teams, projects and environments one belongs to | yes | yes | yes | yes | yes | yes | yes |
 <!-- /generated:roles -->
 
 ### The routes
 
 <!-- generated:routes -->
-- **1061** API operations. **1019** need a permission (`x-noust-permission`) and **42** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **352** operations need sudo mode and **40** can need a second person.
+- **1071** API operations. **1029** need a permission (`x-noust-permission`) and **42** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **359** operations need sudo mode and **40** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
 |---|---|
-| `accounts.manage` | 30 |
-| `accounts.read` | 12 |
+| `accounts.manage` | 37 |
+| `accounts.read` | 15 |
 | `apps.deploy` | 36 |
 | `apps.manage` | 146 |
 | `apps.operate` | 34 |
@@ -485,12 +485,12 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **509** events.
+The catalogue holds **512** events.
 
 | Category | Events |
 |---|---|
 | access | 48 |
-| account | 37 |
+| account | 40 |
 | config | 29 |
 | change | 333 |
 | read | 21 |

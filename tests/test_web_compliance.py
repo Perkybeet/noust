@@ -215,7 +215,10 @@ class TestChanging:
         refused = maria.put({"enable": ["ens-media"]})
         done = maria.put({"enable": ["ens-media"], "acknowledge": True})
 
-        assert [w["id"] for w in plan["warnings"]] == ["no_security_officer"]
+        # Nobody governs yet, and the administrator Noust ships holds both halves of what ENS keeps
+        # apart: the plan says both, with the roles it means.
+        assert [w["id"] for w in plan["warnings"]] == ["no_security_officer", "roles_join_duties"]
+        assert plan["warnings"][1]["items"] == ["admin"]
         assert refused.status_code == 400 and "confirmation" in refused.json()["detail"]
         assert done.status_code == 200
 
@@ -239,6 +242,11 @@ class TestOnceTheRolesAreSplit:
     def test_an_administrator_can_no_longer_change_it_but_a_security_officer_can(
         self, app: Any
     ) -> None:
+        from noust.core.access.role_manager import RoleManager
+        from noust.web.permissions.roles import ADMIN
+
+        # The administrator ENS asks for: the roles are judged as they are, none is cut for it.
+        RoleManager().update("admin", permissions=sorted(ADMIN))
         sam = Person(app, "sam", "security")
         maria = Person(app, "maria", "admin")
         sam.put({"enable": ["ens-media"], "acknowledge": True})

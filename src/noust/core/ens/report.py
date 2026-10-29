@@ -122,6 +122,7 @@ def _accounts(facts: Facts) -> list[dict[str, Any]]:
         {
             "username": account.get("username"),
             "role": account.get("role"),
+            "roles": account.get("roles") or [account.get("role")],
             "status": account.get("status"),
             "mfa": bool(account.get("mfa_enabled")),
             "passkeys": account.get("passkeys", 0),
@@ -179,6 +180,7 @@ def build_report(check: ComplianceCheck, facts: Facts) -> dict[str, Any]:
         "indicators": check.indicators,
         "baseline": [item.to_dict() for item in baseline()],
         "accounts": _accounts(facts),
+        "roles": facts.roles_review,
         "separation_of_duties": {
             "conflicts": facts.sod_conflicts,
             "exceptions": facts.sod_exceptions,
@@ -303,7 +305,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Cuentas (op.acc.1)",
         "",
-        "| Usuario | Rol | Estado | MFA | Último acceso |",
+        "| Usuario | Roles | Estado | MFA | Último acceso |",
         "|---|---|---|:-:|---|",
     ]
     for account in report["accounts"]:
@@ -314,9 +316,31 @@ def render_markdown(report: dict[str, Any]) -> str:
             else "nunca"
         )
         lines.append(
-            f"| {_cell(account['username'])} | {account['role']} | {account['status']} | "
+            f"| {_cell(account['username'])} | {_cell(', '.join(account['roles']))} | "
+            f"{account['status']} | "
             f"{'sí' if account['mfa'] else 'no'} | {when} |"
         )
+    roles = report.get("roles")
+    if roles:
+        lines += [
+            "",
+            "## Roles (op.acc.3)",
+            "",
+            "| Rol | Titulares | Junta gobernar y ejecutar |",
+            "|---|:-:|---|",
+        ]
+        for role in roles["roles"]:
+            if role["protected"]:
+                joins = "protegido: tiene todos los permisos por diseño"
+            elif role["joins_duties"]:
+                joins = "sí: " + ", ".join(role["governing"])
+            else:
+                joins = "no"
+            lines.append(f"| {_cell(role['name'])} | {role['holders']} | {_cell(joins)} |")
+        for account in roles["accounts"]:
+            lines.append(
+                f"| cuenta {_cell(account['username'])} | - | sí, con {_cell(', '.join(account['roles']))} |"
+            )
     lines += [
         "",
         "## Tokens de API",

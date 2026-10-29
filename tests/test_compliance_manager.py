@@ -17,6 +17,8 @@ from typing import Any
 
 import pytest
 
+from noust.core.access.builtin import ADMIN
+from noust.core.access.role_manager import RoleManager
 from noust.core.accounts import AccountManager, AuthPolicy, passwords
 from noust.core.compliance import resolve
 from noust.core.compliance.manager import ComplianceManager
@@ -183,7 +185,8 @@ class TestWarnings:
 
         plan = manager.plan(enable=["ens-media"])
 
-        assert [w.id for w in plan.warnings] == ["no_security_officer"]
+        # The administrator Noust ships holds both halves, so the plan also says it is what to split.
+        assert [w.id for w in plan.warnings] == ["no_security_officer", "roles_join_duties"]
         with pytest.raises(ValidationError, match="confirmation"):
             manager.apply(plan)
         manager.apply(plan, acknowledge=True)
@@ -192,6 +195,7 @@ class TestWarnings:
     def test_a_security_officer_makes_it_no_warning(
         self, manager: ComplianceManager, store: NoustStore
     ) -> None:
+        RoleManager(store).update("admin", permissions=sorted(ADMIN))
         self.make(store, "admin")
         AccountManager(store, policy=AuthPolicy()).create("sam", "security", password=PASSWORD)
 
@@ -200,6 +204,7 @@ class TestWarnings:
     def test_separation_with_people_who_hold_two_roles_is_a_warning_with_a_count(
         self, manager: ComplianceManager, store: NoustStore
     ) -> None:
+        RoleManager(store).update("admin", permissions=sorted(ADMIN))
         accounts = AccountManager(store, policy=AuthPolicy())
         accounts.create("ana", "admin", password=PASSWORD, person_ref="p@example.com")
         accounts.create("ben", "security", password=PASSWORD, person_ref="p@example.com")
@@ -208,6 +213,30 @@ class TestWarnings:
 
         warning = next(w for w in plan.warnings if w.id == "separation_conflicts")
         assert warning.count == 1
+
+    def test_a_role_that_joins_the_duties_a_framework_keeps_apart_is_named(
+        self, manager: ComplianceManager, store: NoustStore
+    ) -> None:
+        accounts = AccountManager(store, policy=AuthPolicy())
+        accounts.create("ana", "admin", password=PASSWORD)
+        accounts.create("ben", "security", password=PASSWORD)
+
+        plan = manager.plan(enable=["iso-27001"])
+
+        warning = next(w for w in plan.warnings if w.id == "roles_join_duties")
+        # The administrator Noust ships holds both halves, and ana holds it: that is what to split.
+        assert warning.count == 1 and warning.items == ("admin",)
+        assert warning.to_dict()["items"] == ["admin"]
+        assert plan.to_dict()["warnings"][-1]["id"] in {"roles_join_duties", "separation_conflicts"}
+
+    def test_roles_nobody_holds_are_not_a_warning(
+        self, manager: ComplianceManager, store: NoustStore
+    ) -> None:
+        AccountManager(store, policy=AuthPolicy()).create("ben", "security", password=PASSWORD)
+
+        plan = manager.plan(enable=["iso-27001"])
+
+        assert not any(w.id == "roles_join_duties" for w in plan.warnings)
 
     def test_a_server_with_no_accounts_has_nobody_to_warn_about(
         self, manager: ComplianceManager

@@ -879,6 +879,11 @@ class TeamStore:
         account = self._account(username)
         chosen = validate_team_role(role)
         refuse_instance_only_member(str(account["username"]), str(account["role"]))
+        # An account holds several roles now: one of them may be a role that never joins a team.
+        for held in self.store._get_connection().execute(
+            "SELECT role FROM account_roles WHERE account_id = ?", (int(account["id"]),)
+        ):
+            refuse_instance_only_member(str(account["username"]), str(held[0]))
         current = self.memberships_of(int(account["id"])).get(owner.id)
         if current == TEAM_ROLE_OWNER and chosen != TEAM_ROLE_OWNER:
             self._refuse_last_owner(owner, int(account["id"]), "demote")

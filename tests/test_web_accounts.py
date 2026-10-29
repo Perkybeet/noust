@@ -628,8 +628,8 @@ class TestTokens:
     def test_where_the_roles_are_split_an_adopted_token_never_governs(
         self, sandbox: Path, real_config: Any
     ) -> None:
-        real_config.set("security.roles_split", True)
         client = build(sandbox)
+        split_the_administrator()
         legacy = get_token_manager().create_api_token("old-ci", "admin")
         bearer = {"Authorization": f"Bearer {legacy['token']}"}
 
@@ -639,6 +639,14 @@ class TestTokens:
         assert session["scope"] == "admin"
         assert "security.manage" not in session["permissions"]
         assert "accounts.manage" not in session["permissions"]
+
+
+def split_the_administrator() -> None:
+    """Save the administrator as the ENS review decided it: without the permissions of governing."""
+    from noust.core.access.role_manager import RoleManager
+    from noust.web.permissions.roles import ADMIN
+
+    RoleManager().update("admin", permissions=sorted(ADMIN))
 
 
 class TestSessions:
@@ -761,8 +769,8 @@ class TestInvitations:
     def test_account_management_needs_accounts_manage(
         self, sandbox: Path, real_config: Any
     ) -> None:
-        real_config.set("security.roles_split", True)
         client = build(sandbox)
+        split_the_administrator()
         codes = make_account("maria", "admin")
         csrf = sign_in(client, "maria", codes[0])["csrf_token"]
 

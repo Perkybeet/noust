@@ -74,8 +74,9 @@ from noust.web.auth import (
     require_auth,
 )
 from noust.web.events import CREDENTIAL_RECHECK_SECONDS, HEARTBEAT_SECONDS, shutting_down
+from noust.web.permissions import ALL_PERMISSIONS
 from noust.web.permissions.principal import permissions_of, scope_of
-from noust.web.permissions.roles import ROLE_PERMISSIONS, role_within
+from noust.web.permissions.roles import role_within
 from noust.web.permissions.team_roles import permissions_at
 from noust.web.versioning import API_PREFIX, canonical_api_path
 
@@ -239,26 +240,28 @@ def forwarded_identity(session: dict[str, Any], node: str | None = None) -> dict
 
     scope = str(session.get("scope") or "read")
     role = session.get("role")
-    # A person's role, so the node grants its own table's permissions for it;
-    # the master token and pre-account tokens keep the 3.0 scope rule. A token
-    # narrowed below its owner's role (or by the ENS profile) is named by the
-    # widest role it wholly holds, never by its owner's: the node would grant
-    # the whole role.
-    forwarded = (
-        role_within(str(role), permissions_of(session)) if role in ROLE_PERMISSIONS else None
-    )
+    # A person is forwarded as what they may do (4.1: a role the operator edited does not mean the
+    # same on two servers), and also by the name of the widest of the five roles of 3.1 they hold
+    # every permission of, which a node before 4.1 reads in its own table. The master token and
+    # pre-account tokens keep the 3.0 scope rule, which needs neither. A token narrowed below its
+    # owner's role (or by the ENS profile) is named by the widest role it wholly holds, never by
+    # its owner's: the node would grant the whole role.
+    person = role is not None
+    held = permissions_of(session) if person else frozenset()
     member = scope_of(session)
     if node is not None and member.restricted:
         placed = ScopedStore(member).placement_of_node(node)
         held = (
             permissions_at(session, placed.team_id or None) if placed is not None else frozenset()
         )
-        forwarded = role_within("admin", held)
+        person = True
+    forwarded = role_within(str(role), held) if person else None
     return {
         "actor": fleet_actor(actor_label(session)),
         "actor_scope": scope if scope in SCOPE_RANK else "read",
         "actor_role": forwarded,
         "elevated": central_elevated(session),
+        "actor_permissions": sorted(held & ALL_PERMISSIONS) if person else None,
     }
 
 

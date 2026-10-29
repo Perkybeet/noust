@@ -16,7 +16,7 @@ imported by the store, and the accounts import the store.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from noust.core.exceptions import ValidationError
 from noust.core.teams.model import (
@@ -154,7 +154,7 @@ def invite_to_team(
         ValidationError: When anything is refused before the account exists.
     """
     owner, chosen = _plan(accounts, username, role, team, team_role)
-    options = {} if expires_hours is None else {"expires_hours": expires_hours}
+    options: dict[str, Any] = {} if expires_hours is None else {"expires_hours": expires_hours}
     account, code = accounts.invite(
         username,
         role,

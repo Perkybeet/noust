@@ -45,6 +45,7 @@ from noust.core import (
     schema_v15,
     schema_v16,
 )
+from noust.core.access import roles_backfill
 from noust.core.exceptions import DomainConflictError, DomainError, NoustError, ValidationError
 from noust.core.fs import (
     SECRET_DIR_MODE,
@@ -2107,6 +2108,7 @@ class NoustStore:
         logger.warning("The store is at v16 without all of v16's tables; adding them")
         with self._ddl_transaction() as ddl:
             schema_v16.apply_v16(ddl, _run_script)
+            roles_backfill.run_at_store(ddl)
 
     def _create_fresh_schema(self) -> bool:
         """
@@ -2134,6 +2136,7 @@ class NoustStore:
             schema_v14.apply_v14(cursor, _run_script)
             teams_backfill.run(cursor)
             schema_v16.apply_v16(cursor, _run_script)
+            roles_backfill.run_at_store(cursor, fresh=True)
             cursor.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
         return True
 
@@ -2189,6 +2192,7 @@ class NoustStore:
             13: self._migrate_v12_to_v13,
             14: self._migrate_v13_to_v14,
             15: self._migrate_v14_to_v15,
+            16: self._migrate_v15_to_v16,
         }
 
         for version in range(from_version + 1, SCHEMA_VERSION + 1):
@@ -2425,6 +2429,8 @@ class NoustStore:
             cursor: Cursor the migration runs on.
         """
         schema_v16.apply_v16(cursor, _run_script)
+        # The data half of the same step: the list of roles, without changing what anyone can do.
+        roles_backfill.run_at_store(cursor)
 
     # =========================================================================
     # Application CRUD

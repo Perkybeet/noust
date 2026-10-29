@@ -47,6 +47,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/auth/accounts"): Permission.ACCOUNTS_MANAGE,
     ("GET", "/api/auth/accounts/{username}"): Permission.ACCOUNTS_READ,
     ("PATCH", "/api/auth/accounts/{username}"): Permission.ACCOUNTS_MANAGE,
+    ("PUT", "/api/auth/accounts/{username}/roles"): Permission.ACCOUNTS_MANAGE,
     ("DELETE", "/api/auth/accounts/{username}"): Permission.ACCOUNTS_MANAGE,
     ("POST", "/api/auth/accounts/{username}/disable"): Permission.ACCOUNTS_MANAGE,
     ("POST", "/api/auth/accounts/{username}/enable"): Permission.ACCOUNTS_MANAGE,

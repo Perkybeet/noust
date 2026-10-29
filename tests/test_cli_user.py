@@ -82,10 +82,68 @@ def test_create_reads_the_password_from_stdin(runner: CliRunner) -> None:
         runner, "user", "create", "maria", "--role", "admin", "--stdin", stdin=PASSWORD + "\n"
     )
 
-    assert "Account created: maria (admin)" in output
+    # The first account a server has is its owner as well.
+    assert "Account created: maria (admin, owner)" in output
     account = AccountManager().find("maria")
     assert account is not None and account.role == "admin"
     assert AccountManager().authenticate("maria", PASSWORD, None, client_ip="local")
+
+
+def test_the_first_account_is_the_owner_and_the_second_is_not(runner: CliRunner) -> None:
+    run(runner, "user", "create", "maria", "--role", "admin", "--stdin", stdin=PASSWORD + "\n")
+    run(runner, "user", "create", "lucia", "--role", "admin", "--stdin", stdin=PASSWORD + "\n")
+
+    assert AccountManager().require("maria").roles == ("admin", "owner")
+    assert AccountManager().require("lucia").roles == ("admin",)
+
+
+def test_an_account_is_made_with_several_roles_and_they_are_set_later(runner: CliRunner) -> None:
+    run(runner, "user", "create", "maria", "--role", "admin", "--stdin", stdin=PASSWORD + "\n")
+    run(runner, "access", "role", "create", "db-reader", "--permission", "databases.write")
+
+    output = run(
+        runner,
+        "user",
+        "create",
+        "ana",
+        "--role",
+        "viewer",
+        "--role",
+        "db-reader",
+        "--stdin",
+        stdin=PASSWORD + "\n",
+    )
+    assert "ana (viewer, db-reader)" in output
+
+    run(runner, "user", "roles", "ana", "operator", "db-reader")
+    assert AccountManager().require("ana").roles == ("operator", "db-reader")
+    assert "operator, db-reader" in run(runner, "user", "list")
+
+
+def test_set_role_changes_the_one_the_account_is_known_by_and_leaves_the_rest(
+    runner: CliRunner,
+) -> None:
+    run(runner, "user", "create", "founder", "--role", "admin", "--stdin", stdin=PASSWORD + "\n")
+    run(runner, "user", "create", "maria", "--role", "admin", "--stdin", stdin=PASSWORD + "\n")
+    run(runner, "user", "roles", "maria", "viewer", "admin")
+
+    run(runner, "user", "set-role", "maria", "operator")
+
+    assert AccountManager().require("maria").roles == ("operator", "admin")
+
+
+def test_the_last_owner_is_refused_from_the_command_line_with_its_fix(runner: CliRunner) -> None:
+    run(runner, "user", "create", "maria", "--role", "admin", "--stdin", stdin=PASSWORD + "\n")
+
+    refused = runner.invoke(root_cli, ["user", "disable", "maria"])
+
+    assert refused.exit_code != 0
+    assert "last account that can use the owner role" in str(refused.exception)
+    # Root has no account to hold anything with, so it can hand the role on, then disable.
+    run(runner, "user", "create", "lucia", "--role", "admin", "--stdin", stdin=PASSWORD + "\n")
+    run(runner, "user", "roles", "lucia", "admin", "owner")
+    run(runner, "user", "disable", "maria")
+    assert AccountManager().require("maria").status == "disabled"
 
 
 def test_create_prompts_twice_without_echo(runner: CliRunner) -> None:
@@ -139,9 +197,12 @@ def test_invite_prints_a_single_use_code(runner: CliRunner) -> None:
 
 
 def test_the_lifecycle_commands(runner: CliRunner) -> None:
+    run(
+        runner, "user", "create", "founder", "--role", "admin", "--stdin", stdin=PASSWORD + "\n"
+    )  # the first is the owner
     run(runner, "user", "create", "maria", "--role", "viewer", "--stdin", stdin=PASSWORD + "\n")
 
-    assert "now operator" in run(runner, "user", "set-role", "maria", "operator")
+    assert "now holds operator" in run(runner, "user", "set-role", "maria", "operator")
     assert "disabled" in run(runner, "user", "disable", "maria", "--reason", "left")
     assert AccountManager().find("maria").status == "disabled"
     run(runner, "user", "enable", "maria")
@@ -152,6 +213,9 @@ def test_the_lifecycle_commands(runner: CliRunner) -> None:
 
 
 def test_disabling_ends_the_console_sessions(runner: CliRunner, state_dir: Path) -> None:
+    run(
+        runner, "user", "create", "founder", "--role", "admin", "--stdin", stdin=PASSWORD + "\n"
+    )  # the first is the owner
     run(runner, "user", "create", "maria", "--role", "viewer", "--stdin", stdin=PASSWORD + "\n")
     maria = AccountManager().find("maria")
     manager = TokenManager(SecurityConfig())
@@ -182,7 +246,10 @@ def test_the_first_admin_adopts_the_tokens_issued_before(runner: CliRunner) -> N
 
 def test_separation_of_duties_and_its_exception(runner: CliRunner, real_config: Any) -> None:
     # A control the operator chooses (item 83): never on by itself.
-    real_config.set("security.roles_split", True)
+    from noust.core.access.role_manager import RoleManager
+    from noust.web.permissions.roles import ADMIN
+
+    RoleManager().update("admin", permissions=sorted(ADMIN))
     real_config.set("security.separation_of_duties", True)
     run(
         runner,

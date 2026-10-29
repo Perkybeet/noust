@@ -186,6 +186,7 @@ def asker_for(session: Mapping[str, Any]) -> Asker:
         scope=identity["actor_scope"],
         role=identity["actor_role"],
         elevated=bool(identity["elevated"]),
+        permissions=identity["actor_permissions"],
     )
 
 

@@ -85,9 +85,18 @@ def cron(monkeypatch: pytest.MonkeyPatch) -> type[RecordingCron]:
 
 
 @pytest.fixture(autouse=True)
-def split_roles(real_config: Any) -> None:
-    """Four-eyes approvals are what a server with the roles split uses (ENS op.acc.3)."""
+def split_roles(real_config: Any, app: Any, store: NoustStore) -> None:
+    """
+    Four-eyes approvals are what a server with the roles split uses (ENS op.acc.3).
+
+    The administrator is saved without the permissions of governing, as the ENS review decided it;
+    a framework no longer takes them from it behind the operator's back.
+    """
+    from noust.core.access.role_manager import RoleManager
+    from noust.web.permissions.roles import ADMIN
+
     real_config.set("security.roles_split", True)
+    RoleManager().update("admin", permissions=sorted(ADMIN))
 
 
 @pytest.fixture

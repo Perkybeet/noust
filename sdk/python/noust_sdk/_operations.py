@@ -40,6 +40,15 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("access", "get_role"): ("GET", "/api/access/roles/{role}", "teams.read", False),
     ("access", "update_role"): ("PATCH", "/api/access/roles/{role}", "accounts.manage", True),
     ("access", "delete_role"): ("DELETE", "/api/access/roles/{role}", "accounts.manage", True),
+    ("access", "list_roles_get"): ("GET", "/api/roles", "accounts.read", False),
+    ("access", "create_role_post"): ("POST", "/api/roles", "accounts.manage", True),
+    ("access", "review"): ("GET", "/api/roles/review", "accounts.read", False),
+    ("access", "get_role_get"): ("GET", "/api/roles/{name}", "accounts.read", False),
+    ("access", "update_role_patch"): ("PATCH", "/api/roles/{name}", "accounts.manage", True),
+    ("access", "delete_role_delete"): ("DELETE", "/api/roles/{name}", "accounts.manage", True),
+    ("access", "duplicate_role"): ("POST", "/api/roles/{name}/duplicate", "accounts.manage", True),
+    ("access", "settle_offers"): ("POST", "/api/roles/{name}/offers", "accounts.manage", True),
+    ("access", "reset_role"): ("POST", "/api/roles/{name}/reset", "accounts.manage", True),
     ("access", "list_team_access"): ("GET", "/api/teams/{team}/access", "teams.read", False),
     ("access", "bind_in_team"): ("POST", "/api/teams/{team}/access", "teams.manage", True),
     ("access", "unbind_in_team"): ("DELETE", "/api/teams/{team}/access/{binding_id}", "teams.manage", True),
@@ -243,6 +252,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("authentication", "disable_account"): ("POST", "/api/auth/accounts/{username}/disable", "accounts.manage", True),
     ("authentication", "enable_account"): ("POST", "/api/auth/accounts/{username}/enable", "accounts.manage", True),
     ("authentication", "reset_account_mfa"): ("POST", "/api/auth/accounts/{username}/reset-mfa", "accounts.manage", True),
+    ("authentication", "set_account_roles"): ("PUT", "/api/auth/accounts/{username}/roles", "accounts.manage", True),
     ("authentication", "unlock_account"): ("POST", "/api/auth/accounts/{username}/unlock", "accounts.manage", True),
     ("authentication", "elevate"): ("POST", "/api/auth/elevate", "self", False),
     ("authentication", "list_exceptions"): ("GET", "/api/auth/exceptions", "accounts.read", False),
@@ -1096,7 +1106,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
 }
 
 class Access:
-    """Access: 11 operations."""
+    """Access: 20 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1164,6 +1174,78 @@ class Access:
 
         Needs: permission `accounts.manage`, sudo mode."""
         return self._call("DELETE", f"/api/access/roles/{quote(str(role), safe='')}", query=None, body=None)
+
+    def list_roles_get(self) -> "ServerRolesResponse":
+        """GET /api/roles
+
+        List Roles
+
+        Needs: permission `accounts.read`."""
+        return self._call("GET", "/api/roles", query=None, body=None)
+
+    def create_role_post(self, body: "ServerRoleCreate") -> "ServerRoleOut":
+        """POST /api/roles
+
+        Create Role
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("POST", "/api/roles", query=None, body=body)
+
+    def review(self) -> "RolesReviewResponse":
+        """GET /api/roles/review
+
+        Review
+
+        Needs: permission `accounts.read`."""
+        return self._call("GET", "/api/roles/review", query=None, body=None)
+
+    def get_role_get(self, name: str) -> "ServerRoleOut":
+        """GET /api/roles/{name}
+
+        Get Role
+
+        Needs: permission `accounts.read`."""
+        return self._call("GET", f"/api/roles/{quote(str(name), safe='')}", query=None, body=None)
+
+    def update_role_patch(self, name: str, body: "ServerRoleUpdate") -> "ServerRoleOut":
+        """PATCH /api/roles/{name}
+
+        Update Role
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("PATCH", f"/api/roles/{quote(str(name), safe='')}", query=None, body=body)
+
+    def delete_role_delete(self, name: str) -> "RoleActionResponse":
+        """DELETE /api/roles/{name}
+
+        Delete Role
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/roles/{quote(str(name), safe='')}", query=None, body=None)
+
+    def duplicate_role(self, name: str, body: "ServerRoleDuplicate") -> "ServerRoleOut":
+        """POST /api/roles/{name}/duplicate
+
+        Duplicate Role
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("POST", f"/api/roles/{quote(str(name), safe='')}/duplicate", query=None, body=body)
+
+    def settle_offers(self, name: str, body: "ServerRoleOffers") -> "ServerRoleOut":
+        """POST /api/roles/{name}/offers
+
+        Settle Offers
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("POST", f"/api/roles/{quote(str(name), safe='')}/offers", query=None, body=body)
+
+    def reset_role(self, name: str) -> "ServerRoleOut":
+        """POST /api/roles/{name}/reset
+
+        Reset Role
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("POST", f"/api/roles/{quote(str(name), safe='')}/reset", query=None, body=None)
 
     def list_team_access(self, team: str) -> "BindingsResponse":
         """GET /api/teams/{team}/access
@@ -2720,7 +2802,7 @@ class Audit:
 
 
 class Authentication:
-    """Authentication: 41 operations."""
+    """Authentication: 42 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -2828,6 +2910,14 @@ class Authentication:
 
         Needs: permission `accounts.manage`, sudo mode."""
         return self._call("POST", f"/api/auth/accounts/{quote(str(username), safe='')}/reset-mfa", query=None, body=None)
+
+    def set_account_roles(self, username: str, body: "AccountRolesRequest") -> "AccountInfo":
+        """PUT /api/auth/accounts/{username}/roles
+
+        Set Account Roles
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("PUT", f"/api/auth/accounts/{quote(str(username), safe='')}/roles", query=None, body=body)
 
     def unlock_account(self, username: str) -> "AccountActionResponse":
         """POST /api/auth/accounts/{username}/unlock

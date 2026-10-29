@@ -835,10 +835,11 @@ class TestForwardedIdentityNeverWidens:
         held = permissions_for_role("admin")
         assert node_proxy.forwarded_identity(self.payload(held))["actor_role"] == "admin"
 
-    def test_where_roles_are_split_the_admin_of_that_matrix_is_admin(self, real_config) -> None:
+    def test_where_the_administrator_is_saved_split_it_is_the_admin_of_that_matrix(self) -> None:
+        from noust.core.access.role_manager import RoleManager
         from noust.web.permissions.roles import ADMIN
 
-        real_config.set("security.roles_split", True)
+        RoleManager().update("admin", permissions=sorted(ADMIN))
 
         assert node_proxy.forwarded_identity(self.payload(ADMIN))["actor_role"] == "admin"
 
@@ -849,3 +850,47 @@ class TestForwardedIdentityNeverWidens:
 
         # The ENS matrix's administrator is short of what this server's administrator holds.
         assert node_proxy.forwarded_identity(self.payload(ADMIN))["actor_role"] == "operator"
+
+    def test_the_permissions_a_person_holds_travel_with_the_name(self) -> None:
+        from noust.web.permissions.roles import OPERATOR
+
+        identity = node_proxy.forwarded_identity(self.payload(OPERATOR, role="operator"))
+
+        # A role the operator edited means its own on the central: the node is told what it holds.
+        assert identity["actor_permissions"] == sorted(OPERATOR)
+        assert identity["actor_role"] == "operator"
+
+    def test_a_narrowed_token_forwards_what_it_holds_and_not_what_its_owner_does(self) -> None:
+        from noust.web.permissions.roles import VIEWER
+
+        identity = node_proxy.forwarded_identity(self.payload(VIEWER | {"apps.deploy"}))
+
+        assert identity["actor_permissions"] == sorted(VIEWER | {"apps.deploy"})
+
+    def test_a_person_with_several_roles_is_the_widest_role_that_fits_and_all_they_hold(
+        self,
+    ) -> None:
+        from noust.web.permissions.roles import OPERATOR
+
+        held = OPERATOR | {"databases.write"}
+        identity = node_proxy.forwarded_identity(self.payload(held, role="viewer"))
+
+        # A node before 4.1 reads the name; the one that reads permissions gets the rest.
+        assert identity["actor_role"] == "operator"
+        assert "databases.write" in identity["actor_permissions"]
+
+    def test_the_owner_is_forwarded_as_the_widest_role_a_node_before_4_1_knows(self) -> None:
+        from noust.web.permissions import ALL_PERMISSIONS
+
+        identity = node_proxy.forwarded_identity(self.payload(ALL_PERMISSIONS, role="viewer"))
+
+        assert identity["actor_role"] == "admin"
+        assert identity["actor_permissions"] == sorted(ALL_PERMISSIONS)
+
+    def test_a_credential_that_is_no_account_forwards_no_permissions(self) -> None:
+        payload = self.payload(frozenset({"apps.read"}))
+        del payload["role"]
+
+        identity = node_proxy.forwarded_identity(payload)
+
+        assert identity["actor_role"] is None and identity["actor_permissions"] is None
