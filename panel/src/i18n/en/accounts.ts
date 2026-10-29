@@ -30,7 +30,7 @@ export const accounts = {
   page: {
     documentTitle: "Accounts",
     title: "Accounts",
-    description: "Each person signs in with their own account, one role per account. Nobody's password is known to anyone else.",
+    description: "Each person signs in with their own account, with one role or several. Nobody's password is known to anyone else.",
     invite: "Invite a person",
     filterLabel: "Filter accounts",
     searchLabel: "Search accounts",

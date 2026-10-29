@@ -29,7 +29,7 @@ export const accounts: Catalog<typeof en> = {
   page: {
     documentTitle: "Cuentas",
     title: "Cuentas",
-    description: "Cada persona inicia sesión con su propia cuenta, con un rol por cuenta. Nadie conoce la contraseña de otro.",
+    description: "Cada persona inicia sesión con su propia cuenta, con uno o varios roles. Nadie conoce la contraseña de otro.",
     invite: "Invitar a una persona",
     filterLabel: "Filtrar cuentas",
     searchLabel: "Buscar cuentas",

@@ -153,7 +153,8 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
       </>
     );
   } else if (context.kind === "central") {
-    icon = <Landmark aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
+    // On a phone the top bar has no room left for the icon beside the name (the bar scrolled sideways on every central page).
+    icon = <Landmark aria-hidden="true" className={cx("size-icon-md shrink-0 text-fg-muted", !side && "max-sm:hidden")} />;
     name = (
       <>
         <span className={cx("shrink-0 font-medium", !side && "max-sm:sr-only")}>{t("fleet.selector.central")}</span>
@@ -201,7 +202,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
           "flex min-w-0 cursor-pointer items-center gap-2 rounded-control bg-bg-sunken text-13 text-fg elev-carved",
           "transition-colors duration-(--duration-fast) ease-out hover:bg-surface-hover",
           // In the top bar the trail and the machine's readout give way first: shrinking with them left "f…" for fra-1.
-          side ? "min-h-control-lg w-full py-1 pr-2 pl-2.5" : "h-control-md max-w-60 shrink-0 gap-1.5 pr-1.5 pl-2.5",
+          side ? "min-h-control-lg w-full py-1 pr-2 pl-2.5" : "h-control-md max-w-60 shrink-0 gap-1.5 pr-1.5 pl-2.5 max-sm:shrink",
           className,
         )}
       >

@@ -118,10 +118,24 @@ function CellFor({ t, setting, node, canManage }: { t: T; setting: StatusSetting
       reportActionError(t("fleetSettings.actions.putBackFailed", { name: setting.name, server: node }), error);
     },
   });
-  if (cell === undefined) return <span className="text-13 text-fg-muted">{t("fleetSettings.cell.unknown")}</span>;
+  // On a phone the row is a card whose header is read aloud but not drawn: the server's name leads its value.
+  const name = (
+    <Mono tone="muted" className="sm:hidden">
+      {node}
+    </Mono>
+  );
+  if (cell === undefined) {
+    return (
+      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        {name}
+        <span className="text-13 text-fg-muted">{t("fleetSettings.cell.unknown")}</span>
+      </span>
+    );
+  }
   const view = cellView(cell);
   return (
     <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      {name}
       {view.state === null ? (
         view.level === "exception" ? (
           <Badge>{t(view.label)}</Badge>
