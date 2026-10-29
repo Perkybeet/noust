@@ -8364,7 +8364,7 @@ Arguments: `app_domain`, `hostname`
 
 ### noust dns provider
 
-The DNS accounts Noust holds: Cloudflare, DigitalOcean, Hetzner, Gandi and Route 53 (records and the challenge, Cloudflare also tunnels), and certbot's plugins.
+The DNS accounts Noust holds: Cloudflare, DigitalOcean, Hetzner, Gandi, IONOS and Route 53 (records and the challenge, Cloudflare also tunnels), and certbot's plugins.
 
 ```bash
 noust dns provider [OPTIONS] COMMAND [ARGS]...

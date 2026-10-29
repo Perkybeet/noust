@@ -142,7 +142,7 @@ class RestClient:
         method: str,
         path: str,
         *,
-        body: Mapping[str, Any] | None = None,
+        body: Mapping[str, Any] | list[Any] | None = None,
         query: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
         raw_body: bytes | None = None,
@@ -213,7 +213,7 @@ class RestClient:
         method: str,
         path: str,
         *,
-        body: Mapping[str, Any] | None = None,
+        body: Mapping[str, Any] | list[Any] | None = None,
         query: Mapping[str, Any] | None = None,
     ) -> Any:
         """

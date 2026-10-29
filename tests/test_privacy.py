@@ -129,7 +129,7 @@ CLIENTS: dict[str, tuple[str, str]] = {
     "managers/diagnose.py": (OWN, "the probe that says why an application is down"),
     "managers/dns/rest.py": (
         OPERATOR,
-        "the DNS API of Cloudflare, DigitalOcean, Hetzner, Gandi or Route 53, with the operator's token",
+        "the DNS API of Cloudflare, DigitalOcean, Hetzner, Gandi, IONOS or Route 53, with the operator's token",
     ),
     "managers/log_transports.py": (OPERATOR, "the HTTP log destinations the operator configured"),
     "managers/probes.py": (OPERATOR, "the addresses the operator asked to probe from outside"),

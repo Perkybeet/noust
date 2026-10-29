@@ -282,7 +282,7 @@ def test_the_catalog_says_which_providers_keep_notes_and_which_run_tunnels(
     kinds = {k["kind"]: k for k in client.get("/api/dns/providers").json()["kinds"]}
 
     assert kinds["cloudflare"]["tunnels"] is True and kinds["cloudflare"]["comments"] is True
-    for kind in ("digitalocean", "hetzner", "gandi", "route53"):
+    for kind in ("digitalocean", "hetzner", "gandi", "ionos", "route53"):
         assert kinds[kind]["native"] is True and kinds[kind]["tunnels"] is False
     assert kinds["route53"]["comments"] is False and kinds["hetzner"]["comments"] is True
     assert [(f["name"], f["secret"]) for f in kinds["route53"]["fields"]] == [

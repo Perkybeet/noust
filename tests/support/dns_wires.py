@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The HTTPS side of four DNS providers, as callables with ``urlopen``'s convention.
+The HTTPS side of five DNS providers, as callables with ``urlopen``'s convention.
 
 Each wire is a small in-memory copy of one provider's API as far as Noust uses it: it keeps the
 zones and the records, answers the requests the client makes in the shapes the provider documents,
@@ -28,6 +28,8 @@ from xml.sax.saxutils import escape
 TOKEN = "tok-" + "t" * 36
 ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE"
 SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+#: IONOS keys are a public prefix and a secret joined by a dot.
+IONOS_KEY = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6." + "s3cr3t" * 12
 
 
 @dataclass
@@ -463,6 +465,180 @@ class GandiWire(Wire):
                 return missing
             del self.sets[key]
             return 204, b""
+        return 405, b""
+
+
+# -- IONOS -------------------------------------------------------------------------
+
+
+class IonosWire(Wire):
+    """
+    IONOS Hosting DNS (api.hosting.ionos.com/dns/v1), as developer.hosting.ionos.com documents it.
+
+    A zone has an id and a type (``NATIVE``, or ``SLAVE`` for a copy of somebody else's). The
+    records of a zone are read through ``GET /zones/{id}`` with ``recordName`` and ``recordType``
+    filters, created in an array, and changed or removed by the id IONOS gives each. A record is
+    named in full (``www.example.com``), a TXT value is sent in double quotes, and an error is a
+    list of ``{"code", "message"}``.
+    """
+
+    def __init__(self, *zones: str, slaves: tuple[str, ...] = ()) -> None:
+        super().__init__("https://api.hosting.ionos.com/dns/v1")
+        self.zones = {name: f"{n:08x}-0000-4000-8000-000000000000" for n, name in enumerate(zones)}
+        self.zones.update(
+            {name: f"5a1e{n:04x}-0000-4000-8000-000000000000" for n, name in enumerate(slaves)}
+        )
+        self.slaves = set(slaves)
+        self.records: dict[str, list[dict[str, Any]]] = {name: [] for name in self.zones}
+        self._ids = itertools.count(1)
+
+    def _zone_of(self, name: str) -> str:
+        return next(z for z in self.zones if name == z or name.endswith(f".{z}"))
+
+    def seed(
+        self, name: str, record_type: str, value: str, ttl: int = 3600, comment: str | None = None
+    ) -> None:
+        zone = self._zone_of(name)
+        wire_value = f'"{value}"' if record_type == "TXT" else value
+        self.records[zone].append(self._record(zone, name, record_type, wire_value, ttl, 0, False))
+
+    def _record(
+        self,
+        zone: str,
+        name: str,
+        record_type: str,
+        content: str,
+        ttl: int,
+        prio: int,
+        disabled: bool,
+    ) -> dict[str, Any]:
+        return {
+            "id": f"rec{next(self._ids):04d}",
+            "name": name,
+            "rootName": zone,
+            "type": record_type,
+            "content": content,
+            "ttl": ttl,
+            "prio": prio,
+            "disabled": disabled,
+            "changeDate": "2026-10-29T10:00:00.000Z",
+        }
+
+    def values(self, name: str, record_type: str) -> list[str]:
+        zone = self._zone_of(name)
+        return [
+            _plain(r["content"])
+            for r in self.records[zone]
+            if r["name"] == name and r["type"] == record_type
+        ]
+
+    def edit(self, name: str, record_type: str, **changes: Any) -> None:
+        """
+        Change a record as the operator would in the control panel.
+
+        Args:
+            name: The record's full name.
+            record_type: Its type.
+            **changes: The fields to set.
+        """
+        for record in self.records[self._zone_of(name)]:
+            if record["name"] == name and record["type"] == record_type:
+                record.update(changes)
+
+    def ttl(self, name: str, record_type: str) -> int:
+        """
+        Args:
+            name: A full name.
+            record_type: A type.
+
+        Returns:
+            The TTL of the first record there.
+        """
+        zone = self._zone_of(name)
+        return int(
+            next(
+                r["ttl"]
+                for r in self.records[zone]
+                if r["name"] == name and r["type"] == record_type
+            )
+        )
+
+    @staticmethod
+    def _error(status: int, code: str, message: str) -> tuple[int, bytes]:
+        return status, _json([{"code": code, "message": message}])
+
+    def handle(self, seen: Seen) -> tuple[int, bytes]:
+        assert seen.headers["x-api-key"] == IONOS_KEY
+        parts = seen.path.strip("/").split("/")
+        if parts == ["zones"] and seen.method == "GET":
+            return 200, _json(
+                [
+                    {"id": zid, "name": name, "type": "SLAVE" if name in self.slaves else "NATIVE"}
+                    for name, zid in self.zones.items()
+                ]
+            )
+        if len(parts) < 2 or parts[0] != "zones":
+            return self._error(404, "NotFound", "Unknown path")
+        zone = next((name for name, zid in self.zones.items() if zid == parts[1]), None)
+        if zone is None:
+            return self._error(404, "ZoneNotFound", "The zone does not exist")
+        if len(parts) == 2 and seen.method == "GET":
+            wanted = seen.query.get("recordName")
+            kinds = seen.query.get("recordType")
+            found = [
+                r
+                for r in self.records[zone]
+                if (wanted is None or r["name"] == wanted)
+                and (kinds is None or r["type"] in kinds.split(","))
+            ]
+            return 200, _json(
+                {
+                    "id": parts[1],
+                    "name": zone,
+                    "type": "SLAVE" if zone in self.slaves else "NATIVE",
+                    "records": found,
+                }
+            )
+        if len(parts) < 3 or parts[2] != "records":
+            return self._error(404, "NotFound", "Unknown path")
+        if zone in self.slaves and seen.method != "GET":
+            return self._error(400, "ZoneReadOnly", "A slave zone cannot be changed")
+        if len(parts) == 3 and seen.method == "POST":
+            created = []
+            for body in seen.json():
+                if body["ttl"] < 60:
+                    return self._error(400, "InvalidTtl", "ttl must be at least 60")
+                if not (body["name"] == zone or body["name"].endswith(f".{zone}")):
+                    return self._error(400, "InvalidName", "The name is not in the zone")
+                record = self._record(
+                    zone,
+                    body["name"],
+                    body["type"],
+                    body["content"],
+                    body["ttl"],
+                    body.get("prio", 0),
+                    body.get("disabled", False),
+                )
+                self.records[zone].append(record)
+                created.append(record)
+            return 201, _json(created)
+        found_one = (
+            next((r for r in self.records[zone] if r["id"] == parts[3]), None)
+            if len(parts) == 4
+            else None
+        )
+        if found_one is None:
+            return self._error(404, "RecordNotFound", "The record does not exist")
+        if seen.method == "GET":
+            return 200, _json(found_one)
+        if seen.method == "PUT":
+            body = seen.json()
+            assert set(body) == {"content", "disabled", "prio", "ttl"}
+            found_one.update(body)
+            return 200, _json(found_one)
+        if seen.method == "DELETE":
+            self.records[zone].remove(found_one)
+            return 200, b""
         return 405, b""
 
 

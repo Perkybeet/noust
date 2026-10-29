@@ -6,7 +6,7 @@ The DNS providers Noust can answer a DNS-01 challenge through.
 
 Two kinds, and the difference matters to what an account can do:
 
-- **Native** (Cloudflare, DigitalOcean, Hetzner, Gandi, Amazon Route 53): Noust speaks the
+- **Native** (Cloudflare, DigitalOcean, Hetzner, Gandi, IONOS, Amazon Route 53): Noust speaks the
   provider's API itself (:mod:`noust.managers.dns`). It lists the zones, creates and deletes
   records under the ownership rules, and answers the DNS-01 challenge through its own hook.
   No certbot plugin needs to be installed. Cloudflare also runs tunnels. A provider that keeps
@@ -176,6 +176,15 @@ KINDS: dict[str, ProviderKind] = {
         "rights (console.hetzner.com, Security, API tokens). Zones still on the old DNS Console "
         "must be migrated to the Cloud Console first.",
         propagation=30,
+    ),
+    "ionos": ProviderKind(
+        kind="ionos",
+        label="IONOS",
+        native=True,
+        fields=(CredentialField("key", "API key (prefix.secret)"),),
+        help="An API key from developer.hosting.ionos.com/keys, pasted whole as prefix.secret. "
+        "The domain's DNS must be hosted by IONOS for the records to be seen on the internet.",
+        comments=False,
     ),
     "gandi": ProviderKind(
         kind="gandi",

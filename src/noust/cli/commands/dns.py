@@ -42,7 +42,7 @@ def cli() -> None:
 
 @cli.group("provider", cls=NoustGroup)
 def provider() -> None:
-    """The DNS accounts Noust holds: Cloudflare, DigitalOcean, Hetzner, Gandi and Route 53 (records and the challenge, Cloudflare also tunnels), and certbot's plugins."""
+    """The DNS accounts Noust holds: Cloudflare, DigitalOcean, Hetzner, Gandi, IONOS and Route 53 (records and the challenge, Cloudflare also tunnels), and certbot's plugins."""
 
 
 def _credentials(
