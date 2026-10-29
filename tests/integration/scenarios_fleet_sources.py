@@ -26,7 +26,7 @@ Noust is faked. What it proves:
   minute and the update works.
 
 Docker: nothing beyond the central and the node ``fleet_run.py`` starts. The fake runs in the
-central as a systemd unit (``ghe-fake``) on port 9443; ``ghe.test`` is a line of ``/etc/hosts`` in
+central as a systemd unit (``ghe-fake``) on port 443; ``ghe.test`` is a line of ``/etc/hosts`` in
 both containers and its certificate is trusted by both.
 """
 
@@ -41,8 +41,8 @@ from pathlib import Path
 from typing import Any
 
 HOST = "ghe.test"
-PORT = 9443
-AUTHORITY = f"{HOST}:{PORT}"
+PORT = 443
+AUTHORITY = HOST
 REPOSITORY = "you/app"
 SOURCE = f"https://{AUTHORITY}/{REPOSITORY}.git"
 DOMAIN = "private.fuentes.example.com"
@@ -121,9 +121,6 @@ def register(fr: Any) -> None:
 
         def sources() -> dict[str, Any]:
             return dict(call("GET", "/api/fleet/sources"))
-
-        def standing() -> dict[str, Any]:
-            return {n["node"]: n for n in sources()["nodes"]}[name]
 
         def leases_on_node() -> list[dict[str, Any]]:
             return list(call("GET", f"/api/nodes/{name}/api/sources/leases")["items"])
@@ -432,7 +429,7 @@ def register(fr: Any) -> None:
             f"git commit -q -m v3 && git push -q /srv/ghe/{REPOSITORY}.git main",
             label="a third commit lands in the repository, which only an update that clones can see",
         )
-        central.run("systemctl stop noust-web noust-monitor", label="the central stops")
+        central.run("systemctl stop noust-web", label="the central stops (its console)")
         try:
             time.sleep(TOKEN_LIFETIME + 25)
             held_now = node.run(
@@ -465,7 +462,7 @@ def register(fr: Any) -> None:
             )
             node.check("Leased v2" in page(), "the application stopped serving while it failed")
         finally:
-            central.run("systemctl start noust-web noust-monitor", label="the central starts again")
+            central.run("systemctl start noust-web", label="the central starts again")
 
         # -- the central is back: the access is leased again, and the update works --------------------------------------
         def newest_lease() -> int:

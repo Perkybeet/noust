@@ -19119,6 +19119,8 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 409 ``no_github_app`` when this central has no App to lease with.
+         *         ValidationError: 400 for repositories without the servers they are for, or a repository
+         *             that is not one.
          */
         post: operations["lease_again_api_fleet_sources_leases_post"];
         delete?: never;
@@ -45856,6 +45858,10 @@ export interface components {
          *     Attributes:
          *         nodes: Only these servers; all of them when omitted.
          *         force: Replace the leases that are not due.
+         *         repositories: ``owner/repo`` these servers should be able to read although no application
+         *             of theirs deploys from them yet: the console asks before it creates the first one,
+         *             because an application is made by cloning its repository. Needs ``nodes``; kept in
+         *             the lease for half an hour.
          */
         LeaseAgainIn: {
             /**
@@ -45865,6 +45871,8 @@ export interface components {
             force: boolean;
             /** Nodes */
             nodes?: string[] | null;
+            /** Repositories */
+            repositories?: string[] | null;
         };
         /**
          * LeaseIn

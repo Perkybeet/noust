@@ -28688,7 +28688,7 @@
         "type": "object"
       },
       "LeaseAgainIn": {
-        "description": "Lease again now.\n\nAttributes:\n    nodes: Only these servers; all of them when omitted.\n    force: Replace the leases that are not due.",
+        "description": "Lease again now.\n\nAttributes:\n    nodes: Only these servers; all of them when omitted.\n    force: Replace the leases that are not due.\n    repositories: ``owner/repo`` these servers should be able to read although no application\n        of theirs deploys from them yet: the console asks before it creates the first one,\n        because an application is made by cloning its repository. Needs ``nodes``; kept in\n        the lease for half an hour.",
         "properties": {
           "force": {
             "default": false,
@@ -28709,6 +28709,21 @@
               }
             ],
             "title": "Nodes"
+          },
+          "repositories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repositories"
           }
         },
         "title": "LeaseAgainIn",
@@ -99340,7 +99355,7 @@
     },
     "/api/fleet/sources/leases": {
       "post": {
-        "description": "Look at the servers and lease what each needs, now.\n\nArgs:\n    body: The servers to look at, and whether to replace what is not due.\n    session: The authenticated session.\n\nReturns:\n    Each server after the look.\n\nRaises:\n    HTTPException: 409 ``no_github_app`` when this central has no App to lease with.",
+        "description": "Look at the servers and lease what each needs, now.\n\nArgs:\n    body: The servers to look at, and whether to replace what is not due.\n    session: The authenticated session.\n\nReturns:\n    Each server after the look.\n\nRaises:\n    HTTPException: 409 ``no_github_app`` when this central has no App to lease with.\n    ValidationError: 400 for repositories without the servers they are for, or a repository\n        that is not one.",
         "operationId": "lease_again_api_fleet_sources_leases_post",
         "requestBody": {
           "content": {

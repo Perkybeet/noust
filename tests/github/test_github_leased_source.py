@@ -149,6 +149,25 @@ class TestTheLeasedTokenReachesGit:
         assert clones[0][1]["GIT_CONFIG_KEY_0"] == "http.https://ghe.example.com/.extraheader"
         assert "GIT_CONFIG_KEY_0" not in clones[1][1]
 
+    def test_a_host_with_a_port_is_scoped_with_its_port_and_not_confused_with_the_same_host(
+        self, store: NoustStore, clock: Clock
+    ) -> None:
+        SourceLeases().hold(
+            central="nas",
+            key="ghe",
+            host="ghe.example.com:8443",
+            installation_id=5,
+            repositories=["you/app"],
+            token=LEASED,
+            expires_in=3600,
+        )
+
+        on_the_port = github_app.git_auth_environment("https://ghe.example.com:8443/you/app.git")
+        on_the_default = github_app.git_auth_environment("https://ghe.example.com/you/app.git")
+
+        assert on_the_port["GIT_CONFIG_KEY_0"] == "http.https://ghe.example.com:8443/.extraheader"
+        assert on_the_default == {}
+
     def test_the_environment_the_operator_already_passes_is_added_to(
         self, leased: SourceLeases, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -273,6 +292,18 @@ class TestWhenTheCentralWentQuiet:
 
         assert raised.value.coded is not None
         assert raised.value.coded.code.startswith("sources.lease_expired")
+
+    def test_a_deploy_key_keeps_working_while_the_central_is_silent(
+        self, leased: SourceLeases, clock: Clock
+    ) -> None:
+        # An application cloned over SSH with a key of its own does not depend on the central: an
+        # ended lease is not consulted for it and does not change what its clone does.
+        self.end(clock)
+
+        for url in ("git@github.com:you/app.git", "ssh://git@github.com/you/app.git"):
+            assert github_app.has_token_access(url) is False
+            assert github_app.git_auth_environment(url) == {}
+            assert github_app.token_environment(url) == {}
 
     def test_a_lease_renewed_in_time_is_used_and_nothing_is_said(
         self, leased: SourceLeases, clock: Clock, runner: FakeRunner, tmp_path: Path
