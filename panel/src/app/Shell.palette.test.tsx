@@ -115,7 +115,7 @@ describe("the command palette", () => {
     const { user, location } = await open();
     await search(user, "29 days");
     await user.click(await screen.findByRole("option", { name: /29 days left/ }));
-    await waitFor(() => expect(location().pathname).toBe("/domains"));
+    await waitFor(() => expect(location().pathname).toBe("/domains/certificates"));
     expect(location().search).toEqual({ q: "shop.example.com" });
   });
 

@@ -178,6 +178,7 @@ export const RENAMED: Readonly<Record<string, readonly PlainKey[]>> = {
   backups: ["nav.renamed.backups"],
   server: ["nav.renamed.server"],
   domains: ["nav.renamed.domains"],
+  "domains.sites": ["nav.renamed.webServerSites"],
   catalog: ["nav.renamed.recipes"],
   "catalog.installed": ["nav.renamed.recipesInstalled"],
   "apps.projects": ["nav.renamed.projects"],

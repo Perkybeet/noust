@@ -73,7 +73,7 @@ function certificates(routes: Record<string, RouteHandler> = {}, list: object[] 
     "GET /api/certs/acme": () => json(200, ACME),
     ...routes,
   });
-  const harness = renderConsole("/domains");
+  const harness = renderConsole("/domains/certificates");
   return { ...harness, backend };
 }
 

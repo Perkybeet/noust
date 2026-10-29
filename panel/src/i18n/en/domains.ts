@@ -24,10 +24,76 @@ export const domains = {
   theSite: "The site",
 
   page: {
-    description: "Every HTTPS certificate on this server, and the web server sites that answer each name.",
     tabsLabel: "Domains sections",
-    certificatesTab: "Certificates",
-    sitesTab: "Web server sites",
+  },
+
+  /** Each section of the Domains area: its tab, its title (never the area's name again) and its one sentence. */
+  sections: {
+    domains: {
+      tab: "Domains",
+      title: "Domains",
+      description: "The names your applications answer on, and whether each one has HTTPS.",
+      keywords: "names hostnames https ssl add domain alias redirect",
+    },
+    sites: {
+      tab: "Sites",
+      title: "Sites",
+      description: "The web server's file for each name, written by Noust or by hand.",
+      keywords: "web server nginx apache vhost server block configuration",
+    },
+    certificates: {
+      tab: "Certificates",
+      title: "Certificates",
+      description: "Every HTTPS certificate, the soonest to expire first.",
+      keywords: "ssl tls https certbot lets encrypt renew expire issue upload",
+    },
+    dns: {
+      tab: "DNS",
+      title: "DNS",
+      description: "Where Noust writes the records of your domains, or answers for them itself.",
+      keywords: "records providers cloudflare ionos route53 name server zones dnssec",
+    },
+    tunnels: {
+      tab: "Tunnels",
+      title: "Tunnels",
+      description: "Reach an application through Cloudflare, with no public address and no open port.",
+      keywords: "cloudflare cloudflared nat home server",
+    },
+    ports: {
+      tab: "Ports",
+      title: "Ports",
+      description: "The TCP and UDP ports nginx publishes, for what is not a web page.",
+      keywords: "tcp udp stream firewall game server open a port who uses a port",
+    },
+  },
+
+  /** The first section: one row for each name the server answers on. */
+  domainsTab: {
+    nameColumn: "Domain",
+    httpsColumn: "HTTPS",
+    appColumn: "Application",
+    siteColumn: "Site",
+    httpsElsewhere: "HTTPS",
+    noHttps: "No HTTPS",
+    add: "Add domain",
+    emptyTitle: "No domains yet",
+    emptyDescription: "A domain is a name your application answers on. Add one and Noust checks where it points and gets its certificate.",
+    couldNotList: "Could not list the domains",
+    tableCaption: "Domains",
+    tableCaptionFiltered: "Domains that match the search",
+    noMatch: "No domain matches",
+    openApp: "Open the application",
+    openSite: "Open the site",
+    addedPlain: "Added {name} to {app} without HTTPS",
+    filterAriaLabel: "Filter domains",
+    filterByNameAriaLabel: "Filter domains by name",
+    count: { one: "{count} domain", other: "{count} domains" },
+    countFiltered: "{shown} of {total} domains",
+    job: {
+      running: "Getting the certificate for the new name",
+      done: "The certificate covers the new name",
+      failed: "The certificate was not issued",
+    },
   },
 
   appTab: {
@@ -241,6 +307,11 @@ export const domains = {
     redirectDescription: "Sends visitors to {app} with a permanent redirect (301).",
     roleLegend: "Role",
     addDialogTitle: "Add a domain to {app}",
+    addDialogTitleAny: "Add a domain",
+    appLabel: "Application",
+    appPlaceholder: "Choose an application",
+    appNeeded: "Choose the application the name is for.",
+    theApplication: "the application",
     addDialogDescription: "The site is rewritten and reloaded at once. When the app serves HTTPS, its certificate is extended to the new name.",
     domainFieldDescription: "The bare name, such as shop.example.com.",
     addAnyway: "Add anyway",

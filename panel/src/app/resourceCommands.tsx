@@ -103,7 +103,7 @@ function certificateCommands(certificates: readonly CertEntry[], { t, navigate }
       keywords: words(...cert.domains, cert.issuer),
       kind: "navigate",
       // A certificate has no page of its own: the list, filtered to it, is where it is read.
-      run: () => navigate({ to: "/domains", search: { q: cert.domain } }),
+      run: () => navigate({ to: "/domains/certificates", search: { q: cert.domain } }),
     };
   });
 }

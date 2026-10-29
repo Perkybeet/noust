@@ -204,7 +204,7 @@ describe("the Domains and certificates page", () => {
       "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
       "GET /api/sites": () => json(200, SITES),
     });
-    const harness = renderConsole("/domains");
+    const harness = renderConsole("/domains/certificates");
     const table = await screen.findByRole("region", { name: "Certificates" });
     await within(table).findByText("later.example.com");
     const rows = within(table).getAllByRole("row");
@@ -223,7 +223,7 @@ describe("the Domains and certificates page", () => {
     expect(within(drawer).getByText("Let's Encrypt R11")).toBeInTheDocument();
     await harness.user.keyboard("{Escape}");
 
-    await harness.user.click(screen.getByRole("link", { name: /Web server sites/ }));
+    await harness.user.click(screen.getByRole("link", { name: /^Sites/ }));
     await waitFor(() => {
       expect(harness.location().pathname).toBe("/domains/sites");
     });
@@ -252,7 +252,7 @@ describe("the Domains and certificates page", () => {
       "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
       "GET /api/sites": () => json(200, SITES),
     });
-    renderConsole("/domains");
+    renderConsole("/domains/certificates");
     const table = await screen.findByRole("region", { name: "Certificates" });
     const state = await within(table).findByText("Expired 3 days ago");
     expect(state.closest("[data-state]")).toHaveAttribute("data-state", "failed");
@@ -265,7 +265,7 @@ describe("the Domains and certificates page", () => {
       "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
       "GET /api/sites": () => json(200, SITES),
     });
-    const { user, location } = renderConsole("/domains?q=later");
+    const { user, location } = renderConsole("/domains/certificates?q=later");
     const table = await screen.findByRole("region", { name: "Certificates matching the filters" });
     expect(await within(table).findByText("later.example.com")).toBeInTheDocument();
     expect(within(table).queryByText(APP)).not.toBeInTheDocument();
@@ -424,7 +424,7 @@ describe("in Spanish", () => {
     await expectNoAxeViolations(document.body, { page: true });
   });
 
-  it("shows the Domains and certificates page in Spanish", async () => {
+  it("shows the Certificates section in Spanish", async () => {
     fakeBackend({
       ...signedInRoutes(),
       "GET /api/certs": () => json(200, CERTS),
@@ -432,8 +432,8 @@ describe("in Spanish", () => {
       "GET /api/sites": () => json(200, { sites: [], total: 0, webserver: "nginx" }),
     });
     await act(() => setLocale("es"));
-    renderConsole("/domains");
-    expect(await screen.findByRole("heading", { level: 1, name: "Dominios" })).toBeInTheDocument();
+    renderConsole("/domains/certificates");
+    expect(await screen.findByRole("heading", { level: 1, name: "Certificados" })).toBeInTheDocument();
     const table = await screen.findByRole("region", { name: "Certificados" });
     await within(table).findByText("later.example.com");
     expect(within(table).getAllByRole("row")[1]).toHaveTextContent("Caduca en 12 días");

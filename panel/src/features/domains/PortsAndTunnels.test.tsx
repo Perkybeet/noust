@@ -259,18 +259,49 @@ describe("the Tunnels tab", () => {
     expect(screen.getByText("noust tunnel create home")).toBeInTheDocument();
   });
 
-  it("names where the connector comes from when it is not installed, and offers no way to create one", async () => {
+  it("says what is missing as a state of the page, in the console's words, and offers to install the connector", { timeout: 20_000 }, async () => {
+    let installed = 0;
+    const { user } = network("/domains/tunnels", {
+      "GET /api/tunnels": () =>
+        json(200, {
+          tunnels: [],
+          support: {
+            available: false,
+            cloudflared: null,
+            sealed: false,
+            accounts: ["cf"],
+            problem: "cloudflared is not installed",
+            hint: "English hint from the server",
+            coded: { code: "tunnels.cloudflared_missing", params: { url: "https://pkg.cloudflare.com/" } },
+          },
+        }),
+      "POST /api/tunnels/install-cloudflared": () => {
+        installed += 1;
+        return json(202, { job_id: "j9", status: "queued", message: "queued" });
+      },
+    });
+
+    // The page says what a tunnel is and what this server lacks, once, with the action that fixes it: not a form's error.
+    expect(await screen.findByText("No tunnels yet")).toBeInTheDocument();
+    expect(screen.getByText("It also needs cloudflared, the connector, which is not installed.")).toBeInTheDocument();
+    expect(screen.queryByText("English hint from the server")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create a tunnel" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Install cloudflared" }));
+    await waitFor(() => expect(installed).toBe(1));
+    expect(await screen.findByText("Installing cloudflared")).toBeInTheDocument();
+    await expectNoAxeViolations(document.body);
+  });
+
+  it("leads to the DNS section when there is no Cloudflare account yet", async () => {
     network("/domains/tunnels", {
       "GET /api/tunnels": () =>
         json(200, {
           tunnels: [],
-          support: { available: false, cloudflared: null, sealed: false, accounts: ["cf"], problem: "cloudflared is not installed", hint: "Install it from Cloudflare's own package repository, https://pkg.cloudflare.com/" },
+          support: { available: false, cloudflared: "/usr/bin/cloudflared", sealed: false, accounts: [], problem: "There is no Cloudflare account", hint: null, coded: { code: "tunnels.no_account", params: {} } },
         }),
     });
-
-    expect(await screen.findByText("cloudflared is not installed")).toBeInTheDocument();
-    expect(screen.getByText(/https:\/\/pkg\.cloudflare\.com\//)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create a tunnel" })).toBeDisabled();
+    expect(await screen.findByText("It also needs a Cloudflare account to manage it.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add a Cloudflare account" })).toHaveAttribute("href", "/domains/dns");
   });
 
   it("creates a tunnel through the only Cloudflare account", async () => {
@@ -278,6 +309,8 @@ describe("the Tunnels tab", () => {
       "POST /api/tunnels": () => json(201, { tunnel: HOME, warnings: [], released: [] }),
     });
 
+    // The page offers the first tunnel once it knows there is none: the header gives way to the empty state.
+    await screen.findByText("No tunnels yet");
     await user.click(first(await screen.findAllByRole("button", { name: "Create a tunnel" })));
     const dialog = await screen.findByRole("dialog", { name: "Create a tunnel" });
     await user.type(within(dialog).getByLabelText("Name"), "home");

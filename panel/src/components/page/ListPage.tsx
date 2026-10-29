@@ -50,7 +50,8 @@ export function ListPage({ header, tabs, notice, filters, children, footer, arri
       <div key={arrival} className="mt-8 flex min-w-0 flex-col gap-4">
         {notice !== undefined ? <div data-slot="notice">{notice}</div> : null}
         {filters !== undefined ? <div data-slot="filters">{filters}</div> : null}
-        <div data-slot="content" className="min-w-0">
+        {/* A column with the page's gap, so a card above the table (Sites' names no site serves) is apart from it. */}
+        <div data-slot="content" className="flex min-w-0 flex-col gap-4">
           {children}
         </div>
       </div>

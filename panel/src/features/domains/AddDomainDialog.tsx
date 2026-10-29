@@ -14,6 +14,7 @@ import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
+import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -57,12 +58,14 @@ function VerdictSkeleton() {
 }
 
 export interface AddDomainDialogProps {
-  /** The application's primary domain. */
-  app: string;
+  /** The application's primary domain; null when the dialog asks which application (the Domains section's). */
+  app: string | null;
+  /** The applications to choose from, when `app` is null. */
+  apps?: readonly string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The domain was added: the application's domains afterwards, and the name added. */
-  onAdded: (change: AppDomainChange, name: string) => void;
+  /** The domain was added: the application's domains afterwards, the name added and the application it went to. */
+  onAdded: (change: AppDomainChange, name: string, app: string) => void;
 }
 
 /**
@@ -73,9 +76,14 @@ export interface AddDomainDialogProps {
  * not point here can still be added; the dialog says what that costs (the certificate order fails
  * until it does).
  */
-export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainDialogProps) {
+export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onAdded }: AddDomainDialogProps) {
   const t = useT();
   const queryClient = useQueryClient();
+  // The only application to choose from is the one: nothing to ask.
+  const [chosen, setChosen] = useState<string | null>(null);
+  const picked = given ?? chosen ?? (apps.length === 1 ? (apps[0] ?? null) : null);
+  // The hooks below need a string; a submit without an application is stopped before it reaches the server.
+  const app = picked ?? "";
   const [asking, setAsking] = useState(false);
   const [name, setName] = useState("");
   const [kind, setKind] = useState<AddableKind>("alias");
@@ -84,7 +92,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
   const [port, setPort] = useState("");
   const [pointDns, setPointDns] = useState(true);
 
-  const dns = useQuery({ ...dnsCheckQuery(app, checked ?? ""), enabled: open && checked !== null });
+  const dns = useQuery({ ...dnsCheckQuery(app, checked ?? ""), enabled: open && checked !== null && picked !== null });
   const add = useMutation({
     mutationFn: ({ domain, force }: { domain: string; force: boolean }) =>
       request("post", "/api/apps/{domain}/domains", {
@@ -98,7 +106,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
         },
       }),
     onSuccess: (change, { domain }) => {
-      onAdded(change, domain);
+      onAdded(change, domain, app);
       close(false, true);
     },
   });
@@ -141,6 +149,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
       setPort("");
       setPointDns(true);
       setAsking(false);
+      setChosen(null);
       add.reset();
       temporary.reset();
       setNoAddress(null);
@@ -149,6 +158,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
 
   /** Why the name cannot be added at all, or null: the same words on leaving the field and on pressing Add. */
   const problemWith = (): string | null => {
+    if (picked === null) return t("domains.addDomainDialog.appNeeded");
     const invalid = domainProblem(name, t.locale, { wildcard: true });
     if (invalid !== null) return invalid;
     if (normalized === app) return t("domains.addDomainDialog.alreadyPrimaryError", { app });
@@ -158,7 +168,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
 
   /** Leaving the field with a name that could be added asks DNS about it, so the verdict is there before the button is. */
   const askDns = (): void => {
-    if (name.trim() === "" || domainProblem(name, t.locale, { wildcard: true }) !== null || normalized === app || wildcard) return;
+    if (picked === null || name.trim() === "" || domainProblem(name, t.locale, { wildcard: true }) !== null || normalized === app || wildcard) return;
     setChecked(normalized);
   };
 
@@ -201,7 +211,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
     <Dialog
       open={open}
       onOpenChange={close}
-      title={t("domains.addDomainDialog.addDialogTitle", { app })}
+      title={picked !== null ? t("domains.addDomainDialog.addDialogTitle", { app }) : t("domains.addDomainDialog.addDialogTitleAny")}
       description={t("domains.addDomainDialog.addDialogDescription")}
       footer={
         <>
@@ -220,6 +230,21 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
       }
     >
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-5">
+        {given === null && apps.length !== 1 ? (
+          <Field label={t("domains.addDomainDialog.appLabel")} nativeLabel={false} error={problem === t("domains.addDomainDialog.appNeeded") ? problem : null}>
+            <Select
+              aria-label={t("domains.addDomainDialog.appLabel")}
+              value={chosen}
+              placeholder={t("domains.addDomainDialog.appPlaceholder")}
+              onValueChange={(value: string) => {
+                setChosen(value);
+                setProblem(null);
+                setChecked(null);
+              }}
+              options={apps.map((entry) => ({ value: entry, label: entry }))}
+            />
+          </Field>
+        ) : null}
         <Field label={t("domains.domainFieldLabel")} error={fieldError} description={t("domains.addDomainDialog.domainFieldDescription")}>
           <Input
             mono
@@ -228,7 +253,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
               setName(value);
               setProblem(null);
             }}
-            placeholder={`shop.${app}`}
+            placeholder={picked !== null ? `shop.${app}` : "shop.example.com"}
             onBlur={askDns}
             autoComplete="off"
             autoCapitalize="off"
@@ -250,7 +275,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
             <p className="text-12 text-pretty text-fg-muted">{t("domains.temporary.help")}</p>
           )}
         </div>
-        <KindChoice app={app} value={kind} onChange={setKind} />
+        <KindChoice app={picked ?? t("domains.addDomainDialog.theApplication")} value={kind} onChange={setKind} />
         {kind === "alias" ? (
           <Field label={t("network.addDomain.portLabel")} description={t("network.addDomain.portHelp", { app })} optional>
             <Input mono inputMode="numeric" value={port} onValueChange={setPort} autoComplete="off" />

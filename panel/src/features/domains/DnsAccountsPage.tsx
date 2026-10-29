@@ -33,6 +33,7 @@ import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { DomainsListPage } from "./DomainsListPage";
 import { ICONS } from "../../components/ui/icons";
+import { NoustDnsCard } from "./noustdns/NoustDnsCard";
 
 /** An account's name, as the server takes it: lower case letters, digits and dashes. */
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
@@ -324,15 +325,21 @@ export function DnsAccountsPage() {
   const empty = accounts.data?.accounts.length === 0;
 
   return (
-    <DomainsListPage
-      primaryAction={
-        <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setAdding(true)}>
-          {t("network.dns.add")}
-        </Button>
-      }
+    <DomainsListPage section="dns"
+      // While there is no account the empty state carries the action, so the page has it once.
+      {...(empty
+        ? {}
+        : {
+            primaryAction: (
+              <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setAdding(true)}>
+                {t("network.dns.add")}
+              </Button>
+            ),
+          })}
       {...(empty ? {} : { secondaryActions: <Button icon={<List aria-hidden="true" />} onClick={() => setShowRecords(true)}>{t("network.dns.managed")}</Button> })}
       footer={<CommandHint command="noust dns provider list" label={t("common.words.fromTerminal")} />}
     >
+      <NoustDnsCard />
       {/* design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed */}
       {accounts.isError && accounts.data === undefined ? (
         <ErrorBlock error={accounts.error} title={t("network.dns.listFailed")} onRetry={() => void accounts.refetch()} retrying={accounts.isRefetching} />
