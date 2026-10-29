@@ -436,6 +436,10 @@ class TestEveryRouteIsHeldToTheScope:
             "POST /api/sites",
             "GET /api/certs",
             "GET /api/databases/databases",
+            # The database servers: where databases run, with the count of databases the caller
+            # may see (the handler filters it through the scoped store).
+            "GET /api/databases/servers",
+            "GET /api/databases/servers/{key}",
             "POST /api/databases/databases",
             "GET /api/databases/public",
             "GET /api/deploy-keys",

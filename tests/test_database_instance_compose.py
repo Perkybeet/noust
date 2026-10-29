@@ -114,7 +114,7 @@ class TestTheCatalog:
         assert "postgresql" in str(caught.value.details)
 
     def test_a_version_the_catalog_dropped_is_not_found_but_a_row_still_runs(self) -> None:
-        assert pin_of(spec_for("postgresql"), "13") is None
+        assert pin_of(spec_for("postgresql"), "11") is None
         assert pin_of(spec_for("postgresql"), "17") is not None
 
     def test_the_listing_says_what_it_offers(self) -> None:
@@ -123,10 +123,20 @@ class TestTheCatalog:
         assert set(entries) == set(SPECS)
         postgres = entries["postgresql"]
         assert postgres["image"] == "postgres"
-        assert [v["version"] for v in postgres["versions"]] == ["15", "16", "17", "18"]
+        current = [v for v in postgres["versions"] if not v["unsupported"]]
+        assert [v["version"] for v in postgres["versions"]] == [
+            "12",
+            "13",
+            "14",
+            "15",
+            "16",
+            "17",
+            "18",
+        ]
+        assert [v["version"] for v in current] == ["15", "16", "17", "18"]
         assert [v["version"] for v in postgres["versions"] if v["default"]] == ["18"]
         assert all(v["digest"].startswith("sha256:") for v in postgres["versions"])
-        assert postgres["versions"][1]["end_of_life"] == "2028-11-09"
+        assert current[1]["end_of_life"] == "2028-11-09"
 
 
 @pytest.mark.parametrize("flavour", list(SPECS))

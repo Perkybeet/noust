@@ -85,7 +85,9 @@ def check(flavours: list[str]) -> dict[str, Any]:
                     label,
                     f"{repository}:{pin.tag or pin.version}",
                     pin.digest,
-                    platforms,
+                    # A version may be published for fewer processors than its engine
+                    # (MySQL 5.7 has an amd64 image only).
+                    pin.platforms or platforms,
                 )
     return report
 

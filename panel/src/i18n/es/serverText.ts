@@ -31,6 +31,33 @@ export const serverText: Catalog<typeof en> = {
       hint: "Para desactivarlo allí, o:\n  {command}",
     },
   },
+  database_servers: {
+    default_app: {
+      text: "{key} es la base de datos de la pila de una aplicación, así que no puede ser la predeterminada",
+      hint: "La predeterminada es el motor del sistema o una instancia que Noust ejecuta. Crea una con: {command}",
+    },
+    default_not_ready: {
+      text: "{key} está en estado {state}, así que todavía no puede ser la predeterminada",
+      hint: "Espera a que termine y vuelve a elegirla.",
+    },
+    unknown: {
+      text: "No existe ningún servidor de bases de datos {key}",
+      hint: "Lístalos con: {command}",
+    },
+    unsupported_ended: {
+      text: "{name} {version} no recibe correcciones de seguridad desde {end_of_life}",
+      hint: "Úsala solo para una aplicación que la necesite y no la dejes expuesta a internet. Para continuar, confirma que aceptas ejecutarla: unsupported_ok en la API, --accept-unsupported en la línea de comandos.",
+    },
+    unsupported_ending: {
+      text: "{name} {version} dejará de recibir correcciones de seguridad el {end_of_life}",
+      hint: "Un servidor creado hoy funcionaría mucho tiempo sin ellas. Para continuar, confirma que lo aceptas: unsupported_ok en la API, --accept-unsupported en la línea de comandos.",
+    },
+  },
+  databases: {
+    already_added: {
+      text: "La base de datos {name} de {engine} ya está añadida a Noust",
+    },
+  },
   doctor: {
     config: {
       apps_dir_missing: {

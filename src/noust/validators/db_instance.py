@@ -21,7 +21,7 @@ import re
 from collections.abc import Sequence
 
 from noust.core.exceptions import ValidationError
-from noust.validators.object_names import check_name, rule_for
+from noust.validators.object_names import check_name, is_name, rule_for
 
 #: Longest name, from the one table of names (``noust.validators.object_names``): it carries the
 #: reason, and the rule is not written a second time here.
@@ -50,6 +50,41 @@ def check_instance_name(name: object) -> str:
             than :data:`MAX_NAME_LENGTH`.
     """
     return check_name("db_instance", name)
+
+
+#: The key of a database server Noust can make the default of an engine: the engine of the host
+#: (``mysql``), or an instance it runs in a container (``mysql@legacy``).
+_SERVER_KEY = re.compile(r"(?P<engine>[a-z][a-z0-9]{1,23})(?:@(?P<name>[a-z0-9-]+))?")
+
+
+def check_server_key(key: object) -> str:
+    """
+    Accept the key of a database server Noust runs: the host's engine, or one of its instances.
+
+    A container an application's Compose project runs has a key too (``postgresql@shop.db``) and
+    is not accepted here: it is the application's, and Noust makes no default of it.
+
+    Args:
+        key: The candidate.
+
+    Returns:
+        The key, unchanged.
+
+    Raises:
+        ValidationError: It is not an engine, or an engine and the name of an instance
+            (``field`` is ``server``).
+    """
+    found = _SERVER_KEY.fullmatch(key) if isinstance(key, str) else None
+    if found is None or (found["name"] is not None and not is_name("db_instance", found["name"])):
+        raise ValidationError(
+            f"{key!r} is not the key of a database server",
+            details=(
+                "A key is the engine of the host (mysql) or an instance Noust runs "
+                "(mysql@legacy). List them with: noust db servers"
+            ),
+            field="server",
+        )
+    return str(key)
 
 
 def parse_memory(value: object) -> int:

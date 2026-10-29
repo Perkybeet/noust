@@ -71,13 +71,26 @@ class TestMakingOne:
         assert result.exit_code == 0, result.output
         assert DbInstanceStore(cli_world.store).get("own").custom_image is True
 
-    def test_an_image_without_a_digest_says_how_to_get_one(self, cli_world: World) -> None:
+    def test_a_tag_the_registry_cannot_resolve_to_a_digest_leaves_nothing(
+        self, cli_world: World
+    ) -> None:
+        # Since 4.1 Noust pins a tag by the digest it reads when it makes the instance; a
+        # registry that does not say which one it served is the failure left to defend.
         result = run(
             *MAKE, "--image", "ghcr.io/acme/pg-timescale:17.2", "--yes", "--accept-untested"
         )
 
         assert result.exit_code != 0
         assert "digest" in result.output.lower() or isinstance(result.exception, Exception)
+        assert DbInstanceStore(cli_world.store).all() == []
+
+    def test_an_image_with_neither_a_tag_nor_a_digest_says_what_to_write(
+        self, cli_world: World
+    ) -> None:
+        result = run(*MAKE, "--image", "ghcr.io/acme/pg-timescale", "--yes", "--accept-untested")
+
+        assert result.exit_code != 0
+        assert "tag" in (result.output + str(result.exception)).lower()
         assert DbInstanceStore(cli_world.store).all() == []
 
     def test_a_line_of_arguments_is_split_like_a_shell_would_and_run_by_none(

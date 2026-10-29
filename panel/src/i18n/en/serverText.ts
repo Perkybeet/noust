@@ -42,6 +42,33 @@ export const serverText = {
       hint: "To turn it off there, or:\n  {command}",
     },
   },
+  database_servers: {
+    default_app: {
+      text: "{key} is the database of an application's stack, so it cannot be the default",
+      hint: "A default is the system's engine or an instance Noust runs. Make one with: {command}",
+    },
+    default_not_ready: {
+      text: "{key} is {state}, so it cannot be the default yet",
+      hint: "Wait for it to finish, then choose it again.",
+    },
+    unknown: {
+      text: "There is no database server {key}",
+      hint: "List them with: {command}",
+    },
+    unsupported_ended: {
+      text: "{name} {version} has had no security fixes since {end_of_life}",
+      hint: "Run it only for an application that needs it, and leave it off the internet. To go ahead, confirm that you accept running it: unsupported_ok in the API, --accept-unsupported on the command line.",
+    },
+    unsupported_ending: {
+      text: "{name} {version} stops getting security fixes on {end_of_life}",
+      hint: "A server made today would run for a long time without them. To go ahead, confirm that you accept it: unsupported_ok in the API, --accept-unsupported on the command line.",
+    },
+  },
+  databases: {
+    already_added: {
+      text: "The database {name} on {engine} is already added to Noust",
+    },
+  },
   doctor: {
     config: {
       apps_dir_missing: {

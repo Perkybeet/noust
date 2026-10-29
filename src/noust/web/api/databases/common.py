@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from noust.core.audit import Actor
 from noust.core.logger import Logger
+from noust.managers.database.adoption import noust_state
 from noust.managers.database.service import DatabaseService
 from noust.web.api.deps import JobAcceptedResponse
 from noust.web.auth import actor_label
@@ -141,6 +142,12 @@ class DatabaseInfoResponse(BaseModel):
         project: The slug of its project.
         environment: The slug of its environment.
         tags: Its tags, sorted.
+        noust_state: What Noust knows of it, apart from where it runs: ``added`` (Noust manages
+            it), ``not_added`` (the engine holds it and Noust does not manage it), ``missing`` or
+            ``unverified`` (see ``missing`` and ``unverified``). ``engine`` is the key of the
+            server it runs on (``GET /api/databases/servers``).
+        actions: What can be done to it now: ``add_to_noust`` for one that is ``not_added``
+            (``POST .../databases/{engine}/{name}/adopt``).
     """
 
     name: str
@@ -163,6 +170,8 @@ class DatabaseInfoResponse(BaseModel):
     project: str | None = None
     environment: str | None = None
     tags: list[str] = Field(default_factory=list)
+    noust_state: str = "added"
+    actions: list[str] = Field(default_factory=list)
 
     _iso_timestamps = iso_offset_validator("last_backup")
 
@@ -223,6 +232,11 @@ def database_response(view: Any) -> DatabaseInfoResponse:
         view: A :class:`~noust.managers.database.service.DatabaseView`.
 
     Returns:
-        The response.
+        The response, with the state Noust has of it and what can be done to it.
     """
-    return DatabaseInfoResponse(**view.to_dict())
+    state = noust_state(view)
+    return DatabaseInfoResponse(
+        **view.to_dict(),
+        noust_state=state,
+        actions=["add_to_noust"] if state == "not_added" else [],
+    )

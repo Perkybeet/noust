@@ -62,6 +62,7 @@ function database(name: string, engine: string, extra: Partial<Database> = {}): 
     tracked: true,
     missing: false,
     unverified: false,
+    noust_state: "added",
     app: null,
     apps: [],
     username: name,
@@ -73,7 +74,7 @@ function database(name: string, engine: string, extra: Partial<Database> = {}): 
 
 export const DATABASES: Database[] = [
   database("example_production", "postgresql", { app: "shop.example.com", apps: ["shop.example.com"], last_backup: "2026-09-29T19:00:00+00:00" }),
-  database("example_staging", "postgresql", { tracked: false, size: "8.7 MB" }),
+  database("example_staging", "postgresql", { tracked: false, noust_state: "not_added", actions: ["add_to_noust"], size: "8.7 MB" }),
   database("shop_wp", "mysql", { size: "50.0 MB" }),
 ];
 

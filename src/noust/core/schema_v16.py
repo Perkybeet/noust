@@ -130,7 +130,20 @@ SOURCES_SQL = ""
 SOURCES_COLUMNS: list[Column] = []
 
 # Owned by the engines lane: the default database server of each engine on a server (item 103).
-ENGINES_SQL = ""
+# One row per engine (a flavour: MySQL and MariaDB each have theirs) with the key of the server
+# the operator chose: the host's engine (``mysql``) or an instance Noust runs (``mysql@legacy``).
+# An engine with no row has the default Noust works out (the system's, else the only one, else the
+# oldest), which is not stored: it follows what exists. The key is kept as text, not as a
+# reference, because the host's engine has no row anywhere else; removing an instance forgets
+# its row (ManagedInstances._forget).
+ENGINES_SQL = """
+CREATE TABLE IF NOT EXISTS db_server_defaults (
+    flavour TEXT PRIMARY KEY,
+    server_key TEXT NOT NULL,
+    set_by TEXT,
+    set_at TEXT NOT NULL
+);
+"""
 ENGINES_COLUMNS: list[Column] = []
 
 # Owned by the DNS lane: the zones and records of Noust DNS (item 104).

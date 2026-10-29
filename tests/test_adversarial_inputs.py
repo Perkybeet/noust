@@ -866,6 +866,96 @@ class TestWhatAnOperatorChoosesForAnInstance:
             parse_custom_image(reference)
 
 
+class TestAnImageNoustPinsAtCreation:
+    """An image given by registry and tag is read for its digest when the instance is made (4.1)."""
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_is_accepted_is_a_repository_and_a_tag_that_are_neither_an_option_nor_a_shell(
+        self, value: str
+    ) -> None:
+        from noust.managers.database.instance_catalog import parse_custom_image
+
+        accepted, result = verdict(parse_custom_image, value, pin_later=True)
+
+        if accepted:
+            assert result.digest == "" or re.fullmatch(r"sha256:[0-9a-f]{64}", result.digest)
+            # Without a digest the tag is what Noust reads one from: it is never missing.
+            assert result.digest or result.tag
+            assert not result.repository.startswith("-")
+            assert not CONTROL.search(result.repository) and "@" not in result.repository
+            assert " " not in result.repository and "://" not in result.repository
+            assert result.tag is None or not CONTROL.search(result.tag)
+
+    @pytest.mark.parametrize(
+        "reference",
+        [
+            "acme/pg",
+            "acme/pg:",
+            "acme/pg:-v",
+            "acme/pg:a b",
+            "acme/pg:1\n",
+            "acme/pg:1:2",
+            "--privileged:1",
+            "https://acme/pg:1",
+            "ACME/pg:1",
+            "acme/pg:1@sha256:" + "z" * 64,
+        ],
+    )
+    def test_the_references_that_have_beaten_other_parsers(self, reference: str) -> None:
+        from noust.managers.database.instance_catalog import parse_custom_image
+
+        with pytest.raises(ValidationError):
+            parse_custom_image(reference, pin_later=True)
+
+
+class TestTheKeyOfADatabaseServer:
+    """The key a default is chosen by: the host's engine, or an instance Noust runs (4.1)."""
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_is_accepted_is_an_engine_and_at_most_the_name_of_an_instance(
+        self, value: str
+    ) -> None:
+        from noust.validators.db_instance import check_server_key
+
+        accepted, result = verdict(check_server_key, value)
+
+        if accepted:
+            assert result == value
+            engine, _, name = result.partition("@")
+            assert re.fullmatch(r"[a-z][a-z0-9]{1,23}", engine)
+            assert "@" not in name and "." not in name and "/" not in name
+            assert not CONTROL.search(result) and " " not in result
+
+    @pytest.mark.parametrize(
+        "key",
+        [
+            "",
+            "mysql@",
+            "@a",
+            "mysql@a@b",
+            "mysql@a.b",
+            "mysql@../x",
+            "mysql@a\n",
+            "MySQL",
+            "my sql",
+        ],
+    )
+    def test_the_keys_that_have_beaten_other_parsers(self, key: str) -> None:
+        from noust.validators.db_instance import check_server_key
+
+        with pytest.raises(ValidationError):
+            check_server_key(key)
+
+    def test_a_value_that_is_not_text_is_refused_not_crashed_on(self) -> None:
+        from noust.validators.db_instance import check_server_key
+
+        for value in (None, 5, ["mysql"], b"mysql"):
+            with pytest.raises(ValidationError):
+                check_server_key(value)
+
+
 class TestWhatAMoveOfADatabaseNames:
     @SETTINGS
     @given(value=HOSTILE)

@@ -140,7 +140,11 @@ def _show_plan(ctx: Context, plan: InstancePlan) -> None:
     """
     logger = ctx.logger
     logger.key_value("Instance", f"{plan.name} ({plan.display_name} {plan.version})")
-    logger.key_value("Image", f"{plan.image}:{plan.tag or plan.version}@{plan.digest}")
+    logger.key_value("Image", plan.to_dict()["reference"])
+    if plan.digest_pending:
+        logger.key_value("Digest", "read and pinned when it is made")
+    if plan.end_of_life:
+        logger.key_value("Upstream support", f"{plan.support}, until {plan.end_of_life}")
     logger.key_value("Listens on", f"127.0.0.1:{plan.host_port}")
     logger.key_value("Memory limit", f"{plan.memory_limit_mb} MB")
     logger.key_value("Addressed as", plan.key)
@@ -235,19 +239,27 @@ def list_command(ctx: Context) -> None:
 
 
 @instance.command("catalog", read_only=True)
+@click.option(
+    "--engine",
+    "-e",
+    type=ENGINES,
+    help="Only this engine: another version of one you have chosen.",
+)
 @global_flags
 @json_option("Print the catalog as JSON.")
 @pass_context
-def catalog_command(ctx: Context) -> None:
+def catalog_command(ctx: Context, engine: str | None) -> None:
     """List the engines Noust can run as an instance, and the versions it offers."""
-    entries = offered()
+    entries = offered(engine)
     if ctx.json_output:
         _echo_json({"engines": entries})
         return
     rows = []
     for entry in entries:
         versions = ", ".join(
-            item["version"] + (" (default)" if item["default"] else "")
+            item["version"]
+            + (" (default)" if item["default"] else "")
+            + (" (no support)" if item["unsupported"] else "")
             for item in entry["versions"]
         )
         rows.append(
@@ -281,6 +293,11 @@ def catalog_command(ctx: Context) -> None:
     ctx.logger.info(
         "Make one: noust db instance create NAME --engine ENGINE --version VERSION --memory 512m"
     )
+    if any(item["unsupported"] for entry in entries for item in entry["versions"]):
+        ctx.logger.info(
+            "A version marked (no support) is one its project no longer fixes security problems "
+            "in: it is made with --accept-unsupported, for the application that needs it."
+        )
 
 
 @instance.command("create")
@@ -322,9 +339,10 @@ def catalog_command(ctx: Context) -> None:
 @click.option(
     "--image",
     metavar="REFERENCE",
-    help="An image of your own instead of the catalog's: repository[:tag]@sha256:DIGEST. The digest "
-    "is mandatory (a tag can be moved after you looked; 'docker buildx imagetools inspect "
-    "REPO:TAG' prints it) and --version says which version it is. Noust has not tested it.",
+    help="An image of your own instead of the catalog's: REGISTRY/REPOSITORY:TAG, whose digest Noust "
+    "reads and pins when it makes the instance (a tag can be moved after you looked; the instance "
+    "runs the digest), or repository[:tag]@sha256:DIGEST when you pin it yourself. --version says "
+    "which version it is. Noust has not tested it.",
 )
 @click.option(
     "--args",
@@ -347,6 +365,13 @@ def catalog_command(ctx: Context) -> None:
     help="Accept that Noust has not tested an image, a command or arguments you chose. Needed "
     "with --yes or --json for them; --yes alone answers the question, not this.",
 )
+@click.option(
+    "--accept-unsupported",
+    is_flag=True,
+    help="Accept running a version whose project has stopped fixing security problems, or is "
+    "about to ('noust db instance catalog' marks them). Needed with --yes or --json for them; "
+    "--yes alone answers the question, not this.",
+)
 @click.option("--yes", "-y", is_flag=True, help="Do not ask before making it.")
 @global_flags
 @json_option("Print the instance as JSON.")
@@ -364,6 +389,7 @@ def create_command(
     args_line: str | None,
     command_line: str | None,
     accept_untested: bool,
+    accept_unsupported: bool,
     yes: bool,
 ) -> None:
     """
@@ -373,6 +399,10 @@ def create_command(
     published on 127.0.0.1 only, and gets a superuser whose password Noust
     generates and keeps where only the container reads it. It is then addressed
     as ENGINE@NAME.
+
+    An older version (MySQL 5.7 or 8.0, PostgreSQL 13 or 14...) is allowed for the
+    application that needs it: Noust says since when its project has not fixed
+    security problems and asks you to accept it (--accept-unsupported).
 
     An image of your own (--image, pinned by digest), a command or arguments are
     allowed: Noust manages the instance the same way, and says before it goes ahead
@@ -398,16 +428,26 @@ def create_command(
         ctx.logger.info(f"Would make {plan.name} ({plan.display_name} {plan.version})")
         _show_plan(ctx, plan)
         return
+    shown = False
+    if plan.requires_unsupported_ok and not accept_unsupported:
+        said = plan.unsupported_text.text if plan.unsupported_text else "This version"
+        if yes or ctx.json_output:
+            raise click.UsageError(f"{said}: add --accept-unsupported to accept that")
+        _show_plan(ctx, plan)
+        click.confirm(f"{said}. Make it anyway?", default=False, abort=True)
+        shown = True
+        accept_unsupported = True
     accepted = accept_untested
     if plan.requires_confirmation and not accept_untested:
         if yes or ctx.json_output:
             _require_acceptance(False, "The image, the command or the arguments you chose")
-        _show_plan(ctx, plan)
+        if not shown:
+            _show_plan(ctx, plan)
         click.confirm(
             "Make it, knowing Noust has not tested what you chose?", default=False, abort=True
         )
         accepted = True
-    elif not yes and not ctx.json_output:
+    elif not yes and not ctx.json_output and not shown:
         _show_plan(ctx, plan)
         click.confirm("Make it?", default=True, abort=True)
     described = managed.create(
@@ -422,6 +462,7 @@ def create_command(
         command=words,
         args=extra,
         accept_untested=accepted,
+        unsupported_ok=accept_unsupported,
     )
     if ctx.json_output:
         _echo_json(described)
@@ -1401,5 +1442,8 @@ def register(group: click.Group) -> None:
     Args:
         group: The ``db`` group.
     """
+    from noust.cli.commands import db_servers
+
     group.add_command(instance)
     group.add_command(move_command)
+    db_servers.register(group)

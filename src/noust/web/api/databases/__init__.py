@@ -24,6 +24,8 @@ all live below it.
   and the import.
 - :mod:`.instances`: engines Noust runs itself, in containers, beside the host's:
   make, start, stop, upgrade and remove them.
+- :mod:`.servers`: where databases run, as one list: the system's engines and the containers,
+  with the default of each engine.
 - :mod:`.migrations`: moving a database to another engine, and an engine to a newer
   major version, with a way back.
 - :mod:`.tls`: an instance that serves TLS with a certificate of Noust's own authority.
@@ -70,6 +72,7 @@ from noust.web.api.databases import (
     public,
     query,
     replicas,
+    servers,
     tags,
     tls,
     transfer,
@@ -99,6 +102,7 @@ AREAS = (
     tuning.router,
     limits.router,
     instances.router,
+    servers.router,
     launch.router,
     query.router,
     browse.router,

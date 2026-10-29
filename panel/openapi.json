@@ -7786,9 +7786,19 @@
             ],
             "title": "End Of Life"
           },
+          "support": {
+            "default": "unknown",
+            "title": "Support",
+            "type": "string"
+          },
           "tag": {
             "title": "Tag",
             "type": "string"
+          },
+          "unsupported": {
+            "default": false,
+            "title": "Unsupported",
+            "type": "boolean"
           },
           "version": {
             "title": "Version",
@@ -7805,7 +7815,7 @@
         "type": "object"
       },
       "CatalogVersionResponse": {
-        "description": "One version Noust offers: its tag, the digest pinned and when support ends.",
+        "description": "One version Noust offers: its tag, the digest pinned and when support ends.\n\nAttributes:\n    support: Where the version stands in its project's support: ``supported``,\n        ``ending_soon``, ``ended`` or ``unknown`` (the project publishes no date).\n    unsupported: Making it needs ``unsupported_ok``: the project has stopped fixing\n        security problems, or is about to. Offered for the application that needs it, never\n        as the default.\n    platforms: The processors its image is published for (``amd64``, ``arm64``); MySQL 5.7\n        has an amd64 image only.",
         "properties": {
           "default": {
             "title": "Default",
@@ -7825,6 +7835,23 @@
               }
             ],
             "title": "End Of Life"
+          },
+          "platforms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Platforms",
+            "type": "array"
+          },
+          "support": {
+            "default": "unknown",
+            "title": "Support",
+            "type": "string"
+          },
+          "unsupported": {
+            "default": false,
+            "title": "Unsupported",
+            "type": "boolean"
           },
           "version": {
             "title": "Version",
@@ -14133,8 +14160,15 @@
         "type": "object"
       },
       "DatabaseInfoResponse": {
-        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.\n    team: The slug of the team it belongs to; None for one an engine holds\n        that Noust never recorded, which belongs to nobody.\n    project: The slug of its project.\n    environment: The slug of its environment.\n    tags: Its tags, sorted.",
+        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.\n    team: The slug of the team it belongs to; None for one an engine holds\n        that Noust never recorded, which belongs to nobody.\n    project: The slug of its project.\n    environment: The slug of its environment.\n    tags: Its tags, sorted.\n    noust_state: What Noust knows of it, apart from where it runs: ``added`` (Noust manages\n        it), ``not_added`` (the engine holds it and Noust does not manage it), ``missing`` or\n        ``unverified`` (see ``missing`` and ``unverified``). ``engine`` is the key of the\n        server it runs on (``GET /api/databases/servers``).\n    actions: What can be done to it now: ``add_to_noust`` for one that is ``not_added``\n        (``POST .../databases/{engine}/{name}/adopt``).",
         "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
           "app": {
             "anyOf": [
               {
@@ -14226,6 +14260,11 @@
           },
           "name": {
             "title": "Name",
+            "type": "string"
+          },
+          "noust_state": {
+            "default": "added",
+            "title": "Noust State",
             "type": "string"
           },
           "owner": {
@@ -25794,7 +25833,7 @@
         "type": "object"
       },
       "InstanceRequest": {
-        "description": "An instance to make.\n\nAttributes:\n    name: What to call it: lower-case letters, digits and single dashes,\n        starting with a letter, up to 24 characters. It is the part of its\n        key after the ``@`` (``postgresql@pg16``).\n    engine: What to run: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,\n        ``valkey`` or ``mongodb`` (``GET /api/databases/instances/catalog``).\n    version: Its version, such as ``16`` or ``8.4``; the catalog's default\n        when omitted. The image is pinned by tag and digest.\n    memory_mb: Its memory limit in megabytes: mandatory, enforced on the\n        container and used to size the engine's own caches.\n    port: The port on 127.0.0.1 it is published on; a free one just above\n        the engine's own when omitted.\n    variant: An image of the engine with something added, such as ``pgvector`` or\n        ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists\n        them); the engine's own image when omitted.\n    init_scripts: SQL scripts run, in name order, the first time the engine starts\n        (PostgreSQL, MySQL and MariaDB; at most ten).\n    image: An image of your own instead of the catalog's, ``repository[:tag]@sha256:digest``.\n        The digest is mandatory (a tag can be moved after you looked) and ``version`` says\n        which version it is. Noust has not tested it; not with ``variant``.\n    command: The container's whole command, instead of the engine's: a list of words, never\n        a shell line. Noust adds nothing to it. Not with ``args``.\n    args: Arguments added after the ones Noust passes the engine, a list of words. A\n        password is never one: a command line is visible to every local user.\n    accept_untested: The operator accepts that Noust has not tested an image, a command or\n        arguments they chose. Without it, queueing one is a 400 ``confirmation_required``\n        carrying what is accepted, and nothing is queued.",
+        "description": "An instance to make.\n\nAttributes:\n    name: What to call it: lower-case letters, digits and single dashes,\n        starting with a letter, up to 24 characters. It is the part of its\n        key after the ``@`` (``postgresql@pg16``).\n    engine: What to run: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,\n        ``valkey`` or ``mongodb`` (``GET /api/databases/instances/catalog``).\n    version: Its version, such as ``16`` or ``8.4``; the catalog's default\n        when omitted. The image is pinned by tag and digest.\n    memory_mb: Its memory limit in megabytes: mandatory, enforced on the\n        container and used to size the engine's own caches.\n    port: The port on 127.0.0.1 it is published on; a free one just above\n        the engine's own when omitted.\n    variant: An image of the engine with something added, such as ``pgvector`` or\n        ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists\n        them); the engine's own image when omitted.\n    init_scripts: SQL scripts run, in name order, the first time the engine starts\n        (PostgreSQL, MySQL and MariaDB; at most ten).\n    image: An image of your own instead of the catalog's: ``repository:tag`` (registry\n        included), which Noust pins by the digest the registry serves for the tag when it makes\n        the instance, or ``repository[:tag]@sha256:digest`` when you pin it yourself. A tag can\n        be moved after you looked; the instance runs the digest, never the tag. ``version`` says\n        which version it is. Noust has not tested it; not with ``variant``.\n    command: The container's whole command, instead of the engine's: a list of words, never\n        a shell line. Noust adds nothing to it. Not with ``args``.\n    args: Arguments added after the ones Noust passes the engine, a list of words. A\n        password is never one: a command line is visible to every local user.\n    accept_untested: The operator accepts that Noust has not tested an image, a command or\n        arguments they chose. Without it, queueing one is a 400 ``confirmation_required``\n        carrying what is accepted, and nothing is queued.\n    unsupported_ok: The operator accepts running a version whose project has stopped fixing\n        security problems, or is about to (``GET .../catalog`` says which: ``unsupported``).\n        Without it, queueing one is a 400 ``confirmation_required`` on this field carrying\n        the date, and nothing is queued.",
         "properties": {
           "accept_untested": {
             "default": false,
@@ -25886,6 +25925,11 @@
               }
             ],
             "title": "Port"
+          },
+          "unsupported_ok": {
+            "default": false,
+            "title": "Unsupported Ok",
+            "type": "boolean"
           },
           "variant": {
             "anyOf": [
@@ -48292,6 +48336,223 @@
         "title": "ServerKeyResponse",
         "type": "object"
       },
+      "ServerListResponse": {
+        "description": "Every database server of this server.\n\nAttributes:\n    servers: The servers: the system's engines, then the containers by key.\n    problems: What could not be asked (Docker not answering, an engine that refused Noust),\n        so a short list is never taken for a server with nothing in it.",
+        "properties": {
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ListingProblemResponse"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/ServerResponse"
+            },
+            "title": "Servers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "servers"
+        ],
+        "title": "ServerListResponse",
+        "type": "object"
+      },
+      "ServerResponse": {
+        "description": "One database server.\n\nAttributes:\n    key: What it is addressed by wherever an engine is named (``mysql`` for the system's,\n        ``mysql@legacy`` for a container Noust runs, ``postgresql@shop.db`` for one an\n        application's stack runs). It is the ``engine`` of every database on it.\n    engine: The engine it speaks: ``postgresql``, ``mysql``, ``redis``, ``mongodb`` or\n        ``clickhouse``.\n    flavour: What it is: ``mariadb`` is an engine ``mysql``, ``valkey`` an engine ``redis``.\n    display_name: The flavour for a person.\n    version: Its version: what the engine reports for the system's, the tag it was made\n        with for a container Noust runs, null for an application's (its image says it).\n    runs_in: ``system``, ``noust_container`` (Noust starts, stops, upgrades and removes it)\n        or ``app_container`` (an application's stack does; it is listed and nothing more).\n    name: The instance's name for a container Noust runs (``legacy``); null for the others.\n        ``/api/databases/instances/{name}`` takes it.\n    state: ``running``, ``stopped``, ``creating``, ``upgrading``, ``removing``, or Docker's\n        own word for a container that exists and is not running.\n    running: It answers.\n    port: The port it listens on: 127.0.0.1's for a container Noust runs.\n    memory_limit_mb: A container Noust runs is held to this.\n    image: The image of a container; null for the system's.\n    digest: The digest a container Noust runs is pinned to.\n    custom_image: The image is the operator's own, not the catalog's.\n    app: The application whose stack runs it, for ``app_container``.\n    support: Where its version stands in its project's support: ``supported``,\n        ``ending_soon``, ``ended`` or ``unknown`` (no date is published).\n    end_of_life: When the support ends or ended; null when none is published.\n    created_at: When Noust made it (a container Noust runs).\n    databases: How many databases it holds that the caller may see; null when it is not\n        running or could not be read (``problems`` says why).\n    default: It is the server a new database of its engine is made on.\n    default_source: Why: ``chosen`` (an operator did), ``system`` (nobody chose and the\n        system has the engine), ``only`` (the one there is) or ``oldest``; null when it is\n        not the default.\n    actions: What can be done to it now: ``start``, ``stop``, ``set_default``,\n        ``clear_default`` (the choice can be taken back), ``other_version`` (make another\n        version of its engine in a container: ``GET .../instances/catalog?engine=...``),\n        ``upgrade`` and ``remove``. Empty for an application's container and for one being\n        made or removed.",
+        "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "app": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "custom_image": {
+            "default": false,
+            "title": "Custom Image",
+            "type": "boolean"
+          },
+          "databases": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Databases"
+          },
+          "default": {
+            "default": false,
+            "title": "Default",
+            "type": "boolean"
+          },
+          "default_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Source"
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "end_of_life": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Of Life"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "memory_limit_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Limit Mb"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "runs_in": {
+            "title": "Runs In",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "key",
+          "engine",
+          "flavour",
+          "display_name",
+          "runs_in",
+          "state",
+          "running"
+        ],
+        "title": "ServerResponse",
+        "type": "object"
+      },
       "ServerRoleCreate": {
         "description": "Request to define a role of one's own.",
         "properties": {
@@ -63726,7 +63987,7 @@
         "type": "object"
       },
       "noust__web__api__databases__instances__PlanResponse": {
-        "description": "What making an instance would do. Nothing was changed.\n\nAttributes:\n    warnings: What the operator should know before going ahead.\n    custom: The image is the operator's own.\n    command: The whole command the operator wrote, or empty.\n    args: The arguments the operator adds, or empty.\n    requires_confirmation: Making it needs ``accept_untested``: Noust has not tested what\n        the operator chose.",
+        "description": "What making an instance would do. Nothing was changed.\n\nAttributes:\n    warnings: What the operator should know before going ahead.\n    custom: The image is the operator's own.\n    command: The whole command the operator wrote, or empty.\n    args: The arguments the operator adds, or empty.\n    requires_confirmation: Making it needs ``accept_untested``: Noust has not tested what\n        the operator chose.\n    unsupported: The version has no security support from its project, or is about to lose it.\n    requires_unsupported_ok: Making it needs ``unsupported_ok``.\n    support: ``supported``, ``ending_soon``, ``ended`` or ``unknown``.\n    end_of_life: When the support ends or ended; null when the project publishes no date.\n    unsupported_coded: The sentence the confirmation is made of, as a code and its values for\n        the console to translate (``database_servers.unsupported_ended`` or\n        ``database_servers.unsupported_ending``); null when none is needed.\n    digest_pending: The image was given by registry and tag: ``digest`` is empty and Noust\n        reads and pins it when the instance is made.",
         "properties": {
           "args": {
             "items": {
@@ -63751,9 +64012,25 @@
             "title": "Digest",
             "type": "string"
           },
+          "digest_pending": {
+            "default": false,
+            "title": "Digest Pending",
+            "type": "boolean"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
+          },
+          "end_of_life": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Of Life"
           },
           "engine": {
             "title": "Engine",
@@ -63799,6 +64076,22 @@
             "title": "Requires Confirmation",
             "type": "boolean"
           },
+          "requires_unsupported_ok": {
+            "default": false,
+            "title": "Requires Unsupported Ok",
+            "type": "boolean"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          },
           "tag": {
             "anyOf": [
               {
@@ -63809,6 +64102,21 @@
               }
             ],
             "title": "Tag"
+          },
+          "unsupported": {
+            "default": false,
+            "title": "Unsupported",
+            "type": "boolean"
+          },
+          "unsupported_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "variant": {
             "anyOf": [
@@ -87715,6 +88023,59 @@
         "x-noust-permission": "databases.write"
       }
     },
+    "/api/databases/databases/{engine}/{name}/adopt": {
+      "post": {
+        "description": "Add one database an engine holds to Noust.\n\nA database Noust does not manage is not a different kind of database: its ``noust_state``\nis ``not_added`` and this is the action. From then on it is listed as Noust's, can be\nlinked to an application and is backed up with it.\n\nArgs:\n    engine: The engine, or the key of the server it runs on.\n    name: The database.\n    session: The authenticated session.\n\nReturns:\n    The database as it is now.\n\nRaises:\n    DatabaseNotFoundError: 404 when the engine holds no such database.\n    DatabaseExistsError: 409 (``databases.already_added``) when Noust already manages it.",
+        "operationId": "adopt_database_route_api_databases_databases__engine___name__adopt_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseInfoResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adopt Database Route",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage"
+      }
+    },
     "/api/databases/databases/{engine}/{name}/connect": {
       "get": {
         "description": "Build the Connect tab: from the application, from a computer, exposure.\n\nArgs:\n    engine: Engine name.\n    name: Database name.\n    session: The authenticated session.\n    username: The account; the provisioned one by default.\n    server: This server's address as the operator reaches it.\n    ssh_user: The SSH account.\n    local_port: The local end of the tunnel.\n\nReturns:\n    The connection information. No password is in it.",
@@ -90883,7 +91244,7 @@
         "x-noust-permission": "databases.read"
       },
       "post": {
-        "description": "Queue making an instance, with sudo mode.\n\nIt is planned first, so a request that could not succeed is refused here\nrather than failing in the job. The job pulls the image, writes the\ninstance's files and unit, starts it, and returns once its engine accepts\nthe superuser Noust generated; whatever fails is undone.\n\nArgs:\n    request: What to make.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ConfirmationRequired: An image, a command or arguments of the operator's own, without\n        ``accept_untested``.",
+        "description": "Queue making an instance, with sudo mode.\n\nIt is planned first, so a request that could not succeed is refused here\nrather than failing in the job. The job pulls the image, writes the\ninstance's files and unit, starts it, and returns once its engine accepts\nthe superuser Noust generated; whatever fails is undone.\n\nArgs:\n    request: What to make.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ConfirmationRequired: A version without support, without ``unsupported_ok``; an image, a\n        command or arguments of the operator's own, without ``accept_untested``.",
         "operationId": "create_instance_api_databases_instances_post",
         "requestBody": {
           "content": {
@@ -90927,8 +91288,29 @@
     },
     "/api/databases/instances/catalog": {
       "get": {
-        "description": "List what Noust can run as an instance: each engine, and its versions with their digests.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The engines, in the order the console offers them.",
+        "description": "List what Noust can run as an instance: each engine, and its versions with their digests.\n\nThe versions whose project has stopped supporting them are in the list, marked\n``unsupported`` with their end-of-support date: making one needs ``unsupported_ok``.\n\nArgs:\n    session: The authenticated session.\n    engine: Only this engine (a flavour or an alias): what \"another version\" asks with once\n        the engine is chosen.\n\nReturns:\n    The engines, in the order the console offers them.\n\nRaises:\n    ValidationError: 400 when Noust runs no such engine as a container; the hint lists them.",
         "operationId": "instance_catalog_api_databases_instances_catalog_get",
+        "parameters": [
+          {
+            "description": "Only this engine: another version of one already chosen",
+            "in": "query",
+            "name": "engine",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this engine: another version of one already chosen",
+              "title": "Engine"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -90939,6 +91321,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Instance Catalog",
@@ -93378,6 +93770,189 @@
         ],
         "x-noust-permission": "databases.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/servers": {
+      "get": {
+        "description": "List the database servers: the system's engines and the containers, in one list.\n\nArgs:\n    session: The authenticated session.\n    engine: Only the servers of this engine: ``mysql`` is MySQL and MariaDB, ``mariadb``\n        only MariaDB.\n\nReturns:\n    The servers with their default and their support, and what could not be read.",
+        "operationId": "list_servers_api_databases_servers_get",
+        "parameters": [
+          {
+            "description": "Only this engine (a flavour, an alias, or an engine's family)",
+            "in": "query",
+            "name": "engine",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this engine (a flavour, an alias, or an engine's family)",
+              "title": "Engine"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Servers",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/servers/{key}": {
+      "get": {
+        "description": "Describe one database server.\n\nArgs:\n    key: Its key (``mysql``, ``mysql@legacy``).\n    session: The authenticated session.\n\nReturns:\n    The server.\n\nRaises:\n    DatabaseNotFoundError: 404 ``databaseerror`` with the code ``database_servers.unknown``\n        when no server has that key.\n    ValidationError: 400 when the key cannot be a server's.",
+        "operationId": "get_server_api_databases_servers__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Server",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/servers/{key}/default": {
+      "delete": {
+        "description": "Take back the choice of a server as the default: its engine returns to the automatic one.\n\nA server that was not the chosen one is left as it is.\n\nArgs:\n    key: The server's key.\n    session: The authenticated session.\n\nReturns:\n    The server as it is now.\n\nRaises:\n    DatabaseNotFoundError: 404 when no server has that key.",
+        "operationId": "clear_default_server_api_databases_servers__key__default_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clear Default Server",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage"
+      },
+      "put": {
+        "description": "Make a server the one new databases of its engine are made on.\n\nThe system's engine and the containers Noust runs can be it; an application's container\ncannot, nor one still being made. The choice replaces the one before it and is audited.\n\nArgs:\n    key: The server's key.\n    session: The authenticated session.\n\nReturns:\n    The server, now the default of its engine.\n\nRaises:\n    DatabaseNotFoundError: 404 when no server has that key.\n    ValidationError: 400 (``database_servers.default_app``,\n        ``database_servers.default_not_ready``) when it cannot be the default.",
+        "operationId": "set_default_server_api_databases_servers__key__default_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Default Server",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage"
       }
     },
     "/api/databases/users": {

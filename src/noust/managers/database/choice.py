@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
 from noust.core.db_instance_store import READY, DbInstanceStore, InstanceRecord
+from noust.core.db_server_defaults import DbServerDefaultStore
 from noust.core.exceptions import DatabaseEngineError, ValidationError
 from noust.core.package_family import PackageFamily, detect_family
 from noust.managers.database.engine_setup import EnginePlan, plan_engine_install
@@ -50,6 +51,7 @@ from noust.managers.database.flavours import (
 )
 from noust.managers.database.instance_catalog import SPECS, spec_for
 from noust.managers.database.instance_records import key_of
+from noust.managers.database.instances import is_instance_key
 
 if TYPE_CHECKING:
     from noust.managers.database.base import BaseDatabaseManager
@@ -235,6 +237,12 @@ def resolve_choice(
         )
 
     chosen = resolve_flavour(engine, manager.ENGINE_NAME, flavour=flavour, version=asked)
+    if asked is None:
+        # Nobody asked for a version: a container the operator made the default of the engine
+        # is where the database goes (the system's engine is, when nobody chose).
+        default = _default_instance(service, manager, chosen)
+        if default is not None:
+            return _instance_choice(default, engine, asked)
     if manager.is_installed():
         try:
             return _installed_choice(manager, engine, chosen, asked)
@@ -259,6 +267,76 @@ def resolve_choice(
                 + (f" (instances: {', '.join(names)})" if len(names) > 1 else "")
             ).strip()
         raise
+
+
+def _default_instance(
+    service: DatabaseService, manager: BaseDatabaseManager, flavour: str | None
+) -> InstanceRecord | None:
+    """
+    Find the container the operator chose as the default server of an engine.
+
+    Only a choice counts: with none, the system's engine is the default and nothing is routed.
+
+    Args:
+        service: The database service, whose store holds the choices.
+        manager: The engine's manager (the system's, not bound to a container).
+        flavour: The flavour asked for; the installed one when None, and the engine's own name
+            (``mysql`` for MySQL's family) when the system lacks the engine.
+
+    Returns:
+        The instance, when the choice names a finished container of that flavour; None when
+        nobody chose, the system's engine was chosen, or the server chosen is gone or not ready
+        (the system's engine is then what it was).
+    """
+    target = flavour or (
+        manager.installed_flavour() if manager.is_installed() else manager.ENGINE_NAME
+    )
+    if target is None:
+        return None
+    chosen = DbServerDefaultStore(service.store).get(target)
+    if chosen is None or not is_instance_key(chosen.server_key):
+        return None
+    name = chosen.server_key.partition("@")[2]
+    return next(
+        (
+            row
+            for row in _ready_rows(service, manager.ENGINE_NAME)
+            if row.name == name and row.flavour == target
+        ),
+        None,
+    )
+
+
+def new_database_engine(service: DatabaseService, typed: str) -> str:
+    """
+    Say which engine a database made with an engine's bare name is made on.
+
+    ``noust db create --engine mysql`` and ``POST /api/databases/databases`` name an engine, not
+    a server: when the operator made a container the default server of that engine, that is
+    where the database goes. A key (``mysql@legacy``) is a server named, and is kept.
+
+    Args:
+        service: The database service.
+        typed: The engine as typed: a name, an alias or an instance's key.
+
+    Returns:
+        The key of the default container, or ``typed`` itself when nobody chose one or the
+        name is not an engine (the caller refuses it with the usual error).
+    """
+    if is_instance_key(typed):
+        return typed
+    try:
+        manager = service.manager(typed)
+    except DatabaseEngineError:
+        return typed
+    if manager.instance is not None:
+        return typed
+    try:
+        flavour = resolve_flavour(typed, manager.ENGINE_NAME)
+    except ValidationError:
+        return typed
+    default = _default_instance(service, manager, flavour)
+    return key_of(default) if default is not None else typed
 
 
 def _ready_rows(service: DatabaseService, engine: str | None = None) -> list[InstanceRecord]:
@@ -659,7 +737,11 @@ def choices(service: DatabaseService) -> list[dict[str, Any]]:
                 "instances": [
                     {"name": row.name, "key": key_of(row), "version": row.version} for row in mine
                 ],
-                "instance_versions": [pin.version for pin in spec.pins] if spec else [],
+                # The versions without support are asked for by name ('noust db instance
+                # create --version 8.0 --accept-unsupported'), never offered to a wizard.
+                "instance_versions": [pin.version for pin in spec.pins if not pin.legacy]
+                if spec
+                else [],
             }
         )
     return entries

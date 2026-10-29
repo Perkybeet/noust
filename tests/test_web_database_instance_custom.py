@@ -136,7 +136,8 @@ class TestThePlan:
     @pytest.mark.parametrize(
         "extra",
         [
-            {"image": "ghcr.io/acme/pg-timescale:17.2"},
+            # Since 4.1 a registry and tag are accepted (Noust pins them); a name alone is not.
+            {"image": "ghcr.io/acme/pg-timescale"},
             {"image": "-v"},
             {"args": ["--requirepass", "x"]},
             {"args": ["a\nb"]},
