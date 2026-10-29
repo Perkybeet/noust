@@ -91,7 +91,7 @@ SvelteKit builds for the platform its adapter names, and adapter-auto builds for
 
 Use `@sveltejs/adapter-node` to run it as a server, or `@sveltejs/adapter-static` to serve files,
 set it in `svelte.config.js` and deploy again. The message ends with the command for a build you
-run some other way ([SvelteKit](frameworks.md#sveltekit)).
+run some other way ([SvelteKit](frameworks-node.md#sveltekit)).
 
 ### The start script is missing
 

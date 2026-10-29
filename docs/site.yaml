@@ -207,8 +207,29 @@ tabs:
         pages:
           - source: docs/frameworks.md
             slug: guides/frameworks
+            title: Deploy by stack
             type: guide
-            summary: How to deploy Next.js, Nuxt, SvelteKit, Vite, Laravel, Symfony, Django, Rails, Phoenix, Jekyll and other stacks, and what Noust does with each.
+            summary: What is the same for every stack Noust deploys natively, a page for each family (Node.js, PHP, Python, Ruby, Elixir, static, the rest), and where to look when it fails.
+          - source: docs/frameworks-node.md
+            slug: guides/frameworks/node
+            type: guide
+            summary: "Next.js, Nuxt, SvelteKit, Astro, Remix, Angular, Vite and the Node.js servers: what is detected, built and run."
+          - source: docs/frameworks-php.md
+            slug: guides/frameworks/php
+            type: guide
+            summary: Laravel, Symfony, WordPress and other PHP applications, served by PHP-FPM behind nginx or Apache.
+          - source: docs/frameworks-python.md
+            slug: guides/frameworks/python
+            type: guide
+            summary: "Django, Flask and FastAPI: the virtual environment, the server that runs them and their static files."
+          - source: docs/frameworks-ruby-elixir-static.md
+            slug: guides/frameworks/ruby-elixir-and-static
+            type: guide
+            summary: Ruby on Rails, Phoenix and Elixir, and Jekyll, Hugo and other static site generators.
+          - source: docs/frameworks-other.md
+            slug: guides/frameworks/other
+            type: guide
+            summary: Swift, Zig, Crystal and any other stack without a native runtime, deployed as a container from its Dockerfile or with Railpack.
           - source: docs/sources.md
             slug: guides/sources
             type: guide
