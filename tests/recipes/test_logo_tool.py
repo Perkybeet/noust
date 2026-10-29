@@ -54,7 +54,9 @@ def recipes_dir(tmp_path: Path) -> Path:
 
 def picture() -> bytes:
     def chunk(kind: bytes, body: bytes) -> bytes:
-        return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+        return (
+            struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+        )
 
     return (
         b"\x89PNG\r\n\x1a\n"
@@ -82,9 +84,16 @@ def test_a_file_becomes_the_logo_with_its_notice_and_the_recipe_names_it(
 
     text = written.read_text()
     assert written == recipes_dir / "assets" / "demo" / "logo.svg"
-    assert "script" not in text and "onload" not in text and "evil" not in text and "<style" not in text
+    assert (
+        "script" not in text
+        and "onload" not in text
+        and "evil" not in text
+        and "<style" not in text
+    )
     assert 'fill="#336699"' in text, "the stylesheet was applied to the shape before it was dropped"
-    notice = parse_logo_notice("demo", (recipes_dir / "assets" / "demo" / "LOGO-NOTICE").read_text())
+    notice = parse_logo_notice(
+        "demo", (recipes_dir / "assets" / "demo" / "LOGO-NOTICE").read_text()
+    )
     assert notice.source == SOURCE and notice.license == "MIT" and notice.retrieved == DAY
     assert notice.mark == "Demo" and "no rule" in notice.terms and notice.changes
     assert "logo: logo.svg" in (recipes_dir / "demo.yaml").read_text()
@@ -118,39 +127,78 @@ def test_nothing_is_written_when_the_notice_or_the_file_is_not_acceptable(
         ("http://github.com/example/demo/logo.svg", "MIT", HOSTILE.encode()),
         (SOURCE, "all rights reserved", HOSTILE.encode()),
         (SOURCE, "MIT", b"<svg"),
-        (SOURCE, "MIT", b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'><image href='data:,x'/></svg>"),
+        (
+            SOURCE,
+            "MIT",
+            b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'><image href='data:,x'/></svg>",
+        ),
     ):
         with pytest.raises(RecipeError):
             tool.add_logo(
-                "demo", data, title="Demo", source=source, licence=licence, retrieved=DAY, recipes_dir=recipes_dir
+                "demo",
+                data,
+                title="Demo",
+                source=source,
+                licence=licence,
+                retrieved=DAY,
+                recipes_dir=recipes_dir,
             )
 
     assert sorted(path.name for path in (recipes_dir / "assets" / "demo").iterdir()) == before
 
 
-@pytest.mark.parametrize("name", ["plausible", "trek", "leantime", "owncast", "typebot", "joplin-server"])
+@pytest.mark.parametrize(
+    "name", ["plausible", "trek", "leantime", "owncast", "typebot", "joplin-server"]
+)
 def test_a_project_that_does_not_let_a_third_party_show_its_logo_is_not_given_one(
     tool: ModuleType, recipes_dir: Path, name: str
 ) -> None:
     with pytest.raises(SystemExit, match="monogram"):
         tool.add_logo(
-            name, HOSTILE.encode(), title=name, source=SOURCE, licence="MIT", retrieved=DAY, recipes_dir=recipes_dir
+            name,
+            HOSTILE.encode(),
+            title=name,
+            source=SOURCE,
+            licence="MIT",
+            retrieved=DAY,
+            recipes_dir=recipes_dir,
         )
 
 
 def test_the_collection_s_licence_is_recorded_mark_by_mark(tool: ModuleType) -> None:
     """CC0 unless the collection says otherwise; a custom licence is a reference with its address."""
-    plain = tool.index_entry({"title": "Gitea", "slug": "gitea", "hex": "609926", "source": "https://gitea.io"})
+    plain = tool.index_entry(
+        {"title": "Gitea", "slug": "gitea", "hex": "609926", "source": "https://gitea.io"}
+    )
     sharealike = tool.index_entry(
-        {"title": "Forgejo", "hex": "FB923C", "license": {"type": "CC-BY-SA-4.0"}, "guidelines": "https://x.example/"}
+        {
+            "title": "Forgejo",
+            "hex": "FB923C",
+            "license": {"type": "CC-BY-SA-4.0"},
+            "guidelines": "https://x.example/",
+        }
     )
     custom = tool.index_entry(
-        {"title": "Keycloak", "hex": "4D4D4D", "license": {"type": "custom", "url": "https://lf.example/trademark"}}
+        {
+            "title": "Keycloak",
+            "hex": "4D4D4D",
+            "license": {"type": "custom", "url": "https://lf.example/trademark"},
+        }
     )
 
-    assert plain == {"title": "Gitea", "hex": "609926", "license": "CC0-1.0", "source": "https://gitea.io"}
-    assert sharealike["license"] == "CC-BY-SA-4.0" and sharealike["guidelines"] == "https://x.example/"
-    assert custom["license"] == "LicenseRef-custom" and custom["license_url"] == "https://lf.example/trademark"
+    assert plain == {
+        "title": "Gitea",
+        "hex": "609926",
+        "license": "CC0-1.0",
+        "source": "https://gitea.io",
+    }
+    assert (
+        sharealike["license"] == "CC-BY-SA-4.0" and sharealike["guidelines"] == "https://x.example/"
+    )
+    assert (
+        custom["license"] == "LicenseRef-custom"
+        and custom["license_url"] == "https://lf.example/trademark"
+    )
 
 
 def test_the_packaged_marks_pass_the_tool_s_own_check(tool: ModuleType) -> None:
