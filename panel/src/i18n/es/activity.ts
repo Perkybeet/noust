@@ -77,7 +77,6 @@ export const activity: Catalog<typeof en> = {
     notRecorded: "No registrado",
     terminal: "{name} en el terminal",
     terminalUnknown: "Alguien en el terminal",
-    throughCentral: "{name}, a través de {central}",
     system: "El propio Noust",
   },
   jobLog: {

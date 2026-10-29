@@ -3,6 +3,11 @@ import type { Catalog } from "../types";
 
 /** Las frases que el servidor dice con un código, en español. Ver `en/serverText.ts`. */
 export const serverText: Catalog<typeof en> = {
+  actors: {
+    through_central: {
+      text: "{person} (desde la central {central})",
+    },
+  },
   approvals: {
     asked_approved: {
       text: "Esto necesita la aprobación de una segunda persona, seas quien seas. La solicitud {request} está aprobada: envía la llamada otra vez con ella ahora.",

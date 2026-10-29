@@ -44,6 +44,7 @@ import { useServerJob } from "../serverJob";
 import { TabToolbar } from "../TabToolbar";
 import { ApplyDialog, Names } from "./ApplyDialog";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+import { namedActor } from "../../activity/data";
 
 /** Rows before "Show all": enough to see every security update on most days. */
 const SHOWN_PACKAGES = 8;
@@ -153,7 +154,7 @@ function RecentRuns() {
       cell: (row) => (row.scope === "security" ? t("server.updates.runs.scopeSecurity") : t("server.updates.runs.scopeAll")),
     },
     { id: "packages", header: t("server.updates.runs.packages"), align: "end", mono: true, cell: (row) => String((row.packages ?? []).length) },
-    { id: "actor", header: t("server.updates.runs.actor"), hideBelow: "md", cell: (row) => (row.actor ? <Mono tone="muted">{row.actor}</Mono> : <EmptyCell />) },
+    { id: "actor", header: t("server.updates.runs.actor"), hideBelow: "md", cell: (row) => (row.actor ? <Mono tone="muted">{namedActor(t, row.actor)}</Mono> : <EmptyCell />) },
   ];
   return (
     <Card level={2} title={t("server.updates.runs.title")} icon={OBJECT_ICONS.activity} padding="none">

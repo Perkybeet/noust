@@ -358,7 +358,6 @@
   "activity.actor.notRecorded": "未记录",
   "activity.actor.terminal": "{name}，在终端",
   "activity.actor.terminalUnknown": "终端上的某个人",
-  "activity.actor.throughCentral": "{name}，通过 {central}",
   "activity.actor.system": "Noust 自身",
   "activity.jobLog.title": "任务日志",
   "activity.jobLog.couldNotLoad": "无法加载任务的日志",

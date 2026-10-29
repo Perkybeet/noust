@@ -31,6 +31,7 @@ import weakref
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from noust.core.fleet_tokens import central_of_token
 from noust.core.store import NoustStore, get_store
 
 __all__ = [
@@ -49,10 +50,6 @@ WRITE_EVERY = 60.0
 #: watch.
 MAX_HEARTBEAT = 3600
 
-#: A central's fleet token: ``fleet-<central>`` or ``fleet-<central>.<n>``. The one definition of
-#: what a token's name says of its central.
-_FLEET_TOKEN = re.compile(r"fleet-([a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?)(?:\.[0-9]+)?")
-
 #: What a heartbeat claim looks like: whole seconds, in ASCII.
 _HEARTBEAT = re.compile(r"[0-9]{1,4}")
 
@@ -64,20 +61,6 @@ _NOTED: weakref.WeakKeyDictionary[NoustStore, dict[str, tuple[float, int | None]
     weakref.WeakKeyDictionary()
 )
 _NOTED_LOCK = threading.Lock()
-
-
-def central_of_token(token_name: str | None) -> str | None:
-    """
-    Args:
-        token_name: The name of the token a request presented.
-
-    Returns:
-        The central it belongs to (``fleet-nas.2`` is ``nas``); None when it is not a fleet token.
-    """
-    if not token_name:
-        return None
-    match = _FLEET_TOKEN.fullmatch(token_name)
-    return match.group(1) if match else None
 
 
 def heartbeat_of(header: str | None) -> int | None:

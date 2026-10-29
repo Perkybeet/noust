@@ -12,6 +12,7 @@ export interface ServerTextEntry {
 
 /** Every sentence the server says with a code, with the values each takes. */
 export const SERVER_TEXT = {
+  "actors.through_central": { text: ["central", "person"], hint: null, commands: [] },
   "approvals.asked_approved": { text: ["request"], hint: ["header", "minutes", "request"], commands: [] },
   "approvals.asked_waiting": { text: ["approvers", "request"], hint: ["header", "minutes", "request"], commands: [] },
   "approvals.central_missing": { text: [], hint: [], commands: [] },

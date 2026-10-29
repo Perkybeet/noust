@@ -18,6 +18,7 @@ import { useT } from "../../i18n";
 import type { Locale } from "../../i18n";
 import { formatBytes, formatDateTime } from "../../lib/format";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { namedActor } from "../activity/data";
 
 interface SiteHistoryDialogProps {
   site: string;
@@ -73,7 +74,7 @@ function VersionRow({ site, item, open, onToggle, onUse, locale }: { site: strin
           {item.source === "found" ? <StatusPill state="warning" size="sm" appearance="inline" label={sourceLabel(item.source, t)} /> : <Badge>{sourceLabel(item.source, t)}</Badge>}
           {item.current ? <StatusPill state="running" size="sm" appearance="inline" label={t("domains.siteHistory.current")} /> : null}
           <span className="text-13 text-fg-muted">{formatDateTime(new Date(item.created_at), locale)}</span>
-          {item.actor !== null && item.actor !== undefined ? <span className="text-13 text-fg-muted">{item.actor}</span> : null}
+          {item.actor !== null && item.actor !== undefined ? <span className="text-13 text-fg-muted">{namedActor(t, item.actor)}</span> : null}
           <span className="text-12 text-fg-muted">{formatBytes(item.size, locale)}</span>
         </span>
         <span className="flex shrink-0 items-center gap-2">

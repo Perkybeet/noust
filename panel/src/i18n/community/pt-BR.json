@@ -362,7 +362,6 @@
   "activity.actor.notRecorded": "Não registrado",
   "activity.actor.terminal": "{name} no terminal",
   "activity.actor.terminalUnknown": "Alguém no terminal",
-  "activity.actor.throughCentral": "{name}, por meio de {central}",
   "activity.actor.system": "O próprio Noust",
   "activity.jobLog.title": "Log da tarefa",
   "activity.jobLog.couldNotLoad": "Não foi possível carregar o log da tarefa",

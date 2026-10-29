@@ -124,6 +124,8 @@ src/noust/
                     `cli/lookup.py`
     web_gate.py     the one door to the console's token manager for the layers that cannot import
                     `web`, with the error that says how to install its dependencies
+    fleet_tokens.py what the name of a fleet token says of its central (`fleet-<central>`); the
+                    audit trail and the central's calls both ask it
   validators/       names, environments, sources, ports, domains
   managers/         adapters: web server, systemd, certs, backups, databases, source, cron
     diagnose.py     why an app is down: read-only probes, most likely cause first

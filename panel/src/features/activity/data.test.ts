@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { loadCatalog } from "../../i18n";
 import { bindT } from "../../i18n/useT";
 import type { AuditEntry, ActivityJob } from "./data";
 import {
   actionWords,
+  namedActor,
   actorSource,
   actorWords,
   auditActionLabel,
@@ -405,8 +407,31 @@ describe("resourceWords / who", () => {
     expect(actorWords(t, account)).toEqual({ label: "ana", raw: "ana" });
     expect(actorSource(account)).toBe("203.0.113.8");
     expect(actorWords(t, one({ actor: "cli:yago", who: { kind: "cli", name: "yago" } })).label).toBe("yago at the terminal");
-    expect(actorWords(t, one({ actor: "hq on behalf of ana", who: { kind: "fleet", name: "ana", via: "fleet:hq" } })).label).toBe("ana, through hq");
+    expect(actorWords(t, one({ actor: "hq on behalf of ana", who: { kind: "fleet", name: "ana", via: "fleet:hq" } })).label).toBe("ana (from the central hq)");
+    // The token a central acts with is named after it: the person first, and the central, not its credential.
+    expect(actorWords(t, one({ actor: "fleet-fra-1 on behalf of marta", who: { kind: "fleet", name: "marta", via: "fleet:fleet-fra-1" } })).label).toBe("marta (from the central fra-1)");
     expect(actorWords(t, one({ actor: "token:ci", who: { kind: "token", name: "token:ci" } })).label).toBe('Token "ci"');
+  });
+});
+
+describe("a person who acted through a central", () => {
+  const es = bindT("es");
+
+  it("is named first, in the language of the console, wherever a label is worded", async () => {
+    await loadCatalog("es");
+    expect(describeActor(t, "fleet-fra-1 on behalf of marta")).toEqual({ label: "marta (from the central fra-1)", raw: "fleet-fra-1 on behalf of marta" });
+    expect(describeActor(es, "fleet-fra-1.2 on behalf of marta").label).toBe("marta (desde la central fra-1)");
+    // Not mistaken for a browser session, which is what an unknown label used to be taken for.
+    expect(describeActor(t, "fleet-fra-1 on behalf of marta").label).not.toMatch(/^Session/);
+  });
+
+  it("is told apart from the rest by namedActor, which names nobody else differently", async () => {
+    await loadCatalog("es");
+    expect(namedActor(t, "fleet-fra-1 on behalf of marta")).toBe("marta (from the central fra-1)");
+    expect(namedActor(es, "fleet-fra-1 on behalf of marta")).toBe("marta (desde la central fra-1)");
+    expect(namedActor(t, "marta")).toBe("marta");
+    expect(namedActor(t, "token:ci")).toBe("token:ci");
+    expect(namedActor(t, "")).toBe("");
   });
 });
 

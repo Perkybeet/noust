@@ -75,7 +75,6 @@ export const activity = {
     notRecorded: "Not recorded",
     terminal: "{name} at the terminal",
     terminalUnknown: "Someone at the terminal",
-    throughCentral: "{name}, through {central}",
     system: "Noust itself",
   },
   jobLog: {

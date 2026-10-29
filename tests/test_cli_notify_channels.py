@@ -507,6 +507,24 @@ class TestAlertCommands:
         assert json.loads(run("--json", "alert", "status").output)[0]["acknowledged_by"] is None
         assert run("alert", "ack", "nope").exit_code == 1
 
+    def test_a_central_taking_an_alert_names_the_person_first(
+        self, run, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        monkeypatch.setattr("noust.core.notifier.notify_composed", lambda *args, **kwargs: None)
+        run("alert", "set", "cpu-high", "--metric", "cpu", "--above", "90")
+        rules = AlertRules(store)
+        saved = rules.get("cpu-high")
+        assert saved is not None and saved.id is not None
+        rules.put_state(AlertState(saved.id, "", "firing", 1.0, 95.0, announced=True))
+
+        taken = run("alert", "ack", "cpu-high", "--by", "fleet-fra-1 on behalf of marta")
+
+        assert "taken by marta (from the central fra-1)" in taken.output
+        assert "marta (from the central fra-1)" in run("alert", "status").output
+        # What a script reads is the record, with the credential in it.
+        status = json.loads(run("--json", "alert", "status").output)
+        assert [s["acknowledged_by"] for s in status] == ["fleet-fra-1 on behalf of marta"]
+
     def test_the_metrics_are_listed_with_their_units(self, run) -> None:  # type: ignore[no-untyped-def]
         metrics = {m["id"]: m for m in json.loads(run("--json", "alert", "metrics").output)}
 

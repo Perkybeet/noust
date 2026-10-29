@@ -36,6 +36,7 @@ from functools import partial
 
 from noust.core.alerts.model import AlertRule, MetricSpec, Reading, format_value
 from noust.core.alerts.rules import FIRING, OK, AlertRules, AlertState
+from noust.core.audit.actor import actor_person
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.messages import message
 from noust.core.notifications.composers_ops import (
@@ -551,9 +552,15 @@ def acknowledge_alert(
             from noust.core.notifier import notify_composed
 
             publish = notify_composed
+        # The channels hear who is on it: the person a central acted for, not the token that
+        # carried the call. The record keeps the label whole, the audit trail needs both.
         publish(
             partial(
-                _acknowledged, rule, subject, state.acknowledged_by or by, clock() - state.since
+                _acknowledged,
+                rule,
+                subject,
+                actor_person(state.acknowledged_by or by),
+                clock() - state.since,
             )
         )
     return state

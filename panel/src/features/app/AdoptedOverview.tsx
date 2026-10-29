@@ -15,6 +15,7 @@ import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import { namedActor } from "../activity/data";
 
 function facts(adoption: SiteAdoption, t: T): KeyValueItem[] {
   const prose = { mono: false, copy: false } as const;
@@ -26,7 +27,7 @@ function facts(adoption: SiteAdoption, t: T): KeyValueItem[] {
       ? { label: t("runtime.adopted.unit"), value: `${adoption.unit}.service`, hint: t("runtime.adopted.unitHint") }
       : { label: t("runtime.adopted.unit"), value: t("runtime.adopted.noUnit"), ...prose },
     ...(adoption.upstream !== null ? [{ label: t("runtime.adopted.backend"), value: adoption.upstream }] : []),
-    ...(adoption.adopted_by !== null && adoption.adopted_by !== "" ? [{ label: t("runtime.adopted.adoptedBy"), value: adoption.adopted_by, ...prose }] : []),
+    ...(adoption.adopted_by !== null && adoption.adopted_by !== "" ? [{ label: t("runtime.adopted.adoptedBy"), value: namedActor(t, adoption.adopted_by), ...prose }] : []),
     ...(adoption.adopted_at !== null ? [{ label: t("runtime.adopted.adoptedAt"), value: <RelativeTime value={adoption.adopted_at} />, copy: false as const, mono: false }] : []),
   ];
 }

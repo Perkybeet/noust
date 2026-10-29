@@ -33,6 +33,7 @@ import { useNode } from "../../nodes/useNode";
 import { jobActionLabel } from "../activity/data";
 import { ALL, NO_FILTERS, busiestMinute, changesOf, filterEvents, logLines, unitsOf } from "./timelineData";
 import type { EventFilters, LevelFilter } from "./timelineData";
+import { namedActor } from "../activity/data";
 
 export interface TimelineDrawerProps {
   /** The stretch, Unix seconds. */
@@ -496,7 +497,7 @@ function ChangesSection({ events, stretch }: { events: readonly TimelineEvent[];
     {
       id: "who",
       header: t("timeline.changes.who"),
-      cell: (row) => (row.actor ? <Mono truncate>{row.actor}</Mono> : <EmptyCell reason={t("timeline.changes.notRecorded")} />),
+      cell: (row) => (row.actor ? <Mono truncate>{namedActor(t, row.actor)}</Mono> : <EmptyCell reason={t("timeline.changes.notRecorded")} />),
       hideBelow: "sm",
       width: "w-32",
     },

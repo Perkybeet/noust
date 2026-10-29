@@ -28,6 +28,7 @@ import { useSudoFirst } from "./formParts";
 import { sandboxQuery, settingsKeys } from "./queries";
 import type { Sandbox } from "./queries";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { namedActor } from "../../activity/data";
 
 /** The one type whose builds do not go through the sandbox (`UNSUPPORTED_TYPES` in the backend). */
 const COMPOSE = "docker-compose";
@@ -126,7 +127,7 @@ function OnFacts({ sandbox }: { sandbox: Sandbox }) {
     items.push({
       label: t("appSettings.builds.since"),
       value: sandbox.changed_by
-        ? t.rich("appSettings.builds.sinceBy", { time: <RelativeTime value={sandbox.changed_at} />, who: <Mono>{sandbox.changed_by}</Mono> })
+        ? t.rich("appSettings.builds.sinceBy", { time: <RelativeTime value={sandbox.changed_at} />, who: <Mono>{namedActor(t, sandbox.changed_by)}</Mono> })
         : <RelativeTime value={sandbox.changed_at} />,
       mono: false,
       copy: false,
@@ -204,7 +205,7 @@ function SandboxCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
   }, [job, domain, queryClient]);
 
   const trialPassed = sandbox.trial?.passed === true;
-  const decidedBy = sandbox.changed_by ?? t("appSettings.builds.anOperator");
+  const decidedBy = sandbox.changed_by === null || sandbox.changed_by === undefined ? t("appSettings.builds.anOperator") : namedActor(t, sandbox.changed_by);
   return (
     <Card
       icon={SETTINGS_ICONS.sandbox}
@@ -325,7 +326,7 @@ function ComposeCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
               { label: t("appSettings.builds.composeWhy"), value: exception.reason, mono: false, copy: false },
               {
                 label: t("appSettings.builds.since"),
-                value: t.rich("appSettings.builds.sinceBy", { time: <RelativeTime value={exception.allowed_at} />, who: <Mono>{exception.allowed_by}</Mono> }),
+                value: t.rich("appSettings.builds.sinceBy", { time: <RelativeTime value={exception.allowed_at} />, who: <Mono>{namedActor(t, exception.allowed_by)}</Mono> }),
                 mono: false,
                 copy: false,
               },

@@ -31,8 +31,8 @@ const EXPIRING = {
  * The alert that fires, as the server lists it among what needs attention: it is the server that
  * says so (`managers/overview.py`), so that a fleet reading each server's own list counts it too.
  */
-function alertItem(taken: boolean) {
-  const params = { rule: "disk-high", subject: "", since: SINCE, ...(taken ? { by: "alice", at: SINCE + 60 } : {}) };
+function alertItem(taken: boolean, by = "alice") {
+  const params = { rule: "disk-high", subject: "", since: SINCE, ...(taken ? { by, at: SINCE + 60 } : {}) };
   return {
     id: "alert:disk-high:",
     subject: { kind: "alert", rule: "disk-high", subject: "" },
@@ -53,8 +53,8 @@ function alertItem(taken: boolean) {
   };
 }
 
-function overviewWithAlert(taken: boolean) {
-  return overviewFixture({ attention_total: 3, attention: [FAILED_APP, alertItem(taken), EXPIRING] });
+function overviewWithAlert(taken: boolean, by = "alice") {
+  return overviewFixture({ attention_total: 3, attention: [FAILED_APP, alertItem(taken, by), EXPIRING] });
 }
 
 function inboxRoutes(over: Record<string, RouteHandler> = {}): Record<string, RouteHandler> {
@@ -168,6 +168,15 @@ describe("the inbox", () => {
     expect(rows.filter((row) => row.textContent.includes("disk-high"))).toHaveLength(1);
     expect(within(panel).getAllByText("This alert is firing.", { exact: false })).toHaveLength(1);
     expect(backend.callsTo("GET /api/alerts/rules")).toHaveLength(0);
+    await user.keyboard("{Escape}");
+  });
+
+  it("names the person who took an alert through a central, first and in the console's language", async () => {
+    fakeBackend(inboxRoutes({ "GET /api/overview": () => json(200, overviewWithAlert(true, "fleet-fra-1 on behalf of marta")) }));
+    const { user } = await openBell(/^Inbox, \d+ things? need you$/);
+    const panel = await screen.findByRole("dialog", { name: "Inbox" });
+    expect(await within(panel).findByText("This alert is firing. marta (from the central fra-1) took it.")).toBeInTheDocument();
+    expect(panel).not.toHaveTextContent("on behalf of");
     await user.keyboard("{Escape}");
   });
 

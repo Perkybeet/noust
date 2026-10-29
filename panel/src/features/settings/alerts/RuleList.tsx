@@ -32,6 +32,7 @@ import { acknowledgement } from "./data";
 import { RuleDrawer } from "./RuleDrawer";
 import { appliesTo, formatReading, ruleSentence } from "./rules";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+import { fleetActor, namedActor } from "../../activity/data";
 
 function stateOf(rule: AlertRule): { status: Status; key: "firing" | "ok" | "off" } {
   if (!rule.enabled) return { status: "stopped", key: "off" };
@@ -69,7 +70,7 @@ function FiringLine({ rule, entry, unit }: { rule: AlertRule; entry: NonNullable
       {acknowledged !== null ? (
         <Badge>
           {t.rich("alerts.rules.ack.acknowledged", {
-            who: <Mono key="who">{acknowledged.by}</Mono>,
+            who: fleetActor(acknowledged.by) === null ? <Mono key="who">{acknowledged.by}</Mono> : namedActor(t, acknowledged.by),
             when: <RelativeTime key="when" value={acknowledged.at} />,
           })}
         </Badge>
