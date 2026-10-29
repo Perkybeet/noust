@@ -10,7 +10,7 @@ slogan: "CookieCloud是一个和自架服务器同步浏览器Cookie和LocalStor
 description: "CookieCloud lets you sync and manage browser cookies across devices securely using a self-hosted backend."
 category: files
 tags: [cookies, sync, selfhosted, privacy, files]
-logo: logo.svg
+logo: logo.png
 version: "2026.10.23"
 revision: 1
 updated: 2026-10-28

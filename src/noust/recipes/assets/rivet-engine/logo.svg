@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Rivet Engine">
-  <title>Rivet Engine</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">RE</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 128 128" fill="none"><title>Rivet Engine</title><rect x="1" y="1" width="126" height="126" rx="44" fill="#0F0F0F"/><rect x="18.25" y="18.25" width="91.5" height="91.5" rx="25.75" stroke="#F0F0F0" stroke-width="8.5"/><path fill-rule="evenodd" clip-rule="evenodd" d="M57.69 43.1c0-.62-.51-1.13-1.13-1.13h-8.44a5.11 5.11 0 0 0-5.11 5.11v33.82a5.11 5.11 0 0 0 5.11 5.11h8.44c.62 0 1.13-.51 1.13-1.13V43.1Zm24.42 27.87c-1.24-2.22-4.05-4.03-6.27-4.03H62.92c-.68 0-.93.56-.55 1.24l7.7 13.82c1.24 2.22 4.05 4.03 6.27 4.03h12.93c.68 0 .93-.56.55-1.24l-7.7-13.82Zm.54-18.72c0-5.67-4.61-10.28-10.28-10.28H63.31a1.21 1.21 0 0 0-1.21 1.21v18.14c0 .67.54 1.21 1.21 1.21h9.07c5.67 0 10.28-4.61 10.28-10.28Z" fill="#F0F0F0"/></svg>

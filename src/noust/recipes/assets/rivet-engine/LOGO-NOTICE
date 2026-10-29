@@ -1,0 +1,7 @@
+Mark of: Rivet Engine
+Source: https://github.com/rivet-dev/rivet/blob/4a58441c50d1ce20d8803cfb1ab7c3285a5141d6/frontend/public/favicon.svg
+Licence: Apache-2.0
+Copyright: the contributors of rivet-dev/rivet
+Terms: rivet.dev/brand, read 2026-10-29: the project publishes its logos as a brand kit
+Retrieved: 2026-10-29
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

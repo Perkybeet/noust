@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Stirling PDF">
-  <title>Stirling PDF</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">SP</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="-.5 -.5 192 192" fill-rule="evenodd" clip-rule="evenodd"><title>Stirling PDF</title><path fill="#8e3131" d="M30.5-.5h130c16 4.67 26.33 15 31 31v130c-4.67 16-15 26.33-31 31h-130c-16-4.67-26.33-15-31-31v-130c4.67-16 15-26.33 31-31z" opacity="1"/><path fill="#fdfcfc" d="M114.5 24.5c1.21 21.83 1.71 43.83 1.5 66a4142.15 4142.15 0 0 1-41.5 35 2346.11 2346.11 0 0 0-45.5 37 1122.44 1122.44 0 0 1 0-67 8208.76 8208.76 0 0 1 85.5-71z" opacity="1"/><path fill="#d1abab" d="M114.5 24.5c.06-.54.39-.88 1-1a883.57 883.57 0 0 1 1.5 42 2283.62 2283.62 0 0 0 43.5-36 1089.68 1089.68 0 0 1 1 66 11605.19 11605.19 0 0 1-86.5 72 882.41 882.41 0 0 1-.5-42 4142.15 4142.15 0 0 0 41.5-35c.21-22.17-.29-44.17-1.5-66z" opacity="1"/><path fill="#af6e6e" d="M160.5 29.5c.06-.54.39-.88 1-1 1.33 22.5 1.33 44.83 0 67 .33-22.17 0-44.17-1-66z" opacity="1"/></svg>

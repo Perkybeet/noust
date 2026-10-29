@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="code-server">
-  <title>code-server</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">CS</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 147 147"><title>code-server</title><path d="m42.42 39.66c-24.41 0-42.16 13.17-42.16 33.84 0 20.58 18.49 33.84 42.16 33.84 23.67 0 38.18-11.62 38.73-28.72l-21.08-.46c-.92 9.33-9.11 15.18-17.66 15.18-11.74 0-20.43-7.59-20.43-19.85 0-12.26 8.69-19.99 20.43-20.22 8.55-.18 16.92 5.95 17.47 15.28l21.08-.64c-.46-16.83-14.14-28.27-38.55-28.27zm48.84 2 55.47 0 0 64.03-55.47 0 0-64.03z" clip-rule="evenodd" fill-rule="evenodd"/></svg>

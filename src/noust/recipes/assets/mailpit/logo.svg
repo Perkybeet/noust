@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Mailpit">
-  <title>Mailpit</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">MP</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 132.292 121.708"><title>Mailpit</title><path d="M12.32 0l53.86 53.92L120.36 0zM5.16 9.03l60.84 59.67 61.21-59.49-.18 36.84L66.92 70.54l15.16 12.62-8.14 5.99-41.61.18c-4.84-.02-25.88-18.34-27.18-41.26z" fill-opacity="1" fill="#415066"/><path d="M78.39 72.05l53.91-21.68-8.03 57.32-11.85-9.13c-21.73 23.17-45.26 26.29-68 20.84S12.28 98.39 5.16 83.8-.67 53.12 2.84 38.77c1.13 10.51-1.31 16.32 6.38 33.61 6.31 11.4 14.41 20.42 25.89 24.96 13.9 6.2 32.25 3.36 41.7-3.04l14.24-12.16z" fill="#00b786"/></svg>

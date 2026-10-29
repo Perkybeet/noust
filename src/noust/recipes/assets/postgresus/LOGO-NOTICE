@@ -1,0 +1,7 @@
+Mark of: Postgresus
+Source: https://github.com/databasus/databasus/blob/7efbe9eb9f34c436c4d08ef1162b6e9fbe095ab4/website/public/favicon.svg
+Licence: Apache-2.0
+Copyright: the contributors of databasus/databasus
+Terms: NOTICE.md of databasus/databasus (the project Postgresus became), read 2026-10-29: reasonable and customary referential use is allowed, software catalogs and deployment templates among its examples
+Retrieved: 2026-10-29
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

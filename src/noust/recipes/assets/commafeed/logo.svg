@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="CommaFeed">
-  <title>CommaFeed</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">CO</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 5.048 5.048"><title>CommaFeed</title><rect fill="#f88a14" rx=".538" ry=".538" height="5.048" width="5.048" x="0" y="0" stroke-width=".769"/><path d="m1.345.645c2.9 0 2.9 2.91 2.9 2.91" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width=".781"/><path d="m1.338 1.992c1.571-.009 1.571 1.564 1.571 1.564" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width=".781"/><path d="m2.019 3.523c0 .234-.107.474-.247.654-.181.233-.571.562-.691.565.04-.066.263-.565.256-.565-.364 0-.66-.293-.66-.654 0-.361.295-.654.66-.654.364 0 .682.293.682.654z" fill="#ffffff"/></svg>
