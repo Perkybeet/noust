@@ -334,3 +334,26 @@ def test_a_claim_says_what_it_is() -> None:
     claim = PortClaim(port=22, protocol="tcp", kind="system", owner="SSH's")
 
     assert claim.describe() == "is SSH's"
+
+
+def test_noust_dns_holds_port_53_over_both_protocols_on_the_addresses_it_answers_on(
+    claims: PortClaims, store: NoustStore
+) -> None:
+    from noust.core.authdns_store import PRIMARY, AuthDnsServer, AuthDnsStore
+
+    AuthDnsStore(store).save_server(AuthDnsServer("knot", PRIMARY, listen=("203.0.113.10",)))
+
+    for protocol in ("tcp", "udp"):
+        held = claims.holder(53, protocol, address="203.0.113.10")
+        assert held is not None and held.kind == "dns"
+        assert held.describe() == "is where Noust DNS answers"
+        # An address it does not answer on is free, and the caller's own claim is not in its way.
+        assert claims.holder(53, protocol, address="198.51.100.1") is None
+        assert claims.holder(53, protocol, address="203.0.113.10", owner="noust-dns") is None
+    with pytest.raises(PortError) as raised:
+        claims.require_free(53, "udp", address="203.0.113.10")
+    assert "where Noust DNS answers" in raised.value.message
+
+
+def test_without_noust_dns_port_53_is_not_held_by_it(claims: PortClaims) -> None:
+    assert claims.holder(53, "udp", address="203.0.113.10") is None
