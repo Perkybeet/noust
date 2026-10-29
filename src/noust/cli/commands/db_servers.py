@@ -91,7 +91,6 @@ def _row(server: dict[str, Any]) -> list[str]:
     metavar="ENGINE",
     help="Only this engine: mysql is MySQL and MariaDB, mariadb only MariaDB.",
 )
-@global_flags
 @json_option("Print the servers as JSON.")
 @click.pass_context
 def servers_group(click_ctx: click.Context, engine: str | None) -> None:

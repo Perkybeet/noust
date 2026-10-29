@@ -162,7 +162,7 @@ class DatabaseServers:
 
         Raises:
             ValidationError: The key cannot be a server's (``field`` is ``server``).
-            DatabaseNotFoundError: No server has that key; the error lists them.
+            DatabaseNotFoundError: No server has that key; the error says how to list them.
         """
         wanted = self._key(key)
         listing = self.all(visible=visible)

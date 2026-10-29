@@ -7558,9 +7558,6 @@ noust db servers [OPTIONS] [COMMAND] [ARGS]...
 | Option | What it does | Default |
 |---|---|---|
 | `--engine`, `-e` | Only this engine: mysql is MySQL and MariaDB, mariadb only MariaDB. |  |
-| `-v`, `--verbose` | Show the detail of each step. |  |
-| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
-| `--no-color` | Never emit colour. |  |
 | `--json` | Print the servers as JSON. |  |
 
 Subcommands: [`default`](#noust-db-servers-default), [`list`](#noust-db-servers-list)
