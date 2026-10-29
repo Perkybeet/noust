@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { THEME_STORAGE_KEY, initTheme, readTheme, setTheme, useTheme } from "./theme";
+import { THEME_STORAGE_KEY, initTheme, readTheme, setTheme, useColourScheme, useTheme } from "./theme";
 
 describe("theme", () => {
   beforeEach(() => {
@@ -45,5 +45,53 @@ describe("theme", () => {
   it("reads the stored key", () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, "dark");
     expect(readTheme()).toBe("dark");
+  });
+});
+
+describe("the colour scheme the console is drawn in", () => {
+  type Listener = (event: { matches: boolean }) => void;
+  let dark = false;
+  let listeners: Listener[] = [];
+
+  beforeEach(() => {
+    initTheme();
+    dark = false;
+    listeners = [];
+    window.matchMedia = ((query: string) => ({
+      get matches() {
+        return query === "(prefers-color-scheme: dark)" && dark;
+      },
+      media: query,
+      addEventListener: (_: string, listener: Listener) => listeners.push(listener),
+      removeEventListener: (_: string, listener: Listener) => {
+        listeners = listeners.filter((entry) => entry !== listener);
+      },
+    })) as unknown as typeof window.matchMedia;
+  });
+
+  it("is the pinned theme, whatever the system prefers", () => {
+    dark = true;
+    setTheme("light");
+    const { result } = renderHook(() => useColourScheme());
+    expect(result.current).toBe("light");
+    act(() => setTheme("dark"));
+    expect(result.current).toBe("dark");
+  });
+
+  it("is what the system prefers while no theme is pinned, and follows it", () => {
+    const { result } = renderHook(() => useColourScheme());
+    expect(result.current).toBe("light");
+    act(() => {
+      dark = true;
+      for (const listener of listeners) listener({ matches: true });
+    });
+    expect(result.current).toBe("dark");
+  });
+
+  it("is light where the browser cannot say", () => {
+    // @ts-expect-error a browser without matchMedia, as jsdom is
+    delete window.matchMedia;
+    const { result } = renderHook(() => useColourScheme());
+    expect(result.current).toBe("light");
   });
 });

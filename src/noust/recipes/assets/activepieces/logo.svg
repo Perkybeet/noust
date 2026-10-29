@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Activepieces">
-  <title>Activepieces</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">AP</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 22 19" fill="none"><title>Activepieces</title><path d="M6.46 5.818C5.308 4.11 5.759 1.791 7.467.639 9.175-.513 11.493-.062 12.645 1.646L20.426 13.181C21.578 14.889 21.127 17.208 19.419 18.36 17.712 19.512 15.393 19.061 14.241 17.353L10.868 12.352C10.434 11.805 9.551 11.89 9.021 12.421 8.582 12.86 8.438 13.985 8.313 14.958 8.295 15.101 8.277 15.241 8.259 15.374 8.191 16.011 7.971 16.642 7.588 17.21 6.335 19.067 3.814 19.556 1.957 18.304.1 17.052-.391 14.53.862 12.673 1.511 11.71 2.502 11.115 3.565 10.94L3.563 10.938C6.633 10.493 7.202 7.029 6.64 6.085L6.46 5.818Z" fill="#8142E3"/></svg>

@@ -1,0 +1,7 @@
+Mark of: DocuSeal
+Source: https://github.com/docusealco/docuseal/blob/13a1835c006e218e2e48ede3eb153812bd025a05/public/logo.svg
+Licence: AGPL-3.0-only
+Copyright: Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
+Terms: no rule on the project's logo was found in its repository, its documents or its site (checked 2026-10-29)
+Retrieved: 2026-10-29
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

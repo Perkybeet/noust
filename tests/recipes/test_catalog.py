@@ -19,11 +19,12 @@ from noust.recipes import (
     categories,
     get_recipe,
     list_recipes,
-    logo_svg,
+    logo_file,
     read_asset,
     search_recipes,
 )
 from noust.recipes.deploy import render_notes
+from noust.recipes.logo_png import validate_png
 from noust.recipes.logos import validate_svg
 from noust.recipes.model import Recipe
 from noust.recipes.variables import DeploymentContext, resolve_variables
@@ -148,7 +149,9 @@ def test_every_recipe_has_what_a_catalogue_card_shows(recipe: Recipe) -> None:
     """Title, slogan, a real category, tags, a logo, links over https."""
     assert recipe.title and recipe.slogan and recipe.description
     assert recipe.category in CATEGORIES
-    assert recipe.logo == "logo.svg" or (recipe.logo or "").startswith("simple-icons:")
+    assert recipe.logo in ("logo.svg", "logo.png") or (recipe.logo or "").startswith(
+        "simple-icons:"
+    )
     assert recipe.homepage.startswith("https://")
     if recipe.available:
         assert recipe.category != "other"
@@ -159,8 +162,12 @@ def test_every_recipe_has_what_a_catalogue_card_shows(recipe: Recipe) -> None:
 
 @pytest.mark.parametrize("recipe", shipped(), ids=lambda recipe: recipe.name)
 def test_every_logo_passes_the_policy_that_serves_it(recipe: Recipe) -> None:
-    """No script, no style, no link: it works under the console's CSP."""
-    svg = logo_svg(recipe.name)
+    """No script, no style, no link: it works under the console's CSP; a picture is only pixels."""
+    found = logo_file(recipe.name)
+    if found.media_type == "image/png":
+        assert validate_png(recipe.name, found.content) == found.content
+        return
+    svg = found.content.decode()
 
     assert validate_svg(recipe.name, svg) == svg
     assert svg.lstrip().startswith("<svg") and "<script" not in svg and "style" not in svg
@@ -174,6 +181,9 @@ def test_every_svg_in_the_package_is_valid_even_if_no_recipe_names_it() -> None:
         for entry in directory.iterdir():
             if entry.name.endswith(".svg"):
                 validate_svg(directory.name, entry.read_text(encoding="utf-8"))
+                found += 1
+            elif entry.name == "logo.png":
+                validate_png(directory.name, entry.read_bytes())
                 found += 1
     assert found >= len(shipped())
 
@@ -434,7 +444,7 @@ def test_categories_count_the_recipes_that_are_in_them() -> None:
 def test_a_logo_the_recipe_does_not_have_is_not_found() -> None:
     """An unknown recipe is a not found, not a crash."""
     with pytest.raises(RecipeError):
-        logo_svg("drupal")
+        logo_file("drupal")
 
 
 def test_the_nginx_settings_a_recipe_ships_are_valid_for_the_builder_that_reads_them(

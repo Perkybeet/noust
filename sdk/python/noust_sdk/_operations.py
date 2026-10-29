@@ -8113,13 +8113,13 @@ class Recipes:
         Needs: permission `apps.manage`."""
         return self._call("POST", f"/api/recipes/{quote(str(name), safe='')}/install", query=None, body=body)
 
-    def get_recipe_logo(self, name: str) -> bytes:
+    def get_recipe_logo(self, name: str, *, scheme: Union[Literal["light", "dark"], None] = None) -> bytes:
         """GET /api/recipes/{name}/logo
 
         Get Recipe Logo
 
         Needs: permission `apps.read`."""
-        return self._call("GET", f"/api/recipes/{quote(str(name), safe='')}/logo", query=None, body=None, binary=True)
+        return self._call("GET", f"/api/recipes/{quote(str(name), safe='')}/logo", query={"scheme": scheme}, body=None, binary=True)
 
     def get_recipe_requirements(self, name: str) -> "RequirementListOut":
         """GET /api/recipes/{name}/requirements

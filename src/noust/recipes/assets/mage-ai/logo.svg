@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Mage AI">
-  <title>Mage AI</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">MA</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 260 260" fill="none"><title>Mage AI</title><defs><radialGradient id="mage-ai-1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(130 130) rotate(90) scale(133 133)"><stop offset=".315" stop-color="#00FB82"/><stop offset="1" stop-color="#00DD73"/></radialGradient></defs><path d="M23.03 57.73 118.77 2.67C124.88-.85 132.39-.88 138.53 2.57L236.8 57.77C243.1 61.31 247 67.97 247 75.2V184.8C247 192.03 243.1 198.69 236.8 202.23L138.53 257.43C132.39 260.88 124.88 260.85 118.77 257.33L23.03 202.27C16.82 198.7 13 192.09 13 184.93V75.07C13 67.91 16.82 61.3 23.03 57.73Z" fill="url(#mage-ai-1)"/><path d="M106.25 75.5 135.75 75.5 135.75 124.13 161.34 75.5 191 75.5V180.5H161.34V131.84L135.75 180.48V180.5H106.09L106.08 180.5 106.09 180.48V132.17L80.66 180.5 51 180.5 106.25 75.5Z" fill="black"/></svg>

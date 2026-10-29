@@ -125,7 +125,7 @@ def use_demo_assets(monkeypatch: pytest.MonkeyPatch) -> None:
         # The logo of a recipe the collection has no mark for is a file of its own; the rest are
         # the files Vaultwarden ships.
         if name == "demo":
-            return real("gotify" if asset == "logo.svg" else "vaultwarden", asset)
+            return real("plausible" if asset == "logo.svg" else "vaultwarden", asset)
         return real(name, asset)
 
     monkeypatch.setattr(assets, "asset_resource", resource)

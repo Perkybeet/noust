@@ -1,0 +1,7 @@
+Mark of: Tandoor Recipes
+Source: https://github.com/TandoorRecipes/recipes/blob/cbb96e151fe0c57c16a4456fe1bd04230b1c1e5c/docs/logo_color.svg
+Licence: AGPL-3.0-only AND LicenseRef-Commons-Clause
+Copyright: the contributors of TandoorRecipes/recipes
+Terms: LICENSE.md of TandoorRecipes/recipes: AGPL-3.0 under the Commons Clause, which bars selling the software, not showing its logo; no rule on the project's logo was found in its repository, its documents or its site (checked 2026-10-29)
+Retrieved: 2026-10-29
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

@@ -1,0 +1,7 @@
+Mark of: linkding
+Source: https://github.com/sissbruecker/linkding/blob/27b7303baf41bb28babc610ac8eaa486e1ddfab5/assets/logo.svg
+Licence: MIT
+Copyright: Copyright (c) 2019 Sascha Ißbrücker
+Terms: no rule on the project's logo was found in its repository, its documents or its site (checked 2026-10-29)
+Retrieved: 2026-10-29
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

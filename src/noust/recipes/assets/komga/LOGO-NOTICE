@@ -1,0 +1,7 @@
+Mark of: Komga
+Source: https://github.com/gotson/komga/blob/3ae0defb1b11ee666aabe7a1a218539761d7d7d4/next-ui/src/assets/logo.svg
+Licence: MIT
+Copyright: Copyright (c) 2019 Gauthier Roebroeck
+Terms: no rule on the project's logo was found in its repository, its documents or its site (checked 2026-10-29)
+Retrieved: 2026-10-29
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

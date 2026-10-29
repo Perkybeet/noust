@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Chroma">
-  <title>Chroma</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">CH</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 24 24" fill="none"><title>Chroma</title><path fill="#ffde2d" d="M15.917 19.52c4.326 0 7.833-3.367 7.833-7.52 0-4.153-3.507-7.52-7.833-7.52-4.326 0-7.833 3.367-7.833 7.52 0 4.153 3.507 7.52 7.833 7.52Z" stroke-width=".25"/><path fill="#327eff" d="M8.083 19.52c4.326 0 7.833-3.367 7.833-7.52 0-4.153-3.507-7.52-7.833-7.52C3.757 4.48.25 7.847.25 12 .25 16.153 3.757 19.52 8.083 19.52Z" stroke-width=".25"/><path fill="#ff6446" d="M15.917 12c0 4.153-3.507 7.52-7.833 7.52V12h7.833Zm-7.833 0c0-4.153 3.507-7.52 7.833-7.52v7.52H8.083Z" stroke-width=".25"/></svg>

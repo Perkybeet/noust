@@ -15,7 +15,7 @@ slogan: "A self-hosted start page for your services, with status checks and widg
 description: "A customisable dashboard for the services you run: sections of links with icons, live status checks, widgets and themes, all described in one YAML file. The page is public and read-only in the browser; you edit it on the server."
 category: productivity
 tags: [dashboard, start-page, homelab, bookmarks]
-logo: logo.svg
+logo: logo.png
 version: "4.8.7"
 revision: 1
 updated: 2026-10-20

@@ -240,6 +240,44 @@ def test_a_logo_is_served_as_an_image_that_needs_nothing_the_policy_forbids(
     assert "<script" not in response.text and "style" not in response.text
 
 
+def test_a_logo_is_drawn_for_the_theme_the_console_shows(client: TestClient) -> None:
+    """A black mark is paper on the dark stone; a coloured one is as its designer drew it."""
+    light = client.get("/api/recipes/vaultwarden/logo", params={"scheme": "light"})
+    dark = client.get("/api/recipes/vaultwarden/logo", params={"scheme": "dark"})
+    plain = client.get("/api/recipes/vaultwarden/logo")
+
+    assert light.status_code == dark.status_code == plain.status_code == 200
+    assert plain.text == light.text, "the light stone is the default"
+    assert "#e5e8e3" in dark.text and "#e5e8e3" not in light.text
+    gitea = client.get("/api/recipes/gitea/logo", params={"scheme": "dark"})
+    assert 'fill="#609926"' in gitea.text
+    assert gitea.headers["content-type"].startswith("image/svg+xml")
+    assert gitea.headers["x-content-type-options"] == "nosniff"
+
+
+def test_a_logo_that_is_only_a_picture_is_served_as_a_png_the_theme_does_not_change(
+    client: TestClient,
+) -> None:
+    """A PNG of 256 pixels or more, ``nosniff``, the same on both stones."""
+    light = client.get("/api/recipes/dashy/logo", params={"scheme": "light"})
+    dark = client.get("/api/recipes/dashy/logo", params={"scheme": "dark"})
+
+    assert light.status_code == dark.status_code == 200
+    assert light.headers["content-type"] == "image/png"
+    assert light.headers["x-content-type-options"] == "nosniff"
+    assert light.content[:8] == b"\x89PNG\r\n\x1a\n" and light.content == dark.content
+    assert len(light.content) <= 64 * 1024
+    item = {i["name"]: i for i in client.get("/api/recipes").json()["items"]}["dashy"]
+    assert item["logo_source"] == "asset" and item["logo_license"] == "MIT"
+    assert item["logo_origin"].endswith("/public/web-icons/dashy-logo.png")
+
+
+def test_a_theme_that_is_not_light_or_dark_is_a_validation_error(client: TestClient) -> None:
+    """The query is a closed set, answered with the API's own 422."""
+    assert client.get("/api/recipes/gitea/logo", params={"scheme": "sepia"}).status_code == 422
+    assert client.get("/api/recipes/gitea/logo", params={"scheme": ""}).status_code == 422
+
+
 def test_a_logo_of_a_recipe_that_does_not_exist_is_a_404(client: TestClient) -> None:
     """Not a 500, not an empty image."""
     assert client.get("/api/recipes/drupal/logo").status_code == 404
@@ -532,9 +570,17 @@ def test_a_recipe_says_where_its_logo_comes_from(client: TestClient) -> None:
     for item in items.values():
         assert item["logo_source"] in ("asset", "simple-icons")
         if item["logo_source"] == "simple-icons":
-            assert item["logo_icon"] and item["logo_license"] == "CC0-1.0"
+            assert item["logo_icon"] and item["logo_license"]
+            assert item["logo_origin"].startswith("https://github.com/simple-icons/simple-icons/")
+        elif item["logo_license"] is not None:
+            # A mark taken from the project: where, and under what licence, said by its notice.
+            assert item["logo_icon"] is None and item["logo_origin"].startswith("https://")
         else:
-            assert item["logo_icon"] is None and item["logo_license"] is None
+            assert item["logo_icon"] is None and item["logo_origin"] is None
+    assert items["gitea"]["logo_license"] == "CC0-1.0"
+    assert items["forgejo"]["logo_license"] == "CC-BY-SA-4.0"
+    assert items["gotify"]["logo_license"] == "CC-BY-4.0"
+    assert items["plausible"]["logo_license"] is None
 
 
 def test_a_recipe_that_is_root_on_the_server_carries_the_warning_the_console_shows(

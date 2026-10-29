@@ -42404,6 +42404,17 @@
             ],
             "title": "Logo License"
           },
+          "logo_origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Origin"
+          },
           "logo_source": {
             "anyOf": [
               {
@@ -42827,7 +42838,7 @@
         "type": "object"
       },
       "RecipeSummaryOut": {
-        "description": "One recipe in the catalogue.\n\nAttributes:\n    name: What ``recipe`` takes in ``POST /api/apps``.\n    title: What it is called.\n    slogan: One line for the catalogue card.\n    description: One or two sentences.\n    homepage: The project's site.\n    docs: The project's documentation.\n    repository: The project's source code.\n    license: The project's licence.\n    min_noust: The oldest Noust that can install it, when it asks for one.\n    architectures: What it runs on; empty for any. Checked at install.\n    category: One of the closed list (``GET /api/recipes/categories``).\n    tags: Lower-case labels.\n    logo: Where the logo is served, or None.\n    logo_source: ``simple-icons`` (the collection's mark, CC0) or ``asset`` (a file of the\n        recipe); None without a logo.\n    logo_icon: The simple-icons slug, when the logo is the collection's.\n    logo_license: The licence of the mark's file when it is the collection's.\n    version: The version of the application the recipe pins.\n    revision: The recipe's own revision of that version.\n    updated: When the recipe last changed (ISO date).\n    kind: ``native`` or ``compose``.\n    runs_in_docker: Whether it runs in containers.\n    available: Whether this release can deploy it.\n    unavailable_reason: Why not, when it cannot: the evidence the recipe holds, in English.\n    unavailable_code: The reason as a code to filter by (``licence``, ``archived``...).\n    unavailable: The reason as a sentence of the server's, a ``code`` and its ``params``,\n        for the console to translate; None when it installs.\n    unavailable_text: That sentence in English.\n    unavailable_hint: What to do about it, in English.\n    replaced_by: The recipe that stands in for it, when there is one.\n    tested: Whether the recipe was started for real in the harness: the ``version`` that\n        was started, the ``date``, the ``seconds`` it took and whether that is the version\n        pinned now (``current``); None when no run is recorded.\n    root_equivalent: What makes it root on the server by design (``docker_socket``), or None.\n        Installing it needs ``accept_root_equivalent``, the server's permission and sudo mode.\n    root_equivalent_warning: The warning as a sentence of the server's, a ``code`` and its\n        ``params``, for the console to translate; None when it is not root on the server.\n    root_equivalent_text: That warning in English.\n    root_equivalent_hint: What to weigh before accepting it, in English.\n    app_type: The deployer that builds it; None when unavailable.\n    database: The SQL engine it is given, if any.\n    database_choices: The SQL engines it can run on when the operator chooses at install\n        (``mysql``, ``mariadb``), its own first; empty when it offers no choice.\n    dependencies: The services it asks Noust to provide.\n    requires: What the server needs, in words.\n    digest_verified: Compose: every image carries a digest read from its\n        registry. None for a native recipe.\n    schema_version: The format version the file is written in.\n    origin: ``shipped`` (the package), ``catalog`` (a signed catalogue\n        package) or ``operator`` (the server's own recipes).",
+        "description": "One recipe in the catalogue.\n\nAttributes:\n    name: What ``recipe`` takes in ``POST /api/apps``.\n    title: What it is called.\n    slogan: One line for the catalogue card.\n    description: One or two sentences.\n    homepage: The project's site.\n    docs: The project's documentation.\n    repository: The project's source code.\n    license: The project's licence.\n    min_noust: The oldest Noust that can install it, when it asks for one.\n    architectures: What it runs on; empty for any. Checked at install.\n    category: One of the closed list (``GET /api/recipes/categories``).\n    tags: Lower-case labels.\n    logo: Where the logo is served, or None.\n    logo_source: ``simple-icons`` (the collection's mark) or ``asset`` (a file of the\n        recipe: the project's mark with its notice, or Noust's monogram); None without a logo.\n    logo_icon: The simple-icons slug, when the logo is the collection's.\n    logo_license: The licence of the mark's file (an SPDX expression), or None for the monogram,\n        which is Noust's own.\n    logo_origin: The address the mark was taken from, at its commit or release, or None.\n    version: The version of the application the recipe pins.\n    revision: The recipe's own revision of that version.\n    updated: When the recipe last changed (ISO date).\n    kind: ``native`` or ``compose``.\n    runs_in_docker: Whether it runs in containers.\n    available: Whether this release can deploy it.\n    unavailable_reason: Why not, when it cannot: the evidence the recipe holds, in English.\n    unavailable_code: The reason as a code to filter by (``licence``, ``archived``...).\n    unavailable: The reason as a sentence of the server's, a ``code`` and its ``params``,\n        for the console to translate; None when it installs.\n    unavailable_text: That sentence in English.\n    unavailable_hint: What to do about it, in English.\n    replaced_by: The recipe that stands in for it, when there is one.\n    tested: Whether the recipe was started for real in the harness: the ``version`` that\n        was started, the ``date``, the ``seconds`` it took and whether that is the version\n        pinned now (``current``); None when no run is recorded.\n    root_equivalent: What makes it root on the server by design (``docker_socket``), or None.\n        Installing it needs ``accept_root_equivalent``, the server's permission and sudo mode.\n    root_equivalent_warning: The warning as a sentence of the server's, a ``code`` and its\n        ``params``, for the console to translate; None when it is not root on the server.\n    root_equivalent_text: That warning in English.\n    root_equivalent_hint: What to weigh before accepting it, in English.\n    app_type: The deployer that builds it; None when unavailable.\n    database: The SQL engine it is given, if any.\n    database_choices: The SQL engines it can run on when the operator chooses at install\n        (``mysql``, ``mariadb``), its own first; empty when it offers no choice.\n    dependencies: The services it asks Noust to provide.\n    requires: What the server needs, in words.\n    digest_verified: Compose: every image carries a digest read from its\n        registry. None for a native recipe.\n    schema_version: The format version the file is written in.\n    origin: ``shipped`` (the package), ``catalog`` (a signed catalogue\n        package) or ``operator`` (the server's own recipes).",
         "properties": {
           "app_type": {
             "anyOf": [
@@ -42961,6 +42972,17 @@
               }
             ],
             "title": "Logo License"
+          },
+          "logo_origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Origin"
           },
           "logo_source": {
             "anyOf": [
@@ -108312,7 +108334,7 @@
     },
     "/api/recipes/{name}/logo": {
       "get": {
-        "description": "Serve a recipe's logo.\n\nThe file is validated when the recipe loads (no script, no style, no link:\n:mod:`noust.recipes.logos`), so it needs nothing the console's CSP forbids,\nwherever it is shown, and it is sent ``nosniff``.\n\nArgs:\n    name: The recipe.\n    session: The authenticated session.\n\nReturns:\n    The SVG.\n\nRaises:\n    HTTPException: 404 when no recipe has that name, or it has no logo.",
+        "description": "Serve a recipe's logo.\n\nThe file is judged by the console's policy (no script, no style, no link outside itself:\n:mod:`noust.recipes.logos`) when the recipe loads and again as it is read, so it needs\nnothing the console's CSP forbids, wherever it is shown, and it is sent ``nosniff``. The\ntheme the console shows decides the colours of a mark that would be lost on it\n(:mod:`noust.recipes.logo_paint`).\n\nArgs:\n    name: The recipe.\n    session: The authenticated session.\n    scheme: ``light`` or ``dark``.\n\nReturns:\n    The SVG, or the PNG of a project that has no SVG.\n\nRaises:\n    HTTPException: 404 when no recipe has that name, or it has no logo.",
         "operationId": "get_recipe_logo_api_recipes__name__logo_get",
         "parameters": [
           {
@@ -108323,18 +108345,40 @@
               "title": "Name",
               "type": "string"
             }
+          },
+          {
+            "description": "The theme the logo will be drawn on: a mark that would not read on it is recoloured.",
+            "in": "query",
+            "name": "scheme",
+            "required": false,
+            "schema": {
+              "default": "light",
+              "description": "The theme the logo will be drawn on: a mark that would not read on it is recoloured.",
+              "enum": [
+                "light",
+                "dark"
+              ],
+              "title": "Scheme",
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
             "content": {
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
               "image/svg+xml": {
                 "schema": {
                   "type": "string"
                 }
               }
             },
-            "description": "The recipe's logo, an SVG"
+            "description": "The recipe's logo: an SVG, or a PNG where the project has no SVG"
           },
           "422": {
             "content": {

@@ -102,7 +102,10 @@ for the operator ("recipes: Gotify, a simple push-notification server"), never w
   say where to sign in, what the first account's password is called, and what to back up.
 - **Nothing is fetched at install** except what a pin names.
 - **The name and the logo.** A project's name and logo are its own: the description does not claim an
-  endorsement, and the logo ships only if the project's licence or brand page allows it ([recipes.md](recipes-format.md#names-marks-licences-and-logos-of-the-projects)).
+  endorsement, and the logo ships only if the project's licence or brand page allows it, with where it came from
+  and what the project says of it in a `LOGO-NOTICE` that `python scripts/recipe_logos.py add` writes
+  ([format](recipes-format.md#names-marks-licences-and-logos-of-the-projects)). A project that has no logo you may
+  ship gets the monogram (`python scripts/recipe_draft.py logo NAME TITLE`).
 - **Whether it can be kept up to date.** The lint runs in CI on every pull request; the pins check is run
   by hand, by you before the request and by the maintainer before a release. When upstream publishes a
   newer version, `noust health` says so on every server that installed the recipe

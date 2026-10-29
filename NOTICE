@@ -70,10 +70,153 @@ Marks of the recipes
 --------------------
 The marks in src/noust/recipes/assets/_simple-icons/ are copied unchanged from the simple-icons
 collection (https://github.com/simple-icons/simple-icons), published under CC0 1.0 Universal
-(https://creativecommons.org/publicdomain/zero/1.0/). The licence covers the files and not the brands:
-each mark is the trademark of its owner, shown to say which project a recipe installs and not to
-suggest that the project made, endorses or supports the recipe or Noust. The folder's NOTICE says which
-release of the collection the files come from.
+(https://creativecommons.org/publicdomain/zero/1.0/) except where the collection records another licence
+for a mark: that mark is in the list below, and _simple-icons/index.json says it mark by mark. The licence
+covers the files and not the brands: each mark is the trademark of its owner, shown to say which project
+a recipe installs and not to suggest that the project made, endorses or supports the recipe or Noust. The
+folder's NOTICE says which release of the collection the files come from.
+
+Marks of the projects
+----------------------
+The other marks in src/noust/recipes/assets/<recipe>/logo.svg are the projects' own, taken from their
+repositories, their brand kits or collections of the logos of self-hosted software (dashboard-icons,
+Copyright (c) 2024 Bjorn Lammers, Meier Lukas, Thomas Camlong and Homarr Labs, Apache-2.0; selfh.st/icons,
+CC-BY-4.0), and rewritten into the elements the console's policy allows without touching the artwork. Each
+has a LOGO-NOTICE beside it with the address it was taken from, its licence, the copyright line the licence
+asks to travel and what the project's own rules on its logo say. The licence covers the file and not the
+brand. The files, by licence:
+
+  AGPL-3.0-only
+    src/noust/recipes/assets/chatto/logo.svg
+    src/noust/recipes/assets/convertx/logo.svg
+    src/noust/recipes/assets/cup/logo.svg
+    src/noust/recipes/assets/docuseal/logo.svg
+    src/noust/recipes/assets/espocrm/logo.svg
+    src/noust/recipes/assets/homebox/logo.svg
+    src/noust/recipes/assets/opengist/logo.svg
+    src/noust/recipes/assets/openobserve/logo.svg
+    src/noust/recipes/assets/silex/logo.svg
+    src/noust/recipes/assets/steedos/logo.svg
+    src/noust/recipes/assets/unleash/logo.svg
+  AGPL-3.0-only AND LicenseRef-Commons-Clause
+    src/noust/recipes/assets/tandoor/logo.svg
+  AGPL-3.0-or-later
+    src/noust/recipes/assets/_simple-icons/hedgedoc.svg
+    src/noust/recipes/assets/hello/logo.svg
+  Apache-2.0
+    src/noust/recipes/assets/_simple-icons/apachecouchdb.svg
+    src/noust/recipes/assets/_simple-icons/apachesuperset.svg
+    src/noust/recipes/assets/bazarr/logo.svg
+    src/noust/recipes/assets/bytestash/logo.svg
+    src/noust/recipes/assets/chroma/logo.svg
+    src/noust/recipes/assets/cloudbeaver/logo.svg
+    src/noust/recipes/assets/commafeed/logo.svg
+    src/noust/recipes/assets/cyberchef/logo.svg
+    src/noust/recipes/assets/databasus/logo.svg
+    src/noust/recipes/assets/documenso/logo.svg
+    src/noust/recipes/assets/dokuwiki/logo.svg
+    src/noust/recipes/assets/etherpad/logo.svg
+    src/noust/recipes/assets/filegator/logo.svg
+    src/noust/recipes/assets/flarum/logo.svg
+    src/noust/recipes/assets/flatnotes/logo.svg
+    src/noust/recipes/assets/garage/logo.svg
+    src/noust/recipes/assets/gatus/logo.svg
+    src/noust/recipes/assets/glitchtip/logo.svg
+    src/noust/recipes/assets/infisical/logo.svg
+    src/noust/recipes/assets/jellyseerr/logo.svg
+    src/noust/recipes/assets/kimai/logo.svg
+    src/noust/recipes/assets/librespeed/logo.svg
+    src/noust/recipes/assets/logto/logo.svg
+    src/noust/recipes/assets/mage-ai/logo.svg
+    src/noust/recipes/assets/marimo/logo.svg
+    src/noust/recipes/assets/miniflux/logo.svg
+    src/noust/recipes/assets/nocodb/logo.svg
+    src/noust/recipes/assets/open-design/logo.svg
+    src/noust/recipes/assets/open-webui/logo.svg
+    src/noust/recipes/assets/openspeedtest/logo.svg
+    src/noust/recipes/assets/parseable/logo.svg
+    src/noust/recipes/assets/pgadmin/logo.svg
+    src/noust/recipes/assets/planka/logo.svg
+    src/noust/recipes/assets/postgresus/logo.svg
+    src/noust/recipes/assets/rivet-engine/logo.svg
+    src/noust/recipes/assets/shlink/logo.svg
+    src/noust/recipes/assets/stirling-pdf/logo.svg
+    src/noust/recipes/assets/versitygw/logo.svg
+  BSD-2-Clause
+    src/noust/recipes/assets/babybuddy/logo.svg
+    src/noust/recipes/assets/pocket-id/logo.svg
+  BSD-3-Clause
+    src/noust/recipes/assets/headscale/logo.svg
+    src/noust/recipes/assets/healthchecks/logo.svg
+  CC-BY-3.0
+    src/noust/recipes/assets/otterwiki/logo.svg
+  CC-BY-4.0
+    src/noust/recipes/assets/archivebox/logo.svg
+    src/noust/recipes/assets/calibre/logo.svg
+    src/noust/recipes/assets/dagu/logo.svg
+    src/noust/recipes/assets/docmost/logo.svg
+    src/noust/recipes/assets/go2rtc/logo.svg
+    src/noust/recipes/assets/gotify/logo.svg
+    src/noust/recipes/assets/hermes-agent/logo.svg
+    src/noust/recipes/assets/linkwarden/logo.svg
+    src/noust/recipes/assets/lowcoder/logo.svg
+    src/noust/recipes/assets/mazanoke/logo.svg
+    src/noust/recipes/assets/pairdrop/logo.svg
+    src/noust/recipes/assets/privatebin/logo.svg
+    src/noust/recipes/assets/qui/logo.svg
+    src/noust/recipes/assets/sftpgo/logo.svg
+    src/noust/recipes/assets/speedtest-tracker/logo.svg
+    src/noust/recipes/assets/stalwart/logo.svg
+    src/noust/recipes/assets/typesense/logo.svg
+    src/noust/recipes/assets/upsnap/logo.svg
+    src/noust/recipes/assets/wallos/logo.svg
+    src/noust/recipes/assets/weaviate/logo.svg
+  CC-BY-SA-3.0
+    src/noust/recipes/assets/_simple-icons/jenkins.svg
+  CC-BY-SA-4.0
+    src/noust/recipes/assets/_simple-icons/dolibarr.svg
+    src/noust/recipes/assets/_simple-icons/forgejo.svg
+    src/noust/recipes/assets/_simple-icons/openbao.svg
+  GPL-3.0-only
+    src/noust/recipes/assets/cookie-cloud/logo.png
+    src/noust/recipes/assets/kavita/logo.svg
+    src/noust/recipes/assets/lidarr/logo.svg
+    src/noust/recipes/assets/prowlarr/logo.svg
+  LicenseRef-brand-kit
+    src/noust/recipes/assets/anythingllm/logo.svg
+    src/noust/recipes/assets/litellm/logo.svg
+  LicenseRef-brand-page
+    src/noust/recipes/assets/navidrome/logo.svg
+  LicenseRef-custom
+    src/noust/recipes/assets/_simple-icons/keycloak.svg
+  MIT
+    src/noust/recipes/assets/_simple-icons/umami.svg
+    src/noust/recipes/assets/activepieces/logo.svg
+    src/noust/recipes/assets/beszel/logo.svg
+    src/noust/recipes/assets/certmate/logo.png
+    src/noust/recipes/assets/code-server/logo.svg
+    src/noust/recipes/assets/dashy/logo.png
+    src/noust/recipes/assets/databasement/logo.svg
+    src/noust/recipes/assets/docling-serve/logo.png
+    src/noust/recipes/assets/docling/logo.png
+    src/noust/recipes/assets/dozzle/logo.svg
+    src/noust/recipes/assets/flaresolverr/logo.svg
+    src/noust/recipes/assets/heimdall/logo.svg
+    src/noust/recipes/assets/komga/logo.svg
+    src/noust/recipes/assets/librechat/logo.svg
+    src/noust/recipes/assets/libredb-studio/logo.svg
+    src/noust/recipes/assets/linkding/logo.svg
+    src/noust/recipes/assets/mailpit/logo.svg
+    src/noust/recipes/assets/memos/logo.svg
+    src/noust/recipes/assets/onedev/logo.svg
+    src/noust/recipes/assets/openclaw/logo.svg
+    src/noust/recipes/assets/openseo/logo.svg
+    src/noust/recipes/assets/paperclip/logo.svg
+    src/noust/recipes/assets/pulse/logo.svg
+    src/noust/recipes/assets/seerr/logo.svg
+    src/noust/recipes/assets/wekan/logo.svg
+    src/noust/recipes/assets/yourls/logo.svg
+    src/noust/recipes/assets/yuvomi/logo.svg
 
 Fonts of the console
 --------------------

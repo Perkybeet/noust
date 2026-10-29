@@ -329,29 +329,82 @@ templates and no digest anywhere; here:
 
 A logo is an SVG under `recipes/assets/<name>/`, named by `logo:`. The console's Content Security
 Policy forbids inline styles, scripts and every fetch from another origin, and a logo is served
-from the same origin as an image, so the file is held to a closed list: only `svg`, `g`, `rect`,
-`circle`, `ellipse`, `line`, `polyline`, `polygon`, `path`, `text` and `title`; no `style`
-attribute or element, no `class`, no event handler, no `href`, no `url(...)`, no `data:`, no
-`foreignObject`, no doctype or entity, a `viewBox`, at most 8 KiB. It is never fetched from
-anywhere.
+from the same origin as an image, so the file is held to a closed list: `svg`, `g`, `rect`, `circle`,
+`ellipse`, `line`, `polyline`, `polygon`, `path`, `text` and `title`, and `defs` with the
+`linearGradient`, `radialGradient`, `stop` and `clipPath` a mark with more than one colour needs. No
+`style` attribute or element, no `class`, no event handler, no `href` or `xlink:href`, no `data:`, no
+`foreignObject`, no mask, filter, pattern or raster picture, no doctype or entity; a `url(...)` only as
+`url(#id)` to a gradient or a clip path of the same file (ids are unique, and a reference to one that
+is not there is an error); a `viewBox`; at most 250 elements, 12 levels deep and 16 KiB. It is never
+fetched from anywhere, and it is judged again by the same check when it is read to be served, so a file
+that was changed after it was packaged never reaches a browser.
 
 `logo:` is one of two things:
 
 - `simple-icons:<slug>`, the mark the [simple-icons](https://github.com/simple-icons/simple-icons)
-  collection holds for the project (CC0-1.0, files of lower-case letters and digits such as
-  `nextdotjs`). The file is `recipes/assets/_simple-icons/<slug>.svg`, copied unchanged from the
-  collection and shared by every recipe that names the slug; its `NOTICE` says which release of the
-  collection and what the licence covers.
-- `logo.svg`, a file of the recipe: the monogram drawn for Noust (two letters on a dark tile, under
-  Noust's licence), for a project the collection has no mark for or whose guidelines forbid a third
-  party's use of its logo.
+  collection holds for the project (files of lower-case letters and digits such as `nextdotjs`). The
+  file is `recipes/assets/_simple-icons/<slug>.svg`, copied unchanged from the collection and shared by
+  every recipe that names the slug. Beside the files, `NOTICE` says which release of the collection and
+  what its licence covers, and `index.json` records, mark by mark, what the collection says of it: the
+  brand's colour, the licence of that mark (CC0-1.0 for most; the collection records Apache-2.0,
+  CC-BY-SA-4.0, AGPL-3.0-or-later and others where a mark is under another, and a custom one as
+  `LicenseRef-custom` with its address) and the page it was drawn from.
+- `logo.svg`, a file of the recipe: either **the project's own mark**, with a `LOGO-NOTICE` beside it, or
+  **the monogram** drawn for Noust (two letters on a dark tile, under Noust's licence) for a project that
+  has no mark that can be shipped.
 
-The catalogue says which (`logo_source`, `logo_icon` and `logo_license` of `GET /api/recipes`), so
-that a screen can credit a mark as it draws it. `scripts/recipe_logos.py report` lists who has a mark
-and who has the monogram, `apply` writes the marks into the recipes and `check` fails on a slug the
-collection does not have or a file that is not the collection's. A project's logo is its trademark,
-and the collection's licence covers its files and not the brand: the policy for a project's mark, and
-for everything else a recipe says about someone else's software, is in the next section.
+A mark from a project is taken from, in this order: the collection above; the project's own
+repository (its licence covers the file unless it says otherwise); a brand kit or brand page the project
+publishes for third parties; a collection of the logos of self-hosted software
+([dashboard-icons](https://github.com/homarr-labs/dashboard-icons), Apache-2.0, or
+[selfh.st/icons](https://github.com/selfhst/icons), CC-BY-4.0), whose licence covers the collection's
+file and not the brand. SVG is preferred; a PNG is shipped only where there is no SVG and it is 256 pixels
+or more on each side. A file of another project is never copied by hand into `assets/`: it goes through
+
+```bash
+python scripts/recipe_logos.py add NAME FILE --source URL --licence SPDX \
+    --copyright "Copyright (c) ..." --terms "what the project's rules on its logo say, and where"
+```
+
+which rewrites it with `noust.recipes.logo_sanitize.sanitize_svg` (removes `script`, `foreignObject`,
+event handlers, every `href` that does not point inside the file, animation, filters, entities and
+`url(...)` anywhere but `url(#id)`; applies a stylesheet to the shapes and drops it; writes ids of the
+recipe's own, rounds the numbers, gives the file a `viewBox` and no fixed size) and then holds the result
+to the check above, and writes the `LOGO-NOTICE`. A file that needs something the policy cannot carry (a
+raster picture, a mask, a pattern, text that needs a font) is refused with the reason, and another file
+is chosen.
+
+The `LOGO-NOTICE` is one `Field: value` per line: `Mark of` (the project), `Source` (an https address,
+at the commit or release the file was read at), `Licence` (an SPDX expression, or `LicenseRef-<name>` for
+terms the project gave in writing), `Copyright` (the line the licence asks to travel), `Terms` (what the
+project's own rules on its logo say, where and when they were read), `Retrieved` (the day, `YYYY-MM-DD`) and
+`Changes`. `Source`, `Licence` and `Retrieved` are required; a mark without them is not shipped
+(`noust.recipes.logos.parse_logo_notice`, held by `tests/recipes/test_catalog_policy.py`). NOTICE and
+`obs/debian.copyright` list every mark and its licence, written by `scripts/recipe_notice.py` from these
+notices and from `index.json`, so a mark cannot be added without them.
+
+The catalogue says where a logo comes from: `logo_source` (`simple-icons` or `asset`), `logo_icon` (the
+slug), `logo_license` (the licence of the file) and `logo_origin` (where it was taken from) of
+`GET /api/recipes`, so that a screen can credit a mark as it draws it. `logo_license` and
+`logo_origin` are null for the monogram.
+
+**One logo, two stones.** `GET /api/recipes/{name}/logo?scheme=light|dark` answers for the theme the
+console is showing. A mark of one colour keeps it when it reads on the stone (a contrast of 2 to 1 against
+the darkest and the lightest surface of the theme) and otherwise is drawn in the stone's own ink or
+paper; the collection's marks have no colour of their own and take the brand's. A mark of black, white
+and greys is inverted on the theme that would lose it, and one with dark ink beside a colour has the ink
+turned to paper on the dark stone. Anything else is shown as its designer drew it. Nothing is
+invented: where a project's guidelines say "do not recolour", its mark is a coloured one, shown as it is,
+or it is shown in the one colour it uses, or in the stone's ink or paper where its colour would be lost.
+(`noust.recipes.logo_paint`.)
+
+`scripts/recipe_logos.py report` lists who has a mark of the collection, a mark with its notice and the
+monogram (and why); `apply` writes the collection's marks into the recipes; `sync` copies their files
+and writes the folder's `NOTICE` and `index.json`; `check` fails on a slug the collection does not have,
+a file or an index entry that is not the collection's, a file no recipe names and a mark without its
+notice. A project's logo is its trademark, and a licence on a file is not a right in the brand: the
+policy for a project's mark, and for everything else a recipe says about someone else's software, is in
+the next section.
 
 ## Names, marks, licences and logos of the projects
 
@@ -369,15 +422,34 @@ compatibility, and forbid suggesting endorsement and using their marks for a hos
 modified offer. A guideline that matters is named in the recipe's header comment with the day it
 was read.
 
-**Logos.** A recipe's logo is the project's mark from the simple-icons collection (CC0-1.0; its
-`NOTICE`, beside the files, records the release and says the licence covers the files and not the
-brand), or the monogram drawn for Noust: two letters on a dark tile, under Noust's licence. A mark
-from anywhere else is added only when its licence or a written permission allows redistributing it,
-with a `LOGO-NOTICE` file beside it that names the project, the source URL, the licence or
-permission and the date. A project whose guidelines do not allow a third party's use of its logo
-(Plausible's, `plausible.io/trademark`, read 2026-10-06) never gets its mark here, whatever the
-collection holds: it is given the monogram. `tests/recipes/test_catalog_policy.py` fails on a
-logo that is none of these, and on a mark in the package that no recipe names.
+**Logos.** A recipe's logo is the project's own mark, with where it comes from, or the monogram drawn
+for Noust: two letters on a dark tile, under Noust's licence. A mark is shipped when the file's licence,
+a brand kit or a written permission allows redistributing it, or when nothing the project has written
+forbids it, and with a `LOGO-NOTICE` that names the project, the address it was taken from, its
+licence, what the project's own text on its logo says (and where and when it was read) and the day it
+was `Retrieved`. A licence on the file is not a right in the brand: each mark is its owner's trademark,
+shown to say which software a recipe installs and not to suggest that the project made, endorses or
+supports the recipe or Noust. What a project asks is respected. A project whose own text does not let a third party show its
+logo never gets its mark here, whatever a collection holds, and is given the monogram:
+
+- Plausible (`plausible.io/trademark`, read 2026-10-06): the logo is not for a third party's use;
+- TREK (`TRADEMARKS.md`, read 2026-10-29) and Leantime (`leantime.io/trademark-policy`, read 2026-10-29):
+  the word mark may describe a relationship to the software, the logos may not;
+- Owncast (`owncast.online/trademark`, read 2026-10-29): the logo is CC BY-NC 4.0, and Noust is also
+  offered under a commercial licence;
+- Typebot (its `LICENSE`, read 2026-10-29): no right to its trademarks except to identify it as the
+  origin of the software;
+- Joplin (its `LICENSE`, read 2026-10-29): its logos and icons are all rights reserved and need a
+  permission.
+
+A project that asks that its logo be shown as it is drawn (AnythingLLM's brand kit, Flarum, Navidrome,
+Open WebUI) has it shown unmodified: the file is rewritten into the elements the console's policy allows
+and the artwork is not touched. The list is `FORBIDDEN` in `scripts/recipe_logos.py`, with where each rule
+was read, and `tests/recipes/test_catalog_policy.py` fails on a mark for any of them, on a logo that is
+none of these, on a notice without its source, licence and date, and on a mark in the package that no
+recipe names. The projects whose marks are in the package under a licence that asks for credit (the
+CC-BY ones: PrivateBin's, Otter Wiki's, Gotify's, those of the selfh.st collection) are in NOTICE and in
+`obs/debian.copyright`.
 
 **Licences.** `license` is the SPDX expression of the project's code (`LicenseRef-...` where SPDX
 has no identifier). Noust redistributes none of that code: a recipe is configuration and a pointer
