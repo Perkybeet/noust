@@ -74,10 +74,15 @@ def repository_unreachable(runner: CommandRunner, source: str) -> list[str]:
     # "Repository not accessible" even when the credentials were fine.
     safe_cwd = Path.home() if Path.home().exists() else Path("/")
 
+    # Imported here: the integration reads the store, which imports half of Noust.
+    from noust.integrations.github.app import token_environment
+
     probe = runner.run(
         ["git", "ls-remote", "--exit-code", source],
         cwd=safe_cwd,
-        env=git_environment(),
+        # The token the clone will carry (this server's App, or the one its central leased)
+        # carries the probe too: a repository only it reaches is not "not accessible".
+        env={**git_environment(), **token_environment(source)},
         timeout=GIT_PROBE_TIMEOUT,
     )
     if probe.success:

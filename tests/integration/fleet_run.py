@@ -60,6 +60,15 @@ Added in 4.1 (scenarios_fleet_notifications.py; it starts a second node too):
       runs says so through its own channel, once, and says it when the central calls again; the
       record of deliveries of the fleet lists what the node delivered
 
+Added in 4.1 (scenarios_fleet_sources.py; it needs no second node, and runs a GitHub of its own in the
+central):
+    - fleet_sources: a node with no GitHub App and no deploy key creates an application from a private
+      repository because its central leased it a token scoped to that repository and to reading it,
+      sealed on the node and renewed; a signed push delivered to the central's /hooks/github is handed
+      to the node, which deploys it, while the central writes the commit's deployment on GitHub with
+      its own credentials; the central stops, the access ends on the node's own clock and the update
+      that starts there fails saying exactly that; the central is back and it works
+
 Secrets (the master token, the two-factor secret, TOTP codes, the fleet
 token, session and CSRF tokens, the sealed-secrets passphrase) never appear in
 any argv, on this host or inside a container: they travel over ``docker exec
@@ -3504,6 +3513,13 @@ scenarios_fleet_settings.register(sys.modules[__name__])
 import scenarios_fleet_notifications  # noqa: E402
 
 scenarios_fleet_notifications.register(sys.modules[__name__])
+
+# And the GitHub access a central gives its servers (4.1): a token leased to clone a private
+# repository, the pushes handed on from the central's webhook, the status of the commit, and the
+# central going quiet.
+import scenarios_fleet_sources  # noqa: E402
+
+scenarios_fleet_sources.register(sys.modules[__name__])
 
 
 def parse_args() -> argparse.Namespace:

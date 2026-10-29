@@ -661,6 +661,30 @@ def token_access_configured() -> bool:
     return github_app_configured() or leases_held()
 
 
+def token_environment(url: str, *, config_index: int = 0) -> dict[str, str]:
+    """
+    Build the git environment of the token that would clone a repository, when one would.
+
+    For the code that asks git something before it clones (the probe that comes before a deploy)
+    and must not fail on a repository only the token reaches. A token that cannot be had is
+    logged and the probe goes without it: git's own words say what is wrong.
+
+    Args:
+        url: The repository URL.
+        config_index: The first free ``GIT_CONFIG_KEY_<n>`` index.
+
+    Returns:
+        The variables to add to git's environment; empty when no App or lease reaches the URL.
+    """
+    if not has_token_access(url):
+        return {}
+    try:
+        return git_auth_environment(url, config_index=config_index)
+    except IntegrationError as exc:
+        logger.warning("No GitHub token for %s: %s", url, exc.message)
+        return {}
+
+
 def leases_held() -> bool:
     """
     Tell whether a central has leased this server any GitHub access, cheaply.
