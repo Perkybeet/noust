@@ -99,7 +99,7 @@ export function Card({
             ) : null}
             {description !== undefined ? <p className="mt-0.5 text-13 text-pretty text-fg-muted">{description}</p> : null}
           </div>
-          {actions !== undefined ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+          {actions !== undefined ? <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
         </header>
       ) : null}
       {children !== undefined ? (

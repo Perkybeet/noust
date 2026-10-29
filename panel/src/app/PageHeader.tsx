@@ -133,7 +133,7 @@ export function PageHeader({
         ) : null}
       </div>
       {hasActions ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">
           <DemotePrimary active={yielded}>
             {actions}
             {secondaryActions}

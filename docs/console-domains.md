@@ -7,7 +7,8 @@ Six sections, as tabs under the title, and each is a page with its own title and
 - **Domains**: every name the server answers on, with the application it belongs to and whether it
   has HTTPS (a certificate and the days it has left, or "No HTTPS"). **Add domain** is the way to put
   a name on an application and get its certificate in one dialog: choose the application, type the
-  name, and the dialog asks DNS where the name points before you press the button. A name opens its
+  name, and the dialog asks DNS where the name points before you press the button; the role (alias
+  or redirect), the port and whether to make the DNS record are under **More options**. A name opens its
   application's own Domains section, where its spelling (`www` or the bare name), its port and its
   certificate are chosen.
 - **Sites**: every nginx or Apache site; create, enable, disable, delete, and edit a site's
