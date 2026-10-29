@@ -1,1 +1,0 @@
-import{f as e,sr as t}from"./icons-BCoUS5XU.js";var n={sites:[`native-sites`],of:e=>[`app`,e,`adoption`]},r=()=>t({queryKey:n.sites,queryFn:({signal:t})=>e(`get`,`/api/apps/native-sites`,{signal:t})}),i=r=>t({queryKey:n.of(r),queryFn:({signal:t})=>e(`get`,`/api/apps/{domain}/adoption`,{params:{domain:r},signal:t})});export{r as n,i as t};

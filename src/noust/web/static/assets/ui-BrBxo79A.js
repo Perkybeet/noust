@@ -1,0 +1,1 @@
+import{n as e}from"./TextLink-CiasXnjr.js";var t=e(`inline`);export{t};

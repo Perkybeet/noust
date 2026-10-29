@@ -1,0 +1,1 @@
+import{t as e}from"./InvitePage-LhtJtGMV.js";var t=e;export{t as component};
