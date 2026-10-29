@@ -742,6 +742,105 @@ CATALOG: dict[str, str] = {
         "starts on this server and reads {repository} fails. A deploy key does not depend on the "
         "central; see: {command}"
     ),
+    # -- Noust DNS: what setting up a name server takes on, and how to delegate a domain to it ----
+    "authdns.warning.availability": (
+        "A name server is a service the whole internet depends on: if it is down, every name it "
+        "serves is down"
+    ),
+    "authdns.warning.availability.hint": (
+        "Run at least two, on servers in different networks, and keep their operating systems "
+        "updated."
+    ),
+    "authdns.warning.amplification": (
+        "A name server on the internet can be used to flood other people with traffic"
+    ),
+    "authdns.warning.amplification.hint": (
+        "Noust DNS never recurses, limits how fast it answers one address and hands zone transfers "
+        "only to the servers you name, which keeps it a poor tool for that. It still answers on "
+        "port 53 for anyone, so keep it updated."
+    ),
+    "authdns.delegation.glue": (
+        "At your registrar, register {hosts} as name servers with these addresses: {addresses}"
+    ),
+    "authdns.delegation.glue.hint": (
+        "A name server inside the domain it serves can only be found through addresses the "
+        "registrar itself holds (glue records). Your registrar may call them host records or "
+        "child name servers."
+    ),
+    "authdns.delegation.nameservers": (
+        "At your registrar, set the name servers of {zone} to {nameservers}"
+    ),
+    "authdns.delegation.nameservers.hint": (
+        "Look for custom name servers or DNS delegation in the domain's settings. The change "
+        "reaches resolvers after the registrar's TTL, often a few hours and at most two days."
+    ),
+    "authdns.delegation.ds": (
+        "Once the name servers have changed, add this DS record to {zone} at your registrar: {ds}"
+    ),
+    "authdns.delegation.ds.hint": (
+        "Enter the key tag, the algorithm, the digest type and the digest in the order your "
+        "registrar's form asks for them. Adding the DS before the name servers changed makes "
+        "resolvers that validate refuse the domain."
+    ),
+    "authdns.delegation.check": "Check that resolvers find your name servers",
+    "authdns.delegation.check.hint": "Run: {command}",
+    "authdns.delegation.one_server": "Only one name server answers for {zone}",
+    "authdns.delegation.one_server.hint": (
+        "If it is down, {zone} is down. Add a secondary on another server, in another network, "
+        "and name it in the zone."
+    ),
+    "authdns.delegation.same_network": "{first} and {second} are in the same network",
+    "authdns.delegation.same_network.hint": (
+        "One outage there takes both. Put one of them in another network."
+    ),
+    "authdns.check.not_delegated": "Resolvers find {found} for {zone}, not your name servers",
+    "authdns.check.not_delegated.hint": (
+        "Change the name servers at your registrar and wait for its TTL to pass."
+    ),
+    "authdns.check.no_public_answer": (
+        "No public resolver answered, so the delegation of {zone} could not be checked"
+    ),
+    "authdns.check.no_public_answer.hint": (
+        "Check this server's outbound access to port 53 of the public resolvers."
+    ),
+    "authdns.check.silent": "{server} at {address} did not answer for {zone}",
+    "authdns.check.silent.hint": (
+        "Port 53 over UDP and TCP must be open to the internet on {address}, in the firewall and "
+        "in your provider's panel."
+    ),
+    "authdns.check.not_authoritative": (
+        "{server} at {address} answered, but not as the authority for {zone}"
+    ),
+    "authdns.check.not_authoritative.hint": (
+        "The zone is not loaded there yet, or another program answers on port 53."
+    ),
+    "authdns.check.recurses": "{server} at {address} answers questions about other domains",
+    "authdns.check.recurses.hint": (
+        "A name server open to recursion can be used to attack others. Noust DNS never does "
+        "this: another program is answering on that address."
+    ),
+    "authdns.check.out_of_sync": (
+        "{server} serves serial {serial} of {zone} and {primary} serves {primary_serial}"
+    ),
+    "authdns.check.out_of_sync.hint": (
+        "A secondary copies a zone a few seconds after the primary changes it. If this lasts, "
+        "check that the primary can reach it on port 53."
+    ),
+    "authdns.check.ds_missing": "The parent zone has no DS record for {zone}, which is signed",
+    "authdns.check.ds_missing.hint": (
+        "Add it at your registrar, after the name servers have changed."
+    ),
+    "authdns.check.ds_mismatch": (
+        "The DS record the parent zone holds for {zone} is not the one of this zone's key"
+    ),
+    "authdns.check.ds_mismatch.hint": ("Replace it at your registrar with the one in the steps."),
+    "authdns.check.ds_dangling": (
+        "The parent zone holds a DS record for {zone}, and the zone is not signed"
+    ),
+    "authdns.check.ds_dangling.hint": (
+        "Resolvers that validate refuse the domain. Remove the DS at your registrar, or sign the "
+        "zone."
+    ),
 }
 
 

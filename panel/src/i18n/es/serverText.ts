@@ -21,6 +21,82 @@ export const serverText: Catalog<typeof en> = {
       hint: "Envía el motivo en la cabecera {header} (codificado en porcentaje).",
     },
   },
+  authdns: {
+    check: {
+      ds_dangling: {
+        text: "La zona superior tiene un registro DS para {zone}, y la zona no está firmada",
+        hint: "Los resolutores que validan rechazan el dominio. Quita el DS en tu registrador, o firma la zona.",
+      },
+      ds_mismatch: {
+        text: "El registro DS que la zona superior tiene para {zone} no es el de la clave de esta zona",
+        hint: "Sustitúyelo en tu registrador por el de los pasos.",
+      },
+      ds_missing: {
+        text: "La zona superior no tiene registro DS para {zone}, que está firmada",
+        hint: "Añádelo en tu registrador, después de que hayan cambiado los servidores de nombres.",
+      },
+      no_public_answer: {
+        text: "Ningún resolutor público respondió, así que no se pudo comprobar la delegación de {zone}",
+        hint: "Comprueba la salida de este servidor al puerto 53 de los resolutores públicos.",
+      },
+      not_authoritative: {
+        text: "{server} en {address} respondió, pero no como autoridad de {zone}",
+        hint: "La zona aún no está cargada allí, o responde otro programa en el puerto 53.",
+      },
+      not_delegated: {
+        text: "Los resolutores encuentran {found} para {zone}, no tus servidores de nombres",
+        hint: "Cambia los servidores de nombres en tu registrador y espera a que pase su TTL.",
+      },
+      out_of_sync: {
+        text: "{server} sirve el número de serie {serial} de {zone} y {primary} sirve {primary_serial}",
+        hint: "Un secundario copia una zona unos segundos después de que el primario la cambie. Si dura, comprueba que el primario llega a él por el puerto 53.",
+      },
+      recurses: {
+        text: "{server} en {address} responde preguntas sobre otros dominios",
+        hint: "Un servidor de nombres abierto a la recursión puede usarse para atacar a otros. Noust DNS nunca lo hace: en esa dirección responde otro programa.",
+      },
+      silent: {
+        text: "{server} en {address} no respondió por {zone}",
+        hint: "El puerto 53 por UDP y TCP debe estar abierto a internet en {address}, en el cortafuegos y en el panel de tu proveedor.",
+      },
+    },
+    delegation: {
+      check: {
+        text: "Comprueba que los resolutores encuentran tus servidores de nombres",
+        hint: "Ejecuta: {command}",
+      },
+      ds: {
+        text: "Cuando hayan cambiado los servidores de nombres, añade este registro DS a {zone} en tu registrador: {ds}",
+        hint: "Escribe la etiqueta de la clave, el algoritmo, el tipo de resumen y el resumen en el orden que pida el formulario de tu registrador. Añadir el DS antes de que cambien los servidores de nombres hace que los resolutores que validan rechacen el dominio.",
+      },
+      glue: {
+        text: "En tu registrador, da de alta {hosts} como servidores de nombres con estas direcciones: {addresses}",
+        hint: "Un servidor de nombres dentro del dominio que sirve solo se encuentra por direcciones que guarda el propio registrador (registros glue). Tu registrador puede llamarlos registros de host o servidores de nombres hijos.",
+      },
+      nameservers: {
+        text: "En tu registrador, pon como servidores de nombres de {zone}: {nameservers}",
+        hint: "Busca servidores de nombres personalizados o delegación DNS en los ajustes del dominio. El cambio llega a los resolutores tras el TTL del registrador, a menudo unas horas y como mucho dos días.",
+      },
+      one_server: {
+        text: "Solo un servidor de nombres responde por {zone}",
+        hint: "Si cae, {zone} cae. Añade un secundario en otro servidor, en otra red, y nómbralo en la zona.",
+      },
+      same_network: {
+        text: "{first} y {second} están en la misma red",
+        hint: "Una caída allí se lleva a los dos. Pon uno de ellos en otra red.",
+      },
+    },
+    warning: {
+      amplification: {
+        text: "Un servidor de nombres en internet puede usarse para inundar de tráfico a otras personas",
+        hint: "Noust DNS nunca recursa, limita la velocidad con que responde a una dirección y entrega transferencias de zona solo a los servidores que nombras, lo que lo hace una mala herramienta para eso. Aun así responde en el puerto 53 a cualquiera, así que mantenlo actualizado.",
+      },
+      availability: {
+        text: "Un servidor de nombres es un servicio del que depende todo internet: si cae, caen todos los nombres que sirve",
+        hint: "Pon al menos dos, en servidores de redes distintas, y mantén actualizados sus sistemas operativos.",
+      },
+    },
+  },
   controls: {
     asked_by_framework: {
       text: "El control {control} lo pide, y el marco de cumplimiento en vigor ({frameworks}) pide ese control, así que sigue activo mientras el marco lo esté y no se puede desactivar por sí solo.",
