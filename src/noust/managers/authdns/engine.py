@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from noust.core import paths
-from noust.core.exceptions import ServiceError
+from noust.core.exceptions import IntegrationError, ServiceError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.package_family import install_apt_packages
 from noust.core.runner import CommandResult, CommandRunner, get_runner
@@ -77,8 +77,14 @@ _ZONE_STATUS = re.compile(r"\[(?P<zone>[^\]]+)\]\s*(?P<rest>.*)")
 _DS = re.compile(r"(?P<zone>\S+)\s+DS\s+(\d+)\s+(\d+)\s+(\d+)\s+([0-9a-fA-F]+)")
 
 
-class EngineError(ServiceError):
-    """Knot, or its configuration, could not be put into the state asked for."""
+class EngineError(ServiceError, IntegrationError):
+    """
+    Knot, or its configuration, could not be put into the state asked for.
+
+    The program refused what it was given (a zone that fails its checks, a configuration it does
+    not read) or would not start: an answer of the API is 502, "the program under Noust said no",
+    with its own words in ``output``, and not a 500 for a fault in Noust.
+    """
 
 
 @dataclass(frozen=True)
@@ -302,6 +308,30 @@ class KnotEngine:
             platform.why_updates_unsupported() or "No supported package manager.",
         )
 
+    def installation_plan(self, *, epel: bool = False) -> list[list[str]]:
+        """
+        How Knot is installed here, once the operator has agreed to what it takes.
+
+        Args:
+            epel: The operator agreed to enable EPEL, where Knot comes from it.
+
+        Returns:
+            The commands.
+
+        Raises:
+            ConfirmationRequiredError: EPEL is needed and ``epel`` is False.
+            UnsupportedHostError: It cannot be installed here.
+        """
+        commands, needs_epel = self.install_plan()
+        if needs_epel and not epel:
+            raise ConfirmationRequiredError(
+                "Knot DNS comes from EPEL on this system",
+                details="EPEL is a third-party repository maintained by Fedora. Confirm that it "
+                "may be enabled to install Knot from it.",
+                required={"epel": True, "packages": [argv[-1] for argv in commands]},
+            )
+        return commands
+
     def install(
         self, *, epel: bool = False, on_output: Callable[[str], None] | None = None
     ) -> tuple[int, ...]:
@@ -322,14 +352,7 @@ class KnotEngine:
         """
         if self.installed():
             return self.require_version()
-        commands, needs_epel = self.install_plan()
-        if needs_epel and not epel:
-            raise ConfirmationRequiredError(
-                "Knot DNS comes from EPEL on this system",
-                details="EPEL is a third-party repository maintained by Fedora. Confirm that it "
-                "may be enabled to install Knot from it.",
-                required={"epel": True, "packages": [argv[-1] for argv in commands]},
-            )
+        commands = self.installation_plan(epel=epel)
         for argv in commands:
             if argv[:3] == ["apt-get", "install", "-y"]:
                 result = install_apt_packages(

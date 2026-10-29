@@ -971,7 +971,7 @@ AuthDnsZoneModel = TypedDict("AuthDnsZoneModel", {
 })
 
 AuthDnsZoneSummaryModel = TypedDict("AuthDnsZoneSummaryModel", {
-    "dnssec": Required[bool],
+    "dnssec": NotRequired[Union[bool, None]],
     "name": Required[str],
     "records": Required[int],
     "role": Required[str],

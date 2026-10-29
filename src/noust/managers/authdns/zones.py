@@ -73,14 +73,15 @@ class ZoneSummary:
         name: The zone.
         records: How many records it holds (a primary's).
         serial: The SOA serial the server serves now; None when it does not say.
-        dnssec: The zone is signed.
+        dnssec: The zone is signed; None on a secondary, which serves what it copied and does not
+            know whether the primary signs it.
         role: ``master`` where the server holds the zone, ``slave`` where it copies it.
     """
 
     name: str
     records: int
     serial: int | None
-    dnssec: bool
+    dnssec: bool | None
     role: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -226,7 +227,7 @@ class ZoneEditor:
                 for zone in self.records.zones()
             ]
         return [
-            ZoneSummary(name, 0, item.serial, False, item.role)
+            ZoneSummary(name, 0, item.serial, None, item.role)
             for name, item in sorted(status.items())
             if name != paths.AUTHDNS_CATALOG
         ]

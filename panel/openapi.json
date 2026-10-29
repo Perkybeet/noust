@@ -5861,11 +5861,18 @@
         "type": "object"
       },
       "AuthDnsZoneSummaryModel": {
-        "description": "A zone in a list.\n\nAttributes:\n    name: The zone.\n    records: How many records it holds (a primary's).\n    serial: The SOA serial the server serves now.\n    dnssec: The zone is signed.\n    role: ``master`` where the server holds the zone, ``slave`` where it copies it.",
+        "description": "A zone in a list.\n\nAttributes:\n    name: The zone.\n    records: How many records it holds (a primary's).\n    serial: The SOA serial the server serves now.\n    dnssec: The zone is signed; null on a secondary, which does not know whether the primary\n        signs what it copied.\n    role: ``master`` where the server holds the zone, ``slave`` where it copies it.",
         "properties": {
           "dnssec": {
-            "title": "Dnssec",
-            "type": "boolean"
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dnssec"
           },
           "name": {
             "title": "Name",
@@ -5894,7 +5901,6 @@
         "required": [
           "name",
           "records",
-          "dnssec",
           "role"
         ],
         "title": "AuthDnsZoneSummaryModel",

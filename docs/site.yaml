@@ -382,6 +382,10 @@ tabs:
             slug: guides/network/dns-tunnels-and-ports
             type: guide
             summary: DNS accounts and the records Noust keeps, a private network, a Cloudflare Tunnel, and TCP and UDP ports published on purpose.
+          - source: docs/network-dns-server.md
+            slug: guides/network/name-server
+            type: guide
+            summary: A name server of your own on your servers (a primary and secondaries), its zones, DNSSEC, and the exact steps to delegate a domain to it.
           - source: docs/network-webserver.md
             slug: guides/network/web-server
             type: guide

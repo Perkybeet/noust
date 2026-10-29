@@ -288,6 +288,22 @@ class AuthDnsServers:
         self.engine.install(epel=epel, on_output=on_output)
         return self.status()
 
+    def check_install(self, *, epel: bool = False) -> None:
+        """
+        Refuse, before anything is queued, an installation the operator has not agreed to or the
+        system cannot take.
+
+        Args:
+            epel: The operator agreed to enable EPEL, where it is needed.
+
+        Raises:
+            ConfirmationRequiredError: EPEL is needed and ``epel`` is False.
+            UnsupportedHostError: Knot cannot be installed here.
+        """
+        require_server_role("Noust DNS")
+        if not self.engine.installed():
+            self.engine.installation_plan(epel=epel)
+
     def check_setup(
         self,
         role: str,

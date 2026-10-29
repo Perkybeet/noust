@@ -73,7 +73,7 @@ def list_command(ctx: Context) -> None:
                 item.role,
                 str(item.records),
                 str(item.serial) if item.serial is not None else "-",
-                "signed" if item.dnssec else "no",
+                "-" if item.dnssec is None else ("signed" if item.dnssec else "no"),
             ]
             for item in zones
         ],

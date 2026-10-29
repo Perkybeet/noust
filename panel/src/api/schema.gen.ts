@@ -34418,12 +34418,13 @@ export interface components {
          *         name: The zone.
          *         records: How many records it holds (a primary's).
          *         serial: The SOA serial the server serves now.
-         *         dnssec: The zone is signed.
+         *         dnssec: The zone is signed; null on a secondary, which does not know whether the primary
+         *             signs what it copied.
          *         role: ``master`` where the server holds the zone, ``slave`` where it copies it.
          */
         AuthDnsZoneSummaryModel: {
             /** Dnssec */
-            dnssec: boolean;
+            dnssec?: boolean | null;
             /** Name */
             name: string;
             /** Records */

@@ -49,7 +49,7 @@ except where the other end is yours and needs nothing.
 | Log shipping, audit shipping | The syslog or HTTP destination you configured | Continuously, once you configure one |
 | Backup destinations | The destination you configured, which `rclone` reaches (S3-compatible storage, B2, SFTP, SMB, WebDAV and the rest of its backends) | When a backup runs or you test the destination |
 | Git and registries | The repositories and registries your applications deploy from, as the account you connected | When you deploy, update or browse a repository |
-| DNS and certificates | The DNS provider's API with your token (Cloudflare, DigitalOcean, Hetzner, Gandi, IONOS or Route 53), the DNS resolvers you check against, Let's Encrypt (through certbot) | When you add a domain or a certificate renews |
+| DNS and certificates | The DNS provider's API with your token (Cloudflare, DigitalOcean, Hetzner, Gandi, IONOS or Route 53), the DNS resolvers you check against, the name servers of a zone and the public resolvers when you check that a domain is delegated to Noust DNS, Let's Encrypt (through certbot) | When you add a domain or a certificate renews |
 | Secret managers | The Vault, Infisical or Doppler server you registered | When an application using its secrets deploys |
 | Single sign-on | The identity provider or the directory (LDAP, Active Directory) you set up | When someone signs in through it, or it provisions accounts |
 | Probes | The addresses you asked to probe from outside an application | At the interval of each probe |

@@ -281,6 +281,48 @@ class TestTheServer:
         assert done.json() == {"removed": True}
 
 
+class TestAnInstallationThatNeedsAYes:
+    @pytest.fixture(autouse=True)
+    def _rhel(self, world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+        from types import SimpleNamespace
+
+        from noust.managers.server.host import PackageFamily
+
+        monkeypatch.setattr(
+            "noust.managers.authdns.engine.detect_platform",
+            lambda _runner: SimpleNamespace(
+                family=PackageFamily.DNF,
+                os=SimpleNamespace(id="almalinux", version_id="9.4", id_like="rhel centos fedora"),
+                why_updates_unsupported=lambda: "",
+            ),
+        )
+        world.runner._known_programs = {"dnf"}
+
+    def test_epel_is_asked_for_before_a_job_is_queued(
+        self, client: TestClient, jobs: list[dict[str, Any]]
+    ) -> None:
+        for path, body in (
+            ("/api/dns/noust/server/install", {}),
+            ("/api/dns/noust/server", {"role": "primary", "hostname": "ns1.example.net"}),
+        ):
+            response = client.post(path, json=body)
+
+            assert response.status_code == 409, response.text
+            assert response.json()["error"] == "confirmation_required"
+            assert response.json()["required"] == {
+                "epel": True,
+                "packages": ["epel-release", "knot"],
+            }
+        assert jobs == []
+
+    def test_with_the_yes_it_is_queued(
+        self, client: TestClient, jobs: list[dict[str, Any]]
+    ) -> None:
+        response = client.post("/api/dns/noust/server/install", json={"epel": True})
+
+        assert response.status_code == 202 and len(jobs) == 1
+
+
 class TestSudoMode:
     @pytest.mark.parametrize(
         ("method", "path", "body"),
@@ -452,3 +494,26 @@ class TestDnssecAndDelegation:
 
     def test_a_zone_that_is_not_there_has_no_plan(self, client: TestClient) -> None:
         assert client.get("/api/dns/noust/zones/nope.example/delegation").status_code == 400
+
+
+class TestWhenTheNameServerSaysNo:
+    def test_a_change_knot_does_not_take_is_a_502_with_its_own_words_and_the_zone_as_it_was(
+        self, client: TestClient, primary: World
+    ) -> None:
+        client.post("/api/dns/noust/zones", json={"name": "example.com"})
+        primary.runner.script(
+            ["knotc", "-c", str(primary.config), "-b", "zone-reload", "example.com."],
+            stderr="error: [example.com.] (failed)",
+            exit_code=1,
+        )
+
+        response = client.post(
+            "/api/dns/noust/zones/example.com/records",
+            json={"name": "www", "type": "A", "content": "192.0.2.1"},
+        )
+
+        assert response.status_code == 502, response.text
+        body = response.json()
+        assert body["detail"] == "Knot did not take the file of example.com"
+        assert "(failed)" in body["output"]
+        assert client.get("/api/dns/noust/zones/example.com").json()["records"] == []

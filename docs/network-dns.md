@@ -17,6 +17,10 @@ noust dns ensure shop.example.com api.example.com
 noust dns records | release shop.example.com | sweep | check api.example.com
 ```
 
+A provider is not the only way to have DNS: Noust can also run a name server of its own on your
+servers, with the zones edited in Noust, DNSSEC, and the exact steps to delegate a domain to it. That
+is [Noust DNS](network-dns-server.md), an option with costs that page lists first.
+
 Noust speaks the API of six providers itself: it lists their zones, makes and removes records
 under the ownership model below, and answers the certificate challenge without a certbot plugin
 (see [certificates.md](certificates.md)). Linode, OVH and RFC 2136 still answer the challenge

@@ -419,7 +419,9 @@ class TestWhatThePrimaryServes:
 
         zones = ZoneEditor(world.store, world.servers).zones()
 
-        assert [(z.name, z.serial, z.role) for z in zones] == [("example.com", 7, "slave")]
+        assert [(z.name, z.serial, z.role, z.dnssec) for z in zones] == [
+            ("example.com", 7, "slave", None)
+        ]
 
 
 class TestDnssec:

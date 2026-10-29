@@ -32,14 +32,14 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     CodedText,
     JobAcceptedResponse,
-    NoustErrorRoute,
     require_elevated,
 )
+from noust.web.api.server.common import ServerRoute
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
 from noust.web.pydantic_compat import dump_model
 
-router = APIRouter(route_class=NoustErrorRoute)
+router = APIRouter(route_class=ServerRoute)
 
 Session = Annotated[dict[str, Any], Depends(get_current_session)]
 Elevated = Annotated[dict[str, Any], Depends(require_elevated)]
@@ -224,14 +224,15 @@ class AuthDnsZoneSummaryModel(BaseModel):
         name: The zone.
         records: How many records it holds (a primary's).
         serial: The SOA serial the server serves now.
-        dnssec: The zone is signed.
+        dnssec: The zone is signed; null on a secondary, which does not know whether the primary
+            signs what it copied.
         role: ``master`` where the server holds the zone, ``slave`` where it copies it.
     """
 
     name: str
     records: int
     serial: int | None = None
-    dnssec: bool
+    dnssec: bool | None = None
     role: str
 
 
@@ -571,6 +572,7 @@ def install_server(body: AuthDnsInstallRequest, session: Elevated) -> JobAccepte
     Returns:
         The queued job.
     """
+    AuthDnsServers().check_install(epel=body.epel)
     actor = actor_label(session)
     job = get_job_manager().create_job(
         job_type=JobType.SERVER_ACTION,
@@ -615,6 +617,7 @@ def setup_server(body: AuthDnsSetupRequest, session: Elevated) -> JobAcceptedRes
         primary_address=body.primary_address,
         has_key=body.transfer_key is not None,
     )
+    AuthDnsServers().check_install(epel=body.epel)
     request = dump_model(body)
     secret = (request.pop("transfer_key", None) or {}).get("secret")
     job = get_job_manager().create_job(
