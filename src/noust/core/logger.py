@@ -39,6 +39,12 @@ if TYPE_CHECKING:  # pragma: no cover - imported for types only
 
 _colors_disabled: bool = False
 
+#: Where every debug line goes, whatever the console shows. It is for whoever debugs Noust
+#: itself, so it is a logger a handler can be attached to and not a line in the log a
+#: deployment's operator reads: "Could not tell which process listens on port 3001" is
+#: true, and means nothing to the person who is deploying.
+DEBUG_LOG = "noust.debug"
+
 #: Width used when the output is not a terminal. Rich would otherwise assume
 #: eighty columns and wrap, which turns a piped table into something no tool
 #: downstream can parse and breaks assertions on long lines in the tests.
@@ -395,17 +401,34 @@ class Logger:
 
     def debug(self, message: str) -> None:
         """
-        Log a debug message (only shown in verbose mode).
+        Log a debug message: to the debug log always, to the console only in verbose mode.
 
         Args:
             message: Debug message.
         """
+        logging.getLogger(DEBUG_LOG).debug("%s", message)
         if not self.verbose:
             return
 
         prefix = self._colorize("[DEBUG]", Colors.GRAY)
         msg = self._colorize(message, Colors.GRAY)
         self._write(f"      {prefix} {msg}")
+
+    def output(self, line: str) -> None:
+        """
+        Log one line of a command's own output (only shown in verbose mode).
+
+        What an install or a build prints is not a debug message: it is what a person reads
+        after a failure, so it is told apart from :meth:`debug` and a deployment's log keeps
+        it as the plain text it is.
+
+        Args:
+            line: The line, without its newline.
+        """
+        if not self.verbose:
+            return
+
+        self._write(self._colorize(f"        {line}", Colors.GRAY))
 
     def command_output(self, stdout: str, stderr: str) -> None:
         """

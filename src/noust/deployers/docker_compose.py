@@ -1004,7 +1004,7 @@ class DockerComposeDeployer(AppDeployer):
         if stream:
             return self.runner.stream(
                 command,
-                on_line=self.logger.debug,
+                on_line=self.logger.output,
                 cwd=self.app_path,
                 timeout=timeout,
                 env=merged,
@@ -2530,14 +2530,14 @@ class DockerComposeDeployer(AppDeployer):
             service_manager = ServiceManager(verbose=self.verbose)
             service_manager.delete_service(self.app_name)
         except (NoustError, OSError) as e:
-            self.logger.debug(f"Service cleanup failed: {e}")
+            self.logger.warning(f"Service cleanup failed: {e}")
 
         # Remove nginx config (only if web-facing); an operator's is kept.
         if not self._is_headless():
             try:
                 remove_app_site(self.domain, logger=self.logger, manager=self.webserver_manager())
             except (NoustError, OSError) as e:
-                self.logger.debug(f"Site cleanup failed: {e}")
+                self.logger.warning(f"Site cleanup failed: {e}")
 
         # Remove app directory: only what this deploy put there.
         if self.deploy_target is not None:
@@ -2546,13 +2546,13 @@ class DockerComposeDeployer(AppDeployer):
             try:
                 self.fs.remove_tree(self.app_path)
             except OSError as e:
-                self.logger.debug(f"File cleanup failed: {e}")
+                self.logger.warning(f"File cleanup failed: {e}")
 
         # Clean store
         try:
             self.store.delete_app(self.domain)
         except (NoustError, sqlite3.Error) as e:
-            self.logger.debug(f"Store cleanup failed: {e}")
+            self.logger.warning(f"Store cleanup failed: {e}")
 
         self.logger.info("Rollback complete")
 
@@ -3782,13 +3782,13 @@ class DockerComposeDeployer(AppDeployer):
             service_manager = ServiceManager(verbose=self.verbose)
             service_manager.delete_service(self.app_name)
         except (NoustError, OSError) as e:
-            self.logger.debug(f"Service cleanup failed: {e}")
+            self.logger.warning(f"Service cleanup failed: {e}")
 
         # Remove nginx config; an operator's is kept, and said so.
         try:
             remove_app_site(self.domain, logger=self.logger, manager=self.webserver_manager())
         except (NoustError, OSError) as e:
-            self.logger.debug(f"Site cleanup failed: {e}")
+            self.logger.warning(f"Site cleanup failed: {e}")
 
         # Clean store
         try:
@@ -3796,7 +3796,7 @@ class DockerComposeDeployer(AppDeployer):
             self.store.delete_service(self.app_name)
             self.store.delete_app(self.domain)
         except (NoustError, sqlite3.Error) as e:
-            self.logger.debug(f"Store cleanup failed: {e}")
+            self.logger.warning(f"Store cleanup failed: {e}")
 
 
 @dataclass(frozen=True)

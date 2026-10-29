@@ -526,7 +526,7 @@ class MonorepoDeployer(AppDeployer):
             BuildError: The monorepo builds in the sandbox and the sandbox does
                 not hold on this server; it never falls back to root.
         """
-        self.logger.debug(f"Running: {' '.join(command)}")
+        self.logger.substep(f"Running: {' '.join(command)}")
 
         # Beyond the variables of the deployment: what only the build is given and what Noust
         # says about the deployment, less what only the running workspaces are given.
@@ -576,7 +576,7 @@ class MonorepoDeployer(AppDeployer):
             if stream:
                 return self.runner.stream(
                     command,
-                    on_line=self.logger.debug,
+                    on_line=self.logger.output,
                     cwd=cwd or self.build_path,
                     env=run_env or None,
                     timeout=timeout,
@@ -905,7 +905,7 @@ class MonorepoDeployer(AppDeployer):
                 # Rollback is the last line of defence; whatever it hits, the
                 # original failure is what the caller must see.
                 except Exception as rollback_error:
-                    self.logger.debug(f"Rollback error: {rollback_error}")
+                    self.logger.warning(f"Rollback error: {rollback_error}")
                     self.logger.warning("Rollback had some errors. Manual cleanup may be needed.")
 
             raise
@@ -2575,7 +2575,8 @@ class MonorepoDeployer(AppDeployer):
             errors.append(f"Store cleanup error: {e}")
 
         if errors:
-            self.logger.debug(f"Rollback errors: {errors}")
+            for error in errors:
+                self.logger.warning(error)
 
 
 DeployerRegistry.register(MonorepoDeployer)

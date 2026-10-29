@@ -17,6 +17,7 @@ deploy.
 
 from __future__ import annotations
 
+import logging
 import stat
 from datetime import datetime
 from pathlib import Path
@@ -26,6 +27,7 @@ import pytest
 
 from noust.core.exceptions import BackupError, BuildError
 from noust.core.fs import DryRunFileSystem, set_fs
+from noust.core.logger import DEBUG_LOG
 from noust.core.runner import FakeRunner
 from noust.core.store import DeploymentStatus, NoustStore, StoreError
 from noust.deployers.helpers.target import DeployTarget
@@ -137,7 +139,7 @@ def test_streamed_build_output_is_captured_without_verbose(
     tmp_path: Path, store: NoustStore
 ) -> None:
     """
-    The runner streams install output through ``logger.debug``, which a quiet
+    The runner streams install output through ``logger.output``, which a quiet
     console drops. The captured log must hold it anyway: it is the part the
     operator reads after a failure.
     """
@@ -551,29 +553,70 @@ def test_a_refused_rollback_records_nothing(tmp_path: Path, store: NoustStore) -
 
 
 def test_capturing_logger_mirrors_suppressed_detail(capsys: pytest.CaptureFixture) -> None:
-    """Verbose-only lines reach the sink even when the console drops them."""
+    """What a person reads in a deployment's log reaches the sink even when the console drops it."""
     logger = CapturingLogger(verbose=False)
     lines: list[str] = []
     logger.attach_sink(lines.append)
 
     logger.step(1, 2, "Building application")
-    logger.debug("hidden debug line")
     logger.substep("hidden substep")
+    logger.output("added 42 packages in 3s")
     logger.command_output("stdout line\n", "stderr line\n")
 
     captured = "\n".join(lines)
     assert "Building application" in captured
-    assert "hidden debug line" in captured
     assert "hidden substep" in captured
+    assert "added 42 packages in 3s" in captured
     assert "stdout line" in captured
     assert "stderr line" in captured
 
     console = capsys.readouterr().out
-    assert "hidden debug line" not in console, "the console keeps its quiet default"
+    assert "added 42 packages" not in console, "the console keeps its quiet default"
 
     logger.detach_sink()
-    logger.debug("after detach")
+    logger.output("after detach")
     assert "after detach" not in "\n".join(lines)
+
+
+@pytest.mark.parametrize("verbose", [False, True])
+def test_a_debug_line_never_reaches_the_deployment_log(
+    verbose: bool, caplog: pytest.LogCaptureFixture
+) -> None:
+    """
+    A debug line is for whoever debugs Noust, not for the person reading the deployment.
+
+    "[DEBUG] Could not tell which process listens on port 3001" is true and means
+    nothing to an operator. It goes to the debug log; the log of the deployment
+    holds what the operator needs, whether or not the console is verbose.
+    """
+    logger = CapturingLogger(verbose=verbose)
+    lines: list[str] = []
+    logger.attach_sink(lines.append)
+
+    with caplog.at_level(logging.DEBUG, logger=DEBUG_LOG):
+        logger.debug("Could not tell which process listens on port 3001")
+
+    assert lines == []
+    assert [record.getMessage() for record in caplog.records if record.name == DEBUG_LOG] == [
+        "Could not tell which process listens on port 3001"
+    ]
+
+
+def test_streamed_command_output_is_not_labelled_debug(capsys: pytest.CaptureFixture) -> None:
+    """The lines of an install are output, in the log as plain text and on a verbose console."""
+    quiet = CapturingLogger(verbose=False)
+    lines: list[str] = []
+    quiet.attach_sink(lines.append)
+    quiet.output("added 42 packages in 3s")
+    assert lines == ["        added 42 packages in 3s"]
+
+    loud = CapturingLogger(verbose=True, no_color=True)
+    loud_lines: list[str] = []
+    loud.attach_sink(loud_lines.append)
+    loud.output("added 42 packages in 3s")
+    assert "added 42 packages in 3s" in capsys.readouterr().out
+    assert [line for line in loud_lines if "added 42 packages" in line]
+    assert not [line for line in loud_lines if "DEBUG" in line]
 
 
 # ---------------------------------------------------------------------------

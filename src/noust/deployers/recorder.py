@@ -18,10 +18,13 @@ Two guarantees shape everything here:
   recorder is caught at this boundary, logged as a warning, and the deployment
   continues; a broken history database must not take deploys down with it.
 - **The captured log is complete even when the console is quiet.** The build
-  output the runner streams goes through ``Logger.debug``, which drops it
-  before it is printed unless ``--verbose`` was given. :class:`CapturingLogger`
-  therefore mirrors the suppressed detail to the recording sink as well, so the
-  file always holds what the operator will need after a failure.
+  output the runner streams goes through ``Logger.output``, and the steps' own
+  detail through ``Logger.substep`` and ``command_output``: the console drops all
+  of it unless ``--verbose`` was given. :class:`CapturingLogger` therefore
+  mirrors that detail to the recording sink as well, so the file always holds
+  what the operator will need after a failure. ``Logger.debug`` is the one
+  exception, on purpose: it is for whoever debugs Noust and goes to the debug
+  log (``noust.core.logger.DEBUG_LOG``), never into the file a person reads.
 - **What is recorded carries no secret.** The build runs with the
   application's environment, and the log and the error text are readable with
   the panel's ``read`` scope. Every line and the error pass through a
@@ -175,14 +178,33 @@ class CapturingLogger(Logger):
 
     def debug(self, message: str) -> None:
         """
-        Log a debug message, capturing it even when the console drops it.
+        Log a debug message to the debug log and, when verbose, the console; never the recording.
+
+        The recording is what the operator reads after a deployment. A debug line used to be
+        mirrored into it, so a zero-downtime log said "[DEBUG] Could not tell which process
+        listens on port 3001" to someone who only wanted to know whether it went through.
+        What an operator needs is said with :meth:`substep`, :meth:`output` or a warning.
 
         Args:
             message: Debug message.
         """
+        sink = self._sink
+        self._sink = None
+        try:
+            super().debug(message)
+        finally:
+            self._sink = sink
+
+    def output(self, line: str) -> None:
+        """
+        Log one line of a command's output, capturing it even when the console drops it.
+
+        Args:
+            line: The line, without its newline.
+        """
         if self._sink is not None and not self.verbose:
-            self._sink(f"      [DEBUG] {message}")
-        super().debug(message)
+            self._sink(f"        {line}")
+        super().output(line)
 
     def substep(self, message: str) -> None:
         """

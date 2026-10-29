@@ -561,7 +561,7 @@ class ImageBuilder:
             DockerError: It failed; the daemon's own output is the details.
         """
         result = self.runner.stream(
-            argv, on_line=self.logger.debug, env=env, timeout=self.build_timeout, secrets=secrets
+            argv, on_line=self.logger.output, env=env, timeout=self.build_timeout, secrets=secrets
         )
         if not result.success:
             raise DockerError(
@@ -660,7 +660,7 @@ class ImageBuilder:
                 prepare += ["--env", name]
             analysed = self.runner.stream(
                 prepare,
-                on_line=self.logger.debug,
+                on_line=self.logger.output,
                 env=secret_values,
                 timeout=PLAN_TIMEOUT,
                 secrets=list(secret_values.values()),
@@ -778,7 +778,7 @@ class ImageBuilder:
         with self.registry_session(settings) as login_env:
             result = self.runner.stream(
                 ["docker", "pull", reference],
-                on_line=self.logger.debug,
+                on_line=self.logger.output,
                 env=login_env or None,
                 timeout=PULL_TIMEOUT,
             )
