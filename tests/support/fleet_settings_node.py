@@ -36,6 +36,7 @@ SETTINGS_SCHEMA: dict[str, dict[str, Any]] = {
     "/api/registries/{name}": {"patch": {"x-noust-requires-elevation": True}},
     "/api/variables/server": {"get": {}},
     "/api/variables/server/{name}": {"put": {"x-noust-requires-elevation": True}},
+    "/api/notifications/console-url": {"get": {}, "put": {"x-noust-requires-elevation": True}},
 }
 
 _LISTS = {
@@ -58,6 +59,10 @@ _CREATES = {
     "/api/registries": "registry",
 }
 _MANAGED = re.compile(r"/api/managed-settings/([^/]+)/([^/]+)")
+_CONSOLE_URL = "/api/notifications/console-url"
+
+#: The blocks of a channel that a PUT replaces when given and keeps when it leaves them out.
+_CHANNEL_BLOCKS = ("events", "route", "quiet", "flood", "summary")
 
 
 @dataclass
@@ -141,11 +146,22 @@ class ManagedNode:
         managed = _MANAGED.fullmatch(path)
         if managed and method in ("PUT", "DELETE"):
             return self._managed(request, managed.group(1), managed.group(2))
+        if method == "GET" and path == _CONSOLE_URL:
+            self.node.requests.append(request)
+            held = self.held.get(("console_link", "console"))
+            return httpx.Response(200, json={"url": held["url"] if held else ""})
         if method == "GET" and path in _LISTS:
             self.node.requests.append(request)
             kind, key = _LISTS[path]
             items = [
-                {"name": n, "default": False, "configured": True, "backend": v.get("backend")}
+                {
+                    "name": n,
+                    "default": False,
+                    "configured": True,
+                    "backend": v.get("backend"),
+                    # A channel lists the blocks it has, as the real route does.
+                    **{b: v[b] for b in _CHANNEL_BLOCKS if b in v},
+                }
                 for (k, n), v in self.held.items()
                 if k == kind
             ]
@@ -177,6 +193,8 @@ class ManagedNode:
         method, path = request.method, request.url.path
         kind = _CREATES.get(path) if method == "POST" else None
         name: str | None = None
+        if path == _CONSOLE_URL and method == "PUT":
+            kind, name = "console_link", "console"
         if kind is None:
             for pattern, item_kind, methods in _ITEM_PATHS:
                 found = pattern.fullmatch(path)

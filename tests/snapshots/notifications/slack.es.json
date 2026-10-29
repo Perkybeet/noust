@@ -5771,6 +5771,100 @@
       }
     ]
   },
+  "central.silent": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ La central ha dejado de llamar · nas",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ La central ha dejado de llamar · nas",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La central que gestiona este servidor no lo llama desde hace 17 minutos. Este servidor sigue entregando sus propios avisos."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Última llamada*\n2026-10-29 09:12 UTC"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "central.heard": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● La central vuelve a llamar · nas",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● La central vuelve a llamar · nas",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Este servidor vuelve a recibir las llamadas de su central."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Estuvo callada durante*\n23 min 40 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "attachments": [
       {

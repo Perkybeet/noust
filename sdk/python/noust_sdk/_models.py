@@ -1342,6 +1342,15 @@ CategoryOut = TypedDict("CategoryOut", {
     "count": Required[int],
 })
 
+CentralCallOut = TypedDict("CentralCallOut", {
+    "central": Required[str],
+    "first_call_at": Required[str],
+    "heartbeat_s": NotRequired[Union[int, None]],
+    "keeps_watch": Required[bool],
+    "last_call_at": Required[str],
+    "quiet_for_s": Required[float],
+})
+
 CentralInfo = TypedDict("CentralInfo", {
     "locked": Required[bool],
     "role": Required[str],
@@ -1997,6 +2006,10 @@ ConnectionUrlResponse = TypedDict("ConnectionUrlResponse", {
     "url": Required[str],
 })
 
+ConsoleUrlModel = TypedDict("ConsoleUrlModel", {
+    "url": NotRequired[str],
+})
+
 ConstraintResponse = TypedDict("ConstraintResponse", {
     "definition": NotRequired[Union[str, None]],
     "name": Required[str],
@@ -2498,6 +2511,18 @@ DeletionPlanResponse = TypedDict("DeletionPlanResponse", {
     "has_volumes": Required[bool],
     "keeps_directory": Required[bool],
     "path": Required[str],
+})
+
+DeliveriesOut = TypedDict("DeliveriesOut", {
+    "counts": NotRequired[dict[str, dict[str, int]]],
+    "fleet": Required[bool],
+    "generated_at": Required[str],
+    "items": Required[list[dict[str, Any]]],
+    "nodes": Required[list["ViewNodeOut"]],
+    "partial": Required[bool],
+    "refusals": Required[list["RefusalGroupOut"]],
+    "resource": Required[str],
+    "servers": Required[list["ViewServerOut"]],
 })
 
 DeliveryConfig = TypedDict("DeliveryConfig", {
@@ -5070,6 +5095,7 @@ ManagedSettingReleasedOut = TypedDict("ManagedSettingReleasedOut", {
 })
 
 ManagedSettingsOut = TypedDict("ManagedSettingsOut", {
+    "centrals": NotRequired[list["CentralCallOut"]],
     "items": Required[list["ManagedSettingOut"]],
     "kinds": Required[list[str]],
 })

@@ -1597,6 +1597,26 @@
       }
     ]
   },
+  "central.silent": {
+    "topic": "noust-alerts",
+    "title": "▲ La central ha dejado de llamar · nas",
+    "message": "La central que gestiona este servidor no lo llama desde hace 17 minutos. Este servidor sigue entregando sus propios avisos.\n\nServidor: web-1\nÚltima llamada: 2026-10-29 09:12 UTC",
+    "priority": 3,
+    "tags": [
+      "central_silent",
+      "web-1"
+    ]
+  },
+  "central.heard": {
+    "topic": "noust-alerts",
+    "title": "● La central vuelve a llamar · nas",
+    "message": "Este servidor vuelve a recibir las llamadas de su central.\n\nServidor: web-1\nEstuvo callada durante: 23 min 40 s",
+    "priority": 2,
+    "tags": [
+      "central_silent",
+      "web-1"
+    ]
+  },
   "hostile.deploy_failed": {
     "topic": "noust-alerts",
     "title": "✕ Despliegue fallido · shop.example.com",

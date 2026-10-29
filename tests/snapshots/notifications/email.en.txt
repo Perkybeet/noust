@@ -2271,6 +2271,44 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### central.silent
+Subject: [Noust] The central stopped calling: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: central_silent
+X-Noust-Code: central.silent
+X-Noust-Server: web-1
+
+▲ The central stopped calling · nas
+The central that manages this server has not called it for 17 minutes. This server goes on delivering its own notifications.
+
+Server: web-1
+Last call: 2026-10-29 09:12 UTC
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### central.heard
+Subject: [Noust] The central calls again: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: central_silent
+X-Noust-Code: central.heard
+X-Noust-Server: web-1
+
+● The central calls again · nas
+This server is getting the central's calls again.
+
+Server: web-1
+Was silent for: 23 min 40 s
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Deploy failed: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

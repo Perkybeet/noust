@@ -4065,6 +4065,62 @@
     ],
     "excerpt": null
   },
+  "central.silent": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000091",
+    "event": "central_silent",
+    "code": "central.silent",
+    "state": "warning",
+    "locale": "es",
+    "title": "La central ha dejado de llamar: nas",
+    "summary": "La central que gestiona este servidor no lo llama desde hace 17 minutos. Este servidor sigue entregando sus propios avisos.",
+    "body": "La central que gestiona este servidor no lo llama desde hace 17 minutos. Este servidor sigue entregando sus propios avisos.\n\nServidor: web-1\nÚltima llamada: 2026-10-29 09:12 UTC",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "last_heard",
+        "label": "Última llamada",
+        "value": "2026-10-29 09:12 UTC"
+      }
+    ],
+    "links": [],
+    "excerpt": null
+  },
+  "central.heard": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000092",
+    "event": "central_silent",
+    "code": "central.heard",
+    "state": "ok",
+    "locale": "es",
+    "title": "La central vuelve a llamar: nas",
+    "summary": "Este servidor vuelve a recibir las llamadas de su central.",
+    "body": "Este servidor vuelve a recibir las llamadas de su central.\n\nServidor: web-1\nEstuvo callada durante: 23 min 40 s",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "silent_for",
+        "label": "Estuvo callada durante",
+        "value": "23 min 40 s"
+      }
+    ],
+    "links": [],
+    "excerpt": null
+  },
   "hostile.deploy_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000001000",

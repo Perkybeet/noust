@@ -2271,6 +2271,44 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### central.silent
+Subject: [Noust] La central ha dejado de llamar: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: central_silent
+X-Noust-Code: central.silent
+X-Noust-Server: web-1
+
+▲ La central ha dejado de llamar · nas
+La central que gestiona este servidor no lo llama desde hace 17 minutos. Este servidor sigue entregando sus propios avisos.
+
+Servidor: web-1
+Última llamada: 2026-10-29 09:12 UTC
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### central.heard
+Subject: [Noust] La central vuelve a llamar: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: central_silent
+X-Noust-Code: central.heard
+X-Noust-Server: web-1
+
+● La central vuelve a llamar · nas
+Este servidor vuelve a recibir las llamadas de su central.
+
+Servidor: web-1
+Estuvo callada durante: 23 min 40 s
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Despliegue fallido: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

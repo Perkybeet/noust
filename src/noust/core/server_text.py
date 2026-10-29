@@ -392,8 +392,12 @@ CATALOG: dict[str, str] = {
     "fleet_settings.sync_route": "A push of the fleet's settings cannot {method} {path}",
     "fleet_settings.sync_route.hint": (
         "It may only write the settings the fleet manages: channels, alert rules, backup "
-        "destinations, registry logins and shared variables."
+        "destinations, registry logins, shared variables and the address of the central's console."
     ),
+    "fleet_settings.single_name": "There is one {kind} for the fleet and it is called {name}",
+    "fleet_settings.single_name.hint": "Set it as {name}.",
+    "fleet_settings.field_not_text": "The {field} of a {kind} must be text",
+    "fleet_settings.field_not_text.hint": "Send it as a string, such as https://central.example.com.",
     "fleet_settings.sync_required": (
         "Only the central that manages this server can record a setting as the fleet's"
     ),
@@ -421,6 +425,46 @@ CATALOG: dict[str, str] = {
     "fleet_settings.no_such_setting.hint": "List what it has with: GET /api/fleet/settings",
     "fleet_settings.bad_mode": "{mode} is not a way a server can follow the fleet's settings",
     "fleet_settings.bad_mode.hint": "Use 'managed' to follow them, or 'independent' to be left out.",
+    # -- Where a channel of the fleet can be heard (noust.fleet.settings.reach) --------------
+    "fleet_settings.route_invalid": "The route of this channel is not valid: {problem}",
+    "fleet_settings.route_invalid.hint": (
+        "A fleet route takes apps (domains, with * and ?), tags, min_severity, server_events "
+        "and servers (names and patterns of this central's servers)."
+    ),
+    "fleet_settings.route_local": "A channel of the fleet cannot be routed by {list}",
+    "fleet_settings.route_local.hint": (
+        "Projects and environments are each server's own. Route by domain, tag, severity, event "
+        "or server, or make a team's channel on the server that has the project."
+    ),
+    "fleet_settings.out_of_reach.server": (
+        "The route of the {kind} {name} does not name this server, so it is not sent here"
+    ),
+    "fleet_settings.out_of_reach.server.hint": (
+        "Add this server to the servers of the route, or take the list away, to send it here."
+    ),
+    "fleet_settings.out_of_reach.domain": (
+        "The route of the {kind} {name} names domains that no application of this server has, "
+        "so it is not sent here"
+    ),
+    "fleet_settings.out_of_reach.domain.hint": (
+        "It is sent here once an application of this server has a domain the route names: "
+        "apply again after deploying it."
+    ),
+    "fleet_settings.out_of_reach.tag": (
+        "The route of the {kind} {name} names tags that no application of this server carries, "
+        "so it is not sent here"
+    ),
+    "fleet_settings.out_of_reach.tag.hint": (
+        "It is sent here once an application of this server carries a tag the route names "
+        "(together with a domain it names, when the route has both): apply again after tagging it."
+    ),
+    "fleet_settings.reach_unknown": (
+        "The applications of this server could not be read, so it is not known whether the "
+        "{kind} {name} can match anything on it"
+    ),
+    "fleet_settings.reach_unknown.hint": (
+        "Nothing was sent. Apply again when the server answers its applications."
+    ),
     # -- Which control asks something of a person, and how to stop it asking -----------------
     # (noust.core.compliance.explain decides which one; the words are here.)
     "controls.asked_by_setting": (

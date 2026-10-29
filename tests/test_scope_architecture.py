@@ -479,6 +479,7 @@ class TestEveryRouteIsHeldToTheScope:
                     "logs",
                     "alerts",
                     "activity",
+                    "deliveries",
                     "search",
                 )
             ),

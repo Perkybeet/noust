@@ -99,6 +99,7 @@ class TestWhereEachServerStands:
             "applied_at": "2026-10-28T10:00:00+00:00",
             "change": "c0123456789ab",
             "restore_requested": False,
+            "reach": {"reaches": True, "why": None},
         }
 
     def test_a_server_that_has_not_got_it_yet_is_pending(self, settings: FleetSettings) -> None:

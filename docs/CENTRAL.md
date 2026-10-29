@@ -715,8 +715,10 @@ server is `noust db move` ([databases.md](databases.md#moving-a-database-or-an-e
 ## Settings of the fleet
 
 Some settings are the fleet's: you write them once, on the central, and every server it manages has
-them. Five kinds are managed this way: **notification channels**, **alert rules**, **backup
-destinations**, **registry logins** and **shared variables** of the server. (Secret managers, DNS and
+them. Six kinds are managed this way: **notification channels**, **alert rules**, **backup
+destinations**, **registry logins**, **shared variables** of the server and **the address of the
+central's console** that the links of their notifications open ([below](#where-the-links-of-a-notification-open)).
+(Secret managers, DNS and
 cloud providers and source integrations are named by the design and are not managed from the central
 yet: set them on each server.) What belongs to the machine - the web server, the firewall, SSH,
 ports, runtimes, database engines, updates of the system, a server's own console and its security,
@@ -753,7 +755,7 @@ recorded with an id and the person who approved it. The pushes that apply it - a
 later, when a server comes back, with nobody in front of the console - carry
 `X-Noust-Actor: fleet-sync on behalf of <person> (change <id>)` and `X-Noust-Elevated:
 change:<id>`. A server takes that as the confirmation of sudo mode **only** for the routes of these
-five kinds and the routes that record what was applied, and **only** when its ceiling is `admin`;
+six kinds and the routes that record what was applied, and **only** when its ceiling is `admin`;
 anything else signed that way is refused (`fleet_sync_refused`, `fleet_sync_ceiling`), and its audit
 trail names the person and the change.
 
@@ -763,6 +765,39 @@ did not get done); and when someone presses **Apply to the fleet**. A setting th
 and is not the fleet's is not taken over unless you say so (`adopt`), and one its operator changed is
 left unless you name it (`restore`) or the operator asked for it back on that server. A server on an
 older Noust (before 4.1) is skipped as `unsupported`.
+
+### Where a channel is heard
+
+Every server delivers its own notifications, so a channel of the fleet is a channel on each server
+it is sent to, and its **route** decides what it says there. A route of the fleet filters by what
+means the same on every server:
+
+| Filter | Field of the route | Matches |
+|---|---|---|
+| Domain | `apps` | an application's domain, with `*` and `?` |
+| Tag | `tags` | a tag the application carries, with `*` and `?` |
+| Severity | `min_severity` | `warning` or `failed` |
+| Event | `events` | the channel's own switch per kind of event |
+| Server | `servers` | a server's name in this central, with `*` and `?` |
+
+Across the lists every one that is set must match; within one list, any entry. `servers` is the
+central's: it is used here to decide where the channel goes and is never sent to a server (a server
+does not know its name in another's registry, and a server before 4.1 would refuse a list it has
+never heard of). Projects, environments and teams are each server's own slugs and ids and are not
+filters of the fleet (a fleet channel that names them is refused when it is saved,
+`fleet_settings.route_local`); a team's channel is made on the server that has the team.
+
+**A channel is sent only where its route can match something.** One that names other servers is
+sent to those and to no other; one that names domains or tags is sent to the servers where an
+application has one, read from the applications each server lists (only when some route depends on
+them). The others are sent nothing, so a credential does not travel to a machine that could never
+use it, and the setting shows there as `out_of_reach` with the reason (`server`, `domain` or `tag`).
+A route that also asks for what is about the server itself (`server_events`) can match on any
+server and goes to all of them. The central looks again every ten minutes, and when a server
+comes back, so a channel waiting for an application reaches it once it is deployed. If a server
+does not list its applications, nothing is sent to it and the job says so (`fleet_settings.reach_unknown`).
+What a server already holds of a channel whose route stopped matching there is left exactly as it
+is: neither let go nor deleted.
 
 ## A fleet on different versions
 
@@ -825,7 +860,63 @@ announced, and the fleet still shows what it last answered, with the reason besi
 A central sends `node_unreachable` when a server stops answering, `node_recovered` when it
 answers again, and `node_host_key_changed` when a server's SSH host key changed and the tunnel
 was closed, through the central's own notification channels. `server.name` names each server in
-every message.
+every message. These three are the central's own and the only things it says: a server's deploys,
+its disk, its certificates and its alerts are said by that server, through its own channels (the
+ones the fleet sent it, [above](#where-a-channel-is-heard), and any of its own), so they keep
+arriving when the central is down or the line between them is cut.
+
+### When the central goes quiet
+
+The central cannot tell its servers that it is down, and a server cannot call its central. What a
+server can do is notice that the calls stopped. The monitor of a central probes every server every
+half minute for as long as it runs, and says so in each call (`X-Noust-Heartbeat: 30`); the server
+notes the time of the last call of every central that presented its fleet token and what the central
+said of itself. When a central that said it keeps watch has not called for
+`notifications.central_silent_minutes` (15 by default, 0 turns it off; never less than three of the
+calls it promised), the server says it through **its own channels**, once, as `central_silent`:
+*"The central that manages this server has not called it for 17 minutes. This server goes on
+delivering its own notifications."* The first call after that closes it. `GET /api/managed-settings` on the server lists the centrals
+that call it with `last_call_at`, `quiet_for_s` and `keeps_watch`, so its console can show whether
+the central that manages it is still there.
+
+Only a central that said it keeps watch is missed. A central whose monitor does not run probes only
+while somebody has its console open, and nobody promised to call again, so a server does not say
+anything about a console that was closed. Run the central's monitor (`noust monitor enable`) to have
+its servers notice that it is gone. While a server's monitoring is **paused** on the central the
+central does not ask it either, so a pause longer than the limit is also heard as a silence: resume
+it, or raise `notifications.central_silent_minutes` on that server for the window. A server whose
+line to the central is cut says it as well, and so does the central, about the server
+(`node_unreachable`): both are true, from each end.
+
+### The record of deliveries of the whole fleet
+
+Whether a message reached the place it was meant for is the question after an outage, and the
+answer is on the server that sent it: each server keeps the record of its own deliveries
+(**Settings > Notifications**, `GET /api/notifications/deliveries`). The central asks all of them
+and lists them as one, newest first, with the server of each and a link to the page where a failed
+one can be sent again on that server:
+
+```bash
+GET /api/views/deliveries?state=failed&channel=ops&node=web-2&limit=100
+```
+
+The central's own record is one more server's (`@central`). `counts` is each server's whole record
+by state (`sent`, `retrying`, `held`, `failed`), not only the part the list shows, and a server
+that does not let the operator read its settings comes in `refusals` with the permission it is
+missing, as in every other view of the fleet.
+
+### Where the links of a notification open
+
+A server's own console is normally reachable only through the central's tunnel, so a link built from
+its `web.public_url` opens nowhere. Save **the address of the central's console** as a setting of the
+fleet (kind `console_link`, name `console`, value `{"url": "https://central.example.com"}`) and each
+server is sent that address with its own name in it, as `notifications.console_url`
+(`https://central.example.com/n/web-2`): the link of every notification the server raises opens that
+page inside the central's console. It is https only, a server's operator can change it there
+(and it then shows as the server's own exception), and a server without it builds its links from
+`web.public_url` as before. A link to a page of the central's own (`/settings/...`) is read by the
+console as the central's page, so the server never needs to know which pages those are. The link to
+the whole output of a failure stays the server's own address: it is a page of that server's API.
 
 ## Rotating a server's key
 

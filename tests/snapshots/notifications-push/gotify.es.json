@@ -1056,6 +1056,16 @@
       }
     }
   },
+  "central.silent": {
+    "title": "▲ La central ha dejado de llamar · nas",
+    "message": "La central que gestiona este servidor no lo llama desde hace 17 minutos. Este servidor sigue entregando sus propios avisos.\n\nServidor: web-1\nÚltima llamada: 2026-10-29 09:12 UTC",
+    "priority": 5
+  },
+  "central.heard": {
+    "title": "● La central vuelve a llamar · nas",
+    "message": "Este servidor vuelve a recibir las llamadas de su central.\n\nServidor: web-1\nEstuvo callada durante: 23 min 40 s",
+    "priority": 2
+  },
   "hostile.deploy_failed": {
     "title": "✕ Despliegue fallido · shop.example.com",
     "message": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.\n\nServidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nVersión: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @everyone <!channel> <@U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…",

@@ -739,6 +739,10 @@ What limits it is enforced on the server, not trusted from the central:
   vouches for it (`X-Noust-Elevated`, `X-Noust-Approval`, `X-Noust-Approved-By`); the server
   refuses the call if it did not, and refuses an approval whose approver is the requester.
 - **A central never changes a server's own accounts, tokens or second factor.**
+- **A server notes when its central last called**, to tell its operator when the central goes quiet
+  (`X-Noust-Heartbeat` says how often the central promises to call). The header grants nothing,
+  a malformed one is ignored, and what is noted is a name and a time, never a credential. A central
+  whose token the server revoked is forgotten and not missed.
 - **Host keys are pinned** from the join code; a change closes the tunnel and notifies.
 
 ## Streams

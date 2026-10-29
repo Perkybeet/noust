@@ -101,6 +101,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `monitor.token_warning_days` | `7` |
 | `monitor.webserver_check_seconds` | `60` |
 | `monitor.webserver_restart_limit` | `3` |
+| `notifications.central_silent_minutes` | `15` |
 | `notifications.channels.discord.mention_role_id` | `""` |
 | `notifications.channels.discord.mention_user_id` | `""` |
 | `notifications.channels.discord.webhook_url` | `""` |
@@ -127,6 +128,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.channels.webhook.secret` | `""` |
 | `notifications.channels.webhook.webhook_headers` | `""` |
 | `notifications.channels.webhook.webhook_url` | `""` |
+| `notifications.console_url` | `""` |
 | `notifications.enabled` | `false` |
 | `notifications.events.alert_acknowledged` | `true` |
 | `notifications.events.alert_firing` | `true` |
@@ -138,6 +140,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.backup_failed` | `true` |
 | `notifications.events.backup_missing` | `true` |
 | `notifications.events.backup_success` | `false` |
+| `notifications.events.central_silent` | `true` |
 | `notifications.events.cert_expiring` | `true` |
 | `notifications.events.cleanup_failed` | `true` |
 | `notifications.events.cleanup_success` | `false` |

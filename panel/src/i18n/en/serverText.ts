@@ -256,6 +256,10 @@ export const serverText = {
       text: "{scope} is not a place a setting of the fleet can be set",
       hint: "Use 'fleet' for every server, or 'node:<server>' for one.",
     },
+    field_not_text: {
+      text: "The {field} of a {kind} must be text",
+      hint: "Send it as a string, such as https://central.example.com.",
+    },
     item_conflict: {
       text: "The {kind} {name} already exists on this server and is not the fleet's",
       hint: "Apply again letting the fleet take it over, or give the fleet's setting another name.",
@@ -284,13 +288,43 @@ export const serverText = {
       text: "No central manages the {kind} {name} on this server",
       hint: "Only a setting a central pushed can be asked back.",
     },
+    out_of_reach: {
+      domain: {
+        text: "The route of the {kind} {name} names domains that no application of this server has, so it is not sent here",
+        hint: "It is sent here once an application of this server has a domain the route names: apply again after deploying it.",
+      },
+      server: {
+        text: "The route of the {kind} {name} does not name this server, so it is not sent here",
+        hint: "Add this server to the servers of the route, or take the list away, to send it here.",
+      },
+      tag: {
+        text: "The route of the {kind} {name} names tags that no application of this server carries, so it is not sent here",
+        hint: "It is sent here once an application of this server carries a tag the route names (together with a domain it names, when the route has both): apply again after tagging it.",
+      },
+    },
     permission_missing: {
       text: "Setting a {kind} for the fleet needs the permission {permission}",
       hint: "It is the permission that setting one on a single server asks: ask an administrator for a role that has it.",
     },
+    reach_unknown: {
+      text: "The applications of this server could not be read, so it is not known whether the {kind} {name} can match anything on it",
+      hint: "Nothing was sent. Apply again when the server answers its applications.",
+    },
+    route_invalid: {
+      text: "The route of this channel is not valid: {problem}",
+      hint: "A fleet route takes apps (domains, with * and ?), tags, min_severity, server_events and servers (names and patterns of this central's servers).",
+    },
+    route_local: {
+      text: "A channel of the fleet cannot be routed by {list}",
+      hint: "Projects and environments are each server's own. Route by domain, tag, severity, event or server, or make a team's channel on the server that has the project.",
+    },
     secret_missing: {
       text: "{field} is hidden and nothing is stored for it yet",
       hint: "Type the secret again: it is only shown as {redacted} when one is stored.",
+    },
+    single_name: {
+      text: "There is one {kind} for the fleet and it is called {name}",
+      hint: "Set it as {name}.",
     },
     sync_ceiling: {
       text: "This server lets its central do at most '{level}', and applying the fleet's settings needs 'admin'",
@@ -302,7 +336,7 @@ export const serverText = {
     },
     sync_route: {
       text: "A push of the fleet's settings cannot {method} {path}",
-      hint: "It may only write the settings the fleet manages: channels, alert rules, backup destinations, registry logins and shared variables.",
+      hint: "It may only write the settings the fleet manages: channels, alert rules, backup destinations, registry logins, shared variables and the address of the central's console.",
     },
     unknown_field: {
       text: "A {kind} has no field called {field}",

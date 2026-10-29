@@ -244,6 +244,11 @@ FLEET_PERMISSIONS_MAX = 64
 #: such as a write query - is confirmed by the one party that saw the operator.
 FLEET_ELEVATED_HEADER = "X-Noust-Elevated"
 
+#: How often a central says it calls this server, in seconds: sent by the central whose monitor
+#: probes every server for as long as it runs, so that this server can tell when it stops. Advice,
+#: never a condition: a value that is not a number of seconds is ignored and the call goes on.
+FLEET_HEARTBEAT_HEADER = "X-Noust-Heartbeat"
+
 #: A central's actor label: ``master``, ``token:<name>`` or a session id
 #: prefix. Anything that could forge a second audit field, or a line, is out.
 FLEET_ACTOR_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:@+-]{0,63}")

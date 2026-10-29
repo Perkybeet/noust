@@ -11,7 +11,9 @@ verbatim in the excerpt), for:
 - the **disk cleanup** a policy ran by itself, which freed something, or did not;
 - a **scheduled task whose timer is not running**, so it will not run at all;
 - a **probe** of an address from outside the machine that stopped answering, and
-  the moment it answered again.
+  the moment it answered again;
+- the **central** that manages the server going quiet, and calling again: said by the
+  server, because the central cannot say it of itself.
 
 Pure: whoever watches reads the machine and hands these functions the facts.
 """
@@ -19,7 +21,7 @@ Pure: whoever watches reads the machine and hands these functions the facts.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timezone
 
 from noust.core.messages import message
 from noust.core.notifications.composers import _fact, build
@@ -195,4 +197,50 @@ def compose_probe(
         excerpt=excerpt,
         path="/settings/probes",
         ts=since if failed else None,
+    )
+
+
+def compose_central(
+    central: str,
+    silent: bool,
+    ctx: NotificationContext,
+    *,
+    last_heard: float | None = None,
+    silent_for_s: float | None = None,
+) -> Notification:
+    """
+    Compose the notification for the central that manages this server going quiet, or calling again.
+
+    Said by the server through its own channels, so it arrives when the central cannot be asked to.
+
+    Args:
+        central: The central, as this server's fleet token names it.
+        silent: It stopped calling (otherwise it calls again).
+        ctx: The context of the server, which is who says it.
+        last_heard: Epoch seconds of its last call, for the silence.
+        silent_for_s: How long it did not call.
+
+    Returns:
+        ``central.silent`` (a warning) or ``central.heard`` (the way back), both under
+        ``central_silent``.
+    """
+    code = "central.silent" if silent else "central.heard"
+    facts: list[Fact] = []
+    if silent and last_heard is not None:
+        facts.append(
+            _fact("last_heard", format_utc(datetime.fromtimestamp(last_heard, timezone.utc)), ctx)
+        )
+    if not silent and silent_for_s is not None:
+        facts.append(_fact("silent_for", format_duration(silent_for_s), ctx))
+    minutes = max(round((silent_for_s or 0) / 60), 1)
+    return build(
+        ctx,
+        kind="central_silent",
+        code=code,
+        state=State.WARNING if silent else State.OK,
+        subject=central,
+        summary=message(f"summary.{code}", ctx.locale, minutes=minutes)
+        if silent
+        else message(f"summary.{code}", ctx.locale),
+        facts=facts,
     )

@@ -71,6 +71,7 @@ from noust.core.notifications.composers_ops import (
     compose_token_expiring,
 )
 from noust.core.notifications.composers_watch import (
+    compose_central,
     compose_cleanup,
     compose_cron_timer,
     compose_probe,
@@ -396,6 +397,7 @@ def catalog(locale: Locale) -> dict[str, Notification]:
     out.update(_monitor_events(ctx, out))
     out.update(_watch_events(ctx))
     out.update(netobs_events(ctx))
+    out.update(_central_events(ctx))
     return {
         code: _freeze(index, notification) for index, (code, notification) in enumerate(out.items())
     }
@@ -489,6 +491,27 @@ def _monitor_events(
     ]
     out["digest.held"] = compose_digest(held, ctx)
     return out
+
+
+def _central_events(ctx: NotificationContext) -> dict[str, Notification]:
+    """
+    What a server says of the central that manages it (4.1): it went quiet, and it calls again.
+
+    Kept after every other so the fixed ids of the earlier events do not move.
+
+    Args:
+        ctx: The context.
+
+    Returns:
+        One notification per code.
+    """
+    last = datetime(2026, 10, 29, 9, 12, tzinfo=timezone.utc)
+    return {
+        "central.silent": compose_central(
+            "nas", True, ctx, last_heard=last.timestamp(), silent_for_s=17 * 60
+        ),
+        "central.heard": compose_central("nas", False, ctx, silent_for_s=23 * 60 + 40),
+    }
 
 
 def _watch_events(ctx: NotificationContext) -> dict[str, Notification]:

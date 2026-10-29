@@ -284,6 +284,9 @@ class Asker:
             that reads them grants these, cut by its ceiling, and its answer depends on them.
         sync: The person and the change of a push of the fleet's settings: the asker then
             speaks as that push (:mod:`noust.fleet.settings.signature`), whatever else it says.
+        heartbeat: Seconds between the calls of the probe that asks, when it can promise to keep
+            calling (the monitor's does); a server notes it and expects to hear again. It changes
+            nothing about what an answer depends on.
     """
 
     actor: str
@@ -292,6 +295,7 @@ class Asker:
     elevated: bool = False
     permissions: tuple[str, ...] | None = None
     sync: SyncSignature | None = None
+    heartbeat: int | None = None
 
     def __post_init__(self) -> None:
         # A job keeps its asker as JSON, which hands a list back.
@@ -320,6 +324,7 @@ class Asker:
                 "actor_scope": "admin",
                 "actor_role": None,
                 "elevated": self.sync.elevation,
+                "heartbeat": self.heartbeat,
             }
         return {
             "actor": self.actor,
@@ -327,6 +332,7 @@ class Asker:
             "actor_role": self.role,
             "elevated": self.elevated,
             "actor_permissions": self.permissions,
+            "heartbeat": self.heartbeat,
         }
 
 

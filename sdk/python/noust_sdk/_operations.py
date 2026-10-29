@@ -658,6 +658,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "view_certificates"): ("GET", "/api/views/certificates", "apps.read", False),
     ("fleet", "view_cron"): ("GET", "/api/views/cron", "apps.read", False),
     ("fleet", "view_databases"): ("GET", "/api/views/databases", "databases.read", False),
+    ("fleet", "view_deliveries"): ("GET", "/api/views/deliveries", "settings.read", False),
     ("fleet", "view_logs"): ("GET", "/api/views/logs", "apps.read", False),
     ("fleet", "view_search"): ("GET", "/api/views/search", "apps.read", False),
     ("fleet", "view_sites"): ("GET", "/api/views/sites", "apps.read", False),
@@ -766,6 +767,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("notifications", "list_channels"): ("GET", "/api/notifications/channels", "settings.read", False),
     ("notifications", "save_channel"): ("PUT", "/api/notifications/channels/{name}", "settings.manage", True),
     ("notifications", "remove_channel"): ("DELETE", "/api/notifications/channels/{name}", "settings.manage", True),
+    ("notifications", "get_console_url"): ("GET", "/api/notifications/console-url", "settings.read", False),
+    ("notifications", "set_console_url"): ("PUT", "/api/notifications/console-url", "settings.manage", True),
     ("notifications", "list_deliveries"): ("GET", "/api/notifications/deliveries", "settings.read", False),
     ("notifications", "sweep_deliveries"): ("POST", "/api/notifications/deliveries/sweep", "settings.manage", False),
     ("notifications", "retry_delivery"): ("POST", "/api/notifications/deliveries/{delivery_id}/retry", "settings.manage", False),
@@ -5807,7 +5810,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 64 operations."""
+    """Fleet: 65 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6309,6 +6312,14 @@ class Fleet:
 
         Needs: permission `databases.read`."""
         return self._call("GET", "/api/views/databases", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_deliveries(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, state: Union[str, None] = None, channel: Union[str, None] = None, limit: Union[int, None] = None) -> "DeliveriesOut":
+        """GET /api/views/deliveries
+
+        View Deliveries
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/views/deliveries", query={"node": node, "refresh": refresh, "state": state, "channel": channel, "limit": limit}, body=None)
 
     def view_logs(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, q: Union[str, None] = None, since: Union[str, None] = None, until: Union[str, None] = None, level: Union[str, None] = None, limit: Union[int, None] = None) -> "ViewOut":
         """GET /api/views/logs
@@ -7249,7 +7260,7 @@ class Nodes:
 
 
 class Notifications:
-    """Notifications: 11 operations."""
+    """Notifications: 13 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -7277,6 +7288,22 @@ class Notifications:
 
         Needs: permission `settings.manage`, sudo mode."""
         return self._call("DELETE", f"/api/notifications/channels/{quote(str(name), safe='')}", query=None, body=None)
+
+    def get_console_url(self) -> "ConsoleUrlModel":
+        """GET /api/notifications/console-url
+
+        Get Console Url
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/notifications/console-url", query=None, body=None)
+
+    def set_console_url(self, body: "ConsoleUrlModel") -> "ConsoleUrlModel":
+        """PUT /api/notifications/console-url
+
+        Set Console Url
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("PUT", "/api/notifications/console-url", query=None, body=body)
 
     def list_deliveries(self, *, state: Union[str, None] = None, channel: Union[str, None] = None, limit: Union[int, None] = None) -> "DeliveryListResponse":
         """GET /api/notifications/deliveries

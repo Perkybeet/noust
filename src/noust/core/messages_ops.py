@@ -69,6 +69,14 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "Scheduled task runs again",
         "es": "La tarea programada vuelve a ejecutarse",
     },
+    "title.central.silent": {
+        "en": "The central stopped calling",
+        "es": "La central ha dejado de llamar",
+    },
+    "title.central.heard": {
+        "en": "The central calls again",
+        "es": "La central vuelve a llamar",
+    },
     "title.probe.failed": {"en": "Address not answering", "es": "Dirección sin respuesta"},
     "title.probe.recovered": {
         "en": "Address answering again",
@@ -172,6 +180,20 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "The task's timer is running again.",
         "es": "El temporizador de la tarea vuelve a estar en marcha.",
     },
+    "summary.central.silent": {
+        "en": (
+            "The central that manages this server has not called it for {minutes} minutes. This "
+            "server goes on delivering its own notifications."
+        ),
+        "es": (
+            "La central que gestiona este servidor no lo llama desde hace {minutes} minutos. "
+            "Este servidor sigue entregando sus propios avisos."
+        ),
+    },
+    "summary.central.heard": {
+        "en": "This server is getting the central's calls again.",
+        "es": "Este servidor vuelve a recibir las llamadas de su central.",
+    },
     "summary.probe.failed": {
         "en": "The address stopped answering what the probe asks of it.",
         "es": "La dirección ha dejado de responder lo que le pide la sonda.",
@@ -220,6 +242,8 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
     "fact.actions": {"en": "Actions", "es": "Acciones"},
     "fact.cleanup_runs": {"en": "See what ran", "es": "Ver lo ejecutado"},
     "fact.timer": {"en": "Timer", "es": "Temporizador"},
+    "fact.last_heard": {"en": "Last call", "es": "Última llamada"},
+    "fact.silent_for": {"en": "Was silent for", "es": "Estuvo callada durante"},
     "fact.enable_job": {"en": "Start it again with", "es": "Actívala de nuevo con"},
     "fact.probe_run": {"en": "Probe it now with", "es": "Pruébala ahora con"},
     "fact.latency": {"en": "Answered in", "es": "Respondió en"},

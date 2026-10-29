@@ -5657,6 +5657,90 @@
       }
     ]
   },
+  "central.silent": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ The central stopped calling · nas",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The central that manages this server has not called it for 17 minutes. This server goes on delivering its own notifications.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Last call",
+                  "value": "2026-10-29 09:12 UTC"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "central.heard": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "● The central calls again · nas",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Good",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "This server is getting the central's calls again.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Was silent for",
+                  "value": "23 min 40 s"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "type": "message",
     "attachments": [

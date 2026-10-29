@@ -7875,6 +7875,51 @@
         "title": "CategoryOut",
         "type": "object"
       },
+      "CentralCallOut": {
+        "description": "One central that calls this server, and when it last did.\n\nAttributes:\n    central: The central, as its fleet token names it.\n    first_call_at: When this server first noted a call of it.\n    last_call_at: When it last did (noted to the minute).\n    quiet_for_s: Seconds since then.\n    keeps_watch: It said it keeps watch (its monitor probes every server every half minute),\n        so this server expects to hear from it again and says so when it does not.\n    heartbeat_s: How often it said it calls, when it did.",
+        "properties": {
+          "central": {
+            "title": "Central",
+            "type": "string"
+          },
+          "first_call_at": {
+            "title": "First Call At",
+            "type": "string"
+          },
+          "heartbeat_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeat S"
+          },
+          "keeps_watch": {
+            "title": "Keeps Watch",
+            "type": "boolean"
+          },
+          "last_call_at": {
+            "title": "Last Call At",
+            "type": "string"
+          },
+          "quiet_for_s": {
+            "title": "Quiet For S",
+            "type": "number"
+          }
+        },
+        "required": [
+          "central",
+          "first_call_at",
+          "last_call_at",
+          "quiet_for_s",
+          "keeps_watch"
+        ],
+        "title": "CentralCallOut",
+        "type": "object"
+      },
       "CentralInfo": {
         "description": "What the console needs to know about the central it is signed in to.\n\nAttributes:\n    role: ``server`` (deploys applications here too) or ``hub`` (manages\n        other servers only; the console hides local deployments).\n    sealed: Whether the secret store is sealed under a passphrase.\n    locked: Whether it is sealed and this process has not been unlocked:\n        no node can be reached until it is.",
         "properties": {
@@ -11546,6 +11591,18 @@
         "title": "ConnectionUrlResponse",
         "type": "object"
       },
+      "ConsoleUrlModel": {
+        "description": "Where the links of this server's notifications open.\n\nAttributes:\n    url: This server's address inside the console of the central that manages it,\n        ``https://<central>/n/<server>``; empty when none is set, and the links are built\n        from ``web.public_url``.",
+        "properties": {
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "title": "ConsoleUrlModel",
+        "type": "object"
+      },
       "ConstraintResponse": {
         "description": "One constraint.\n\nAttributes:\n    type: ``primary_key``, ``foreign_key``, ``unique``, ``check``,\n        ``exclusion``, ``trigger`` or ``other``.",
         "properties": {
@@ -14804,6 +14861,78 @@
           "databases"
         ],
         "title": "DeletionPlanResponse",
+        "type": "object"
+      },
+      "DeliveriesOut": {
+        "description": "The record of deliveries of every server.\n\nAttributes:\n    counts: For each server that answered (this central's own name for itself), how many\n        deliveries its record has in each state (``sent``, ``failed``, ``retrying``,\n        ``held``), the whole of it and not only the part listed in ``items``.",
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "fleet": {
+            "title": "Fleet",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/ViewNodeOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "refusals": {
+            "items": {
+              "$ref": "#/components/schemas/RefusalGroupOut"
+            },
+            "title": "Refusals",
+            "type": "array"
+          },
+          "resource": {
+            "title": "Resource",
+            "type": "string"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/ViewServerOut"
+            },
+            "title": "Servers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "resource",
+          "generated_at",
+          "partial",
+          "fleet",
+          "servers",
+          "nodes",
+          "refusals",
+          "items"
+        ],
+        "title": "DeliveriesOut",
         "type": "object"
       },
       "DeliveryConfig": {
@@ -29408,8 +29537,15 @@
         "type": "object"
       },
       "ManagedSettingsOut": {
-        "description": "Every setting a central manages here.\n\nAttributes:\n    items: Them, by kind and name, after looking at what this server holds.\n    kinds: The kinds of setting this server can be managed for.",
+        "description": "Every setting a central manages here.\n\nAttributes:\n    items: Them, by kind and name, after looking at what this server holds.\n    kinds: The kinds of setting this server can be managed for.\n    centrals: The centrals that call this server, with when each last did.",
         "properties": {
+          "centrals": {
+            "items": {
+              "$ref": "#/components/schemas/CentralCallOut"
+            },
+            "title": "Centrals",
+            "type": "array"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/ManagedSettingOut"
@@ -97785,7 +97921,7 @@
     },
     "/api/fleet/settings/status": {
       "get": {
-        "description": "Say, for each setting, where each server stands.\n\nEvery server is asked what it manages (it looks at what it holds first, so a setting its own\noperator changed shows as such). A server that cannot be read is said so with the reason, not\nguessed at. Nothing secret is read.\n\nArgs:\n    session: The authenticated session.\n    refresh: Ask even a server whose answer is a few seconds old.\n\nReturns:\n    ``servers`` (how each answered, its mode, whether a look is waiting), ``settings`` (each\n    with its fleet row, its exceptions and a cell per server: ``origin`` and ``sync``),\n    ``released`` (what a server still manages that the fleet no longer wants), and\n    ``partial``.",
+        "description": "Say, for each setting, where each server stands.\n\nEvery server is asked what it manages (it looks at what it holds first, so a setting its own\noperator changed shows as such). A server that cannot be read is said so with the reason, not\nguessed at. Nothing secret is read.\n\nArgs:\n    session: The authenticated session.\n    refresh: Ask even a server whose answer is a few seconds old.\n\nReturns:\n    ``servers`` (how each answered, its mode, whether a look is waiting), ``settings`` (each\n    with its fleet row, its exceptions and a cell per server: ``origin``, ``sync`` and\n    ``reach``, whether a channel's route can match anything on that server), ``released``\n    (what a server still manages that the fleet no longer wants), and ``partial``.",
         "operationId": "settings_status_api_fleet_settings_status_get",
         "parameters": [
           {
@@ -102108,6 +102244,71 @@
           }
         },
         "summary": "Save Channel",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/notifications/console-url": {
+      "get": {
+        "description": "Read where the links of this server's notifications open.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The address, empty when none is set.",
+        "operationId": "get_console_url_api_notifications_console_url_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleUrlModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Console Url",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.read"
+      },
+      "put": {
+        "description": "Set where the links of this server's notifications open.\n\nA central that manages this server sets it (``notifications.console_url``), through the\nsettings of the fleet; it can also be set by hand, and an empty address clears it.\n\nArgs:\n    body: The address.\n    session: The elevated session.\n\nReturns:\n    The address as it is stored.\n\nRaises:\n    ConfigError: 400 for an address that is not an absolute https one, naming the setting.",
+        "operationId": "set_console_url_api_notifications_console_url_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsoleUrlModel"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleUrlModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Console Url",
         "tags": [
           "Notifications"
         ],
@@ -115412,6 +115613,124 @@
           "Fleet"
         ],
         "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/views/deliveries": {
+      "get": {
+        "description": "The record of deliveries of every server, newest first.\n\nEach server delivers its own notifications and keeps its own record, so this is where to look\nafter an outage for whether a message reached the place it was meant for. ``counts`` is each\nserver's whole record by state. A server that does not let the operator read its settings\ncomes grouped in ``refusals``.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    state: Only this state.\n    channel: Only this channel.\n    limit: Deliveries per server.\n\nReturns:\n    One row per delivery, with its server and the page where it can be sent again, and the\n    counts of each server.\n\nRaises:\n    ValidationError: 400 for a state that does not exist.",
+        "operationId": "view_deliveries_api_views_deliveries_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only deliveries in this state: sent, retrying, held or failed",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only deliveries in this state: sent, retrying, held or failed",
+              "title": "State"
+            }
+          },
+          {
+            "description": "Only deliveries to this channel",
+            "in": "query",
+            "name": "channel",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only deliveries to this channel",
+              "title": "Channel"
+            }
+          },
+          {
+            "description": "Deliveries per server",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Deliveries per server",
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Deliveries",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "settings.read"
       }
     },
     "/api/views/logs": {

@@ -82,6 +82,7 @@ from noust.monitor.reachability import (
 from noust.monitor.signals import observe_processes
 from noust.monitor.timeseries import EVENT_UNIT_FAILED, EVENT_UNIT_RECOVERED
 from noust.monitor.watch_backups import BackupWatch
+from noust.monitor.watch_central import CentralWatch
 from noust.monitor.watch_containers import ContainerWatch
 from noust.monitor.watch_cron import CronWatch
 from noust.monitor.watch_destinations import DestinationWatch
@@ -497,6 +498,7 @@ class ProcessMonitor:
                 ContainerWatch(),
                 SecurityReleaseWatch(),
                 RecipeWatch(),
+                CentralWatch(),
             ]
         )
         self._alert_engine = alert_engine
